@@ -50,7 +50,7 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center scrim px-4"
       role="dialog"
       aria-modal="true"
       aria-label={t('shortcuts.title')}

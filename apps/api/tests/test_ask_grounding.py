@@ -65,7 +65,7 @@ async def test_context_transcript_includes_speakers(session_override: AsyncSessi
 
     transcript = await context_thread_transcript(session_override, thread.id)
     assert "Broken charger" in transcript
-    assert "Alice: My charger stopped working" in transcript
+    assert "Alice: <untrusted_content source=\"email\">\nMy charger stopped working" in transcript
     assert "Team: Sorry to hear that" in transcript
     assert "Internal note: Known battery batch issue" in transcript
 
@@ -143,7 +143,7 @@ async def test_assistant_history_prepends_thread_context(session_override: Async
     history = await signal_chat_history(session_override, conversation.id)
     assert history[0]["role"] == "user"
     assert "[Context]" in history[0]["content"]
-    assert "Alice: My charger stopped working" in history[0]["content"]
+    assert "Alice: <untrusted_content source=\"email\">\nMy charger stopped working" in history[0]["content"]
     assert "second no-reply card" in history[0]["content"]
     assert "post the note and confirm" not in history[0]["content"]
     assert history[-1] == {"role": "user", "content": "How should I respond?"}

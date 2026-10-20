@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   appLinkKind,
+  connectionBrandSlug,
   incompleteChipTailStart,
   nextChipRevealLength,
   parseChatInline,
@@ -198,6 +199,19 @@ describe('appLinkKind', () => {
     expect(appLinkKind('/agents')).toBe('other')
     expect(appLinkKind('/communication/inbox/open/t/abc')).toBe('inbox')
     expect(appLinkKind('/threads/abc')).toBe('inbox')
+  })
+
+  it('reads the marketplace slug from a connection chip', () => {
+    expect(connectionBrandSlug('/connections?connect=moneybird')).toBe('moneybird')
+    expect(connectionBrandSlug('/connections/accounting?connect=king_accountancy&step=setup')).toBe(
+      'king_accountancy',
+    )
+    expect(connectionBrandSlug('/connections')).toBeNull()
+    expect(connectionBrandSlug('/connections/accounting')).toBeNull()
+    expect(connectionBrandSlug('/connections/accounting', 'KING Accountancy')).toBe('king')
+    expect(connectionBrandSlug('/connections/accounting', 'Bjorn Lunden')).toBe('bjorn_lunden')
+    expect(connectionBrandSlug('/connections/accounting', 'Moneybird')).toBe('moneybird')
+    expect(connectionBrandSlug('/docs/integrations/mcp', 'Moneybird')).toBeNull()
   })
 
   it('detects snapshot canvas paths before generic project', () => {

@@ -195,8 +195,8 @@ export function TagSetPicker({
       })
     }
     return out.sort((a, b) => {
-      if (a.isSavedMap !== b.isSavedMap) return a.isSavedMap ? -1 : 1
       if (a.isCategory !== b.isCategory) return a.isCategory ? -1 : 1
+      if (a.isSavedMap !== b.isSavedMap) return a.isSavedMap ? -1 : 1
       return a.label.localeCompare(b.label)
     })
   }, [registry, savedMaps, normalized, inherited, blockAction])
@@ -442,7 +442,7 @@ export function TagSetPicker({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="secondary" disabled={busy} onClick={() => onOpenChange(false)}>
             {t('tags.cancel')}
           </Button>
           <Button type="button" disabled={busy || !editReady} onClick={() => void confirm()}>

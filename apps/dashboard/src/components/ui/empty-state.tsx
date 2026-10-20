@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from 'react'
 import type { LucideProps } from 'lucide-react'
 import { Card } from './card'
+import { IconTile } from './icon-tile'
 import { cn } from '../../lib/utils'
 
 interface EmptyStateProps {
@@ -44,13 +45,13 @@ export function EmptyState({
   const body = (
     <>
       {Icon ? (
-        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg-elevated text-text-muted shadow-[0_0_0_4px_rgb(var(--color-bg-hover)/0.55)] transition-transform duration-300">
-          <Icon size={18} aria-hidden />
-        </div>
+        <IconTile className="mx-auto mb-3">
+          <Icon size={16} aria-hidden />
+        </IconTile>
       ) : null}
       <p className="text-sm font-medium text-text-heading">{title}</p>
       {description ? (
-        <p className="mx-auto mt-2 max-w-md text-xs text-text-secondary">{description}</p>
+        <p className="mx-auto mt-1.5 max-w-md text-sm text-text-secondary">{description}</p>
       ) : null}
       {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
       {footer ? <div className="mt-3 flex justify-center">{footer}</div> : null}

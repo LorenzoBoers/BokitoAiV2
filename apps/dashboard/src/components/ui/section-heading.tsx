@@ -26,9 +26,9 @@ export function SectionHeading({
     <div className={cn('flex items-start justify-between gap-3', className)}>
       <div className="min-w-0">
         {level === 'label' ? (
-          <p className="text-xs font-medium text-text-muted">{title}</p>
+          <p className="title-eyebrow">{title}</p>
         ) : (
-          <h3 className="text-sm font-semibold text-text-heading">{title}</h3>
+          <h3 className="title-section">{title}</h3>
         )}
         {description ? <p className="mt-0.5 text-xs text-text-secondary">{description}</p> : null}
       </div>

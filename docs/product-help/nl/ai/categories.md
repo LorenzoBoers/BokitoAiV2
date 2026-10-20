@@ -58,6 +58,25 @@ Als een klant iets nieuws in een oud thread opbrengt, krijgt dat verzoek een eig
 3. Dat bericht en alles erna gaan naar een nieuw gesprek met dezelfde contactpersoon en hetzelfde kanaal. Beide tijdlijnen tonen de link, en latere antwoorden op dezelfde e-mailthread of chat landen in het nieuwe gesprek.
 4. Agents volgen de Autonomie van het gesprek: op **Autonoom** splitsen ze zelf, op **Geassisteerd** stellen ze de split voor als beslissing, op **Handmatig** laten ze het aan jou.
 
+## Labels laten voorstellen
+
+Agents stellen labels voor als één plan dat je één keer goedkeurt; elke regel zegt waar het label komt.
+
+1. Vraag een agent om labels voor te stellen, of kies **Labels voorstellen** op een knooppunt in het Grid van [Workforce](/docs/getting-started/team).
+2. De kaart toont elk label met **nieuw** of **bestaand**, hoeveel gesprekken het dekt en waar het komt: op de gesprekken, **op bedrijf** (elk gesprek van dat bedrijf toont het), of **regel op** een afzender of domein (de volgende mail krijgt het label vanzelf).
+3. Vink de regels aan die je wilt en kies **Geselecteerde goedkeuren**, of **Alles goedkeuren**. Daarvoor verandert er niets.
+4. Agents hergebruiken eerst bestaande labels en houden één idee per label: een leverancier hoort op het bedrijf, het soort werk (bijvoorbeeld `#facturen`) is het label. Ze bedenken geen label per factuur of per documentsoort, en het platform weigert namen die een bedrijf en een onderwerp aan elkaar plakken.
+5. Zelfstandig koppelen agents alleen labels die al bestaan. Een verzoek waar niets bij past, verschijnt onder **Wat we misten**.
+
+## Twee labels samenvoegen
+
+Twee labels die hetzelfde betekenen worden er één. Alles wat het overtollige label droeg, verhuist.
+
+1. Open **Instellingen**, dan **Labels**.
+2. Kies **Samenvoegen** op het overtollige label. Een flow-label heeft geen samenvoegen: die naam is de titel van de flow.
+3. Kies het label dat blijft en bevestig. Gesprekken, contacten, bedrijven, werkmappen en regels die het overtollige label gebruikten, gebruiken nu het label dat je hield. De oude naam verdwijnt.
+4. Vraag een agent hetzelfde. Die stelt **Merge labels** voor en wacht op goedkeuring. Een label verwijderen doet dit niet: verwijderen haalt het label overal af in plaats van de items te verplaatsen. Een agent kan een label ook hernoemen: de nieuwe naam vervangt de oude overal, en ook dat wacht op goedkeuring. Een flow-label hernoemen hernoemt de flow.
+
 ## Een gemist patroon een flow geven
 
 1. Open **Instellingen**, dan **Labels**, en lees **Wat we misten**. Daar staan verzoeken die bleven binnenkomen zonder passend label, met hoe vaak elk gezien is.

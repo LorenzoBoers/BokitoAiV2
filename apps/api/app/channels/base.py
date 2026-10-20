@@ -305,7 +305,7 @@ async def _find_by_subject_sender(
     ]
     if not candidates:
         return None
-    open_ones = [s for s in candidates if s.status in ("open", "pending")]
+    open_ones = [s for s in candidates if s.status in ("open", "pending", "snoozed")]
     return (open_ones or candidates)[0]
 
 
@@ -467,10 +467,17 @@ async def ingest_inbound(
     session.add(message)
     signal.has_unread = True
     is_newest = signal.last_message_at is None or received >= signal.last_message_at
+    if not created and signal.status == "snoozed" and is_newest:
+        # A new message ends the snooze; the planned date stays.
+        from app.services.thread_schedule import wake_hidden_on_inbound
+
+        woke = wake_hidden_on_inbound(signal)
+        if woke is not None:
+            session.add(woke)
     if not created and signal.status in ("closed", "pending") and is_newest:
         # A fresh customer message must surface the thread again: reopen a
-        # closed conversation and wake a snoozed one (snooze-until-reply).
-        # Spam stays parked, and backfilled older mail never reopens a thread.
+        # closed conversation and wake a waiting one. Spam stays parked, and
+        # backfilled older mail never reopens a thread.
         reopened_from_closed = signal.status == "closed"
         signal.status = "open"
         if reopened_from_closed:
@@ -506,6 +513,18 @@ async def ingest_inbound(
     if signal.last_message_at is None or received > signal.last_message_at:
         signal.last_message_at = received
     signal.updated_at = now
+    pending = bool(contact and contact.status == "pending")
+    # Workspace members are operators, not customers: never enqueue the inbound
+    # agent (no drafted "customer reply" to a teammate).
+    should_process = not pending and not member_hit
+    announce = is_newest and signal.status != "spam" and signal.channel not in ("internal", "assistant")
+    # An agent reads this message first; its outcome rides on the one notice.
+    defer_notice = announce and should_process
+    if defer_notice:
+        from app.services.notify import mark_notice_pending
+
+        mark_notice_pending(message)
+        session.add(message)
     await session.commit()
     await session.refresh(signal)
     await session.refresh(message)
@@ -514,7 +533,14 @@ async def ingest_inbound(
 
     await publish_signal_message(signal, message)
 
-    if is_newest and signal.status != "spam" and signal.channel not in ("internal", "assistant"):
+    if defer_notice:
+        try:
+            from app.workers.tasks import enqueue_inbound_notice_fallback
+
+            await enqueue_inbound_notice_fallback(str(tenant_id), str(signal.id), str(message.id))
+        except Exception:
+            logger.exception("new-message fallback not scheduled for signal=%s", signal.id)
+    elif announce:
         try:
             from app.services.notify import notify_new_inbound
 
@@ -534,7 +560,6 @@ async def ingest_inbound(
 
         await emit_webhook_event(session, tenant_id, "signal.created", signal_event_data(signal))
 
-    pending = bool(contact and contact.status == "pending")
     if pending and created:
         session.add(
             SignalEvent(
@@ -546,11 +571,7 @@ async def ingest_inbound(
             )
         )
         await session.commit()
-    # Workspace members are operators, not customers: never enqueue the inbound
-    # agent (no drafted "customer reply" to a teammate).
-    if member_hit:
-        return signal, False
-    return signal, not pending
+    return signal, should_process
 
 
 class BlockedContactError(Exception):

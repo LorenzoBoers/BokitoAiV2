@@ -5,8 +5,7 @@ import { cn } from '../../lib/utils'
 /**
  * The one pill. Soft fill, darker ink, no border, rounded-lg (never a
  * capsule). Map domain values to a tone with `lib/badge-tones.ts`.
- * Canonical tones: neutral, accent, ai, success, warning, error, info.
- * `default`, `secondary`, `outline` and `destructive` are aliases.
+ * Tones: neutral, accent, ai, success, warning, error, info.
  */
 const badgeVariants = cva(
   'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border-0 font-medium leading-none',
@@ -20,10 +19,6 @@ const badgeVariants = cva(
         warning: 'bg-status-warning/12 text-status-warning',
         error: 'bg-status-error/12 text-status-error',
         info: 'bg-status-info/12 text-status-info',
-        default: 'bg-accent/12 text-accent',
-        secondary: 'bg-bg-hover text-text-secondary',
-        outline: 'bg-bg-hover text-text-secondary',
-        destructive: 'bg-status-error/12 text-status-error',
       },
       size: {
         sm: 'px-1.5 py-0.5 text-2xs',

@@ -13,13 +13,11 @@ from app.models.auth import Tenant
 from app.tools.policy import resolve_tool_mode
 from app.tools.registry import (
     CANVAS_OPERATOR_TOOLS,
+    PLATFORM_CORE_TOOLS,
     filter_tools_for_agent,
     get_tool_definitions,
     get_tool_spec,
-    with_operator_canvas_tools,
-    with_operator_progress_tool,
-    with_operator_org_tools,
-    with_operator_reaction_tool,
+    with_platform_core,
 )
 
 
@@ -59,31 +57,33 @@ def test_narrow_passport_still_gets_canvas_tools():
     assert "create_canvas" not in names
     assert "call_mcp_tool" in names
 
-    operator = {tool["name"] for tool in with_operator_canvas_tools(narrowed, trust="operator")}
+    operator = {tool["name"] for tool in with_platform_core(narrowed, trust="operator")}
+    assert PLATFORM_CORE_TOOLS <= operator
     assert CANVAS_OPERATOR_TOOLS <= operator
-    progress = {tool["name"] for tool in with_operator_progress_tool(narrowed, trust="operator")}
-    assert "update_progress" in progress
-    reaction = {tool["name"] for tool in with_operator_reaction_tool(narrowed, trust="operator")}
-    assert "react_to_message" in reaction
-    org = {tool["name"] for tool in with_operator_org_tools(narrowed, trust="operator")}
-    assert {"get_tenant_overview", "list_agents", "list_departments"} <= org
-    assert "get_tenant_overview" not in {
-        tool["name"] for tool in with_operator_org_tools(narrowed, trust="external")
-    }
-    assert "react_to_message" not in {
-        tool["name"] for tool in with_operator_reaction_tool(narrowed, trust="external")
-    }
-    assert "update_progress" not in {
-        tool["name"] for tool in with_operator_progress_tool(narrowed, trust="operator", refresh=True)
-    }
+    assert {"update_progress", "react_to_message", "list_departments", "list_folders"} <= operator
 
-    external = {tool["name"] for tool in with_operator_canvas_tools(narrowed, trust="external")}
-    assert "create_canvas" not in external
+    external = {tool["name"] for tool in with_platform_core(narrowed, trust="external")}
+    assert external == {"call_mcp_tool"}
 
-    refresh = {tool["name"] for tool in with_operator_canvas_tools(narrowed, trust="operator", refresh=True)}
+    refresh = {tool["name"] for tool in with_platform_core(narrowed, trust="operator", refresh=True)}
     assert "update_folder_canvas" in refresh
     assert "create_canvas" not in refresh
-    assert "delete_canvas" not in refresh
+    assert "update_progress" not in refresh
+
+
+def test_module_seat_keeps_workspace_core():
+    """A module expert's passport lists its specialty; folders are still the workspace."""
+    from app.tools.registry import core_tool_names
+    from app.services.workforce_runtime import ROLE_TOOL_TEMPLATES
+
+    seat = SimpleNamespace(tools_json=json.dumps(list(ROLE_TOOL_TEMPLATES["module_specialist"])))
+    offered = {
+        t["name"]
+        for t in with_platform_core(filter_tools_for_agent(get_tool_definitions(), seat), trust="operator")
+    }
+    assert {"list_folders", "create_folder", "list_folder_docs", "list_contacts"} <= offered
+    assert "list_folders" in core_tool_names("operator")
+    assert not core_tool_names("external")
 
 
 def test_canvas_refresh_trigger_detects_wake_copy():

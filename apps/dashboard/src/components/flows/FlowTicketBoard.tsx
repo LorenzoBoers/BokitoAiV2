@@ -345,9 +345,9 @@ export function FlowTicketBoard({
                 type="button"
                 disabled={savingStages}
                 onClick={() => insertStage(board.stages.length)}
-                className="mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 self-center rounded-full border border-dashed border-border/80 px-3 text-xs font-medium text-text-muted transition-colors hover:border-border hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
+                className="mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 self-center rounded-md border border-dashed border-border/80 px-3 text-xs font-medium text-text-muted transition-colors hover:border-border hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
               >
-                <Plus size={13} aria-hidden />
+                <Plus size={14} aria-hidden />
                 {t('workstreamsPage.stages.addButton')}
               </button>
             ) : null}

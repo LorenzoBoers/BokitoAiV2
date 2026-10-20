@@ -421,11 +421,16 @@ async def notify(
     critical: bool = False,
     exclude: UUID | None = None,
     cooldown_minutes: int = 0,
+    collapse_key: str | None = None,
+    announce: bool = True,
 ) -> list[Notification]:
     """Record and deliver one event to its recipients. Commits.
 
-    Returns the rows created (one per person with the in-app channel on).
-    ``cooldown_minutes`` drops a repeat of the same title within the window.
+    Returns the rows created or updated (one per person with the in-app
+    channel on). ``cooldown_minutes`` drops a repeat of the same title within
+    the window. ``collapse_key`` with a ``signal_id`` rewrites that person's
+    unread row for the same conversation and key instead of adding one.
+    ``announce=False`` keeps the row quiet: no toast, sound or push.
     """
     from app.gateway.publish import publish_notification
     from app.services.notification_mail import send_notification_mail, thread_link
@@ -451,6 +456,10 @@ async def notify(
         data.setdefault("signal_id", str(signal_id))
     if category:
         data.setdefault("category", category)
+    if collapse_key and signal_id:
+        data["collapse"] = collapse_key
+    if not announce:
+        data["announce"] = False
     now = datetime.utcnow()
     created: list[Notification] = []
     push_targets: list[UUID] = []
@@ -463,18 +472,28 @@ async def notify(
             prefs, tier=tier, category=category, status=user_status(user, now=now), critical=critical
         )
         if "inapp" in channels:
-            row = Notification(
-                tenant_id=tenant_id,
-                user_id=user.id,
-                kind=kind,
-                title=title[:200],
-                body=body[:500],
-                tier=tier,
-                signal_id=signal_id,
-                payload_json=json.dumps(data, default=str),
+            row = (
+                await _collapsible_row(session, tenant_id, user.id, signal_id, collapse_key)
+                if collapse_key and signal_id
+                else None
             )
+            if row is None:
+                row = Notification(
+                    tenant_id=tenant_id,
+                    user_id=user.id,
+                    kind=kind,
+                    signal_id=signal_id,
+                )
+            row.kind = kind
+            row.title = title[:200]
+            row.body = body[:500]
+            row.tier = tier
+            row.payload_json = json.dumps(data, default=str)
+            row.created_at = now
             session.add(row)
             created.append(row)
+        if not announce:
+            continue
         if "push" in channels:
             push_targets.append(user.id)
         if "email" in channels:
@@ -496,6 +515,192 @@ async def notify(
     return created
 
 
+async def _collapsible_row(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    signal_id: UUID,
+    collapse_key: str,
+) -> Notification | None:
+    rows = (
+        await session.execute(
+            select(Notification)
+            .where(
+                Notification.tenant_id == tenant_id,
+                Notification.user_id == user_id,
+                Notification.signal_id == signal_id,
+                Notification.status == "unread",
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(10)
+        )
+    ).scalars().all()
+    for row in rows:
+        try:
+            data = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict) and data.get("collapse") == collapse_key:
+            return row
+    return None
+
+
+async def conversation_recipients(session: AsyncSession, tenant_id: UUID, signal: Any) -> list[UUID]:
+    """The people a conversation notice goes to.
+
+    A user owner alone; a team owner's people; nobody for an agent-owned or
+    unowned conversation.
+    """
+    from app.models.team import Team
+    from app.services.teams import team_user_ids
+
+    kind = getattr(signal, "assignee_kind", "") or ""
+    if kind == "user" and signal.assigned_user_id:
+        return [signal.assigned_user_id]
+    if kind == "department" and signal.assignee_team_id:
+        team = await session.get(Team, signal.assignee_team_id)
+        if team is not None and team.tenant_id == tenant_id:
+            return list(await team_user_ids(session, team))
+    return []
+
+
+INBOUND_COLLAPSE_KEY = "inbound"
+NOTICE_META_KEY = "notice"
+NOTICE_PENDING = "pending"
+NOTICE_SENT = "sent"
+
+_FIRST_READ_COPY: dict[str, dict[str, str]] = {
+    "nl": {
+        "new": "Nieuw bericht van {who}",
+        "someone": "Iemand",
+        "draft": "Concept klaar: {text}",
+        "decision": "Vraagt een keuze: {text}",
+        "no_reply": "Geen antwoord nodig: {text}",
+        "answered": "Beantwoord door {agent}: {text}",
+        "the_ai": "de AI",
+    },
+    "en": {
+        "new": "New message from {who}",
+        "someone": "Someone",
+        "draft": "Draft ready: {text}",
+        "decision": "Needs a choice: {text}",
+        "no_reply": "No reply needed: {text}",
+        "answered": "Answered by {agent}: {text}",
+        "the_ai": "the AI",
+    },
+}
+
+# Outcomes that need nobody: the thread is closed or a newer message is read.
+_SILENT_OUTCOMES = frozenset({"auto_closed", "archived", "closed", "skipped_stale"})
+_NO_REPLY_OUTCOMES = frozenset({"no_reply_needed", "no_reply_noted"})
+
+
+def first_read_kind(delivery: dict[str, Any] | None) -> str:
+    """What the first read of an inbound message came to, for its notice.
+
+    ``silent`` | ``no_reply`` | ``draft`` | ``decision`` | ``answered`` | ``new``.
+    """
+    delivery = delivery if isinstance(delivery, dict) else {}
+    status = str(delivery.get("delivery") or "")
+    tools = delivery.get("tools") if isinstance(delivery.get("tools"), list) else []
+    if status in _SILENT_OUTCOMES:
+        return "silent"
+    if status in _NO_REPLY_OUTCOMES:
+        return "no_reply"
+    if status == "pending_approval":
+        return "draft"
+    if status == "pending_decision":
+        return "draft" if "suggest_thread_reply" in tools else "decision"
+    if delivery.get("delivered_to_customer") or status.startswith("sent"):
+        return "answered"
+    return "new"
+
+
+def _notice_state(message: Any) -> str:
+    try:
+        meta = json.loads(getattr(message, "metadata_json", None) or "{}")
+    except json.JSONDecodeError:
+        return ""
+    return str(meta.get(NOTICE_META_KEY) or "") if isinstance(meta, dict) else ""
+
+
+def _with_notice(raw: str | None, value: str) -> str:
+    try:
+        meta = json.loads(raw or "{}")
+    except json.JSONDecodeError:
+        meta = {}
+    if not isinstance(meta, dict):
+        meta = {}
+    meta[NOTICE_META_KEY] = value
+    return json.dumps(meta)
+
+
+def mark_notice_pending(message: Any) -> None:
+    """The first read of this message will send its notice (see ``notify_first_read``)."""
+    message.metadata_json = _with_notice(message.metadata_json, NOTICE_PENDING)
+
+
+async def _claim_notice(session: AsyncSession, message: Any) -> bool:
+    """Flip one message from pending to sent; False when someone else did."""
+    from app.models.signal import SignalMessage
+
+    await session.refresh(message)
+    if _notice_state(message) != NOTICE_PENDING:
+        return False
+    before = message.metadata_json
+    result = await session.execute(
+        update(SignalMessage)
+        .where(SignalMessage.id == message.id, SignalMessage.metadata_json == before)
+        .values(metadata_json=_with_notice(before, NOTICE_SENT))
+        .execution_options(synchronize_session=False)
+    )
+    await session.commit()
+    if not result.rowcount:
+        return False
+    await session.refresh(message)
+    return True
+
+
+async def _settle_earlier_notices(session: AsyncSession, message: Any) -> None:
+    """Older pending messages on the thread are covered by this notice."""
+    from app.models.signal import SignalMessage
+
+    rows = (
+        await session.execute(
+            select(SignalMessage).where(
+                SignalMessage.signal_id == message.signal_id,
+                SignalMessage.direction == "inbound",
+                SignalMessage.kind == "user_message",
+                SignalMessage.created_at <= message.created_at,
+                SignalMessage.id != message.id,
+                SignalMessage.metadata_json.like(f'%"{NOTICE_META_KEY}": "{NOTICE_PENDING}"%'),
+            )
+        )
+    ).scalars().all()
+    for row in rows:
+        row.metadata_json = _with_notice(row.metadata_json, NOTICE_SENT)
+        session.add(row)
+    if rows:
+        await session.commit()
+
+
+async def _newest_inbound(session: AsyncSession, signal_id: UUID) -> Any:
+    from app.models.signal import SignalMessage
+
+    return (
+        await session.execute(
+            select(SignalMessage)
+            .where(
+                SignalMessage.signal_id == signal_id,
+                SignalMessage.direction == "inbound",
+                SignalMessage.kind == "user_message",
+            )
+            .order_by(SignalMessage.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
 async def notify_new_inbound(
     session: AsyncSession,
     tenant_id: UUID,
@@ -504,41 +709,46 @@ async def notify_new_inbound(
     sender: str = "",
     subject: str = "",
     exclude: UUID | None = None,
+    outcome: str = "new",
+    summary: str = "",
+    agent_name: str = "",
 ) -> list[Notification]:
-    """Tell the conversation's people that a new customer message arrived.
+    """Tell the conversation's people about a customer message. One row per thread.
 
-    Honours the ``new-message`` pref row (on by default for in-app + push). A
-    user owner is told alone; a team owner tells that team's people. An
-    agent-owned conversation stays quiet. The sender is skipped when they are
-    a workspace member.
+    Honours the ``new-message`` pref row (on by default for in-app + push).
+    Recipients come from ``conversation_recipients``. ``outcome`` is the first
+    read (``first_read_kind``): a draft or a choice interrupts; no reply needed
+    or an answer already sent lands quietly. Later messages on the same thread
+    rewrite that person's unread row instead of stacking a second one.
     """
     from app.models.auth import Tenant
-    from app.models.team import Team
     from app.services.language import resolve_workspace_language
-    from app.services.teams import team_user_ids
 
     if getattr(signal, "channel", "") in ("internal", "assistant"):
         return []
-    if getattr(signal, "status", "") == "spam":
+    if getattr(signal, "status", "") in ("spam", "closed"):
         return []
-    kind = getattr(signal, "assignee_kind", "") or ""
-    recipients: list[UUID] = []
-    if kind == "user" and signal.assigned_user_id:
-        recipients = [signal.assigned_user_id]
-    elif kind == "department" and signal.assignee_team_id:
-        team = await session.get(Team, signal.assignee_team_id)
-        if team is not None and team.tenant_id == tenant_id:
-            recipients = await team_user_ids(session, team)
+    if outcome == "silent":
+        return []
+    recipients = await conversation_recipients(session, tenant_id, signal)
     if not recipients:
         return []
     tenant = (
         await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     ).scalar_one_or_none()
     lang = resolve_workspace_language(tenant)
-    who = (sender or "").strip() or ("Iemand" if lang == "nl" else "Someone")
-    title = f"Nieuw bericht van {who}" if lang == "nl" else f"New message from {who}"
+    copy = _FIRST_READ_COPY["nl" if lang == "nl" else "en"]
+    who = (sender or "").strip() or copy["someone"]
+    text = (summary or subject or "").strip()
+    if outcome in ("draft", "decision", "no_reply", "answered"):
+        title = who
+        body = copy[outcome].format(text=text, agent=agent_name or copy["the_ai"]).strip()
+    else:
+        title = copy["new"].format(who=who)
+        body = subject or ""
+    quiet = outcome in ("no_reply", "answered")
     contact_mark = from_signal_contact(signal) or from_contact(name=who)
-    payload: dict[str, Any] = {"channel": getattr(signal, "channel", "")}
+    payload: dict[str, Any] = {"channel": getattr(signal, "channel", ""), "outcome": outcome}
     if contact_mark:
         payload["from"] = contact_mark
     return await notify(
@@ -547,12 +757,80 @@ async def notify_new_inbound(
         kind="new_message",
         recipients=recipients,
         title=title,
-        body=(subject or "")[:500],
-        tier=TIER_NOW,
+        body=body[:500],
+        tier=TIER_LATER if quiet else TIER_NOW,
         category="new-message",
         signal_id=signal.id,
         payload=payload,
         exclude=exclude,
+        collapse_key=INBOUND_COLLAPSE_KEY,
+        announce=not quiet,
+    )
+
+
+async def notify_first_read(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Any,
+    message: Any,
+    delivery: dict[str, Any] | None,
+) -> list[Notification]:
+    """The one notice for an inbound message, sent once its first read is done.
+
+    Runs after every inbound job. Only a message ingest marked pending gets a
+    notice here, and only once: the 20s fallback and this call race on the
+    same claim.
+    """
+    message = message or await _newest_inbound(session, signal.id)
+    if message is None:
+        return []
+    kind = first_read_kind(delivery)
+    if kind == "silent" and str((delivery or {}).get("delivery")) == "skipped_stale":
+        # A newer message has its own read; its notice covers this one.
+        return []
+    if not await _claim_notice(session, message):
+        return []
+    await _settle_earlier_notices(session, message)
+    await session.refresh(signal)
+    agent_name = ""
+    if signal.agent_id:
+        from app.models.agent import Agent
+
+        agent = await session.get(Agent, signal.agent_id)
+        agent_name = getattr(agent, "name", "") or ""
+    return await notify_new_inbound(
+        session,
+        tenant_id,
+        signal,
+        sender=signal.contact_name or message.from_address or "",
+        subject=signal.subject or message.subject or "",
+        outcome=kind,
+        summary=str((delivery or {}).get("summary") or ""),
+        agent_name=agent_name,
+    )
+
+
+async def notify_inbound_fallback(
+    session: AsyncSession, tenant_id: UUID, signal: Any, message: Any
+) -> list[Notification]:
+    """The first read never reported back: send the plain new-message notice.
+
+    Skips when the notice already went out, or when a newer message on the
+    thread is pending (its own read or fallback covers both).
+    """
+    newest = await _newest_inbound(session, signal.id)
+    if newest is not None and newest.id != message.id and _notice_state(newest) == NOTICE_PENDING:
+        return []
+    if not await _claim_notice(session, message):
+        return []
+    await _settle_earlier_notices(session, message)
+    await session.refresh(signal)
+    return await notify_new_inbound(
+        session,
+        tenant_id,
+        signal,
+        sender=signal.contact_name or message.from_address or "",
+        subject=signal.subject or message.subject or "",
     )
 
 

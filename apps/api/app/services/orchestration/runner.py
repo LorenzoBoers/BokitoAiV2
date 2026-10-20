@@ -204,6 +204,7 @@ async def _execute_agent_segment(
     loop.usage_scope = "orchestration"
     loop.usage_call_type = "orchestration"
     text, tokens = await loop.run_chat(messages)
+    run.stop_reason = loop.stop_reason
 
     tokens_in = tokens.get("input_tokens", 0)
     tokens_out = tokens.get("output_tokens", 0)

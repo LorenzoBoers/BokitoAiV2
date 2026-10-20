@@ -8,27 +8,27 @@ export function ModuleAgentBadges({ row }: { row: ModuleAgentRow }) {
   return (
     <>
       {row.is_default ? (
-        <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
+        <Badge variant="neutral" size="sm">
           {t('integrations.modules.agents.defaultBadge', { defaultValue: 'Default' })}
         </Badge>
       ) : null}
       {row.is_pack_specialist || row.managed ? (
-        <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
+        <Badge variant="neutral" size="sm">
           {row.affiliation_label ||
             t('integrations.modules.agents.specialistBadge', { defaultValue: 'Specialist' })}
         </Badge>
       ) : null}
       {row.can_write ? (
-        <Badge variant="secondary" className="px-1.5 py-0 text-2xs">
+        <Badge variant="neutral" size="sm">
           {t('integrations.modules.agents.writeBadge', { defaultValue: 'Write' })}
         </Badge>
       ) : (
-        <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
+        <Badge variant="neutral" size="sm">
           {t('integrations.modules.agents.readOnlyBadge', { defaultValue: 'Read-only' })}
         </Badge>
       )}
       {row.company_ids && row.company_ids.length > 0 ? (
-        <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
+        <Badge variant="neutral" size="sm">
           {t('integrations.modules.agents.scopeBadge', {
             defaultValue: '{{count}} administration(s)',
             count: row.company_ids.length,

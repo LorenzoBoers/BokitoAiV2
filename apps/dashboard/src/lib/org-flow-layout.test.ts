@@ -96,10 +96,11 @@ describe('layoutOrgFlow2D', () => {
   it('splits paths into label strips whose widths add up', () => {
     const layout = layoutOrgFlow2D(fixture(), { labels: true })
     const path = layout.paths.find((p) => p.id === 'channel:mail->agent:1')!
-    expect(path.strips.map((s) => s.labelKey)).toEqual(['t1', 'none'])
+    expect(path.strips.map((s) => s.labelKey)).toEqual(['t1', 'other'])
     const total = path.strips.reduce((sum, s) => sum + s.width, 0)
     expect(total).toBeCloseTo(path.width, 5)
     expect(path.strips[0].color).toBe('#38BDF8')
+    expect(path.strips[1].color).toBe('#6A6A70')
   })
 
   it('keeps one strip in mode colors outside the Labels lens', () => {
@@ -136,7 +137,7 @@ describe('openStack', () => {
     const agent = data.nodes.find((n) => n.id === 'agent:1')!
     expect(openStack(agent, data.labels).map((s) => [s.key, s.count])).toEqual([
       ['t1', 4],
-      ['none', 2],
+      ['other', 2],
     ])
   })
 })
@@ -157,15 +158,6 @@ describe('emphasis', () => {
     expect(isLit(e.litNodes, 'user:1')).toBe(false)
   })
 
-  it('keeps only bottlenecks lit in the Bottlenecks lens', () => {
-    const data = fixture()
-    data.nodes.find((n) => n.id === 'executor:unassigned')!.issues = ['unassigned']
-    const e = emphasis(data, 'issues')
-    expect([...e.litNodes!]).toEqual(['executor:unassigned'])
-    expect(e.litPaths!.has('executor:unassigned->result:open')).toBe(true)
-    expect(e.litPaths!.has('channel:wa->user:1')).toBe(false)
-  })
-
   it('dims nothing in the plain Flow lens', () => {
     const e = emphasis(fixture(), 'flow')
     expect(e.litNodes).toBeNull()
@@ -174,16 +166,26 @@ describe('emphasis', () => {
 })
 
 describe('layoutOrgFlow3D', () => {
-  it('bends Result back as a horseshoe that ends next to Intake', () => {
-    const layout = layoutOrgFlow3D(fixture())
-    const pos = (id: string) => layout.nodes.find((n) => n.nodeId === id && !n.ghost)!
-    const results = layout.nodes.filter((n) => n.nodeId.startsWith('result:') || n.nodeId.startsWith('folder:'))
-    const rowBottom = Math.max(...layout.nodes.filter((n) => !results.includes(n)).map((n) => n.z))
-    for (const r of results) expect(r.z).toBeGreaterThan(rowBottom)
-    const first = results[0]
-    const last = results[results.length - 1]
-    expect(Math.abs(first.x - pos('flow:1').x)).toBeLessThan(Math.abs(first.x - pos('channel:mail').x))
-    expect(Math.abs(last.x - pos('channel:mail').x)).toBeLessThan(Math.abs(last.x - pos('flow:1').x))
+  it('lays the four columns out as plates in one row, like 2D', () => {
+    const data = fixture()
+    const layout = layoutOrgFlow3D(data)
+    const flat = layoutOrgFlow2D(data)
     expect(layout.plates.map((p) => p.layer)).toEqual(['input', 'executor', 'work', 'result'])
+    const left = layout.plates.map((p) => Math.min(...p.points.map((c) => c[0])))
+    const right = layout.plates.map((p) => Math.max(...p.points.map((c) => c[0])))
+    expect([...left].sort((x, y) => x - y)).toEqual(left)
+    for (let i = 1; i < left.length; i++) expect(left[i] - right[i - 1]).toBeCloseTo(0.55)
+    for (const card of flat.cards) {
+      const mark = layout.nodes.find((n) => n.nodeId === card.nodeId && n.ghost === card.ghost)!
+      expect(mark.z).toBeCloseTo((card.y + card.h / 2) / 40)
+      expect(layout.plates.some((_, i) => mark.x > left[i] && mark.x < right[i])).toBe(true)
+    }
+    const result = layout.plates[3].points
+    const inResult = layout.nodes.filter((n) => n.nodeId.startsWith('result:') || n.nodeId.startsWith('folder:'))
+    expect(inResult.length).toBeGreaterThan(0)
+    for (const n of inResult) {
+      expect(n.x).toBeGreaterThan(Math.min(...result.map((c) => c[0])))
+      expect(n.x).toBeLessThan(Math.max(...result.map((c) => c[0])))
+    }
   })
 })

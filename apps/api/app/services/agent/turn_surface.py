@@ -15,6 +15,13 @@ _HOST_RE = re.compile(r"(?:^|\s)(?:site:)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?:/|\s|$)
 _INVITE_TOOLS = frozenset({"invite_to_thread"})
 _PEER_TOOL_KEYS = {"ask_agent": "activity.asking", "handoff_to": "activity.handingOver"}
 _WEB_TOOLS = frozenset({"web_search", "fetch_url"})
+_SEARCH_TOOLS = frozenset(
+    {"web_search", "fetch_url", "search_index", "search_product_help", "search_repo", "list_threads", "list_contacts"}
+)
+_SEND_TOOLS = frozenset(
+    {"ask_agent", "handoff_to", "delegate_to_agent", "invite_to_thread", "handoff_to_human", "send_reply", "post_thread_message"}
+)
+_LEAVE_TOOLS = frozenset({"handoff_to", "handoff_to_human", "leave_thread"})
 
 
 def activity_label_key(item: dict[str, Any]) -> str | None:
@@ -39,8 +46,14 @@ def surface_motion(
     if speaking:
         return "typing"
     if any(item.get("proposes") for item in pending):
-        return "idle"
-    if any(item.get("status") == "running" and item.get("tool") for item in pending):
+        return "writing"
+    running = [item for item in pending if item.get("status") == "running" and item.get("tool")]
+    if running:
+        tool = str(running[-1].get("tool") or "")
+        if tool in _SEARCH_TOOLS:
+            return "searching"
+        if tool in _SEND_TOOLS:
+            return "sending"
         return "working"
     if any(item.get("kind") == "think" and item.get("status") == "running" for item in pending):
         return "thinking"
@@ -49,6 +62,20 @@ def surface_motion(
     if opening:
         return "thinking"
     return "idle"
+
+
+def closing_motion(items: list[dict[str, Any]], outcome: str | None = None) -> str | None:
+    """One reaction the orb plays when the turn seals. None keeps the face as it is."""
+    if outcome == "error":
+        return "alert"
+    if outcome in ("cancelled", "silent"):
+        return None
+    if any(
+        str(item.get("tool") or "") in _LEAVE_TOOLS and item.get("status") not in ("running", "error")
+        for item in items
+    ):
+        return "leave"
+    return "done"
 
 
 def _public_items(pending: list[dict[str, Any]]) -> list[dict[str, Any]]:

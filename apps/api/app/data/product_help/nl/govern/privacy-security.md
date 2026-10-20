@@ -39,7 +39,7 @@ Owners en admins beheren bewaartermijnen, dataregio en verzoeken van betrokkenen
 1. Vul onder **Verzoeken van betrokkenen** het **E-mail van betrokkene** in.
 2. Kies **Persoonsgegevens exporteren** om een JSON-pakket voor dat adres in deze workspace te downloaden.
 3. Of kies **Persoonsgegevens wissen** en bevestig het scrubben van contactvelden, berichtteksten en bijpassende agenda-deelnemers. Bijbehorende items in de Prullenbak worden ook gepurged. Dit kan niet ongedaan worden gemaakt.
-4. Volledige workspace-wipe: eigenaren gebruiken **Instellingen → Algemeen → Workspace verwijderen**. Platform support kan een tenant ook verwijderen via **Ops** (type de slug ter bevestiging). Account verwijderen is iets anders dan subject-erase.
+4. Volledige workspace-wipe: eigenaren gebruiken **Instellingen → Algemeen → Gevaarlijke acties → Workspace verwijderen** en typen de workspacenaam ter bevestiging. Platform support kan een tenant ook verwijderen via **Ops** (type de slug ter bevestiging). Account verwijderen is iets anders dan subject-erase.
 
 ## Herstellen of definitief verwijderen uit de Prullenbak
 

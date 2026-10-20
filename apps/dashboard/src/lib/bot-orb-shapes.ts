@@ -61,6 +61,16 @@ export type BotOrbShapeDef = {
   faceY?: number
   /** Scale the eye group around the face center. */
   faceScale?: number
+  /** Brand bodies keep their original colors; the agent color is ignored. */
+  palette?: BotOrbPalette
+}
+
+export type BotOrbPalette = {
+  body: string
+  /** Fill for `detailPath` / `detailLeft` / `detailRight`. */
+  detail?: string
+  /** Eyes. */
+  ink: string
 }
 
 /** Brand ape mark is the default companion silhouette. */
@@ -185,6 +195,7 @@ export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
       'M13.731 12.509H50.147A3.666 3.666 0 0 1 53.813 16.175V41.104A3.666 3.666 0 0 1 50.147 44.77H13.731A3.666 3.666 0 0 1 10.065 41.104V16.175A3.666 3.666 0 0 1 13.731 12.509ZM5.666 28.64H58.334A3.666 3.666 0 0 1 62 32.305V33.405A3.666 3.666 0 0 1 58.334 37.071H5.666A3.666 3.666 0 0 1 2 33.405V32.305A3.666 3.666 0 0 1 5.666 28.64ZM15.686 32.183H15.686A1.955 1.955 0 0 1 17.642 34.138V49.536A1.955 1.955 0 0 1 15.686 51.491H15.686A1.955 1.955 0 0 1 13.731 49.536V34.138A1.955 1.955 0 0 1 15.686 32.183ZM23.018 32.183H23.018A1.955 1.955 0 0 1 24.974 34.138V49.536A1.955 1.955 0 0 1 23.018 51.491H23.018A1.955 1.955 0 0 1 21.063 49.536V34.138A1.955 1.955 0 0 1 23.018 32.183ZM41.165 32.183H41.165A1.894 1.894 0 0 1 43.059 34.077V49.597A1.894 1.894 0 0 1 41.165 51.491H41.165A1.894 1.894 0 0 1 39.271 49.597V34.077A1.894 1.894 0 0 1 41.165 32.183ZM48.558 32.183H48.558A1.955 1.955 0 0 1 50.513 34.138V49.536A1.955 1.955 0 0 1 48.558 51.491H48.558A1.955 1.955 0 0 1 46.603 49.536V34.138A1.955 1.955 0 0 1 48.558 32.183Z',
     faceY: -2.276,
     faceScale: 0.976,
+    palette: { body: '#d97757', ink: '#1e1e1e' }, // design-system-ignore: original Claude body colors
   },
   /**
    * Cursor body: hexagon plus the arrow mark as a darker detail.
@@ -197,6 +208,7 @@ export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
       'M52.959 18.384H10.72C9.05 18.384 8.467 20.605 9.921 21.428L29.983 32.78C30.493 33.069 30.808 33.611 30.808 34.197V56.972C30.808 58.651 33.038 59.23 33.853 57.763L54.379 20.803C54.981 19.718 54.198 18.384 52.959 18.384Z',
     faceY: -0.044,
     faceScale: 1.21,
+    palette: { body: '#d9d9d9', detail: '#e5e5e5', ink: '#1e1e1e' }, // design-system-ignore: original Cursor body colors
   },
 }
 
@@ -255,5 +267,10 @@ export function botOrbMoreColors() {
 
 export function botOrbShapeDef(shape: string | null | undefined): BotOrbShapeDef {
   return BOT_ORB_SHAPES[resolveBotOrbShape(shape)]
+}
+
+/** True when the shape keeps its own colors, so a color pick has no effect. */
+export function botOrbShapeHasFixedColors(shape: string | null | undefined): boolean {
+  return Boolean(botOrbShapeDef(shape).palette)
 }
 

@@ -165,7 +165,7 @@ export default function AgentCallOverlay() {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="fixed inset-0 z-[80] flex items-end justify-center scrim p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="agent-call-title"

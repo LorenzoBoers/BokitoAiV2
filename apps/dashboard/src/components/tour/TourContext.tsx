@@ -29,6 +29,7 @@ import { getTourState, patchTourState } from '../../lib/tour-api'
 import { consumeTourPendingAfterWizard } from '../../lib/tour-handoff'
 import { getOnboardingWizard, startOnboardingSetupThread } from '../../lib/onboarding-wizard-api'
 import { TOUR_STEPS, TOUR_VERSION, WELCOME_PILLARS } from './tour-steps'
+import { Button } from '../ui/button'
 
 type TourPhase = 'idle' | 'welcome' | 'steps' | 'finish'
 
@@ -229,15 +230,10 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
   }, [onSkip, onStart])
 
   return createPortal(
-    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
+    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
       <TourStyles />
       <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
-        {/* Accent halo */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-28 left-1/2 h-56 w-[420px] -translate-x-1/2 rounded-full opacity-25 blur-3xl"
-          style={{ background: 'radial-gradient(closest-side, var(--accent, #6366f1), transparent)' }}
-        />
+        {/* Accent halo */}
         <button
           type="button"
           onClick={onSkip}
@@ -303,14 +299,13 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
             >
               {t('welcome.skip')}
             </button>
-            <button
+            <Button
               type="button"
               onClick={onStart}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               {t('welcome.start')}
               <ArrowRight size={13} />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -444,7 +439,7 @@ function StepOverlay({
           />
         </>
       ) : (
-        <div aria-hidden className="bk-tour-fade absolute inset-0 bg-black/60" />
+        <div aria-hidden className="bk-tour-fade scrim absolute inset-0" />
       )}
 
       <div
@@ -531,14 +526,9 @@ function FinishScreen({
   }, [onExplore, onAssistant])
 
   return createPortal(
-    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-[2px]">
+    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
       <TourStyles />
-      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 h-48 w-[360px] -translate-x-1/2 rounded-full opacity-25 blur-3xl"
-          style={{ background: 'radial-gradient(closest-side, var(--accent, #6366f1), transparent)' }}
-        />
+      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
         <div className="relative">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
             <Bot size={20} />
@@ -548,14 +538,13 @@ function FinishScreen({
             {t('finish.body')}
           </p>
           <div className="mt-6 flex flex-col items-center gap-2">
-            <button
+            <Button
               type="button"
               onClick={onAssistant}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               <Sparkles size={13} />
               {t('finish.cta')}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={onCommunication}

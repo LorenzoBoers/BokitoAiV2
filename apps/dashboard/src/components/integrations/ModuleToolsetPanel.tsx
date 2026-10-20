@@ -57,7 +57,7 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
             {label}
           </span>
           {card.kind === 'propose' ? (
-            <Badge variant="neutral" className="text-2xs font-medium">
+            <Badge variant="neutral" size="sm">
               {t('integrations.modules.toolNeedsApproval', {
                 defaultValue: 'Needs approval',
               })}
@@ -68,7 +68,7 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
             </Badge>
           )}
           {card.exposure === 'customer' || card.exposure === 'both' ? (
-            <Badge variant="secondary" className="text-2xs font-medium">
+            <Badge variant="neutral" size="sm">
               {t('integrations.modules.toolWebchat', {
                 defaultValue: 'Website chat',
               })}

@@ -12,6 +12,7 @@ import {
   type ModuleSourceRow,
 } from '../../lib/module-api'
 import { useEntityRefresh } from '../../lib/live-store'
+import { Input } from '../ui/input'
 
 export function ModuleSourcesPanel({ slug }: { slug: string }) {
   const { t } = useTranslation(['nav', 'common'])
@@ -72,8 +73,8 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
       <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border/60 p-3">
         <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-xs text-text-muted">
           {t('integrations.modules.sources.titleLabel')}
-          <input
-            className="rounded-md border border-border/60 bg-bg-surface px-2 py-1.5 text-sm text-text-primary"
+          <Input
+            className="h-8"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t('integrations.modules.sources.titlePlaceholder')}
@@ -81,8 +82,8 @@ export function ModuleSourcesPanel({ slug }: { slug: string }) {
         </label>
         <label className="flex min-w-[16rem] flex-[2] flex-col gap-1 text-xs text-text-muted">
           {t('integrations.modules.sources.urlLabel')}
-          <input
-            className="rounded-md border border-border/60 bg-bg-surface px-2 py-1.5 text-sm text-text-primary"
+          <Input
+            className="h-8"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="https://"

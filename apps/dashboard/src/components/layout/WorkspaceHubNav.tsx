@@ -20,7 +20,7 @@ export default function WorkspaceHubNav() {
   const email = user?.email || t('account.sidebar.fallbackEmail')
 
   return (
-    <aside className="flex h-full w-[220px] shrink-0 flex-col px-4 py-4">
+    <aside className="flex h-full w-rail shrink-0 flex-col px-4 py-4">
       <div className="flex items-center gap-2.5 px-3 pb-4">
         <img
           src={DEFAULT_BRAND_MARK}

@@ -34,4 +34,6 @@ export const workspaceRoutes = {
   docSection: (docId: string, sectionId: string) =>
     `/workspace/docs/${encodeURIComponent(docId)}/sections/${encodeURIComponent(sectionId)}`,
   search: () => '/workspace/search',
+  platformSkills: (lang: string) =>
+    withQuery('/workspace/platform-skills', new URLSearchParams({ lang })),
 } as const

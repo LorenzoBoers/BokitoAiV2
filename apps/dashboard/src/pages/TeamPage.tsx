@@ -10,8 +10,6 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
-import { OpenInGridButton } from '../components/org/OpenInGridButton'
-import ContentHeader from '../components/shell/ContentHeader'
 import { WorkforceSectionTabs } from '../components/shell/SectionTabs'
 import { TeamCardsSkeleton } from '../components/ui/skeleton'
 import { Card } from '../components/ui/card'
@@ -151,12 +149,6 @@ export default function TeamPage() {
   return (
     <PageContent width="xl" className="space-y-6">
       <WorkforceSectionTabs />
-      <ContentHeader
-        guide="team"
-        title={t('tabs.team.title')}
-        subtitle={t('tabs.team.subtitle')}
-        meta={<OpenInGridButton />}
-      />
 
       {showDepartments ? null : (
         <MemberManagement
@@ -215,7 +207,7 @@ export default function TeamPage() {
                           {teamNames[team.id]}
                         </Link>
                       )}
-                      {team.system ? <Badge variant="secondary">{t('teamPage.systemBadge')}</Badge> : null}
+                      {team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
                     </p>
                     <p className="truncate-fade text-xs text-text-muted">
                       {team.system
@@ -254,7 +246,7 @@ export default function TeamPage() {
                       </Button>
                     )}
                     {canManage && !team.system ? (
-                      <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditing(team)}>
+                      <Button size="sm" variant="secondary" className="shrink-0" onClick={() => setEditing(team)}>
                         {t('teamPage.edit')}
                       </Button>
                     ) : null}
@@ -460,7 +452,7 @@ function TeamDialog({
             <span />
           )}
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
               {t('teamPage.cancel')}
             </Button>
             <Button size="sm" onClick={() => void save()} disabled={busy || (!isSystem && !name.trim())}>

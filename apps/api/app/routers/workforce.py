@@ -1,5 +1,6 @@
 """Workforce API router (agents, work logs, messages, runtime controls)."""
 
+import json
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -344,6 +345,8 @@ class AgentRuleTestOut(BaseModel):
     tool: str
     mode: str
     reason: str
+    # hook | rules | grants | read_only | mode | clamp | judgement
+    stage: str = ""
     outcome: str  # runs | asks | refused
     rule: dict[str, Any] | None = None
 
@@ -450,6 +453,143 @@ async def test_agent_rules(
     return await dry_run(
         session, tenant, agent, tool=body.tool, certainty=body.certainty, rule_id=body.rule_id
     )
+
+
+class AgentDefinitionOut(BaseModel):
+    disallowed_tools: list[str]
+    capability_mode: str  # read-only | read-write | all
+    prompt_mode: str  # extend | full
+    skills: list[str]
+    completion_requirement: dict[str, Any]
+    mcp_inheritance: dict[str, Any]
+
+
+class AgentDefinitionBody(BaseModel):
+    disallowed_tools: list[str] | None = None
+    capability_mode: str | None = None
+    prompt_mode: str | None = None
+    skills: list[str] | None = None
+    completion_requirement: dict[str, Any] | None = None
+    mcp_inheritance: dict[str, Any] | None = None
+
+
+@router.get("/agents/{agent_id}/definition", response_model=AgentDefinitionOut)
+async def get_agent_definition(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Denylist, capability mode, prompt mode, skills, completion requirement and MCP inheritance."""
+    from app.services.agent_definition import serialize_definition
+
+    _, agent = await _tenant_agent(session, auth, agent_id)
+    return serialize_definition(agent)
+
+
+@router.put("/agents/{agent_id}/definition", response_model=AgentDefinitionOut)
+async def put_agent_definition(
+    agent_id: UUID,
+    body: AgentDefinitionBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Update the agent definition. Owner or admin."""
+    from datetime import datetime
+
+    from app.services.agent_definition import serialize_definition, validate_definition
+    from app.services.audit import record_audit
+
+    auth.require_role("owner", "admin")
+    _, agent = await _tenant_agent(session, auth, agent_id)
+    before = serialize_definition(agent)
+    for column, value in validate_definition(body.model_dump(exclude_unset=True)).items():
+        setattr(agent, column, value)
+    agent.updated_at = datetime.utcnow()
+    session.add(agent)
+    after = serialize_definition(agent)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="agent:definition_updated",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="agent",
+        resource_id=str(agent.id),
+        outcome="applied",
+        summary=f"Definition for {agent.name} updated",
+        before=before,
+        after=after,
+        commit=False,
+    )
+    await session.commit()
+    return after
+
+
+class SubagentCatalogOut(BaseModel):
+    personas: dict[str, dict[str, Any]]
+    roles: dict[str, dict[str, Any]]
+
+
+class SubagentCatalogBody(BaseModel):
+    personas: dict[str, dict[str, Any]] | None = None
+    roles: dict[str, dict[str, Any]] | None = None
+
+
+def _catalog_state(tenant) -> dict[str, Any]:
+    from app.services.agent_definition import tenant_personas, tenant_roles
+
+    return {
+        "personas": {k: {f: v for f, v in p.__dict__.items() if f != "name"} for k, p in tenant_personas(tenant).items()},
+        "roles": {k: {f: v for f, v in r.__dict__.items() if f != "name"} for k, r in tenant_roles(tenant).items()},
+    }
+
+
+@router.get("/subagent-catalog", response_model=SubagentCatalogOut)
+async def get_subagent_catalog(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Personas and roles a subagent can be spawned with."""
+    from app.models.auth import Tenant
+
+    return _catalog_state(await session.get(Tenant, auth.tenant.id))
+
+
+@router.put("/subagent-catalog", response_model=SubagentCatalogOut)
+async def put_subagent_catalog(
+    body: SubagentCatalogBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace personas and/or roles. Owner or admin."""
+    from app.dependencies import tenant_settings
+    from app.models.auth import Tenant
+    from app.services.agent_definition import validate_catalog
+    from app.services.audit import record_audit
+
+    auth.require_role("owner", "admin")
+    tenant = await session.get(Tenant, auth.tenant.id)
+    settings = dict(tenant_settings(tenant))
+    if body.personas is not None:
+        settings["subagent_personas"] = validate_catalog("personas", body.personas)
+    if body.roles is not None:
+        settings["subagent_roles"] = validate_catalog("roles", body.roles)
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:subagent_catalog_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(tenant.id),
+        outcome="applied",
+        summary="Subagent personas and roles updated",
+        commit=False,
+    )
+    await session.commit()
+    return _catalog_state(tenant)
 
 
 @router.delete("/agents/{agent_id}")

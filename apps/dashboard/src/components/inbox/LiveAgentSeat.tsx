@@ -15,6 +15,7 @@ import { AiAvatar, type AiAvatarMode } from '../ui/AiAvatar'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import { CHAT_AVATAR_SIZE } from './ThreadMeta'
 import type { AgentAvatarKind } from '../../lib/agent-avatar'
+import { subscribeLiveGlowPace } from '../../lib/live-glow-pace'
 
 type SeatClaim = {
   slotId: string
@@ -464,6 +465,36 @@ export function LiveAgentAvatarSlot({
   }, [registerSlotEl, agentId, slotId])
 
   const scheduleReleaseSeat = seat?.scheduleReleaseSeat
+  useEffect(() => {
+    const el = rootRef.current
+    if (!live || !el) return
+    const reduce =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      el.style.setProperty('--live-pace', '0.2')
+      return
+    }
+    let target = 0
+    let current = 0
+    let staleAt = performance.now()
+    const unsubscribe = subscribeLiveGlowPace((next) => {
+      target = Math.min(1.8, next)
+      staleAt = performance.now()
+    })
+    let frame = 0
+    const tick = (now: number) => {
+      if (now - staleAt > 240) target *= 0.9
+      current += (target - current) * 0.1
+      el.style.setProperty('--live-pace', current.toFixed(3))
+      frame = window.requestAnimationFrame(tick)
+    }
+    frame = window.requestAnimationFrame(tick)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      unsubscribe()
+    }
+  }, [live])
   // Capture spawn for this claim tick without putting it in effect deps (a
   // true→false flip on the same slot used to cleanup-release then no-op
   // reclaim and left a static checkmark mid-tool).
@@ -512,26 +543,35 @@ export function LiveAgentAvatarSlot({
   // wasLive→static missed agents whose live seat lived on `live:` (Ask) and
   // never on `msg:` before another agent took the floor.
   const showDoneMark = !live && (showDone || slotId.startsWith('msg:'))
+  // A turn seat paints static until the claim effect runs, which reads as the
+  // agent popping in fully and only then rising. Hold the mark until live.
+  const holdForSpawn = claim && spawn !== false && slotId.startsWith('live:') && !live
 
   return (
     <span
       ref={rootRef}
       className={cn('relative inline-flex shrink-0', className)}
-      style={{ width: size, height: size }}
+      style={{
+        width: size,
+        height: size,
+        ['--agent-tint' as string]: avatarProps.color || undefined,
+      }}
       data-live-agent-slot={slotId}
       data-live-agent={live ? 'true' : undefined}
     >
-      <AiAvatar
-        {...avatarProps}
-        size={size}
-        mode={mode}
-        spawnKey={spawnKey}
-        // Live seat: face mood only — no presence corner (orb chrome is enough).
-        activity={live ? undefined : activity}
-        motion={live ? motion : undefined}
-        pulseId={live ? pulseId : undefined}
-        baseMotion={live ? baseMotion : undefined}
-      />
+      {holdForSpawn ? null : (
+        <AiAvatar
+          {...avatarProps}
+          size={size}
+          mode={mode}
+          spawnKey={spawnKey}
+          // Live seat: face mood only — no presence corner (orb chrome is enough).
+          activity={live ? undefined : activity}
+          motion={live ? motion : undefined}
+          pulseId={live ? pulseId : undefined}
+          baseMotion={live ? baseMotion : undefined}
+        />
+      )}
       {showDoneMark ? <AgentDoneCorner size={size} enter={checkEnter || showDone} /> : null}
     </span>
   )

@@ -39,7 +39,7 @@ Owners and admins manage retention, data region, and data subject requests under
 1. Under **Data subject requests**, enter the **Data subject email**.
 2. Choose **Export personal data** to download a JSON package for that address in this workspace.
 3. Or choose **Erase personal data** and confirm the scrub of contacts, message bodies, and matching calendar attendees. Matching Bin items for that address are purged. This cannot be undone.
-4. Full workspace wipe: owners use **Settings → General → Delete workspace**. Platform support can also delete a tenant from **Ops** (type the slug to confirm). Account delete is separate from subject erase.
+4. Full workspace wipe: owners use **Settings → General → Danger zone → Delete workspace** and type the workspace name to confirm. Platform support can also delete a tenant from **Ops** (type the slug to confirm). Account delete is separate from subject erase.
 
 ## Restore or permanently delete from the Bin
 

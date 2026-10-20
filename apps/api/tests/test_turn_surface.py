@@ -103,9 +103,22 @@ def test_tool_phrase_is_progressive_while_running_and_past_when_done():
     assert surface_motion([], speaking=True, worked=False) == "typing"
     assert surface_motion([{"kind": "think", "status": "running"}], speaking=False, worked=False) == "thinking"
     assert surface_motion([{"tool": "generate_image", "status": "running"}], speaking=False, worked=True) == "working"
-    assert surface_motion([{"tool": "propose_action", "status": "ok", "proposes": True}], speaking=False, worked=True) == "idle"
+    assert surface_motion([{"tool": "propose_action", "status": "ok", "proposes": True}], speaking=False, worked=True) == "writing"
+    assert surface_motion([{"tool": "web_search", "status": "running"}], speaking=False, worked=False) == "searching"
+    assert surface_motion([{"tool": "ask_agent", "status": "running"}], speaking=False, worked=False) == "sending"
     assert surface_motion([], speaking=False, worked=False, opening=True) == "thinking"
     assert surface_motion([], speaking=False, worked=False) == "idle"
+
+
+def test_closing_motion_names_the_last_reaction():
+    from app.services.agent.turn_surface import closing_motion
+
+    assert closing_motion([], None) == "done"
+    assert closing_motion([], "error") == "alert"
+    assert closing_motion([], "cancelled") is None
+    assert closing_motion([], "silent") is None
+    assert closing_motion([{"tool": "handoff_to", "status": "ok"}], None) == "leave"
+    assert closing_motion([{"tool": "handoff_to", "status": "error"}], None) == "done"
 
 
 def test_list_text_drops_the_picture_the_frames_already_show():

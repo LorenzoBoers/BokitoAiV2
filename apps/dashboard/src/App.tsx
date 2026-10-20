@@ -1,6 +1,5 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import AppShell from './components/shell/AppShell'
 import MessagesHub from './components/shell/MessagesHub'
 import SettingsLayout, { SettingsHomeRedirect } from './components/shell/SettingsLayout'
@@ -16,7 +15,7 @@ import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/l
 import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
-import { RouteShellSkeleton, WorkspaceCardsSkeleton } from './components/ui/skeleton'
+import { AuthScreenSkeleton, PlatformFrameSkeleton, WorkspaceCardsSkeleton } from './components/ui/skeleton'
 import { LEGACY_REDIRECTS } from './lib/legacy-redirects'
 import {
   agentChatPath,
@@ -77,6 +76,7 @@ const BinPage = lazy(() => import('./pages/BinPage'))
 const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
 const OrgCanvasPage = lazy(() => import('./pages/OrgCanvasPage'))
+const WorkflowPage = lazy(() => import('./pages/WorkflowPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
@@ -92,13 +92,26 @@ const CategoriesSettings = lazy(() => import('./pages/CategoriesSettings'))
 const Workspaces = lazy(() => import('./pages/Workspaces'))
 const WorkspaceAccount = lazy(() => import('./pages/WorkspaceAccount'))
 
+const PUBLIC_ROUTE_PREFIXES = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+  '/accept-invite',
+  '/help',
+  '/docs',
+  '/trust',
+  '/oauth',
+]
+
 function RouteFallback() {
-  const { t } = useTranslation('nav')
-  return (
-    <div aria-label={t('app.loading')}>
-      <RouteShellSkeleton />
-    </div>
+  const { pathname } = useLocation()
+  const isPublic = PUBLIC_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
+  if (isPublic) return <AuthScreenSkeleton />
+  return <PlatformFrameSkeleton />
 }
 
 function LegacyKnowledgeRedirect() {
@@ -167,6 +180,13 @@ function LegacyProjectsRedirect() {
 function RedirectPreserveSearch({ to }: { to: string }) {
   const location = useLocation()
   return <Navigate to={`${to}${location.search}`} replace />
+}
+
+/** Former settings URL for one module → the rail Connections page. */
+function RedirectSettingsConnectionSlug() {
+  const { slug = '' } = useParams<{ slug: string }>()
+  const location = useLocation()
+  return <Navigate to={`/connections/${encodeURIComponent(slug)}${location.search}`} replace />
 }
 
 /** Legacy `/settings/modules*` and `/modules*` paths → the `/connections` hub. */
@@ -441,6 +461,7 @@ export default function App() {
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/workforce" element={<TeamPage />} />
           <Route path="/workforce/grid" element={<OrgCanvasPage />} />
+          <Route path="/workforce/workflow" element={<WorkflowPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}
           <Route path="/learn" element={<LearnPage />} />
@@ -465,6 +486,7 @@ export default function App() {
           <Route path="/flows/:workstreamId" element={<WorkstreamDetail />} />
 
           {/* Modules hub (first-class product surface; one Connections story) */}
+          <Route path="/connections" element={<ConnectionsHub />} />
           <Route path="/connections/marketplace" element={<RedirectModulesLegacy />} />
           <Route path="/connections/connected" element={<RedirectModulesLegacy />} />
           <Route path="/connections/tools" element={<RedirectModulesLegacy />} />
@@ -495,8 +517,8 @@ export default function App() {
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
             <Route path="/settings/usage" element={<UsagePage />} />
-            <Route path="/settings/connections" element={<ConnectionsHub />} />
-            <Route path="/settings/connections/:slug" element={<ModuleSetupPage />} />
+            <Route path="/settings/connections" element={<RedirectPreserveSearch to="/connections" />} />
+            <Route path="/settings/connections/:slug" element={<RedirectSettingsConnectionSlug />} />
             <Route path="/settings/trust" element={<TrustPrivacyPage />} />
             <Route path="/settings/bin" element={<BinPage />} />
             <Route path="/settings/models" element={<ModelsSettings />} />

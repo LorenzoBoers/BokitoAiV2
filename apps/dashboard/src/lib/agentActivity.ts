@@ -12,7 +12,7 @@
  * 4 actions" / "Thought for 3s".
  */
 import type { TFunction } from 'i18next'
-import type { BotOrbMotion } from './bot-orb-motion'
+import { isBotOrbMotion, type BotOrbMotion } from './bot-orb-motion'
 
 export type ActivityKind = 'think' | 'work' | 'other'
 export type ActivityStatus = 'running' | 'ok' | 'error'
@@ -273,14 +273,21 @@ export function turnHasWork(turn: LiveTurn | null | undefined): boolean {
   return turn.entries.some((entry) => entry.type === 'activity' && entry.item.kind === 'work')
 }
 
-const SURFACE_MOTIONS = new Set<BotOrbMotion>(['idle', 'thinking', 'typing', 'working'])
+const SURFACE_MOTIONS = new Set<BotOrbMotion>([
+  'idle',
+  'thinking',
+  'typing',
+  'working',
+  'searching',
+  'writing',
+  'sending',
+])
 
 /** Orb face. The socket names it; otherwise a local guess for older events. */
 export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMotion {
   if (!turn?.active) return 'idle'
   if (turn.motion && SURFACE_MOTIONS.has(turn.motion)) return turn.motion
-  // Preparing-proposal uses its own meta line — keep idle there.
-  if (turnPreparesProposal(turn)) return 'idle'
+  if (turnPreparesProposal(turn)) return 'writing'
   const blocks = liveBlocks(turn)
   const last = blocks[blocks.length - 1]
   if (last?.type === 'speech') return 'typing'
@@ -425,7 +432,6 @@ export type MessageActivity = {
   activityDetail: boolean
   hasActivity: boolean
   turnId: string | null
-  inProgress?: boolean
   history: HistoryView | null
 }
 
@@ -445,7 +451,6 @@ export function normalizeMessageActivity(raw: Record<string, unknown>): MessageA
     activity.some(isVisibleActivity) ||
     activityAfter.some(isVisibleActivity),
     turnId,
-    inProgress: payload.in_progress === true || raw.in_progress === true,
     history: readHistory(payload.history ?? raw.history),
   }
 }
@@ -765,7 +770,15 @@ export type LiveTurn = {
   blocks: LiveBlock[] | null
   /** Orb face from the socket. Null means the older local guess. */
   motion: BotOrbMotion | null
+  /** Reaction the server picked for the end of the turn (done, leave, alert). */
+  closing?: BotOrbMotion | null
+  /** Who speaks in this turn, from the stream itself. */
+  author?: LiveAuthor | null
+  /** `silent` when the agent passed; the turn has nothing to show. */
+  outcome?: string | null
 }
+
+export type LiveAuthor = { id: string; name: string }
 
 export const EMPTY_TURN: LiveTurn = {
   streamId: null,
@@ -776,10 +789,20 @@ export const EMPTY_TURN: LiveTurn = {
   status: null,
   blocks: null,
   motion: null,
+  closing: null,
+  author: null,
+  outcome: null,
 }
 
 function startTurn(streamId: string | null): LiveTurn {
   return { ...EMPTY_TURN, streamId, active: true, thinking: {} }
+}
+
+function readAuthor(raw: unknown): LiveAuthor | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  const id = str(row.id)
+  return id ? { id, name: str(row.name) } : null
 }
 
 function upsertItem(entries: LiveEntry[], item: ActivityItem): LiveEntry[] {
@@ -822,12 +845,22 @@ export function applyTurnEvent(
     if (event === 'agent.turn' && data.phase === 'end') return turn
     current = startTurn(streamId)
   }
+  if (!current.author) {
+    const author = readAuthor(data.author)
+    if (author) current = { ...current, author }
+  }
+  if (event === 'agent.turn' && data.phase === 'end' && data.outcome === 'silent') {
+    return { ...EMPTY_TURN, streamId: current.streamId, author: current.author, ended: true, outcome: 'silent' }
+  }
   if ('status' in data) current = { ...current, status: readStatus(data.status) }
   const fromSurface = applySurface(current, data.surface)
   if (fromSurface) current = fromSurface
   switch (event) {
     case 'agent.turn':
-      if (data.phase === 'end') return { ...current, active: false, ended: true }
+      if (data.phase === 'end') {
+        const closing = isBotOrbMotion(data.closing) ? data.closing : null
+        return { ...current, active: false, ended: true, closing }
+      }
       return current.active ? current : { ...current, active: true, ended: false }
     case 'agent.activity': {
       if (fromSurface) return { ...current, active: true }
@@ -845,6 +878,19 @@ export function applyTurnEvent(
         ...current,
         active: true,
         thinking: { ...current.thinking, [itemId]: (current.thinking[itemId] ?? '') + delta },
+      }
+    }
+    case 'message.start': {
+      // A bubble opens before its first word: show it empty with typing dots.
+      const segmentId = str(data.segment_id) || 'speech'
+      if (current.entries.some((row) => row.type === 'speech' && row.segmentId === segmentId)) {
+        return { ...current, active: true }
+      }
+      return {
+        ...current,
+        active: true,
+        entries: [...current.entries, { type: 'speech', segmentId, text: '' }],
+        blocks: current.blocks ? [...current.blocks, { type: 'speech', key: segmentId, text: '' }] : null,
       }
     }
     case 'message.part': {
@@ -1021,117 +1067,8 @@ export function turnHasContent(turn: LiveTurn): boolean {
   return turn.active || turn.entries.length > 0
 }
 
-const CHECKPOINT_PLACEHOLDERS = new Set(['Working on this.', 'Done.'])
-
 /** Drop a live overlay that has not moved for this long (crashed worker, reload). */
 export const LIVE_TURN_STALE_MS = 120_000
-
-/** Resume a live overlay from an in-progress thread row after a reload. */
-export function liveTurnFromMessage(message: {
-  turnId?: string | null
-  inProgress?: boolean
-  activity?: ActivityItem[]
-  activityAfter?: ActivityItem[]
-  bodyText?: string
-  createdAt?: string | null
-}): LiveTurn | null {
-  if (!message.inProgress || !message.turnId) return null
-  if (message.createdAt) {
-    const at = Date.parse(message.createdAt)
-    if (!Number.isNaN(at) && Date.now() - at > LIVE_TURN_STALE_MS) return null
-  }
-  const items = [...(message.activity ?? []), ...(message.activityAfter ?? [])].filter(
-    isVisibleActivity,
-  )
-  const entries: LiveEntry[] = items.map((item) => ({ type: 'activity', item }))
-  const speech = (message.bodyText || '').trim()
-  if (speech && !CHECKPOINT_PLACEHOLDERS.has(speech)) {
-    entries.push({ type: 'speech', segmentId: 'checkpoint', text: speech })
-  }
-  return {
-    streamId: message.turnId,
-    entries,
-    active: true,
-    ended: false,
-    status: null,
-    blocks: null,
-    motion: null,
-    thinking: Object.fromEntries(
-      items.filter((item) => item.kind === 'think' && item.text).map((item) => [item.id, item.text!]),
-    ),
-  }
-}
-
-export function liveTurnFromLatestInProgress(
-  messages: Array<{
-    turnId?: string | null
-    inProgress?: boolean
-    activity?: ActivityItem[]
-    activityAfter?: ActivityItem[]
-    bodyText?: string
-    createdAt?: string | null
-  }> | null | undefined,
-): LiveTurn | null {
-  if (!messages?.length) return null
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const turn = liveTurnFromMessage(messages[i])
-    if (turn) return turn
-  }
-  return null
-}
-
-function speechOverlaps(a: string, b: string): boolean {
-  if (!a || !b) return false
-  return a === b || a.startsWith(b) || b.startsWith(a)
-}
-
-/** Keep checkpoint history when a later live event lands on the same turn. */
-export function mergeTurns(base: LiveTurn, overlay: LiveTurn): LiveTurn {
-  if (!overlay.streamId) return base
-  if (base.streamId && overlay.streamId !== base.streamId) return overlay
-  if (overlay.blocks) {
-    return {
-      ...overlay,
-      active: overlay.active || base.active,
-      thinking: { ...base.thinking, ...overlay.thinking },
-    }
-  }
-  let entries = base.entries.slice()
-  for (const entry of overlay.entries) {
-    if (entry.type === 'activity') entries = upsertItem(entries, entry.item)
-    else {
-      // Drop checkpoint / stale speech that duplicates this live segment so the
-      // timeline does not show a finished bubble beside the still-streaming one.
-      entries = entries.filter((row) => {
-        if (row.type !== 'speech') return true
-        if (row.segmentId === entry.segmentId) return true
-        if (row.segmentId === 'checkpoint' || entry.segmentId === 'checkpoint') {
-          return !speechOverlaps(row.text, entry.text)
-        }
-        return true
-      })
-      const matchAt = entries.findIndex(
-        (row) => row.type === 'speech' && row.segmentId === entry.segmentId,
-      )
-      if (matchAt >= 0) {
-        const last = entries[matchAt] as { type: 'speech'; segmentId: string; text: string }
-        entries[matchAt] = entry.text.length >= last.text.length ? entry : last
-      } else {
-        entries.push(entry)
-      }
-    }
-  }
-  return {
-    streamId: overlay.streamId || base.streamId,
-    active: overlay.active || base.active,
-    ended: overlay.ended,
-    thinking: { ...base.thinking, ...overlay.thinking },
-    status: overlay.status ?? base.status,
-    blocks: null,
-    motion: overlay.motion ?? base.motion,
-    entries,
-  }
-}
 
 /** Active turn from a plain text stream (SSE reply without gateway events). */
 export function textOnlyTurn(text: string, parts?: string[]): LiveTurn {
@@ -1150,15 +1087,4 @@ export function textOnlyTurn(text: string, parts?: string[]): LiveTurn {
       : { labelKey: 'activity.looking', label: '', tool: '', host: '', frames: [] },
     entries,
   }
-}
-
-/** True once the finished messages of this turn are in the list. */
-export function turnSaved(
-  turn: LiveTurn,
-  messages: Array<{ turnId?: string | null; inProgress?: boolean }>,
-): boolean {
-  return (
-    Boolean(turn.streamId) &&
-    messages.some((m) => m.turnId === turn.streamId && !m.inProgress)
-  )
 }

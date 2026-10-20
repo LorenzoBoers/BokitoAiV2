@@ -8,6 +8,9 @@ import { APP_VERSION } from '../lib/app-version';
 import { startGoogleSso, startMicrosoftSso } from '../lib/api';
 import { MicrosoftSignInButton } from '../components/auth/MicrosoftSignInButton';
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton';
+import { AuthShell } from '../components/auth/AuthShell';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 function slugify(value: string): string {
   return value
@@ -120,42 +123,26 @@ export default function Signup() {
     }
   }
 
-  const inputClass =
-    'w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition';
-
+  
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-4 py-10">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src="/bokito-logo.png"
-            alt="Bokito.ai"
-            className="w-12 h-12 mb-3"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">{t('signupPage.subtitle')}</span>
-        </div>
-
-        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
+    <AuthShell
+      subtitle={t('signupPage.subtitle')}
+      below={<p className="mt-1 text-center text-2xs text-text-muted/80">build: {APP_VERSION}</p>}
+    >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="first-name" className="block text-sm font-medium text-text-secondary mb-1.5">
                   {t('signupPage.firstName')}
                 </label>
-                <input
+                <Input
                   id="first-name"
                   type="text"
                   autoComplete="given-name"
                   required
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className={inputClass}
+                  className="h-10"
                   placeholder={t('signupPage.firstNamePlaceholder')}
                 />
               </div>
@@ -163,14 +150,14 @@ export default function Signup() {
                 <label htmlFor="last-name" className="block text-sm font-medium text-text-secondary mb-1.5">
                   {t('signupPage.lastName')}
                 </label>
-                <input
+                <Input
                   id="last-name"
                   type="text"
                   autoComplete="family-name"
                   required
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className={inputClass}
+                  className="h-10"
                   placeholder={t('signupPage.lastNamePlaceholder')}
                 />
               </div>
@@ -180,14 +167,14 @@ export default function Signup() {
               <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1.5">
                 {t('signupPage.workEmail')}
               </label>
-              <input
+              <Input
                 id="email"
                 type="email"
                 autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={inputClass}
+                className="h-10"
                 placeholder={t('signupPage.emailPlaceholder')}
               />
             </div>
@@ -197,7 +184,7 @@ export default function Signup() {
                 {t('loginPage.password')}
               </label>
               <div className="relative">
-                <input
+                <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="new-password"
@@ -205,7 +192,7 @@ export default function Signup() {
                   minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`${inputClass} pr-10`}
+                  className="h-10 pr-10"
                   placeholder={t('signupPage.passwordPlaceholder')}
                 />
                 <p className="mt-1 text-xs text-text-muted">
@@ -226,14 +213,14 @@ export default function Signup() {
               <label htmlFor="company" className="block text-sm font-medium text-text-secondary mb-1.5">
                 {t('signupPage.companyName')}
               </label>
-              <input
+              <Input
                 id="company"
                 type="text"
                 autoComplete="organization"
                 required
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
-                className={inputClass}
+                className="h-10"
                 placeholder={t('signupPage.companyPlaceholder')}
               />
             </div>
@@ -242,7 +229,7 @@ export default function Signup() {
               <label htmlFor="slug" className="block text-sm font-medium text-text-secondary mb-1.5">
                 {t('signupPage.workspaceUrl')}
               </label>
-              <input
+              <Input
                 id="slug"
                 type="text"
                 required
@@ -251,7 +238,7 @@ export default function Signup() {
                   setSlugTouched(true);
                   setSlug(slugify(e.target.value));
                 }}
-                className={`${inputClass} font-mono`}
+                className="h-10 font-mono"
                 placeholder={t('signupPage.slugPlaceholder')}
               />
               <p className="mt-1 text-xs text-text-muted">
@@ -267,10 +254,10 @@ export default function Signup() {
               </div>
             )}
 
-            <button
+            <Button size="lg"
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full"
             >
               {isLoading ? (
                 <>
@@ -280,7 +267,7 @@ export default function Signup() {
               ) : (
                 t('signupPage.createWorkspace')
               )}
-            </button>
+            </Button>
           </form>
 
           <div className="mt-5">
@@ -311,17 +298,6 @@ export default function Signup() {
               {t('loginPage.signIn')}
             </Link>
           </div>
-        </div>
-
-        <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-          {' · '}
-          <a href="/privacy.html" className="hover:text-accent">{t('loginPage.privacy')}</a>
-        </p>
-        <p className="text-center text-2xs text-text-muted/80 mt-1">
-          build: {APP_VERSION}
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

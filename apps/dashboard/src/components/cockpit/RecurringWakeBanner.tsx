@@ -88,11 +88,10 @@ export function RecurringWakeBanner() {
     () => ({
       title: t('cockpitPage.recurringWake.taskName'),
       repeat: DEFAULT_REPEAT,
-      agentId: 'lead',
+      owner: 'lead',
       instructions: t('cockpitPage.recurringWake.promptDefault'),
-      recipient: user?.uuid ? { kind: 'user', id: user.uuid } : null,
     }),
-    [t, user?.uuid],
+    [t],
   )
 
   if (hidden || dismissed) return null

@@ -45,6 +45,16 @@ async def _safe_publish(tenant_id: Any, topics: list[str], event: str, data: dic
         logger.exception("gateway publish failed: %s", event)
 
 
+async def _safe_log(tenant_id: Any, signal_id: Any, event: str, data: dict[str, Any]) -> None:
+    """Numbered event on the conversation's ordered stream (``services/thread_log``)."""
+    from app.services import thread_log
+
+    try:
+        await thread_log.append(tenant_id, signal_id, event, data)
+    except Exception:
+        logger.exception("thread log publish failed: %s", event)
+
+
 def _thread_row(
     signal: "Signal",
     ai_handling: dict[str, Any] | None = None,
@@ -156,6 +166,13 @@ async def publish_thread_presence(
     """
     if phase not in THREAD_PRESENCE_PHASES:
         raise ValueError(f"Unknown thread presence phase: {phase}")
+    if isinstance(item, dict) and "active_turn" in item:
+        await _safe_log(
+            tenant_id,
+            signal_id,
+            "floor",
+            {"audience": "operator", "active_turn": item.get("active_turn") or None},
+        )
     actor = {"kind": actor_kind, "id": actor_id, "name": actor_name}
     await _safe_publish(
         tenant_id,
@@ -206,12 +223,7 @@ async def publish_turn_event(
     else:
         # Thinking, tool activity and turn bookends stay on the operator socket.
         payload["audience"] = "operator"
-    await _safe_publish(
-        tenant_id,
-        [f"signal:{signal_id}"],
-        event,
-        payload,
-    )
+    await _safe_log(tenant_id, signal_id, event, payload)
     mapped = _presence_from_turn(event, payload)
     if mapped:
         await publish_thread_presence(tenant_id, signal_id, actor_kind="agent", **mapped)
@@ -254,9 +266,9 @@ async def publish_signal_message(
             "message",
             {"audience": "operator", "thread": thread_row, "message": preview},
         )
-    await _safe_publish(
+    await _safe_log(
         signal.tenant_id,
-        [f"signal:{signal.id}"],
+        signal.id,
         "message",
         {
             "audience": "operator",

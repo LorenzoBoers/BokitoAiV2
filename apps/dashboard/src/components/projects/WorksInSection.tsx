@@ -83,7 +83,7 @@ function ItemCard({
     'flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-bg-muted/40'
   return (
     <li
-      className="flex items-center gap-1 rounded-lg border border-border/60 bg-bg-surface"
+      className="panel flex items-center gap-1"
       data-testid="works-in-item"
       data-key={item.key}
     >
@@ -207,7 +207,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
           {t('projects.worksIn.title')}
         </h2>
         {canEdit && !adding ? (
-          <Button type="button" size="sm" variant="outline" className="h-7" onClick={() => setAdding(true)}>
+          <Button type="button" size="sm" variant="secondary" className="h-7" onClick={() => setAdding(true)}>
             <Plus size={13} className="mr-1" />
             {t('projects.worksIn.add')}
           </Button>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { chatRunCloses, chatRunLeads, type BubbleStack } from '../../lib/chat-layout'
 import { THREAD_GUTTER } from './ThreadMeta'
@@ -142,6 +142,8 @@ type ShellProps = {
   variant: BubbleVariant
   stack?: BubbleStack
   bubbleClassName?: string
+  /** Agent orb color. The bubble edge shines in this and fades inward. */
+  accent?: string | null
   onClick?: () => void
 }
 
@@ -160,6 +162,7 @@ export function ChatBubbleShell({
   variant,
   stack = 'single',
   bubbleClassName,
+  accent,
   onClick,
 }: ShellProps) {
   const lead = leadsRun(stack)
@@ -176,6 +179,11 @@ export function ChatBubbleShell({
     >
       <div
         data-stack={stack}
+        style={
+          accent
+            ? ({ ['--agent-tint' as string]: accent } as CSSProperties)
+            : undefined
+        }
         className={cn(
           'relative w-full px-3.5 py-2 text-base leading-relaxed',
           variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
@@ -227,6 +235,7 @@ export function ChatMessageBubble({
   stack = 'single',
   className,
   bubbleClassName,
+  accent,
   onClick,
   enter = true,
   showAvatar,
@@ -260,6 +269,7 @@ export function ChatMessageBubble({
       variant={variant}
       stack={stack}
       bubbleClassName={bubbleClassName}
+      accent={accent}
       onClick={onClick}
     />
   )

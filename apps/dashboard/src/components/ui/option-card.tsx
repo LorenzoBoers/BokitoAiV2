@@ -2,8 +2,8 @@ import * as React from 'react'
 import { cn } from '../../lib/utils'
 
 const TONE = {
-  accent: 'border-accent/50 bg-accent/5 ring-1 ring-accent/30',
-  ai: 'border-ai/50 bg-ai/5 ring-1 ring-ai/30',
+  accent: 'border-accent/60 bg-accent/5',
+  ai: 'border-ai/60 bg-ai/5',
 } as const
 
 type OptionCardProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'title'> & {

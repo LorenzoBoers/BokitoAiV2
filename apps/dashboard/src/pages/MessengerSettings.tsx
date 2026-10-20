@@ -67,6 +67,7 @@ import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
 import { inboxPath } from '../lib/messages-paths'
 import { toast } from 'sonner'
+import { TextLink } from '../components/ui/text-link'
 
 type CustomizationPanel = 'content' | 'styling'
 type PreviewTheme = 'light' | 'dark'
@@ -91,11 +92,11 @@ function ColorField({
           className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
         />
       </label>
-      <input
+      <Input
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
-        className="w-28 rounded-lg border border-border/60 bg-bg-surface/50 px-3 py-2 font-mono text-sm text-text-primary focus:border-accent/55 focus:outline-none"
+        className="w-28 font-mono"
       />
     </div>
   )
@@ -985,14 +986,14 @@ function MessengerSettingsContent({
                 ))}
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   {installSnippetCopied ? (
-                    <button
+                    <TextLink
                       type="button"
                       onClick={() => navigate(assistantSettingsPath('external', 'customization'))}
-                      className="text-xs font-medium text-accent hover:underline"
+                      className="text-xs"
                       title={t('messengerPage.checkInstallationHint')}
                     >
                       {t('messengerPage.checkInstallation')}
-                    </button>
+                    </TextLink>
                   ) : null}
                   <Link
                     to={inboxPath('open')}

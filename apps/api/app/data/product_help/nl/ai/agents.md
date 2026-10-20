@@ -2,7 +2,7 @@
 title: Zo werken Agents
 intro: De bibliotheek van AI-werkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en brief.
 description: Brief bedrijfsagents, zet chattoegang, deactiveer ze, voeg een handtekening toe en stel naam, functie, omschrijving of bot-uiterlijk in.
-keywords: agents, ai-workforce, deactiveren, opnieuw activeren, chattoegang, handtekening, avatar, bot, kleur, standaardagent
+keywords: agents, ai-workforce, deactiveren, opnieuw activeren, chattoegang, handtekening, avatar, bot, kleur, standaardagent, definitie, bevoegdheid, subagent
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -48,6 +48,25 @@ Nieuwe gesprekken in Communicatie vereisen een **bedrijfsagent**. Als er geen be
 
 Versturen naar klanten vraagt altijd, wat de regels ook zeggen. Agents kunnen zelf een regel voorstellen; die komt als kaart in het gesprek om te bevestigen.
 
+## Bepaal wat de agent mag aanraken
+
+De kaart **Definitie** beperkt een agent verder dan zijn toollijst en bepaalt hoe een beurt moet eindigen.
+
+1. Open de agent, kies het tandwiel en zoek **Definitie**.
+2. Zet **Bevoegdheid**: **Alle tools**, **Geen ingrijpende tools** (verstuurt nooit naar klanten en doet geen andere ingrijpende wijzigingen) of **Alleen lezen**.
+3. Zet **Prompt**: **Aanvullen op Bokito-prompt** houdt de werkregels van Bokito en voegt de instructies toe; **Alleen eigen prompt** gebruikt alleen de instructies.
+4. Vul **Geblokkeerde tools** in (geblokkeerd, ook als de toollijst ze noemt), **Vaardigheden** (paden van workspace-documenten die de agent leest wanneer ze van toepassing zijn), **Moet eindigen met** (de agent krijgt een herinnering tot hij een van deze tools aanroept, maximaal 8 keer per beurt) en **MCP-servers**.
+5. Kies **Opslaan**. Agents die klantmail beantwoorden eindigen een beurt altijd met een conceptantwoord, een notitie dat er geen antwoord nodig is, een beslissing of een verstuurd antwoord.
+
+## Laat een agent een deeltaak uitbesteden
+
+Een agent kan een subagent starten voor een zijtaak, zoals uitzoekwerk, terwijl hij zelf doorwerkt.
+
+1. Vraag de agent in een gesprek om iets op te zoeken of na te gaan.
+2. Het gesprek toont één regel **Subagent {agent}: {taak}** met de status: **In de wachtrij**, **Bezig**, **Klaar**, **Mislukt** of **Gestopt**.
+3. Kies de regel om het resultaat te lezen. De subagent schrijft zelf nooit in het gesprek; de agent die hem startte gebruikt het resultaat in zijn eigen antwoord.
+4. Per werkruimte draaien maximaal 32 subagents tegelijk, en een subagent kan geen nieuwe starten.
+
 ## Kies wie de agent iets vraagt
 
 1. Open de agent en zoek **Vragen stellen aan**.
@@ -56,10 +75,10 @@ Versturen naar klanten vraagt altijd, wat de regels ook zeggen. Agents kunnen ze
 
 ## Haal een andere agent in een gesprek
 
-1. Open in **Communicatie** een gesprek. Noem een agent met `@` in een notitie of bericht (zelfde chip als bij mensen), of gebruik **Haal een agent erbij** voor een stille Ask-sessie.
+1. Open in **Communicatie** een gesprek. Typ op **Team** `@` of kies de **@**-knop ernaast en kies een agent (zelfde chip als bij mensen), of gebruik **Haal een agent erbij** voor een stille sessie. Zonder tag is het bericht voor het hele team en antwoordt de agent die het laatst sprak, tenzij een andere deelnemer duidelijk beter past.
 2. `@` maakt ze deelnemer en geeft ze een beurt (zelfde model als de websitewidget en peer-chats). Noem twee agents, of schrijf "allebei", en ze antwoorden na elkaar in de volgorde waarin je ze noemde. Avatars onder het onderwerp tonen wie meedoet; **Wacht op …** toont wie de volgende is.
-3. Agents stellen elkaar zelf een vraag of dragen het gesprek over; de activiteitsregel toont **{naam} gevraagd** of **Overgedragen aan {naam}**, en het antwoord verschijnt in het gesprek. Na een paar agentbeurten zonder jou stoppen ze met één regel die de beurt aan jou teruggeeft. Een nieuw bericht van jou vervangt beurten die nog wachtten, en **Stop** beëindigt de lopende beurt en alles wat klaarstaat.
-4. Leads nodigen modulespecialisten uit (Koppelingen → Aannemen / Installeren) in plaats van module- of hashtagwerk zelf te doen. Peer-chats via **start conversation** zien eruit als elk ander intern gesprek.
+3. Agents stellen elkaar zelf een vraag of dragen het gesprek over. Een agentbubbel die begint met de chip van een andere agent is een vraag aan die agent; een naam midden in een zin is alleen een link. De activiteitsregel toont **{naam} gevraagd** of **Overgedragen aan {naam}**, en het antwoord verschijnt in het gesprek. Na een paar agentbeurten zonder jou stoppen ze met één regel die de beurt aan jou teruggeeft. Een nieuw bericht van jou vervangt beurten die nog wachtten, en **Stop** beëindigt de lopende beurt en alles wat klaarstaat.
+4. Leads nodigen modulespecialisten uit (Koppelingen → Aannemen / Installeren) in plaats van module- of hashtagwerk zelf te doen. Peer-chats via **start conversation** zien eruit als elk ander intern gesprek; zijtaken gaan via een subagent (zie hieronder).
 
 ## Neem een modulespecialist aan
 
@@ -93,8 +112,8 @@ Sommige agents horen bij een module (bijvoorbeeld een aangenomen Boekhouding-spe
 
 1. Open een bedrijfsagent.
 2. Hover de **naam**: die wordt een pil met een pennetje. Een klik opent dezelfde dialoog als het potlood op het agentmark (of **Bewerken** via het ···-menu).
-3. Pas de **naam** aan, vul de verplichte **Functie** in (max. 32 tekens; onder de naam in de markkleur), voeg optioneel een langere **Omschrijving** toe, kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht (snelkeuze: paars, de workspace-accentkleur en grijs; open **Meer kleuren** voor de rest), en sla op. Instructies staan in het tandwiel; dat is niet deze omschrijving.
-4. Onder **Bekijk beweging** probeer **Idle**, **Denkt**, **Typt**, **Werkt** en korte reacties (**Ja**, **Nee**, **Alert**, **Sprong**). In live chats volgt het gezicht de beurt: denkt tijdens redeneren, typt tijdens streamen, werkt tijdens tools; goedkeuren of afwijzen speelt een korte ja/nee-reactie.
+3. Pas de **naam** aan, vul de verplichte **Functie** in (max. 32 tekens; onder de naam in de markkleur), voeg optioneel een langere **Omschrijving** toe, kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht (snelkeuze: paars, de workspace-accentkleur en grijs; open **Meer kleuren** voor de rest), en sla op. De lichamen van Claude en Cursor houden hun originele kleuren; voor die vormen is de kleurkeuze verborgen. Instructies staan in het tandwiel; dat is niet deze omschrijving.
+4. Onder **Bekijk beweging** probeer de stemmingen (**Idle**, **Luistert**, **Denkt**, **Typt**, **Werkt**, **Zoekt**, **Schrijft**, **Verstuurt**, **Slaapt**) en de korte reacties (**Ja**, **Nee**, **Alert**, **Sprong**, **Klaar**, **Vertrekt**). In live chats volgt het gezicht de beurt: luistert terwijl je typt, denkt tijdens redeneren, zoekt tijdens opzoeken, schrijft tijdens een voorstel, verstuurt bij overdracht aan een collega en typt tijdens streamen. Aan het eind van de beurt toont het klaar, vertrekt het na een overdracht of toont het een alert na een fout. Drukke stemmingen en reacties gloeien in de kleur van de stemming. In rust kijkt het gezicht naar je cursor en leunt het er een beetje naartoe.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.
 

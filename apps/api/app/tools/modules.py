@@ -468,8 +468,8 @@ register_tool(
         name="set_connection_scope",
         description=(
             "Limit where and by whom a connection (registration) may be used. "
-            "project_ids links it exclusively to those projects (empty list = "
-            "workspace-wide). access replaces who may use or manage it: entries "
+            "project_ids links it exclusively to those folders, where it shows "
+            "under Works in (empty list = workspace-wide). access replaces who may use or manage it: entries "
             "{kind: user|agent|team, id, level: use|manage}; null restores the "
             "default (all people and agents may use it). Always asks for approval."
         ),

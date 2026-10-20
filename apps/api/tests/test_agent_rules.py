@@ -121,11 +121,13 @@ async def test_agent_rules_crud_and_member_cannot_grant(client: AsyncClient, ses
 async def test_hard_rule_lets_agent_act_and_try_out_reports_it(client: AsyncClient, session_override):
     owner = await _login(client)
     tenant_id, agent_id = await _agent(session_override)
-    await _pin_ask(client, owner)
+    r = await client.put("/api/govern/allowances", headers=owner, json={"allowances": {"delegation": "ask"}})
+    assert r.status_code == 200, r.text
 
     r = await client.post(f"/api/workforce/agents/{agent_id}/rules/test", headers=owner, json={"tool": "create_task"})
     assert r.status_code == 200, r.text
     assert r.json()["outcome"] == "asks"
+    assert r.json()["stage"] == "mode"
 
     r = await client.put(
         f"/api/workforce/agents/{agent_id}/rules",
@@ -137,7 +139,15 @@ async def test_hard_rule_lets_agent_act_and_try_out_reports_it(client: AsyncClie
     r = await client.post(f"/api/workforce/agents/{agent_id}/rules/test", headers=owner, json={"tool": "create_task"})
     body = r.json()
     assert body["outcome"] == "runs"
+    assert body["stage"] == "grants"
     assert body["rule"]["id"] == rule_id
+
+    # A remembered grant never widens an explicit ask pin.
+    await _pin_ask(client, owner)
+    r = await client.post(f"/api/workforce/agents/{agent_id}/rules/test", headers=owner, json={"tool": "create_task"})
+    assert r.json()["outcome"] == "asks"
+    assert r.json()["reason"] == "tool_override"
+    await client.put("/api/govern/tool-overrides", headers=owner, json={"tool_name": "create_task", "mode": None})
 
     r = await client.post(
         f"/api/workforce/agents/{agent_id}/rules/test",

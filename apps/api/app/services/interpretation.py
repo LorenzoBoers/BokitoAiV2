@@ -213,6 +213,7 @@ async def apply_thread_read(
     agent_id: Optional[UUID] = None,
     agent_name: Optional[str] = None,
     body_quote: str = "",
+    run_id: Optional[UUID] = None,
 ) -> dict:
     """Persist a structured thread read and apply tags / ticket / backlog.
 
@@ -319,6 +320,7 @@ async def apply_thread_read(
         agent_name=agent_name,
         tags_applied=tags_applied or None,
         ticket_tag=ticket_tag_name or None,
+        extra_payload={"run_id": str(run_id)} if run_id else None,
     )
 
     if signal.project_id and intent in ("implementation_request", "bug_report"):

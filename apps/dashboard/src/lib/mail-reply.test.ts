@@ -80,6 +80,33 @@ describe('mail-reply', () => {
     expect(intent.quotedHtml).toContain('Ha Lorenzo')
   })
 
+  it('forward seeds file attachments and skips inline images', () => {
+    const intent = buildMailDraftIntent(
+      msg({
+        attachments: [
+          { id: 'f1', name: 'invoice.pdf', mime: 'application/pdf', size: 12, url: 'https://x/f' },
+          { id: 'i1', name: 'logo.png', mime: 'image/png', size: 4, url: 'https://x/i', inline: true },
+        ],
+      }),
+      'forward',
+      { ownAddresses: ['me@firm.nl'] },
+    )
+    expect(intent.attachments?.map((att) => att.id)).toEqual(['f1'])
+  })
+
+  it('reply does not carry the original files', () => {
+    const intent = buildMailDraftIntent(
+      msg({
+        attachments: [
+          { id: 'f1', name: 'invoice.pdf', mime: 'application/pdf', size: 12, url: 'https://x/f' },
+        ],
+      }),
+      'reply',
+      { ownAddresses: ['me@firm.nl'] },
+    )
+    expect(intent.attachments).toEqual([])
+  })
+
   it('canReplyAll is false for single-recipient mail', () => {
     expect(canReplyAll(msg({ toHeader: 'me@firm.nl', cc: null }), ['me@firm.nl'])).toBe(false)
     expect(canReplyAll(msg(), ['me@firm.nl'])).toBe(true)

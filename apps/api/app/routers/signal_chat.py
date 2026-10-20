@@ -40,7 +40,7 @@ from app.services.assistant_threads import (
     serialize_chat_message,
     signal_chat_history,
 )
-from app.services.conversation_title import maybe_apply_intent_title
+from app.services.conversation_title import apply_title_once
 from app.services.personal_agents import (
     allowed_company_agents,
     get_user_preference,
@@ -61,6 +61,8 @@ ASSISTANT_CHANNELS = OPERATOR_CHAT_CHANNELS
 # Last-resort age cap. The turn usually lives on the worker, so a missing
 # in-process task is not a ghost. Only age (or Stop) reclaims the row.
 CHAT_BUSY_STALE = timedelta(minutes=15)
+# A live turn that sent nothing for this long has no writer left.
+DEAD_TURN_AFTER = timedelta(minutes=2)
 _LIVE_CHAT_TURNS: dict[str, asyncio.Task] = {}
 _CHAT_START_LOCKS: dict[str, asyncio.Lock] = {}
 
@@ -100,8 +102,8 @@ async def _put_sse(queue: asyncio.Queue, event: str, data: dict[str, Any]) -> No
 
 
 def _apply_intent_title_once(signal: Signal, content: str) -> None:
-    """Replace the placeholder list title once, with a short intent label."""
-    maybe_apply_intent_title(signal, content)
+    """Provisional list title now; one AI refine follows when still blank."""
+    apply_title_once(signal, content)
 
 
 async def _set_chat_agent_live(
@@ -165,12 +167,6 @@ class MessageCreate(BaseModel):
     # After create-with-message: run the agent on the last user bubble without
     # appending a duplicate. content may be empty; the last user message is used.
     continue_pending: bool = False
-    # Ask target when the operator @-tagged (or focused) a peer on an internal
-    # thread. Without this, SSE always drove signal.agent_id (channel default).
-    agent_id: UUID | None = None
-    # Agents selected on the Ask tab. Unioned with @mentions in the body.
-    # The bubble stays the typed text; the button does not have to write chips.
-    audience_agent_ids: list[UUID] = []
 
 
 async def _resolve_turn_content(
@@ -488,13 +484,7 @@ async def send_message(
         if is_held(signal):
             await _hand_back_on_operator_ask(session, signal, auth)
 
-        agent, run = await _agent_run(
-            session,
-            auth,
-            signal,
-            turn_content,
-            prefer_agent_id=body.agent_id,
-        )
+        agent, run = await _agent_run(session, auth, signal, turn_content)
         req_task = asyncio.current_task()
         if req_task:
             _track_chat_turn(conversation_id, req_task)
@@ -526,7 +516,7 @@ async def send_message(
         try:
             reply_text, tokens = await loop.run_chat(
                 history,
-                extra_context=page_context_block(body.page_context),
+                extra_context=_with_addressing(page_context_block(body.page_context), turn_content, agent),
                 attachments=turn_attachments,
             )
         except Exception as exc:
@@ -648,13 +638,12 @@ async def _persist_failed_chat_turn(
     error: BaseException | None = None,
     abandoned: bool = False,
 ) -> None:
-    """Finalize a crashed/cancelled Ask: seal the checkpoint, one error bubble, wake.
+    """Finalize a crashed/cancelled Ask: close the live turn, one error bubble, wake.
 
-    Never leave ``in_progress`` + “Update folder canvas” under a separate error
-    card — that is what hard refresh used to show after a mid-tool crash.
+    The error bubble carries the work the turn did, so the trail and the
+    failure read as one row.
     """
     from app.services.agent.run_cancel import clear_cancel
-    from app.services.agent.turn_persist import seal_in_progress_checkpoints
 
     await _finalize_run(session, run, status="failed", error=error if isinstance(error, Exception) else None)
     try:
@@ -669,13 +658,16 @@ async def _persist_failed_chat_turn(
         logger.debug("clear floor after failed chat turn failed", exc_info=True)
 
     sealed = False
-    checkpoint_id = getattr(loop, "_checkpoint_message_id", None) if loop is not None else None
-    had_partial_work = bool(checkpoint_id) or (
+    had_partial_work = (
         loop is not None
         and loop.turn is not None
         and bool(getattr(loop.turn, "all_activity", lambda: [])())
     )
     if loop is not None and loop.turn is not None:
+        try:
+            await loop.turn.finish("error")
+        except Exception:  # noqa: BLE001
+            logger.debug("closing the live turn after a chat failure failed", exc_info=True)
         try:
             await loop.persist_turn(
                 signal,
@@ -691,33 +683,18 @@ async def _persist_failed_chat_turn(
         except Exception:  # noqa: BLE001
             logger.exception("persist_turn after chat failure failed for %s", signal.id)
     if not sealed:
-        rewritten = await seal_in_progress_checkpoints(
+        await append_signal_chat_message(
             session,
             signal,
-            error_text=error_text,
+            role="assistant",
+            content=error_text,
             author_agent_id=agent.id if agent else None,
-            replace_with_error=True,
-            checkpoint_message_id=checkpoint_id,
+            metadata={
+                "error": True,
+                **({"abandoned_stream": True} if abandoned else {}),
+                **llm_meta,
+            },
         )
-        if rewritten:
-            sealed = True
-            had_partial_work = True
-        else:
-            await append_signal_chat_message(
-                session,
-                signal,
-                role="assistant",
-                content=error_text,
-                author_agent_id=agent.id if agent else None,
-                metadata={
-                    "error": True,
-                    **({"abandoned_stream": True} if abandoned else {}),
-                    **llm_meta,
-                },
-            )
-    else:
-        # persist_turn replaced the checkpoint; still seal any twin orphans.
-        await seal_in_progress_checkpoints(session, signal)
 
     if loop is not None:
         await loop.end_inline_turn("error")
@@ -965,37 +942,23 @@ async def stream_message(
         if is_held(signal):
             await _hand_back_on_operator_ask(session, signal, auth)
 
-        # Two or more people in the message: one stick, one agent job.
-        # The worker streams over the gateway. This SSE only confirms the handoff.
+        # Several people tagged, or only colleagues: the stick decides and the
+        # worker streams over the gateway. This SSE only confirms the handoff.
         from app.services.agent_turns import cancel_turns, latest_human_message_id
         from app.services.handoff_sessions import expand_invitees
-        from app.services.pass_stick import pass_stick
+        from app.services.pass_stick import _user_mentions, pass_stick
 
         message_id = await latest_human_message_id(session, signal.id)
-        invitees = await expand_invitees(
-            session,
-            auth.tenant.id,
-            signal,
-            turn_content,
-            extra_agent_ids=body.audience_agent_ids,
-        )
-        if invitees["agents"] and invitees["total"] >= 2:
+        invitees = await expand_invitees(session, auth.tenant.id, signal, turn_content)
+        colleagues_only = not invitees["agents"] and bool(_user_mentions(turn_content))
+        if (invitees["agents"] and invitees["total"] >= 2) or colleagues_only:
             author_name = (
                 (auth.user.display_name or auth.user.email) if auth.user else ""
             )
-            # Focus-picker agents that are not in the text still count.
-            extra = ""
-            for raw_id in body.audience_agent_ids or []:
-                agent_row = await session.get(Agent, raw_id)
-                if agent_row is None:
-                    continue
-                chip = f"@[{agent_row.name}](agent:{agent_row.id})"
-                if chip not in turn_content:
-                    extra += f" {chip}"
             moved = await pass_stick(
                 session,
                 signal,
-                body_text=(turn_content + extra).strip(),
+                body_text=turn_content,
                 author_kind="user",
                 author_id=auth.user.id,
                 author_name=author_name or "",
@@ -1036,13 +999,7 @@ async def stream_message(
         agent = None
         run = None
         try:
-            agent, run = await _agent_run(
-                session,
-                auth,
-                signal,
-                turn_content,
-                prefer_agent_id=body.agent_id,
-            )
+            agent, run = await _agent_run(session, auth, signal, turn_content)
             await _set_chat_agent_live(
                 session, agent, status="working", signal=signal, run=run, summary=turn_content
             )
@@ -1091,7 +1048,7 @@ async def stream_message(
             run_id=run.id if run else None,
             context_signal_id=signal.context_signal_id,
             history=[],
-            extra_context=page_context_block(body.page_context),
+            extra_context=_with_addressing(page_context_block(body.page_context), turn_content, agent),
             attachments=turn_attachments,
             turn_content=turn_content,
             llm_meta=llm_meta,
@@ -1270,7 +1227,7 @@ def _should_reclaim_chat_run(conversation_id: UUID, started: datetime) -> bool:
 async def reclaim_orphaned_chat_runs() -> int:
     """Finalize leftover chat runs after API boot (in-process turns die with uvicorn)."""
     from app.services.agent.run_cancel import clear_cancel
-    from app.services.agent.turn_persist import seal_in_progress_checkpoints
+    from app.services.agent.turn_persist import end_dead_turns
 
     async with async_session_factory() as session:
         result = await session.execute(
@@ -1289,14 +1246,14 @@ async def reclaim_orphaned_chat_runs() -> int:
             signal = await session.get(Signal, signal_id)
             if signal is None:
                 continue
-            await seal_in_progress_checkpoints(
+            await end_dead_turns(
                 session,
                 signal,
                 error_text=(
                     "The assistant stopped unexpectedly while working. "
                     "Send your message again, or ask me to continue."
                 ),
-                replace_with_error=True,
+                older_than=DEAD_TURN_AFTER,
             )
         for agent_id in agent_ids:
             agent = await session.get(Agent, agent_id)
@@ -1323,12 +1280,12 @@ async def _ensure_session_idle(
             datetime.utcnow() - started,
             _chat_turn_is_live(conversation_id),
         )
-        from app.services.agent.turn_persist import seal_in_progress_checkpoints
+        from app.services.agent.turn_persist import end_dead_turns
 
         await _finalize_run(session, busy, status="failed")
         signal = await session.get(Signal, conversation_id)
         if signal is not None:
-            await seal_in_progress_checkpoints(
+            await end_dead_turns(
                 session,
                 signal,
                 error_text=(
@@ -1336,7 +1293,7 @@ async def _ensure_session_idle(
                     "Send your message again, or ask me to continue."
                 ),
                 author_agent_id=busy.agent_id,
-                replace_with_error=True,
+                older_than=DEAD_TURN_AFTER,
             )
         await session.commit()
         clear_cancel(busy.id)
@@ -1394,69 +1351,41 @@ async def _resolve_ask_agent(
     auth,
     signal: Signal,
     content: str,
-    *,
-    prefer_agent_id: UUID | None = None,
-) -> Agent | None:
-    """Who should answer this Ask: sole @agent → Ask focus → last speaker → thread.
+) -> tuple[Agent | None, str]:
+    """Who answers this message: the one addressed agent, else the team router."""
+    from app.services.addressing import resolve
+    from app.services.team_router import pick_responder
 
-    A typed ``@Agent`` chip beats a stale Ask-tab / channel ``agent_id`` (e.g.
-    Orchestrator still focused after a group handoff while the body only tags
-    Bokito). Untagged follow-ups without ``prefer_agent_id`` stay with the last
-    agent author so a Bokito reply is not stolen by the channel Orchestrator.
-    Multi-agent Ask already branched into handoff above.
-    """
-    from sqlalchemy import desc
+    async def live(agent_id: UUID | None) -> Agent | None:
+        if agent_id is None:
+            return None
+        agent = await session.get(Agent, agent_id)
+        if agent is None or agent.tenant_id != auth.tenant.id or not agent.is_active:
+            return None
+        return agent
 
-    from app.models.signal import SignalMessage
-    from app.services.thread_dispatch import entity_mentions
-
-    agent_ids = [tid for kind, tid in entity_mentions(content) if kind == "agent"]
+    agent_ids = [tid for _kind, tid in resolve(content).addressed("agent")]
     if len(agent_ids) == 1:
-        result = await session.execute(
-            select(Agent).where(
-                Agent.id == agent_ids[0],
-                Agent.tenant_id == auth.tenant.id,
-                Agent.is_active.is_(True),
-            )
-        )
-        picked = result.scalar_one_or_none()
+        picked = await live(agent_ids[0])
         if picked:
-            return picked
-    if prefer_agent_id:
-        result = await session.execute(
-            select(Agent).where(
-                Agent.id == prefer_agent_id,
-                Agent.tenant_id == auth.tenant.id,
-                Agent.is_active.is_(True),
-            )
-        )
-        picked = result.scalar_one_or_none()
-        if picked:
-            return picked
-    last_author = (
-        await session.execute(
-            select(SignalMessage.author_agent_id)
-            .where(
-                SignalMessage.signal_id == signal.id,
-                SignalMessage.author_agent_id.is_not(None),
-                SignalMessage.kind == "agent_message",
-            )
-            .order_by(desc(SignalMessage.created_at))
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if last_author and last_author != signal.agent_id:
-        result = await session.execute(
-            select(Agent).where(
-                Agent.id == last_author,
-                Agent.tenant_id == auth.tenant.id,
-                Agent.is_active.is_(True),
-            )
-        )
-        picked = result.scalar_one_or_none()
-        if picked:
-            return picked
-    return await _resolve_thread_agent(session, auth, signal)
+            return picked, "mention"
+    pick = await pick_responder(session, signal, content)
+    picked = await live(pick.agent_id)
+    if picked:
+        return picked, pick.reason
+    return await _resolve_thread_agent(session, auth, signal), "owner"
+
+
+def _with_addressing(block: str | None, content: str, agent: Agent | None) -> str | None:
+    """Page context plus whether this agent was addressed or only named."""
+    if agent is None:
+        return block
+    from app.services.addressing import turn_line
+
+    line = turn_line(content or "", agent.id)
+    if not line:
+        return block
+    return f"{block}\n\n{line}" if block else line
 
 
 async def _agent_run(
@@ -1464,12 +1393,8 @@ async def _agent_run(
     auth,
     signal: Signal,
     content: str,
-    *,
-    prefer_agent_id: UUID | None = None,
 ):
-    agent = await _resolve_ask_agent(
-        session, auth, signal, content, prefer_agent_id=prefer_agent_id
-    )
+    agent, reason = await _resolve_ask_agent(session, auth, signal, content)
     run = None
     if agent:
         run = AgentRun(
@@ -1479,6 +1404,7 @@ async def _agent_run(
             trigger_id=str(signal.id),
             subject=f"Chat: {content[:80]}",
             signal_id=signal.id,
+            result_json=json.dumps({"routing": {"reason": reason}}),
         )
         session.add(run)
         await session.commit()

@@ -453,7 +453,10 @@ register_tool(
     ToolSpec(
         name="list_folders",
         description=(
-            "List the tenant's folders (id, slug, tag_ids, tag_names, label, path). "
+            "List folders (Werkmappen): places where work on one subject is filed. "
+            "Not departments (Afdelingen). When someone says werkmap or folder, or "
+            "wants to store work in one, use this tool — never list_departments. "
+            "Returns id, slug, tag_ids, tag_names, label, path. "
             "Prefer the folder id as parent_id for create_folder. A lookup does "
             "not show cards. Call attach_items (type folder) when you want "
             "folder cards, and chip names inline with [Name](path) using the "
@@ -471,10 +474,10 @@ register_tool(
     ToolSpec(
         name="create_queue_item",
         description=(
-            "Turn one distinct issue from this chat into project work. Call once "
+            "Turn one distinct issue from this chat into work in a folder. Call once "
             "per issue (three bugs → three calls). This chat stays the reporting "
             "thread; each call spawns a child conversation, files it as a ticket "
-            "when kind matches an action tag on the project (bug → #bug, feature → "
+            "when kind matches a label with a flow on the folder (bug → #bug, feature → "
             "#feature), and showcases that ticket in your reply. Do not use "
             "split_conversation on assistant chats — that tool is for customer "
             "threads only. Under 'ask' policy this renders an inline proposal card."
@@ -483,7 +486,7 @@ register_tool(
         input_schema={
             "type": "object",
             "properties": {
-                "project_id": {"type": "string", "description": "Project id or slug; omit to use the thread's project."},
+                "project_id": {"type": "string", "description": "Folder id or slug; omit to use the thread's folder."},
                 "kind": {"type": "string", "enum": ["feature", "bug", "task", "idea", "risk"]},
                 "title": {"type": "string"},
                 "body": {"type": "string", "description": "Context: what, why, and the source quote."},
@@ -563,7 +566,7 @@ register_tool(
         description=(
             "Link a queue item to a knowledge document it implements, modifies, "
             "touches, or documents. Prefer doc_id (document-level). section_id is "
-            "legacy only. Get doc ids from list_project_docs or list_docs."
+            "legacy only. Get doc ids from list_folder_docs or list_docs."
         ),
         category="projects",
         input_schema={
@@ -614,7 +617,7 @@ register_tool(
 register_tool(
     ToolSpec(
         name="list_folder_docs",
-        description="List a project's documentation with section statuses and linked queue items.",
+        description="List a folder's documentation with section statuses and linked queue items.",
         category="projects",
         input_schema={
             "type": "object",
@@ -630,9 +633,10 @@ register_tool(
     ToolSpec(
         name="list_folder_resources",
         description=(
-            "List external resources linked to a project (repo, drive, notion, "
-            "vibecode, connection). Connection rows are integrations exclusive "
-            "to this project; their connection_id works with set_connection_scope."
+            "List a folder's Works in items that live outside Bokito (repo, drive, "
+            "notion, vibecode, connection). Work written through these lands in the "
+            "folder as Delivered. Connection rows belong to this folder only; their "
+            "connection_id works with set_connection_scope."
         ),
         category="projects",
         input_schema={
@@ -649,9 +653,9 @@ register_tool(
     ToolSpec(
         name="propose_folder_resource",
         description=(
-            "Propose linking an external resource (repo, drive, notion, sheet, "
-            "vibecode, site) to a project. Records the slot and reference; the "
-            "actual connector is configured later by a human."
+            "Propose adding an external resource (repo, drive, notion, sheet, "
+            "vibecode, site) to a folder's Works in. Records the slot and reference; "
+            "the actual connector is configured later by a human."
         ),
         category="projects",
         input_schema={

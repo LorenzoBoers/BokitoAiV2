@@ -74,14 +74,17 @@ type Props = {
   emptyHint?: ReactNode
   onRetry?: () => void
   lastMailboxSyncAt?: string | null
-  /** Open or closed within this folder. Absent on Spam and Scheduled. */
+  /** Open, scheduled or closed within this folder. Absent on Spam. */
   statusSegment?: {
-    value: 'open' | 'closed'
+    value: ThreadListStatus
     openCount: number | null
+    scheduledCount: number | null
     closedCount: number | null
-    onChange: (value: 'open' | 'closed') => void
+    onChange: (value: ThreadListStatus) => void
   }
 }
+
+export type ThreadListStatus = 'open' | 'scheduled' | 'closed'
 
 function OutsideFiltersMarker({ label }: { label: string }) {
   return (
@@ -442,6 +445,13 @@ export default function ThreadList({
                   statusSegment.openCount == null
                     ? t('threadList.statusOpen')
                     : t('threadList.statusOpenCount', { count: statusSegment.openCount }),
+              },
+              {
+                value: 'scheduled',
+                label:
+                  statusSegment.scheduledCount == null
+                    ? t('threadList.statusScheduled')
+                    : t('threadList.statusScheduledCount', { count: statusSegment.scheduledCount }),
               },
               {
                 value: 'closed',

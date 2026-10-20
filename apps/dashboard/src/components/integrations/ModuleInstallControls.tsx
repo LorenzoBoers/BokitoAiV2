@@ -114,7 +114,7 @@ export function ModuleInstallControls({ module, onAction, compact = false, hideU
 
   if (comingSoon) {
     return (
-      <Button type="button" size="sm" variant="outline" disabled>
+      <Button type="button" size="sm" variant="secondary" disabled>
         {t('integrations.modules.comingSoon', { defaultValue: 'Coming soon' })}
       </Button>
     )
@@ -184,7 +184,7 @@ export function ModuleInstallControls({ module, onAction, compact = false, hideU
         <Button
           type="button"
           size="sm"
-          variant={compact ? 'destructive' : 'outline'}
+          variant={compact ? 'destructive' : 'secondary'}
           disabled={busy}
           onClick={() => setUninstallStep(1)}
         >

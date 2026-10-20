@@ -103,12 +103,12 @@ def test_seat_shared_members_sits_between_all_and_departments():
         regions,
     )
     ax, ay = logical["agent:1"]
-    assert math.hypot(ax, ay) > 64
+    assert math.hypot(ax, ay) > ALL_AREA_RADIUS
     assert math.hypot(ax - 0, ay - 200) > 40
     assert math.hypot(ax - 200, ay - 0) > 40
     ux, uy = logical["user:2"]
     assert abs(ux) < 1
-    assert 64 < uy < 160
+    assert ALL_AREA_RADIUS < uy < 160
     assert logical["department:all"] == (0.0, 0.0)
 
 
@@ -128,8 +128,8 @@ def test_seat_shared_members_spreads_people_on_the_same_island():
     ax, ay = logical["agent:boekito"]
     bx, by = logical["agent:assistant"]
     assert math.hypot(ax - bx, ay - by) >= MEMBER_CLEARANCE - 0.1
-    assert math.hypot(ax, ay) > 64
-    assert math.hypot(bx, by) > 64
+    assert math.hypot(ax, ay) > ALL_AREA_RADIUS
+    assert math.hypot(bx, by) > ALL_AREA_RADIUS
 
 
 def test_clear_all_halo_opens_a_corridor():

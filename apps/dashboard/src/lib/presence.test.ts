@@ -21,7 +21,7 @@ describe('presence visual map', () => {
   })
 
   it('shows deactivated agents in a muted badge', () => {
-    expect(presenceBadgeVariant('deactivated')).toBe('secondary')
+    expect(presenceBadgeVariant('deactivated')).toBe('neutral')
   })
 
   it('never shows the open account tab as offline', () => {

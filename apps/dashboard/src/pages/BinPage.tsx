@@ -183,7 +183,7 @@ export default function BinPage() {
             filtered ? (
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 onClick={() => {
                   setType(null)
                   setQ('')
@@ -244,7 +244,7 @@ export default function BinPage() {
 
       {nextOffset != null && !loading ? (
         <div className="flex justify-center">
-          <Button size="sm" variant="outline" disabled={loadingMore} onClick={() => void loadMore()}>
+          <Button size="sm" variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>
             {loadingMore ? t('binPage.loadingMore') : t('binPage.loadMore')}
           </Button>
         </div>
@@ -252,7 +252,7 @@ export default function BinPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
         <p className="text-xs text-text-muted">{t('binPage.retention', { days })}</p>
-        <Button variant="outline" size="sm" disabled={busyId === 'empty' || items.length === 0} onClick={() => void onEmpty()}>
+        <Button variant="secondary" size="sm" disabled={busyId === 'empty' || items.length === 0} onClick={() => void onEmpty()}>
           {t('binPage.emptyBin')}
         </Button>
       </div>

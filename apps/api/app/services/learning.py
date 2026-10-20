@@ -706,6 +706,10 @@ async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[Ev
     ).one()
     csat_avg, csat_count = csat_row[0], int(csat_row[1] or 0)
 
+    from app.services.auto_review import agreement
+
+    review_agreement = await agreement(session, tenant_id, days=7)
+
     total_actions = int(auto_executed or 0) + int(escalated or 0)
     autonomy_rate = round((auto_executed / total_actions * 100) if total_actions else 0, 1)
     escalation_rate = round((escalated / total_actions * 100) if total_actions else 0, 1)
@@ -716,6 +720,7 @@ async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[Ev
         ("resolution_quality", float(feedback_avg or 0), int(feedback_avg is not None)),
         ("open_decisions", float(open_decisions or 0), 1),
         ("csat", round(float(csat_avg), 2) if csat_avg is not None else 0.0, csat_count),
+        ("auto_review_agreement", float(review_agreement["rate"] or 0.0), review_agreement["sample_size"]),
     ]
 
     created: list[EvalScore] = []

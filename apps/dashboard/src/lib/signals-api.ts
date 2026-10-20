@@ -22,8 +22,8 @@ import type {
   PatchThreadInput,
   PagedThreadResult,
   RelatedConversation,
+  OwnerKind,
   ReplyInput,
-  ScheduleRecipient,
   ThreadActiveTurn,
   ThreadDetail,
   ThreadFilters,
@@ -166,6 +166,7 @@ export async function listSignalThreads(token: string, filters: ThreadFilters = 
   if (filters.needsReply) params.set('needs_reply', '1')
   if (filters.needsDecision) params.set('needs_decision', '1')
   if (filters.pinnedOnly) params.set('pinned', '1')
+  if (filters.segment) params.set('segment', filters.segment)
   params.set('page', String(filters.page ?? 1))
   params.set('per_page', String(filters.perPage ?? 30))
   if (filters.connectionId && filters.connectionId > 0) {
@@ -315,9 +316,10 @@ export async function prepareThreadAsk(
   token: string,
   threadId: string,
   body: {
+    /** Raw text with @chips; the server routes on them. */
     text: string
+    /** Side-session agent on a customer thread. Internal threads ignore it. */
     agentId?: string | null
-    addressedAgentIds?: string[]
     continuePending?: boolean
     hasAttachments?: boolean
   },
@@ -327,7 +329,6 @@ export async function prepareThreadAsk(
     {
       text: body.text,
       ...(body.agentId ? { agent_id: body.agentId } : {}),
-      addressed_agent_ids: body.addressedAgentIds ?? [],
       continue_pending: Boolean(body.continuePending),
       has_attachments: Boolean(body.hasAttachments),
     },
@@ -579,6 +580,8 @@ export async function bulkUpdateSignalThreads(
 // Thread schedule: a date makes an agenda item, a repeat a recurring task
 // ---------------------------------------------------------------------------
 
+export type ScheduleOwner = { kind: OwnerKind; id: string }
+
 export type ThreadScheduleInput = {
   /** Subject; required for a new agenda thread. */
   title?: string
@@ -587,10 +590,16 @@ export type ThreadScheduleInput = {
   endsAt?: string | null
   cron?: string | null
   everyMinutes?: number | null
-  agentId?: string | null
+  /** Instructions for an agent owner. */
   instructions?: string | null
-  /** Person or team it is for; null = me. */
-  recipient?: ScheduleRecipient | null
+  /** New conversation owner and who the moment is for; omitted keeps the owner. */
+  owner?: ScheduleOwner | null
+  /** Snooze a one-moment plan out of the open lists. */
+  hide?: boolean
+  /** With hide: back this many minutes before the moment (0, 15, 30, 60, 1440). */
+  surfaceBeforeMinutes?: number
+  /** Push when the conversation comes back; omit to keep the stored preference. */
+  notify?: boolean
   note?: string | null
   location?: string | null
   projectId?: string | null
@@ -604,9 +613,11 @@ function scheduleBody(input: ThreadScheduleInput): Record<string, unknown> {
   if (input.endsAt !== undefined) body.ends_at = input.endsAt
   if (input.cron) body.cron = input.cron
   if (input.everyMinutes) body.every_minutes = input.everyMinutes
-  if (input.agentId !== undefined) body.agent_id = input.agentId
   if (input.instructions !== undefined) body.instructions = input.instructions
-  if (input.recipient) body.recipient = input.recipient
+  if (input.owner) body.owner = input.owner
+  if (input.hide !== undefined) body.hide = input.hide
+  if (input.surfaceBeforeMinutes !== undefined) body.surface_before_minutes = input.surfaceBeforeMinutes
+  if (input.notify !== undefined) body.notify = input.notify
   if (input.note !== undefined) body.note = input.note
   if (input.location !== undefined) body.location = input.location
   if (input.projectId !== undefined) body.project_id = input.projectId
@@ -1117,6 +1128,16 @@ export async function updateSignalTag(
     ])
   }
   return tag
+}
+
+/** Fold one free label into another. Items on the spare label move. */
+export async function mergeSignalTags(
+  token: string,
+  tagId: string,
+  intoId: string,
+): Promise<SignalTag | null> {
+  const payload = await apiPost<unknown>(appRoutes.signals.tagMerge(tagId), { into_id: intoId }, token)
+  return normalizeSignalTag(payload)
 }
 
 export async function deleteSignalTag(token: string, tagId: string): Promise<void> {
@@ -1696,7 +1717,6 @@ export type ChatMessage = {
   /** Activity after the last bubble of a turn. */
   activity_after?: ActivityItem[] | unknown[]
   turn_id?: string | null
-  in_progress?: boolean
   /** Saved tool rows and image frames from `message_activity`. */
   history?: import('./agentActivity').HistoryView | null
 }
@@ -1885,10 +1905,6 @@ export async function bokitoStreamMessage(
      * appending a duplicate user bubble.
      */
     continuePending?: boolean
-    /** Focused / @-tagged agent on an internal thread (not always the channel default). */
-    agentId?: string | null
-    /** Ask-tab agents. The server unions these with @mentions in the body. */
-    audienceAgentIds?: string[]
     /** Full speech bubbles from the turn. Replaces the assembled delta. */
     onParts?: (parts: string[]) => void
   },
@@ -1897,8 +1913,6 @@ export async function bokitoStreamMessage(
   if (options?.pageContext) payload.page_context = options.pageContext
   if (options?.attachments?.length) payload.attachments = options.attachments
   if (options?.continuePending) payload.continue_pending = true
-  if (options?.agentId) payload.agent_id = options.agentId
-  if (options?.audienceAgentIds?.length) payload.audience_agent_ids = options.audienceAgentIds
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {

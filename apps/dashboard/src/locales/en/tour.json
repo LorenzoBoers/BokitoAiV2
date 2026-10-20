@@ -29,10 +29,10 @@
     "skip": "Skip for now"
   },
   "steps": {
-    "communication": {
-      "title": "Communication",
-      "body": "Every channel lands here: email, website chat and threads with your agents. AI handles the routine and asks for your decision when it matters."
-    },
+      "communication": {
+        "title": "Inbox",
+        "body": "Every channel lands here: email, website chat and threads with your agents. AI handles the routine and asks for your decision when it matters."
+      },
     "ai": {
       "title": "Your AI workforce",
       "body": "Agents are your digital coworkers. Knowledge sits next to them under Agents, and Workforce shows people, departments and the Grid."
@@ -43,14 +43,14 @@
     },
     "settings": {
       "title": "Settings and setup guide",
-      "body": "Channels, connections, Govern, your team and the step-by-step setup guide all live here."
+      "body": "Channels, Govern, your team and the step-by-step setup guide live here. Connections has its own item in the main menu."
     }
   },
   "finish": {
     "title": "Set up together with your assistant",
     "body": "The fastest way to configure Bokito is a conversation. Your assistant interviews you about your company and sets up channels, agents and knowledge with you.",
     "cta": "Start the setup chat",
-    "communication": "Open Communication",
+    "communication": "Open Inbox",
     "setupGuide": "Open setup guide",
     "later": "I will explore on my own"
   },

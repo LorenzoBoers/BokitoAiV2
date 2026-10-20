@@ -1,9 +1,9 @@
 import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
-const SIZE = { sm: 12, md: 14, lg: 20 } as const
+const SIZE = { sm: 12, md: 14, lg: 20, xl: 32 } as const
 
-/** The one spinner. Inherits text color; use inside buttons and rows. */
+/** The one spinner. Inherits text color. xl is the full-page wait. */
 export function Spinner({
   size = 'md',
   className,

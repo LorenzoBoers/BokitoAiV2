@@ -79,18 +79,16 @@
     "tabReply": "Antwoord",
     "tabReplyEmail": "E-mail",
     "tabReplyTo": "Antwoord aan {{name}}",
-    "tabAsk": "Vraag {{name}}",
-    "tabTo": "Aan {{name}}",
+    "tabTeam": "Team",
+    "tabTeamTo": "Aan {{names}}",
     "tabAgent": "{{name}}",
     "tabHintReply": "De klant ziet dit.",
     "tabHintNote": "Alleen het team.",
-    "tabHintTo": "Bericht aan een teammate in dit gesprek. De klant ziet het niet.",
-    "tabHintAsk": "Alleen jij en de AI. De klant ziet niets.",
+    "tabHintAsk": "Bericht aan de agents en collega's in dit gesprek. De klant ziet niets.",
     "tabHintAgent": "Alleen jij en de AI. De klant ziet niets.",
-    "pickFocus": "Kies wie je bericht",
+    "pickFocus": "Iemand taggen",
     "pickFocusAgents": "Agents",
     "pickFocusPeople": "Collega's",
-    "pickFocusKeepOne": "Houd minstens één ontvanger.",
     "sendFrom": "Versturen vanaf",
     "sendFromHint": "Verstuur vanaf deze mailbox. Wisselen verplaatst het gesprek hiernaartoe.",
     "sendToCustomer": "De klant ontvangt dit.",
@@ -120,12 +118,10 @@
     "dictationListening": "Luisteren...",
     "dictationHearing": "Gehoord: {{text}}",
     "notePlaceholder": "Notitie voor het team...",
-    "teamMessagePlaceholder": "Bericht aan {{name}}...",
-    "askPlaceholder": "Vraag {{name}} (alleen jij en de AI)...",
+    "teamPlaceholder": "Bericht aan het team, @ om iemand te vragen...",
     "agentPlaceholder": "Vraag {{name}} (alleen jij en de AI)...",
     "sendIntern": "Notitie plaatsen",
-    "sendTo": "Stuur aan {{name}}",
-    "sendAsk": "Vraag {{name}}",
+    "sendTeam": "Stuur naar het team",
     "sendAgent": "Vraag {{name}}",
     "stop": "Stop",
     "channelTooltip": "{{channel}}{{detail}}",
@@ -204,7 +200,9 @@
     "draftSaved": "Concept opgeslagen",
     "draftChip": "Mailconcept",
     "draftChipResume": "Verder schrijven",
-    "draftChipDiscard": "Concept verwijderen"
+    "draftChipDiscard": "Concept verwijderen",
+    "fullscreen": "Volledig scherm",
+    "exitFullscreen": "Volledig scherm sluiten"
   },
   "compose": {
     "title": "Nieuwe e-mail",
@@ -279,9 +277,12 @@
     "lastSyncNever": "Mail nog niet gesynchroniseerd",
     "loadMore": "Meer laden",
     "openGroup": "Open gesprekken",
-    "statusSwitch": "Open of gesloten",
+    "statusSwitch": "Open, gepland of gesloten",
     "statusOpen": "Open",
     "statusOpenCount": "Open ({{count}})",
+    "statusScheduled": "Gepland",
+    "statusScheduledCount": "Gepland ({{count}})",
+    "hiddenUntil": "Verborgen tot {{when}}",
     "statusClosed": "Gesloten",
     "statusClosedCount": "Gesloten ({{count}})",
     "showClosed": "Toon gesloten ({{count}})",
@@ -323,6 +324,11 @@
     "emptyScheduledHint": "Geef een gesprek een datum of herhaling, dan staat het hier en op de Agenda."
   },
   "decisionCard": {
+    "autoReview": {
+      "allow": "Auto-review: zou toestaan",
+      "deny": "Auto-review: zou weigeren",
+      "ask": "Auto-review: twijfelt, vraagt jou"
+    },
     "titleSuggestedReply": "Voorgesteld antwoord",
     "titleNoReply": "Geen antwoord nodig",
     "titleDecision": "Beslissing",
@@ -331,6 +337,7 @@
     "draftSent": "Concept goedgekeurd en verstuurd",
     "draftRejected": "Concept afgewezen",
     "draftHumanReplied": "Eerder concept — een collega heeft geantwoord",
+    "supersededByNewerRead": "Vervangen door een nieuwere lezing",
     "draftSupersededByInbound": "Eerder concept — de klant schreef daarna opnieuw",
     "draftSupersededByExternalReply": "Eerder concept — beantwoord vanuit de mailbox van een collega",
     "draftSiblingThread": "Eerder concept — gaat verder in een nieuwer gesprek met deze persoon",
@@ -846,6 +853,7 @@
       "open": "Open",
       "closed": "Gesloten",
       "pending": "Wacht",
+      "snoozed": "Verborgen",
       "spam": "Spam"
     },
     "contact": {
@@ -1599,6 +1607,10 @@
     "urgent": "Urgent"
   },
   "timeline": {
+    "promptGuard": {
+      "label": "Mogelijk verborgen instructies",
+      "hint": "Dit bericht leest als een opdracht aan de AI. Agents behandelen het als gegevens en vragen eerst voordat ze in deze beurt iets wijzigen."
+    },
     "internalNote": "Interne notitie",
     "replyMail": "Antwoorden",
     "replyAllMail": "Antwoord allen",
@@ -1636,6 +1648,7 @@
       "cannotSend": "deze mailbox kan nog niet versturen — kies een andere via Versturen vanaf",
       "network": "netwerkfout tijdens verzenden",
       "noRecipient": "geen ontvangeradres op dit gesprek",
+      "attachment": "een bestand kon niet worden bijgevoegd, dus het bericht is niet verstuurd",
       "unknown": "kon niet versturen — probeer opnieuw of check Kanalen"
     },
     "roleAi": "AI",
@@ -1747,6 +1760,7 @@
       "agentAssignedGeneric": "Een agent nam dit gesprek over",
       "agentOwns": "{{name}} pakt dit gesprek op",
       "agentOwnsGeneric": "De agent pakt dit gesprek op",
+      "channelNotReady": "Ik heb geen antwoord voor de klant opgesteld, want dit kanaal kan nog niet versturen. Rond de setup af onder Instellingen → E-mail en berichten. Daarna kun je het overnemen of het gesprek weer aan mij geven.",
       "agentPrepares": "{{name}} bereidt dit gesprek voor",
       "agentPreparesGeneric": "De agent bereidt dit gesprek voor",
       "assistDraftReady": "Heeft <owner /> toegewezen",
@@ -1799,6 +1813,9 @@
       "scheduledAt": "Gepland op {{when}}",
       "scheduledRepeat": "Herhaling ingesteld",
       "scheduleCleared": "Datum gewist",
+      "scheduledHidden": "Gepland op {{when}}, verborgen tot {{until}}",
+      "surfaced": "Terug uit Gepland",
+      "wokeByReply": "Nieuw bericht, terug uit Gepland",
       "due": "Het geplande moment is er",
       "wakeStarted": "Agent is aan de slag",
       "wakeStartedBy": "{{name}} is aan de slag",
@@ -1839,6 +1856,7 @@
   },
   "actions": {
     "create_tag": "Hashtag #{{name}} aanmaken",
+    "apply_label_plan": "#{{name}} · {{where}}",
     "update_tag": "Hashtag #{{name}} aanpassen",
     "update_tag_rename": "Hashtag #{{name}} hernoemen naar #{{new_name}}",
     "delete_tag": "Hashtag #{{name}} verwijderen",
@@ -1868,8 +1886,22 @@
     "enable_module": "Module {{slug}} aanzetten",
     "setup_integration": "Koppeling {{provider}} instellen",
     "create_decision_request": "Om een beslissing vragen",
-    "delegate_to_agent": "Werk aan een agent geven",
+    "spawn_subagent": "Werk aan een subagent geven",
     "schedule_wake": "Een wekmoment plannen"
+  },
+  "subagent": {
+    "line": "Subagent {{agent}}: {{description}}",
+    "agentFallback": "agent",
+    "loading": "Resultaat laden",
+    "failed": "Deze subagent kon niet worden geladen.",
+    "noResult": "Nog geen resultaat.",
+    "status": {
+      "queued": "In de wachtrij",
+      "running": "Bezig",
+      "completed": "Klaar",
+      "failed": "Mislukt",
+      "cancelled": "Gestopt"
+    }
   },
   "signatureEditor": {
     "title": "E-mailhandtekening bewerken",
@@ -2110,15 +2142,42 @@
     "cronHint": "Vijf velden in UTC: minuut, uur, dag, maand, weekdag.",
     "day": "Dag",
     "time": "Tijd",
+    "quick": {
+      "hour": "Over 1 uur",
+      "tomorrow": "Morgen 9:00",
+      "monday": "Maandag 9:00",
+      "custom": "Aangepast"
+    },
+    "addEnd": "Einde toevoegen",
     "forWhom": "Voor wie",
     "forWhomPlaceholder": "Kies wie",
     "me": "Ik",
+    "you": "jou",
     "people": "Collega's",
+    "agents": "Agents",
     "teams": "Afdelingen",
-    "agent": "Agent",
-    "noAgent": "Geen agent",
-    "agentHint": "Op het moment zelf schrijft de agent in dit gesprek, aan wie je hierboven kiest.",
-    "noAgentHint": "Het gesprek komt dan ongelezen terug bij wie je hierboven kiest.",
+    "agentHint": "De agent wordt eigenaar van het gesprek en voert op het moment zelf de opdracht uit.",
+    "personHint": "Wordt eigenaar van het gesprek en krijgt het op het moment ongelezen terug.",
+    "hide": "Verbergen tot dan",
+    "hideHint": "Het gesprek staat tot die tijd onder Gepland. Een nieuw bericht haalt het eerder terug.",
+    "surfaceLabel": "Terug",
+    "surface": {
+      "0": "Op het moment",
+      "15": "15 min eerder",
+      "30": "30 min eerder",
+      "60": "1 uur eerder",
+      "1440": "1 dag eerder"
+    },
+    "notify": "Notificatie",
+    "notifyHint": "Melding wanneer het gesprek terugkomt.",
+    "summary": {
+      "hidden": "Verborgen tot {{when}}, dan terug bij {{who}}.",
+      "hiddenEarly": "Verborgen, {{lead}} dan {{when}} terug bij {{who}}.",
+      "visible": "Blijft in Open; op {{when}} ongelezen terug bij {{who}}.",
+      "agent": "Op {{when}} voert {{who}} de opdracht uit in dit gesprek.",
+      "repeat": "Komt bij elke herhaling ongelezen terug bij {{who}}.",
+      "repeatAgent": "Bij elke herhaling voert {{who}} de opdracht uit in dit gesprek."
+    },
     "instructions": "Opdracht voor de agent",
     "instructionsPlaceholder": "Wat moet de agent doen en melden?",
     "note": "Notitie",
@@ -2143,9 +2202,9 @@
       "weeklyAt": "Elke {{day}} om {{time}}",
       "cron": "Cron {{cron}} (UTC)"
     },
-    "agentWritesTo": "{{agent}} schrijft aan {{recipient}}",
     "agentWrites": "{{agent}} schrijft hier",
     "forRecipient": "Voor {{recipient}}",
+    "hiddenUntil": "Verborgen tot {{when}}",
     "openInCalendar": "Open in agenda",
     "lastRun": "Laatst: {{when}} ({{status}})",
     "status": {

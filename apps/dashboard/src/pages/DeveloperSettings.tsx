@@ -51,6 +51,7 @@ import {
   type WebhookDelivery,
   type WebhookEndpoint,
 } from '../lib/webhooks-api'
+import { TextLink } from '../components/ui/text-link'
 
 // REST scopes checked by /api/public/v1; the rest are MCP tool categories
 // checked by /api/mcp. An empty selection = full access.
@@ -169,7 +170,7 @@ function McpOAuthGrantsSection({
               </div>
               <Button
                 size="sm"
-                variant="outline"
+                variant="secondary"
                 disabled={busyId === grant.id}
                 onClick={() => void handleRevoke(grant)}
               >
@@ -320,15 +321,15 @@ function ApiTokensSection({
                     <p className="text-xs font-medium text-text-muted">
                       {t(`developersPage.${group.labelKey}`)}
                     </p>
-                    <button
+                    <TextLink
                       type="button"
-                      className="text-xs font-medium text-accent hover:underline"
+                      className="text-xs"
                       onClick={() => toggleGroup(group.scopes)}
                     >
                       {group.labelKey === 'restApi'
                         ? t('developersPage.selectAllRest')
                         : t('developersPage.selectAllMcp')}
-                    </button>
+                    </TextLink>
                   </div>
                   <FilterChipRow className="mt-1">
                     {group.scopes.map((scope) => (
@@ -383,7 +384,7 @@ function ApiTokensSection({
             <code className="flex-1 break-all font-mono text-xs">{createdToken}</code>
             <Button
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 void navigator.clipboard.writeText(createdToken)
                 toast.success(t('developersPage.copied'))
@@ -475,13 +476,13 @@ function ApiTokensSection({
             </div>
           ))}
           {tokens.some((row) => row.revoked_at) ? (
-            <button
+            <TextLink
               type="button"
-              className="text-xs font-medium text-accent hover:underline"
+              className="text-xs"
               onClick={() => setShowRevoked((v) => !v)}
             >
               {showRevoked ? t('developersPage.hideRevoked') : t('developersPage.showRevoked')}
-            </button>
+            </TextLink>
           ) : null}
         </div>
       )}
@@ -875,15 +876,15 @@ export default function DeveloperSettings() {
                       </button>
                     </div>
                   ) : null}
-                  <button
+                  <TextLink
                     type="button"
                     onClick={() => handleToggleDeliveries(endpoint.id)}
-                    className="mt-2 text-xs font-medium text-accent hover:underline"
+                    className="mt-2 text-xs"
                   >
                     {expandedId === endpoint.id
                       ? t('developersPage.webhooks.hideDeliveries')
                       : t('developersPage.webhooks.showDeliveries')}
-                  </button>
+                  </TextLink>
                   {expandedId === endpoint.id ? (
                     <div className="mt-2 overflow-hidden rounded-lg border border-border/60">
                       {(deliveries[endpoint.id] || []).length === 0 ? (

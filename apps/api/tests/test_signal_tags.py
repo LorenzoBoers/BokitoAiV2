@@ -143,6 +143,39 @@ async def test_tag_registry_rename_merges_and_delete_unlinks(client: AsyncClient
 
 
 @pytest.mark.asyncio
+async def test_merge_label_moves_conversations_and_rules(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    first = await _ingest(client, headers, "Invoice one")
+    second = await _ingest(client, headers, "Invoice two")
+    await client.patch(f"/api/signals/{first}", headers=headers, json={"tags": ["factuur"]})
+    await client.patch(f"/api/signals/{second}", headers=headers, json={"tags": ["factuur", "facturen"]})
+    rule = await client.post(
+        "/api/signals/rules",
+        headers=headers,
+        json={"match_type": "domain", "match_value": "bills.test", "action": "tag", "tags": ["factuur"]},
+    )
+    assert rule.status_code == 200, rule.text
+    assert rule.json()["labels"] == ["factuur"]
+
+    registry = {row["name"]: row for row in (await client.get("/api/signals/tags", headers=headers)).json()}
+    merged = await client.post(
+        f"/api/signals/tags/{registry['factuur']['id']}/merge",
+        headers=headers,
+        json={"into_id": registry["facturen"]["id"]},
+    )
+    assert merged.status_code == 200, merged.text
+    assert merged.json()["name"] == "facturen"
+
+    names = [row["name"] for row in (await client.get("/api/signals/tags", headers=headers)).json()]
+    assert "factuur" not in names
+    assert (await client.get(f"/api/signals/{first}", headers=headers)).json()["thread"]["tags"] == ["facturen"]
+    assert (await client.get(f"/api/signals/{second}", headers=headers)).json()["thread"]["tags"] == ["facturen"]
+    rules = await client.get("/api/signals/rules", headers=headers)
+    kept = next(row for row in rules.json() if row["id"] == rule.json()["id"])
+    assert kept["labels"] == ["facturen"]
+
+
+@pytest.mark.asyncio
 async def test_tag_rule_tags_and_keeps_flow(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     rule = await client.post(

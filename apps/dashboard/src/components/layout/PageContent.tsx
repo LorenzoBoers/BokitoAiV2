@@ -18,10 +18,10 @@ interface PageContentProps {
 }
 
 const WIDTH_CLASS: Record<PageContentWidth, string> = {
-  sm: 'mx-auto w-full max-w-[640px]',
-  md: 'mx-auto w-full max-w-[896px]',
-  lg: 'mx-auto w-full max-w-[1000px]',
-  xl: 'mx-auto w-full max-w-[1200px]',
+  sm: 'mx-auto w-full max-w-form',
+  md: 'mx-auto w-full max-w-reading',
+  lg: 'mx-auto w-full max-w-page',
+  xl: 'mx-auto w-full max-w-dense',
   full: 'w-full',
 }
 

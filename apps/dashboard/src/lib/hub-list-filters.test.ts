@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import {
   configForLeaf,
+  leafForOpenList,
   mergeHubThreadFilters,
+  scheduledCompanionFilters,
   threadFitsChannelChip,
   threadFitsChannelLeaf,
 } from './hub-list-filters'
+
+describe('scheduledCompanionFilters', () => {
+  it('keeps the folder scope and asks for the scheduled segment', () => {
+    expect(scheduledCompanionFilters({ type: 'inbox', queue: 'for_you' })).toEqual({
+      folder: 'inbox',
+      view: 'for_you',
+      segment: 'scheduled',
+    })
+    expect(scheduledCompanionFilters({ type: 'inbox', queue: 'spam' })).toBeNull()
+  })
+
+  it('folds the old /scheduled box into the open list', () => {
+    expect(leafForOpenList({ type: 'inbox', queue: 'scheduled' })).toEqual({ type: 'inbox', queue: 'open' })
+  })
+})
 
 describe('configForLeaf', () => {
   it('maps All communication sub-folders to list views', () => {

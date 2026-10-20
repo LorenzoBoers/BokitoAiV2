@@ -408,6 +408,12 @@ async def create_inbound_signal(
     )
     now = datetime.utcnow()
     if existing:
+        if existing.status == "snoozed":
+            from app.services.thread_schedule import wake_hidden_on_inbound
+
+            woke = wake_hidden_on_inbound(existing)
+            if woke is not None:
+                session.add(woke)
         existing.has_unread = True
         existing.status = "open"
         existing.last_message_at = now
@@ -556,7 +562,7 @@ async def _match_thread_for_inbound(
     query = select(Signal).where(
         Signal.tenant_id == tenant_id,
         Signal.channel == channel,
-        Signal.status.in_(("open", "pending")),
+        Signal.status.in_(("open", "pending", "snoozed")),
     )
     if external_id:
         # Provider thread ids are authoritative: a reply in the same email

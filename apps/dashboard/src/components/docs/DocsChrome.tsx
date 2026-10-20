@@ -107,7 +107,7 @@ export function DocsHeader({
 
           <Link
             to="/docs"
-            className="flex shrink-0 items-center gap-2.5 text-[0.95rem] font-semibold tracking-tight text-[var(--docs-fg)]"
+            className="flex shrink-0 items-center gap-2.5 text-lg font-semibold tracking-tight text-[var(--docs-fg)]"
           >
             <img
               src="/bokito-logo.png"
@@ -128,7 +128,7 @@ export function DocsHeader({
             >
               <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{t('docs.searchPlaceholder')}</span>
-              <kbd className="hidden shrink-0 rounded-md bg-[var(--docs-kbd)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--docs-muted)] sm:inline">
+              <kbd className="hidden shrink-0 rounded-md bg-[var(--docs-kbd)] px-1.5 py-0.5 font-mono text-2xs text-[var(--docs-muted)] sm:inline">
                 Ctrl+K
               </kbd>
             </button>

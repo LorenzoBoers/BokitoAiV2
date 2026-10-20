@@ -40,6 +40,7 @@ import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { ConversationWorkSection } from './ConversationWorkSection'
 import { timeAgo } from '../../lib/time-ago'
 import { useAgentLive, withAgentLive } from '../../hooks/useAgentPresence'
+import { TextLink } from '../ui/text-link'
 
 const COUNT_CAP = 999
 
@@ -301,13 +302,13 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
       {loadFailed && !loading ? (
         <div className="mx-4 mt-3 flex items-center justify-between gap-2 rounded-lg border border-status-warning/40 bg-status-warning/5 px-3 py-2">
           <span className="text-xs text-text-secondary">{t('agentContext.loadFailed')}</span>
-          <button
+          <TextLink
             type="button"
             onClick={() => void load()}
-            className="shrink-0 text-xs font-medium text-accent hover:underline"
+            className="shrink-0 text-xs"
           >
             {t('agentContext.retry')}
-          </button>
+          </TextLink>
         </div>
       ) : null}
 

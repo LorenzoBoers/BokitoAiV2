@@ -24,12 +24,11 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu'
 import FileInFolderDialog from '../components/inbox/FileInFolderDialog'
-import { useConfirm } from '../components/ui/confirm-dialog'
+import { ConfirmDialog, useConfirm } from '../components/ui/confirm-dialog'
 import { CreateFolderDialog } from '../components/folders/CreateFolderDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
 import { FolderHomeSkeleton } from '../components/ui/skeleton'
 import { ProjectConversations } from '../components/projects/ProjectConversations'
 import { ProjectDocs } from '../components/projects/ProjectDocs'
@@ -214,7 +213,7 @@ export default function ProjectDetail() {
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               <OpenInGridButton kind="folder" id={project.id} />
-              <Button type="button" size="sm" variant="outline" asChild>
+              <Button type="button" size="sm" variant="secondary" asChild>
                 <Link to={hubHref}>
                   <MessageSquare size={14} className="mr-1" aria-hidden />
                   {t('projects.detail.openInCommunication')}
@@ -418,18 +417,19 @@ export default function ProjectDetail() {
       )}
 
       {deleteOpen && project ? (
-        <ConfirmDeleteDialog
+        <ConfirmDialog
+          open
+          destructive
           title={t('projects.detail.deleteTitle')}
-          itemLabel={t('projects.detail.deleteItem')}
-          itemName={project.name}
-          impactText={
+          typeToConfirm={project.name}
+          description={
             widenedConnections.length > 0
               ? `${t('projects.detail.deleteImpact')} ${t('projects.work.deleteWidensConnections', {
                   names: widenedConnections.join(', '),
                 })}`
               : t('projects.detail.deleteImpact')
           }
-          isDeleting={deleting}
+          busy={deleting}
           onCancel={() => setDeleteOpen(false)}
           onConfirm={confirmDelete}
         />

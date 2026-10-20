@@ -561,11 +561,14 @@ async def create_decision(
     selection: str | None = None,
     bundle_id: str = "",
     reveal: bool = True,
+    announce: bool = True,
 ) -> tuple[DecisionRequest, SignalMessage | None]:
     """The single write path for human decisions.
 
     Creates the DecisionRequest addressed to one person or team
     (``services/addressee.py``; ``to`` is an explicit target).
+    ``announce=False`` keeps the paired bell row read and unpublished: the
+    first read of an inbound message sends its own conversation notice.
 
     When ``reveal=True`` (default), projects into the notification surface,
     lands the card as a message in a Signal thread, and publishes gateway
@@ -588,10 +591,14 @@ async def create_decision(
         to=to,
     )
     bell_user_id = addressee.user_id if addressee.kind == "user" else None
-    bell_status = await decision_bell_status(session, tenant_id, bell_user_id)
+    bell_status = (
+        await decision_bell_status(session, tenant_id, bell_user_id) if announce else "read"
+    )
     from app.services.notify import from_agent, from_user
 
     bell_payload: dict[str, Any] = {**(notification_payload or {})}
+    if not announce:
+        bell_payload["announce"] = False
     if agent_id and "from" not in bell_payload:
         agent = await session.get(Agent, agent_id)
         mark = from_agent(agent)

@@ -15,6 +15,7 @@ import { AI_HANDLING_CHANNELS } from '../../lib/ai-handling'
 import { formatAppDateTime } from '../../lib/app-locale'
 import { channelSettingsPath, type ChannelRow } from '../../lib/channels-api'
 import { inboxPath } from '../../lib/messages-paths'
+import { TextLink } from '../ui/text-link'
 
 export type ChannelListProps = {
   channels: ChannelRow[]
@@ -106,9 +107,9 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
       <div className="px-4 py-10 text-center text-sm text-text-muted">
         <p>{t('channelsPage.noChannels')}</p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-          <button type="button" onClick={onAddChannel} className="text-sm font-medium text-accent hover:underline">
+          <TextLink type="button" onClick={onAddChannel} className="text-sm">
             {t('channelsPage.addChannel')}
-          </button>
+          </TextLink>
           <Link to="/settings/setup" className="text-sm font-medium text-accent hover:underline">
             {t('channelsPage.openSetup')}
           </Link>

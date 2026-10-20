@@ -12,7 +12,8 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { usePermission } from '../hooks/usePermission';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Card, CardContent } from '../components/ui/card';
+import { ConfirmDialog } from '../components/ui/confirm-dialog';
+import { DangerZone, DangerZoneRow } from '../components/layout/DangerZone';
 import { PageContent } from '../components/layout/PageContent';
 import { SettingsSection } from '../components/layout/SettingsSection';
 export default function WorkspaceSettings() {
@@ -26,13 +27,13 @@ export default function WorkspaceSettings() {
   const canDeleteWorkspace = isOwner || Boolean(isStaff);
 
   const [workspaceName, setWorkspaceName] = useState(currentWorkspace?.name || user?.tenant.name || '');
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [saving, setSaving] = useState(false);
   const [supportSaving, setSupportSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const allowPlatformSupport = currentWorkspace?.allow_platform_support !== false;
-  const nameDirty = workspaceName.trim() !== (currentWorkspace?.name || user?.tenant.name || '').trim();
+  const savedWorkspaceName = currentWorkspace?.name || user?.tenant.name || '';
+  const nameDirty = workspaceName.trim() !== savedWorkspaceName.trim();
   useUnsavedChangesGuard(nameDirty && !saving, t('unsavedLeave'));
 
   useEffect(() => {
@@ -68,7 +69,7 @@ export default function WorkspaceSettings() {
   };
 
   const handleDeleteWorkspace = async () => {
-    if (!currentWorkspace || deleteConfirmation !== workspaceName) return;
+    if (!currentWorkspace) return;
     setDeleting(true);
     try {
       await deleteWorkspace(currentWorkspace.id);
@@ -228,100 +229,42 @@ export default function WorkspaceSettings() {
         </SettingsSection>
       ) : null}
 
-      {canDeleteWorkspace && (
-        <Card className="border-status-error/40 bg-status-error/5">
-          <CardContent>
-            <h2 className="mb-3 text-base font-semibold text-status-error">
-              {t('dangerTitle')}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="mb-2 font-medium text-text-heading">
-                  {t('deleteWorkspaceTitle')}
-                </h3>
-                <p className="mb-4 text-sm text-text-secondary">
-                  {t('deleteWorkspaceDescription')}
-                  {isStaff && !isOwner ? <> {t('deleteWorkspaceStaffHint')}</> : null}
-                </p>
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setDeleteConfirmation('')
-                    setShowDeleteDialog(true)
-                  }}
-                >
-                  {t('deleteWorkspaceButton')}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {showDeleteDialog && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setShowDeleteDialog(false)
-              setDeleteConfirmation('')
+      {canDeleteWorkspace ? (
+        <DangerZone title={t('dangerTitle')}>
+          <DangerZoneRow
+            title={t('deleteWorkspaceTitle')}
+            description={
+              <>
+                {t('deleteWorkspaceDescription')}
+                {isStaff && !isOwner ? <> {t('deleteWorkspaceStaffHint')}</> : null}
+              </>
             }
-          }}
-        >
-          <Card
-            className="mx-4 w-full max-w-md p-6"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-workspace-title"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                setShowDeleteDialog(false)
-                setDeleteConfirmation('')
-              }
-            }}
-          >
-            <h3 id="delete-workspace-title" className="mb-4 text-lg font-semibold text-text-heading">
-              {t('deleteDialogTitle')}
-            </h3>
-            <p className="mb-4 text-sm text-text-secondary">
-              {t('deleteDialogPrompt', { name: workspaceName })}
-            </p>
-            <label htmlFor="delete-workspace-name" className="mb-1.5 block text-sm font-medium text-text-heading">
-              {t('deleteDialogLabel')}
-            </label>
-            <Input
-              id="delete-workspace-name"
-              value={deleteConfirmation}
-              autoFocus
-              onChange={(e) => setDeleteConfirmation(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setShowDeleteDialog(false)
-                  setDeleteConfirmation('')
-                }
-                if (e.key === 'Enter' && deleteConfirmation === workspaceName && !deleting) {
-                  e.preventDefault()
-                  void handleDeleteWorkspace()
-                }
-              }}
-              placeholder={workspaceName}
-              className="mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => { setShowDeleteDialog(false); setDeleteConfirmation('') }}>
-                {t('common:cancel')}
-              </Button>
+            action={
               <Button
                 variant="destructive"
-                disabled={deleteConfirmation !== workspaceName || deleting}
-                onClick={() => void handleDeleteWorkspace()}
+                size="sm"
+                onClick={() => {
+                  setShowDeleteDialog(true)
+                }}
               >
-                {t('deleteConfirmButton')}
+                {t('deleteWorkspaceButton')}
               </Button>
-            </div>
-          </Card>
-        </div>
-      )}
+            }
+          />
+        </DangerZone>
+      ) : null}
+
+      <ConfirmDialog
+        open={showDeleteDialog}
+        destructive
+        title={t('deleteDialogTitle')}
+        description={t('deleteDialogPrompt', { name: savedWorkspaceName })}
+        typeToConfirm={savedWorkspaceName}
+        confirmLabel={t('deleteConfirmButton')}
+        busy={deleting}
+        onCancel={() => setShowDeleteDialog(false)}
+        onConfirm={() => void handleDeleteWorkspace()}
+      />
     </PageContent>
   );
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOT_ORB_MS,
+  closingOrbPulse,
   decisionOrbPulse,
   errorOrbPulse,
   isBotOrbBusyLoop,
+  isBotOrbMotion,
   isBotOrbOneShot,
   oneShotDurationMs,
   presenceOrbMotion,
@@ -19,11 +21,29 @@ describe('bot-orb-motion', () => {
     expect(isBotOrbBusyLoop('idle')).toBe(false)
   })
 
-  it('uses Lottie-inspired one-shot durations', () => {
+  it('treats the new tool moods as busy and the end reactions as one-shots', () => {
+    for (const motion of ['searching', 'writing', 'sending'] as const) {
+      expect(isBotOrbBusyLoop(motion)).toBe(true)
+    }
+    expect(isBotOrbBusyLoop('listening')).toBe(false)
+    expect(isBotOrbOneShot('done')).toBe(true)
+    expect(isBotOrbOneShot('leave')).toBe(true)
+    expect(isBotOrbMotion('leave')).toBe(true)
+    expect(isBotOrbMotion('dance')).toBe(false)
+    expect(isBotOrbMotion(3)).toBe(false)
+  })
+
+  it('keeps every one-shot inside the pulse store window', () => {
     expect(oneShotDurationMs('yes')).toBe(BOT_ORB_MS.yes)
-    expect(oneShotDurationMs('alert')).toBe(BOT_ORB_MS.alert)
-    expect(BOT_ORB_MS.idleLoop).toBeGreaterThan(400)
-    expect(BOT_ORB_MS.idleLoop).toBeLessThan(600)
+    for (const shot of ['yes', 'no', 'alert', 'jump', 'done', 'leave'] as const) {
+      expect(oneShotDurationMs(shot)).toBeLessThan(2000)
+    }
+  })
+
+  it('builds a closing pulse only for one-shots', () => {
+    expect(closingOrbPulse('done', 's1')).toEqual({ motion: 'done', pulseId: 'closing-done-s1' })
+    expect(closingOrbPulse('thinking', 's1')).toBeNull()
+    expect(closingOrbPulse(null, 's1')).toBeNull()
   })
 
   it('maps presence to working or idle (error is corner-only)', () => {

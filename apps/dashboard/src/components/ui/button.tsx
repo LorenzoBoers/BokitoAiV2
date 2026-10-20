@@ -9,15 +9,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'btn-elevated bg-accent text-accent-fg hover:bg-accent-hover',
-        // Hairline family: one look for secondary / outline / subtle.
         secondary:
           'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
-        outline:
-          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
-        subtle:
-          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
         ghost: 'text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
-        ai: 'btn-elevated bg-ai text-ai-fg hover:brightness-110',
+        ai: 'btn-elevated bg-ai text-ai-fg hover:bg-ai/90',
         destructive: 'border border-status-error/30 text-status-error hover:bg-status-error/10',
       },
       size: {

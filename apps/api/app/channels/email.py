@@ -307,20 +307,30 @@ async def _post_send(url: str, payload: dict[str, Any], token: str) -> httpx.Res
 
 async def _load_attachment_payloads(
     attachments: list[dict[str, Any]] | None,
-) -> list[dict[str, Any]]:
-    """Hydrate stored attachment references ({name, mime, url}) into bytes."""
+) -> tuple[list[dict[str, Any]], int]:
+    """Hydrate stored attachment references ({name, mime, url}) into bytes.
+
+    The second value is how many requested files could not be read. Callers
+    must not send the mail when that count is non-zero: a letter that quietly
+    drops its files looks sent.
+    """
     if not attachments:
-        return []
+        return [], 0
     from app.services.storage import fetch_attachment_bytes
 
     out: list[dict[str, Any]] = []
+    missing = 0
     for att in attachments:
         if not isinstance(att, dict):
+            missing += 1
             continue
         url = str(att.get("url") or "")
-        data = await fetch_attachment_bytes(url) if url else None
-        if data is None:
-            logger.warning("outbound attachment unavailable: %s", url)
+        data = att.get("data") if isinstance(att.get("data"), (bytes, bytearray)) else None
+        if data is None and url:
+            data = await fetch_attachment_bytes(url)
+        if not data:
+            missing += 1
+            logger.warning("outbound attachment unavailable: %s", url or att.get("name"))
             continue
         out.append(
             {
@@ -329,7 +339,7 @@ async def _load_attachment_payloads(
                 "data": data,
             }
         )
-    return out
+    return out, missing
 
 
 def _graph_reply_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -384,7 +394,7 @@ async def send_via_provider(
     ``quoted_html`` (prior conversation history) lands below the signature,
     matching mail-client quoting order: body, signature, quoted history.
     """
-    attachment_payloads = await _load_attachment_payloads(attachments)
+    attachment_payloads, missing_attachments = await _load_attachment_payloads(attachments)
     final_html = compose_outbound_html(
         body_text=body_text,
         body_html=body_html,
@@ -393,6 +403,10 @@ async def send_via_provider(
     )
     if quoted_html and quoted_html.strip():
         final_html = f"{final_html}<br>{quoted_html.strip()}"
+    if missing_attachments:
+        # The letter stays on the thread so the operator can retry, but it
+        # must not leave without the files they attached.
+        return "failed:attachment_unavailable", final_html, ""
     payload = format_outbound(
         account,
         to_address=to_address,

@@ -174,7 +174,7 @@ function CalendarAccountRow({
   const enabled = (row.calendars ?? []).filter((c) => c.enabled)
 
   return (
-    <li className="rounded-lg border border-border/60 bg-bg-surface" data-testid="calendar-account-row">
+    <li className="panel" data-testid="calendar-account-row">
       <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
         <BrandMark slug={calendarBrandSlug(row.provider)} size={22} />
         <div className="min-w-0 flex-1">

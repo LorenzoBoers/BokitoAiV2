@@ -55,4 +55,11 @@ def apply_snapshot_to_agent(agent: Agent, snapshot: dict[str, Any]) -> Agent:
         tools_json=tools_json,
         permission_scopes_json=agent.permission_scopes_json,
         is_active=agent.is_active,
+        settings_json=agent.settings_json,
+        disallowed_tools_json=agent.disallowed_tools_json,
+        capability_mode=agent.capability_mode,
+        prompt_mode=agent.prompt_mode,
+        skills_json=agent.skills_json,
+        completion_requirement_json=agent.completion_requirement_json,
+        mcp_inheritance_json=agent.mcp_inheritance_json,
     )

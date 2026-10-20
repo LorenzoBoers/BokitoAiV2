@@ -69,7 +69,7 @@ export default function DocsPageToc({
             <a
               href={`#${item.id}`}
               className={cn(
-                'block text-[0.8125rem] leading-snug transition-colors',
+                'block text-docs-nav leading-snug transition-colors',
                 activeId === item.id
                   ? 'font-medium text-[var(--docs-fg)]'
                   : 'text-[var(--docs-muted)] hover:text-[var(--docs-fg)]',

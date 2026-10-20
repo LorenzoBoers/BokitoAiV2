@@ -53,18 +53,18 @@ async def _last_agent_message(session: AsyncSession, signal: Signal) -> SignalMe
 async def _agent(
     session: AsyncSession, signal: Signal, last: SignalMessage | None
 ) -> tuple[Agent | None, str]:
-    """The agent that answered (``reply``), else the owner (``owner``), else the addressed one."""
+    """The agent that answered (``reply``), else the owner (``owner``), else the one on turn."""
     for agent_id, via in ((last.author_agent_id if last else None, "reply"), (signal.agent_id, "owner")):
         if agent_id:
             agent = await session.get(Agent, agent_id)
             if agent is not None and agent.tenant_id == signal.tenant_id:
                 return agent, via
-    from app.services.signal_threads import addressed_agent_payload
+    from app.services.signal_threads import _active_turn_payload
 
-    addressed = addressed_agent_payload(signal, None)
-    if addressed and addressed.get("id"):
+    turn = _active_turn_payload(signal) or {}
+    if turn.get("kind") == "agent" and turn.get("ref_id"):
         try:
-            agent = await session.get(Agent, UUID(addressed["id"]))
+            agent = await session.get(Agent, UUID(str(turn["ref_id"])))
         except ValueError:
             agent = None
         if agent is not None and agent.tenant_id == signal.tenant_id:

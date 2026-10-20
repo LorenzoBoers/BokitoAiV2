@@ -3,10 +3,14 @@
  * Design-system guard. Fails when a file outside the catalog re-implements
  * something the catalog owns. Catalog: apps/dashboard/docs/DESIGN_SYSTEM.md.
  *
- *   node scripts/check-design-system.mjs          check (exit 1 on violations)
- *   node scripts/check-design-system.mjs --list   print every hit, grouped by rule
+ *   node scripts/check-design-system.mjs                    check (exit 1 on violations)
+ *   node scripts/check-design-system.mjs --list             print every hit, grouped by rule
+ *   node scripts/check-design-system.mjs --update-baseline  rewrite the ratchet baseline
+ *
+ * RULES fail on any hit. RATCHET_RULES fail only when a file has more hits than
+ * recorded in design-system-baseline.json, so legacy debt can shrink but not grow.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -70,6 +74,32 @@ const RULES = [
   },
 ]
 
+const RATCHET_RULES = [
+  {
+    id: 'raw-button',
+    pattern: /<button\b/,
+    message: 'Use <Button> (or Button asChild) from components/ui/button.',
+  },
+  {
+    id: 'raw-input',
+    pattern: /<input\b(?![^>]*type=["'](file|hidden)["'])/,
+    message: 'Use <Input>, <Switch> or <SearchField> from components/ui.',
+  },
+  {
+    id: 'hex-color',
+    pattern: /#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b(?![0-9a-fA-F])/,
+    skip: /^\s*(\/\/|\*)|&#|href=|['"`]#[a-z]/,
+    message: 'Use color tokens (rgb(var(--color-*))) instead of hex.',
+  },
+  {
+    id: 'arbitrary-radius',
+    pattern: /\brounded(-[trblxyse]{1,2})?-\[\d/,
+    message: 'Use the radius ladder: rounded-sm, md, lg, xl, 2xl, full.',
+  },
+]
+
+const BASELINE_PATH = join(ROOT, 'scripts', 'design-system-baseline.json')
+
 /** Lines carrying this marker are exempt (use sparingly, with a reason). */
 const IGNORE_MARKER = 'design-system-ignore'
 
@@ -84,9 +114,13 @@ function walk(dir, out = []) {
 }
 
 const list = process.argv.includes('--list')
+const updateBaseline = process.argv.includes('--update-baseline')
 const hits = []
+/** ratchet[ruleId][file] = count */
+const ratchet = Object.fromEntries(RATCHET_RULES.map((rule) => [rule.id, {}]))
 for (const file of walk(SRC)) {
   const rel = relative(SRC, file)
+  const relPosix = rel.split(sep).join('/')
   const inCatalog = rel.startsWith(CATALOG_DIR)
   const lines = readFileSync(file, 'utf8').split(/\r?\n/)
   lines.forEach((line, index) => {
@@ -95,15 +129,68 @@ for (const file of walk(SRC)) {
       if (inCatalog && rule.catalogOk) continue
       if (rule.skip?.test(line)) continue
       if (rule.pattern.test(line)) {
-        hits.push({ rule, rel: rel.split(sep).join('/'), line: index + 1, text: line.trim() })
+        hits.push({ rule, rel: relPosix, line: index + 1, text: line.trim() })
+      }
+    }
+    if (inCatalog) return
+    for (const rule of RATCHET_RULES) {
+      if (rule.skip?.test(line)) continue
+      if (rule.pattern.test(line)) {
+        ratchet[rule.id][relPosix] = (ratchet[rule.id][relPosix] ?? 0) + 1
       }
     }
   })
 }
 
-if (hits.length === 0) {
+if (updateBaseline) {
+  const sorted = Object.fromEntries(
+    Object.entries(ratchet).map(([id, files]) => [
+      id,
+      Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))),
+    ]),
+  )
+  writeFileSync(BASELINE_PATH, `${JSON.stringify(sorted, null, 2)}\n`)
+  const totals = Object.entries(ratchet).map(([id, files]) => `${id}=${Object.values(files).reduce((a, b) => a + b, 0)}`)
+  console.log(`design-system: baseline written (${totals.join(', ')})`)
+  process.exit(0)
+}
+
+let baseline = {}
+try {
+  baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'))
+} catch {
+  baseline = {}
+}
+const grown = []
+let shrunk = 0
+for (const rule of RATCHET_RULES) {
+  const current = ratchet[rule.id]
+  const allowed = baseline[rule.id] ?? {}
+  for (const [file, count] of Object.entries(current)) {
+    const max = allowed[file] ?? 0
+    if (count > max) grown.push({ rule, file, count, max })
+  }
+  for (const [file, max] of Object.entries(allowed)) {
+    if ((current[file] ?? 0) < max) shrunk++
+  }
+}
+
+if (grown.length) {
+  for (const g of grown) {
+    console.log(`[${g.rule.id}] src/${g.file}: ${g.count} (baseline ${g.max}). ${g.rule.message}`)
+  }
+}
+if (shrunk && !grown.length) {
+  console.log(`design-system: ${shrunk} file(s) below baseline; run with --update-baseline to lock in the gain.`)
+}
+
+if (hits.length === 0 && grown.length === 0) {
   console.log('design-system: ok')
   process.exit(0)
+}
+if (hits.length === 0) {
+  console.log(`\ndesign-system: ${grown.length} ratchet regression(s)`)
+  process.exit(1)
 }
 
 const byRule = new Map()

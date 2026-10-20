@@ -111,8 +111,10 @@ async def test_turn_recorder_publishes_segments_and_activity():
     assert [a["kind"] for a in turn.segments[1]["activity"]] == ["work"]
     assert turn.segments[1]["activity"][0]["status"] == "ok"
     assert turn.final_text == "Gevonden."
+    # The stream shows the whole turn as one bubble.
     deltas = [d for e, d in published if e == "message.delta"]
-    assert deltas[0]["segment_id"] != deltas[-1]["segment_id"]
+    assert deltas[0]["segment_id"] == deltas[-1]["segment_id"]
+    assert "".join(d["delta"] for d in deltas) == "Ik kijk even.\n\nGevonden."
 
 
 @pytest.mark.asyncio

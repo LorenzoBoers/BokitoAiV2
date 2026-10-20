@@ -1,8 +1,10 @@
 import { memo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, Plug, Settings } from 'lucide-react'
+import { BrandMark } from '../integrations/BrandMark'
 import {
   appLinkKind,
+  connectionBrandSlug,
   parseChatText,
   splitTagLedInline,
   type ChatInline,
@@ -25,7 +27,7 @@ const APP_LINK_CLASS = 'md-app-link'
 
 const STATUS_KEYS = new Set(['open', 'closed', 'awaiting', 'pending', 'active', 'paused'])
 
-function LinkIcon({ href }: { href: string }) {
+function LinkIcon({ href, label }: { href: string; label?: string }) {
   const kind = appLinkKind(href)
   // Absolute em size via style so Lucide's default 24px attrs cannot grow the line.
   const props = {
@@ -37,8 +39,13 @@ function LinkIcon({ href }: { href: string }) {
   switch (kind) {
     case 'docs':
       return <BookOpen {...props} />
-    case 'connections':
+    case 'connections': {
+      const slug = connectionBrandSlug(href, label)
+      if (slug) {
+        return <BrandMark slug={slug} size={14} className="md-app-link-logo" />
+      }
       return <Plug {...props} />
+    }
     case 'settings':
       return <Settings {...props} />
     case 'folder':
@@ -158,7 +165,7 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
         return (
           <span
             key={index}
-            className="inline-flex items-center rounded-md border border-border/50 bg-bg-elevated px-1.5 py-px text-[11px] font-medium text-text-muted align-baseline"
+            className="inline-flex items-center rounded-md border border-border/50 bg-bg-elevated px-1.5 py-px text-2xs font-medium text-text-muted align-baseline"
             data-status={key}
           >
             {node.label}
@@ -170,7 +177,7 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
           return (
             <span
               key={index}
-              className="inline-flex items-center rounded-md border border-border/50 bg-bg-elevated px-1.5 py-px text-[11px] font-medium text-text-muted align-baseline"
+              className="inline-flex items-center rounded-md border border-border/50 bg-bg-elevated px-1.5 py-px text-2xs font-medium text-text-muted align-baseline"
             >
               {node.label}
             </span>
@@ -187,7 +194,7 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
                 kind === 'contact' ? 'chat-contact-link' : kind === 'agent' ? 'chat-agent-link' : undefined
               }
             >
-              <LinkIcon href={node.href} />
+              <LinkIcon href={node.href} label={node.label} />
               {node.label}
             </Link>
           )
@@ -266,6 +273,17 @@ function streamTailWord(nodes: ChatInline[]): { head: ChatInline[]; word: string
   return { head, word: match[2] }
 }
 
+export type ChatMention = { kind: string; id: string; name: string }
+
+function withCurrentNames(content: string, mentions?: ChatMention[]): string {
+  if (!mentions?.length) return content
+  const byId = new Map(mentions.map((m) => [m.id.toLowerCase(), m.name]))
+  return content.replace(/@\[([^\]]+)\]\((agent|team|user):([0-9a-fA-F-]{36})\)/g, (whole, _name, kind, id) => {
+    const name = byId.get(String(id).toLowerCase())
+    return name ? `@[${name}](${kind}:${id})` : whole
+  })
+}
+
 /**
  * Renderer for every chat bubble (agent, teammate, customer chat), live and
  * saved. WhatsApp-level formatting only; email HTML keeps MessageHtmlBody.
@@ -275,14 +293,17 @@ function ChatTextImpl({
   streaming = false,
   className,
   tags,
+  mentions,
 }: {
   content: string
   streaming?: boolean
   className?: string
   /** Lowercase tag name -> kind for bare #name chips. */
   tags?: ChatTagMap
+  /** `payload.mentions`: the current name for each @mention in the text. */
+  mentions?: ChatMention[]
 }) {
-  const blocks = parseChatText(content, { streaming, tags })
+  const blocks = parseChatText(withCurrentNames(content, mentions), { streaming, tags })
   const last = blocks.length - 1
   return (
     <div className={cn('chat-text break-words', streaming && 'is-streaming', className)}>

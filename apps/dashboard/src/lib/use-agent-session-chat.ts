@@ -27,8 +27,6 @@ type PendingPart = {
   text: string
   attachments?: unknown[]
   continuePending?: boolean
-  agentId?: string | null
-  audienceAgentIds?: string[]
 }
 
 const SETTLE_MS = 400
@@ -62,8 +60,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       text: string,
       attachments?: unknown[],
       continuePending?: boolean,
-      agentId?: string | null,
-      audienceAgentIds?: string[],
     ) => Promise<void>
   >(async () => {})
 
@@ -156,8 +152,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     text: string
     attachments?: unknown[]
     continuePending?: boolean
-    agentId?: string | null
-    audienceAgentIds?: string[]
   } | null => {
     const parts = pendingPartsRef.current
     if (!parts.length) return null
@@ -168,11 +162,8 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       .filter(Boolean)
       .join('\n\n')
     const attachments = [...parts].reverse().find((p) => p.attachments?.length)?.attachments
-    // Latest focused agent wins when the operator queued several Sends.
-    const agentId = [...parts].reverse().find((p) => p.agentId)?.agentId ?? null
-    const audienceAgentIds = [...parts].reverse().find((p) => p.audienceAgentIds?.length)?.audienceAgentIds
     if (!continuePending && !text && !attachments?.length) return null
-    return { text: text || ' ', attachments, continuePending, agentId, audienceAgentIds }
+    return { text: text || ' ', attachments, continuePending }
   }
 
   const scheduleFlush = useCallback((sessionId: string) => {
@@ -190,8 +181,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         next.text,
         next.attachments,
         next.continuePending,
-        next.agentId,
-        next.audienceAgentIds,
       )
     }, SETTLE_MS)
   }, [])
@@ -202,8 +191,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       text: string,
       attachments?: unknown[],
       continuePending?: boolean,
-      agentId?: string | null,
-      audienceAgentIds?: string[],
     ) => {
       if (!token || (!continuePending && !text.trim() && !attachments?.length)) return
       sessionIdRef.current = sessionId
@@ -236,8 +223,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           {
             ...(attachments?.length ? { attachments } : {}),
             ...(continuePending ? { continuePending: true } : {}),
-            ...(agentId ? { agentId } : {}),
-            ...(audienceAgentIds?.length ? { audienceAgentIds } : {}),
             onParts: (parts) => {
               const bubbles = parts.filter((part) => part.trim())
               pendingDeltaRef.current.text = bubbles.join('\n\n')
@@ -265,6 +250,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         setStream((prev) => ({
           text: '',
           thinking: '',
+          parts: [],
           active: keepOptimistic,
           // Drop before the transcript refresh so the persisted bubble
           // does not sit next to the local one.
@@ -315,10 +301,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         attachments?: unknown[]
         /** Kick the agent on an opener already stored with the thread. */
         continuePending?: boolean
-        /** Focused / @-tagged agent for internal-thread Ask. */
-        agentId?: string | null
-        /** Ask-tab agents included with this message. */
-        audienceAgentIds?: string[]
       },
     ) => {
       const trimmed = text.trim()
@@ -350,8 +332,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         text: trimmed || ' ',
         attachments,
         continuePending,
-        agentId: opts?.agentId ?? null,
-        audienceAgentIds: opts?.audienceAgentIds,
       })
 
       if (streamingRef.current) {
@@ -369,8 +349,6 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         next.text,
         next.attachments,
         next.continuePending,
-        next.agentId,
-        next.audienceAgentIds,
       )
       return true
     },

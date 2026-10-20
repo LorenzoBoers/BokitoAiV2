@@ -17,8 +17,7 @@ import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
 import { UserAvatar } from '../ui/UserAvatar'
-import { AiAvatar } from '../ui/AiAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { AgentMark } from '../ui/AgentMark'
 import { formatAppDate } from '../../lib/app-locale'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { addDays, dayKey, startOfWeek, type AgendaLayer } from '../../lib/agenda-layout'
@@ -37,6 +36,7 @@ import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { LAYER_DOT } from './agenda-style'
 import { CalendarSwatch } from './CalendarSwatch'
 import { SectionLabel } from '../ui/section-label'
+import { Button } from '../ui/button'
 
 const CALENDAR_BRANDS = ['google-calendar', 'outlook-calendar'] as const
 const AGENDA_RAIL_COLLAPSE_KEY = 'bokito.agenda.rail.collapsed'
@@ -387,8 +387,8 @@ export default function AgendaRail(props: Props) {
                           data-testid="agenda-owner-toggle"
                         >
                           <ToggleBox on={on} className="bg-ai" />
-                          <AiAvatar
-                            {...toAiAvatarProps(agent, agent.name)}
+                          <AgentMark
+                            agent={agent} fallbackName={agent.name}
                             size={16}
                             decorative
                             mode="static"
@@ -675,22 +675,22 @@ function MiniMonth({
           {formatAppDate(month, i18n.language, { month: 'long', year: 'numeric' })}
         </span>
         <span className="flex">
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
-            className="rounded p-1 text-text-muted hover:bg-bg-elevated hover:text-text-heading"
+            className="h-6 w-6 text-text-muted"
             aria-label={t('agendaPage.prevMonth')}
             onClick={() => onPickDay(shiftMonth(anchor, -1))}
           >
             <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="iconSm"
             type="button"
-            className="rounded p-1 text-text-muted hover:bg-bg-elevated hover:text-text-heading"
+            className="h-6 w-6 text-text-muted"
             aria-label={t('agendaPage.nextMonth')}
             onClick={() => onPickDay(shiftMonth(anchor, 1))}
           >
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-          </button>
+          </Button>
         </span>
       </div>
       <div className="grid grid-cols-7 text-center">

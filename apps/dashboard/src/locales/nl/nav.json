@@ -22,7 +22,7 @@
       "subtitle": "Dagelijkse scan en wat aandacht vraagt"
     },
     "communication": {
-      "title": "Communicatie",
+      "title": "Inbox",
       "subtitle": "Vandaag, chats, klant- en agentgesprekken"
     },
     "contacts": {
@@ -53,6 +53,14 @@
       "title": "Grid",
       "subtitle": "Organisatiekaart: afdelingen, mensen, agents en koppelingen"
     },
+    "workflow": {
+      "title": "Workflow",
+      "subtitle": "Hoe werk loopt van binnenkomst tot resultaat"
+    },
+    "connections": {
+      "title": "Koppelingen",
+      "subtitle": "Geïnstalleerde modules, partnerlogins en tools"
+    },
     "modules": {
       "title": "Koppelingen",
       "subtitle": "Geïnstalleerde modules, partnerlogins en tools"
@@ -67,7 +75,7 @@
     },
     "team": {
       "title": "Workforce",
-      "subtitle": "Mensen, agents, afdelingen en de Grid"
+      "subtitle": "Mensen, agents, afdelingen, de Grid en de Workflow"
     }
   },
   "workstreamsPage": {
@@ -2847,6 +2855,29 @@
     }
   },
   "ai": {
+    "autoReview": {
+      "title": "Auto-review",
+      "description": "Een tweede AI-aanroep bekijkt een actie voordat jij om akkoord wordt gevraagd. Hij mag een actie tegenhouden, maar keurt nooit iets goed dat altijd moet vragen.",
+      "modeLabel": "Stand",
+      "modes": {
+        "off": "Uit",
+        "shadow": "Meekijken",
+        "enforce": "Afdwingen"
+      },
+      "modeHints": {
+        "off": "Elke afgeschermde actie vraagt een mens, zoals voorheen.",
+        "shadow": "Elke afgeschermde actie vraagt nog steeds een mens. De kaart toont wat auto-review zou hebben gedaan.",
+        "enforce": "Auto-review houdt foute acties tegen en voert routinewerk uit als hij zeker is. Ingrijpende acties en beurten met mogelijk verborgen instructies vragen nog steeds."
+      },
+      "instructionsLabel": "Beoordelingsinstructies",
+      "instructionsHint": "Waar de beoordelaar in deze werkruimte op moet letten.",
+      "instructionsPlaceholder": "Bijvoorbeeld: terugbetalingen boven 100 euro altijd door een mens.",
+      "saveInstructions": "Instructies opslaan",
+      "saved": "Auto-review bijgewerkt",
+      "saveError": "Auto-review opslaan mislukt",
+      "agreement": "Mensen waren het in de laatste 30 dagen bij {{rate}}% van {{count}} beslissingen eens met auto-review.",
+      "agreementEmpty": "Nog geen afgehandelde beslissingen met een auto-review-oordeel."
+    },
     "group": {
       "ai": "AI",
       "assistent": "Assistent"
@@ -4250,18 +4281,26 @@
       "orbPreview": {
         "label": "Bekijk beweging",
         "idle": "Idle",
+        "listening": "Luistert",
         "thinking": "Denkt",
         "typing": "Typt",
         "working": "Werkt",
+        "searching": "Zoekt",
+        "writing": "Schrijft",
+        "sending": "Verstuurt",
+        "sleeping": "Slaapt",
         "spawn": "Spawn",
         "yes": "Ja",
         "no": "Nee",
         "alert": "Alert",
-        "jump": "Sprong"
+        "jump": "Sprong",
+        "done": "Klaar",
+        "leave": "Vertrekt"
       },
       "visualPickShape": "Vorm",
       "visualPickIcon": "Icoon",
       "visualPickColor": "Kleur",
+      "visualFixedColors": "Dit lichaam houdt zijn originele kleuren.",
       "visualMoreColors": "Meer kleuren",
       "visualMoreShapes": "Meer vormen",
       "visualShapes": {
@@ -4322,7 +4361,33 @@
       "askTargetTitle": "Vragen stellen aan",
       "askTargetHint": "Wie de vragen en concepten van deze agent krijgt. Automatisch vraagt de eigenaar van het gesprek, dan wie het werk gaf, dan het eigenaar-team. Wie afwezig is, wordt overgeslagen.",
       "askTargetAuto": "Automatisch",
-      "askTargetError": "Opslaan van wie deze agent vraagt is mislukt."
+      "askTargetError": "Opslaan van wie deze agent vraagt is mislukt.",
+      "definition": {
+        "title": "Definitie",
+        "hint": "Wat deze agent mag aanraken en hoe zijn prompt is opgebouwd. Een geblokkeerde tool blijft geblokkeerd, ook als de toollijst hem noemt.",
+        "capability": "Bevoegdheid",
+        "capabilityAll": "Alle tools",
+        "capabilityReadWrite": "Geen ingrijpende tools",
+        "capabilityReadOnly": "Alleen lezen",
+        "promptMode": "Prompt",
+        "promptExtend": "Aanvullen op Bokito-prompt",
+        "promptFull": "Alleen eigen prompt",
+        "disallowed": "Geblokkeerde tools",
+        "disallowedHint": "Toolnamen, gescheiden door komma's.",
+        "skills": "Vaardigheden",
+        "skillsHint": "Paden van workspace-documenten die de agent leest wanneer ze van toepassing zijn, gescheiden door komma's.",
+        "completion": "Moet eindigen met",
+        "completionHint": "Toolnamen, gescheiden door komma's. De agent krijgt een herinnering tot hij er een aanroept (maximaal 8 keer per beurt).",
+        "mcp": "MCP-servers",
+        "mcpAll": "Alle servers",
+        "mcpNone": "Geen",
+        "mcpNamed": "Alleen deze",
+        "mcpExcept": "Alle behalve",
+        "mcpServers": "Servernamen, gescheiden door komma's.",
+        "save": "Opslaan",
+        "saved": "Definitie opgeslagen.",
+        "error": "Opslaan van de definitie is mislukt."
+      }
     },
     "pageMeta": {
       "overview": {
@@ -5612,6 +5677,8 @@
     "loadDocError": "Kon dit document niet laden.",
     "searchError": "Zoeken mislukt. Probeer opnieuw.",
     "searchCapped": "De 40 beste overeenkomsten. Maak de zoekopdracht specifieker voor een kleinere set.",
+    "platformSkills": "Platformskills",
+    "platformSkillsHelp": "Agents gebruiken deze skills wanneer hun werk erom vraagt. Ze horen bij Bokito en zijn niet te bewerken.",
     "loadMore": "Meer documenten laden",
     "loadingMore": "Meer documenten laden",
     "saved": "Document opgeslagen",
@@ -6578,9 +6645,7 @@
     "lens": {
       "flow": "Stroom",
       "labels": "Labels",
-      "structure": "Structuur",
-      "autonomy": "Autonomie",
-      "issues": "Knelpunten"
+      "autonomy": "Autonomie"
     },
     "view": {
       "2d": "2D",
@@ -6638,18 +6703,17 @@
       "none": "Niemand pakt het op"
     },
     "legendFlow": {
-      "worksInBokito": "werkt in Bokito",
-      "worksInConnection": "werkt in via een koppeling",
       "noLabel": "Geen label",
+      "other": "Overig",
       "labelsHint": "Klik op een label om het door de keten te volgen.",
-      "issuesHint": "Alleen kaarten en lijnen met een knelpunt blijven opgelicht.",
       "autonomyHint": "Elke uitvoerder in de kleur van wat hij zelf mag."
     },
     "panel": {
       "label": "Details in de Grid",
       "issues": "Knelpunten",
       "noIssues": "Geen knelpunten in deze periode.",
-      "back": "Terug naar knelpunten",
+      "showIssues_one": "{{count}} knelpunt: bekijken",
+      "showIssues_other": "{{count}} knelpunten: bekijken",
       "mayAct": "Mag zelf",
       "source": {
         "workspace": "Ingesteld voor de werkruimte",
@@ -6692,8 +6756,7 @@
       "connection_without_folder": "Een koppeling schreef zonder werkmap"
     },
     "labelChips": "Labels",
-    "reset": "Beginbeeld",
-    "structure3dOnly": "Structuur staat alleen in 3D."
+    "reset": "Beginbeeld"
   },
   "teamPage": {
     "openConversations": "Gesprekken",
@@ -6887,6 +6950,11 @@
     "count_one": "{{count}} gesprek",
     "count_other": "{{count}} gesprekken",
     "edit": "Label bewerken",
+    "merge": "Samenvoegen",
+    "mergeTitle": "#{{name}} samenvoegen",
+    "mergeHint": "Elk gesprek, contact, bedrijf, elke werkmap en elke regel die #{{name}} gebruikt, gaat naar het label dat je houdt. #{{name}} verdwijnt daarna. Een flow-label blijft bij zijn flow.",
+    "mergeInto": "Dit label houden",
+    "merged": "#{{name}} is nu #{{into}}",
     "delete": "Label verwijderen",
     "deleteConfirm": "{{name}} verwijderen? Het label verdwijnt van {{count}} gesprekken.",
     "save": "Opslaan",

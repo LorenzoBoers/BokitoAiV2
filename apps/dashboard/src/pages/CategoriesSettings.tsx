@@ -203,7 +203,7 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
           <Button
             type="button"
             size="sm"
-            variant={entry.ready ? 'default' : 'outline'}
+            variant={entry.ready ? 'default' : 'secondary'}
             disabled={busy}
             onClick={() => void act(() => promoteSignalBacklog(entry.key), t('categoriesPage.backlogPromoted'))}
           >

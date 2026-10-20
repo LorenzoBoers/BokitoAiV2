@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
+import { GitMerge, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
@@ -12,6 +12,7 @@ import {
   createSignalTag,
   deleteSignalTag,
   listSignalTags,
+  mergeSignalTags,
   type SignalTag,
 } from '../../lib/signals-api'
 import { createProject } from '../../lib/projects-api'
@@ -65,6 +66,8 @@ export function TagRegistrySection({
   const [description, setDescription] = useState('')
   const [promoting, setPromoting] = useState<SignalTag | null>(null)
   const [folderFor, setFolderFor] = useState<SignalTag | null>(null)
+  const [merging, setMerging] = useState<SignalTag | null>(null)
+  const [intoId, setIntoId] = useState('')
 
   const visible = useMemo(() => {
     const rows = freeOnly ? tags.filter((tag) => !tag.isCategory) : tags
@@ -198,6 +201,20 @@ export function TagRegistrySection({
                       {t('tagRegistry.promote')}
                     </Button>
                   )}
+                  {!tag.isCategory ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setMerging(tag)
+                        setIntoId('')
+                      }}
+                    >
+                      <GitMerge size={12} />
+                      {t('tagRegistry.merge')}
+                    </Button>
+                  ) : null}
                   {tag.folders.length === 0 ? (
                     <Button size="sm" variant="ghost" disabled={busy} onClick={() => setFolderFor(tag)}>
                       <FolderIcon size={12} />
@@ -292,6 +309,51 @@ export function TagRegistrySection({
               }
             >
               {t('tagRegistry.saveAsMap')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={merging != null} onOpenChange={(open) => (!open ? setMerging(null) : undefined)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('tagRegistry.mergeTitle', { name: merging?.name ?? '' })}</DialogTitle>
+            <DialogDescription>{t('tagRegistry.mergeHint', { name: merging?.name ?? '' })}</DialogDescription>
+          </DialogHeader>
+          <ChoiceSelect
+            aria-label={t('tagRegistry.mergeInto')}
+            triggerClassName="h-9 text-sm"
+            value={intoId}
+            onValueChange={setIntoId}
+            placeholder={t('tagRegistry.mergeInto')}
+            groups={[
+              {
+                items: visible
+                  .filter((tag) => tag.id !== merging?.id && !tag.isCategory)
+                  .map((tag) => ({ value: tag.id, label: tag.name, kind: 'tag' as const })),
+              },
+            ]}
+          />
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setMerging(null)} disabled={busy}>
+              {t('tagRegistry.cancel')}
+            </Button>
+            <Button
+              type="button"
+              disabled={busy || !intoId || !merging || !token}
+              onClick={() => {
+                if (!token || !merging || !intoId) return
+                const spare = merging.name
+                const kept = visible.find((tag) => tag.id === intoId)?.name ?? ''
+                void run(async () => {
+                  await mergeSignalTags(token, merging.id, intoId)
+                  setMerging(null)
+                  setIntoId('')
+                  toast.success(t('tagRegistry.merged', { name: spare, into: kept }))
+                }).catch(() => undefined)
+              }}
+            >
+              {t('tagRegistry.merge')}
             </Button>
           </DialogFooter>
         </DialogContent>

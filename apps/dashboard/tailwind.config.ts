@@ -76,6 +76,24 @@ export default {
         lg: ['0.938rem', { lineHeight: '1.375rem' }], // 15 / 22
         xl: ['1.063rem', { lineHeight: '1.5rem', letterSpacing: '-0.01em' }], // 17 / 24
         '2xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.015em' }], // 20 / 28
+        // Editorial steps for /docs and marketing heroes only; app UI stays on the ladder above.
+        'docs-nav': ['0.8125rem', { lineHeight: '1.25rem' }], // 13 / 20
+        'docs-body': ['1.0625rem', { lineHeight: '1.75rem' }], // 17 / 28
+        'docs-h2': ['1.65rem', { lineHeight: '2.125rem', letterSpacing: '-0.015em' }],
+        display: ['2.75rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
+      },
+      // Content widths: PageContent sm/md/lg/xl plus the shell caps.
+      maxWidth: {
+        form: '40rem', // 640
+        reading: '56rem', // 896
+        page: '62.5rem', // 1000
+        dense: '75rem', // 1200
+        shell: '77.5rem', // 1240
+        canvas: '112.5rem', // 1800
+      },
+      width: {
+        rail: '14.75rem',
+        'rail-collapsed': '3.25rem',
       },
       boxShadow: {
         // Theme-aware elevation tokens (defined per theme in index.css).
@@ -118,6 +136,15 @@ export default {
           from: { opacity: '0', transform: 'translateX(-4px)' },
           to: { opacity: '1', transform: 'translateX(0)' },
         },
+        // Popover swap: opacity and scale only, so layout does not stretch.
+        'issues-in': {
+          from: { opacity: '0', transform: 'scale(0.96)' },
+          to: { opacity: '1', transform: 'scale(1)' },
+        },
+        'issues-out': {
+          from: { opacity: '1', transform: 'scale(1)' },
+          to: { opacity: '0', transform: 'scale(0.96)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 180ms ease-out',
@@ -128,6 +155,8 @@ export default {
         'slide-in-left': 'slide-in-left 240ms cubic-bezier(0.16, 1, 0.3, 1)',
         'panel-in': 'panel-in 240ms cubic-bezier(0.16, 1, 0.3, 1)',
         'list-row-enter': 'list-row-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'issues-in': 'issues-in 160ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'issues-out': 'issues-out 120ms cubic-bezier(0.4, 0, 1, 1) both',
       },
     },
   },

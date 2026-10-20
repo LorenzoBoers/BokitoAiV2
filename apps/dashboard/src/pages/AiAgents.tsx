@@ -7,6 +7,7 @@ import { CalendarDays, Inbox, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { AgentMark } from '../components/ui/AgentMark'
+import { AgentGlow } from '../components/ui/agent-glow'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
@@ -40,6 +41,7 @@ import { useAgentOrbDrive } from '../hooks/useBotOrbPulse'
 import { presenceOrbMotion } from '../lib/bot-orb-motion'
 import { AgentActiveLine } from '../components/inbox/IdentitySeenLine'
 import { cn } from '../lib/utils'
+import { TextLink } from '../components/ui/text-link'
 
 /** Library card mark — readable face, not a dense list icon. */
 const LIBRARY_MARK_SIZE = 52
@@ -126,11 +128,7 @@ function AgentLibraryCard({
         interactive
         className="relative flex h-full flex-col gap-3 overflow-hidden border-border/50 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
       >
-        <span
-          aria-hidden
-          className="specialist-glow pointer-events-none absolute -left-8 -top-10 h-36 w-36 rounded-full blur-2xl"
-          style={{ backgroundColor: profileAccent }}
-        />
+        <AgentGlow color={profileAccent} placement="corner-left" />
         <div className="relative z-[1] flex items-start gap-3">
           <AgentMark
             agent={agent}
@@ -202,17 +200,17 @@ function AgentLibraryCard({
             {openCount > 0 || decisionCount > 0 ? (
               <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                 {openCount > 0 ? (
-                  <button
+                  <TextLink
                     type="button"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                       e.preventDefault()
                       e.stopPropagation()
                       navigate(`/agents/${agent.id}#conversations`)
                     }}
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs"
                   >
                     {t('workforce.agents.openConversationsCount', { count: openCount })}
-                  </button>
+                  </TextLink>
                 ) : null}
                 {decisionCount > 0 ? (
                   <button
@@ -484,16 +482,16 @@ export default function AiAgents() {
                 ? t('workforce.agents.emptyDeactivated')
                 : t('workforce.agents.emptySearch')}
             </p>
-            <button
+            <TextLink
               type="button"
               onClick={() => {
                 setQuery('')
                 setStatusFilter('all')
               }}
-              className="mt-3 text-xs font-medium text-accent hover:underline"
+              className="mt-3 text-xs"
             >
               {t('workforce.agents.clearSearch')}
-            </button>
+            </TextLink>
           </div>
         ) : (
         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">

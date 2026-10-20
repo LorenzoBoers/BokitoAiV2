@@ -1,16 +1,9 @@
 // Shared badge styling for the project work surface (queue + smart docs).
 import type { DocSectionStatus, QueueItemKind, QueueItemStatus } from '../../lib/project-work-api'
 
-type BadgeVariant =
-  | 'neutral'
-  | 'default'
-  | 'outline'
-  | 'secondary'
-  | 'accent'
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'info'
+import type { BadgeTone } from '../ui/badge'
+
+type BadgeVariant = BadgeTone
 
 export const QUEUE_STATUS_ORDER: QueueItemStatus[] = [
   'proposed',

@@ -4,7 +4,7 @@ import type { LabelColor } from '../../lib/signals-api'
 import { useTagMark } from '../../lib/tag-marks'
 import { cn } from '../../lib/utils'
 import { HashtagMark } from './HashtagMark'
-import { labelMarkIcon, labelMarkInk } from './label-marks'
+import { TAG_PILL_SIZE, labelMarkIcon, labelMarkInk } from './label-marks'
 
 export type TagPillTone = 'free' | 'action' | 'set' | 'inherited'
 
@@ -47,9 +47,7 @@ function pillClassName({
   const freeTint = !painted && color ? FREE_COLOR_PILL[color] : null
   return cn(
     'tag-pill group/pill inline-flex max-w-full items-center font-medium leading-none transition-colors duration-150 [&_svg]:block',
-    size === 'sm' && 'h-5 gap-1 rounded-full px-2 text-[10px]',
-    size === 'md' && 'h-7 gap-2 rounded-full px-3.5 text-xs',
-    size === 'lg' && 'h-8 gap-2.5 rounded-full px-4 text-sm',
+    TAG_PILL_SIZE[size],
     isInherited
       ? 'bg-bg-elevated/70 text-text-muted'
       : painted

@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -12,6 +13,8 @@ from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalMessage
 from app.services.audit import record_audit
 from app.services.platform_changes import accept_platform_change
+
+logger = logging.getLogger(__name__)
 
 
 class DecisionActionError(HTTPException):
@@ -107,6 +110,32 @@ async def _count_rule_verdict(
             session.add(agent)
 
 
+async def _deliver_connection_write(
+    session: AsyncSession,
+    decision: DecisionRequest,
+    action_type: str,
+    connection_id: str,
+    result: Any,
+    *,
+    user_id: UUID | None,
+) -> None:
+    """An approved action wrote through a connection: deliver into its folder."""
+    from app.services.deliveries import record_connection_write
+
+    try:
+        await record_connection_write(
+            session,
+            decision.tenant_id,
+            decision.signal_id,
+            tool_name=action_type,
+            tool_input={"connection_id": connection_id},
+            result=result if isinstance(result, dict) else {},
+            user_id=user_id,
+        )
+    except Exception:
+        logger.exception("delivery after %s failed", action_type)
+
+
 async def resolve_decision(
     session: AsyncSession,
     tenant_id: UUID,
@@ -134,6 +163,9 @@ async def resolve_decision(
     decision.resolved_at = datetime.utcnow()
     decision.resolved_by_user_id = user_id
     await _count_rule_verdict(session, tenant_id, options, action)
+    from app.services.auto_review import record_agreement
+
+    await record_agreement(session, decision, action, user_id=user_id)
 
     if decision.notification_id:
         notif_result = await session.execute(
@@ -233,7 +265,7 @@ async def resolve_decision(
                 try:
                     start_at = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
                     end_at = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
-                    await create_external_event(
+                    written = await create_external_event(
                         session,
                         tenant_id,
                         connection_id=UUID(conn_raw),
@@ -247,6 +279,9 @@ async def resolve_decision(
                     )
                 except Exception as exc:
                     raise DecisionActionError(action_type, str(exc)) from exc
+                await _deliver_connection_write(
+                    session, decision, action_type, conn_raw, written, user_id=user_id
+                )
 
         if action_type == "calendar_update_event":
             from app.services.calendar_sync import update_external_event
@@ -263,7 +298,7 @@ async def resolve_decision(
                     if end_raw:
                         end_at = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
                     title = payload.get("title")
-                    await update_external_event(
+                    written = await update_external_event(
                         session,
                         tenant_id,
                         UUID(event_raw),
@@ -282,6 +317,13 @@ async def resolve_decision(
                     )
                 except Exception as exc:
                     raise DecisionActionError(action_type, str(exc)) from exc
+                from app.services.calendar_sync import event_connection
+
+                _event, conn = await event_connection(session, tenant_id, UUID(event_raw))
+                if conn is not None:
+                    await _deliver_connection_write(
+                        session, decision, action_type, str(conn.id), written, user_id=user_id
+                    )
 
         if action_type == "add_module_source":
             slug = str(payload.get("module") or "").strip()

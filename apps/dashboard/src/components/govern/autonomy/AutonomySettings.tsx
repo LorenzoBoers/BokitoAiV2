@@ -30,6 +30,7 @@ import { listAgents } from '../../../lib/agents-api'
 import { setLeadAgent } from '../../../lib/workforce-api'
 import { resetTenantDefaultSendAs } from '../../../lib/reply-send-as'
 import { AutonomyDial } from './AutonomyDial'
+import { AutoReviewCard } from './AutoReviewCard'
 import { ChannelExceptionsCard } from './ChannelExceptionsCard'
 import { HandoverCard, type LeadAgentOption } from './HandoverCard'
 import { LanguageCard } from './LanguageCard'
@@ -310,6 +311,7 @@ export function AutonomySettings({ after }: { after?: ReactNode }) {
         expandedMailboxId={expandedMailboxId}
         setExpandedMailboxId={setExpandedMailboxId}
       />
+      <AutoReviewCard canEdit={isAdmin} />
       {after}
     </div>
   )

@@ -115,7 +115,7 @@ export function WebhookTriggerPanel({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() =>
               void copyText(
                 hookUrl,
@@ -139,7 +139,7 @@ export function WebhookTriggerPanel({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             onClick={() =>
               void copyText(
                 trigger.id,
@@ -164,7 +164,7 @@ export function WebhookTriggerPanel({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               onClick={() =>
                 void copyText(
                   activeSecret,
@@ -193,7 +193,7 @@ export function WebhookTriggerPanel({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           onClick={() =>
             void copyText(
               envSnippet,
@@ -213,7 +213,7 @@ export function WebhookTriggerPanel({
           {testing ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Zap size={14} className="mr-1.5" />}
           {t('agendaPage.webhookTest')}
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={rotating} onClick={() => void rotate()}>
+        <Button type="button" size="sm" variant="secondary" disabled={rotating} onClick={() => void rotate()}>
           {rotating ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <RefreshCw size={14} className="mr-1.5" />}
           {t('agendaPage.webhookRotate')}
         </Button>

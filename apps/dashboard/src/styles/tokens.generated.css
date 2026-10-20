@@ -32,12 +32,12 @@
 }
 
 :root[data-theme='light'] {
-  --color-bg: 247 247 246;
-  --color-bg-root: 247 247 246;
-  --color-bg-sidebar: 247 247 246;
-  --color-bg-canvas: 247 247 246;
+  --color-bg: 244 244 243;
+  --color-bg-root: 244 244 243;
+  --color-bg-sidebar: 244 244 243;
+  --color-bg-canvas: 244 244 243;
   --color-bg-surface: 255 255 255;
-  --color-bg-elevated: 243 243 242;
+  --color-bg-elevated: 252 252 251;
   --color-bg-hover: 238 238 236;
   --color-bg-input: 255 255 255;
   --color-border: 232 232 229;
@@ -60,5 +60,5 @@
   --color-status-error: 220 38 38;
   --color-status-info: 37 99 235;
   --color-cutout: var(--color-bg);
-  --body-bg: #f7f7f6;
+  --body-bg: #f4f4f3;
 }

@@ -6,9 +6,8 @@ import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { getTeamOverview, type TeamOverview } from '../../lib/teams-api'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { AgentMark } from '../ui/AgentMark'
 import { Button } from '../ui/button'
-import { AiAvatar } from '../ui/AiAvatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Switch } from '../ui/switch'
@@ -233,7 +232,7 @@ function AccessDialog<L extends string>({
         kind: 'agent' as const,
         id: a.id,
         label: a.name,
-        avatar: <AiAvatar {...toAiAvatarProps(a)} size={20} mode="static" />,
+        avatar: <AgentMark agent={a} decorative={false} size={20} mode="static" />,
         locked: false,
         deactivated: Boolean(a.deactivated),
       }))
@@ -384,7 +383,7 @@ function AccessDialog<L extends string>({
             {t('access.reset')}
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="secondary" size="sm" onClick={onClose}>
               {t('teamPage.cancel')}
             </Button>
             <Button size="sm" disabled={busy || !overview} onClick={() => void submit(entries())}>

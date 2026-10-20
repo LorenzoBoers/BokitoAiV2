@@ -651,32 +651,103 @@ async def update_tag(
     return row
 
 
-async def _merge_into(session: AsyncSession, source: SignalTag, target: SignalTag) -> None:
-    tagged = set(
-        (
-            await session.execute(
-                select(SignalTagLink.signal_id).where(SignalTagLink.tag_id == target.id)
+async def _move_owner_links(session: AsyncSession, model: type, owner, source: SignalTag, target: SignalTag) -> None:
+    have = set((await session.execute(select(owner).where(model.tag_id == target.id))).scalars())
+    for link in list((await session.execute(select(model).where(model.tag_id == source.id))).scalars()):
+        owner_id = getattr(link, owner.key)
+        if owner_id not in have:
+            session.add(model(**{owner.key: owner_id, "tag_id": target.id, "tenant_id": target.tenant_id}))
+        await session.delete(link)
+
+
+async def _rewrite_rule_labels(session: AsyncSession, source: SignalTag, target: SignalTag) -> int:
+    """Point inbox rules that tag the spare label at the one that stays."""
+    import json
+
+    from app.models.learning import InboxRule
+
+    moved = 0
+    rules = (
+        await session.execute(
+            select(InboxRule).where(
+                InboxRule.tenant_id == source.tenant_id,
+                InboxRule.deleted_at.is_(None),
             )
+        )
+    ).scalars()
+    for rule in rules:
+        try:
+            labels = json.loads(rule.labels_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(labels, list) or source.name not in labels:
+            continue
+        nxt: list[str] = []
+        for label in labels:
+            name = target.name if label == source.name else label
+            if isinstance(name, str) and name and name not in nxt:
+                nxt.append(name)
+        rule.labels_json = json.dumps(nxt)
+        rule.updated_at = datetime.utcnow()
+        session.add(rule)
+        moved += 1
+    return moved
+
+
+async def _merge_into(session: AsyncSession, source: SignalTag, target: SignalTag) -> None:
+    """Move every use of ``source`` onto ``target``, then drop ``source``.
+
+    Conversations, contacts, companies, calendars, folders and inbox rules
+    follow. A later ``refile`` puts those conversations in the right folder.
+    """
+    from app.models.calendar import CalendarTagLink
+    from app.models.project import ProjectTagLink
+    from app.services.folders import refile_many
+
+    affected = list(
+        (
+            await session.execute(select(SignalTagLink.signal_id).where(SignalTagLink.tag_id == source.id))
         ).scalars()
     )
-    links = (
-        await session.execute(select(SignalTagLink).where(SignalTagLink.tag_id == source.id))
-    ).scalars()
-    for link in list(links):
-        if link.signal_id not in tagged:
-            session.add(
-                SignalTagLink(signal_id=link.signal_id, tag_id=target.id, tenant_id=target.tenant_id)
-            )
-        await session.delete(link)
-    for model, owner in ((ContactTagLink, ContactTagLink.contact_id), (CompanyTagLink, CompanyTagLink.company_id)):
-        have = set((await session.execute(select(owner).where(model.tag_id == target.id))).scalars())
-        for link in list((await session.execute(select(model).where(model.tag_id == source.id))).scalars()):
-            owner_id = getattr(link, owner.key)
-            if owner_id not in have:
-                session.add(model(**{owner.key: owner_id, "tag_id": target.id, "tenant_id": target.tenant_id}))
-            await session.delete(link)
-    from app.models.project import ProjectTagLink
+    contact_ids = list(
+        (await session.execute(select(ContactTagLink.contact_id).where(ContactTagLink.tag_id == source.id))).scalars()
+    )
+    company_ids = list(
+        (await session.execute(select(CompanyTagLink.company_id).where(CompanyTagLink.tag_id == source.id))).scalars()
+    )
+    if contact_ids or company_ids:
+        contact_scope = select(Contact.id).where(Contact.tenant_id == source.tenant_id)
+        if contact_ids and company_ids:
+            contact_scope = contact_scope.where(or_(Contact.id.in_(contact_ids), Contact.company_id.in_(company_ids)))
+        elif contact_ids:
+            contact_scope = contact_scope.where(Contact.id.in_(contact_ids))
+        else:
+            contact_scope = contact_scope.where(Contact.company_id.in_(company_ids))
+        affected.extend(
+            (
+                await session.execute(
+                    select(Signal.id).where(Signal.tenant_id == source.tenant_id, Signal.contact_id.in_(contact_scope))
+                )
+            ).scalars()
+        )
 
+    tagged = set(
+        (
+            await session.execute(select(SignalTagLink.signal_id).where(SignalTagLink.tag_id == target.id))
+        ).scalars()
+    )
+    for link in list(
+        (await session.execute(select(SignalTagLink).where(SignalTagLink.tag_id == source.id))).scalars()
+    ):
+        if link.signal_id not in tagged:
+            session.add(SignalTagLink(signal_id=link.signal_id, tag_id=target.id, tenant_id=target.tenant_id))
+        await session.delete(link)
+    for model, owner in (
+        (ContactTagLink, ContactTagLink.contact_id),
+        (CompanyTagLink, CompanyTagLink.company_id),
+        (CalendarTagLink, CalendarTagLink.calendar_id),
+    ):
+        await _move_owner_links(session, model, owner, source, target)
     for link in list(
         (await session.execute(select(ProjectTagLink).where(ProjectTagLink.tag_id == source.id))).scalars()
     ):
@@ -693,8 +764,43 @@ async def _merge_into(session: AsyncSession, source: SignalTag, target: SignalTa
             session.add(link)
         else:
             await session.delete(link)
+    await _rewrite_rule_labels(session, source, target)
+    if not (target.description or "").strip() and (source.description or "").strip():
+        target.description = source.description
+    if source.show_in_nav:
+        target.show_in_nav = True
+    target.updated_at = datetime.utcnow()
+    session.add(target)
     await session.flush()
     await session.delete(source)
+    await session.flush()
+    await refile_many(session, target.tenant_id, affected)
+
+
+async def merge_tags(
+    session: AsyncSession,
+    tenant_id: UUID,
+    source_id: UUID,
+    into_id: UUID,
+    *,
+    commit: bool = True,
+) -> SignalTag:
+    """Fold one free label into another. The source name disappears."""
+    source = await _tag_row(session, tenant_id, source_id)
+    target = await _tag_row(session, tenant_id, into_id)
+    if source.id == target.id:
+        raise ValueError("Pick a different label to merge into.")
+    if source.workstream_id is not None or target.workstream_id is not None:
+        flow = source if source.workstream_id is not None else target
+        raise ValueError(
+            f"#{flow.name} is a flow label. Merge free labels only; rename the flow on its page."
+        )
+    await _merge_into(session, source, target)
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
+    return target
 
 
 async def delete_tag(session: AsyncSession, tenant_id: UUID, tag_id: UUID, *, commit: bool = True) -> None:

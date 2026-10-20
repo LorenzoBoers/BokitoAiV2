@@ -21,6 +21,7 @@ import {
 } from '../ui/dialog'
 import { TagChipInput } from '../ui/TagChipInput'
 import { TagPill } from '../ui/TagPill'
+import { Input } from '../ui/input'
 
 type Props = {
   open: boolean
@@ -125,13 +126,13 @@ export function CreateFolderDialog({ open, onOpenChange, parentId = null, onCrea
 
         <label className="block space-y-1">
           <span className="text-xs font-medium text-text-secondary">{t('projects.page.name')}</span>
-          <input
+          <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={t('projects.page.namePlaceholder')}
             aria-label={t('projects.page.name')}
             autoFocus
-            className="h-9 w-full rounded-md border border-border/70 bg-bg-input px-2.5 text-sm text-text-heading outline-none focus:border-accent"
+            className="w-full"
             onKeyDown={(event) => {
               if (event.key === 'Enter' && canSubmit && !busy) {
                 event.preventDefault()
@@ -207,7 +208,7 @@ export function CreateFolderDialog({ open, onOpenChange, parentId = null, onCrea
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('projects.page.cancel')}
           </Button>
           <Button type="button" onClick={() => void confirm()} disabled={!canSubmit || busy}>

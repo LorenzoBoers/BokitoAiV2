@@ -5,6 +5,7 @@ import {
   Archive,
   ArrowLeft,
   CalendarClock,
+  EyeOff,
   Mail,
   MailOpen,
   MoreHorizontal,
@@ -535,10 +536,16 @@ function ThreadListItem({
                   scheduleDue ? 'text-status-warning' : 'text-text-muted',
                   thread.schedule && !thread.schedule.enabled && 'line-through opacity-70',
                 )}
-                title={scheduleLongLabel(scheduleAt, i18n.language)}
+                title={
+                  thread.hiddenUntil
+                    ? t('threadList.hiddenUntil', { when: scheduleLongLabel(thread.hiddenUntil, i18n.language) })
+                    : scheduleLongLabel(scheduleAt, i18n.language)
+                }
                 data-testid="thread-row-schedule"
               >
-                {thread.schedule?.repeat ? (
+                {thread.hiddenUntil ? (
+                  <EyeOff size={11} aria-hidden />
+                ) : thread.schedule?.repeat ? (
                   <Repeat size={11} aria-hidden />
                 ) : (
                   <CalendarClock size={11} aria-hidden />
@@ -688,8 +695,9 @@ function ThreadListItem({
                     ) : null}
                     {!ticket && thread.category && thread.category !== 'other' ? (
                       <Badge
-                        variant="secondary"
-                        className="shrink-0 px-1.5 py-0 text-2xs capitalize"
+                        variant="neutral"
+                        size="sm"
+                        className="shrink-0 capitalize"
                         data-testid="thread-row-category"
                       >
                         {t(`listItem.category.${thread.category}`, {

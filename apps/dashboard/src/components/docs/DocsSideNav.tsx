@@ -15,7 +15,7 @@ type DocsSideNavProps = {
 }
 
 function navLinkClass(active: boolean): string {
-  return cn('docs-nav-link block px-2.5 py-1.5 text-[0.8125rem] leading-snug transition-colors', {
+  return cn('docs-nav-link block px-2.5 py-1.5 text-docs-nav leading-snug transition-colors', {
     'font-medium': active,
   })
 }

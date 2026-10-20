@@ -13,7 +13,6 @@ import type { ProposalItem } from '../../lib/inbox-api'
 import { itemsFromAttachResult } from '../../lib/marketplace-mentions'
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import { cn } from '../../lib/utils'
-import { AiAvatar } from '../ui/AiAvatar'
 import type { AgentAvatarProps } from '../../lib/agent-avatar'
 import ActivityTrail from './ActivityTrail'
 import { EntityAvatarLink } from './EntityAvatarLink'
@@ -22,6 +21,9 @@ import { CHAT_AVATAR_SIZE, THREAD_GUTTER } from './ThreadMeta'
 import { BubbleHeader, ChatBubbleShell, RoleChip } from './ChatBubble'
 import ChatText from './ChatText'
 import { ProposalItemList } from './ProposalItemPreview'
+
+/** Breath between two bubbles of one turn: the next opens after the last settles. */
+const BUBBLE_GAP_MS = 280
 
 function TypingDots({ label }: { label: string }) {
   return (
@@ -56,6 +58,7 @@ function LiveBubble({
   items,
   enterClass,
   hideGutter = false,
+  accent,
 }: {
   text: string
   writing: boolean
@@ -66,6 +69,7 @@ function LiveBubble({
   /** First growing bubble fades in; later segments pop in as they open. */
   enterClass: string
   hideGutter?: boolean
+  accent?: string | null
 }) {
   const { t } = useTranslation('communication')
   const lead = stack === 'single' || stack === 'start'
@@ -84,6 +88,7 @@ function LiveBubble({
         side="left"
         variant="agent"
         stack={stack}
+        accent={accent}
         header={header}
         bubbleClassName={confirm ? 'bubble-confirm' : undefined}
         body={
@@ -124,6 +129,7 @@ function LiveSpeech({
   attached,
   onRevealed,
   hideGutter = false,
+  accent,
 }: {
   text: string
   /** False once the gateway closed the turn — drain faster and stop the cursor. */
@@ -140,6 +146,7 @@ function LiveSpeech({
   hideGutter?: boolean
   attached?: ProposalItem[]
   onRevealed?: (done: boolean) => void
+  accent?: string | null
 }) {
   // Follow the backend buffer at cruise. holdReserve keeps a short lead
   // while the model is still sending; after that the leftover drains.
@@ -148,13 +155,6 @@ function LiveSpeech({
   useEffect(() => {
     onRevealed?.(caughtUp)
   }, [caughtUp, onRevealed])
-  // If the turn already ended but the reveal stall (tab throttle, reset),
-  // force caught-up so the parent can hand off to saved bubbles.
-  useEffect(() => {
-    if (streamActive || caughtUp) return
-    const timer = window.setTimeout(() => onRevealed?.(true), 1200)
-    return () => window.clearTimeout(timer)
-  }, [streamActive, caughtUp, onRevealed])
   const writing = smooth.length < text.length
   const items = attached ?? []
   // The API already split this segment. One segment is one bubble.
@@ -174,6 +174,7 @@ function LiveSpeech({
             header={leads && index === 0 ? header : null}
             avatar={avatar}
             hideGutter={hideGutter}
+            accent={accent}
             items={isLast ? items : undefined}
             enterClass={index === 0 ? 'msg-bubble-enter-live' : 'bubble-pop-enter'}
           />
@@ -202,6 +203,7 @@ export default function AgentTurnLive({
   orbBaseMotion,
   continuesRun = false,
   onPlaybackDone,
+  onSpeechShown,
 }: {
   turn: LiveTurn
   /** The working agent's avatar (28px); the generic AI mark when unknown. */
@@ -218,36 +220,52 @@ export default function AgentTurnLive({
   continuesRun?: boolean
   /** Saved bubbles may replace this overlay once the reveal has caught up. */
   onPlaybackDone?: (streamId: string) => void
+  /** The reader has seen this turn's words, so the saved bubble must not replay them. */
+  onSpeechShown?: (streamId: string) => void
 }) {
   const { t } = useTranslation('communication')
   const seat = useLiveAgentSeat()
   const seated = Boolean(agentId && avatarMark)
   const [statusReady, setStatusReady] = useState(!seated)
-  const sawEnterRef = useRef(false)
   const enteringNow = Boolean(seated && seat?.isEntering(String(agentId)))
+  // Hide the line only while the orb is rising. Before the claim, `seated`
+  // is already true and `entering` is still false; the first paint stays
+  // quiet because statusReady starts false. Once the rise is over — or this
+  // seat never rose — the line must show. Waiting until an entrance was
+  // observed left the orb up with no text for the whole turn.
   useEffect(() => {
-    sawEnterRef.current = false
-    if (!seated) {
-      setStatusReady(true)
-      return
-    }
-    setStatusReady(false)
-  }, [seated, turn.streamId])
-  useEffect(() => {
-    if (!seated) return
-    if (enteringNow) {
-      sawEnterRef.current = true
-      setStatusReady(false)
-      return
-    }
-    if (sawEnterRef.current) setStatusReady(true)
-  }, [seated, enteringNow])
+    setStatusReady(!seated || !enteringNow)
+  }, [seated, enteringNow, turn.streamId])
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
   const markRevealed = useCallback((key: string, done: boolean) => {
     setRevealed((prev) => (prev[key] === done ? prev : { ...prev, [key]: done }))
   }, [])
-  const blocks = liveBlocks(turn)
-  const speechKeys = blocks.filter((block) => block.type === 'speech').map((block) => block.key)
+  const allBlocks = liveBlocks(turn)
+  const speechKeys = allBlocks.filter((block) => block.type === 'speech').map((block) => block.key)
+  // One bubble at a time: a segment opens once the one before it finished
+  // revealing plus a short pause, so two bubbles never pop in together.
+  const [opened, setOpened] = useState<string[]>([])
+  useEffect(() => {
+    setOpened([])
+  }, [turn.streamId])
+  const nextKey = speechKeys.find((key) => !opened.includes(key)) ?? null
+  const prevKey = nextKey ? speechKeys[speechKeys.indexOf(nextKey) - 1] ?? null : null
+  const prevDone = prevKey == null || Boolean(revealed[prevKey])
+  useEffect(() => {
+    if (!nextKey || !prevDone) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prevKey == null || reduceMotion) {
+      setOpened((prev) => (prev.includes(nextKey) ? prev : [...prev, nextKey]))
+      return
+    }
+    const timer = window.setTimeout(
+      () => setOpened((prev) => (prev.includes(nextKey) ? prev : [...prev, nextKey])),
+      BUBBLE_GAP_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [nextKey, prevKey, prevDone])
+  const firstClosed = allBlocks.findIndex((block) => block.type === 'speech' && !opened.includes(block.key))
+  const blocks = firstClosed < 0 ? allBlocks : allBlocks.slice(0, firstClosed)
   const frames = turn.status
     ? turn.status.frames
     : blocks
@@ -259,15 +277,29 @@ export default function AgentTurnLive({
   useEffect(() => {
     if (playbackDone && turn.streamId) onPlaybackDone?.(turn.streamId)
   }, [onPlaybackDone, playbackDone, turn.streamId])
-  if (!turn.active && blocks.length === 0) return null
+  const spokeRef = useRef(false)
+  useEffect(() => {
+    spokeRef.current = false
+  }, [turn.streamId])
+  useEffect(() => {
+    if (spokeRef.current || !turn.streamId || !onSpeechShown) return
+    const spoke = allBlocks.some((block) => block.type === 'speech' && block.text.trim().length > 0)
+    if (!spoke) return
+    spokeRef.current = true
+    onSpeechShown(turn.streamId)
+  }, [allBlocks, onSpeechShown, turn.streamId])
+  if (!turn.active && allBlocks.length === 0) return null
   const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
   const serverLine = statusLabel(turn.status, t)
+  // The floor can show the orb before the server publishes a line (prepare
+  // is still running). Keep the looking line so the seat is never mute.
+  const liveLine = serverLine || (turn.active ? t('activity.looking') : '')
   const lastActivityIndex = blocks.reduce(
     (found, block, index) => (block.type === 'activity' ? index : found),
     -1,
   )
   // After gated tools, before speech/card reveal — avoid a blank gap.
-  const lastSpeechIndex = blocks.reduce(
+  const lastSpeechIndex = allBlocks.reduce(
     (found, block, index) => (block.type === 'speech' ? index : found),
     -1,
   )
@@ -307,15 +339,22 @@ export default function AgentTurnLive({
         pulseId={entering ? null : orbPulseId}
         baseMotion={orbBaseMotion}
       />
+    ) : avatar ? (
+      avatar
     ) : (
-      (avatar ?? <AiAvatar name={agentName} kind={null} size={CHAT_AVATAR_SIZE} decorative mode="live" />)
+      <span
+        className="inline-block"
+        style={{ width: CHAT_AVATAR_SIZE, height: CHAT_AVATAR_SIZE }}
+        aria-hidden
+      />
     )
   const hasActivityBlock = blocks.some((block) => block.type === 'activity')
   const showBlocks =
     hasActivityBlock || Boolean(serverLine) || firstSpeechIndex >= 0
   // Status ("Kiest de volgende stap", "Nadenken") waits until the rise finishes.
   // The first paint is before the seat claims, so `entering` alone still flashes it.
-  const openingLine = statusReady && !entering && blocks.length === 0 && Boolean(serverLine)
+  const openingLine =
+    seated && statusReady && !entering && blocks.length === 0 && Boolean(liveLine)
 
   return (
     <div className="flex items-start gap-2">
@@ -329,7 +368,7 @@ export default function AgentTurnLive({
       </span>
       <div className="min-w-0 flex-1 space-y-1.5">
         {openingLine ? (
-          <ActivityTrail items={[]} live showLine holdLabel={serverLine} frames={frames} />
+          <ActivityTrail items={[]} live showLine holdLabel={liveLine} frames={frames} />
         ) : blocks.length === 0 ? (
           <div className="min-h-7" />
         ) : null}
@@ -351,12 +390,13 @@ export default function AgentTurnLive({
                   key={block.key}
                   text={block.text}
                   streamActive={turn.active}
-                  holdReserve={turn.active && index === blocks.length - 1}
+                  holdReserve={turn.active && index === allBlocks.length - 1}
                   leads={lead && index === firstSpeechIndex}
-                  closes={index === blocks.length - 1}
+                  closes={index === allBlocks.length - 1}
                   header={header}
                   avatar={null}
                   hideGutter
+                  accent={avatarMark?.color}
                   attached={index === lastSpeechIndex ? attached : undefined}
                   onRevealed={(done) => markRevealed(block.key, done)}
                 />

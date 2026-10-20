@@ -49,6 +49,8 @@ class GatewayConnection:
         self.device = device
         self.is_staff = is_staff
         self.topics: set[str] = set()
+        # One send at a time, in the order the fanout created them.
+        self._send_lock = asyncio.Lock()
 
     def matches(self, envelope: dict[str, Any]) -> bool:
         if envelope.get("tenant_id") != self.tenant_id:
@@ -66,7 +68,15 @@ class GatewayConnection:
         return any(t in self.topics for t in topics)
 
     async def send(self, frame: dict[str, Any]) -> None:
-        await self.websocket.send_json(frame)
+        async with self._send_lock:
+            await self.websocket.send_json(frame)
+
+    def allows(self, data: dict[str, Any]) -> bool:
+        """Audience check for a frame this connection already subscribed to."""
+        audience = data.get("audience")
+        if self.kind == "widget":
+            return audience != "operator"
+        return audience != "visitor"
 
 
 class ConnectionManager:

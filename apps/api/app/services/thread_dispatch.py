@@ -37,7 +37,7 @@ NOTE_INSTRUCTION = (
 )
 LEAD_PICK_INSTRUCTION = (
     "A teammate addressed all agents. Pick the company agent that fits this "
-    "conversation best and hand it over with delegate_to_agent, saying in one "
+    "conversation best and hand it over with handoff_to, saying in one "
     "line who picks it up and why. Handle it yourself when you fit best."
 )
 

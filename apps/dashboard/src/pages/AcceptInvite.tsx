@@ -10,6 +10,9 @@ import { authRoutes } from '../api/routes/auth.routes';
 import { policyRoutes } from '../api/routes/policy.routes';
 import { InviteCardSkeleton } from '../components/ui/skeleton'
 import { memberRoleLabel } from '../lib/labels';
+import { AuthShell } from '../components/auth/AuthShell';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 type PrefRow = {
   id: string;
@@ -184,9 +187,7 @@ export default function AcceptInvite() {
     window.location.assign('/');
   }
 
-  const inputClass =
-    'w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition';
-
+  
   function inviteRoleLabel(role: string | undefined): string {
     if (!role) return '';
     return t(`membersPage.roles.${role.toLowerCase()}`, { defaultValue: memberRoleLabel(role) });
@@ -200,24 +201,7 @@ export default function AcceptInvite() {
         : t('acceptInvitePage.inviteTitle');
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-4 py-10">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src="/bokito-logo.png"
-            alt="Bokito.ai"
-            className="w-12 h-12 mb-3"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">{headerSubtitle}</span>
-        </div>
-
-        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
+    <AuthShell subtitle={headerSubtitle}>
           {step === 'welcome' ? (
             <div className="space-y-5">
               <p className="text-sm text-text-secondary">
@@ -249,7 +233,7 @@ export default function AcceptInvite() {
                     <label htmlFor="welcome-first-name" className="block text-sm font-medium text-text-secondary mb-1">
                       {t('acceptInvitePage.firstName')}
                     </label>
-                    <input
+                    <Input
                       id="welcome-first-name"
                       type="text"
                       autoComplete="given-name"
@@ -261,7 +245,7 @@ export default function AcceptInvite() {
                           void completeOnboarding(false);
                         }
                       }}
-                      className={inputClass}
+                      className="h-10"
                       placeholder={t('acceptInvitePage.firstNamePlaceholder')}
                     />
                   </div>
@@ -269,7 +253,7 @@ export default function AcceptInvite() {
                     <label htmlFor="welcome-last-name" className="block text-sm font-medium text-text-secondary mb-1">
                       {t('acceptInvitePage.lastName')}
                     </label>
-                    <input
+                    <Input
                       id="welcome-last-name"
                       type="text"
                       autoComplete="family-name"
@@ -281,7 +265,7 @@ export default function AcceptInvite() {
                           void completeOnboarding(false);
                         }
                       }}
-                      className={inputClass}
+                      className="h-10"
                       placeholder={t('acceptInvitePage.lastNamePlaceholder')}
                     />
                   </div>
@@ -308,11 +292,11 @@ export default function AcceptInvite() {
               </div>
 
               <div className="space-y-2 pt-1">
-                <button
+                <Button size="lg"
                   type="button"
                   onClick={() => void completeOnboarding(false)}
                   disabled={finishing}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  className="w-full"
                 >
                   {finishing ? (
                     <>
@@ -322,7 +306,7 @@ export default function AcceptInvite() {
                   ) : (
                     t('acceptInvitePage.getStarted')
                   )}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => void completeOnboarding(true)}
@@ -361,13 +345,13 @@ export default function AcceptInvite() {
                     <label htmlFor="first-name" className="block text-sm font-medium text-text-secondary mb-1.5">
                       {t('acceptInvitePage.firstName')}
                     </label>
-                    <input
+                    <Input
                       id="first-name"
                       type="text"
                       autoComplete="given-name"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className={inputClass}
+                      className="h-10"
                       placeholder={t('acceptInvitePage.firstNamePlaceholder')}
                     />
                   </div>
@@ -375,13 +359,13 @@ export default function AcceptInvite() {
                     <label htmlFor="last-name" className="block text-sm font-medium text-text-secondary mb-1.5">
                       {t('acceptInvitePage.lastName')}
                     </label>
-                    <input
+                    <Input
                       id="last-name"
                       type="text"
                       autoComplete="family-name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      className={inputClass}
+                      className="h-10"
                       placeholder={t('acceptInvitePage.lastNamePlaceholder')}
                     />
                   </div>
@@ -395,7 +379,7 @@ export default function AcceptInvite() {
                     : t('acceptInvitePage.choosePassword')}
                 </label>
                 <div className="relative">
-                  <input
+                  <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete={info?.existing_user ? 'current-password' : 'new-password'}
@@ -403,7 +387,7 @@ export default function AcceptInvite() {
                     minLength={info?.existing_user ? undefined : 8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`${inputClass} pr-10`}
+                    className="h-10 pr-10"
                     placeholder={
                       info?.existing_user
                         ? t('acceptInvitePage.passwordPlaceholderExisting')
@@ -432,10 +416,10 @@ export default function AcceptInvite() {
                 </div>
               )}
 
-              <button
+              <Button size="lg"
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="w-full"
               >
                 {isLoading ? (
                   <>
@@ -445,7 +429,7 @@ export default function AcceptInvite() {
                 ) : (
                   t('acceptInvitePage.acceptInvite')
                 )}
-              </button>
+              </Button>
             </form>
           )}
 
@@ -460,8 +444,6 @@ export default function AcceptInvite() {
               <p className="mt-2 text-sm text-text-muted">{t('acceptInvitePage.alreadyHaveAccess')}</p>
             </div>
           ) : null}
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

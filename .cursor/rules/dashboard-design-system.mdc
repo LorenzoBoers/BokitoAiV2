@@ -63,6 +63,10 @@ Rare one-off styles fold into the nearest catalog component.
 `bg-bg-elevated/40`, raw status colors, capsule chips and removed legacy classes.
 Exempt a line only with a `design-system-ignore` comment and a reason.
 
+Ratchet rules (`raw-button`, `raw-input`, `hex-color`, `arbitrary-radius`) compare per-file
+counts against `scripts/design-system-baseline.json`: a file may not gain hits. After removing
+debt, run `node scripts/check-design-system.mjs --update-baseline` to lock in the lower count.
+
 ## Anti-patterns
 
 - Duplicating a card string instead of `<Card>` / `.panel`

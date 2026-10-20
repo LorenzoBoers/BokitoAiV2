@@ -19,6 +19,7 @@ import {
 } from '../lib/messages-paths'
 import {
   closedCompanionFilters,
+  scheduledCompanionFilters,
   configForLeaf,
   leafForOpenList,
   mergeHubThreadFilters,
@@ -27,7 +28,7 @@ import {
 } from '../lib/hub-list-filters'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import DecisionGroupsBanner from '../components/inbox/DecisionGroupsBanner'
-import ThreadList from '../components/inbox/ThreadList'
+import ThreadList, { type ThreadListStatus as ListStatus } from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
 import AgentThreadPanel from '../components/inbox/AgentThreadPanel'
 import PlanDialog from '../components/inbox/PlanDialog'
@@ -175,7 +176,16 @@ export default function Communication() {
   const listLeaf = useMemo(() => leafForOpenList(leaf), [leaf])
   const { filters: leafFilters, mode, variant } = useMemo(() => configForLeaf(listLeaf), [listLeaf])
   const closedSwitch = supportsClosedDisclosure(leaf)
-  const closedMode = closedSwitch && (leaf.queue === 'closed' || searchParams.get('closed') === '1')
+  const statusParam = searchParams.get('status')
+  const listStatus: ListStatus = !closedSwitch
+    ? 'open'
+    : leaf.queue === 'closed' || statusParam === 'closed'
+      ? 'closed'
+      : leaf.queue === 'scheduled' || statusParam === 'scheduled'
+        ? 'scheduled'
+        : 'open'
+  const closedMode = listStatus === 'closed'
+  const scheduledMode = listStatus === 'scheduled'
 
   const searchKey = searchParams.toString()
   const folderFilter = useMemo(
@@ -329,7 +339,7 @@ export default function Communication() {
     if (priorityFilter) params.set('priority', priorityFilter)
     if (dateFilter) params.set('date', dateFilter)
     if (quickFilter === 'unread' || quickFilter === 'pinned') params.set('filter', quickFilter)
-    if (closedMode) params.set('closed', '1')
+    if (listStatus !== 'open') params.set('status', listStatus)
     const query = params.toString()
     return query ? `?${query}` : ''
   }, [
@@ -341,7 +351,7 @@ export default function Communication() {
     priorityFilter,
     dateFilter,
     quickFilter,
-    closedMode,
+    listStatus,
   ])
   const [deletingThreadId, setDeletingThreadId] = useState<ThreadId | null>(null)
   // Contact context panel: open by default; closing it only lasts for the
@@ -444,12 +454,20 @@ export default function Communication() {
   const closedBase = closedCompanionFilters(leaf)
   const closedListFilters = closedBase ? mergeHubThreadFilters(closedBase, listExtras) : null
   const openListFilters = mergeHubThreadFilters(leafFilters, listExtras)
+  const scheduledBase = scheduledCompanionFilters(leaf)
+  const scheduledListFilters = scheduledBase ? mergeHubThreadFilters(scheduledBase, listExtras) : null
 
-  // Open and Gesloten stay loaded on their own. Toggling the switch only
-  // chooses which result to show, so the rows and the two counts do not reload.
+  // Open, Gepland and Gesloten stay loaded on their own. Switching the segment
+  // only chooses which result to show, so the rows and the counts do not reload.
   const openList = useThreads(openListFilters, pinnedIds)
+  const scheduledList = useThreads(scheduledListFilters ?? {}, pinnedIds, scheduledListFilters != null)
   const closedList = useThreads(closedListFilters ?? {}, pinnedIds, closedListFilters != null)
-  const activeList = closedMode && closedListFilters != null ? closedList : openList
+  const activeList =
+    closedMode && closedListFilters != null
+      ? closedList
+      : scheduledMode && scheduledListFilters != null
+        ? scheduledList
+        : openList
   const {
     threads,
     outsideThreads,
@@ -465,17 +483,21 @@ export default function Communication() {
   } = activeList
   const refreshOpenList = openList.refresh
   const refreshClosedList = closedList.refresh
+  const refreshScheduledList = scheduledList.refresh
   const closedListOn = closedListFilters != null
+  const scheduledListOn = scheduledListFilters != null
   const refreshThreads = useCallback(() => {
     void refreshOpenList()
     if (closedListOn) void refreshClosedList()
-  }, [closedListOn, refreshClosedList, refreshOpenList])
+    if (scheduledListOn) void refreshScheduledList()
+  }, [closedListOn, refreshClosedList, refreshOpenList, refreshScheduledList, scheduledListOn])
   const closedTotal = closedListFilters != null ? closedList.total : null
+  const scheduledTotal = scheduledListFilters != null ? scheduledList.total : null
   const closedReady = closedListFilters != null ? closedList.threadsReady : true
   const openTotal = openList.total
 
   useEffect(() => {
-    if (closedMode || leaf.type !== 'agent' || selectedThreadId) return
+    if (listStatus !== 'open' || leaf.type !== 'agent' || selectedThreadId) return
     if (search.trim() || quickFilter !== 'all' || hasFolderFilter) return
     if (assigneeFilter != null || priorityFilter || dateFilter) return
     if (!threadsReady || !closedReady || threadsError) return
@@ -484,7 +506,7 @@ export default function Communication() {
     navigate(newConversationPath({ intent: 'agent', agentId: leaf.agentId }), { replace: true })
   }, [
     assigneeFilter,
-    closedMode,
+    listStatus,
     closedReady,
     closedTotal,
     dateFilter,
@@ -501,10 +523,10 @@ export default function Communication() {
   ])
 
   const setListStatus = useCallback(
-    (status: 'open' | 'closed') => {
+    (status: ListStatus) => {
       const next = new URLSearchParams(searchParams)
-      if (status === 'closed') next.set('closed', '1')
-      else next.delete('closed')
+      if (status === 'open') next.delete('status')
+      else next.set('status', status)
       const search = next.toString()
       // Drop a thread from the other status so the list and the URL agree.
       navigate({ pathname: leafPath(listLeaf), search: search ? `?${search}` : '' })
@@ -513,9 +535,9 @@ export default function Communication() {
   )
 
   useEffect(() => {
-    if (leaf.queue !== 'closed' || !closedSwitch) return
+    if ((leaf.queue !== 'closed' && leaf.queue !== 'scheduled') || !closedSwitch) return
     const next = new URLSearchParams(searchParams)
-    next.set('closed', '1')
+    next.set('status', leaf.queue)
     const search = next.toString()
     navigate(
       { pathname: leafPath(listLeaf, threadIdParam), search: search ? `?${search}` : '' },
@@ -967,16 +989,16 @@ export default function Communication() {
     if (String(detail.thread.id) !== String(selectedThreadId)) return
     if (selectedInOutside) return
     const leafKeyPart = leaf.type === 'inbox' ? leaf.queue : leaf.type
-    const fitKey = `${selectedThreadId}:${detail.thread.status}:${leafKeyPart}:${closedMode ? '1' : '0'}`
+    const fitKey = `${selectedThreadId}:${detail.thread.status}:${detail.thread.nextAt ?? ''}:${leafKeyPart}:${listStatus}`
     if (redirectCheckedForThreadRef.current === fitKey) return
 
     redirectCheckedForThreadRef.current = fitKey
 
     const threadPath = leafPath(listLeaf, String(detail.thread.id))
-    const withClosed = (on: boolean) => {
+    const withStatus = (status: ListStatus) => {
       const next = new URLSearchParams(inboxQuery.replace(/^\?/, ''))
-      if (on) next.set('closed', '1')
-      else next.delete('closed')
+      if (status === 'open') next.delete('status')
+      else next.set('status', status)
       const search = next.toString()
       return search ? `${threadPath}?${search}` : threadPath
     }
@@ -984,35 +1006,42 @@ export default function Communication() {
     if (leaf.type === 'channel' && !threadFitsChannelLeaf(detail.thread, leaf)) {
       const dest = inboxQueueForOpenedThread(detail.thread)
       const next = new URLSearchParams(inboxQuery.replace(/^\?/, ''))
-      next.delete('closed')
-      if (dest === 'closed') next.set('closed', '1')
+      next.delete('status')
+      if (dest === 'closed' || dest === 'scheduled') next.set('status', dest)
       const search = next.toString()
-      const path = inboxPath(dest === 'closed' ? 'open' : dest, String(detail.thread.id))
+      const path = inboxPath(dest === 'closed' || dest === 'scheduled' ? 'open' : dest, String(detail.thread.id))
       navigate(search ? `${path}?${search}` : path, { replace: true })
       return
     }
 
-    // A named thread stays that thread. Closed flips the switch in this folder.
-    // Reopening, or a reply that reopens, puts the switch back on Open.
-    if (closedSwitch && detail.thread.status === 'closed' && !closedMode) {
-      navigate(withClosed(true), { replace: true })
-      return
-    }
-    if (closedSwitch && detail.thread.status === 'open' && closedMode) {
-      navigate(withClosed(false), { replace: true })
-      return
+    // A named thread stays that thread. Snoozed shows it under Gepland, closed
+    // under Gesloten. Reopening, or a reply that wakes it, goes back to Open.
+    if (closedSwitch) {
+      const status = detail.thread.status
+      const fits =
+        listStatus === 'scheduled'
+          ? detail.thread.nextAt != null || status === 'snoozed'
+          : listStatus === 'closed'
+            ? status === 'closed'
+            : status !== 'closed' && status !== 'snoozed'
+      if (!fits) {
+        navigate(withStatus(status === 'closed' ? 'closed' : status === 'snoozed' ? 'scheduled' : 'open'), {
+          replace: true,
+        })
+        return
+      }
     }
 
     if (leaf.type === 'inbox') {
       const inboxQueue = leaf.queue ?? 'all'
       if (inboxQueue === 'for_you' && detail.thread.status === 'open') return
       if (threadFitsInboxQueue(detail.thread, inboxQueue, currentUserId)) return
-      if (detail.thread.status === 'closed' && closedSwitch) return
+      if ((detail.thread.status === 'closed' || listStatus === 'scheduled') && closedSwitch) return
       const dest = inboxQueueForOpenedThread(detail.thread)
-      if (dest === 'closed' && closedSwitch) return
+      if ((dest === 'closed' || dest === 'scheduled') && closedSwitch) return
       if (dest === inboxQueue) return
       const next = new URLSearchParams(inboxQuery.replace(/^\?/, ''))
-      next.delete('closed')
+      next.delete('status')
       const search = next.toString()
       const path = inboxPath(dest, String(detail.thread.id))
       navigate(search ? `${path}?${search}` : path, { replace: true })
@@ -1026,7 +1055,7 @@ export default function Communication() {
     navigate,
     inboxQuery,
     selectedInOutside,
-    closedMode,
+    listStatus,
     closedSwitch,
   ])
 
@@ -1629,8 +1658,8 @@ export default function Communication() {
   // Secondary folders (scheduled / spam / closed) use queue empty copy — never the
   // first-run setup checklist (F-63). Setup belongs on Open / new chat only.
   const isSecondaryInboxQueue =
-    leaf.type === 'inbox' &&
-    (leaf.queue === 'scheduled' || leaf.queue === 'spam' || leaf.queue === 'closed')
+    listStatus !== 'open' ||
+    (leaf.type === 'inbox' && (leaf.queue === 'scheduled' || leaf.queue === 'spam' || leaf.queue === 'closed'))
 
   const isInboxEmpty =
     leaf.type === 'inbox' &&
@@ -1812,15 +1841,18 @@ export default function Communication() {
             listQueue={
               closedMode
                 ? 'closed'
-                : listLeaf.type === 'inbox'
+                : scheduledMode
+                  ? 'scheduled'
+                  : listLeaf.type === 'inbox'
                   ? (listLeaf.queue ?? null)
                   : (listLeaf.queue ?? 'open')
             }
             statusSegment={
               closedSwitch
                 ? {
-                    value: closedMode ? 'closed' : 'open',
+                    value: listStatus,
                     openCount: openTotal,
+                    scheduledCount: scheduledTotal,
                     closedCount: closedTotal,
                     onChange: setListStatus,
                   }
@@ -1869,7 +1901,9 @@ export default function Communication() {
                 ? t('threadList.emptySearch', { query: search.trim() })
                 : closedMode
                   ? t('threadList.emptyClosed')
-                  : hasFolderFilter || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
+                  : scheduledMode
+                    ? t('threadList.emptyScheduled')
+                    : hasFolderFilter || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
                   ? t('threadList.emptyScoped')
                   : leaf.type === 'inbox' && leaf.queue === 'for_you'
                     ? t('threadList.emptyForYou')
@@ -1898,7 +1932,7 @@ export default function Communication() {
                 >
                   {t('threadList.clearScope')}
                 </button>
-              ) : leaf.type === 'inbox' && leaf.queue === 'scheduled' ? (
+              ) : scheduledMode ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
                   <p className="text-xs text-text-muted">{t('threadList.emptyScheduledHint')}</p>
                   <button
@@ -2047,7 +2081,7 @@ export default function Communication() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="scrim absolute inset-0"
             aria-label={t('split.closeContext')}
             onClick={toggleContactPanel}
           />

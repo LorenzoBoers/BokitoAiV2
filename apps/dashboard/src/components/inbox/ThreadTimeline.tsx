@@ -353,6 +353,16 @@ function messageStackKey(message: InboxMessage): string | null {
   // Session turns stack among themselves, never onto a customer reply.
   const sessionId = sessionIdOf(message)
   const scope = sessionId ? `session:${sessionId}:` : ''
+  // Agent notes join that agent's event run (one avatar), not its chat bubbles.
+  if (message.kind === 'internal_note') {
+    const noteAgentId =
+      typeof message.payload?.agent_id === 'string' && message.payload.agent_id
+        ? message.payload.agent_id
+        : message.role === 'assistant'
+          ? 'agent'
+          : ''
+    if (noteAgentId) return `${scope}agent-activity:${noteAgentId}`
+  }
   const isAgent =
     message.kind === 'agent_message' ||
     Boolean(message.payload?.agent_id) ||
@@ -390,15 +400,36 @@ export function liveRunContinues(
   return now - new Date(last.time).getTime() <= CHAT_STACK_GAP_MS
 }
 
+/**
+ * Same key as an agent bubble (`agent:{id}`), so a burst of that agent's
+ * events and notes is one run: one avatar, one name, the actions underneath.
+ */
+function agentEventRunKey(events: InboxEvent[]): string | null {
+  if (events.length === 0 || eventClusterKey(events[0]) !== 'agent') return null
+  const id =
+    events.map((event) => event.actorAgentId).find(Boolean) ||
+    events
+      .map((event) => (typeof event.payload?.agent_id === 'string' ? event.payload.agent_id : ''))
+      .find(Boolean) ||
+    ''
+  return `agent-activity:${id || 'agent'}`
+}
+
 /** Assign start/middle/end/single for consecutive same-author chat bubbles. */
 function stacksForRows(rows: TimelineRow[]): Map<string, BubbleStack> {
   return assignBubbleStacks(
-    rows.map((row) => ({
-      id: row.id,
-      key: row.kind === 'message' ? messageStackKey(row.data) : null,
-      timeMs: new Date(row.time).getTime(),
-      breaksRun: row.kind !== 'message',
-    })),
+    rows.map((row) => {
+      const activity = row.kind === 'events' ? agentEventRunKey(row.events) : null
+      return {
+        id: row.id,
+        key: row.kind === 'message' ? messageStackKey(row.data) : activity,
+        timeMs: new Date(row.time).getTime(),
+        // Agent events stay in the run with that agent's bubbles. Other
+        // events, day markers and sessions still split a run.
+        breaksRun:
+          row.kind === 'day' || row.kind === 'session' || (row.kind === 'events' && activity == null),
+      }
+    }),
   )
 }
 
@@ -581,7 +612,7 @@ type Props = {
   /** Live AI strip pinned under the last row while a reply streams. */
   liveTrace?: ReactNode
   /**
-   * Turn ids the reader already watched stream in. Their saved bubbles land
+   * Turn ids whose words the reader already saw. Their saved bubbles land
    * without the enter animation so the hand-off from live to saved is still.
    */
   quietTurnIds?: Set<string>
@@ -1117,10 +1148,14 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       )
     }
     if (row.kind === 'events') {
+      const stack = bubbleStacks.get(row.id) ?? 'single'
+      const lead = stack === 'single' || stack === 'start'
+      const tightBelow = stack === 'start' || stack === 'middle'
       return (
-        <div className="mb-3">
+        <div className={tightBelow ? 'mb-1.5' : 'mb-3'}>
           <EventClusterTimelineItem
             events={row.events}
+            lead={lead}
             time={row.time}
             memberNameFor={(userId) => (userId != null ? membersById[userId]?.name : undefined)}
             membersById={membersById}

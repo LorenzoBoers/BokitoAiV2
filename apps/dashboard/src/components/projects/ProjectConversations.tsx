@@ -19,6 +19,7 @@ import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
 import { ConversationRowsSkeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
+import { TextLink } from '../ui/text-link'
 
 const MessageSquare = ENTITY_ICONS.conversation
 
@@ -185,13 +186,13 @@ export function ProjectConversations({
       )}
 
       {preview && onShowAll && (total ?? rows.length) > 0 ? (
-        <button
+        <TextLink
           type="button"
           onClick={onShowAll}
-          className="text-xs font-medium text-accent hover:underline"
+          className="text-xs"
         >
           {t('projects.detail.allConversations', { count: total ?? rows.length })}
-        </button>
+        </TextLink>
       ) : null}
       {!preview && nextPage ? (
         <Button type="button" size="sm" variant="ghost" disabled={loadingMore} onClick={() => void loadMore()}>

@@ -4,7 +4,7 @@ import type { AgentPresenceStatus, PresenceStatus } from './teams-api'
 /** People + agents + invites share this vocabulary for dots, badges and copy. */
 export type PresenceKind = PresenceStatus | 'error' | 'deactivated'
 
-export type PresenceBadgeVariant = 'success' | 'warning' | 'secondary' | 'ai' | 'error'
+export type PresenceBadgeVariant = 'success' | 'warning' | 'neutral' | 'ai' | 'error'
 
 const DOT_CLASS: Record<PresenceKind, string> = {
   available: 'bg-status-success',
@@ -19,11 +19,11 @@ const DOT_CLASS: Record<PresenceKind, string> = {
 const BADGE_VARIANT: Record<PresenceKind, PresenceBadgeVariant> = {
   available: 'success',
   away: 'warning',
-  offline: 'secondary',
+  offline: 'neutral',
   standby: 'ai',
   working: 'ai',
   error: 'error',
-  deactivated: 'secondary',
+  deactivated: 'neutral',
 }
 
 const TEXT_CLASS: Record<PresenceKind, string> = {

@@ -70,7 +70,7 @@ export function SettingRow({
   const text = density === 'field'
   const labelClass = text
     ? 'text-sm font-medium text-text-heading'
-    : 'text-[10px] font-normal leading-none text-text-muted'
+    : 'text-2xs font-normal leading-none text-text-muted'
   return (
     <div
       className={cn(

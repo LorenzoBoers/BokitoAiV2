@@ -108,6 +108,12 @@ async def lifespan(app: FastAPI):
             except asyncio.CancelledError:
                 pass
         try:
+            from app.services.agent_turns import release_held
+
+            await release_held()
+        except Exception:
+            logging.getLogger("app.chat").exception("failed to release running agent turns")
+        try:
             from app.workers.tasks import close_arq_pool
 
             await close_arq_pool()

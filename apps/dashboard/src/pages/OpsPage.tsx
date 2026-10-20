@@ -9,6 +9,9 @@ import { DirectoryRowsSkeleton, StatTilesSkeleton } from '../components/ui/skele
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { toast } from 'sonner'
+import ContentHeader from '../components/shell/ContentHeader'
+import { Badge } from '../components/ui/badge'
+import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import {
   deleteStaffOpsTenant,
   getStaffOpsDirectory,
@@ -248,28 +251,26 @@ export default function OpsPage() {
 
   return (
     <PageContent width="xl" className="space-y-6 pb-10">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-text">{t('ops.title')}</h1>
-            {env ? (
-              <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-muted">
-                {t(`ops.env.${env}`, { defaultValue: env })}
-              </span>
-            ) : null}
-          </div>
-          <p className="max-w-2xl text-sm text-text-muted">{t('ops.subtitle')}</p>
-          {data?.api_url ? (
-            <p className="font-mono text-xs text-text-muted">{data.api_url}</p>
-          ) : null}
-        </div>
-        <Link
-          to="/settings/models"
-          className="text-xs font-medium text-accent hover:underline"
-        >
-          {t('ops.modelsLink')}
-        </Link>
-      </header>
+      <ContentHeader
+        className="mb-0"
+        title={
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {t('ops.title')}
+            {env ? <Badge variant="neutral">{t(`ops.env.${env}`, { defaultValue: env })}</Badge> : null}
+          </span>
+        }
+        subtitle={
+          <>
+            {t('ops.subtitle')}
+            {data?.api_url ? <span className="mt-1 block font-mono text-xs text-text-muted">{data.api_url}</span> : null}
+          </>
+        }
+        meta={
+          <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
+            {t('ops.modelsLink')}
+          </Link>
+        }
+      />
 
       <form onSubmit={onSearch} className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
@@ -301,31 +302,27 @@ export default function OpsPage() {
 
       {data ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-lg border border-border bg-surface px-4 py-3">
-              <p className="text-xs font-medium text-text-muted">{t('ops.stats.tenants')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text">{data.tenant_count}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-surface px-4 py-3">
-              <p className="text-xs font-medium text-text-muted">{t('ops.stats.users')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text">{data.user_count}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-surface px-4 py-3">
-              <p className="text-xs font-medium text-text-muted">{t('ops.stats.supportOn')}</p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums text-text">
-                {data.tenants.filter((row) => row.support_allowed).length}
-                <span className="text-base font-normal text-text-muted">
-                  {' / '}
-                  {data.tenants.length}
-                </span>
-              </p>
-            </div>
-          </div>
+          <StatGrid className="lg:grid-cols-3">
+            <StatTile label={t('ops.stats.tenants')} value={data.tenant_count} />
+            <StatTile label={t('ops.stats.users')} value={data.user_count} />
+            <StatTile
+              label={t('ops.stats.supportOn')}
+              value={
+                <>
+                  {data.tenants.filter((row) => row.support_allowed).length}
+                  <span className="text-base font-normal text-text-muted">
+                    {' / '}
+                    {data.tenants.length}
+                  </span>
+                </>
+              }
+            />
+          </StatGrid>
 
           <section className="space-y-2">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-text">{t('ops.timeSaved.title')}</h2>
+                <h2 className="text-sm font-semibold text-text-heading">{t('ops.timeSaved.title')}</h2>
                 <p className="mt-0.5 max-w-2xl text-xs text-text-muted">{t('ops.timeSaved.hint')}</p>
               </div>
               <Button
@@ -339,7 +336,7 @@ export default function OpsPage() {
             </div>
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-border bg-surface-2 text-xs text-text-muted">
+                <thead className="border-b border-border bg-bg-elevated text-xs text-text-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('ops.col.action')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.timeSaved.mode')}</th>
@@ -358,7 +355,7 @@ export default function OpsPage() {
                   {(weights ?? []).map((row) => (
                     <tr key={row.action} className="border-b border-border last:border-0">
                       <td className="px-3 py-2.5">
-                        <div className="font-medium text-text">
+                        <div className="font-medium text-text-heading">
                           {t(`ops.timeSaved.actions.${row.action}`, { defaultValue: row.action })}
                         </div>
                         <div className="font-mono text-2xs text-text-muted">{row.action}</div>
@@ -391,10 +388,10 @@ export default function OpsPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-text">{t('ops.tenantsTitle')}</h2>
+            <h2 className="text-sm font-semibold text-text-heading">{t('ops.tenantsTitle')}</h2>
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="border-b border-border bg-surface-2 text-xs text-text-muted">
+                <thead className="border-b border-border bg-bg-elevated text-xs text-text-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('ops.col.workspace')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.members')}</th>
@@ -418,7 +415,7 @@ export default function OpsPage() {
                       return (
                         <tr key={tenant.id} className="border-b border-border last:border-0">
                           <td className="px-3 py-2.5">
-                            <div className="font-medium text-text">{tenant.name}</div>
+                            <div className="font-medium text-text-heading">{tenant.name}</div>
                             <div className="font-mono text-xs text-text-muted">{tenant.slug}</div>
                           </td>
                           <td className="px-3 py-2.5 tabular-nums text-text-muted">{tenant.member_count}</td>
@@ -429,14 +426,14 @@ export default function OpsPage() {
                                 {t('ops.supportOff')}
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-text">
+                              <span className="inline-flex items-center gap-1 text-text-heading">
                                 <Shield size={12} className="text-accent" />
                                 {t('ops.supportOn')}
                               </span>
                             )}
                           </td>
                           <td className="px-3 py-2.5">
-                            <label className="inline-flex items-center gap-2 text-xs text-text">
+                            <label className="inline-flex items-center gap-2 text-xs text-text-heading">
                               <input
                                 type="checkbox"
                                 checked={tenant.custom_models === true}
@@ -501,10 +498,10 @@ export default function OpsPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-text">{t('ops.usersTitle')}</h2>
+            <h2 className="text-sm font-semibold text-text-heading">{t('ops.usersTitle')}</h2>
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-border bg-surface-2 text-xs text-text-muted">
+                <thead className="border-b border-border bg-bg-elevated text-xs text-text-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('ops.col.user')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.role')}</th>
@@ -527,7 +524,7 @@ export default function OpsPage() {
                       return (
                         <tr key={row.id} className="border-b border-border last:border-0">
                           <td className="px-3 py-2.5">
-                            <div className="font-medium text-text">{row.display_name || row.email}</div>
+                            <div className="font-medium text-text-heading">{row.display_name || row.email}</div>
                             {row.display_name ? (
                               <div className="text-xs text-text-muted">{row.email}</div>
                             ) : null}
@@ -567,10 +564,10 @@ export default function OpsPage() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-text">{t('ops.logsTitle')}</h2>
+            <h2 className="text-sm font-semibold text-text-heading">{t('ops.logsTitle')}</h2>
             <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full min-w-[560px] text-left text-sm">
-                <thead className="border-b border-border bg-surface-2 text-xs text-text-muted">
+                <thead className="border-b border-border bg-bg-elevated text-xs text-text-muted">
                   <tr>
                     <th className="px-3 py-2 font-medium">{t('ops.col.when')}</th>
                     <th className="px-3 py-2 font-medium">{t('ops.col.staff')}</th>
@@ -591,9 +588,9 @@ export default function OpsPage() {
                         <td className="px-3 py-2.5 text-text-muted">
                           {formatWhen(row.created_at, i18n.language)}
                         </td>
-                        <td className="px-3 py-2.5 text-text">{row.staff_email || '—'}</td>
+                        <td className="px-3 py-2.5 text-text-heading">{row.staff_email || '—'}</td>
                         <td className="px-3 py-2.5">
-                          <div className="text-text">{row.tenant_name || '—'}</div>
+                          <div className="text-text-heading">{row.tenant_name || '—'}</div>
                           {row.tenant_slug ? (
                             <div className="font-mono text-xs text-text-muted">{row.tenant_slug}</div>
                           ) : null}

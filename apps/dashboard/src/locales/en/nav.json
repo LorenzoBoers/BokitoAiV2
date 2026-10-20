@@ -22,7 +22,7 @@
       "subtitle": "Daily scan and what needs attention"
     },
     "communication": {
-      "title": "Communication",
+      "title": "Inbox",
       "subtitle": "Today, chats, customer and agent threads"
     },
     "contacts": {
@@ -53,6 +53,14 @@
       "title": "Grid",
       "subtitle": "Organization map: departments, people, agents and links"
     },
+    "workflow": {
+      "title": "Workflow",
+      "subtitle": "How work runs from intake to result"
+    },
+    "connections": {
+      "title": "Connections",
+      "subtitle": "Installed modules, partner logins and tools"
+    },
     "modules": {
       "title": "Connections",
       "subtitle": "Installed modules, partner logins and tools"
@@ -67,7 +75,7 @@
     },
     "team": {
       "title": "Workforce",
-      "subtitle": "People, agents, departments and the Grid"
+      "subtitle": "People, agents, departments, the Grid and the Workflow"
     }
   },
   "workstreamsPage": {
@@ -2847,6 +2855,29 @@
     }
   },
   "ai": {
+    "autoReview": {
+      "title": "Auto-review",
+      "description": "A second AI call looks at an action before you are asked to approve it. It may stop an action, but never approves one that must always ask.",
+      "modeLabel": "Mode",
+      "modes": {
+        "off": "Off",
+        "shadow": "Shadow",
+        "enforce": "Enforce"
+      },
+      "modeHints": {
+        "off": "Every gated action asks a person, as before.",
+        "shadow": "Every gated action still asks a person. The card shows what auto-review would have done.",
+        "enforce": "Auto-review stops wrong actions and runs routine ones when it is sure. Consequential actions and turns with possible hidden instructions still ask."
+      },
+      "instructionsLabel": "Review instructions",
+      "instructionsHint": "What the reviewer should watch for in this workspace.",
+      "instructionsPlaceholder": "For example: refunds above 100 euro always need a person.",
+      "saveInstructions": "Save instructions",
+      "saved": "Auto-review updated",
+      "saveError": "Could not save auto-review",
+      "agreement": "People agreed with auto-review on {{rate}}% of {{count}} decisions in the last 30 days.",
+      "agreementEmpty": "No resolved decisions with an auto-review verdict yet."
+    },
     "group": {
       "ai": "AI",
       "assistent": "Assistant"
@@ -4250,18 +4281,26 @@
       "orbPreview": {
         "label": "Preview motion",
         "idle": "Idle",
+        "listening": "Listening",
         "thinking": "Thinking",
         "typing": "Typing",
         "working": "Working",
+        "searching": "Searching",
+        "writing": "Writing",
+        "sending": "Sending",
+        "sleeping": "Sleeping",
         "spawn": "Spawn",
         "yes": "Yes",
         "no": "No",
         "alert": "Alert",
-        "jump": "Jump"
+        "jump": "Jump",
+        "done": "Done",
+        "leave": "Leave"
       },
       "visualPickShape": "Shape",
       "visualPickIcon": "Icon",
       "visualPickColor": "Color",
+      "visualFixedColors": "This body keeps its original colors.",
       "visualMoreColors": "More colors",
       "visualMoreShapes": "More shapes",
       "visualShapes": {
@@ -4322,7 +4361,33 @@
       "askTargetTitle": "Ask questions to",
       "askTargetHint": "Who gets this agent's questions and drafts. Automatic asks the conversation owner, then whoever handed over the work, then the owner team. Someone who is away is skipped.",
       "askTargetAuto": "Automatic",
-      "askTargetError": "Could not save who this agent asks."
+      "askTargetError": "Could not save who this agent asks.",
+      "definition": {
+        "title": "Definition",
+        "hint": "What this agent may touch and how its prompt is built. A blocked tool stays blocked even when the tools list includes it.",
+        "capability": "Capability",
+        "capabilityAll": "All tools",
+        "capabilityReadWrite": "No consequential tools",
+        "capabilityReadOnly": "Read only",
+        "promptMode": "Prompt",
+        "promptExtend": "Add to Bokito's prompt",
+        "promptFull": "Own prompt only",
+        "disallowed": "Blocked tools",
+        "disallowedHint": "Tool names, comma separated.",
+        "skills": "Skills",
+        "skillsHint": "Workspace doc paths the agent reads when they apply, comma separated.",
+        "completion": "Must end with",
+        "completionHint": "Tool names, comma separated. The agent is reminded until it calls one (at most 8 times per turn).",
+        "mcp": "MCP servers",
+        "mcpAll": "All servers",
+        "mcpNone": "None",
+        "mcpNamed": "Only these",
+        "mcpExcept": "All except",
+        "mcpServers": "Server names, comma separated.",
+        "save": "Save",
+        "saved": "Definition saved.",
+        "error": "Could not save the definition."
+      }
     },
     "pageMeta": {
       "overview": {
@@ -5612,6 +5677,8 @@
     "loadDocError": "Could not load this document.",
     "searchError": "Search failed. Try again.",
     "searchCapped": "Showing the closest 40 matches. Narrow the search to see a closer set.",
+    "platformSkills": "Platform skills",
+    "platformSkillsHelp": "Agents use these skills when their work calls for them. They come with Bokito and cannot be edited.",
     "loadMore": "Load more documents",
     "loadingMore": "Loading more documents",
     "saved": "Document saved",
@@ -6578,9 +6645,7 @@
     "lens": {
       "flow": "Flow",
       "labels": "Labels",
-      "structure": "Structure",
-      "autonomy": "Autonomy",
-      "issues": "Bottlenecks"
+      "autonomy": "Autonomy"
     },
     "view": {
       "2d": "2D",
@@ -6638,18 +6703,17 @@
       "none": "Nobody picks it up"
     },
     "legendFlow": {
-      "worksInBokito": "works in Bokito",
-      "worksInConnection": "works in via a connection",
       "noLabel": "No label",
+      "other": "Other",
       "labelsHint": "Click a label to follow it through the chain.",
-      "issuesHint": "Only cards and lines with a bottleneck stay lit.",
       "autonomyHint": "Each executor in the color of what it may do itself."
     },
     "panel": {
       "label": "Grid details",
       "issues": "Bottlenecks",
       "noIssues": "No bottlenecks in this period.",
-      "back": "Back to bottlenecks",
+      "showIssues_one": "{{count}} bottleneck: show",
+      "showIssues_other": "{{count}} bottlenecks: show",
       "mayAct": "May act",
       "source": {
         "workspace": "Set for the workspace",
@@ -6692,8 +6756,7 @@
       "connection_without_folder": "A connection wrote without a folder"
     },
     "labelChips": "Labels",
-    "reset": "Reset",
-    "structure3dOnly": "Structure is shown in 3D only."
+    "reset": "Reset"
   },
   "teamPage": {
     "openConversations": "Conversations",
@@ -6887,6 +6950,11 @@
     "count_one": "{{count}} conversation",
     "count_other": "{{count}} conversations",
     "edit": "Edit label",
+    "merge": "Merge",
+    "mergeTitle": "Merge #{{name}}",
+    "mergeHint": "Every conversation, contact, company, folder and inbox rule that uses #{{name}} moves to the label you keep. #{{name}} is then removed. A flow label stays on its flow.",
+    "mergeInto": "Keep this label",
+    "merged": "#{{name}} is now #{{into}}",
     "delete": "Delete label",
     "deleteConfirm": "Delete {{name}}? It is removed from {{count}} conversations.",
     "save": "Save",

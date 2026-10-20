@@ -183,9 +183,9 @@ export function threadFitsChannelLeaf(
   return expected != null && channel === expected
 }
 
-/** Drop a `/closed` URL back to the open list of the same scope. */
+/** Drop a `/closed` or `/scheduled` URL back to the open list of the same scope. */
 export function leafForOpenList(leaf: HubLeaf): HubLeaf {
-  if (leaf.queue !== 'closed') return leaf
+  if (leaf.queue !== 'closed' && leaf.queue !== 'scheduled') return leaf
   switch (leaf.type) {
     case 'inbox':
       return { type: 'inbox', queue: 'open' }
@@ -207,7 +207,14 @@ export function supportsClosedDisclosure(leaf: HubLeaf): boolean {
   if (leaf.type === 'agent' && leaf.queue === 'activity') return false
   if (leaf.type === 'inbox') {
     const queue = leaf.queue ?? 'open'
-    return queue === 'all' || queue === 'for_you' || queue === 'open' || queue === 'unassigned' || queue === 'closed'
+    return (
+      queue === 'all' ||
+      queue === 'for_you' ||
+      queue === 'open' ||
+      queue === 'unassigned' ||
+      queue === 'closed' ||
+      queue === 'scheduled'
+    )
   }
   return leaf.type === 'team' || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'tag' || leaf.type === 'project'
 }
@@ -227,6 +234,12 @@ export function closedCompanionFilters(leaf: HubLeaf): Omit<ThreadFilters, 'sear
     return { ...base, view: 'unassigned_closed' }
   }
   return { ...base, view: 'closed' }
+}
+
+/** Filters for the Scheduled segment of this leaf: same scope, threads with a date. */
+export function scheduledCompanionFilters(leaf: HubLeaf): Omit<ThreadFilters, 'search'> | null {
+  if (!supportsClosedDisclosure(leaf)) return null
+  return { ...configForLeaf(leafForOpenList(leaf)).filters, segment: 'scheduled' }
 }
 
 /** @deprecated Use {@link threadFitsChannelLeaf} with a channel folder. */

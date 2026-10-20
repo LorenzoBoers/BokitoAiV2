@@ -15,12 +15,10 @@ from app.services.audit import record_audit
 from app.tools.decision_copy import format_policy_decision
 from app.tools.policy import resolve_tool_mode
 from app.tools.registry import (
-    CANVAS_OPERATOR_TOOLS,
-    OPERATOR_ORG_TOOLS,
-    OPERATOR_REACTION_TOOL,
     ToolContext,
     agent_allowed_tools,
     audience_for_trust,
+    core_tool_names,
     get_tool_spec,
     iter_tool_specs,
     tool_matches_audience,
@@ -49,6 +47,7 @@ async def execute_tool(
     user_role: str | None = None,
     surface: str = "",
     turn_id: str | None = None,
+    tainted: bool = False,
 ) -> dict[str, Any]:
     """Execute a registered tool under the allowance policy.
 
@@ -72,6 +71,7 @@ async def execute_tool(
                 user_role=user_role,
                 surface=surface,
                 turn_id=turn_id,
+                tainted=tainted,
             ),
             timeout=TOOL_TIMEOUT_SECONDS,
         )
@@ -216,6 +216,7 @@ async def _execute_tool(
     user_role: str | None = None,
     surface: str = "",
     turn_id: str | None = None,
+    tainted: bool = False,
 ) -> dict[str, Any]:
     if tool_name == "call_mcp_tool":
         # A business module is not an MCP server to the agent. Calling the
@@ -249,13 +250,7 @@ async def _execute_tool(
     allowed_set = agent_allowed_tools(agent)
     if tool_name in _EXTERNAL_PASSPORT_BYPASS and trust == "external":
         allowed_set = None
-    # Operator chat can always draw a snapshot canvas, even on a narrow passport.
-    if tool_name in CANVAS_OPERATOR_TOOLS and trust != "external":
-        allowed_set = None
-    # A thumbs-up on the open chat is conversation, not a specialist tool.
-    if tool_name == OPERATOR_REACTION_TOOL and trust != "external":
-        allowed_set = None
-    if tool_name in OPERATOR_ORG_TOOLS and trust != "external":
+    if tool_name in core_tool_names(trust):
         allowed_set = None
     # Image generation is a default Bokito tool. A narrow passport does not
     # remove it; the tenant turns it off with image_generation=off.
@@ -274,6 +269,17 @@ async def _execute_tool(
             summary=f"Tool '{tool_name}' not permitted by agent passport", payload=tool_input,
         )
         return {"error": f"Tool '{tool_name}' not permitted for this agent", "status": "denied"}
+
+    from app.services.agent_definition import tool_permitted
+
+    permitted, why = tool_permitted(agent, tool_name)
+    if not permitted and not (tool_name in _EXTERNAL_PASSPORT_BYPASS and trust == "external"):
+        await record_audit(
+            session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+            agent_id=agent_id, run_id=run_id, outcome="denied",
+            summary=f"Tool '{tool_name}' blocked by agent definition ({why})", payload=tool_input,
+        )
+        return {"error": f"Tool '{tool_name}' not permitted for this agent ({why})", "status": "denied"}
 
     # Resource-scope enforcement (per-agent allowlists for projects etc.).
     from app.services.agent_scopes import check_tool_scope
@@ -393,7 +399,7 @@ async def _execute_tool(
         )
         mode, reason = await resolve_tool_mode(
             session, tenant, agent, spec, trust=trust, tool_input=policy_input,
-            user_role=user_role,
+            user_role=user_role, tainted=tainted,
         )
         if agent is not None and spec.mutating and spec.gated:
             from app.services.agent_rules import all_rules, apply_judgement, record_outcome
@@ -429,6 +435,30 @@ async def _execute_tool(
                 payload=tool_input,
             )
             return {"error": "Run cancelled", "status": "cancelled"}
+
+    review = None
+    if mode == "ask" and agent is not None:
+        from app.services import auto_review
+
+        review = await auto_review.review_call(
+            session, tenant, agent, spec, tool_input,
+            reason=reason, signal_id=signal_id,
+            tainted=tainted or trust == "external" or reason.startswith("ai_handling:"),
+        )
+        if review.outcome == "deny":
+            why = review.verdict.reason if review.verdict else ""
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome="denied",
+                summary=f"Denied by auto-review ({why})", payload=tool_input,
+            )
+            return {
+                "error": f"Auto-review stopped '{tool_name}': {why}".strip(),
+                "status": "denied",
+                "reason": "auto_review",
+            }
+        if review.outcome == "allow":
+            mode, reason = "allow", "auto_review"
 
     ctx = ToolContext(
         session=session,
@@ -476,8 +506,12 @@ async def _execute_tool(
         )
         if spec.handles_ask:
             # Platform mutations create a pending PlatformChange + DecisionRequest.
-            return await _invoke_handler(session, spec, ctx, tool_input)
-        return await _create_policy_decision(ctx, tool_name, tool_input, reason=reason)
+            asked = await _invoke_handler(session, spec, ctx, tool_input)
+        else:
+            asked = await _create_policy_decision(ctx, tool_name, tool_input, reason=reason)
+        if review is not None and review.verdict is not None:
+            await _attach_review(session, tenant_id, asked, review.verdict)
+        return asked
 
     result = await _invoke_handler(session, spec, ctx, tool_input)
     if spec.mutating and not (isinstance(result, dict) and result.get("change_id")):
@@ -585,6 +619,24 @@ async def _mcp_unavailable_in_env(
             "in production. Reinstall it with a real server URL."
         )
     return None
+
+
+async def _attach_review(session: AsyncSession, tenant_id: UUID, asked: Any, verdict: Any) -> None:
+    if not isinstance(asked, dict):
+        return
+    raw = asked.get("decision_request_id") or asked.get("decision_id")
+    try:
+        decision_id = UUID(str(raw))
+    except (TypeError, ValueError):
+        return
+    from app.models.notification import DecisionRequest
+
+    decision = await session.get(DecisionRequest, decision_id)
+    if decision is None or decision.tenant_id != tenant_id or decision.status != "awaiting_human":
+        return
+    decision.auto_review_json = verdict.to_json()
+    session.add(decision)
+    await session.commit()
 
 
 async def _create_policy_decision(

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 
 /** Shared thread type scale: speech is `text-base`; everything else is this. */
-export const THREAD_META = 'text-[13px] leading-5'
+export const THREAD_META = 'text-base leading-5'
 export const THREAD_ICON = 14
 /** Face beside a chat bubble, a mail card, and the matching meta gutter. */
 export const CHAT_AVATAR_SIZE = 32

@@ -114,7 +114,7 @@ export function HandledExternallyForm({ threadId, onDone, onCancel, footer }: Fo
       ) : (
         <div className="flex justify-end gap-2">
           {onCancel ? (
-            <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
+            <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
               {t('threadChrome.cancel', { defaultValue: 'Cancel' })}
             </Button>
           ) : null}

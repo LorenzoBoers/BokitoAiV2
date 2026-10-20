@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateway.publish import publish_signal_message
 from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.services.compaction import KEEP_RECENT, maybe_compact
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +92,8 @@ def serialize_chat_message(
         out["items"] = meta["items"]
     if meta.get("turn_id"):
         out["turn_id"] = meta["turn_id"]
-    if meta.get("in_progress"):
-        out["in_progress"] = True
+    if meta.get("segment_id"):
+        out["segment_id"] = meta["segment_id"]
     return out
 
 
@@ -160,99 +161,8 @@ async def append_signal_chat_message(
     return message
 
 
-# Compact once a thread grows past this many LLM-eligible messages; the most
-# recent KEEP_RECENT turns always stay verbatim.
-COMPACT_THRESHOLD = 40
-KEEP_RECENT = 12
-
-_COMPACTION_PROMPT = (
-    "Summarize the earlier part of this conversation so an assistant can continue it.\n"
-    "Respond in two sections:\n"
-    "SUMMARY: a compact paragraph covering goals, decisions, and open items.\n"
-    "FACTS: bullet list of durable facts worth remembering long-term "
-    "(names, preferences, commitments). Write 'none' if there are no durable facts.\n"
-    "Plain text only. Never use emoji or emoticons.\n\n"
-    "Conversation:\n{transcript}"
-)
-
-
-def _split_compaction_output(text: str) -> tuple[str, list[str]]:
-    summary = text.strip()
-    facts: list[str] = []
-    upper = text.upper()
-    if "FACTS:" in upper:
-        idx = upper.index("FACTS:")
-        summary = text[:idx].replace("SUMMARY:", "").strip()
-        for line in text[idx + len("FACTS:") :].splitlines():
-            item = line.strip().lstrip("-*").strip()
-            if item and item.lower() != "none":
-                facts.append(item)
-    elif "SUMMARY:" in upper:
-        summary = text[upper.index("SUMMARY:") + len("SUMMARY:") :].strip()
-    return summary, facts
-
-
-async def _flush_facts_to_memory(session: AsyncSession, tenant_id: UUID, facts: list[str]) -> None:
-    from app.services.workspace import get_doc_by_path, upsert_doc
-
-    if not facts:
-        return
-    doc = await get_doc_by_path(session, tenant_id, "memory.md")
-    existing = doc.content if doc else "# What we remember\n"
-    new_lines = [f"- {fact}" for fact in facts if fact not in existing]
-    if not new_lines:
-        return
-    stamp = datetime.utcnow().strftime("%Y-%m-%d")
-    content = existing.rstrip() + f"\n\n## Conversation notes ({stamp})\n" + "\n".join(new_lines) + "\n"
-    await upsert_doc(
-        session,
-        tenant_id,
-        path="memory.md",
-        content=content,
-        kind="memory",
-        created_by_type="system",
-        commit=False,
-    )
-
-
-async def _compact_signal_history(
-    session: AsyncSession, signal: Signal, history: list[dict[str, Any]]
-) -> None:
-    """Summarize old turns into signal.compact_summary, flushing durable facts first."""
-    from app.services.agent.llm import get_chat_provider
-    from app.services.model_resolution import record_usage, resolve_model_call
-
-    cutoff = len(history) - KEEP_RECENT
-    old_messages = history[:cutoff]
-    transcript_parts = []
-    if signal.compact_summary:
-        transcript_parts.append(f"[Previous summary]\n{signal.compact_summary}")
-    transcript_parts.extend(f"{m['role']}: {m['content'][:600]}" for m in old_messages)
-    transcript = "\n".join(transcript_parts)[-24000:]
-
-    resolved = await resolve_model_call(session, signal.tenant_id, kind="chat")
-    llm = get_chat_provider(
-        resolved.provider_type, resolved.api_key, resolved.base_url or None
-    )
-    response = await llm.chat(
-        [{"role": "user", "content": _COMPACTION_PROMPT.format(transcript=transcript)}],
-        model=resolved.model_id,
-    )
-    _usage = response.get("usage", {})
-    await record_usage(
-        session, signal.tenant_id, resolved,
-        tokens_in=_usage.get("input_tokens", 0), tokens_out=_usage.get("output_tokens", 0),
-        scope="chat", scope_id=str(signal.id), call_type="compaction",
-    )
-    text = "\n".join(b["text"] for b in response["content"] if b.get("type") == "text").strip()
-    if not text:
-        return
-    summary, facts = _split_compaction_output(text)
-    await _flush_facts_to_memory(session, signal.tenant_id, facts)
-    signal.compact_summary = summary
-    signal.compacted_count = signal.compacted_count + len(old_messages)
-    session.add(signal)
-    await session.commit()
+def _from_customer(m: SignalMessage) -> bool:
+    return m.direction == "inbound" and m.author_user_id is None and m.author_agent_id is None
 
 
 async def context_thread_transcript(
@@ -277,8 +187,11 @@ async def context_thread_transcript(
         f"status: {signal.status}\n"
         f"{filing}"
     )
+    from app.models.signal import is_internal_channel
+    from app.services.prompt_guard import fence
     from app.services.signals import message_plain_text
 
+    customer_channel = not is_internal_channel(signal.channel)
     for m in result.scalars().all():
         body = message_plain_text(m)
         if m.kind == "system_event" or not body:
@@ -287,6 +200,8 @@ async def context_thread_transcript(
             speaker = "Internal note"
         elif m.direction == "inbound":
             speaker = signal.contact_name or "Customer"
+            if customer_channel and _from_customer(m):
+                body = fence(body, signal.channel)
         elif m.author_agent_id:
             speaker = "AI agent"
         else:
@@ -318,6 +233,29 @@ async def _speaker_names(session: AsyncSession, rows: list[SignalMessage]) -> di
         ).all():
             names[user_id] = display or (email or "").split("@")[0] or "Colleague"
     return names
+
+
+_DECISION_STATUS_NOTE = {
+    "awaiting_human": "[Decision card, still waiting for the operator.]",
+    "pending": "[Decision card, still waiting for the operator.]",
+    "approved": "[Decision card, approved by the operator. Its action already ran; do not run it again.]",
+    "rejected": "[Decision card, declined by the operator. Do not propose it again unless asked.]",
+    "deferred": "[Decision card, set aside.]",
+}
+
+
+async def _decision_statuses(session: AsyncSession, ids: list[UUID]) -> dict[UUID, str]:
+    """The card row is the log: its status tells the agent what the operator chose."""
+    if not ids:
+        return {}
+    from app.models.notification import DecisionRequest
+
+    rows = (
+        await session.execute(
+            select(DecisionRequest.id, DecisionRequest.status).where(DecisionRequest.id.in_(ids))
+        )
+    ).all()
+    return {row_id: status for row_id, status in rows}
 
 
 async def signal_chat_history(
@@ -353,6 +291,12 @@ async def signal_chat_history(
     if not compact:
         rows.reverse()
     names = await _speaker_names(session, rows) if for_agent_id is not None else {}
+    from app.models.signal import is_internal_channel
+    from app.services.prompt_guard import fence
+
+    signal = await session.get(Signal, signal_id)
+    customer_channel = signal is not None and not is_internal_channel(signal.channel)
+    card_status = await _decision_statuses(session, [m.decision_id for m in rows if m.decision_id])
 
     history: list[dict[str, Any]] = []
     for m in rows:
@@ -360,6 +304,8 @@ async def signal_chat_history(
             continue
         role = m.role if m.role in ("user", "assistant") else "user"
         body = message_plain_text(m)
+        if customer_channel and body and _from_customer(m):
+            body = fence(body, signal.channel)
         if for_agent_id is not None and body:
             if m.author_agent_id == for_agent_id:
                 role = "assistant"
@@ -394,10 +340,8 @@ async def signal_chat_history(
             )
             if peer_tool:
                 body = f"{body}\n[Sent with {peer_tool}.]"
-        if isinstance(meta, dict) and meta.get("decision_outcome_hint"):
-            # Already a full [System] hint written at resolve time.
-            history.append({"role": "user", "content": body})
-            continue
+        if m.kind == "decision_request" and m.decision_id in card_status:
+            body = f"{body}\n{_DECISION_STATUS_NOTE.get(card_status[m.decision_id], '')}".rstrip()
         if isinstance(meta, dict) and meta.get("decision_response"):
             act = str(meta.get("decision_action") or "approve").lower()
             if act in ("reject", "rejected"):
@@ -413,18 +357,14 @@ async def signal_chat_history(
                 )
         history.append({"role": role, "content": body, **({"attachments": attachments} if role == "user" and attachments else {})})
 
-    signal = await session.get(Signal, signal_id)
     if signal is None:
         return history
 
     remaining = history if not compact else history[signal.compacted_count :]
-    if compact and len(remaining) > COMPACT_THRESHOLD:
+    if compact and len(remaining) > KEEP_RECENT:
         try:
-            await asyncio.wait_for(
-                _compact_signal_history(session, signal, remaining),
-                timeout=8,
-            )
-            remaining = history[signal.compacted_count :]
+            if await asyncio.wait_for(maybe_compact(session, signal, remaining), timeout=8):
+                remaining = history[signal.compacted_count :]
         except TimeoutError:
             logger.warning(
                 "chat history compaction timed out for signal %s; trimming instead",

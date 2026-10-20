@@ -4,7 +4,7 @@ import { PageGuideLink } from '../layout/PageGuideLink'
 import { cn } from '../../lib/utils'
 
 type ContentHeaderProps = {
-  title: ReactNode
+  title?: ReactNode
   subtitle?: ReactNode
   /** Right-aligned controls (buttons, pills, filters). */
   meta?: ReactNode
@@ -17,10 +17,14 @@ type ContentHeaderProps = {
 export default function ContentHeader({ title, subtitle, meta, guide, className }: ContentHeaderProps) {
   return (
     <section className={cn('mb-4 flex flex-wrap items-end justify-between gap-3', className)}>
-      <div className="min-w-0">
-        <h1 className="text-lg font-semibold leading-tight tracking-[-0.01em] text-text-heading">{title}</h1>
-        {subtitle ? <p className="mt-0.5 text-sm text-text-muted">{subtitle}</p> : null}
-      </div>
+      {title || subtitle ? (
+        <div className="min-w-0">
+          {title ? <h1 className="title-page leading-tight">{title}</h1> : null}
+          {subtitle ? <p className="mt-1 text-sm text-text-secondary">{subtitle}</p> : null}
+        </div>
+      ) : (
+        <div className="min-w-0" />
+      )}
       {meta || guide ? (
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
           {guide ? <PageGuideLink page={guide} compact={Boolean(meta)} /> : null}

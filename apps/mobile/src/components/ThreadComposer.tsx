@@ -14,7 +14,7 @@ import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { uploadFile, type Attachment, type ReplyAction } from '../lib/api'
 import { resolveComposerSurface } from '../lib/composer'
 import { loadThreadDraft, saveThreadDraft } from '../lib/storage'
-import { spacing, type ColorTokens } from '../theme'
+import { radius, spacing, type ColorTokens } from '../theme'
 
 type Tab = 'reply' | 'note'
 
@@ -240,7 +240,7 @@ function composerStyles(colors: ColorTokens) {
     },
     tabs: { flexDirection: 'row', gap: spacing.sm },
     tab: {
-      borderRadius: 999,
+      borderRadius: radius.pill,
       borderColor: colors.border,
       borderWidth: 1,
       paddingHorizontal: spacing.md,
@@ -260,7 +260,7 @@ function composerStyles(colors: ColorTokens) {
       gap: spacing.sm,
       borderColor: colors.border,
       borderWidth: 1,
-      borderRadius: 12,
+      borderRadius: radius.lg,
       padding: spacing.sm,
       backgroundColor: colors.bg,
     },

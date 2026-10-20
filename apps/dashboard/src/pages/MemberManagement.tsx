@@ -616,7 +616,7 @@ export default function MemberManagement({
               ))}
             </SelectContent>
           </Select>
-          <Button type="button" variant="outline" className="shrink-0" onClick={() => setRoleMatrixOpen(true)}>
+          <Button type="button" variant="secondary" className="shrink-0" onClick={() => setRoleMatrixOpen(true)}>
             {t('membersPage.roleMatrixTitle')}
             <ChevronDown size={14} className="text-text-muted" />
           </Button>
@@ -807,7 +807,7 @@ export default function MemberManagement({
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="truncate-fade font-medium text-text-primary">{m.name}</span>
-                              {m.isCurrentUser ? <Badge variant="secondary">{t('membersPage.you')}</Badge> : null}
+                              {m.isCurrentUser ? <Badge variant="neutral">{t('membersPage.you')}</Badge> : null}
                             </div>
                             {m.email ? (
                               <p className="truncate-fade text-xs text-text-muted">{m.email}</p>

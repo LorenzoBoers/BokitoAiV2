@@ -79,18 +79,16 @@
     "tabReply": "Reply",
     "tabReplyEmail": "Email",
     "tabReplyTo": "Reply to {{name}}",
-    "tabAsk": "Ask {{name}}",
-    "tabTo": "To {{name}}",
+    "tabTeam": "Team",
+    "tabTeamTo": "To {{names}}",
     "tabAgent": "{{name}}",
     "tabHintReply": "The customer sees this.",
     "tabHintNote": "Only the team.",
-    "tabHintTo": "Message a teammate in this conversation. The customer does not see it.",
-    "tabHintAsk": "Only you and the AI. The customer sees nothing.",
+    "tabHintAsk": "Message the agents and colleagues in this conversation. The customer sees nothing.",
     "tabHintAgent": "Only you and the AI. The customer sees nothing.",
-    "pickFocus": "Choose who to message",
+    "pickFocus": "Tag someone",
     "pickFocusAgents": "Agents",
     "pickFocusPeople": "Teammates",
-    "pickFocusKeepOne": "Keep at least one recipient.",
     "sendFrom": "Send from",
     "sendFromHint": "Send from this mailbox. Switching moves the conversation here.",
     "sendToCustomer": "The customer receives this.",
@@ -120,12 +118,10 @@
     "dictationListening": "Listening...",
     "dictationHearing": "Hearing: {{text}}",
     "notePlaceholder": "Note for the team...",
-    "teamMessagePlaceholder": "Message {{name}}...",
-    "askPlaceholder": "Ask {{name}} (only you and the AI)...",
+    "teamPlaceholder": "Message the team, @ to ask someone...",
     "agentPlaceholder": "Ask {{name}} (only you and the AI)...",
     "sendIntern": "Post note",
-    "sendTo": "Send to {{name}}",
-    "sendAsk": "Ask {{name}}",
+    "sendTeam": "Send to the team",
     "sendAgent": "Ask {{name}}",
     "stop": "Stop",
     "channelTooltip": "{{channel}}{{detail}}",
@@ -204,7 +200,9 @@
     "draftSaved": "Draft saved",
     "draftChip": "Mail draft",
     "draftChipResume": "Continue writing",
-    "draftChipDiscard": "Discard draft"
+    "draftChipDiscard": "Discard draft",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Leave full screen"
   },
   "compose": {
     "title": "New email",
@@ -279,9 +277,12 @@
     "lastSyncNever": "Mail not synced yet",
     "loadMore": "Load more",
     "openGroup": "Open conversations",
-    "statusSwitch": "Open or closed",
+    "statusSwitch": "Open, scheduled or closed",
     "statusOpen": "Open",
     "statusOpenCount": "Open ({{count}})",
+    "statusScheduled": "Scheduled",
+    "statusScheduledCount": "Scheduled ({{count}})",
+    "hiddenUntil": "Hidden until {{when}}",
     "statusClosed": "Closed",
     "statusClosedCount": "Closed ({{count}})",
     "showClosed": "Show closed ({{count}})",
@@ -323,6 +324,11 @@
     "emptyScheduledHint": "Give a conversation a date or a repeat and it shows here and on Agenda."
   },
   "decisionCard": {
+    "autoReview": {
+      "allow": "Auto-review: would allow",
+      "deny": "Auto-review: would deny",
+      "ask": "Auto-review: unsure, asks you"
+    },
     "titleSuggestedReply": "Suggested reply",
     "titleNoReply": "No reply needed",
     "titleDecision": "Decision",
@@ -331,6 +337,7 @@
     "draftSent": "Draft approved and sent",
     "draftRejected": "Draft rejected",
     "draftHumanReplied": "Earlier draft — a teammate replied",
+    "supersededByNewerRead": "Replaced by a newer read",
     "draftSupersededByInbound": "Earlier draft — the customer wrote again",
     "draftSupersededByExternalReply": "Earlier draft — answered from a teammate's mailbox",
     "draftSiblingThread": "Earlier draft — continued in a newer conversation with this person",
@@ -846,6 +853,7 @@
       "open": "Open",
       "closed": "Closed",
       "pending": "Waiting",
+      "snoozed": "Hidden",
       "spam": "Spam"
     },
     "contact": {
@@ -1599,6 +1607,10 @@
     "urgent": "Urgent"
   },
   "timeline": {
+    "promptGuard": {
+      "label": "Possible hidden instructions",
+      "hint": "This message reads like instructions to the AI. Agents treat it as data and ask before they change anything in this turn."
+    },
     "internalNote": "Internal note",
     "replyMail": "Reply",
     "replyAllMail": "Reply all",
@@ -1637,6 +1649,7 @@
       "cannotSend": "this mailbox cannot send yet — pick another under Send from",
       "network": "network error while sending",
       "noRecipient": "no recipient address on this thread",
+      "attachment": "a file could not be attached, so the message was not sent",
       "unknown": "could not send — try again or check Channels"
     },
     "roleAi": "AI",
@@ -1747,6 +1760,7 @@
       "agentAssignedGeneric": "An agent took over this conversation",
       "agentOwns": "{{name}} picks up this conversation",
       "agentOwnsGeneric": "The agent picks up this conversation",
+      "channelNotReady": "I did not draft a reply for the customer, because this channel cannot send yet. Finish the setup under Settings → Email & messages. Then take over or hand the conversation back to me.",
       "agentPrepares": "{{name}} prepares this conversation",
       "agentPreparesGeneric": "The agent prepares this conversation",
       "assistDraftReady": "Assigned <owner />",
@@ -1799,6 +1813,9 @@
       "scheduledAt": "Scheduled for {{when}}",
       "scheduledRepeat": "Repeat set",
       "scheduleCleared": "Date cleared",
+      "scheduledHidden": "Scheduled for {{when}}, hidden until {{until}}",
+      "surfaced": "Back from Scheduled",
+      "wokeByReply": "New message, back from Scheduled",
       "due": "The planned moment is here",
       "wakeStarted": "Agent started",
       "wakeStartedBy": "{{name}} started",
@@ -1839,6 +1856,7 @@
   },
   "actions": {
     "create_tag": "Create hashtag #{{name}}",
+    "apply_label_plan": "#{{name}} · {{where}}",
     "update_tag": "Change hashtag #{{name}}",
     "update_tag_rename": "Rename hashtag #{{name}} to #{{new_name}}",
     "delete_tag": "Delete hashtag #{{name}}",
@@ -1868,8 +1886,22 @@
     "enable_module": "Turn on {{slug}}",
     "setup_integration": "Set up {{provider}}",
     "create_decision_request": "Ask for a decision",
-    "delegate_to_agent": "Hand work to an agent",
+    "spawn_subagent": "Hand work to a subagent",
     "schedule_wake": "Schedule a wake-up"
+  },
+  "subagent": {
+    "line": "Subagent {{agent}}: {{description}}",
+    "agentFallback": "agent",
+    "loading": "Loading result",
+    "failed": "Could not load this subagent.",
+    "noResult": "No result yet.",
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "cancelled": "Stopped"
+    }
   },
   "signatureEditor": {
     "title": "Edit email signature",
@@ -2110,15 +2142,42 @@
     "cronHint": "Five fields in UTC: minute, hour, day, month, weekday.",
     "day": "Day",
     "time": "Time",
+    "quick": {
+      "hour": "In 1 hour",
+      "tomorrow": "Tomorrow 9:00",
+      "monday": "Monday 9:00",
+      "custom": "Custom"
+    },
+    "addEnd": "Add end",
     "forWhom": "For whom",
     "forWhomPlaceholder": "Choose who",
     "me": "Me",
+    "you": "you",
     "people": "Teammates",
+    "agents": "Agents",
     "teams": "Teams",
-    "agent": "Agent",
-    "noAgent": "No agent",
-    "agentHint": "At the moment itself the agent writes in this conversation, to whoever you chose above.",
-    "noAgentHint": "The conversation then comes back unread for whoever you chose above.",
+    "agentHint": "The agent becomes the conversation owner and runs the task at the moment itself.",
+    "personHint": "Becomes the conversation owner and gets it back unread at the moment.",
+    "hide": "Hide until then",
+    "hideHint": "Until then the conversation sits under Scheduled. A new message brings it back early.",
+    "surfaceLabel": "Back",
+    "surface": {
+      "0": "At the moment",
+      "15": "15 min before",
+      "30": "30 min before",
+      "60": "1 hour before",
+      "1440": "1 day before"
+    },
+    "notify": "Notification",
+    "notifyHint": "Alert when the conversation comes back.",
+    "summary": {
+      "hidden": "Hidden until {{when}}, then back with {{who}}.",
+      "hiddenEarly": "Hidden, back with {{who}} {{lead}} {{when}}.",
+      "visible": "Stays in Open; comes back unread for {{who}} at {{when}}.",
+      "agent": "At {{when}} {{who}} runs the task in this conversation.",
+      "repeat": "Comes back unread for {{who}} on every repeat.",
+      "repeatAgent": "On every repeat {{who}} runs the task in this conversation."
+    },
     "instructions": "Task for the agent",
     "instructionsPlaceholder": "What should the agent do and report?",
     "note": "Note",
@@ -2143,9 +2202,9 @@
       "weeklyAt": "Every {{day}} at {{time}}",
       "cron": "Cron {{cron}} (UTC)"
     },
-    "agentWritesTo": "{{agent}} writes to {{recipient}}",
     "agentWrites": "{{agent}} writes here",
     "forRecipient": "For {{recipient}}",
+    "hiddenUntil": "Hidden until {{when}}",
     "openInCalendar": "Open in calendar",
     "lastRun": "Last: {{when}} ({{status}})",
     "status": {

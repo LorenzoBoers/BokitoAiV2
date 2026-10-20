@@ -18,6 +18,7 @@ import { PLATFORM_DEFAULT_LANGUAGE } from './lib/api.config'
 import { initSentry } from './lib/sentry'
 import { registerServiceWorker } from './lib/web-push'
 import './index.css'
+import { Button } from './components/ui/button'
 
 function resolveBootLanguage(): 'nl' | 'en' {
   const fromQuery = new URLSearchParams(window.location.search).get('lang')
@@ -81,13 +82,12 @@ function RouteErrorFallback() {
           {i18n.t('errorBoundary.title', { ns: 'nav' })}
         </h1>
         <p className="text-sm text-text-muted">{message}</p>
-        <button
+        <Button
           type="button"
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
           onClick={() => window.location.assign('/')}
         >
           {i18n.t('errorBoundary.refresh', { ns: 'nav' })}
-        </button>
+        </Button>
       </div>
     </div>
   )

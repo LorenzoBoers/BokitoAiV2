@@ -141,36 +141,71 @@ async def test_approve_delete_defers_duplicate_ask(client: AsyncClient, session_
 
 
 @pytest.mark.asyncio
-async def test_decision_outcome_hint_in_chat_history(client: AsyncClient, session_override):
-    """Continue-after-decision wake must see that the tool already ran."""
+async def test_every_tool_card_can_teach_always(client: AsyncClient, session_override):
+    """Cards from any producer (here the label plan) offer "always" on the tool option."""
+    from app.tools.builtin import _create_decision_request
+
+    await _login(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    agent = (
+        await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id))
+    ).scalars().first()
+    signal = Signal(tenant_id=tenant.id, channel="assistant", source="chat", subject="Plan")
+    session_override.add(signal)
+    await session_override.flush()
+    ctx = ToolContext(
+        session=session_override, tenant_id=tenant.id, user_id=None, agent=agent, signal_id=signal.id
+    )
+    made = await _create_decision_request(
+        ctx,
+        {
+            "title": "#test",
+            "options": [
+                {"id": "approve", "label": "Toepassen", "action_type": "apply_label_plan", "payload": {}},
+                {"id": "reject", "label": "Nee", "action_type": "reject"},
+            ],
+        },
+    )
+    decision = await session_override.get(DecisionRequest, __import__("uuid").UUID(made["decision_request_id"]))
+    options = json.loads(decision.options_json)
+    assert options[0]["learn"]["tool"] == "apply_label_plan"
+    assert options[0]["learn"]["agent_id"] == str(agent.id)
+    assert "learn" not in options[1]
+
+
+@pytest.mark.asyncio
+async def test_resolved_card_tells_history_its_outcome(client: AsyncClient, session_override):
+    """The card row is the log: a wake after approve sees the action already ran."""
     await _login(client)
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     signal = Signal(tenant_id=tenant.id, channel="assistant", source="chat", subject="Hist")
     session_override.add(signal)
     await session_override.flush()
-    await append_signal_chat_message(
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        signal_id=signal.id,
+        title="Delete #demo",
+        status="approved",
+        options_json="[]",
+    )
+    session_override.add(decision)
+    await session_override.flush()
+    card = await append_signal_chat_message(
         session_override,
         signal,
         role="assistant",
-        content="Verwijder #demo?",
+        content="Delete #demo",
     )
-    await append_signal_chat_message(
-        session_override,
-        signal,
-        role="user",
-        content=(
-            "[System] The operator just resolved decision card(s) on this thread. "
-            "Approved: delete #demo (delete_tag). Tool already executed. "
-            "Confirm briefly. Do not call that gated tool again."
-        ),
-        metadata={
-            "decision_outcome_hint": True,
-            "hidden_from_timeline": True,
-            "decision_action": "approved",
-        },
-    )
+    card.kind = "decision_request"
+    card.decision_id = decision.id
+    session_override.add(card)
     await session_override.commit()
     history = await signal_chat_history(session_override, signal.id)
     last = history[-1]["content"]
-    assert "Approved: delete #demo" in last
-    assert "already executed" in last.lower() or "Tool already" in last
+    assert last.startswith("Delete #demo")
+    assert "approved by the operator" in last
+    assert "already ran" in last
+    rows = (
+        await session_override.execute(select(SignalMessage).where(SignalMessage.signal_id == signal.id))
+    ).scalars().all()
+    assert [r.kind for r in rows] == ["decision_request"]

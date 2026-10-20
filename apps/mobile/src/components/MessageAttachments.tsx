@@ -2,7 +2,7 @@ import { Image, Linking, Pressable, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { resolveAttachmentUrl, type Attachment } from '../lib/api'
-import { spacing, type ColorTokens } from '../theme'
+import { radius, spacing, type ColorTokens } from '../theme'
 
 type Props = {
   attachments: Attachment[]
@@ -57,7 +57,7 @@ function attachmentStyles(colors: ColorTokens) {
     thumbnail: {
       width: 120,
       height: 90,
-      borderRadius: 8,
+      borderRadius: radius.md,
       backgroundColor: colors.elevated,
       borderColor: colors.border,
       borderWidth: 1,
@@ -71,7 +71,7 @@ function attachmentStyles(colors: ColorTokens) {
       backgroundColor: colors.elevated,
       borderColor: colors.border,
       borderWidth: 1,
-      borderRadius: 8,
+      borderRadius: radius.md,
       paddingHorizontal: spacing.sm,
       paddingVertical: 6,
     },

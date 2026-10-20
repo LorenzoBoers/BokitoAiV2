@@ -27,7 +27,7 @@ export function TagIcon({
       title={title}
       width={size}
       height={size}
-      className={cn('tag-icon shrink-0 rounded-[5px] object-cover', className)}
+      className={cn('tag-icon shrink-0 rounded-sm object-cover', className)}
       style={{ width: size, height: size }}
     />
   )

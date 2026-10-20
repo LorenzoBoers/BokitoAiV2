@@ -12,6 +12,7 @@ import { WEBSITE_WIDGET_CUSTOMIZE_PATH, WEBSITE_WIDGET_PATH } from '../lib/assis
 import { brandPalette, BRAND_DEFAULT_BG } from '@bokito/shared'
 import { DEFAULT_BRAND_COLOR, normalizeBrandHex, resolveBrandSeed } from '../lib/tenant-branding'
 import { inboxPath } from '../lib/messages-paths'
+import { TextLink } from '../components/ui/text-link'
 
 const SUPPORTED_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] as const
 const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
@@ -495,9 +496,9 @@ export default function CompanyConfig() {
                 ) : null}
                 {subdomain.trim() ? (
                   <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                    <button
+                    <TextLink
                       type="button"
-                      className="text-xs font-medium text-accent hover:underline"
+                      className="text-xs"
                       onClick={() => {
                         void navigator.clipboard.writeText(`https://${subdomain.trim().toLowerCase()}.bokito.ai`).then(
                           () => toast.success(t('brandingPage.copiedUrl')),
@@ -506,7 +507,7 @@ export default function CompanyConfig() {
                       }}
                     >
                       {t('brandingPage.copyUrl')}
-                    </button>
+                    </TextLink>
                     <Link
                       to={`/help/${subdomain.trim().toLowerCase()}`}
                       className="text-xs font-medium text-accent hover:underline"

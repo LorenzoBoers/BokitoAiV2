@@ -95,6 +95,13 @@ export const LABEL_MARK_ICONS: Record<string, LucideIcon> = {
 export const FLOW_LABEL_COLOR: LabelMarkColor = 'sky'
 export const FLOW_LABEL_ICON = 'route'
 
+/** Shared stadium geometry for every label chip (TagPill, Hashtag, HashtagSet). */
+export const TAG_PILL_SIZE = {
+  sm: 'h-5 gap-1 rounded-full px-2 text-2xs',
+  md: 'h-7 gap-2 rounded-full px-3.5 text-xs',
+  lg: 'h-8 gap-2.5 rounded-full px-4 text-sm',
+} as const
+
 export function labelMarkIcon(name: string | null | undefined): LucideIcon | null {
   if (!name) return null
   return LABEL_MARK_ICONS[name] ?? null

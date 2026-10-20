@@ -115,11 +115,11 @@ export function ModuleShowcaseModal({
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <DialogTitle className="text-xl">{name}</DialogTitle>
-                <Badge variant="neutral" className="text-2xs font-medium">
+                <Badge variant="neutral" size="sm">
                   {t('integrations.modules.kindBadge', { defaultValue: 'Module' })}
                 </Badge>
                 {installed ? (
-                  <Badge variant="secondary" className="text-2xs font-medium">
+                  <Badge variant="neutral" size="sm">
                     {t('integrations.modules.showcase.installedBadge', {
                       defaultValue: 'Installed',
                     })}

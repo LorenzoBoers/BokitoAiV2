@@ -216,6 +216,33 @@ async def test_outlook_reply_uses_graph_reply_endpoint():
 
 
 @pytest.mark.asyncio
+async def test_send_via_provider_fails_when_attachment_bytes_missing():
+    from app.channels import email as email_adapter
+
+    account = _account("mock")
+    with patch(
+        "app.services.storage.fetch_attachment_bytes",
+        new=AsyncMock(return_value=None),
+    ):
+        status, _html, provider_id = await email_adapter.send_via_provider(
+            account,
+            to_address="client@x.nl",
+            subject="Re: BTW",
+            body_text="Antwoord",
+            attachments=[
+                {
+                    "id": "a1",
+                    "name": "invoice.pdf",
+                    "mime": "application/pdf",
+                    "url": "https://example.test/api/uploads/files/t/invoice.pdf",
+                }
+            ],
+        )
+    assert status == "failed:attachment_unavailable"
+    assert provider_id == ""
+
+
+@pytest.mark.asyncio
 async def test_send_via_provider_quoted_html_below_signature():
     from app.channels import email as email_adapter
 

@@ -2,17 +2,10 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertCircle,
-  Bot,
   CornerUpLeft,
   Folder,
-  Globe,
-  Hash,
   Lightbulb,
   Link2,
-  Mail,
-  MessageCircle,
-  MessageSquare,
-  Route,
 } from 'lucide-react'
 import type { OrgFlow, OrgFlowNode } from '../../lib/org-flow-api'
 import {
@@ -25,6 +18,9 @@ import {
   type GridLens,
 } from '../../lib/org-flow-layout'
 import { cn } from '../../lib/utils'
+import { AgentMark } from '../ui/AgentMark'
+import { ChannelMark } from '../ui/ChannelMark'
+import { FlowMark } from './FlowMark'
 import { useGridNames } from './org-flow-names'
 
 type Props = {
@@ -42,45 +38,14 @@ const HEADER_H = 40
 const MIN_SCALE = 0.6
 const DIM = 0.12
 
-const CHANNEL_ICONS: Record<string, typeof Mail> = {
-  email: Mail,
-  whatsapp: MessageCircle,
-  slack: Hash,
-  widget: MessageSquare,
-  chat: MessageSquare,
-}
-
-function ChannelIcon({ channel }: { channel?: string }) {
-  const Icon = (channel && CHANNEL_ICONS[channel]) || Globe
-  return <Icon size={14} strokeWidth={1.6} className="text-status-info" />
-}
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?'
-}
-
-function Face({ node }: { node: OrgFlowNode }) {
+function FaceInner({ node }: { node: OrgFlowNode }) {
   const round = 'flex h-6 w-6 shrink-0 items-center justify-center rounded-full'
   switch (node.kind) {
     case 'channel':
-      return (
-        <span className={cn(round, 'bg-status-info/15')}>
-          <ChannelIcon channel={node.channel} />
-        </span>
-      )
+      return <ChannelMark channel={node.channel} size={24} />
     case 'agent':
-      return (
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ai/20">
-          <Bot size={14} strokeWidth={1.6} className="text-ai" />
-        </span>
-      )
     case 'user':
-      return (
-        <span className={cn(round, 'bg-status-info/25 text-[10px] font-semibold text-text-heading')}>
-          {initials(node.label)}
-        </span>
-      )
+      return <AgentMark agent={node.mark ?? { name: node.label }} size={24} mode="static" fallbackName={node.label} />
     case 'unassigned':
       return (
         <span className={cn(round, 'bg-status-warning/15')}>
@@ -88,11 +53,7 @@ function Face({ node }: { node: OrgFlowNode }) {
         </span>
       )
     case 'flow':
-      return (
-        <span className={cn(round, 'bg-rose-500/15')}>
-          <Route size={14} strokeWidth={1.6} className="text-rose-400" />
-        </span>
-      )
+      return <FlowMark node={node} />
     case 'reply':
       return (
         <span className={cn(round, 'bg-status-info/15')}>
@@ -110,6 +71,34 @@ function Face({ node }: { node: OrgFlowNode }) {
     default:
       return null
   }
+}
+
+/** Matches 3D: outer ring when there is no open count; mini pillar when there is. */
+function Face({ node }: { node: OrgFlowNode }) {
+  const inner = <FaceInner node={node} />
+  if (!inner) return null
+  const hasPillar = node.layer === 'executor' && node.open > 0
+  if (hasPillar) {
+    const h = Math.min(28, 12 + Math.log2(node.open + 1) * 5)
+    return (
+      <span className="flex shrink-0 items-end gap-1">
+        <span
+          className="mb-0.5 w-1.5 shrink-0 rounded-sm bg-status-info/75"
+          style={{ height: h }}
+          aria-hidden
+        />
+        {inner}
+      </span>
+    )
+  }
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+      style={{ boxShadow: '0 0 0 2px color-mix(in srgb, var(--color-status-info) 40%, transparent)' }}
+    >
+      {inner}
+    </span>
+  )
 }
 
 function LabelBar({ node, data }: { node: OrgFlowNode; data: OrgFlow }) {
@@ -222,7 +211,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
             ring,
           )}
         >
-          <span className="text-[11.5px] leading-4 text-text-secondary">{names.node(node)}</span>
+          <span className="text-xs leading-4 text-text-secondary">{names.node(node)}</span>
           <span className="text-sm font-semibold leading-[18px] text-text-heading">
             {node.kind === 'sink_open' ? node.open || node.count : node.count || '-'}
           </span>
@@ -244,9 +233,9 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
         >
           <span className="flex min-w-0 items-center gap-2.5">
             <Face node={node} />
-            <span className="truncate text-[13px] font-semibold leading-[17px] text-text-heading">{names.node(node)}</span>
+            <span className="truncate text-base font-semibold leading-[17px] text-text-heading">{names.node(node)}</span>
             {node.kind === 'folder' ? (
-              <span className="shrink-0 text-[11.5px] text-text-muted">
+              <span className="shrink-0 text-xs text-text-muted">
                 {node.children
                   ? `${t('orgCanvas.result.folder')} · ${t('orgCanvas.result.subfolders', { count: node.children })}`
                   : t('orgCanvas.result.folder')}
@@ -256,7 +245,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
           {node.kind === 'reply' ? (
             <span className="flex flex-wrap gap-1.5">
               {(node.channels ?? []).map((ch) => (
-                <span key={ch} className="rounded-md bg-status-info/15 px-2 py-0.5 text-[11.5px] leading-4 text-status-info">
+                <span key={ch} className="rounded-md bg-status-info/15 px-2 py-0.5 text-xs leading-4 text-status-info">
                   {t('orgCanvas.result.via', { channel: names.channel(ch).toLowerCase() })}
                 </span>
               ))}
@@ -264,13 +253,13 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
           ) : (
             <span className="flex flex-wrap items-center gap-1.5 overflow-hidden">
               {(node.works_in ?? []).length ? (
-                <span className="text-[11px] text-text-muted">{t('orgCanvas.result.worksIn')}</span>
+                <span className="text-2xs text-text-muted">{t('orgCanvas.result.worksIn')}</span>
               ) : null}
               {(node.works_in ?? []).map((item) =>
                 item.origin === 'connection' ? (
                   <span
                     key={item.key}
-                    className="inline-flex max-w-[180px] items-center gap-1 truncate rounded-md border border-border px-2 py-px text-[11.5px] leading-4 text-text-primary"
+                    className="inline-flex max-w-[180px] items-center gap-1 truncate rounded-md border border-border px-2 py-px text-xs leading-4 text-text-primary"
                   >
                     <Link2 size={10} className="shrink-0 text-text-muted" />
                     <span className="truncate">{names.worksIn(item)}</span>
@@ -278,7 +267,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
                 ) : (
                   <span
                     key={item.key}
-                    className="max-w-[180px] truncate rounded-md bg-bg-elevated px-2 py-0.5 text-[11.5px] leading-4 text-text-primary"
+                    className="max-w-[180px] truncate rounded-md bg-bg-elevated px-2 py-0.5 text-xs leading-4 text-text-primary"
                   >
                     {names.worksIn(item)}
                   </span>
@@ -315,10 +304,10 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
           ) : null}
         </span>
         <span className="min-w-0 flex-1 leading-4">
-          <span className={cn('block truncate font-semibold', executor ? 'text-[12.5px]' : 'text-[13px]', card.ghost ? 'text-text-secondary' : 'text-text-heading')}>
+          <span className={cn('block truncate font-semibold', executor ? 'text-sm' : 'text-base', card.ghost ? 'text-text-secondary' : 'text-text-heading')}>
             {names.node(node)}
           </span>
-          <span className="block truncate text-[11px]">{subtitle(node, card)}</span>
+          <span className="block truncate text-2xs">{subtitle(node, card)}</span>
           {lens === 'labels' && !card.ghost ? <LabelBar node={node} data={data} /> : null}
         </span>
       </button>
@@ -342,7 +331,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
       {columns.map((col) => (
         <div
           key={col.title}
-          className="absolute top-3 text-[11px] font-semibold uppercase leading-4 tracking-[0.08em] text-text-muted"
+          className="absolute top-3 text-2xs font-semibold uppercase leading-4 tracking-[0.08em] text-text-muted"
           style={{ left: col.x }}
         >
           {col.title}
@@ -361,7 +350,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
             )}
             style={{ left: zone.x, top: zone.y + HEADER_H, width: zone.w, height: zone.h }}
           >
-            <div className={cn('px-4 pt-2 text-[11.5px] font-semibold leading-4', zone.none ? 'text-status-warning' : 'text-status-info')}>
+            <div className={cn('px-4 pt-2 text-xs font-semibold leading-4', zone.none ? 'text-status-warning' : 'text-status-info')}>
               {zoneName(zone.id)}
               {info?.hint ? (
                 <span className="font-medium text-text-muted"> · {t(`orgCanvas.zone.hint.${info.hint}`)}</span>
@@ -419,7 +408,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
       </svg>
       {layout.knowledgeLine ? (
         <div
-          className="pointer-events-none absolute text-[11px] leading-[14px] text-text-muted"
+          className="pointer-events-none absolute text-2xs leading-[14px] text-text-muted"
           style={{ left: layout.knowledgeLine.labelX, top: layout.knowledgeLine.labelY + HEADER_H - 7 }}
         >
           {t('orgCanvas.result.corrections')}

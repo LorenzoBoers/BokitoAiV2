@@ -338,7 +338,7 @@ async def _link_decision(
 async def _link_conversation_contact(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Link the conversation to a person from an email or phone the visitor gave.
 
-    AI handling decides: manual does nothing; assisted links only verified
+    Autonomy decides: manual does nothing; assisted links only verified
     addresses and asks for the rest; autonomous also links claimed addresses
     and creates a contact when none exists. Ambiguous matches and merging two
     known persons always ask.
@@ -424,7 +424,7 @@ register_tool(
         name="link_conversation_contact",
         description=(
             "When the visitor gives an email address or phone number, call this "
-            "once to link the conversation to the right contact. AI handling "
+            "once to link the conversation to the right contact. Autonomy "
             "decides whether it links now or asks the team. The answer never "
             "says whether a contact exists; do not tell the visitor about "
             "accounts. Linking does not verify the visitor; personal data "

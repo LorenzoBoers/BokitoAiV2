@@ -29,6 +29,7 @@ import { LocaleProvider } from '../src/context/LocaleContext'
 import { useCopy } from '../src/context/LocaleContext'
 import { ThemeProvider, useTheme } from '../src/context/ThemeContext'
 import { useGatewayInvalidation } from '../src/hooks/useMessagingQueries'
+import { darkTheme } from '../src/theme'
 import { useNotificationRouting } from '../src/lib/notification-routing'
 
 const queryClient = new QueryClient({
@@ -90,8 +91,8 @@ export default function RootLayout() {
   if (fontsLoaded) applyDefaultFont()
   if (!fontsLoaded) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#121213' }}>
-        <ActivityIndicator color="#32bf8e" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: darkTheme.bg }}>
+        <ActivityIndicator color={darkTheme.accent} />
       </View>
     )
   }

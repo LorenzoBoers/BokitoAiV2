@@ -31,6 +31,7 @@ export const governRoutes = {
   allowances: '/govern/allowances',
   toolOverrides: '/govern/tool-overrides',
   posture: '/govern/posture',
+  autoReview: '/govern/auto-review',
   rules: '/govern/rules',
   rulesTest: '/govern/rules/test',
   agentRules: '/govern/agent-rules',

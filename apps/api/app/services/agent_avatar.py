@@ -52,6 +52,9 @@ ALLOWED_ICONS = frozenset(
 # Hidden until FEATURE_CODING_AGENT_INTEGRATIONS is on (coding-agent bodies).
 CODING_AGENT_SHAPES = frozenset({"claude", "cursor"})
 
+# Brand bodies keep their original body color; a picked tint never applies.
+FIXED_SHAPE_COLORS = {"claude": "#d97757", "cursor": "#d9d9d9"}
+
 # Bot-orb silhouettes (mirrored in dashboard bot-orb-shapes.ts).
 ALLOWED_SHAPES = frozenset(
     {
@@ -248,7 +251,7 @@ def avatar_payload(agent: Agent | None) -> dict[str, Any]:
         return {
             "avatar_kind": AVATAR_KIND_ORB,
             "avatar_icon": None,
-            "avatar_color": color or DEFAULT_ORB_COLOR,
+            "avatar_color": FIXED_SHAPE_COLORS.get(shape) or color or DEFAULT_ORB_COLOR,
             "avatar_shape": shape,
             "avatar_image_url": None,
         }
@@ -342,6 +345,9 @@ def apply_avatar_settings(
             out["avatar_color"] = DEFAULT_ORB_COLOR
         if not normalize_shape(str(out.get("avatar_shape") or "") or None):
             out["avatar_shape"] = DEFAULT_AVATAR_SHAPE
+        fixed = FIXED_SHAPE_COLORS.get(str(out["avatar_shape"]))
+        if fixed:
+            out["avatar_color"] = fixed
     elif kind in (AVATAR_KIND_ICON, AVATAR_KIND_INITIALS, AVATAR_KIND_IMAGE):
         out.pop("avatar_shape", None)
         if avatar_color is not None or avatar_kind is not None or avatar_icon is not None:

@@ -37,6 +37,23 @@ consecutive turns for one agent then forces a human Decision. Presence publishes
 `active_turn` so the hub can show “Waiting on …”. Worker job
 `run_participant_turn_job` runs the turn when Redis is available.
 
+## Agent turns and bubbles (2026-10)
+
+Turns are rows in `agent_turns` (`services/agent_turns.py`); the floor is a
+read model written from them.
+
+- Agents ask each other only with `ask_agent` and hand over with `handoff_to`.
+  An `@agent` chip in an agent's text is a link and wakes nobody, also at the
+  start of a reply.
+- One turn is one bubble. `TurnRecorder` streams a single `segment_id` per
+  turn; speech after a tool call joins it with a blank line, and
+  `plan_turn_messages` in chat mode saves one message with the work above it.
+- Every live event carries `author`. Clients name the live bubble from it,
+  never from the floor, which already points at the next speaker.
+- A turn that says only `pass` publishes no bubble: speech is held while it
+  can still become the pass word, and `agent.turn` end carries
+  `outcome: "silent"`.
+
 ## Module hire and ownership
 
 `ModulePackage.agent_template` describes a managed specialist.

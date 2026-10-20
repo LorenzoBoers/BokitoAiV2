@@ -148,13 +148,17 @@ export function makeStageFloor(size: number, center: number, edge: number): THRE
   return mesh
 }
 
-/** Dots at the crossings of a hairline square grid, fading toward the edge. */
+/** World-space box the grid hugs: it is full inside and fades out within `feather` past the edge. */
+export type GridArea = { minX: number; maxX: number; minZ: number; maxZ: number; feather: number }
+
+/** Dots at the crossings of a hairline square grid, fading toward the edge (or just past `area`). */
 export function makeSoftGrid(
   size: number,
   divisions: number,
   color: number,
   edgeColor: number,
   opacity: number,
+  area?: GridArea,
 ): THREE.Mesh {
   const material = new THREE.ShaderMaterial({
     transparent: true,
@@ -167,6 +171,8 @@ export function makeSoftGrid(
       uRadius: { value: 1.25 },
       uFeather: { value: 0.7 },
       uLine: { value: 0.65 },
+      uArea: { value: area ? new THREE.Vector4((area.minX + area.maxX) / 2, (area.minZ + area.maxZ) / 2, (area.maxX - area.minX) / 2, (area.maxZ - area.minZ) / 2) : new THREE.Vector4() },
+      uAreaFeather: { value: area ? area.feather : 0 },
     },
     vertexShader: STAGE_VERTEX,
     fragmentShader: `
@@ -179,6 +185,8 @@ export function makeSoftGrid(
       uniform float uRadius;
       uniform float uFeather;
       uniform float uLine;
+      uniform vec4 uArea;
+      uniform float uAreaFeather;
       void main() {
         vec2 g = vUv * uDivisions;
         vec2 fw = max(fwidth(g), vec2(1e-4));
@@ -190,6 +198,10 @@ export function makeSoftGrid(
         float mark = max(dotMask, lineMask * 0.72);
         float radial = length(vUv - 0.5) * 2.0;
         float fade = 1.0 - smoothstep(0.28, 0.92, radial);
+        if (uAreaFeather > 0.0) {
+          vec2 outside = max(abs(vWorld - uArea.xy) - uArea.zw, 0.0);
+          fade = 1.0 - smoothstep(0.0, uAreaFeather, length(outside));
+        }
         float alpha = mark * uOpacity * fade;
         if (alpha < 0.01) discard;
         float shade = smoothstep(180.0, 640.0, length(vWorld));

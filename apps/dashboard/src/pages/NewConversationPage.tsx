@@ -1,41 +1,11 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type PointerEvent,
-  type ReactNode,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import {
-  ArrowLeft,
-  ArrowUp,
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  Hash,
-  Loader2,
-  Mail,
-  Mic,
-  Plus,
-  StickyNote,
-  X as XIcon,
-} from 'lucide-react'
+import { ArrowLeft, ArrowUp, Bot, ChevronLeft, ChevronRight, Loader2, Mail, Mic, Plus, StickyNote, X as XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
-import {
-  bokitoCreateConversation,
-  bokitoListChatTargets,
-  startConversation,
-  type ChatTarget,
-  type NavRow,
-} from '../lib/signals-api'
-import { useCommunicationNav } from '../hooks/useCommunicationNav'
-import { agentFunctionLabel } from '../lib/workforce-nav-agents'
+import { bokitoCreateConversation, bokitoListChatTargets, startConversation, type ChatTarget } from '../lib/signals-api'
 import { lastInboxPath } from '../lib/inbox-prefs'
 import { agentChatPath, channelPath, inboxPath } from '../lib/messages-paths'
 import PlanDialog from '../components/inbox/PlanDialog'
@@ -43,23 +13,17 @@ import { ComposerCard } from '../components/ui/ComposerCard'
 import { canComposeToAddress } from '../lib/compose-intent'
 import { useMailboxConnections } from '../hooks/useMailboxConnections'
 import { isSendableMailbox, sendNewEmail } from '../lib/email-api'
-import MailComposer, {
-  type MailRecipientSuggestion,
-  type MailSendPayload,
-} from '../components/inbox/MailComposer'
-import {
-  clearStoredMailDraft,
-  readStoredMailDraft,
-  type StoredMailDraft,
-} from '../lib/mail-draft-store'
+import MailComposer, { type MailRecipientSuggestion, type MailSendPayload } from '../components/inbox/MailComposer'
+import { clearStoredMailDraft, readStoredMailDraft, type StoredMailDraft } from '../lib/mail-draft-store'
 import type { MailComposerIntent } from '../lib/mail-reply'
 import { stashChatContinue } from '../lib/chat-auto-continue'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
 import { AgentMark } from '../components/ui/AgentMark'
-import { UserAvatar } from '../components/ui/UserAvatar'
+import { AgentGlow } from '../components/ui/agent-glow'
 import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
+import { UserAvatar } from '../components/ui/UserAvatar'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -75,31 +39,21 @@ import { useSpeechDictation, appendSpeechChunk } from '../hooks/useSpeechDictati
 import MentionPopover from '../components/inbox/MentionPopover'
 import { MentionHighlight } from '../components/inbox/MentionHighlight'
 import ComposerWriteAssist from '../components/inbox/ComposerWriteAssist'
-import { ComposerDictationRow, DictationMicButton } from '../components/inbox/DictationMicButton'
+import { ComposerDictationRow } from '../components/inbox/DictationMicButton'
 import MessageAttachments from '../components/inbox/MessageAttachments'
 import type { MentionItem } from '../lib/mentions'
 import type { MessageAttachment } from '../lib/inbox-api'
 import { uploadAttachment } from '../lib/uploads-api'
-import {
-  fetchOutboundConnectionId,
-  readLocalOutboundConnectionId,
-  resolveOutboundConnectionId,
-  saveOutboundConnectionId,
-} from '../lib/outbound-channel-pref'
+import { fetchOutboundConnectionId, readLocalOutboundConnectionId, resolveOutboundConnectionId, saveOutboundConnectionId } from '../lib/outbound-channel-pref'
 import { cn } from '../lib/utils'
+import { TextLink } from '../components/ui/text-link'
+import { Button } from '../components/ui/button'
 
 type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket' | 'note' | 'transcript' | 'channel'
 
 const NO_PROJECT = '__none__'
 
 /** Pinned folder rows as `Parent / Child` options; virtual group children are skipped. */
-function flattenNavFolders(rows: NavRow[], prefix: string[] = []): { id: string; path: string }[] {
-  return rows.flatMap((row) => {
-    if (row.virtual) return []
-    const chain = [...prefix, row.name]
-    return [{ id: row.id, path: chain.join(' / ') }, ...flattenNavFolders(row.children ?? [], chain)]
-  })
-}
 
 function brandSlugFor(provider: string, channel: string): string {
   const raw = (provider || '').trim().toLowerCase()
@@ -133,28 +87,15 @@ function parseIntent(raw: string | null): Intent | null {
   return null
 }
 
+import { TicketStart, CarouselCaption, NoteStart, HomeShortcuts } from '../components/new-conversation/StartCards'
+
 /**
  * Draft "New conversation" surface inside Communication.
  * Intent first (Contact / Agent / Teammate); thread is created only on send.
  */
 const NEW_COMPOSER_GLASS =
-  'rounded-2xl border-[rgb(var(--color-border-light))] bg-bg-surface shadow-none'
+  'border-border-light bg-bg-elevated shadow-none'
 
-function NewComposerHalo({ children }: { children: ReactNode }) {
-  return (
-    <div className="relative">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -inset-x-24 -top-16 bottom-0"
-        style={{
-          background:
-            'radial-gradient(closest-side, rgb(var(--color-bg)) 34%, rgb(var(--color-bg) / 0.72) 62%, transparent 100%)',
-        }}
-      />
-      <div className="relative">{children}</div>
-    </div>
-  )
-}
 
 export default function NewConversationPage() {
   const { t } = useTranslation(['communication', 'nav'])
@@ -955,7 +896,7 @@ export default function NewConversationPage() {
           <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
             <div className="w-full max-w-[560px] space-y-6">
               {newMailDraft ? (
-                <div className="flex items-center gap-2.5 rounded-lg border border-border/60 bg-bg-surface px-3 py-2">
+                <div className="panel flex items-center gap-2.5 px-3 py-2">
                   <Mail size={14} className="shrink-0 text-accent" />
                   <button
                     type="button"
@@ -970,13 +911,13 @@ export default function NewConversationPage() {
                       {newMailDraft.subject || newMailDraft.body}
                     </span>
                   </button>
-                  <button
+                  <TextLink
                     type="button"
                     onClick={resumeNewMailDraft}
-                    className="shrink-0 text-xs font-medium text-accent hover:underline"
+                    className="shrink-0 text-xs"
                   >
                     {t('mailComposer.draftChipResume')}
-                  </button>
+                  </TextLink>
                   <button
                     type="button"
                     onClick={() => {
@@ -1038,14 +979,9 @@ export default function NewConversationPage() {
                     <div className="flex h-[72px] items-center justify-center">
                       {activeCarousel.kind === 'agent' ? (
                         <div className="relative" style={{ width: 72, height: 72 }}>
-                          <span
-                            aria-hidden
-                            className="specialist-glow pointer-events-none absolute inset-[-28%] rounded-full blur-2xl"
-                            style={{
-                              backgroundColor: agentProfileAccentColor(
-                                resolveAgentAvatarColor(activeCarousel.agent.avatar_color),
-                              ),
-                            }}
+                          <AgentGlow
+                            color={agentProfileAccentColor(resolveAgentAvatarColor(activeCarousel.agent.avatar_color))}
+                            className="inset-[-28%]"
                           />
                           <AgentMark
                             agent={activeCarousel.agent}
@@ -1091,19 +1027,19 @@ export default function NewConversationPage() {
                 <div className="flex items-center justify-center gap-2">
                   <p className="text-xs text-status-error">{error}</p>
                   {loadFailed ? (
-                    <button
+                    <TextLink
                       type="button"
-                      className="text-xs font-medium text-accent hover:underline"
+                      className="text-xs"
                       onClick={() => void loadTargets()}
                     >
                       {t('newConversation.retry')}
-                    </button>
+                    </TextLink>
                   ) : null}
                 </div>
               ) : null}
 
               <div className="flex w-full flex-col gap-3">
-              <NewComposerHalo>
+              <div>
               {activeCarousel?.kind === 'note' || activeCarousel?.kind === 'transcript' ? (
                 noteOpen ? (
                   <NoteStart
@@ -1227,13 +1163,12 @@ export default function NewConversationPage() {
                     />
                   </label>
                   <p className="text-xs text-text-muted">{t('newConversation.whatsappHint')}</p>
-                  <button
+                  <Button size="sm"
                     type="submit"
                     disabled={sending || whatsappTo.trim().length < 8 || !whatsappBody.trim()}
-                    className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
                   >
                     {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.send')}
-                  </button>
+                  </Button>
                 </form>
               ) : activeCarousel?.kind === 'channel' ? (
                 <p className="text-center text-xs text-text-muted">{t('newConversation.channelInbound')}</p>
@@ -1344,7 +1279,7 @@ export default function NewConversationPage() {
                 </ComposerDictationRow>
               </ComposerCard>
               )}
-              </NewComposerHalo>
+              </div>
               <HomeShortcuts />
               </div>
             </div>
@@ -1452,13 +1387,12 @@ export default function NewConversationPage() {
               </label>
               {error ? <p className="text-xs text-status-error">{error}</p> : null}
               <p className="text-xs text-text-muted">{t('newConversation.whatsappHint')}</p>
-              <button
+              <Button size="sm"
                 type="submit"
                 disabled={sending || whatsappTo.trim().length < 8 || !whatsappBody.trim()}
-                className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
               >
                 {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.send')}
-              </button>
+              </Button>
             </form>
           ) : null}
 
@@ -1507,344 +1441,3 @@ export default function NewConversationPage() {
     </div>
   )
 }
-
-function TicketStart({
-  categories,
-  tagId,
-  projectId,
-  subject,
-  note,
-  fields,
-  sending,
-  error,
-  onTag,
-  onProject,
-  onSubject,
-  onNote,
-  onField,
-  onSubmit,
-}: {
-  categories: CategoryRow[]
-  tagId: string
-  projectId: string
-  subject: string
-  note: string
-  fields: Record<string, string>
-  sending: boolean
-  error: string | null
-  onTag: (id: string) => void
-  onProject: (id: string) => void
-  onSubject: (value: string) => void
-  onNote: (value: string) => void
-  onField: (key: string, value: string) => void
-  onSubmit: () => void
-}) {
-  const { t } = useTranslation('communication')
-  const { nav } = useCommunicationNav()
-  const category = categories.find((row) => row.id === tagId) ?? null
-  const folders = useMemo(() => flattenNavFolders(nav.projects), [nav.projects])
-  const intake = category?.intake_fields ?? []
-  const missingRequired = intake.some((field) => field.required && !(fields[field.key] || '').trim())
-  const ready = Boolean(category && subject.trim() && !missingRequired)
-
-  if (categories.length === 0) {
-    return (
-      <div className="panel px-5 py-8 text-center">
-        <Hash size={28} className="mx-auto text-text-muted" />
-        <p className="mt-3 text-sm text-text-primary">{t('newConversation.noActionTags')}</p>
-        <Link to="/flows" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
-          {t('newConversation.openFlows')}
-        </Link>
-      </div>
-    )
-  }
-
-  return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (ready) onSubmit()
-      }}
-    >
-      <label className="block space-y-1.5">
-        <span className="text-xs font-medium text-text-muted">{t('tags.actionTag')}</span>
-        <ChoiceSelect
-          aria-label={t('tags.actionTag')}
-          placeholder={t('newConversation.chooseActionTag')}
-          value={tagId}
-          onValueChange={onTag}
-          groups={[
-            {
-              items: categories.map((row) => ({
-                value: row.id,
-                label: row.name,
-                kind: 'tag' as const,
-                category: true,
-              })),
-            },
-          ]}
-        />
-      </label>
-      {folders.length > 0 ? (
-        <label className="block space-y-1.5">
-          <span className="text-xs font-medium text-text-muted">{t('tags.chooseProject')}</span>
-          <ChoiceSelect
-            aria-label={t('tags.chooseProject')}
-            placeholder={t('tags.noProject')}
-            value={projectId || NO_PROJECT}
-            onValueChange={onProject}
-            groups={[
-              {
-                items: [
-                  { value: NO_PROJECT, label: t('tags.noProject'), kind: 'project' as const },
-                  ...folders.map((folder) => ({
-                    value: folder.id,
-                    label: folder.path,
-                    kind: 'project' as const,
-                  })),
-                ],
-              },
-            ]}
-          />
-        </label>
-      ) : null}
-      <label className="block space-y-1.5">
-        <span className="text-xs font-medium text-text-muted">{t('newConversation.subjectPlaceholder')}</span>
-        <Input
-          value={subject}
-          onChange={(event) => onSubject(event.target.value)}
-          placeholder={t('newConversation.ticketSubjectPlaceholder')}
-        />
-      </label>
-      {intake.map((field) => (
-        <label key={field.key} className="block space-y-1.5">
-          <span className="text-xs font-medium text-text-muted">
-            {field.name}
-            {field.required ? ` · ${t('tags.intakeRequired')}` : ''}
-          </span>
-          <Input
-            value={fields[field.key] ?? ''}
-            onChange={(event) => onField(field.key, event.target.value)}
-          />
-        </label>
-      ))}
-      <label className="block space-y-1.5">
-        <span className="text-xs font-medium text-text-muted">{t('newConversation.ticketNote')}</span>
-        <Textarea
-          value={note}
-          onChange={(event) => onNote(event.target.value)}
-          placeholder={t('newConversation.ticketNotePlaceholder')}
-          rows={4}
-        />
-      </label>
-      {error ? <p className="text-xs text-status-error">{error}</p> : null}
-      <p className="text-xs text-text-muted">{t('newConversation.ticketHint')}</p>
-      <button
-        type="submit"
-        disabled={sending || !ready}
-        className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
-      >
-        {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.logTicket')}
-      </button>
-    </form>
-  )
-}
-
-function CarouselCaption({
-  item,
-}: {
-  item:
-    | { kind: 'agent'; agent: ChatTarget }
-    | { kind: 'member'; member: { name: string; email: string } }
-    | { kind: 'note' }
-    | { kind: 'transcript' }
-    | { kind: 'email'; mailbox: { displayName: string; mailboxEmail: string } }
-    | { kind: 'channel'; account: ChannelAccountRow }
-}) {
-  const { t } = useTranslation('communication')
-  const { t: tNav } = useTranslation('nav')
-  const address =
-    item.kind === 'email' ? item.mailbox.mailboxEmail : item.kind === 'channel' ? item.account.address : ''
-  const title =
-    item.kind === 'agent'
-      ? item.agent.name
-      : item.kind === 'member'
-        ? item.member.name || item.member.email
-        : item.kind === 'note'
-          ? t('newConversation.carouselNote')
-          : item.kind === 'transcript'
-            ? t('newConversation.carouselTranscript')
-            : item.kind === 'email'
-            ? item.mailbox.displayName || address
-            : item.account.displayName || address
-  const channelKind = item.kind === 'channel' ? item.account.channel : item.kind === 'email' ? 'email' : ''
-  const kicker =
-    channelKind === 'email'
-      ? t('newConversation.mailFromLabel')
-      : channelKind === 'whatsapp'
-        ? t('newConversation.whatsappFromLabel')
-        : channelKind
-          ? t(`newConversation.channel.${channelKind}`, { defaultValue: channelKind })
-          : t('newConversation.messageTo')
-  const detail =
-    item.kind === 'member'
-      ? t('newConversation.teammate')
-      : item.kind === 'note'
-        ? t('newConversation.carouselNoteHint')
-        : item.kind === 'transcript'
-          ? t('newConversation.carouselTranscriptHint')
-          : address && address.trim() !== title.trim()
-          ? address
-          : ''
-  const detailText = item.kind === 'agent' ? agentFunctionLabel(item.agent, tNav) : detail
-  return (
-    <div className="mt-4 flex h-[5.625rem] w-full max-w-lg flex-col items-center px-6">
-      <p className="text-xs leading-4 text-text-muted">{kicker}</p>
-      <h1 className="mt-0.5 line-clamp-1 max-w-full text-xl font-semibold leading-7 tracking-tight text-text-heading">
-        {title}
-      </h1>
-      <p
-        className={cn(
-          'mt-1 line-clamp-2 h-10 max-w-full text-sm font-medium leading-5',
-          item.kind === 'agent' ? '' : 'break-all text-text-secondary',
-        )}
-        style={
-          item.kind === 'agent'
-            ? { color: agentProfileAccentColor(resolveAgentAvatarColor(item.agent.avatar_color)) }
-            : undefined
-        }
-      >
-        {detailText || '\u00a0'}
-      </p>
-    </div>
-  )
-}
-
-function NoteStart({
-  mode,
-  sending,
-  error,
-  initialNote = '',
-  onSubmit,
-}: {
-  mode: 'note' | 'transcript'
-  sending: boolean
-  error: string | null
-  initialNote?: string
-  onSubmit: (subject: string, note: string) => void
-}) {
-  const { t } = useTranslation('communication')
-  const [subject, setSubject] = useState('')
-  const [note, setNote] = useState(initialNote)
-  const [interim, setInterim] = useState('')
-  const interimRef = useRef('')
-  interimRef.current = interim
-  const append = useCallback((chunk: string) => {
-    setNote((prev) => appendSpeechChunk(prev, chunk))
-    setInterim('')
-  }, [])
-  const dictation = useSpeechDictation({ onFinal: append, onInterim: setInterim })
-  const shown = dictation.listening && interim.trim() ? (note ? `${note} ${interim}` : interim) : note
-  const confirm = () => {
-    const pending = interimRef.current.trim()
-    dictation.stop()
-    if (pending) append(pending)
-    else setInterim('')
-  }
-  const recording = mode === 'transcript'
-  return (
-    <form
-      className="space-y-3"
-      onSubmit={(event) => {
-        event.preventDefault()
-        const pending = dictation.listening ? interimRef.current.trim() : ''
-        if (dictation.listening) dictation.stop()
-        const text = (pending ? appendSpeechChunk(note, pending) : note).trim()
-        onSubmit(subject, text)
-      }}
-    >
-      <label className="block space-y-1.5">
-        <span className="text-xs font-medium text-text-muted">{t('newConversation.subjectPlaceholder')}</span>
-        <Input
-          value={subject}
-          onChange={(event) => setSubject(event.target.value)}
-          placeholder={recording ? t('newConversation.transcriptSubjectPlaceholder') : t('newConversation.noteSubjectPlaceholder')}
-        />
-      </label>
-      <label className="block space-y-1.5">
-        <span className="text-xs font-medium text-text-muted">
-          {recording ? t('newConversation.transcriptBody') : t('newConversation.ticketNote')}
-        </span>
-        <Textarea
-          value={shown}
-          readOnly={dictation.listening}
-          onChange={(event) => {
-            if (dictation.listening) return
-            setNote(event.target.value)
-          }}
-          placeholder={
-            dictation.listening
-              ? t('composer.dictationListening')
-              : recording
-                ? t('newConversation.transcriptPlaceholder')
-                : t('newConversation.notePlaceholder')
-          }
-          rows={8}
-        />
-      </label>
-      {recording && dictation.supported ? (
-        <div className="flex items-center gap-2">
-          <DictationMicButton
-            listening={dictation.listening}
-            disabled={sending}
-            onStart={() => dictation.start()}
-            onConfirm={confirm}
-          />
-          <span className="text-xs text-text-muted">
-            {dictation.listening ? t('newConversation.transcriptListening') : t('newConversation.transcriptMic')}
-          </span>
-        </div>
-      ) : recording ? (
-        <p className="text-xs text-text-muted">{t('newConversation.transcriptNoMic')}</p>
-      ) : null}
-      {error ? <p className="text-xs text-status-error">{error}</p> : null}
-      <p className="text-xs text-text-muted">
-        {recording ? t('newConversation.transcriptHint') : t('newConversation.noteHint')}
-      </p>
-      <button
-        type="submit"
-        disabled={sending || !shown.trim()}
-        className="inline-flex h-8 items-center rounded-lg bg-accent px-3 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-40"
-      >
-        {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.saveNote')}
-      </button>
-    </form>
-  )
-}
-
-function HomeShortcuts() {
-  const { t } = useTranslation('communication')
-  const links = [
-    { to: lastInboxPath(), label: t('newConversation.pageCommunication') },
-    { to: '/agenda', label: t('newConversation.pageAgenda') },
-    { to: '/contacts', label: t('newConversation.pageContacts') },
-  ]
-  return (
-    <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-      <p className="text-2xs text-text-muted">{t('newConversation.poweredBy')}</p>
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        {links.map((link) => (
-          <Link
-            key={link.label}
-            to={link.to}
-            className="text-xs text-text-muted transition-colors hover:text-text-primary"
-          >
-            {link.label}
-          </Link>
-        ))}
-      </div>
-    </div>
-  )
-}
-

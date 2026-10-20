@@ -23,6 +23,7 @@ import {
   labelsForChosenOptions,
   ProposalChoiceRest,
 } from './ProposalChoiceRest'
+import { TextLink } from '../ui/text-link'
 
 /** Free-text answer for a decision option with `input_type: text`. */
 export function DecisionTextAnswer({
@@ -205,7 +206,7 @@ export function ProposalActions({
                     : isReject
                       ? 'secondary'
                       : activeText
-                        ? 'outline'
+                        ? 'secondary'
                         : 'ghost'
               }
               disabled={busy}
@@ -283,22 +284,20 @@ export function ProposalActions({
           data-testid="proposal-next-time"
         >
           <span className="font-medium text-text-secondary">{t('decisionCard.learn.label')}</span>
-          <button
+          <TextLink
             type="button"
             disabled={learnBusy || busy}
-            className="text-accent hover:underline disabled:opacity-50"
             onClick={() => void teach('allow', { approveOptionId })}
           >
             {t('decisionCard.learn.allow')}
-          </button>
-          <button
+          </TextLink>
+          <TextLink
             type="button"
             disabled={learnBusy || busy}
-            className="text-accent hover:underline disabled:opacity-50"
             onClick={() => void teach('ask')}
           >
             {t('decisionCard.learn.ask')}
-          </button>
+          </TextLink>
         </div>
       ) : null}
       {learned ? (

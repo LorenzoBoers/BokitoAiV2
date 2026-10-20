@@ -39,7 +39,7 @@ import AgendaItemPanel from '../components/agenda/AgendaItemPanel'
 import RoutinesDialog from '../components/agenda/RoutinesDialog'
 import PlanDialog, { type PlanSeed } from '../components/inbox/PlanDialog'
 import type { InboxThread } from '../lib/inbox-api'
-import { getSignalThread } from '../lib/signals-api'
+import { getSignalThread, type ScheduleOwner } from '../lib/signals-api'
 import { DEFAULT_REPEAT } from '../lib/thread-schedule'
 import { useAuth } from '../context/AuthContext'
 import { useMembers } from '../hooks/useMembers'
@@ -531,8 +531,9 @@ export default function AgendaPage() {
 
   const reload = () => setReloadKey((k) => k + 1)
   function openPlan(seed: PlanSeed = {}) {
-    const agentId = who.startsWith('agent:') ? who.slice('agent:'.length) : null
-    setPlan({ thread: null, seed: { agentId, ...seed } })
+    const [kind, id] = who.split(':')
+    const owner: ScheduleOwner | null = (kind === 'agent' || kind === 'user') && id ? { kind, id } : null
+    setPlan({ thread: null, seed: { owner, ...seed } })
   }
   async function editThread(signalId: string) {
     if (!token) return
@@ -570,7 +571,7 @@ export default function AgendaPage() {
   return (
     <PageContent width="full" className="flex h-full min-h-0 flex-col gap-3 px-6 pb-4 pt-4">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
+        <Button type="button" size="sm" variant="secondary" onClick={() => setAnchor(new Date())}>
           {t('agendaPage.today')}
         </Button>
         <Link to="/grid" className="text-xs text-text-muted underline">
@@ -583,7 +584,7 @@ export default function AgendaPage() {
           <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.next')} onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}>
             <ChevronRight className="h-4 w-4" aria-hidden />
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => setAnchor(new Date())}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => setAnchor(new Date())}>
             {t('agendaPage.today')}
           </Button>
         </div>
@@ -616,7 +617,7 @@ export default function AgendaPage() {
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             aria-label={t('agendaPage.refresh')}
             title={t('agendaPage.refreshedAt', { time: formatAppTime(new Date(nowMs), i18n.language) })}
             onClick={reload}

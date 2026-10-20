@@ -103,7 +103,7 @@ export function SplitConversationAction({
             />
           </label>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>
               {t('splitConversation.cancel')}
             </Button>
             <Button type="button" disabled={busy} onClick={() => void split()}>

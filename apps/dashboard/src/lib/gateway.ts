@@ -36,6 +36,7 @@ function gatewayUrl(token: string): string {
 class GatewayClient {
   private ws: WebSocket | null = null
   private handlers = new Map<string, Set<GatewayHandler>>()
+  private readyHandlers = new Map<string, Set<() => void>>()
   private sentTopics = new Set<string>()
   private reconnectDelay = RECONNECT_MIN_MS
   private reconnectTimer: number | null = null
@@ -69,16 +70,30 @@ class GatewayClient {
     }
   }
 
-  subscribe(topic: string, handler: GatewayHandler): () => void {
+  /**
+   * `onReady` runs each time the server has the subscription (first connect
+   * and every reconnect), so the caller can send a `sync` for the topic.
+   */
+  subscribe(topic: string, handler: GatewayHandler, onReady?: () => void): () => void {
     let set = this.handlers.get(topic)
     if (!set) {
       set = new Set()
       this.handlers.set(topic, set)
     }
     set.add(handler)
+    if (onReady) {
+      let ready = this.readyHandlers.get(topic)
+      if (!ready) {
+        ready = new Set()
+        this.readyHandlers.set(topic, ready)
+      }
+      ready.add(onReady)
+      if (this.ws?.readyState === WebSocket.OPEN && this.sentTopics.has(topic)) onReady()
+    }
     this.ensureConnected()
     this.syncSubscriptions()
     return () => {
+      if (onReady) this.readyHandlers.get(topic)?.delete(onReady)
       const current = this.handlers.get(topic)
       if (!current) return
       current.delete(handler)
@@ -180,12 +195,27 @@ class GatewayClient {
     }
   }
 
+  /** Ask the server to replay a `signal:` topic after `after`, or send its open turns. */
+  sync(topic: string, after: string | null): void {
+    if (this.ws?.readyState !== WebSocket.OPEN || !this.sentTopics.has(topic)) return
+    this.ws.send(JSON.stringify({ type: 'sync', topic, after }))
+  }
+
   private syncSubscriptions(): void {
     if (this.ws?.readyState !== WebSocket.OPEN) return
     const pending = [...this.handlers.keys()].filter((t) => !this.sentTopics.has(t))
     if (pending.length === 0) return
     this.ws.send(JSON.stringify({ type: 'sub', topics: pending }))
     for (const topic of pending) this.sentTopics.add(topic)
+    for (const topic of pending) {
+      for (const ready of this.readyHandlers.get(topic) ?? []) {
+        try {
+          ready()
+        } catch {
+          // ready handler errors must not break the socket loop
+        }
+      }
+    }
   }
 
   private scheduleReconnect(): void {

@@ -456,13 +456,14 @@ async def dry_run(
     rule_id: str = "",
 ) -> dict[str, Any]:
     """Try out: which rule applies and what the agent would do, without running anything."""
-    from app.tools.policy import resolve_tool_mode
+    from app.tools.policy import authorize_tool_call
     from app.tools.registry import get_tool_spec
 
     spec = get_tool_spec(tool) if tool else None
     if spec is None:
         raise HTTPException(status_code=422, detail="Pick a known action to try")
-    mode, reason = await resolve_tool_mode(session, tenant, agent, spec, trust="operator")
+    decided = await authorize_tool_call(session, tenant, agent, spec, trust="operator")
+    mode, reason, stage = decided.mode, decided.reason, decided.stage
     if spec.mutating and spec.gated:
         mode, reason = apply_judgement(
             mode,
@@ -474,7 +475,9 @@ async def dry_run(
         )
     rule = find_rule(all_rules(tenant, agent), reason[5:]) if reason.startswith("rule:") else None
     outcome = {"allow": "runs", "ask": "asks", "deny": "refused"}[mode]
-    return {"tool": tool, "mode": mode, "reason": reason, "outcome": outcome, "rule": rule}
+    if reason != decided.reason:
+        stage = "judgement"
+    return {"tool": tool, "mode": mode, "reason": reason, "stage": stage, "outcome": outcome, "rule": rule}
 
 
 def rule_reason_text(reason: str, tenant: Tenant | None, agent: Agent | None) -> str:

@@ -21,6 +21,7 @@ import { AgentInstructionsCard } from '../components/workforce/AgentInstructions
 import { AgentSignatureCard } from '../components/workforce/AgentSignatureCard'
 import { AgentAskTargetCard } from '../components/workforce/AgentAskTargetCard'
 import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
+import { AgentDefinitionCard } from '../components/workforce/AgentDefinitionCard'
 import { AgentActivityTimeline } from '../components/workforce/AgentActivityTimeline'
 import { AgentIdentityDialog } from '../components/workforce/AgentIdentityDialog'
 import { Button } from '../components/ui/button'
@@ -46,6 +47,7 @@ import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 const AGENTS_DEFAULT_PATH = '/agents'
 import { AgentMark } from '../components/ui/AgentMark'
+import { AgentGlow } from '../components/ui/agent-glow'
 import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
@@ -360,11 +362,7 @@ export default function AiAgentDetail() {
                 className="relative shrink-0"
                 style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
               >
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-[-22%] rounded-full opacity-35 blur-2xl"
-                  style={{ backgroundColor: profileAccent }}
-                />
+                <AgentGlow color={profileAccent} />
                 {isAdmin && agent.kind !== 'personal' ? (
                   <button
                     type="button"
@@ -505,7 +503,7 @@ export default function AiAgentDetail() {
 
               <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 {agent.kind !== 'personal' && agent.is_active !== false ? (
-                  <Button type="button" size="sm" variant="outline" asChild>
+                  <Button type="button" size="sm" variant="secondary" asChild>
                     <Link
                       to={withNavReveal(
                         newConversationPath({ intent: 'agent', agentId: agent.id }),
@@ -552,7 +550,7 @@ export default function AiAgentDetail() {
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     className="text-status-error hover:text-status-error"
                     disabled={archiveBusy}
                     onClick={() => void handleArchive()}
@@ -644,7 +642,7 @@ export default function AiAgentDetail() {
                     })}
                   </div>
                   <div className="mt-3 border-t border-border/50 pt-3">
-                    <Button type="button" size="sm" variant="outline" className="w-full" asChild>
+                    <Button type="button" size="sm" variant="secondary" className="w-full" asChild>
                       <Link to={withNavReveal(agentChatPath(agent.id))}>
                         {t('workforce.agents.viewAllConversations', {
                           count: openConversationsTotal,
@@ -671,7 +669,7 @@ export default function AiAgentDetail() {
                   <p className="text-sm text-text-muted">{t('workforce.agents.agendaEmptyHint')}</p>
                   <div className="mt-auto border-t border-border/50 pt-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" size="sm" variant="outline" className="flex-1" asChild>
+                      <Button type="button" size="sm" variant="secondary" className="flex-1" asChild>
                         <Link to={`/agenda?agent=${agent.id}&new=once`}>
                           {t('workforce.agents.scheduleOnAgenda')}
                         </Link>
@@ -709,7 +707,7 @@ export default function AiAgentDetail() {
                     })}
                   </div>
                   <div className="mt-3 border-t border-border/50 pt-3">
-                    <Button type="button" size="sm" variant="outline" className="w-full" asChild>
+                    <Button type="button" size="sm" variant="secondary" className="w-full" asChild>
                       <Link to={`/agenda?agent=${agent.id}`}>
                         {t('workforce.agents.viewAllAgenda', {
                           count: agendaItems.length,
@@ -749,6 +747,9 @@ export default function AiAgentDetail() {
                   <AgentRulesEditor agentId={agent.id} canEdit canGrant={isAdmin} />
                 ) : null}
                 {agent.kind !== 'personal' ? (
+                  <AgentDefinitionCard agentId={agent.id} canEdit={isAdmin} />
+                ) : null}
+                {agent.kind !== 'personal' ? (
                   <AgentSignatureCard
                     agentId={agent.id}
                     agentName={agent.name}
@@ -777,7 +778,7 @@ export default function AiAgentDetail() {
                         {t('workforce.agents.permissionsDescription')}
                       </p>
                     </div>
-                    <Button type="button" size="sm" variant="outline" asChild>
+                    <Button type="button" size="sm" variant="secondary" asChild>
                       <Link to="/settings/govern?tab=policy">
                         <ShieldCheck size={14} className="mr-1.5" aria-hidden />
                         {t('workforce.agents.editPolicies')}

@@ -33,7 +33,7 @@ export function OpenInGridButton({ kind, id, nodeId, className, iconOnly = false
     <Button
       type="button"
       size={iconOnly ? 'icon' : 'sm'}
-      variant="outline"
+      variant="secondary"
       className={cn(iconOnly ? 'h-8 w-8 shrink-0 text-text-muted' : 'shrink-0', className)}
       asChild
     >

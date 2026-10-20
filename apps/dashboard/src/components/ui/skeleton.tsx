@@ -55,7 +55,7 @@ function SkeletonCard() {
 function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
     <div className="panel">
-      <div className="panel-header">
+      <div className="flex h-11 items-center justify-between border-b border-border/60 px-4">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-8 w-24" />
       </div>
@@ -356,6 +356,7 @@ export {
   GovernTabsSkeleton,
   GrantRowsSkeleton,
   HandlingCardsSkeleton,
+  HubMainSkeleton,
   InviteCardSkeleton,
   KanbanColumnsSkeleton,
   McpRowsSkeleton,
@@ -365,6 +366,7 @@ export {
   OpsOverviewSkeleton,
   OrgCanvasSkeleton,
   OrgLegendSkeleton,
+  PlatformFrameSkeleton,
   ProfileSkeleton,
   ResourceRowsSkeleton,
   RetentionFieldsSkeleton,

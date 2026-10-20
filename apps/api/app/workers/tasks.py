@@ -158,6 +158,18 @@ async def startup(ctx):
     await init_db()
 
 
+async def shutdown(ctx):
+    from app.services.agent_turns import release_held
+
+    log = logging.getLogger(__name__)
+    try:
+        stats = await release_held()
+        if any(stats.values()):
+            log.warning("released running agent turns on shutdown: %s", stats)
+    except Exception:  # noqa: BLE001
+        log.exception("failed to release running agent turns")
+
+
 async def _inbound_preflight(
     session, tenant_id: UUID, signal: Signal
 ) -> InboundPreflight:
@@ -244,8 +256,78 @@ async def release_workspace_block(session, tenant, *, exclude_signal_id: str = "
     return count
 
 
+def _result_delivery(result: Any) -> dict[str, Any]:
+    """The outcome of one inbound job as a delivery dict."""
+    if not isinstance(result, dict):
+        return {"delivery": "unknown"}
+    delivery = result.get("delivery")
+    if isinstance(delivery, dict):
+        return delivery
+    if isinstance(delivery, str) and delivery:
+        return {"delivery": delivery}
+    return {"delivery": str(result.get("reason") or "unknown")}
+
+
+async def settle_inbound(session, tenant_id: UUID, state: dict[str, Any], delivery: dict[str, Any]) -> None:
+    """After every inbound job: free the floor and send the one conversation notice."""
+    import logging
+
+    from app.services.notify import notify_first_read
+    from app.services.participant_turns import clear_ask_floor_chip
+
+    log = logging.getLogger(__name__)
+    signal_id = state.get("signal_id")
+    if not signal_id:
+        return
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != tenant_id:
+        return
+    agent_id = state.get("agent_id")
+    if agent_id:
+        try:
+            if await clear_ask_floor_chip(session, signal, agent_id=agent_id):
+                await session.commit()
+        except Exception:  # noqa: BLE001
+            log.exception("inbound floor release failed for signal=%s", signal_id)
+            await session.rollback()
+    message_id = state.get("message_id")
+    message = await session.get(SignalMessage, message_id) if message_id else None
+    try:
+        await notify_first_read(session, tenant_id, signal, message, delivery)
+    except Exception:  # noqa: BLE001
+        log.exception("inbound notice failed for signal=%s", signal_id)
+
+
+INBOUND_NOTICE_FALLBACK_S = 20
+
+
+async def inbound_notice_fallback_job(ctx, tenant_id: str, signal_id: str, message_id: str):
+    """Send the plain new-message notice when the first read never reported back."""
+    from app.services.notify import notify_inbound_fallback
+
+    async with async_session_factory() as session:
+        signal = await session.get(Signal, UUID(signal_id))
+        message = await session.get(SignalMessage, UUID(message_id))
+        if signal is None or message is None or signal.tenant_id != UUID(tenant_id):
+            return {"skipped": True}
+        sent = await notify_inbound_fallback(session, UUID(tenant_id), signal, message)
+        return {"sent": len(sent)}
+
+
 async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
     """Run the assistant loop on a new inbound signal (email, widget, webhook, ...)."""
+    state: dict[str, Any] = {"signal_id": UUID(signal_id)}
+    delivery: dict[str, Any] = {"delivery": "run_failed"}
+    try:
+        result = await _process_inbound_signal(ctx, tenant_id, signal_id, state)
+        delivery = _result_delivery(result)
+        return result
+    finally:
+        async with async_session_factory() as session:
+            await settle_inbound(session, UUID(tenant_id), state, delivery)
+
+
+async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: dict[str, Any]):
     from app.models.auth import Tenant
     from app.services import ai_handling
 
@@ -299,6 +381,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             if newer is not None:
                 signal = newer
                 preflight = await _inbound_preflight(session, UUID(tenant_id), signal)
+        state["signal_id"] = signal.id
+        if preflight.msg is not None:
+            state["message_id"] = preflight.msg.id
 
         from app.services.routing import resolve_inbound_agent_for_signal
 
@@ -378,6 +463,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             from app.services.pass_stick import hold_customer_stick
 
             await hold_customer_stick(session, signal, agent)
+            state["agent_id"] = agent.id
         if not agent:
             session.add(
                 SignalEvent(
@@ -511,6 +597,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         from app.services.signals import message_plain_text
 
         msg_text = message_plain_text(msg)
+        from app.services.prompt_guard import fence
+
+        customer_block = fence(f"Subject: {signal.subject}\n\n{msg_text}", signal.channel)
 
         # Conversation-driven projects: give the agent the project landscape so
         # it can recognize opportunities/bugs and feed the right project queue.
@@ -557,10 +646,11 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         )
 
         if read_only:
+            loop.completion_requirement = {}
             loop.tools = [t for t in loop.tools if t["name"] in MANUAL_READ_TOOLS]
             prompt = (
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
-                f"Subject: {signal.subject}\n\n{msg_text}\n\n"
+                f"{customer_block}\n\n"
                 "AI handling is Manual (or the channel cannot send): interpret only. "
                 "Do not draft a customer reply and do not create a Send decision.\n"
                 f"{read_contract}"
@@ -575,6 +665,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             # Assisted: research + thread read + inline decisions.
             # The final reply text becomes a DecisionRequest via
             # create_reply_suggestion — the agent can never send directly.
+            from app.services.agent.stop_gate import inbound_requirement
+
+            loop.completion_requirement = inbound_requirement()
             loop.tools = [t for t in loop.tools if assisted_tool_allowed(t["name"])]
             module_reads = sorted(
                 t["name"]
@@ -589,7 +682,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
             prompt = (
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
-                f"Subject: {signal.subject}\n\n{msg_text}\n\n"
+                f"{customer_block}\n\n"
                 "You are preparing a response for a human teammate to review; "
                 "nothing you produce is sent automatically.\n"
                 f"{read_contract}"
@@ -598,7 +691,9 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 f"{module_hint}"
                 "and call_mcp_tool only for other connected MCP servers "
                 "when the question concerns records that live there.\n"
-                "2. Then call exactly one tool and return exactly: Done.\n"
+                "2. Side actions (labels, ticket, contact, a team note) are free. "
+                "Finish the read with exactly one outcome, then return exactly: Done. "
+                "The outcome is one of these tools, called once:\n"
                 "   - suggest_thread_reply with body_text = the customer-facing draft "
                 "the human can approve, edit, or decline. The body must contain ONLY "
                 "that text: start with the greeting (Hallo/Hoi/Hi), no research "
@@ -630,7 +725,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
         else:
             prompt = (
                 f"New inbound {signal.channel} message from {msg.from_address or signal.contact_email}\n"
-                f"Subject: {signal.subject}\n\n{msg_text}\n\n"
+                f"{customer_block}\n\n"
                 "Reply directly to the customer; your final message is delivered as-is. "
                 f"{read_contract}"
                 "Use tools for operational actions, or create_decision_request "
@@ -646,6 +741,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
             )
         try:
             reply_text, tokens = await loop.run_chat([{"role": "user", "content": prompt}])
+            run.stop_reason = loop.stop_reason
         except Exception as exc:
             # Never leave the run stuck on "running": the agenda, cockpit and
             # workforce views all read this status.
@@ -795,32 +891,28 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 attach_activity_to_message,
             )
 
+            from app.services.inbound_agent import fold_run_events, run_outcome_card
+
             activity = activity_from_segments(
                 list(loop.turn.segments) if loop.turn else None
             )
-            if activity:
-                card = (
-                    await session.execute(
-                        select(SignalMessage)
-                        .where(
-                            SignalMessage.signal_id == signal.id,
-                            SignalMessage.kind == "decision_request",
-                        )
-                        .order_by(SignalMessage.created_at.desc())
-                        .limit(1)
-                    )
-                ).scalar_one_or_none()
-                if card is not None and attach_activity_to_message(card, activity):
+            card, outcome_status = await run_outcome_card(session, UUID(tenant_id), signal.id, run.id)
+            if card is not None:
+                if activity and attach_activity_to_message(card, activity):
                     session.add(card)
+                await fold_run_events(session, signal.id, run.id, card.id)
             delivery = {
                 "via": "agent_tool",
-                "delivery": (
+                "delivery": outcome_status
+                or (
                     "no_reply_needed"
                     if agent_noted_no_reply and not agent_suggested_reply
                     else "pending_decision"
                 ),
                 "tools": sorted(tool_names),
             }
+            if card is not None:
+                delivery["summary"] = (card.body_preview or card.body_text or "")[:200]
         elif no_reply_summary is not None:
             # The model judged this an automated notification: suggest an
             # action (close / task / keep open) instead of sending a reply.
@@ -1169,6 +1261,7 @@ class WorkerSettings:
     # and mailbox polling.
     functions = [
         process_inbound_signal,
+        inbound_notice_fallback_job,
         coding_agent_run,
         run_agent_task_segment_job,
         advance_workstream_run_job,
@@ -1184,6 +1277,7 @@ class WorkerSettings:
         workbench_poll_job,
     ]
     on_startup = startup
+    on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     # Poll mailboxes every minute (replaces the former in-process API scheduler poll).
     cron_jobs = [
@@ -1352,6 +1446,17 @@ async def sweep_agent_turns_job(ctx):
 WorkerSettings.functions.append(sweep_agent_turns_job)
 WorkerSettings.cron_jobs.append(cron(sweep_agent_turns_job, second={0, 10, 20, 30, 40, 50}))
 
+
+async def run_subagent_job(ctx, run_id: str):
+    """Run one subagent to its end and wake the agent that started it."""
+    from app.services.subagents import execute
+
+    async with async_session_factory() as session:
+        return await execute(session, UUID(run_id))
+
+
+WorkerSettings.functions.append(run_subagent_job)
+
 async def enqueue_operator_chat_turn(
     *,
     tenant_id: str,
@@ -1426,6 +1531,36 @@ async def enqueue_signal_processing(tenant_id: str, signal_id: str):
 
         asyncio.create_task(_inline())
         return
+
+
+async def enqueue_inbound_notice_fallback(tenant_id: str, signal_id: str, message_id: str):
+    try:
+        redis = await _get_arq_pool()
+        await redis.enqueue_job(
+            "inbound_notice_fallback_job",
+            tenant_id,
+            signal_id,
+            message_id,
+            _defer_by=INBOUND_NOTICE_FALLBACK_S,
+        )
+    except Exception as exc:  # noqa: BLE001
+        import asyncio
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Redis unavailable, inbound notice fallback for %s runs in-process: %s", signal_id, exc
+        )
+
+        async def _inline() -> None:
+            await asyncio.sleep(INBOUND_NOTICE_FALLBACK_S)
+            try:
+                await inbound_notice_fallback_job(None, tenant_id, signal_id, message_id)
+            except Exception:  # noqa: BLE001
+                logging.getLogger(__name__).exception(
+                    "In-process inbound notice fallback failed for %s", signal_id
+                )
+
+        asyncio.create_task(_inline())
 
 
 async def enqueue_repo_index(tenant_id: str, project_id: str):

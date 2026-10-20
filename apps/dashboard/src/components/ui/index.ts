@@ -12,6 +12,12 @@ export { SectionHeading } from './section-heading'
 export { SectionLabel } from './section-label'
 export { SettingsSection } from '../layout/SettingsSection'
 
+// Recipes
+export { default as PageHeader } from '../shell/ContentHeader'
+export { PageContent } from '../layout/PageContent'
+export { DangerZone, DangerZoneRow } from '../layout/DangerZone'
+export { AuthShell } from '../auth/AuthShell'
+
 // Controls
 export { Button, buttonVariants } from './button'
 export { TextLink } from './text-link'
@@ -50,6 +56,18 @@ export {
   DialogHeader,
   DialogTitle,
 } from './dialog'
+export {
+  SidePanel,
+  SidePanelBody,
+  SidePanelClose,
+  SidePanelContent,
+  SidePanelDescription,
+  SidePanelHeader,
+  SidePanelTitle,
+} from './side-panel'
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs'
+export { Tip } from './Tip'
+export { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
 
 // Feedback
 export { Callout, type CalloutTone } from './callout'
@@ -58,6 +76,9 @@ export { EmptyState } from './empty-state'
 export { Spinner } from './spinner'
 export { LoadingBlock } from './loading-block'
 export { ApiErrorBanner, formatApiErrorMessage } from './ApiErrorBanner'
+export { StatusDot } from './status-dot'
+export { PresenceDot } from './PresenceDot'
+export { ThreadStatusDot } from './ThreadStatusDot'
 
 // Data
 export { Badge, badgeVariants, type BadgeTone } from './badge'
@@ -70,6 +91,13 @@ export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 
 // Identity
 export { IconTile, type IconTileTone } from './icon-tile'
+export { AvatarDisc } from './AvatarDisc'
+export { UserAvatar } from './UserAvatar'
+export { PersonAvatar } from './PersonAvatar'
+export { AgentMark } from './AgentMark'
+export { AgentGlow } from './agent-glow'
+export { TagPill, TagPillInline } from './TagPill'
+export { Hashtag, HashtagMark, HashtagSet } from './HashtagMark'
 export { ChoiceSelect, type ChoiceGroup } from './ChoiceSelect'
 export { ChoiceMark, ChoiceOption, type ChoiceItem, type ChoiceKind } from './ChoiceOption'
 export { TeamFacepile } from './TeamFacepile'

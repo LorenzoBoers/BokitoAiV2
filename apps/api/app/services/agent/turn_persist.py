@@ -1,8 +1,8 @@
 """Save one agent turn as thread messages.
 
-Chat mode: every speech segment is split into bubbles (blank line = new
-bubble), capped per turn; each bubble is its own SignalMessage and the
-activity that preceded it sits on that message (``metadata.activity``).
+Chat mode: one turn is one SignalMessage. Speech before and after tool calls
+joins with a blank line; the work sits on that message (``metadata.activity``
+above, ``activity_after`` below).
 
 Mail and document mode: one message with the final speech. Earlier speech
 (narration before tools) never reaches the reader; it becomes an ``other``
@@ -63,8 +63,12 @@ def plan_turn_messages(
         seg_id = segments[final_index].get("id") if final_index >= 0 else None
         return [{"text": text, "activity": activity, "activity_after": [], "segment_id": seg_id}]
 
-    bubbles: list[dict[str, Any]] = []
-    carry: list[dict[str, Any]] = []
+    # One turn is one bubble: all speech in order, the work above it, the work
+    # after the last sentence below it.
+    texts: list[str] = []
+    before: list[dict[str, Any]] = []
+    after: list[dict[str, Any]] = []
+    segment_id = None
     for seg in segments:
         activity_rows = [*(seg.get("activity") or []), *(seg.get("activity_after") or [])]
         echoed: list[str] = []
@@ -73,41 +77,19 @@ def plan_turn_messages(
                 continue
             echoed.extend(str(url) for url in (row.get("image_urls") or []) if url)
             echoed.extend(_generated_image_urls(row.get("result")))
-        spoken = strip_generated_image_echo(seg.get("text") or "", echoed)
-        parts = split_chat_messages(spoken, max_messages=0)
-        before = [*carry, *(seg.get("activity") or [])]
-        carry = []
-        if not parts:
-            # No speech: the work joins the next bubble's group (one "Worked for").
-            carry = [*before, *(seg.get("activity_after") or [])]
-            continue
-        for j, part in enumerate(parts):
-            bubbles.append(
-                {
-                    "text": part,
-                    "activity": before if j == 0 else [],
-                    "activity_after": [],
-                    "segment_id": seg.get("id"),
-                }
-            )
-        bubbles[-1]["activity_after"].extend(seg.get("activity_after") or [])
-
-    if not bubbles:
-        return [{"text": fallback_text, "activity": carry, "activity_after": [], "segment_id": None}]
-    # Work after the last speech hangs under the last bubble.
-    bubbles[-1]["activity_after"].extend(carry)
-
-    if max_messages > 0 and len(bubbles) > max_messages:
-        head = bubbles[: max_messages - 1]
-        rest = bubbles[max_messages - 1 :]
-        merged = {
-            "text": "\n\n".join(b["text"] for b in rest),
-            "activity": [a for b in rest for a in b["activity"]],
-            "activity_after": [a for b in rest for a in b["activity_after"]],
-            "segment_id": rest[0]["segment_id"],
-        }
-        bubbles = [*head, merged]
-    return bubbles
+        spoken = strip_generated_image_echo(seg.get("text") or "", echoed).strip()
+        if spoken:
+            before.extend(after)
+            after = []
+            before.extend(seg.get("activity") or [])
+            after.extend(seg.get("activity_after") or [])
+            texts.append(spoken)
+            segment_id = segment_id or seg.get("id")
+        else:
+            after.extend(activity_rows)
+    if not texts:
+        return [{"text": fallback_text, "activity": [*before, *after], "activity_after": [], "segment_id": None}]
+    return [{"text": "\n\n".join(texts), "activity": before, "activity_after": after, "segment_id": segment_id}]
 
 
 def activity_from_segments(segments: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -868,6 +850,17 @@ def _attach_showcase_items(
     for message, meta, items in zip(messages, metas, groups):
         existing = meta.get("items") if isinstance(meta.get("items"), list) else []
         merged = _merge_items(existing, items)
+        proposal_meta = meta.get("proposal") if isinstance(meta.get("proposal"), dict) else {}
+        row_keys = {
+            key
+            for row in proposal_meta.get("bundle") or []
+            if isinstance(row, dict)
+            for item in row.get("items") or []
+            if isinstance(item, dict)
+            for key in _item_keys(item)
+        }
+        if row_keys:
+            merged = [i for i in merged if not isinstance(i, dict) or not (_item_keys(i) & row_keys)]
         if not merged:
             continue
         meta["items"] = merged
@@ -913,6 +906,18 @@ def _is_action_decision(decision: DecisionRequest | None) -> bool:
     return any(a not in ("text",) for a in actions) or decision.platform_change_id is not None
 
 
+def _item_keys(item: dict[str, Any]) -> set[tuple[str, str]]:
+    """Ways one showcase object is named: by id and by name."""
+    kind = str(item.get("type") or "")
+    keys = set()
+    if item.get("id"):
+        keys.add((kind, str(item["id"])))
+    name = str(item.get("name") or item.get("title") or "").strip().lstrip("#").lower()
+    if name:
+        keys.add((kind, f"name:{name}"))
+    return keys
+
+
 def _attach_proposal(
     last_bubble: SignalMessage,
     turn_cards: list[SignalMessage],
@@ -936,11 +941,17 @@ def _attach_proposal(
     card_meta = _json_meta(card)
     bubble_meta = _json_meta(last_bubble)
     proposal: dict[str, Any] = {"decision_id": str(card.decision_id)}
-    bundle = [
-        {"decision_id": str(c.decision_id), "card_message_id": str(c.id)}
-        for c in ordered
-        if _is_action_decision(decisions.get(str(c.decision_id)))
-    ]
+    # An action card shows its object in its own row; it is not also a
+    # showcase under the bubble, or the operator reads the same list twice.
+    bundle = []
+    for c in ordered:
+        if not _is_action_decision(decisions.get(str(c.decision_id))):
+            continue
+        row: dict[str, Any] = {"decision_id": str(c.decision_id), "card_message_id": str(c.id)}
+        row_items = [i for i in (_json_meta(c).get("proposal_items") or []) if isinstance(i, dict)]
+        if row_items:
+            row["items"] = row_items
+        bundle.append(row)
     if bundle:
         proposal["bundle"] = bundle
         bundle_ids = {d.bundle_id for d in decisions.values() if d.bundle_id}
@@ -956,9 +967,21 @@ def _attach_proposal(
     card_items = [
         item
         for c in ordered
+        if str(c.decision_id) not in bundled_ids
         for item in (_json_meta(c).get("proposal_items") or [])
         if isinstance(item, dict)
     ]
+    if bundled_ids:
+        row_keys = {key for r in bundle for i in r.get("items") or [] for key in _item_keys(i)}
+        kept = [
+            i
+            for i in (bubble_meta.get("items") if isinstance(bubble_meta.get("items"), list) else [])
+            if not isinstance(i, dict) or not (_item_keys(i) & row_keys)
+        ]
+        if kept:
+            bubble_meta["items"] = kept
+        else:
+            bubble_meta.pop("items", None)
     if card_items:
         proposal["items"] = card_items
     if card_meta.get("question"):
@@ -1002,142 +1025,60 @@ def _seal_activity_items(items: Any) -> list[dict[str, Any]]:
     return out
 
 
-async def seal_in_progress_checkpoints(
+async def end_dead_turns(
     session: AsyncSession,
     signal: Signal,
     *,
     error_text: str | None = None,
     author_agent_id: UUID | None = None,
-    replace_with_error: bool = False,
-    checkpoint_message_id: UUID | None = None,
     older_than: timedelta | None = None,
+    keep: set[str] | None = None,
 ) -> list[SignalMessage]:
-    """Close open turn checkpoints left by a crash, timeout, or reclaim.
+    """Close open turns whose writer is gone (crash, timeout, reclaim).
 
-    Clears ``in_progress``, seals running activity as ``error``. When
-    ``replace_with_error`` is set, rewrites the newest checkpoint body to the
-    error text so the operator sees one bubble (trail + failure), not a stuck
-    “Update folder canvas” under a separate error card.
+    Each gets ``turn.completed`` with ``error`` on the thread log. With
+    ``error_text``, the newest one also leaves one error bubble that carries
+    the work it did, sealed. Caller commits.
     """
-    from app.gateway.publish import publish_signal_message
-
-    rows = (
-        await session.execute(
-            select(SignalMessage)
-            .where(
-                SignalMessage.signal_id == signal.id,
-                SignalMessage.tenant_id == signal.tenant_id,
-                SignalMessage.kind == "agent_message",
-            )
-            .order_by(SignalMessage.created_at.desc())
-            .limit(12)
-        )
-    ).scalars().all()
-    sealed: list[SignalMessage] = []
-    preferred = checkpoint_message_id
-    for message in rows:
-        try:
-            meta = json.loads(message.metadata_json or "{}")
-        except json.JSONDecodeError:
-            meta = {}
-        if not isinstance(meta, dict) or not meta.get("in_progress"):
-            continue
-        if older_than is not None:
-            started = message.created_at or datetime.utcnow()
-            if started > datetime.utcnow() - older_than:
-                continue
-        if preferred is not None and message.id != preferred and sealed:
-            # Prefer sealing the known checkpoint; still close other orphans.
-            pass
-        meta["activity"] = _seal_activity_items(meta.get("activity"))
-        meta["activity_after"] = _seal_activity_items(meta.get("activity_after"))
-        meta.pop("in_progress", None)
-        meta["turn_failed"] = True
-        if replace_with_error and error_text and not sealed:
-            speech = error_text.strip() or "The assistant encountered an error."
-            message.body_text = speech
-            message.body_preview = speech[:200]
-            meta["error"] = True
-            if author_agent_id:
-                message.author_agent_id = author_agent_id
-            now = datetime.utcnow()
-            message.created_at = now
-            if hasattr(message, "received_at"):
-                message.received_at = now
-        message.metadata_json = json.dumps(meta, default=str)
-        session.add(message)
-        sealed.append(message)
-        try:
-            await publish_signal_message(signal, message)
-        except Exception:  # noqa: BLE001
-            pass
-    if sealed:
-        now = datetime.utcnow()
-        signal.last_message_at = now
-        signal.updated_at = now
-        session.add(signal)
-        await session.flush()
-    return sealed
-
-
-async def upsert_turn_checkpoint(
-    session: AsyncSession,
-    signal: Signal,
-    *,
-    message_id: UUID | None,
-    author_agent_id: UUID | None,
-    turn_id: str | None,
-    segments: list[dict[str, Any]],
-    metadata: dict[str, Any] | None = None,
-    fallback_text: str = "Working on this.",
-) -> SignalMessage:
-    """Write the open turn onto one thread message so a reload shows the work.
-
-    One row per turn while it runs; ``persist_agent_turn`` later replaces it
-    with the finished bubbles. Caller commits."""
-    from app.gateway.publish import publish_signal_message
+    from app.services import thread_log
     from app.services.assistant_threads import append_signal_chat_message
-    from app.services.agent.style import strip_emoji
 
-    planned = plan_turn_messages(segments, CHAT, fallback_text=fallback_text)
-    text = "\n\n".join(b["text"] for b in planned if (b.get("text") or "").strip()) or fallback_text
-    activity: list[dict[str, Any]] = []
-    after: list[dict[str, Any]] = []
-    for bubble in planned:
-        activity.extend(bubble.get("activity") or [])
-        after.extend(bubble.get("activity_after") or [])
-    speech = strip_emoji(text) or text
-    meta: dict[str, Any] = dict(metadata or {})
-    if turn_id:
-        meta["turn_id"] = turn_id
-    meta["in_progress"] = True
-    if activity:
-        meta["activity"] = activity
-    if after:
-        meta["activity_after"] = after
-
-    existing = await session.get(SignalMessage, message_id) if message_id else None
-    if existing is not None and existing.signal_id == signal.id:
-        existing.body_text = speech
-        existing.body_preview = speech[:200]
-        existing.metadata_json = json.dumps(meta, default=str)
-        existing.author_agent_id = author_agent_id or existing.author_agent_id
-        now = datetime.utcnow()
-        signal.last_message_at = now
-        signal.updated_at = now
-        await session.flush()
-        await publish_signal_message(signal, existing)
-        return existing
-
+    closed = await thread_log.close_open_turns(
+        signal.tenant_id,
+        signal.id,
+        reason="error",
+        older_than_s=older_than.total_seconds() if older_than is not None else None,
+        keep=keep,
+    )
+    if not closed or not error_text:
+        return []
+    data = closed[-1]["data"]
+    items: list[dict[str, Any]] = []
+    surface = data.get("surface") if isinstance(data.get("surface"), dict) else {}
+    for block in surface.get("blocks") or []:
+        if isinstance(block, dict) and block.get("type") == "activity":
+            items.extend(row for row in block.get("items") or [] if isinstance(row, dict))
+    author = author_agent_id
+    raw_author = data.get("author") if isinstance(data.get("author"), dict) else {}
+    if author is None and raw_author.get("id"):
+        try:
+            author = UUID(str(raw_author["id"]))
+        except ValueError:
+            author = None
+    meta: dict[str, Any] = {"error": True, "turn_failed": True}
+    if data.get("stream_id"):
+        meta["turn_id"] = str(data["stream_id"])
+    if items:
+        meta["activity"] = _seal_activity_items(items)
     message = await append_signal_chat_message(
         session,
         signal,
         role="assistant",
-        content=speech,
-        author_agent_id=author_agent_id,
+        content=error_text.strip() or "The assistant encountered an error.",
+        author_agent_id=author,
         metadata=meta,
     )
-    return message
+    return [message]
 
 
 MAX_KNOWLEDGE_REFS = 8
@@ -1174,15 +1115,14 @@ async def persist_agent_turn(
     fallback_text: str = "Done.",
     append_to_last: str = "",
     showcase_items: list[dict[str, Any]] | None = None,
-    replace_message_id: UUID | None = None,
     knowledge_hits: list[dict[str, Any]] | None = None,
 ) -> list[SignalMessage]:
     """Append the turn's bubbles to the thread. ``first_metadata`` (AI
     disclosure) lands on the first message, ``final_metadata`` (usage,
     thinking) on the last; ``append_to_last`` extends the last bubble's text.
-    ``replace_message_id`` updates an in-progress checkpoint instead of
-    adding a second row. Caller commits."""
-    from app.gateway.publish import publish_signal_message
+    Each bubble keeps the ``seq`` its speech item reserved and names it in
+    ``segment_id``, so the live item and the saved row are the same object.
+    Caller commits."""
     from app.services.assistant_threads import append_signal_chat_message
     from app.services.agent.mention_repair import repair_mentions
     from app.services.agent.style import strip_emoji
@@ -1196,7 +1136,6 @@ async def persist_agent_turn(
     planned = drop_redundant_rule_link(planned)
     refs = knowledge_refs(knowledge_hits)
     messages: list[SignalMessage] = []
-    replaced = False
     reserved = {
         str(seg.get("id")): int(seg["seq"])
         for seg in segments
@@ -1220,38 +1159,21 @@ async def persist_agent_turn(
             meta["bubble_index"] = index
         if index == len(planned) - 1 and final_metadata:
             meta.update(final_metadata)
-        meta.pop("in_progress", None)
         # AI speech only — never strip operator/customer content here.
         speech = strip_emoji(bubble["text"] or "") or (bubble["text"] or "")
         speech = await repair_mentions(session, signal.tenant_id, speech)
         seq = reserved.pop(str(bubble.get("segment_id") or ""), None)
         if messages and seq is not None and messages[-1].seq is not None and seq <= messages[-1].seq:
             seq = None
-        existing = None
-        if not replaced and replace_message_id:
-            existing = await session.get(SignalMessage, replace_message_id)
-            if existing is None or existing.signal_id != signal.id:
-                existing = None
-        if existing is not None:
-            # The checkpoint took its place when the turn started; it keeps it.
-            existing.body_text = speech
-            existing.body_preview = speech[:200]
-            existing.metadata_json = json.dumps(meta, default=str)
-            existing.author_agent_id = author_agent_id or existing.author_agent_id
-            await session.flush()
-            await publish_signal_message(signal, existing)
-            msg = existing
-            replaced = True
-        else:
-            msg = await append_signal_chat_message(
-                session,
-                signal,
-                role="assistant",
-                content=speech,
-                author_agent_id=author_agent_id,
-                metadata=meta,
-                seq=seq,
-            )
+        msg = await append_signal_chat_message(
+            session,
+            signal,
+            role="assistant",
+            content=speech,
+            author_agent_id=author_agent_id,
+            metadata=meta,
+            seq=seq,
+        )
         messages.append(msg)
     if choice_options and messages:
         await _raise_tag_choice(

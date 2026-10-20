@@ -23,6 +23,23 @@ terms:
     api: /api/folders
     slug: /folders
     forbidden: ["Projecten", "Projects"]
+  - id: works_in
+    # Everything inside a folder where its work is done: board, files and
+    # canvases in Bokito, and connections such as a repository or Exact.
+    nl: Werkt in
+    en: Works in
+    code: ProjectResource
+    api: /api/folders
+    slug: /folders
+    forbidden: []
+  - id: delivered
+    # What a conversation produced, shown in the thread and on the Grid.
+    nl: Opgeleverd
+    en: Delivered
+    code: SignalEvent
+    api: ""
+    slug: ""
+    forbidden: []
   - id: flow
     nl: Flow
     en: Flow

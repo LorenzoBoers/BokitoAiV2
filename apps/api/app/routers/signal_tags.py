@@ -55,6 +55,10 @@ class TagPromote(BaseModel):
     playbook_name: str = ""
 
 
+class TagMerge(BaseModel):
+    into_id: UUID
+
+
 # ---------------------------------------------------------------------------
 # Tags
 
@@ -150,6 +154,24 @@ async def promote_tag(
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return tag_svc.serialize_tag(row)
+
+
+@router.post("/{tag_id}/merge", response_model=TagRow)
+async def merge_tag(
+    tag_id: UUID,
+    body: TagMerge,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Fold this free label into another. Conversations, contacts, companies,
+    calendars, folders and inbox rules move; this label is removed."""
+    try:
+        row = await tag_svc.merge_tags(session, auth.tenant.id, tag_id, body.into_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return tag_svc.serialize_tag(row)
 
 

@@ -166,6 +166,22 @@ def test_coding_agent_shapes_follow_feature_flag(monkeypatch):
     assert saved["avatar_shape"] == "cursor"
 
 
+def test_coding_agent_bodies_keep_their_original_color(monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "feature_coding_agent_integrations", True)
+    saved = apply_avatar_settings(
+        {}, avatar_kind="orb", avatar_shape="claude", avatar_color="#ff263c"
+    )
+    assert saved["avatar_color"] == "#d97757"
+    stored = avatar_payload(
+        _agent(avatar_kind="orb", avatar_color="#1084fe", avatar_shape="cursor")
+    )
+    assert stored["avatar_color"] == "#d9d9d9"
+    other = apply_avatar_settings(saved, avatar_shape="blob", avatar_color="#ff263c")
+    assert other["avatar_color"] == "#ff263c"
+
+
 def test_theme_prefers_agent_image(monkeypatch):
     from app.models.auth import Tenant
     from app.services import livechat_compat

@@ -13,6 +13,7 @@ import {
   type BrandTheme,
   type Rgb as RgbTuple,
 } from '@bokito/shared'
+import { WIDGET_BG as THEME_BG } from './theme-tokens'
 
 export const DEFAULT_BRAND = DEFAULT_BRAND_HEX
 export { resolveBrandSeed }
@@ -21,8 +22,8 @@ export type { BrandTheme }
 export type Rgb = { r: number; g: number; b: number }
 
 const WIDGET_BG: Record<BrandTheme, RgbTuple> = {
-  light: [247, 248, 250],
-  dark: [16, 19, 26],
+  light: [...THEME_BG.light] as RgbTuple,
+  dark: [...THEME_BG.dark] as RgbTuple,
 }
 
 export function parseHexColor(value: string): Rgb | null {

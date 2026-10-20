@@ -11,7 +11,7 @@ export function threadFitsInboxQueue(
   switch (queue) {
     case 'all':
       // Mirrors view=all server-side: closing moves a thread out of "All".
-      return thread.status !== 'closed' && thread.status !== 'spam'
+      return thread.status !== 'closed' && thread.status !== 'spam' && thread.status !== 'snoozed'
     case 'for_you':
       // Team turns and mentions are decided server-side; keep the row.
       return (
@@ -46,6 +46,7 @@ export function dedicatedInboxQueueForStatus(
 ): InboxQueue | null {
   if (status === 'closed') return 'closed'
   if (status === 'spam') return 'spam'
+  if (status === 'snoozed') return 'scheduled'
   return null
 }
 

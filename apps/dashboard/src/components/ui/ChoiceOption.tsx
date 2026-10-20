@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { AgentMark } from './AgentMark'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import type { TeamMemberRef } from '../../lib/teams-api'
 import { BrandMark } from '../integrations/BrandMark'
-import { AiAvatar } from './AiAvatar'
 import { HashtagMark } from './HashtagMark'
 import { FLOW_LABEL_COLOR, FLOW_LABEL_ICON, labelMarkIcon, labelMarkInk } from './label-marks'
 import { TeamFacepile } from './TeamFacepile'
@@ -64,7 +63,7 @@ export function ChoiceMark({ item, size = 18 }: { item: ChoiceItem; size?: numbe
   if (item.kind === 'agent') {
     const agent = item.agent ?? { id: item.value, name: item.label }
     return (
-      <AiAvatar {...toAiAvatarProps(agent, item.label)} size={size} decorative mode="static" />
+      <AgentMark agent={agent} fallbackName={item.label} size={size} decorative mode="static" />
     )
   }
   if (item.kind === 'person') {

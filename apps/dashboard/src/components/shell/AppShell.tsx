@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { NavBadgeProvider, useNavBadges } from '../../context/NavBadgeContext'
@@ -12,7 +12,7 @@ import ImpersonationBanner from '../layout/ImpersonationBanner'
 import MockAiBanner from './MockAiBanner'
 import PushSoftPrompt from './PushSoftPrompt'
 import VerifyEmailBanner from './VerifyEmailBanner'
-import { GRID_PATH, tabFromPath, titleForTab } from '../../lib/navigation'
+import { GRID_PATH, WORKFLOW_PATH, tabFromPath, titleForTab } from '../../lib/navigation'
 import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
@@ -29,6 +29,7 @@ import { APP_API_BASE } from '../../lib/api.config'
 import { normalizeNotificationPrefs } from '../../lib/notification-prefs'
 import { cn } from '../../lib/utils'
 import { AmbientSpotlights } from '../ui/ambient-spotlights'
+import { RouteShellSkeleton } from '../ui/skeleton'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -78,7 +79,8 @@ function isFullBleed(pathname: string): boolean {
     pathname.startsWith('/agenda') ||
     pathname.startsWith('/folders') ||
     pathname.startsWith('/projects') ||
-    pathname === GRID_PATH
+    pathname === GRID_PATH ||
+    pathname === WORKFLOW_PATH
   )
 }
 
@@ -96,7 +98,7 @@ function contentEnterKey(pathname: string): string {
   if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'folders'
-  if (pathname === GRID_PATH) return 'grid'
+  if (pathname === GRID_PATH || pathname === WORKFLOW_PATH) return 'grid'
   // Document pages already animate via PageContent — avoid a second remount.
   return 'document'
 }
@@ -190,7 +192,7 @@ export default function AppShell() {
             {/* Desktop sidebar */}
             <aside
               className={`hidden shrink-0 border-r border-border/60 transition-[width] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] lg:block ${
-                navCollapsed ? 'w-[52px]' : 'w-[232px]'
+                navCollapsed ? 'w-rail-collapsed' : 'w-rail'
               }`}
             >
               <ShellSidebar collapsed={navCollapsed} onToggleCollapsed={toggleCollapsed} />
@@ -202,10 +204,10 @@ export default function AppShell() {
                 <button
                   type="button"
                   aria-label={t('topbar.closeNavigation')}
-                  className="absolute inset-0 bg-black/50 animate-fade-in"
+                  className="scrim absolute inset-0 animate-fade-in"
                   onClick={() => setDrawerOpen(false)}
                 />
-                <div className="absolute inset-y-0 left-0 w-[260px] border-r border-border/60 bg-bg shadow-overlay animate-slide-in-left">
+                <div className="absolute inset-y-0 left-0 w-rail border-r border-border/60 bg-bg shadow-overlay animate-slide-in-left">
                   <ShellSidebar
                     collapsed={false}
                     onToggleCollapsed={() => setDrawerOpen(false)}
@@ -235,12 +237,16 @@ export default function AppShell() {
                     key={contentEnterKey(pathname)}
                     className="relative z-[1] h-full min-h-0 animate-content-enter overflow-hidden"
                   >
-                    <Outlet />
+                    <Suspense fallback={<RouteShellSkeleton />}>
+                      <Outlet />
+                    </Suspense>
                   </div>
                 ) : (
                   <div className="relative z-[1] h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
-                    <div className={cn('mx-auto w-full', isWide(pathname) ? 'max-w-[1800px]' : 'max-w-[1240px]')}>
-                      <Outlet />
+                    <div className={cn('mx-auto w-full', isWide(pathname) ? 'max-w-canvas' : 'max-w-shell')}>
+                      <Suspense fallback={<RouteShellSkeleton />}>
+                        <Outlet />
+                      </Suspense>
                     </div>
                   </div>
                 )}

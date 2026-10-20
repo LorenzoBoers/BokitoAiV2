@@ -16,6 +16,7 @@ function entry(partial: Partial<ProposalBundleEntry> & Pick<ProposalBundleEntry,
     action: null,
     learn: null,
     platformChangeId: null,
+    items: [],
     ...partial,
   }
 }

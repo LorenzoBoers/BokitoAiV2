@@ -125,7 +125,7 @@ function Landing({
           <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight text-[var(--docs-fg)] sm:text-5xl">
             {t('docs.heroTitle')}
           </h1>
-          <p className="mt-5 max-w-2xl text-pretty text-[1.0625rem] leading-7 text-[var(--docs-subtle)]">
+          <p className="mt-5 max-w-2xl text-pretty text-docs-body leading-7 text-[var(--docs-subtle)]">
             {t('docs.heroBody')}
           </p>
 
@@ -167,7 +167,7 @@ function Landing({
                     <li key={item.slug}>
                       <Link
                         to={`/docs/${item.path}`}
-                        className="group flex items-baseline gap-2 py-1 text-[0.9375rem] text-[var(--docs-subtle)] transition-colors hover:text-[var(--docs-fg)]"
+                        className="group flex items-baseline gap-2 py-1 text-lg text-[var(--docs-subtle)] transition-colors hover:text-[var(--docs-fg)]"
                       >
                         <ChevronRight
                           className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--docs-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--docs-accent)]"
@@ -294,7 +294,7 @@ function ArticleView({
             {t(`docs.sections.${article.section}.title`)}
           </p>
 
-          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight text-[var(--docs-fg)] sm:text-[2.75rem] sm:leading-tight">
+          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight text-[var(--docs-fg)] sm:text-display sm:leading-tight">
             {article.title}
           </h1>
 
@@ -333,7 +333,7 @@ function ArticleView({
           </div>
 
           {article.intro ? (
-            <p className="mt-8 text-[1.0625rem] leading-7 text-[var(--docs-subtle)]">{article.intro}</p>
+            <p className="mt-8 text-docs-body leading-7 text-[var(--docs-subtle)]">{article.intro}</p>
           ) : null}
 
           <div className="mt-8 xl:hidden">

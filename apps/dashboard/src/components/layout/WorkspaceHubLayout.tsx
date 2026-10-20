@@ -1,7 +1,8 @@
+import { Suspense, type ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
-import type { ReactNode } from 'react'
 import PersonalAssistantWidget from '../shell/PersonalAssistantWidget'
 import WorkspaceHubNav from './WorkspaceHubNav'
+import { RouteShellSkeleton } from '../ui/skeleton'
 
 export default function WorkspaceHubLayout({ children }: { children?: ReactNode }) {
   return (
@@ -11,9 +12,11 @@ export default function WorkspaceHubLayout({ children }: { children?: ReactNode 
 
       {/* Rechts: content in een afgerond vlak */}
       <div className="flex min-w-0 flex-1 flex-col p-3 pl-0">
-        <div className="featurebase-shell-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
           <main className="min-h-0 flex-1 overflow-y-auto">
-            {children ?? <Outlet />}
+            <Suspense fallback={<div className="p-6"><RouteShellSkeleton /></div>}>
+              {children ?? <Outlet />}
+            </Suspense>
           </main>
         </div>
       </div>

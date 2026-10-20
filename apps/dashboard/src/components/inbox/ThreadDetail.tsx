@@ -89,35 +89,24 @@ import {
   resolveComposerSurface,
   type ComposerMode,
 } from '../../lib/message-composer'
-import { useSignalStream } from '../../hooks/useSignalStream'
-import { onGatewayEvent } from '../../lib/gateway'
+import { useThreadLog } from '../../hooks/useThreadLog'
 import { parseActiveTurn, type ThreadActiveTurn } from '../../lib/inbox-api'
 import { visibleFloor } from '../../lib/participant-stack'
 import AgentTurnLive from './AgentTurnLive'
 import { ClaimIdleAgentSeat, LiveAgentSeatProvider, SyncLiveAgentFocus } from './LiveAgentSeat'
 import { answeredDecisionIds } from './ThreadTimeline'
 import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
-import {
-  composerLanding,
-  composerModeForFocus,
-  emptyClientFocus,
-  focusFromMentionBody,
-  focusFromTargets,
-  singleAgentFocus,
-  type ComposerFocusTarget,
-  type ComposerReplyFocus,
-} from '../../lib/composer-reply-focus'
-import { mentionMarkup, stripMentionMarkup, type MentionItem } from '../../lib/mentions'
+import { composerLanding } from '../../lib/composer-reply-focus'
+import { stripMentionMarkup, type MentionItem } from '../../lib/mentions'
 import { useAgents } from '../../hooks/useAgents'
 import {
-  liveTurnFromLatestInProgress,
   liveTurnOrbMotion,
-  mergeTurns,
   textOnlyTurn,
   turnHasContent,
-  turnSaved,
+  type LiveTurn,
 } from '../../lib/agentActivity'
-import { useAgentOrbDrive } from '../../hooks/useBotOrbPulse'
+import { publishBotOrbPulse, useAgentOrbDrive } from '../../hooks/useBotOrbPulse'
+import { closingOrbPulse } from '../../lib/bot-orb-motion'
 import {
   bokitoListMessages,
   closeAgentSession,
@@ -136,6 +125,9 @@ import { toast } from 'sonner'
 
 /** Threads whose opener has already been continued or auto-sent this session. */
 const autoSentThreads = new Set<string>()
+
+
+const LIVE_SETTLE_SAFETY_MS = 6_000
 
 type Props = {
   detail: ThreadDetailType | null
@@ -256,33 +248,19 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const location = useLocation()
   const navigate = useNavigate()
   const { connections } = useMailboxConnections()
-  const checkpointTurn = useMemo(
-    () => liveTurnFromLatestInProgress(detail?.messages),
-    [detail?.messages],
-  )
-  const gatewayStream = useSignalStream(threadId ? String(threadId) : null, checkpointTurn)
+  const refetchQuiet = useCallback(() => onRefresh(true), [onRefresh])
+  const threadLog = useThreadLog(threadId ? String(threadId) : null, refetchQuiet)
   const [liveActiveTurn, setLiveActiveTurn] = useState<ThreadActiveTurn>(null)
   useEffect(() => {
     // Detail refresh is source of truth after Ask clears the run=false floor chip.
     setLiveActiveTurn(detail?.activeTurn ?? null)
   }, [detail?.activeTurn, threadId])
+  const logFloor = threadLog.floor
+  const logFloorSeen = threadLog.floorSeen
   useEffect(() => {
-    if (!threadId) return
-    return onGatewayEvent(`signal:${threadId}`, (event) => {
-      if (event.event !== 'thread.presence') return
-      const item = event.data?.item
-      if (!item || typeof item !== 'object') return
-      const floor = (item as Record<string, unknown>).active_turn
-      const parsed = parseActiveTurn(floor)
-      if (parsed) {
-        setLiveActiveTurn(parsed)
-        return
-      }
-      if (!floor || event.data?.phase === 'idle') {
-        setLiveActiveTurn(null)
-      }
-    })
-  }, [threadId])
+    if (!logFloorSeen) return
+    setLiveActiveTurn(parseActiveTurn(logFloor))
+  }, [logFloor, logFloorSeen])
   const timelineRef = useRef<ThreadTimelineHandle>(null)
   const previousMessageCountRef = useRef<number>(0)
   const landedThreadRef = useRef<string | null>(null)
@@ -318,13 +296,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   // Unsent mail draft persisted by the mail composer; shown as a chip above
   // the standard composer so the operator can pick the mail back up.
   const [storedMailDraft, setStoredMailDraft] = useState<StoredMailDraft | null>(null)
-  // Agent chosen with @ or Ask, before the first send creates the meta conversation.
-  const [askAgentId, setAskAgentId] = useState<string | null>(null)
-  // Agent id of the in-flight Ask turn — pins the live orb while SSE runs even
-  // if askAgentId / handoff opener still point at the channel default.
-  const [streamingAskAgentId, setStreamingAskAgentId] = useState<string | null>(null)
-  // Multi-target reply focus (agents + humans) for facepile / quick @.
-  const [focusTargets, setFocusTargets] = useState<ComposerFocusTarget[]>([])
   // Close-the-loop prompt when typed Signals are still Open (F-49).
   const [closeSignalsPrompt, setCloseSignalsPrompt] = useState<{
     tickets: Ticket[]
@@ -643,33 +614,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     sessionStream.optimisticUsers,
     user?.id,
   ])
-  const sessionCheckpointTurn = useMemo(
-    () => liveTurnFromLatestInProgress(sessionInboxMessages),
-    [sessionInboxMessages],
-  )
-  const sessionLive = useSignalStream(activeSessionId, sessionCheckpointTurn)
-  const resetSessionLive = sessionLive.reset
-  const sessionLiveActive = sessionLive.turn.active || sessionLive.streaming
-  // Ask streams run on the child session topic; host floor/idle events never
-  // end them. When a peer takes the floor (or the host goes idle), seal the
-  // Ask overlay so Stop / “Nadenken” do not linger after the handoff bubble.
-  useEffect(() => {
-    if (!threadId || !activeSessionId) return
-    return onGatewayEvent(`signal:${threadId}`, (event) => {
-      if (event.event !== 'thread.presence') return
-      const item = event.data?.item
-      const floor =
-        item && typeof item === 'object'
-          ? (item as Record<string, unknown>).active_turn
-          : null
-      const peerFloor = Boolean(parseActiveTurn(floor))
-      // Only seal on an explicit peer floor or host idle — not on thinking/writing
-      // presence that simply omits active_turn.
-      if (!peerFloor && event.data?.phase !== 'idle') return
-      if (!sessionLiveActive) return
-      resetSessionLive()
-    })
-  }, [threadId, activeSessionId, sessionLiveActive, resetSessionLive])
+  const sessionLog = useThreadLog(activeSessionId)
+  const dismissSessionTurns = useCallback(() => {
+    for (const turn of sessionLog.turns) sessionLog.dismiss(turn.streamId)
+  }, [sessionLog])
 
   useEffect(() => {
     if (!detail || pendingDecisionAnswers.length === 0) return
@@ -793,34 +741,58 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
 
   // The live overlay owns the turn until playback catches up. Hide every
   // saved row of that turn so the finished text does not pop in beside it.
-  const liveOverlayTurnIds = useMemo(() => {
+  // A live turn hands off to its saved bubbles once they are in the list and
+  // the reveal has caught up (or the safety timer fired).
+  const savedTurnIds = useMemo(() => {
     const ids = new Set<string>()
-    // Only hide saved rows when the live overlay actually owns speech for
-    // that stream — empty checkpoints must not swallow persisted bubbles.
-    if (gatewayStream.turn.streamId && turnHasContent(gatewayStream.turn)) {
-      ids.add(gatewayStream.turn.streamId)
-    }
-    if (sessionLive.turn.streamId && turnHasContent(sessionLive.turn)) {
-      ids.add(sessionLive.turn.streamId)
-    }
-    if (
-      checkpointTurn?.streamId &&
-      turnHasContent(checkpointTurn) &&
-      (gatewayStream.turn.streamId === checkpointTurn.streamId ||
-        (!turnHasContent(gatewayStream.turn) && !turnHasContent(sessionLive.turn)))
-    ) {
-      ids.add(checkpointTurn.streamId)
-    }
-    if (
-      sessionCheckpointTurn?.streamId &&
-      turnHasContent(sessionCheckpointTurn) &&
-      (sessionLive.turn.streamId === sessionCheckpointTurn.streamId ||
-        (!turnHasContent(gatewayStream.turn) && !turnHasContent(sessionLive.turn)))
-    ) {
-      ids.add(sessionCheckpointTurn.streamId)
+    for (const message of [...(detail?.messages ?? []), ...sessionInboxMessages]) {
+      if (message.turnId) ids.add(message.turnId)
     }
     return ids
-  }, [checkpointTurn, sessionCheckpointTurn, gatewayStream.turn, sessionLive.turn])
+  }, [detail?.messages, sessionInboxMessages])
+  const [settledTurnIds, setSettledTurnIds] = useState<Set<string>>(() => new Set())
+  const handleLivePlaybackDone = useCallback((streamId: string) => {
+    setSettledTurnIds((prev) => (prev.has(streamId) ? prev : new Set(prev).add(streamId)))
+  }, [])
+  const logTurns = useMemo(
+    () => [...threadLog.turns, ...sessionLog.turns].filter(turnHasContent),
+    [threadLog.turns, sessionLog.turns],
+  )
+  const shownLiveTurns = useMemo(
+    () => logTurns.filter((turn) => !(turn.ended && savedTurnIds.has(turn.streamId) && settledTurnIds.has(turn.streamId))),
+    [logTurns, savedTurnIds, settledTurnIds],
+  )
+  const dismissThreadTurn = threadLog.dismiss
+  const dismissSessionTurn = sessionLog.dismiss
+  useEffect(() => {
+    for (const turn of logTurns) {
+      if (turn.ended && savedTurnIds.has(turn.streamId) && settledTurnIds.has(turn.streamId)) {
+        dismissThreadTurn(turn.streamId)
+        dismissSessionTurn(turn.streamId)
+      }
+    }
+  }, [logTurns, savedTurnIds, settledTurnIds, dismissThreadTurn, dismissSessionTurn])
+  // Safety: the saved bubbles are in but the reveal never reported done.
+  const stalledTurnIds = logTurns
+    .filter((turn) => turn.ended && savedTurnIds.has(turn.streamId) && !settledTurnIds.has(turn.streamId))
+    .map((turn) => turn.streamId)
+    .join(',')
+  useEffect(() => {
+    if (!stalledTurnIds) return
+    const timer = window.setTimeout(() => {
+      setSettledTurnIds((prev) => {
+        const next = new Set(prev)
+        for (const id of stalledTurnIds.split(',')) next.add(id)
+        return next
+      })
+    }, LIVE_SETTLE_SAFETY_MS)
+    return () => window.clearTimeout(timer)
+  }, [stalledTurnIds])
+
+  const liveOverlayTurnIds = useMemo(
+    () => new Set(shownLiveTurns.map((turn) => turn.streamId)),
+    [shownLiveTurns],
+  )
 
   // Only hide saved rows that the live overlay still owns for this turn.
   const visibleTimelineDetail = useMemo(() => {
@@ -1159,10 +1131,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const handlingEffective = detail?.thread?.aiHandling?.effective ?? null
   const prevThreadIdRef = useRef<string | null>(null)
   useEffect(() => {
-    setAskAgentId(null)
-    setFocusTargets([])
-  }, [threadId])
-  useEffect(() => {
     const thread = detail?.thread
     if (!thread) {
       setComposerMode('reply')
@@ -1204,7 +1172,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         selfUserId: user?.id ?? null,
         allowReply: surface.modes.includes('reply'),
       })
-      setComposerMode(surface.modes.includes(land.mode) ? land.mode : surface.defaultMode)
+      setComposerMode(surface.modes.includes(land) ? land : surface.defaultMode)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- detail.messages only matter on thread change
   }, [threadId, activeSessionId, handlingEffective, detail?.thread, messageLayout])
@@ -1304,215 +1272,21 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [token, threadIdString, membersById, user?.email, t, onChangeAiHandling, onPatch, onRefresh],
   )
 
-  const askAgentName = useMemo(() => {
-    if (!askAgentId) return null
-    const hit = mentionExtras.find((item) => item.type === 'agent' && item.id === askAgentId)
-    return hit?.name ?? null
-  }, [askAgentId, mentionExtras])
+  const handleAskTabFocus = useCallback(() => setComposerMode('ask'), [])
 
-  // Ask-tab face stays on the real agent while Reply clears focus targets.
-  const askChromeAgent = useMemo(() => {
-    if (!detail) return null
-    const id = askAgentId || detail.thread.agentId
-    if (!id) return null
-    const live = agents.find((row) => String(row.id) === String(id))
-    const extra = mentionExtras.find((item) => item.type === 'agent' && item.id === String(id))
-    const onThread = String(id) === String(detail.thread.agentId)
-    return preferLiveAgentAvatar(live, {
-      name:
-        live?.name ??
-        extra?.name ??
-        (onThread ? detail.thread.agentName : null) ??
-        askAgentName,
-      agentId: String(id),
-      agentAvatarKind: extra?.avatarKind ?? (onThread ? detail.thread.agentAvatarKind : null),
-      agentAvatarIcon: extra?.avatarIcon ?? (onThread ? detail.thread.agentAvatarIcon : null),
-      agentAvatarColor: extra?.avatarColor ?? (onThread ? detail.thread.agentAvatarColor : null),
-      agentAvatarShape: extra?.avatarShape ?? (onThread ? detail.thread.agentAvatarShape : null),
-      agentAvatarImageUrl:
-        extra?.avatarImageUrl ?? (onThread ? detail.thread.agentAvatarImageUrl : null),
-    })
-  }, [detail, askAgentId, agents, mentionExtras, askAgentName])
-
-  const resolveFocusTarget = useCallback(
-    (type: 'agent' | 'user', id: string, name: string): ComposerFocusTarget => {
-      if (type === 'agent') {
-        const agent = agents.find((row) => String(row.id) === id)
-        const extra = mentionExtras.find((item) => item.type === 'agent' && item.id === id)
-        return {
-          type: 'agent',
-          id,
-          name: agent?.name ?? extra?.name ?? name,
-          agent: preferLiveAgentAvatar(agent, {
-            name: agent?.name ?? extra?.name ?? name,
-            agentId: id,
-            agentAvatarKind: extra?.avatarKind,
-            agentAvatarIcon: extra?.avatarIcon,
-            agentAvatarColor: extra?.avatarColor,
-            agentAvatarShape: extra?.avatarShape,
-            agentAvatarImageUrl: extra?.avatarImageUrl,
-          }) ?? undefined,
-        }
-      }
-      const member = membersById[Number(id)]
-      return {
-        type: 'user',
-        id,
-        name: member?.name ?? name,
-        email: member?.email,
-        avatarUrl: member?.avatarUrl ?? null,
-      }
-    },
-    [agents, mentionExtras, membersById],
-  )
-
-  // Default Ask focus from the last received sender: teammate, then agent,
-  // then the thread agent. Skipped once the operator has picked someone.
-  useEffect(() => {
-    if (!detail || askAgentId || focusTargets.length > 0) return
-    if (composerDraft) return
-    const surface = resolveComposerSurface(detail.thread)
-    const land = composerLanding(detail.messages ?? [], {
-      selfUserId: user?.id ?? null,
-      allowReply: surface.modes.includes('reply'),
-    })
-    if (land.userId) {
-      setFocusTargets([resolveFocusTarget('user', land.userId, 'Teammate')])
-      return
-    }
-    if (land.agentId) {
-      const name =
-        agents.find((row) => String(row.id) === land.agentId)?.name || 'Agent'
-      setAskAgentId(land.agentId)
-      setFocusTargets([resolveFocusTarget('agent', land.agentId, name)])
-      return
-    }
-    const msgs = detail.messages ?? []
-    for (let i = msgs.length - 1; i >= 0; i -= 1) {
-      const m = msgs[i]
-      const agentId =
-        typeof m.payload?.agent_id === 'string' && m.payload.agent_id
-          ? m.payload.agent_id
-          : null
-      if (agentId) {
-        const name =
-          agents.find((row) => String(row.id) === String(agentId))?.name || 'Agent'
-        setAskAgentId(String(agentId))
-        setFocusTargets([resolveFocusTarget('agent', String(agentId), name)])
-        return
-      }
-    }
-    const turnAgent = detail.activeTurn?.ref_id
-    if (turnAgent) {
-      setAskAgentId(String(turnAgent))
-      setFocusTargets([
-        resolveFocusTarget('agent', String(turnAgent), detail.activeTurn?.name || 'Agent'),
-      ])
-      return
-    }
-    const fallback = detail.thread.agentId || agentCandidates[0]?.id
-    if (fallback) {
-      const name =
-        detail.thread.agentName ||
-        agentCandidates.find((c) => c.id === fallback)?.name ||
-        'Agent'
-      setAskAgentId(String(fallback))
-      setFocusTargets([resolveFocusTarget('agent', String(fallback), name)])
-    }
-  }, [
-    detail,
-    askAgentId,
-    focusTargets.length,
-    composerDraft,
-    agentCandidates,
-    agents,
-    resolveFocusTarget,
-    user?.id,
-  ])
-
-  const replyFocus: ComposerReplyFocus = useMemo(() => {
-    if (composerMode === 'reply' || composerDraft) return emptyClientFocus()
-    if (focusTargets.length > 0) return focusFromTargets(focusTargets)
-    if (askAgentId) {
-      const name = askAgentName || detail?.thread.agentName || 'AI'
-      return singleAgentFocus({
-        id: askAgentId,
-        name,
-        ...preferLiveAgentAvatar(
-          agents.find((row) => String(row.id) === askAgentId),
-          { name, agentId: askAgentId },
-        ),
-      })
-    }
-    return emptyClientFocus()
-  }, [
-    composerMode,
-    composerDraft,
-    focusTargets,
-    askAgentId,
-    askAgentName,
-    detail?.thread.agentName,
-    agents,
-  ])
-
-  const handleAskTabFocus = useCallback(
-    (rawBody?: string) => {
-      if (rawBody) {
-        const fromBody = focusFromMentionBody(rawBody, (type, id, name) =>
-          resolveFocusTarget(type, id, name),
-        )
-        if (fromBody.targets.length > 0) {
-          setFocusTargets(fromBody.targets)
-          setAskAgentId(fromBody.primaryAgentId)
-          setComposerMode(composerModeForFocus(fromBody) === 'note' ? 'note' : 'ask')
-          return
-        }
-      }
-      if (replyFocus.primaryAgentId) setAskAgentId(replyFocus.primaryAgentId)
-      setComposerMode('ask')
-    },
-    [replyFocus.primaryAgentId, resolveFocusTarget],
-  )
-
-  const handleReplyFocusChange = useCallback(
-    (focus: ComposerReplyFocus) => {
-      setFocusTargets(focus.targets)
-      setAskAgentId(focus.primaryAgentId)
-      const mode = composerModeForFocus(focus)
-      if (mode !== 'reply') setComposerMode(mode)
-    },
-    [],
-  )
-
+  // A tag only picks the tab: agents and the team answer in Ask; a colleague
+  // on a customer thread gets a note. Routing itself happens on the server.
   const handleMentionInserted = useCallback(
-    (item: MentionItem, rawBody: string) => {
-      // Rebuild focus from the body chips — tagging only Bokito replaces a
-      // prior Orchestrator default; tagging both keeps both.
-      const fromBody = focusFromMentionBody(rawBody, (type, id, name) =>
-        resolveFocusTarget(type, id, name),
-      )
-      if (fromBody.targets.length > 0) {
-        setFocusTargets(fromBody.targets)
-        if (fromBody.primaryAgentId) setAskAgentId(fromBody.primaryAgentId)
-        else setAskAgentId(null)
-        const mode = composerModeForFocus(fromBody)
-        if (mode !== 'reply') setComposerMode(mode)
-        return
-      }
-      if (item.type === 'team' || item.type === 'user') {
-        if (item.type === 'user') {
-          setFocusTargets([resolveFocusTarget('user', item.id, item.name)])
-          setAskAgentId(null)
-        }
+    (item: MentionItem) => {
+      if (item.type === 'agent' || item.type === 'team') {
         setComposerMode('ask')
         return
       }
-      if (item.type !== 'agent') return
-      setAskAgentId(item.id)
-      setFocusTargets([resolveFocusTarget('agent', item.id, item.name)])
-      setComposerMode('ask')
+      if (item.type !== 'user' || !detail) return
+      const surface = resolveComposerSurface(detail.thread)
+      setComposerMode(surface.modes.includes('reply') && surface.modes.includes('note') ? 'note' : 'ask')
     },
-    [resolveFocusTarget],
+    [detail],
   )
 
   const handleAgentMessage = useCallback(
@@ -1523,49 +1297,14 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     ): Promise<boolean> => {
       if (!token || !threadIdString) return false
       const continuePending = Boolean(opts?.continuePending)
-      // Keep @mention markup so timeline chips render; plain for soft-decision match.
-      const addressedBody = focusTargets.reduce((body, target) => {
-        if (target.type !== 'agent' && target.type !== 'user') return body
-        if (body.includes(`${target.type}:${target.id}`)) return body
-        return `${body} ${mentionMarkup({ type: target.type, id: target.id, name: target.name })}`.trim()
-      }, bodyText.trim())
-      const text = addressedBody
-      const plainText = stripMentionMarkup(addressedBody).trim()
-      if (!continuePending && !plainText && !attachments?.length) return false
-      // Mentions in the body win over a stale default (e.g. thread Orchestrator
-      // when the operator only tagged Bokito).
-      const mentionedFocus = focusFromMentionBody(addressedBody, (type, id, name) =>
-        resolveFocusTarget(type, id, name),
-      )
-      if (mentionedFocus.targets.length > 0) {
-        setFocusTargets(mentionedFocus.targets)
-        if (mentionedFocus.primaryAgentId) setAskAgentId(mentionedFocus.primaryAgentId)
-      }
-      // Typed @agent chips / Ask-tab focus win even when the peer is not in
-      // the channel candidate list (e.g. Bokito on an Orchestrator thread).
-      // Gating on candidates used to drop Ask focus back to Orchestrator on
-      // untagged follow-ups while the tab still said “Ask Bokito”.
-      const mentionedAgentId = mentionedFocus.primaryAgentId || null
-      const focusedFromTargets =
-        focusTargets.find((t) => t.type === 'agent')?.id ?? null
-      const preferredAsk =
-        mentionedAgentId ??
-        askAgentId ??
-        focusedFromTargets ??
-        detail?.thread.agentId ??
-        agentCandidates[0]?.id ??
-        null
-      const wantedAgentId = preferredAsk
-      const mentionedAgentIds = mentionedFocus.targets
-        .filter((target) => target.type === 'agent')
-        .map((target) => target.id)
-      const addressedAgentIds = mentionedAgentIds
+      // The text keeps its @chips: the server routes on them (nobody tagged
+      // means the whole team, and the server picks who answers).
+      const text = bodyText.trim()
+      if (!continuePending && !stripMentionMarkup(text).trim() && !attachments?.length) return false
       let prepared: Awaited<ReturnType<typeof prepareThreadAsk>>
       try {
         prepared = await prepareThreadAsk(token, threadIdString, {
-          text: plainText,
-          agentId: wantedAgentId,
-          addressedAgentIds,
+          text,
           continuePending,
           hasAttachments: Boolean(attachments?.length),
         })
@@ -1587,16 +1326,11 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         onRefresh(true)
       }
       if (!sessionId) return false
-      if (wantedAgentId) setStreamingAskAgentId(wantedAgentId)
       try {
         const sendPromise = sendAgentSessionMessage(sessionId, text || ' ', {
           attachments,
           continuePending,
-          // Internal Ask: drive the focused / @-tagged agent, not only the
-          // thread's channel default (Orchestrator on agent chats).
-          agentId: prepared.talksDirect ? wantedAgentId : undefined,
           onFinished: async () => {
-            setStreamingAskAgentId(null)
             if (!prepared.talksDirect) await loadSessionMessages(sessionId)
             // Quiet: keep bubbles on screen; never flash the thread skeleton.
             onRefresh(true)
@@ -1605,11 +1339,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         })
         // One follow. Extra snaps during the bubble enter read as a stutter.
         window.requestAnimationFrame(() => timelineRef.current?.pinToEnd())
-        const ok = (await sendPromise) !== false
-        if (!ok) setStreamingAskAgentId(null)
-        return ok
+        return (await sendPromise) !== false
       } catch (err) {
-        setStreamingAskAgentId(null)
         const msg = err instanceof Error ? err.message : ''
         if (msg === 'agent_busy') {
           // Clear a ghost lock from a dropped stream, then the operator can retry.
@@ -1632,11 +1363,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [
       token,
       threadIdString,
-      askAgentId,
-      focusTargets,
-      agentCandidates,
-      detail,
-      resolveFocusTarget,
       sendAgentSessionMessage,
       stopAgentSessionStream,
       loadSessionMessages,
@@ -1691,12 +1417,11 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   ])
 
   const handleStopAgent = useCallback(() => {
-    setStreamingAskAgentId(null)
     void stopAgentSessionStream()
-    // Ask overlay also rides useSignalStream on the child session; aborting
-    // the HTTP SSE alone leaves that turn active → Stop / “Nadenken” linger.
-    resetSessionLive()
-  }, [stopAgentSessionStream, resetSessionLive])
+    // The Ask turn lives on the child session log; aborting the HTTP SSE
+    // alone leaves it on screen until the server's end event arrives.
+    dismissSessionTurns()
+  }, [stopAgentSessionStream, dismissSessionTurns])
 
   // Reply / Reply all / Forward on an email bubble opens the mail-native
   // composer, prefilled with recipients, subject and the quoted source mail.
@@ -1837,7 +1562,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         }
       }
       setComposerMode(mode)
-      // Keep askAgentId / focusTargets across mode switches so Ask chrome stays stable.
     },
     [
       messageLayout,
@@ -1939,46 +1663,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     [onReply, scrollToBottom, closeEmailOnSend, detail],
   )
 
-  // Hand the live turn off to its saved bubbles only after the frontend
-  // reveal has caught up. Otherwise the saved row pops in at full length.
-  const liveTurn = gatewayStream.turn
-  const resetLiveTurn = gatewayStream.reset
-  const liveTurnSaved = turnSaved(liveTurn, detail?.messages ?? [])
-  const [settledStreamId, setSettledStreamId] = useState<string | null>(null)
-  const handleLivePlaybackDone = useCallback((streamId: string) => {
-    setSettledStreamId(streamId)
-  }, [])
-  const livePlaybackDone = Boolean(liveTurn.streamId && settledStreamId === liveTurn.streamId)
-  useEffect(() => {
-    if (liveTurn.ended && liveTurnSaved && livePlaybackDone) resetLiveTurn()
-  }, [liveTurn.ended, liveTurnSaved, livePlaybackDone, resetLiveTurn])
-  // Same hand-off for the inline session's turn (its own gateway topic).
-  const sessionTurn = sessionLive.turn
-  const resetSessionTurn = sessionLive.reset
-  const sessionTurnSaved = turnSaved(sessionTurn, sessionInboxMessages)
-  const sessionPlaybackDone = Boolean(sessionTurn.streamId && settledStreamId === sessionTurn.streamId)
-  useEffect(() => {
-    if (sessionTurn.ended && sessionTurnSaved && sessionPlaybackDone) resetSessionTurn()
-  }, [sessionTurn.ended, sessionTurnSaved, sessionPlaybackDone, resetSessionTurn])
-  // Safety: if saved bubbles are in and the turn closed, do not keep the
-  // typing overlay forever when reveal never reports done (throttle / stall).
-  useEffect(() => {
-    if (!liveTurn.streamId || !liveTurn.ended || !liveTurnSaved || livePlaybackDone) return
-    const timer = window.setTimeout(() => setSettledStreamId(liveTurn.streamId), 1600)
-    return () => window.clearTimeout(timer)
-  }, [liveTurn.streamId, liveTurn.ended, liveTurnSaved, livePlaybackDone])
-  useEffect(() => {
-    if (!sessionTurn.streamId || !sessionTurn.ended || !sessionTurnSaved || sessionPlaybackDone) return
-    const timer = window.setTimeout(() => setSettledStreamId(sessionTurn.streamId), 1600)
-    return () => window.clearTimeout(timer)
-  }, [sessionTurn.streamId, sessionTurn.ended, sessionTurnSaved, sessionPlaybackDone])
-
   const shownFloor = visibleFloor(liveActiveTurn ?? detail?.activeTurn)
   const floorAgentId = shownFloor?.ref_id != null ? String(shownFloor.ref_id) : null
   const liveAgentId =
-    streamingAskAgentId ??
     floorAgentId ??
-    askAgentId ??
     activeSession?.agentId ??
     detail?.thread.agentId ??
     null
@@ -1986,67 +1674,48 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const agentWorkingHere =
     agentLive?.status === 'working' && agentLive.threadId === threadIdString
 
-  // One live view for every agent turn on this screen: the thread's own
-  // agent (inbound handling), the inline session agent, or the plain SSE
-  // stream of an Ask before gateway events land. It always renders as the
-  // last row, so the operator watches the work where the answer will appear.
-  const threadLiveTurn = useMemo(() => {
-    if (turnHasContent(liveTurn) && !(liveTurnSaved && livePlaybackDone)) {
-      if (checkpointTurn && checkpointTurn.streamId === liveTurn.streamId) {
-        return mergeTurns(checkpointTurn, liveTurn)
-      }
-      return liveTurn
-    }
-    if (turnHasContent(sessionTurn) && !(sessionTurnSaved && sessionPlaybackDone)) {
-      if (sessionCheckpointTurn && sessionCheckpointTurn.streamId === sessionTurn.streamId) {
-        return mergeTurns(sessionCheckpointTurn, sessionTurn)
-      }
-      return sessionTurn
-    }
-    if (checkpointTurn && !(liveTurnSaved && livePlaybackDone)) return checkpointTurn
-    if (sessionCheckpointTurn && !(sessionTurnSaved && sessionPlaybackDone)) return sessionCheckpointTurn
-    // The gateway carries the words; the Ask SSE and the floor only say that
-    // a turn is open, so both show an empty Nadenken row until frames land.
-    if (agentStreaming) return textOnlyTurn('')
+  // Every open agent turn on this screen, in the order they started: the
+  // thread's own agents and the inline session agent. The Ask SSE and the
+  // floor only say a turn is open; until its first event they show an empty
+  // thinking row. The live turns always render as the last rows.
+  const threadLiveTurns = useMemo<LiveTurn[]>(() => {
+    if (shownLiveTurns.length) return shownLiveTurns
+    if (agentStreaming) return [textOnlyTurn('')]
     const floor = shownFloor
     if (floor?.kind === 'agent' && floor.ref_id && floor.status !== 'queued') {
-      return textOnlyTurn('')
+      return [textOnlyTurn('')]
     }
-    return null
-  }, [
-    liveTurn,
-    liveTurnSaved,
-    livePlaybackDone,
-    checkpointTurn,
-    sessionTurn,
-    sessionTurnSaved,
-    sessionPlaybackDone,
-    sessionCheckpointTurn,
-    agentStreaming,
-    shownFloor,
-  ])
-  const liveTurnIsSession = Boolean(
-    threadLiveTurn &&
-      sessionTurn.streamId &&
-      threadLiveTurn.streamId === sessionTurn.streamId &&
-      !(liveTurn.streamId === threadLiveTurn.streamId && turnHasContent(liveTurn)),
-  )
+    return []
+  }, [shownLiveTurns, agentStreaming, shownFloor])
+  const threadLiveTurn = threadLiveTurns.length ? threadLiveTurns[threadLiveTurns.length - 1] : null
   const liveOrbAgentId =
-    streamingAskAgentId ??
+    threadLiveTurn?.author?.id ??
     floorAgentId ??
     activeSession?.agentId ??
-    askAgentId ??
     detail?.thread.agentId ??
     null
+  const [operatorTyping, setOperatorTyping] = useState(false)
   const liveOrbDrive = useAgentOrbDrive(
     liveOrbAgentId,
-    liveTurnOrbMotion(threadLiveTurn),
+    threadLiveTurn ? liveTurnOrbMotion(threadLiveTurn) : operatorTyping ? 'listening' : 'idle',
   )
-  // Turns the reader watched stream in: their saved bubbles land without the
-  // enter animation, so the live -> saved hand-off does not flash.
-  const watchedTurnIdsRef = useRef<Set<string>>(new Set())
-  if (liveTurn.streamId) watchedTurnIdsRef.current.add(liveTurn.streamId)
-  if (sessionTurn.streamId) watchedTurnIdsRef.current.add(sessionTurn.streamId)
+  const closedTurnIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    for (const turn of logTurns) {
+      if (!turn.ended || !turn.streamId || closedTurnIdsRef.current.has(turn.streamId)) continue
+      closedTurnIdsRef.current.add(turn.streamId)
+      const drive = closingOrbPulse(turn.closing, turn.streamId)
+      const agentId = turn.author?.id ?? liveOrbAgentId
+      if (drive && agentId) publishBotOrbPulse(agentId, drive)
+    }
+  }, [logTurns, liveOrbAgentId])
+  // Turns whose words the reader already saw. Only those saved bubbles skip
+  // the enter animation. A seat that only showed "Bezig" has not been read,
+  // so the finished reply still arrives as a sentence, then the cards.
+  const spokeTurnIdsRef = useRef<Set<string>>(new Set())
+  const handleLiveSpeech = useCallback((streamId: string) => {
+    spokeTurnIdsRef.current.add(streamId)
+  }, [])
   // Whether the live turn joins the last saved agent bubble's run (no avatar
   // or author line, flattened top corner), as the saved bubble will.
   const liveContinuesRun = useMemo(
@@ -2148,7 +1817,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     }
     if (!detail?.messages?.length) return
     const last = detail.messages[detail.messages.length - 1]!
-    if (last.inProgress) return
     const lastAgentId =
       typeof last.payload?.agent_id === 'string' && last.payload.agent_id
         ? last.payload.agent_id
@@ -2379,22 +2047,19 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
 
   const { thread } = detail
 
-  // The stick holder is the only live agent. A stream in flight may know
-  // the speaker before active_turn arrives. An empty stick stays quiet.
+  // A streamed turn names its own author. The floor may already belong to the
+  // next speaker, so it only names an empty thinking row.
+  const liveAuthor = threadLiveTurn?.author ?? null
   const liveSeatAgentId =
-    floorAgentId ??
-    streamingAskAgentId ??
-    (threadLiveTurn ? activeSession?.agentId ?? askAgentId : null) ??
-    null
+    liveAuthor?.id ?? floorAgentId ?? (threadLiveTurn ? activeSession?.agentId : null) ?? null
   const liveSeatAgent = liveSeatAgentId
     ? agents.find((row) => String(row.id) === String(liveSeatAgentId))
     : undefined
   const liveSeatName =
-    liveSeatAgent?.name ??
-    shownFloor?.name ??
-    activeSession?.agentName ??
-    askAgentName ??
-    thread.agentName
+    liveSeatAgent?.name ||
+    liveAuthor?.name ||
+    (liveAuthor ? null : shownFloor?.name ?? activeSession?.agentName) ||
+    null
   const liveAvatarSource = preferLiveAgentAvatar(liveSeatAgent, {
     name: liveSeatName,
     agentId: liveSeatAgentId,
@@ -2420,13 +2085,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         release={releaseIdleSeat}
       />
       <SyncLiveAgentFocus
-        agentId={
-          // Live turn: prefer the Ask/session target over a leftover handoff
-          // opener (that pinned Orchestrator’s orb while @Bokito was streaming).
-          threadLiveTurn
-            ? liveOrbAgentId ?? liveSeatAgentId
-            : replyFocus.primaryAgentId ?? liveOrbAgentId
-        }
+        agentId={threadLiveTurn ? liveOrbAgentId ?? liveSeatAgentId : liveOrbAgentId}
       />
       <ThreadHeader
         thread={thread}
@@ -2549,36 +2208,57 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             anchorToBottomRef.current = atBottom
             if (atBottom) setUnseenNew(0)
           }}
-          quietTurnIds={watchedTurnIdsRef.current}
+          quietTurnIds={spokeTurnIdsRef.current}
           liveTrace={
-            threadLiveTurn ? (
-              <AgentTurnLive
-                // Remount when the speaking agent changes so Extra (and the
-                // first Ask agent) always get a fresh seat entrance.
-                key={liveSeatAgentId ?? 'live'}
-                turn={threadLiveTurn}
-                continuesRun={liveContinuesRun}
-                onPlaybackDone={handleLivePlaybackDone}
-                // Same source as the saved author line (TimelineItem), so the
-                // hand-off keeps the name.
-                agentName={liveSeatName}
-                agentId={liveSeatAgentId}
-                avatarMark={
-                  liveSeatAgentId
-                    ? liveTurnIsSession || agentStreaming || thread.agentId
-                      ? liveAvatarMark
-                      : toAiAvatarProps(
-                          preferLiveAgentAvatar(
-                            agents.find((row) => String(row.id) === String(thread.agentId)),
-                            thread,
-                          ),
-                        )
+            threadLiveTurns.length ? (
+              <div className="space-y-1.5">
+                {threadLiveTurns.map((turn, index) => {
+                  const primary = index === threadLiveTurns.length - 1
+                  if (primary) {
+                    return (
+                      <AgentTurnLive
+                        // The author comes from the turn, so the next floor
+                        // holder never takes over this text.
+                        key={turn.streamId ?? liveSeatAgentId ?? 'live'}
+                        turn={turn}
+                        continuesRun={index === 0 && liveContinuesRun}
+                        onPlaybackDone={handleLivePlaybackDone}
+                        onSpeechShown={handleLiveSpeech}
+                        // Same source as the saved author line (TimelineItem), so the
+                        // hand-off keeps the name.
+                        agentName={liveSeatName}
+                        agentId={liveSeatAgentId}
+                        avatarMark={liveSeatAgentId ? liveAvatarMark : null}
+                        orbMotion={liveOrbDrive.motion}
+                        orbPulseId={liveOrbDrive.pulseId}
+                        orbBaseMotion={liveOrbDrive.baseMotion}
+                      />
+                    )
+                  }
+                  const peerId = turn.author?.id ?? null
+                  const peer = peerId ? agents.find((row) => String(row.id) === String(peerId)) : undefined
+                  const peerName = peer?.name || turn.author?.name || null
+                  const peerMark = peerId
+                    ? toAiAvatarProps(
+                        preferLiveAgentAvatar(peer, { name: peerName, agentId: peerId }),
+                        t('agentSession.title'),
+                      )
                     : null
-                }
-                orbMotion={liveOrbDrive.motion}
-                orbPulseId={liveOrbDrive.pulseId}
-                orbBaseMotion={liveOrbDrive.baseMotion}
-              />
+                  return (
+                    <AgentTurnLive
+                      key={turn.streamId ?? `peer-${index}`}
+                      turn={turn}
+                      continuesRun={index === 0 && liveContinuesRun}
+                      onPlaybackDone={handleLivePlaybackDone}
+                      onSpeechShown={handleLiveSpeech}
+                      agentName={peerName}
+                      agentId={peerId}
+                      avatarMark={peerMark}
+                      orbMotion={liveTurnOrbMotion(turn)}
+                    />
+                  )
+                })}
+              </div>
             ) : null
           }
           emptyState={
@@ -2667,6 +2347,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       ) : composerSurface ? (
         <ReplyComposer
           surface={composerSurface}
+          onTypingChange={setOperatorTyping}
           onReply={handleReply}
           onNote={handleNote}
           onAgentMessage={handleAgentMessage}
@@ -2675,10 +2356,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           mode={composerMode}
           onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}
-          agentModeName={thread.addressedAgent?.name ?? activeSession?.agentName ?? askAgentName ?? thread.agentName ?? null}
-          askAgent={askChromeAgent}
-          replyFocus={replyFocus}
-          onReplyFocusChange={handleReplyFocusChange}
+          agentModeName={activeSession?.agentName ?? thread.agentName ?? null}
           onAskTabFocus={handleAskTabFocus}
           onMentionInserted={handleMentionInserted}
           saving={saving || agentStreaming}
@@ -2829,7 +2507,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               disabled={closeSignalsBusy}
               onClick={() => setCloseSignalsPrompt(null)}
             >

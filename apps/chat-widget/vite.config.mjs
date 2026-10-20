@@ -6,6 +6,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@bokito/shared': resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@bokito/ui-tokens': resolve(__dirname, '../../packages/ui-tokens/src/index.ts'),
     },
   },
   server: {

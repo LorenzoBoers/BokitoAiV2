@@ -92,6 +92,17 @@ async def list_workspace_docs(
     }
 
 
+@router.get("/platform-skills")
+async def list_platform_skills(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    lang: str = Query("en"),
+):
+    """Skills every agent carries. Name and description only; the body stays on the server."""
+    from app.services.platform_skills import catalog
+
+    return {"skills": catalog(lang)}
+
+
 @router.post("/docs")
 async def create_workspace_doc(
     body: DocCreateBody,

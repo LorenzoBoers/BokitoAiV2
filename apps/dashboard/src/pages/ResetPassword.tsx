@@ -4,6 +4,9 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFormValidation } from '../components/ui/form-validation';
+import { AuthShell } from '../components/auth/AuthShell';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 export default function ResetPassword() {
   const { t } = useTranslation('nav');
@@ -73,23 +76,9 @@ export default function ResetPassword() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-        </div>
-        <div className="relative w-full max-w-sm">
-          <div className="flex flex-col items-center mb-8">
-            <img
-              src="/bokito-logo.png"
-              alt="Bokito.ai"
-              className="w-12 h-12 mb-3"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-            <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          </div>
-          <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter text-center">
+      <AuthShell cardClassName="text-center">
             <AlertCircle className="w-16 h-16 text-status-error mx-auto mb-4" />
-            <h1 className="text-xl font-semibold text-text-heading mb-2">{t('resetPage.missingTitle')}</h1>
+            <h1 className="title-page mb-2">{t('resetPage.missingTitle')}</h1>
             <p className="text-text-secondary mb-6">{t('resetPage.missingBody')}</p>
             <Link
               to="/forgot-password"
@@ -103,36 +92,15 @@ export default function ResetPassword() {
                 {t('loginPage.backToSignIn')}
               </Link>
             </div>
-          </div>
-        </div>
-      </div>
+    </AuthShell>
     );
   }
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-        {/* Background glow */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-        </div>
-
-        <div className="relative w-full max-w-sm">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <img
-              src="/bokito-logo.png"
-              alt="Bokito.ai"
-              className="w-12 h-12 mb-3"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-            <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          </div>
-
-          {/* Success Card */}
-          <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter text-center">
+      <AuthShell cardClassName="text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
-            <h1 className="text-xl font-semibold text-text-heading mb-2">
+            <h1 className="title-page mb-2">
               {t('resetPage.successTitle')}
             </h1>
             <p className="text-text-secondary mb-6">
@@ -145,38 +113,12 @@ export default function ResetPassword() {
             >
               {t('resetPage.signInNow')}
             </Link>
-          </div>
-
-          <p className="text-center text-xs text-text-muted mt-6">
-            © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-          </p>
-        </div>
-      </div>
+    </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src="/bokito-logo.png"
-            alt="Bokito.ai"
-            className="w-12 h-12 mb-3"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">{t('resetPage.subtitle')}</span>
-        </div>
-
-        {/* Card */}
-        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
+    <AuthShell subtitle={t('resetPage.subtitle')}>
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* New Password */}
             <div>
@@ -184,12 +126,12 @@ export default function ResetPassword() {
                 {t('resetPage.newPassword')} *
               </label>
               <div className="relative">
-                <input
+                <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+                  className="h-10 pr-10"
                   placeholder={t('resetPage.passwordPlaceholder')}
                   autoFocus
                 />
@@ -216,12 +158,12 @@ export default function ResetPassword() {
                 {t('resetPage.confirmPassword')} *
               </label>
               <div className="relative">
-                <input
+                <Input
                   id="passwordConfirmation"
                   type={showPasswordConfirmation ? 'text' : 'password'}
                   value={passwordConfirmation}
                   onChange={(e) => setPasswordConfirmation(e.target.value)}
-                  className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+                  className="h-10 pr-10"
                   placeholder={t('resetPage.confirmPlaceholder')}
                 />
                 <button
@@ -249,13 +191,13 @@ export default function ResetPassword() {
             )}
 
             {/* Submit */}
-            <button
+            <Button size="lg"
               type="submit"
               disabled={isLoading || !validation.isValid}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full"
             >
               {isLoading ? t('resetPage.saving') : t('resetPage.change')}
-            </button>
+            </Button>
           </form>
 
           <div className="mt-6 text-center">
@@ -267,12 +209,6 @@ export default function ResetPassword() {
               {t('loginPage.backToSignIn')}
             </Link>
           </div>
-        </div>
-
-        <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

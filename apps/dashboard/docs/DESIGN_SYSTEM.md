@@ -26,13 +26,27 @@ catalog in short form. `npm run lint` enforces it.
 |---|---|
 | Font | `--font-sans` Inter, `--font-mono` JetBrains Mono (`index.css`) |
 | Size | `text-2xs` 10.5, `xs` 11.5, `sm` 12.5, `base` 13.5, `lg` 15, `xl` 17, `2xl` 20 |
-| Radius | shell `2xl`/`xl`; Card, Badge, OptionCard, Callout `lg`; InsetPanel, input, button, FilterChip `md`; `full` for avatars, dots, switches, count bubbles |
+| Radius | shell `2xl`/`xl`; Card, Badge, OptionCard, Callout `lg`; InsetPanel, input, button, FilterChip `md`; `full` for avatars, dots, switches, count bubbles, label pills |
+| Titles | `.title-page` (h1), `.title-dialog`, `.title-section`, `.title-card`, `.title-eyebrow` (`index.css`); primitives use them, so pages rarely set a heading size |
+| Width | `max-w-form` 40rem, `reading` 56rem, `page` 62.5rem, `dense` 75rem, `shell` 77.5rem, `canvas` 112.5rem; rail `w-rail` / `w-rail-collapsed` |
+| Backdrop | `.scrim` for every modal, drawer and tour overlay |
+| Docs type | `text-docs-nav`, `text-docs-body`, `text-docs-h2`, `text-display` for `/docs` only |
 | Surface | `bg` (chrome), `bg-surface` (cards), `bg-elevated` (insets), `bg-hover` (hover, neutral pills), `bg-input` (fields) |
 | Status | `status-success`, `status-warning`, `status-error`, `status-info` |
 | Identity | `accent` (brand), `ai` / `ai-ink` (agents, knowledge) |
 
 Raw palette colors (`emerald-500`, `amber-600`, `red-500`) and arbitrary
 sizes (`text-[13px]`) are not allowed.
+
+No glows. AI is marked by color (`ai`, `ai-ink`) and a hairline, never by a
+blur, halo, drop shadow or pulsing ring. Agent bubbles are a flat surface with
+a 2px `ai` left edge; toasts and overlays are solid elevated surfaces.
+
+The one exception is `AgentGlow`: a soft wash in the agent's own color on
+agent showcase surfaces only (agent hero, Agents library card, marketplace
+module card, specialist portrait). `placement="behind"` sits behind an avatar;
+`corner-left` / `corner-right` washes a card corner. Rows, lists and chat stay
+flat.
 
 ## Surfaces
 
@@ -65,7 +79,7 @@ sizes (`text-[13px]`) are not allowed.
 </div>
 ```
 
-`AmbientSpotlights` is a corner wash (brand, violet, blue) for a large canvas.
+`AmbientSpotlights` is one soft accent wash at the top of a large canvas or the signed-out pages.
 The parent is `relative`. Content that should stay crisp uses `relative`.
 
 ## Controls
@@ -86,7 +100,31 @@ The parent is `relative`. Content that should stay crisp uses `relative`.
 ```
 
 Forms use `Input`, `Textarea`, `Select`, `Switch`, `Label`. Menus use
-`DropdownMenu`; modals use `Dialog`.
+`DropdownMenu`; modals use `Dialog`; side sheets use `SidePanel`. Hover hints
+use `Tip` (or a native `title`, which `NativeTitleTooltipBridge` upgrades).
+
+`Button` variants: `default` (accent), `secondary` (hairline), `ghost`, `ai`,
+`destructive`. Sizes `sm`, `md`, `lg`, `icon`, `iconSm`. Inline text actions
+are `TextLink` (`tone="muted"` for quiet ones), never a raw `<button>`.
+
+## Recipes
+
+```tsx
+<PageHeader title="Contacts" subtitle="People and companies" meta={<Button size="sm">New</Button>} />
+<PageContent width="lg">...</PageContent>
+
+<DangerZone title="Danger zone">
+  <DangerZoneRow title="Delete workspace" description="..." action={<Button variant="destructive" size="sm">Delete</Button>} />
+</DangerZone>
+
+<AuthShell subtitle="Sign in to your workspace">{/* one card */}</AuthShell>
+```
+
+`PageHeader` is `components/shell/ContentHeader`. Every signed-out page
+(login, signup, forgot / reset password, invite, verify email) uses
+`AuthShell`; it owns the wordmark, the card and the copyright line.
+Irreversible settings actions sit in one `DangerZone` at the bottom of the
+page and confirm through `ConfirmDialog` or a `Dialog`.
 
 ## Feedback
 
@@ -100,8 +138,7 @@ if (!(await confirm({ title: 'Delete key?', description: '...', destructive: tru
 <LoadingBlock variant="skeleton" rows={3} />
 ```
 
-`ConfirmDialog` with `typeToConfirm` covers type-the-name deletes
-(`ConfirmDeleteDialog` is a preset of it).
+`ConfirmDialog` with `typeToConfirm` covers type-the-name deletes.
 
 ## Data
 
@@ -140,8 +177,9 @@ coloring a pill locally.
 ## Identity
 
 `IconTile` (`neutral`, `accent`, `ai`, `success`, `warning`, `error`; sizes
-`sm`, `md`, `lg`) holds one icon or logo. One face: `UserAvatar` (members),
-`AiAvatar` (agents), `ContactAvatar` (external people and companies),
+`sm`, `md`, `lg`) holds one icon or logo. Every round face renders through
+`AvatarDisc` (image or initials). One face: `UserAvatar` (members),
+`PersonAvatar` (a name or email only), `AgentMark` (agents; wraps `AiAvatar`), `ContactAvatar` (external people and companies),
 `TeamAvatar` (empty-team fallback). A group of people and agents is
 `AvatarStack`: three faces when there are three people or agents; with more, the third circle is +N. Agent orbs use a
 silhouette cutout; people use a surface ring. `TeamFacepile` is that pile
@@ -154,6 +192,11 @@ connections. Pass `kind` plus the avatar or `brandSlug`; the closed control
 and every row render `ChoiceOption`. `AgentSelect` is that picker for agents
 only. A `DropdownMenu` of the same things uses `ChoiceOption` inside each
 item. Enums (a mode, a language, a number) stay a plain `Select`.
+
+State dots are `StatusDot` (8px): `PresenceDot` for availability,
+`ThreadStatusDot` for conversation state, `HashtagMark` for a free label.
+Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
+`TAG_PILL_SIZE` from `label-marks.ts`.
 
 ## Guard
 
@@ -169,5 +212,22 @@ item. Enums (a mode, a language, a number) stay a plain `Select`.
 | `raw-status-color` | status tokens, `Badge`, `Callout` |
 | `capsule-chip` | `Badge` / `FilterChip` |
 | `legacy-class` | `Badge`, `InsetPanel`, `font-sans` |
+
+Ratchet rules count per file against `scripts/design-system-baseline.json`;
+a file may not gain more than its baseline:
+
+| Rule | Fix |
+|---|---|
+| `raw-button` | `Button`, `TextLink` |
+| `raw-input` | `Input`, `SearchField` |
+| `hex-color` | color tokens |
+| `arbitrary-radius` | radius scale |
+
+After a cleanup, run `node scripts/check-design-system.mjs --update-baseline`
+to lock in the lower counts.
+
+The chat widget and the mobile app read the same palette and type from
+`@bokito/ui-tokens` (Inter, JetBrains Mono). Only the tenant brand color
+varies in the widget.
 
 Exempt a line only with a `design-system-ignore` comment stating why.

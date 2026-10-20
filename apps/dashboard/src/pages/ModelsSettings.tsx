@@ -395,7 +395,7 @@ export default function ModelsSettings() {
               managed?.status === 'active'
                 ? 'success'
                 : managed?.status === 'standby'
-                  ? 'secondary'
+                  ? 'neutral'
                   : 'warning'
             }
             dot={managed?.status === 'active'}

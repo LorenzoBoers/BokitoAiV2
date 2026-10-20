@@ -22,7 +22,7 @@ import type { CanvasNode } from './project-canvas/types'
 // Types
 // ---------------------------------------------------------------------------
 
-export type ThreadStatus = 'open' | 'pending' | 'closed' | 'spam'
+export type ThreadStatus = 'open' | 'pending' | 'snoozed' | 'closed' | 'spam'
 export type ThreadPriority = 'normal' | 'high' | 'urgent'
 export type MessageDirection = 'inbound' | 'outbound' | 'internal' | 'system'
 export type SendStatus = 'sending' | 'scheduled' | 'sent' | 'failed' | `failed:${string}`
@@ -82,13 +82,13 @@ export type ThreadScheduleDetails = {
   htmlLink?: string
   allDay?: boolean
   calendarEventId?: string
+  /** Push when the conversation comes back; omitted means on. */
+  notify?: boolean
 }
 
 export type ScheduleRepeat =
   | { kind: 'cron'; cron: string }
   | { kind: 'interval'; everyMinutes: number }
-
-export type ScheduleRecipient = { kind: 'user' | 'team'; id: string }
 
 /** The repeat rule / agent wake bound to a thread (a Trigger server-side). */
 export type ThreadSchedule = {
@@ -103,7 +103,6 @@ export type ThreadSchedule = {
   lastStatus: string
   agentId: string | null
   instructions: string
-  recipient: ScheduleRecipient | null
   webhook: boolean
 }
 
@@ -118,12 +117,6 @@ export function normalizeThreadSchedule(value: unknown): ThreadSchedule | null {
   } else if (repeatRaw?.kind === 'interval') {
     repeat = { kind: 'interval', everyMinutes: Number(repeatRaw.every_minutes) || 60 }
   }
-  const recipientRaw =
-    raw.recipient && typeof raw.recipient === 'object' ? (raw.recipient as Record<string, unknown>) : null
-  const recipient: ScheduleRecipient | null =
-    recipientRaw && (recipientRaw.kind === 'user' || recipientRaw.kind === 'team') && typeof recipientRaw.id === 'string'
-      ? { kind: recipientRaw.kind, id: recipientRaw.id }
-      : null
   return {
     triggerId: str(raw.trigger_id),
     name: str(raw.name),
@@ -136,7 +129,6 @@ export function normalizeThreadSchedule(value: unknown): ThreadSchedule | null {
     lastStatus: str(raw.last_status),
     agentId: str(raw.agent_id) || null,
     instructions: str(raw.instructions),
-    recipient,
     webhook: raw.webhook === true,
   }
 }
@@ -152,6 +144,8 @@ function normalizeScheduleDetails(value: unknown): ThreadScheduleDetails {
   if (typeof raw.calendar_event_id === 'string' && raw.calendar_event_id) {
     out.calendarEventId = raw.calendar_event_id
   }
+  if (raw.notify === false) out.notify = false
+  else if (raw.notify === true) out.notify = true
   return out
 }
 
@@ -187,6 +181,8 @@ export type InboxThread = {
   nextAt: string | null
   /** End of an appointment. */
   endsAt: string | null
+  /** Snoozed: out of the open lists until this moment (or a new inbound message). */
+  hiddenUntil?: string | null
   /** Appointment details next to the date (note, location, calendar link). */
   scheduleDetails: ThreadScheduleDetails
   /** The thread's repeat rule or agent wake; `undefined` when the row did not carry it. */
@@ -231,7 +227,6 @@ export type InboxThread = {
   /** The agent this thread targets (chat threads), if any. */
   agentId?: string | null
   agentName?: string | null
-  addressedAgent?: { id: string; name: string } | null
   agentKind?: string | null
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
@@ -301,8 +296,6 @@ export type InboxMessage = {
   hasActivity?: boolean
   /** Agent turn this bubble belongs to (live stream id). */
   turnId?: string | null
-  /** True while the agent is still writing this turn onto the thread. */
-  inProgress?: boolean
   /** Collapsed tool rows and image frames, already grouped by the API. */
   history?: import('./agentActivity').HistoryView | null
   /** Approval the agent attached to this bubble (buttons render under it). */
@@ -367,6 +360,8 @@ export type ProposalItem = {
   at?: string | null
   deletedAt?: string | null
   missing?: boolean
+  /** New label in a label plan: shown, not openable until the plan is approved. */
+  planned?: boolean
   /** Canvas shell created but not yet filled — listed, not openable. */
   empty?: boolean
   /** Compact canvas tree for the chat preview card. */
@@ -405,6 +400,8 @@ export type ProposalBundleEntry = {
   action: ProposalActionDescription | null
   learn: { tool: string; agentId: string } | null
   platformChangeId: string | null
+  /** What this action is about (label, contact, …); the row draws it as its card. */
+  items: ProposalItem[]
 }
 
 export type MessageProposal = {
@@ -463,6 +460,9 @@ export function normalizeBundleEntry(value: unknown): ProposalBundleEntry | null
     action: normalizeActionDescription(raw.action),
     learn: learn && asString(learn.agent_id) ? { tool: asString(learn.tool), agentId: asString(learn.agent_id) } : null,
     platformChangeId: asNullableString(raw.platform_change_id),
+    items: Array.isArray(raw.items)
+      ? raw.items.map(normalizeProposalItem).filter((x): x is ProposalItem => x !== null)
+      : [],
   }
 }
 
@@ -516,6 +516,7 @@ export function normalizeProposalItem(row: unknown): ProposalItem | null {
     at: asNullableString(raw.at),
     deletedAt: asNullableString(raw.deleted_at),
     missing: raw.missing === true,
+    planned: raw.planned === true,
     empty: raw.empty === true,
     preview: asCanvasPreview(raw.preview),
     jobTitle: asNullableString(raw.job_title),
@@ -784,6 +785,8 @@ export type ThreadFilters = {
   needsReply?: boolean
   needsDecision?: boolean
   pinnedOnly?: boolean
+  /** `scheduled`: the Planned side of this queue (dated and snoozed threads). */
+  segment?: 'scheduled'
 }
 
 export type PagedThreadResult = {
@@ -974,7 +977,15 @@ function normalizeThread(row: unknown): InboxThread | null {
   if (id == null) return null
   const statusValue = asString(raw.status)
   const status: ThreadStatus =
-    statusValue === 'pending' ? 'pending' : statusValue === 'closed' ? 'closed' : statusValue === 'spam' ? 'spam' : 'open'
+    statusValue === 'pending'
+      ? 'pending'
+      : statusValue === 'snoozed'
+        ? 'snoozed'
+        : statusValue === 'closed'
+          ? 'closed'
+          : statusValue === 'spam'
+            ? 'spam'
+            : 'open'
   const priorityValue = asString(raw.priority)
   const priority: ThreadPriority = priorityValue === 'high' ? 'high' : priorityValue === 'urgent' ? 'urgent' : 'normal'
   return {
@@ -990,13 +1001,6 @@ function normalizeThread(row: unknown): InboxThread | null {
     contactId: asNullableString(raw.contact_id),
     agentId: asNullableString(raw.agent_id),
     agentName: asNullableString(raw.agent_name),
-    addressedAgent: (() => {
-      const row = raw.addressed_agent
-      if (!row || typeof row !== 'object') return null
-      const id = asNullableString((row as { id?: unknown }).id)
-      const name = asNullableString((row as { name?: unknown }).name)
-      return id && name ? { id, name } : null
-    })(),
     agentKind: asNullableString(raw.agent_kind),
     agentAvatarKind: asNullableString(raw.agent_avatar_kind) ?? asNullableString(raw.avatar_kind),
     agentAvatarIcon: asNullableString(raw.agent_avatar_icon) ?? asNullableString(raw.avatar_icon),
@@ -1011,6 +1015,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     status,
     nextAt: asNullableTimestampString(raw.next_at),
     endsAt: asNullableTimestampString(raw.ends_at),
+    hiddenUntil: asNullableTimestampString(raw.hidden_until),
     scheduleDetails: normalizeScheduleDetails(raw.schedule_details),
     schedule: 'schedule' in raw ? normalizeThreadSchedule(raw.schedule) : undefined,
     priority,

@@ -107,7 +107,7 @@ export function WebPageLinkIcon({
       alt=""
       aria-hidden
       loading="lazy"
-      className={cn(iconClass, 'rounded-[2px] object-contain')}
+      className={cn(iconClass, 'rounded-sm object-contain')}
       style={sizeStyle}
       onError={() => setFailed(true)}
       onLoad={(event) => {

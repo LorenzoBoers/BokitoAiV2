@@ -6,12 +6,12 @@
  * @type {Record<string, { css: string, dark: Rgb, light: Rgb }>}
  */
 export const colorTokens = {
-  bg: { css: 'bg', dark: [18, 18, 19], light: [247, 247, 246] },
-  bgRoot: { css: 'bg-root', dark: [18, 18, 19], light: [247, 247, 246] },
-  bgSidebar: { css: 'bg-sidebar', dark: [18, 18, 19], light: [247, 247, 246] },
-  bgCanvas: { css: 'bg-canvas', dark: [18, 18, 19], light: [247, 247, 246] },
+  bg: { css: 'bg', dark: [18, 18, 19], light: [244, 244, 243] },
+  bgRoot: { css: 'bg-root', dark: [18, 18, 19], light: [244, 244, 243] },
+  bgSidebar: { css: 'bg-sidebar', dark: [18, 18, 19], light: [244, 244, 243] },
+  bgCanvas: { css: 'bg-canvas', dark: [18, 18, 19], light: [244, 244, 243] },
   bgSurface: { css: 'bg-surface', dark: [25, 25, 27], light: [255, 255, 255] },
-  bgElevated: { css: 'bg-elevated', dark: [30, 30, 33], light: [243, 243, 242] },
+  bgElevated: { css: 'bg-elevated', dark: [30, 30, 33], light: [252, 252, 251] },
   bgHover: { css: 'bg-hover', dark: [38, 38, 42], light: [238, 238, 236] },
   bgInput: { css: 'bg-input', dark: [30, 30, 33], light: [255, 255, 255] },
   border: { css: 'border', dark: [44, 44, 49], light: [232, 232, 229] },

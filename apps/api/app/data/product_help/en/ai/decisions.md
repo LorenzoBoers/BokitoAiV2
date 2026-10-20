@@ -2,7 +2,7 @@
 title: Approve and decline decisions
 intro: Agents ask inside the thread when a step For your judgment. Every open approval lives in Communication under Decisions.
 description: Approve, edit or decline decision cards in the thread, from the Decisions folder, Today, or a notification.
-keywords: decisions, approvals, decision requests, notifications, human in the loop, dismiss all, duplicate questions, approve all, always allow, never allow, action bundle
+keywords: decisions, approvals, decision requests, notifications, human in the loop, dismiss all, duplicate questions, approve all, always allow, never allow, action bundle, auto-review
 sort: 20
 related: communication,agent-runs,autonomy,govern
 ---
@@ -95,6 +95,14 @@ When an agent proposes handing coding work to Cursor, Claude Managed Agents or D
 Workspace [autonomy posture](/docs/govern/autonomy) sets the default. On [Govern](/docs/govern/govern) **Policy**, each tool category is **Deny**, **Ask first** or **Allow**. **Ask first** creates the card you see in the thread. Per-agent overrides on the agent page win over the category.
 
 Start with **Assisted**. Move steps you always approve toward **Allow**. Keep **Ask first** for the risky ones.
+
+## Read the auto-review verdict
+
+With [auto-review](/docs/govern/autonomy) on **Shadow** or **Enforce**, a card can show one line above **Technical**: **Auto-review: would allow**, **Auto-review: would deny** or **Auto-review: unsure, asks you**, followed by the reason.
+
+1. Read the line as a second opinion; you still decide.
+2. Approve or reject as usual. Your answer is compared with the verdict, and the agreement shows on the **Auto-review** card in Govern.
+3. On **Enforce**, routine actions auto-review was sure about run without a card, and actions it judged wrong stop before they reach you. Both appear in Govern **Recent audit**.
 
 ## What to do next
 

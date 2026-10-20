@@ -4,6 +4,8 @@ always / ask / never verdict per agent and tool. Plus the free-tag tools."""
 from __future__ import annotations
 
 import json
+import random
+import string
 from uuid import UUID, uuid4
 
 import pytest
@@ -24,6 +26,11 @@ async def _login(client: AsyncClient) -> dict[str, str]:
     res = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
     assert res.status_code == 200
     return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
+def _word() -> str:
+    """A label name the label policy accepts: letters only, no digits."""
+    return "".join(random.choices(string.ascii_lowercase, k=9))
 
 
 async def _tenant(session) -> Tenant:
@@ -82,7 +89,9 @@ def test_tag_tools_are_registered_and_gated():
 
 
 @pytest.mark.asyncio
-async def test_create_tag_and_set_thread_tags_create_missing(client: AsyncClient, session_override):
+async def test_create_tag_and_set_thread_tags_attach_existing_only(
+    client: AsyncClient, session_override
+):
     await _login(client)
     tenant = await _tenant(session_override)
     agent = await _agent(session_override, tenant)
@@ -91,23 +100,24 @@ async def test_create_tag_and_set_thread_tags_create_missing(client: AsyncClient
 
     from app.tools.builtin import _create_tag, _set_thread_tags, _update_tag
 
-    name = f"vip_{uuid4().hex[:6]}"
+    name = "".join(random.choices(string.ascii_lowercase, k=8))
     out = await _create_tag(ctx, {"name": f"#{name}", "description": "Belangrijke klant"})
     assert out["ok"] is True
     assert out["tag"]["name"] == name
     assert out["tag"]["is_category"] is False
 
-    renamed = await _update_tag(ctx, {"name": name, "new_name": f"{name}_2", "show_in_nav": True})
+    new_name = "".join(random.choices(string.ascii_lowercase, k=8))
+    renamed = await _update_tag(ctx, {"name": name, "new_name": new_name, "show_in_nav": True})
     assert renamed["ok"] is True
-    assert renamed["tag"]["name"] == f"{name}_2"
+    assert renamed["tag"]["name"] == new_name
     assert renamed["tag"]["show_in_nav"] is True
 
-    fresh = f"nieuw_{uuid4().hex[:6]}"
-    refused = await _set_thread_tags(ctx, {"tags": [fresh]})
+    fresh = "".join(random.choices(string.ascii_lowercase, k=8))
+    refused = await _set_thread_tags(ctx, {"tags": [fresh], "create_missing": True})
     assert "error" in refused
-    applied = await _set_thread_tags(ctx, {"tags": [fresh], "create_missing": True})
+    applied = await _set_thread_tags(ctx, {"tags": [new_name]})
     assert applied["ok"] is True
-    assert fresh in applied["tags"]
+    assert new_name in applied["tags"]
 
 
 @pytest.mark.asyncio
@@ -171,14 +181,73 @@ async def test_turn_decisions_share_bundle_and_attach_to_bubble(client: AsyncCli
 
 
 @pytest.mark.asyncio
+async def test_bundle_row_owns_its_item_not_the_bubble(client: AsyncClient, session_override):
+    """One list: each action row shows its object; the bubble does not repeat it."""
+    await _login(client)
+    tenant = await _tenant(session_override)
+    agent = await _agent(session_override, tenant)
+    signal = await _chat_signal(session_override, tenant, agent)
+    ctx = _turn_ctx(session_override, tenant, agent, signal)
+    from app.tools.builtin import _create_decision_request
+
+    made = await _create_decision_request(
+        ctx,
+        {
+            "title": "#vragen",
+            "items": [{"type": "tag", "name": "vragen", "planned": True, "subtitle": "bestaand"}],
+            "options": [
+                {"id": "approve", "label": "Toepassen", "action_type": "apply_label_plan", "payload": {"name": "vragen"}},
+                {"id": "reject", "label": "Nee", "action_type": "reject"},
+            ],
+        },
+    )
+    from app.services.agent.turn_persist import place_turn_decisions
+
+    bubble = SignalMessage(
+        tenant_id=tenant.id,
+        signal_id=signal.id,
+        role="assistant",
+        kind="chat",
+        body_text="Mijn voorstel.",
+        author_agent_id=agent.id,
+        metadata_json=json.dumps(
+            {
+                "items": [{"type": "tag", "name": "vragen", "title": "#vragen"}],
+                "activity": [{"result": {"decision_request_id": made["decision_request_id"]}}],
+            }
+        ),
+    )
+    session_override.add(bubble)
+    await session_override.flush()
+    await place_turn_decisions(session_override, signal, [bubble])
+    await session_override.commit()
+
+    meta = json.loads(bubble.metadata_json or "{}")
+    row = meta["proposal"]["bundle"][0]
+    assert [i.get("name") for i in row["items"]] == ["vragen"]
+    assert not meta.get("items")
+    assert not meta["proposal"].get("items")
+
+    from app.services.signal_threads import get_message
+
+    payload = await get_message(session_override, tenant.id, signal.id, bubble.id)
+    served = payload["payload"]["proposal"]["bundle"][0]
+    assert served["items"][0]["name"] == "vragen"
+    assert served["learn"]["tool"] == "apply_label_plan"
+
+
+@pytest.mark.asyncio
 async def test_resolve_bundle_approve_all(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
     agent = await _agent(session_override, tenant)
     signal = await _chat_signal(session_override, tenant, agent)
     ctx = _turn_ctx(session_override, tenant, agent, signal)
-    names = [f"a_{uuid4().hex[:5]}", f"b_{uuid4().hex[:5]}"]
-    decisions = [await _propose(ctx, "create_tag", {"name": n}) for n in names]
+    names = [_word(), _word()]
+    decisions = [
+        await _propose(ctx, "create_tag", {"name": n, "description": "Test label for bundles"})
+        for n in names
+    ]
     await session_override.commit()
 
     res = await client.post(
@@ -224,9 +293,10 @@ async def test_resolve_bundle_partial_and_failure_keeps_others(client: AsyncClie
     agent = await _agent(session_override, tenant)
     signal = await _chat_signal(session_override, tenant, agent)
     ctx = _turn_ctx(session_override, tenant, agent, signal)
-    good = await _propose(ctx, "create_tag", {"name": f"ok_{uuid4().hex[:5]}"})
+    about = "Test label for bundles"
+    good = await _propose(ctx, "create_tag", {"name": _word(), "description": about})
     broken = await _propose(ctx, "create_tag", {"name": ""})
-    skipped = await _propose(ctx, "create_tag", {"name": f"skip_{uuid4().hex[:5]}"})
+    skipped = await _propose(ctx, "create_tag", {"name": _word(), "description": about})
     await session_override.commit()
 
     res = await client.post(

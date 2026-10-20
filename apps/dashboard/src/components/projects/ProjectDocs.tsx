@@ -282,7 +282,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
               </Button>
             </div>
           ) : (
-            <Button type="button" size="sm" variant="outline" className="w-full" onClick={() => setCreating(true)}>
+            <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => setCreating(true)}>
               <Plus size={13} className="mr-1" />
               {t('projects.work.newDoc')}
             </Button>
@@ -357,7 +357,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                       </Button>
                     </div>
                   ) : (
-                    <Button type="button" size="sm" variant="outline" onClick={startEdit}>
+                    <Button type="button" size="sm" variant="secondary" onClick={startEdit}>
                       <Pencil size={13} className="mr-1" />
                       {t('projects.work.editDoc')}
                     </Button>

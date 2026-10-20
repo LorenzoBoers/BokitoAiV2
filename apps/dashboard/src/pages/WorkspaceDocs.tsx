@@ -11,6 +11,7 @@ import {
   FileText,
   Globe,
   Loader2,
+  Lock,
   Pencil,
   RefreshCw,
   Search,
@@ -22,6 +23,7 @@ import { ConversationRowsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Badge, badgeVariants } from '../components/ui/badge'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import MarkdownView from '../components/docs/MarkdownView'
@@ -36,11 +38,13 @@ import {
   createWorkspaceDoc,
   deleteWorkspaceDoc,
   getWorkspaceDoc,
+  listPlatformSkills,
   listWorkspaceDocsPage,
   publishWorkspaceDoc,
   searchWorkspace,
   updateWorkspaceDoc,
   uploadWorkspaceDocument,
+  type PlatformSkillRow,
   type WorkspaceDocKind,
   type WorkspaceDocRow,
   type WorkspaceSearchHit,
@@ -153,6 +157,7 @@ export default function WorkspaceDocs() {
   const [scopeAgentId, setScopeAgentId] = useState(searchParams.get('agent') ?? '')
   const [projects, setProjects] = useState<ProjectRow[]>([])
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
+  const [platformSkills, setPlatformSkills] = useState<PlatformSkillRow[]>([])
   const uploadInputRef = useRef<HTMLInputElement>(null)
   const knowledgeDirty = Boolean(editing && active && draft !== (active.content ?? ''))
   useUnsavedChangesGuard(knowledgeDirty && !saving, t('knowledgePage.unsavedLeave'))
@@ -212,6 +217,20 @@ export default function WorkspaceDocs() {
       }
     })()
   }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    listPlatformSkills(i18n.language.startsWith('nl') ? 'nl' : 'en')
+      .then((rows) => {
+        if (!cancelled) setPlatformSkills(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setPlatformSkills([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [i18n.language])
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams)
@@ -518,7 +537,7 @@ export default function WorkspaceDocs() {
   return (
     <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
       <AgentsSectionTabs className="mb-2 shrink-0" />
-      <div className="featurebase-shell-panel flex min-h-0 flex-1 overflow-hidden">
+      <div className="panel flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border/40">
           <div className="space-y-2.5 border-b border-border/40 px-3 pb-3 pt-3.5">
             <div className="flex items-center justify-between gap-2">
@@ -579,15 +598,18 @@ export default function WorkspaceDocs() {
             </div>
             {creating ? (
               <div className="flex items-center gap-1.5">
-                <select
-                  value={newKind}
-                  onChange={(event) => setNewKind(event.target.value === 'memory' ? 'memory' : 'doc')}
-                  aria-label={t('knowledgePage.kind', { defaultValue: 'Kind' })}
-                  className="h-8 rounded-md border border-border bg-bg px-2 text-xs"
-                >
-                  <option value="doc">{t('knowledgePage.kinds.doc', { defaultValue: 'Document' })}</option>
-                  <option value="memory">{t('knowledgePage.kinds.memory', { defaultValue: 'Memory' })}</option>
-                </select>
+                <Select value={newKind} onValueChange={(value) => setNewKind(value === 'memory' ? 'memory' : 'doc')}>
+                  <SelectTrigger
+                    className="h-8 w-auto min-w-[7rem] text-xs"
+                    aria-label={t('knowledgePage.kind', { defaultValue: 'Kind' })}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="doc">{t('knowledgePage.kinds.doc', { defaultValue: 'Document' })}</SelectItem>
+                    <SelectItem value="memory">{t('knowledgePage.kinds.memory', { defaultValue: 'Memory' })}</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Input
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
@@ -688,7 +710,7 @@ export default function WorkspaceDocs() {
                   className="h-8 pl-7 text-xs"
                 />
               </div>
-              <Button size="sm" variant="outline" className="h-8" onClick={() => void runSearch()}>
+              <Button size="sm" variant="secondary" className="h-8" onClick={() => void runSearch()}>
                 {t('knowledgePage.search')}
               </Button>
             </div>
@@ -777,6 +799,26 @@ export default function WorkspaceDocs() {
                   </div>
                 ))
             )}
+            {hits === null && !loading && scope === 'organization' && platformSkills.length > 0 ? (
+              <div className="mb-3">
+                <p
+                  className="flex items-center gap-1.5 px-2 pb-1 text-xs font-medium text-text-muted"
+                  title={t('knowledgePage.platformSkillsHelp')}
+                >
+                  {t('knowledgePage.platformSkills')}
+                </p>
+                {platformSkills.map((skill) => (
+                  <div
+                    key={skill.slug}
+                    title={skill.description}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-text-muted"
+                  >
+                    <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate-fade">{skill.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {hits === null && docsNext != null ? (
               <button
                 type="button"
@@ -905,7 +947,7 @@ export default function WorkspaceDocs() {
                     <>
                       {active.kind === 'doc' ? (
                         <Button
-                          variant={isPublished(active) ? 'secondary' : 'outline'}
+                          variant="secondary"
                           size="sm"
                           disabled={publishing}
                           onClick={() => void handlePublishToggle()}
@@ -924,7 +966,7 @@ export default function WorkspaceDocs() {
                         </Button>
                       ) : null}
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => {
                           setDraft(active.content ?? '')

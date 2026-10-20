@@ -50,5 +50,7 @@ export const workforceRoutes = {
       `/agents/${encodeURIComponent(agentId)}/scopes/${encodeURIComponent(kind)}`,
     rules: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules`,
     rulesTest: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules/test`,
+    definition: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/definition`,
   },
+  subagentCatalog: '/subagent-catalog',
 } as const

@@ -4,7 +4,7 @@ import {
   isOpaqueWidgetAddress,
   isPlaceholderContactAddress,
 } from '../../lib/contact-label'
-import { cn } from '../../lib/utils'
+import { AvatarDisc } from './AvatarDisc'
 
 type Props = {
   /** Contact display name; generic visitor labels are treated as unknown. */
@@ -41,36 +41,19 @@ export function PersonAvatar({ name, email, size = 28, className }: Props) {
         : ''
 
   const initials = nameKnown ? getInitials(rawName) : getEmailInitials(usableEmail)
-  const fontSize = Math.round(size * 0.36)
 
   if (!initials) {
     // Unknown person: quiet question-mark badge instead of a misleading icon.
     return (
-      <span
-        aria-hidden
-        style={{ width: size, height: size, fontSize }}
-        className={cn(
-          'inline-flex shrink-0 select-none items-center justify-center rounded-full',
-          'border border-border/60 bg-bg-hover font-semibold leading-none text-text-muted',
-          className,
-        )}
-      >
+      <AvatarDisc size={size} className={className}>
         ?
-      </span>
+      </AvatarDisc>
     )
   }
 
-  const { bg, text } = getAvatarColor(usableEmail || rawName)
   return (
-    <span
-      aria-hidden
-      style={{ width: size, height: size, background: bg, color: text, fontSize }}
-      className={cn(
-        'inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold leading-none',
-        className,
-      )}
-    >
+    <AvatarDisc size={size} colors={getAvatarColor(usableEmail || rawName)} className={className}>
       {initials}
-    </span>
+    </AvatarDisc>
   )
 }

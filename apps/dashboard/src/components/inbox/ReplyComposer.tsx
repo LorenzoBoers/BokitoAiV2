@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  AtSign,
   Check,
   ChevronDown,
   Plus,
@@ -12,6 +13,7 @@ import {
   Square,
   StickyNote,
   UserRound,
+  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
@@ -27,15 +29,8 @@ import { UserAvatar } from '../ui/UserAvatar'
 import { getContact, getContactThreadPage } from '../../lib/contacts-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { buildReplyDestinations, type ReplyDestination } from '../../lib/reply-destinations'
-import {
-  focusFromTargets,
-  focusLabelName,
-  focusToAvatarStack,
-  syncAgentMentionsInBody,
-  syncFocusMentionsInBody,
-  type ComposerFocusTarget,
-  type ComposerReplyFocus,
-} from '../../lib/composer-reply-focus'
+import { mentionedTargets, teamLabelNames } from '../../lib/composer-reply-focus'
+import type { AvatarStackMember } from '../ui/AvatarStack'
 import { useMembers } from '../../hooks/useMembers'
 import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDictation'
 import {
@@ -106,6 +101,8 @@ type Props = {
   routingPolicy?: ThreadRoutingPolicy | null
   /** Personal preference: email Send closes the conversation. */
   closeEmailOnSend?: boolean
+  /** True while the operator is typing (a few seconds after the last keystroke). */
+  onTypingChange?: (typing: boolean) => void
   /**
    * True when the policy is "ask" and the agent could take the next turn:
    * the send menu offers "hand back to agent" and "keep with me".
@@ -136,15 +133,9 @@ type Props = {
   onModeChange?: (mode: ComposerMode) => void
   /** Slash verbs (/assign, /ticket, …). Return true when handled. */
   onVerb?: (verb: import('../../lib/composer-verbs').ParsedComposerVerb) => Promise<boolean> | boolean
-  /** Active AI label for the Ask chip. */
+  /** Agent named in the hand-back choice of a customer reply. */
   agentModeName?: string | null
-  /** Agent face for the Ask chip when Reply is selected and focus targets are empty. */
-  askAgent?: AgentAvatarSource | null
-  /** Who Ask/Note is addressing (facepile + quick @ set). */
-  replyFocus?: ComposerReplyFocus | null
-  /** Manual overwrite of Ask/Note recipients from the tab chevron. */
-  onReplyFocusChange?: (focus: ComposerReplyFocus) => void
-  /** Ask tab click; raw body so parent can sync focus from chips. */
+  /** Team tab click. */
   onAskTabFocus?: (rawBody: string) => void
   /** Stable id (thread id) to persist unsent drafts across thread switches. */
   persistKey?: string | null
@@ -241,9 +232,6 @@ export default function ReplyComposer({
   onModeChange,
   onVerb,
   agentModeName,
-  askAgent = null,
-  replyFocus = null,
-  onReplyFocusChange,
   onAskTabFocus,
   persistKey,
   replyDisabledNotice,
@@ -262,6 +250,7 @@ export default function ReplyComposer({
   routingPolicy = null,
   handbackChoice = false,
   closeEmailOnSend = false,
+  onTypingChange,
 }: Props) {
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
@@ -607,6 +596,22 @@ export default function ReplyComposer({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- anchors are read from refs
   }, [persistKey, modeSlot])
 
+  const onTypingChangeRef = useRef(onTypingChange)
+  onTypingChangeRef.current = onTypingChange
+  const typingBodyRef = useRef(body)
+  useEffect(() => {
+    if (typingBodyRef.current === body) return
+    typingBodyRef.current = body
+    if (!body.trim()) {
+      onTypingChangeRef.current?.(false)
+      return
+    }
+    onTypingChangeRef.current?.(true)
+    const id = window.setTimeout(() => onTypingChangeRef.current?.(false), 2500)
+    return () => window.clearTimeout(id)
+  }, [body])
+  useEffect(() => () => onTypingChangeRef.current?.(false), [])
+
   // Collision guard: while a person types a customer reply the server keeps
   // an autonomous agent at drafting. Refresh the lock every 45s of typing
   // and release it when the text is gone or the thread changes.
@@ -742,103 +747,52 @@ export default function ReplyComposer({
 
   const showReplyTab = surface.modes.includes('reply')
   const showNoteTab = surface.modes.includes('note')
-  // Ask AI: first send starts the session (parent), not the chip click.
-  const focusStack = replyFocus ? focusToAvatarStack(replyFocus) : []
-  const askFace = (size: number) => {
-    if (focusStack.length > 1) {
-      return <AvatarStack members={focusStack} size={size} linkAgents={false} />
-    }
-    if (focusStack.length === 1 && focusStack[0].kind === 'agent') {
-      return <AgentMark agent={focusStack[0].agent} size={size} mode="static" decorative />
-    }
-    if (focusStack.length === 1 && focusStack[0].kind === 'user') {
-      return (
-        <UserAvatar
-          name={focusStack[0].name}
-          email={focusStack[0].email || focusStack[0].name}
-          avatarUrl={focusStack[0].avatarUrl}
-          size={size}
-        />
-      )
-    }
-    return (
-      <AgentMark
-        agent={askAgent}
-        size={size}
-        mode="static"
-        decorative
-        fallbackName={agentModeName || undefined}
-      />
-    )
-  }
-  const focusName = focusLabelName(
-    replyFocus ?? { kind: 'client', targets: [], primaryAgentId: null },
-    agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
-  )
-  const focusHasAgents =
-    replyFocus?.kind === 'agents' || replyFocus?.kind === 'mixed'
-  const focusHumansOnly = replyFocus?.kind === 'humans'
-  const noteTooltip = focusHumansOnly
-    ? t('composer.tabHintTo', {
-        defaultValue: 'Message a teammate in this conversation. The customer does not see it.',
-      })
-    : t('composer.tabHintNote')
+  // Nobody tagged: the message is for the whole team. The chips in the text
+  // name who it is for; the server decides who answers.
+  const tagged = useMemo(() => mentionedTargets(body), [body])
+  const chipNames = useMemo(() => tagged.map((target) => target.name), [tagged])
+  const tagFaces = useMemo<AvatarStackMember[]>(() => {
+    return tagged.flatMap((tag) => {
+      const item = mentionItems.find((row) => row.type === tag.type && row.id === tag.id)
+      const name = item?.name || tag.name
+      if (tag.type === 'agent') {
+        return [
+          {
+            key: `agent-${tag.id}`,
+            kind: 'agent' as const,
+            name,
+            id: tag.id,
+            agent: {
+              id: tag.id,
+              name,
+              avatar_kind: item?.avatarKind,
+              avatar_icon: item?.avatarIcon,
+              avatar_color: item?.avatarColor,
+              avatar_shape: item?.avatarShape,
+              avatar_image_url: item?.avatarImageUrl ?? item?.avatarUrl,
+            },
+          },
+        ]
+      }
+      if (tag.type === 'user') {
+        return [
+          {
+            key: `user-${tag.id}`,
+            kind: 'user' as const,
+            name,
+            email: item?.email || '',
+            avatarUrl: item?.avatarUrl,
+          },
+        ]
+      }
+      return []
+    })
+  }, [mentionItems, tagged])
+  const teamLabel = chipNames.length
+    ? t('composer.tabTeamTo', { names: teamLabelNames(chipNames) })
+    : t('composer.tabTeam')
+  const noteTooltip = t('composer.tabHintNote')
   const showAskTab = surface.modes.includes('ask') && Boolean(onAgentMessage)
-  const focusAgentChoices = useMemo(
-    () => mentionItems.filter((item) => item.type === 'agent'),
-    [mentionItems],
-  )
-  const focusPeopleChoices = useMemo(
-    () => mentionItems.filter((item) => item.type === 'user'),
-    [mentionItems],
-  )
-  const focusSelectedKeys = useMemo(
-    () => new Set((replyFocus?.targets ?? []).map((row) => `${row.type}:${row.id}`)),
-    [replyFocus?.targets],
-  )
-
-  const applyFocusTargets = (nextTargets: ComposerFocusTarget[]) => {
-    if (nextTargets.length === 0) {
-      toast.message(t('composer.pickFocusKeepOne'))
-      return
-    }
-    const next = focusFromTargets(nextTargets)
-    onReplyFocusChange?.(next)
-    setBody((prev) => syncFocusMentionsInBody(prev, next))
-    setMode(next.kind === 'humans' ? 'note' : 'ask')
-  }
-
-  const toggleFocusChoice = (item: MentionItem) => {
-    if (item.type !== 'agent' && item.type !== 'user') return
-    const key = `${item.type}:${item.id}`
-    const current = replyFocus?.targets ?? []
-    const exists = current.some((row) => `${row.type}:${row.id}` === key)
-    if (exists) {
-      applyFocusTargets(current.filter((row) => `${row.type}:${row.id}` !== key))
-      return
-    }
-    const added: ComposerFocusTarget = {
-      type: item.type,
-      id: item.id,
-      name: item.name,
-      email: item.email,
-      avatarUrl: item.avatarUrl,
-      agent:
-        item.type === 'agent'
-          ? {
-              id: item.id,
-              name: item.name,
-              agentId: item.id,
-              agentAvatarKind: item.avatarKind,
-              agentAvatarIcon: item.avatarIcon,
-              agentAvatarColor: item.avatarColor,
-              agentAvatarShape: item.avatarShape,
-              agentAvatarImageUrl: item.avatarImageUrl,
-            }
-          : undefined,
-    }
-    applyFocusTargets([...current, added])
-  }
 
   const showCustomerActions =
     showReplyTab && surface.channel !== 'internal' && surface.channel !== 'assistant'
@@ -850,22 +804,32 @@ export default function ReplyComposer({
     Boolean(body.trim() || dictationInterim.trim()) || attachments.length > 0
   const threadIdForAi = persistKey?.trim() || null
   const showWriteAssist = isReply && !replyBlocked && Boolean(threadIdForAi)
-  const [focusHoverIndex, setFocusHoverIndex] = useState<number | undefined>(undefined)
-  const focusPickerSections = useMemo(() => {
+  const [tagHoverIndex, setTagHoverIndex] = useState<number | undefined>(undefined)
+  const tagSections = useMemo(() => {
     const sections: { title: string; items: MentionItem[] }[] = []
-    if (focusAgentChoices.length > 0) {
-      sections.push({ title: t('composer.pickFocusAgents'), items: focusAgentChoices })
-    }
-    if (focusPeopleChoices.length > 0) {
-      sections.push({ title: t('composer.pickFocusPeople'), items: focusPeopleChoices })
-    }
+    const agentsToTag = mentionItems.filter((item) => item.type === 'agent')
+    const peopleToTag = mentionItems.filter((item) => item.type === 'user')
+    if (agentsToTag.length > 0) sections.push({ title: t('composer.pickFocusAgents'), items: agentsToTag })
+    if (peopleToTag.length > 0) sections.push({ title: t('composer.pickFocusPeople'), items: peopleToTag })
     return sections
-  }, [focusAgentChoices, focusPeopleChoices, t])
-  const focusPickerMenu =
-    onReplyFocusChange && focusPickerSections.length > 0 ? (
+  }, [mentionItems, t])
+  const insertTag = (item: MentionItem) => {
+    if (item.disabled) return
+    const caret = textareaRef.current?.selectionStart ?? displayBody.length
+    const applied = applyMentionAtDisplay(body, caret, { start: caret, query: '' }, item)
+    setBody(applied.raw)
+    pendingCaretRef.current = applied.displayCaret
+    untouchedPrefillRef.current = null
+    writeStoredDraft(persistKey, serializeComposerDraft(storedDraftOf({ body: applied.raw, cc, bcc })))
+    if (mode === 'reply') setMode(item.type === 'agent' ? 'ask' : 'note')
+    onMentionInserted?.(item, applied.raw)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+  const tagMenu =
+    tagSections.length > 0 ? (
       <DropdownMenu
         onOpenChange={(open) => {
-          if (!open) setFocusHoverIndex(undefined)
+          if (!open) setTagHoverIndex(undefined)
         }}
       >
         <DropdownMenuTrigger asChild>
@@ -876,13 +840,13 @@ export default function ReplyComposer({
             onClick={(event) => event.stopPropagation()}
             className={cn(
               'inline-flex items-center justify-center self-stretch border-l px-1.5 leading-none transition-colors',
-              isAsk || (isNote && focusHumansOnly)
+              isAsk
                 ? 'border-border/50 text-inherit hover:bg-bg-muted/50'
                 : 'border-transparent text-inherit opacity-70 hover:bg-bg-hover/80 hover:opacity-100',
             )}
-            data-testid="composer-focus-chevron"
+            data-testid="composer-tag-button"
           >
-            <ChevronDown size={11} className="shrink-0 opacity-70" aria-hidden />
+            <AtSign size={12} className="shrink-0 opacity-80" aria-hidden />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -891,11 +855,10 @@ export default function ReplyComposer({
           onCloseAutoFocus={(event) => event.preventDefault()}
         >
           <MentionsPickerPanel
-            sections={focusPickerSections}
-            activeIndex={focusHoverIndex}
-            selectedKeys={focusSelectedKeys}
-            onSelect={toggleFocusChoice}
-            onHover={setFocusHoverIndex}
+            sections={tagSections}
+            activeIndex={tagHoverIndex}
+            onSelect={insertTag}
+            onHover={setTagHoverIndex}
           />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -938,15 +901,8 @@ export default function ReplyComposer({
     const payload = attachments.length ? attachments : undefined
     try {
       if (isAsk) {
-        // Teammates share this tab with agents. A person gets a chat bubble;
-        // an agent gets a turn. A note is only the Note button.
-        if (focusHumansOnly) {
-          await onNote(text, payload, { asChat: true })
-          clearDraft()
-          setAttachments([])
-          requestAnimationFrame(() => textareaRef.current?.focus())
-          return
-        }
+        // One path for the team tab; the server reads the chips and decides
+        // whether an agent, a colleague or the team picks it up.
         if (!onAgentMessage) return
         // Clear immediately so Enter cannot triple-submit the same body.
         clearDraft()
@@ -963,7 +919,6 @@ export default function ReplyComposer({
         requestAnimationFrame(() => textareaRef.current?.focus())
         return
       } else if (isNote) {
-        // @teammate focus posts a real chat bubble; bare Note tab stays a note.
         await onNote(text, payload)
         clearDraft()
         setAttachments([])
@@ -1215,36 +1170,29 @@ export default function ReplyComposer({
             <div
               className={cn(
                 'inline-flex h-8 max-h-8 min-h-8 items-center overflow-hidden rounded-md text-xs leading-none transition-colors',
-                focusHumansOnly
-                  ? isAsk
-                    ? 'bg-bg-hover font-medium text-text-heading'
-                    : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'
-                  : isAsk
-                    ? 'bg-bg-hover font-medium text-ai-ink'
-                    : 'text-ai-ink/80 hover:bg-ai/10 hover:text-ai-ink',
+                isAsk
+                  ? 'bg-bg-hover font-medium text-text-heading'
+                  : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
               )}
             >
               <button
                 type="button"
                 onClick={() => {
-                  let nextBody = body
-                  const hasAgentChip = /@\[[^\]]+\]\(agent:[^)]+\)/.test(body)
-                  if (!hasAgentChip && replyFocus && replyFocus.targets.length > 0) {
-                    nextBody = syncAgentMentionsInBody(body, replyFocus)
-                    setBody(nextBody)
-                  }
-                  onAskTabFocus?.(nextBody)
+                  onAskTabFocus?.(body)
                   setMode('ask')
                 }}
                 title={askTooltip}
                 className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
+                data-testid="composer-team-tab"
               >
-                {askFace(14)}
-                {focusHumansOnly
-                  ? t('composer.tabTo', { name: focusName, defaultValue: 'To {{name}}' })
-                  : t('composer.tabAsk', { name: focusName })}
+                {tagFaces.length > 0 ? (
+                  <AvatarStack members={tagFaces} size={16} linkAgents={false} className="shrink-0" />
+                ) : (
+                  <Users size={12} className="shrink-0" aria-hidden />
+                )}
+                {teamLabel}
               </button>
-              {focusPickerMenu}
+              {tagMenu}
             </div>
           ) : null}
           {showNoteTab ? (
@@ -1422,13 +1370,7 @@ export default function ReplyComposer({
           ref={textareaRef}
           id="inbox-reply-composer"
           mode={isNote || isAsk ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
-              tone={
-                isAsk && focusHasAgents
-                  ? 'ai'
-                  : isNote && !focusHumansOnly
-                    ? 'note'
-                    : 'default'
-              }
+              tone={isAsk ? 'ai' : isNote ? 'note' : 'default'}
           value={composerValue}
           readOnly={dictation.listening}
           onChange={(e) => {
@@ -1484,15 +1426,8 @@ export default function ReplyComposer({
           placeholder={
             dictation.listening
               ? t('composer.dictationListening')
-              : isAsk && focusHumansOnly
-                ? t('composer.teamMessagePlaceholder', {
-                    name: focusName,
-                    defaultValue: 'Message {{name}}...',
-                  })
-                : isAsk
-                ? t('composer.askPlaceholder', {
-                    name: agentModeName || t('aiChat.title', { defaultValue: 'AI' }),
-                  })
+              : isAsk
+                ? t('composer.teamPlaceholder')
                   : isNote
                     ? t('composer.notePlaceholder')
                     : t(surface.replyPlaceholderKey, {
@@ -1500,7 +1435,7 @@ export default function ReplyComposer({
                         defaultValue: surface.replyPlaceholder,
                       })
           }
-          className={isAsk || (isNote && !focusHumansOnly) ? undefined : 'bg-bg-surface'}
+          className={isAsk || isNote ? undefined : 'bg-bg-surface'}
           header={
             attachments.length || uploading ? (
               <MessageAttachments
@@ -1568,19 +1503,6 @@ export default function ReplyComposer({
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
-            {(isAsk || isNote) && focusHumansOnly && threadIdForAi ? (
-              <ComposerWriteAssist
-                threadId={threadIdForAi}
-                body={body}
-                disabled={saving || disabled || busy}
-                onApply={(text, meta) => {
-                  untouchedPrefillRef.current = null
-                  setBody(text)
-                  if (meta?.fromAi) flashAiDraft()
-                  requestAnimationFrame(() => textareaRef.current?.focus())
-                }}
-              />
-            ) : null}
             <ComposerDictationRow
               supported={dictation.supported}
               listening={dictation.listening}
@@ -1593,11 +1515,7 @@ export default function ReplyComposer({
             <div
               className={cn(
                 'flex h-8 items-stretch overflow-hidden rounded-lg border',
-                isAsk && !focusHumansOnly
-                  ? 'border-ai'
-                  : focusHumansOnly || isReply
-                    ? 'border-border'
-                    : 'border-text-muted',
+                isAsk ? 'border-ai' : isReply ? 'border-border' : 'border-text-muted',
               )}
             >
             <button
@@ -1608,13 +1526,8 @@ export default function ReplyComposer({
               }
               data-testid="composer-send"
               title={
-                isAsk && focusHumansOnly
-                  ? t('composer.sendTo', {
-                      name: focusName,
-                      defaultValue: 'Send to {{name}}',
-                    })
-                  : isAsk
-                  ? t('composer.sendAsk', { name: focusName })
+                isAsk
+                  ? t('composer.sendTeam')
                     : isNote
                       ? t('composer.sendIntern')
                       : closesByPolicy
@@ -1625,25 +1538,14 @@ export default function ReplyComposer({
               }
               className={cn(
                 'flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40',
-                isAsk && !focusHumansOnly
+                isAsk
                   ? 'bg-ai text-ai-fg hover:opacity-90'
-                  : focusHumansOnly
-                    ? 'bg-bg-elevated text-text-heading hover:bg-bg-hover'
-                    : isReply
+                  : isReply
                       ? 'bg-accent text-accent-fg hover:bg-accent-hover'
                       : 'bg-bg-elevated text-text-primary hover:bg-bg-hover',
               )}
             >
-              {isAsk ? (
-                askFace(16)
-              ) : isNote && focusHumansOnly && focusStack.length === 1 && focusStack[0].kind === 'user' ? (
-                <UserAvatar
-                  name={focusStack[0].name}
-                  email={focusStack[0].email || focusStack[0].name}
-                  avatarUrl={focusStack[0].avatarUrl}
-                  size={16}
-                />
-              ) : isNote && !focusHumansOnly ? (
+              {isNote ? (
                 <StickyNote size={13} />
               ) : (
                 <Send size={13} />

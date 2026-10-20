@@ -79,7 +79,6 @@ export function sessionChatToInboxMessage(
     activityDetail: true,
     hasActivity: activity.hasActivity,
     turnId: activity.turnId ?? message.turn_id ?? null,
-    inProgress: activity.inProgress || message.in_progress === true,
     receivedAt: createdAt,
     createdAt,
   }

@@ -59,9 +59,9 @@
   },
   "landing": {
     "title": "Start page",
-    "description": "Choose where Bokito opens after you sign in. Messages is the default.",
-    "chat": "Messages",
-    "communication": "Messages",
+    "description": "Choose where Bokito opens after you sign in. Inbox is the default.",
+    "chat": "Inbox",
+    "communication": "Inbox",
     "overview": "Today",
     "saveError": "Could not save your start page."
   },

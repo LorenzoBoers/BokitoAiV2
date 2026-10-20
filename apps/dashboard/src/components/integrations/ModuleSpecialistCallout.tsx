@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom'
 import { useTranslation, type TFunction } from 'react-i18next'
 import { Check } from 'lucide-react'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
-import { AiAvatar } from '../ui/AiAvatar'
-import { agentProfileAccentColor, toAiAvatarProps } from '../../lib/agent-avatar'
+import { AgentMark } from '../ui/AgentMark'
+import { AgentGlow } from '../ui/agent-glow'
+import { agentProfileAccentColor } from '../../lib/agent-avatar'
 import type { IntegrationModuleRow } from '../../lib/integrations-api'
 import { cn } from '../../lib/utils'
 
@@ -92,13 +93,9 @@ export function ModuleSpecialistCallout({
   const portrait = (
     <div className="flex min-w-0 items-center justify-center gap-4">
       <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
-        <span
-          aria-hidden
-          className="specialist-glow pointer-events-none absolute inset-[-22%] rounded-full blur-2xl"
-          style={{ backgroundColor: titleColor }}
-        />
-        <AiAvatar
-          {...toAiAvatarProps(avatar)}
+        <AgentGlow color={titleColor} />
+        <AgentMark
+          agent={avatar}
           size={120}
           mode="live"
           decorative

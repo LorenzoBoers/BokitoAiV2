@@ -151,7 +151,8 @@ async def test_persist_suggest_skips_when_channel_cannot_send(client: AsyncClien
         )
     ).scalars().all()
     assert len(notes) == 1
-    assert "cannot send" in (notes[0].body_text or "").lower()
+    body = (notes[0].body_text or "").lower()
+    assert "versturen" in body or "cannot send" in body
 
     events = (
         await session_override.execute(

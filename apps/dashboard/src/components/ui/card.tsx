@@ -50,7 +50,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
-      className={cn('min-w-0 truncate text-sm font-semibold text-text-heading', className)}
+      className={cn('title-section min-w-0 truncate', className)}
       {...props}
     />
   ),

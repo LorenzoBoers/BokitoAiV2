@@ -21,7 +21,7 @@ const SidePanelContent = React.forwardRef<
   const { t } = useTranslation('common')
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
+      <DialogPrimitive.Overlay className="scrim fixed inset-0 z-50 data-[state=open]:animate-fade-in" />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
@@ -59,7 +59,7 @@ const SidePanelTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-base font-semibold leading-tight text-text-heading', className)}
+    className={cn('title-dialog leading-tight', className)}
     {...props}
   />
 ))

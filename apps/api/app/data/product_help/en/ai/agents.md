@@ -2,7 +2,7 @@
 title: How Agents works
 intro: The library of AI workers. Communication is where they talk; this page is where you hire and brief them.
 description: Brief company agents, set chat access, deactivate them, add a signature, and set name, job title, description or bot look.
-keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, bot, color, default agent, ceiling, rules, try out, ask questions to
+keywords: agents, ai workforce, deactivate, reactivate, chat access, signature, avatar, bot, color, default agent, ceiling, rules, try out, ask questions to, definition, capability, subagent
 sort: 10
 related: govern,knowledge,communication,agenda
 ---
@@ -48,6 +48,25 @@ New conversations in Communication require a **company agent**. If none are avai
 
 Sending to customers always asks, whatever the rules say. Agents can propose a rule themselves; it arrives as a card to confirm in the conversation.
 
+## Set what the agent may touch
+
+The **Definition** card limits an agent further than its tool list, and decides how a turn must end.
+
+1. Open the agent, choose the gear, and find **Definition**.
+2. Set **Capability**: **All tools**, **No consequential tools** (never sends to customers or makes other consequential changes) or **Read only**.
+3. Set **Prompt**: **Add to Bokito's prompt** keeps Bokito's working rules and adds the instructions; **Own prompt only** uses the instructions alone.
+4. Fill in **Blocked tools** (blocked even when the tool list includes them), **Skills** (workspace doc paths the agent reads when they apply), **Must end with** (the agent is reminded until it calls one of these tools, at most 8 times per turn) and **MCP servers**.
+5. Choose **Save**. Agents that answer customer mail always end a turn with a draft reply, a no-reply note, a decision or a sent reply.
+
+## Let an agent hand off a subtask
+
+An agent can start a subagent for a side task, such as research, while it keeps working.
+
+1. Ask the agent in a conversation to look something up or check something on the side.
+2. The thread shows one row **Subagent {agent}: {task}** with its status: **Queued**, **Running**, **Done**, **Failed** or **Stopped**.
+3. Choose the row to read the result. The subagent never writes in the conversation itself; the agent that started it uses the result in its own reply.
+4. At most 32 subagents run at the same time per workspace, and a subagent cannot start another one.
+
 ## Choose who the agent asks
 
 1. Open the agent and find **Ask questions to**.
@@ -56,10 +75,10 @@ Sending to customers always asks, whatever the rules say. Agents can propose a r
 
 ## Bring another agent into a conversation
 
-1. In **Communication**, open a conversation. Mention an agent with `@` in a note or message (same chip style as people), or use **Bring in an agent** for a quiet Ask session.
+1. In **Communication**, open a conversation. On **Team**, type `@` or choose the **@** button next to it and pick an agent (same chip style as people), or use **Bring in an agent** for a quiet session. Without a tag the message is for the whole team and the agent that spoke last answers, unless another participant clearly fits better.
 2. `@` joins them as a participant and gives them a turn (same model as the website widget and peer chats). Name two agents, or write "both", and they answer one after the other in the order you named them. Avatars under the subject show who is in the thread; **Waiting on …** shows who is next.
-3. Agents ask each other a question or hand the conversation over themselves; the activity line shows **Asked {name}** or **Handed over to {name}**, and the answer appears in the thread. After a few agent turns without you they stop with one line that gives the turn back to you. A new message from you replaces turns that were still waiting, and **Stop** ends the running turn and everything queued.
-4. Leads invite module specialists (Connections → Hire / Install) instead of doing module or hashtag work themselves. Peer chats use **start conversation** and look like any other internal thread.
+3. Agents ask each other a question or hand the conversation over themselves. An agent bubble that starts with another agent's chip is a question to that agent; a name inside a sentence is only a link. The activity line shows **Asked {name}** or **Handed over to {name}**, and the answer appears in the thread. After a few agent turns without you they stop with one line that gives the turn back to you. A new message from you replaces turns that were still waiting, and **Stop** ends the running turn and everything queued.
+4. Leads invite module specialists (Connections → Hire / Install) instead of doing module or hashtag work themselves. Peer chats use **start conversation** and look like any other internal thread; side tasks use a subagent (see below).
 
 ## Hire a module specialist
 
@@ -94,8 +113,8 @@ Some agents belong to a module (for example a hired Accounting specialist, or a 
 
 1. Open a company agent.
 2. Hover the **name**: it becomes a pill with a pencil. A click opens the same dialog as the pencil on the agent mark (or **Edit** from the ··· menu).
-3. Change the **name**, fill in the required **Job title** (max 32 characters; shown under the name in the mark color), optionally add a longer **Description**, then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. Instructions live in the gear; they are not this description.
-4. Under **Preview motion**, try **Idle**, **Thinking**, **Typing**, **Working**, and short reactions (**Yes**, **No**, **Alert**, **Jump**). In live chats the face follows the turn: thinking while it reasons, typing while text streams, working while tools run; approving or rejecting a decision plays a short yes/no reaction.
+3. Change the **name**, fill in the required **Job title** (max 32 characters; shown under the name in the mark color), optionally add a longer **Description**, then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. The Claude and Cursor bodies keep their original colors, so the color picker is hidden for them. Instructions live in the gear; they are not this description.
+4. Under **Preview motion**, try the moods (**Idle**, **Listening**, **Thinking**, **Typing**, **Working**, **Searching**, **Writing**, **Sending**, **Sleeping**) and the short reactions (**Yes**, **No**, **Alert**, **Jump**, **Done**, **Leave**). In live chats the face follows the turn: it listens while you type, thinks while it reasons, searches while it looks things up, writes while it prepares a proposal, sends while it hands work to a colleague, and types while text streams. When the turn ends it shows done, leaves after a handoff, or shows an alert after an error. Busy moods and reactions glow in the mood color. While idle the face looks at your cursor and leans a little toward it.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.
 

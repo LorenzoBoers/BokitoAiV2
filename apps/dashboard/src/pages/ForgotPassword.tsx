@@ -1,10 +1,13 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestPasswordReset } from '../lib/api';
 import { ValidatedInput, useFormValidation } from '../components/ui/form-validation';
+import { AuthShell } from '../components/auth/AuthShell';
+import { Button } from '../components/ui/button';
+import { TextLink } from '../components/ui/text-link';
 
 export default function ForgotPassword() {
   const { t } = useTranslation('nav');
@@ -45,28 +48,9 @@ export default function ForgotPassword() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-        {/* Background glow */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-        </div>
-
-        <div className="relative w-full max-w-sm">
-          {/* Logo */}
-          <div className="flex flex-col items-center mb-8">
-            <img
-              src="/bokito-logo.png"
-              alt="Bokito.ai"
-              className="w-12 h-12 mb-3"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-            <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          </div>
-
-          {/* Success Card */}
-          <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter text-center">
+      <AuthShell cardClassName="text-center">
             <CheckCircle className="w-16 h-16 text-status-success mx-auto mb-4" />
-            <h1 className="text-xl font-semibold text-text-heading mb-2">
+            <h1 className="title-page mb-2">
               {t('forgotPage.sentTitle')}
             </h1>
             <p className="text-text-secondary mb-6">
@@ -79,9 +63,9 @@ export default function ForgotPassword() {
                 <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
                   {devLink}
                 </Link>
-                <button
+                <TextLink
                   type="button"
-                  className="mt-2 text-xs font-medium text-accent hover:underline"
+                  className="mt-2 text-xs"
                   onClick={() => {
                     void navigator.clipboard.writeText(devLink).then(
                       () => toast.success(t('forgotPage.copied')),
@@ -90,7 +74,7 @@ export default function ForgotPassword() {
                   }}
                 >
                   {t('forgotPage.copyLink')}
-                </button>
+                </TextLink>
               </div>
             ) : null}
             <button
@@ -110,41 +94,15 @@ export default function ForgotPassword() {
               <ArrowLeft className="w-4 h-4" />
               {t('loginPage.backToSignIn')}
             </Link>
-          </div>
-
-          <p className="text-center text-xs text-text-muted mt-6">
-            © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-          </p>
-        </div>
-      </div>
+    </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src="/bokito-logo.png"
-            alt="Bokito.ai"
-            className="w-12 h-12 mb-3"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">{t('forgotPage.subtitle')}</span>
-        </div>
-
-        {/* Card */}
-        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
+    <AuthShell subtitle={t('forgotPage.subtitle')}>
           <div className="text-center mb-6">
             <Mail className="w-12 h-12 text-accent mx-auto mb-3" />
-            <h1 className="text-xl font-semibold text-text-heading mb-2">
+            <h1 className="title-page mb-2">
               {t('forgotPage.title')}
             </h1>
             <p className="text-sm text-text-secondary">
@@ -164,13 +122,13 @@ export default function ForgotPassword() {
               autoFocus
             />
 
-            <button
+            <Button size="lg"
               type="submit"
               disabled={isLoading || !validation.isValid}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full"
             >
               {isLoading ? t('forgotPage.sending') : t('forgotPage.sendLink')}
-            </button>
+            </Button>
           </form>
 
           <div className="mt-6 text-center">
@@ -182,12 +140,6 @@ export default function ForgotPassword() {
               {t('loginPage.backToSignIn')}
             </Link>
           </div>
-        </div>
-
-        <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-        </p>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

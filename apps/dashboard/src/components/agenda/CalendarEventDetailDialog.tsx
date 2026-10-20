@@ -159,16 +159,16 @@ export default function CalendarEventDetailDialog({
           {error ? <p className="text-xs text-status-error">{error}</p> : null}
         </div>
         <DialogFooter className="flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('agendaPage.cancel', { defaultValue: 'Close' })}
           </Button>
-          <Button type="button" variant="outline" onClick={() => void openThread()} disabled={busy}>
+          <Button type="button" variant="secondary" onClick={() => void openThread()} disabled={busy}>
             <MessageSquare className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {t('agendaPage.calendar.openThread')}
           </Button>
           {item.can_edit !== false ? (
             <>
-              <Button type="button" variant="outline" onClick={edit} disabled={busy}>
+              <Button type="button" variant="secondary" onClick={edit} disabled={busy}>
                 {t('agendaPage.calendar.edit')}
               </Button>
               <Button type="button" variant="destructive" onClick={() => void remove()} disabled={busy}>

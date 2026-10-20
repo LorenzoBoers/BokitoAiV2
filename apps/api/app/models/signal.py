@@ -107,6 +107,9 @@ class Signal(SQLModel, table=True):
     # value and writes its next run here; without one the scheduler clears it
     # once the moment passed.
     next_at: Optional[datetime] = Field(default=None, index=True)
+    # Snoozed (status "snoozed"): out of the open lists until this moment or a
+    # new inbound message.
+    hidden_until: Optional[datetime] = Field(default=None, index=True)
     # Appointments only: when the moment ends.
     ends_at: Optional[datetime] = Field(default=None)
     # Appointment details: {"note", "location", "attendees", "html_link", "all_day"}.

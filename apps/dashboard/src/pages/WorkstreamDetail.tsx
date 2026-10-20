@@ -11,7 +11,7 @@ import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { Button } from '../components/ui/button'
 import { Switch } from '../components/ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import ConfirmDeleteDialog from '../components/ui/ConfirmDeleteDialog'
+import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { FlowHeaderSkeleton } from '../components/ui/skeleton'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { NameEdit } from '../components/ui/NameEdit'
@@ -435,12 +435,13 @@ export default function WorkstreamDetail() {
           ) : null}
 
           {deleteOpen ? (
-            <ConfirmDeleteDialog
+            <ConfirmDialog
+              open
+              destructive
               title={t('workstreamsPage.deleteTitle')}
-              itemLabel={t('workstreamsPage.deleteItem')}
-              itemName={actionTag ? `#${actionTag}` : titleName}
-              impactText={t('workstreamsPage.deleteImpact')}
-              isDeleting={deleting}
+              typeToConfirm={actionTag ? `#${actionTag}` : titleName}
+              description={t('workstreamsPage.deleteImpact')}
+              busy={deleting}
               onCancel={() => setDeleteOpen(false)}
               onConfirm={() => void confirmDelete()}
             />

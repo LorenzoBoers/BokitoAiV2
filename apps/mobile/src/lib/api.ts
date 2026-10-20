@@ -286,9 +286,11 @@ export const getThread = (id: string) => apiGet<ThreadDetail>(`/api/signals/${id
 export const patchThread = (id: string, patch: PatchThreadInput) =>
   apiPatch<Thread>(`/api/signals/${id}`, patch)
 
-/** Give a thread a date (it comes back unread then), or clear it with null. */
+/** Snooze a thread until a date (it sits under Scheduled, then comes back unread), or clear it with null. */
 export const setThreadDate = (id: string, at: string | null) =>
-  at ? apiPut<Thread>(`/api/signals/${id}/schedule`, { at }) : apiDelete<Thread>(`/api/signals/${id}/schedule`)
+  at
+    ? apiPut<Thread>(`/api/signals/${id}/schedule`, { at, hide: true })
+    : apiDelete<Thread>(`/api/signals/${id}/schedule`)
 
 export const markThreadRead = (id: string) => apiPatch<Thread>(`/api/signals/${id}/mark-read`)
 

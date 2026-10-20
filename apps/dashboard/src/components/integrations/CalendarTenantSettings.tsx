@@ -16,6 +16,7 @@ import {
   setCalendarTags,
   type TenantCalendar,
 } from '../../lib/calendars-api'
+import { TextLink } from '../ui/text-link'
 
 const LEVELS = ['use', 'manage'] as const
 
@@ -89,13 +90,13 @@ export function CalendarTenantSettings({
                 </span>
               ) : null}
               {cal.can_manage ? (
-                <button
+                <TextLink
                   type="button"
-                  className="text-xs font-medium text-accent hover:underline"
+                  className="text-xs"
                   onClick={() => setOpenId((id) => (id === cal.id ? null : cal.id))}
                 >
                   {openId === cal.id ? t('actions.close') : t('tenant.configure')}
-                </button>
+                </TextLink>
               ) : null}
             </div>
             {openId === cal.id && cal.can_manage ? (
@@ -173,14 +174,14 @@ function CalendarDetailEditor({
             className="h-8 max-w-sm text-xs"
             disabled={busy}
           />
-          <button
+          <TextLink
             type="button"
-            className="text-xs font-medium text-accent hover:underline disabled:opacity-50"
+            className="text-xs"
             disabled={busy}
             onClick={() => void saveTags()}
           >
             {t('tenant.saveTags')}
-          </button>
+          </TextLink>
         </div>
       </div>
       <div className="space-y-1.5">

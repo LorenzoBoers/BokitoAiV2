@@ -73,6 +73,8 @@ class DecisionRequest(SQLModel, table=True):
     # Cards raised in the same agent turn share a bundle (turn stream id, else
     # run id) and render as one card with approve-all / pick-some.
     bundle_id: str = Field(default="", index=True)
+    # Auto-review verdict: {"mode", "decision", "reason", "confidence"}; "{}" = none.
+    auto_review_json: str = Field(default="{}")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     resolved_at: Optional[datetime] = None
     resolved_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)

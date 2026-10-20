@@ -39,6 +39,7 @@ import { humanizeModelId } from '../lib/model-label'
 import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
+import { Input } from '../components/ui/input'
 
 const CHART_HEIGHT = 168
 
@@ -442,7 +443,7 @@ export default function UsagePage() {
                 <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
                   <label className="flex flex-col gap-1 text-xs text-text-muted">
                     {t('usagePage.dailyCap')}
-                    <input
+                    <Input
                       value={capDraft.tokens}
                       onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
                       onKeyDown={(e) => {
@@ -453,12 +454,12 @@ export default function UsagePage() {
                       }}
                       placeholder={t('usagePage.noCap')}
                       inputMode="numeric"
-                      className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                      className="h-8 w-36"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-text-muted">
                     {t('usagePage.monthlyCap')}
-                    <input
+                    <Input
                       value={capDraft.usd}
                       onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
                       onKeyDown={(e) => {
@@ -469,7 +470,7 @@ export default function UsagePage() {
                       }}
                       placeholder={t('usagePage.noCap')}
                       inputMode="decimal"
-                      className="w-36 rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+                      className="h-8 w-36"
                     />
                   </label>
                   <div className="flex items-center gap-2">

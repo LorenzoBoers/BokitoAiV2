@@ -2,7 +2,7 @@
 title: Beslissingen goedkeuren en afwijzen
 intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring staat in Communicatie onder Beslissingen.
 description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Vandaag of een notificatie.
-keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop, alles afwijzen, dubbele vragen, alles goedkeuren, altijd toestaan, niet toestaan, actiebundel
+keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop, alles afwijzen, dubbele vragen, alles goedkeuren, altijd toestaan, niet toestaan, actiebundel, auto-review
 sort: 20
 related: communication,agent-runs,autonomy,govern
 ---
@@ -95,6 +95,14 @@ Wanneer een agent voorstelt codingwerk aan Cursor, Claude Managed Agents of Devi
 De workspace-[autonomiehouding](/docs/govern/autonomy) zet de standaard. Op [Govern](/docs/govern/govern) **Beleid** is elke toolcategorie **Weigeren**, **Eerst vragen** of **Toestaan**. **Eerst vragen** maakt de kaart die je in het gesprek ziet. Overrides per agent op de agentpagina winnen van de categorie.
 
 Begin met **Assisted**. Verplaats stappen die je altijd goedkeurt naar **Toestaan**. Houd **Eerst vragen** voor de risicovolle.
+
+## Lees het oordeel van auto-review
+
+Met [auto-review](/docs/govern/autonomy) op **Meekijken** of **Afdwingen** kan een kaart boven **Technisch** één regel tonen: **Auto-review: zou toestaan**, **Auto-review: zou weigeren** of **Auto-review: twijfelt, vraagt jou**, gevolgd door de reden.
+
+1. Lees de regel als een tweede mening; jij beslist nog steeds.
+2. Keur goed of wijs af zoals altijd. Je antwoord wordt vergeleken met het oordeel, en de overeenstemming staat op de kaart **Auto-review** in Govern.
+3. Bij **Afdwingen** lopen routineacties waar auto-review zeker van was zonder kaart, en acties die het fout vond stoppen voordat ze bij jou komen. Beide staan in Govern **Recente audit**.
 
 ## Wat nu
 

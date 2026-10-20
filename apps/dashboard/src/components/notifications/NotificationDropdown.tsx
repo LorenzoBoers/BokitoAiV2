@@ -15,6 +15,7 @@ import { openEntityPath } from '../../lib/open-entity'
 import { timeAgo } from '../../lib/time-ago'
 import { forYouPath } from '../../lib/messages-paths'
 import { NotificationFromMark } from './NotificationFromMark'
+import { TextLink } from '../ui/text-link'
 
 const NOTIFICATION_ICONS: Record<NotificationKind, React.ComponentType<{ size?: number; className?: string }>> = {
   status_update: CalendarClock,
@@ -190,20 +191,20 @@ export default function NotificationDropdown() {
               description={t('notificationsUi.emptyHint')}
               footer={
                 <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-                  <button
+                  <TextLink
                     type="button"
                     onClick={() => navigate(forYouPath())}
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs"
                   >
                     {t('notificationsUi.openForYou')}
-                  </button>
-                  <button
+                  </TextLink>
+                  <TextLink
                     type="button"
                     onClick={() => navigate('/settings/channels')}
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs"
                   >
                     {t('notificationsUi.openChannels')}
-                  </button>
+                  </TextLink>
                 </div>
               }
             />

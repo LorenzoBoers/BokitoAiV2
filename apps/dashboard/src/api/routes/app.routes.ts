@@ -59,6 +59,8 @@ export const appRoutes = {
       `/signals/conversations/${encodeURIComponent(conversationId)}/cancel`,
     thread: (threadId: string) => `/signals/${threadId}`,
     threadWhy: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/why`,
+    threadSubagent: (threadId: string, runId: string) =>
+      `/signals/${encodeURIComponent(threadId)}/subagents/${encodeURIComponent(runId)}`,
     threadClose: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/close`,
     threadAsk: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/ask`,
     threadDelete: (threadId: string) => `/signals/${threadId}`,
@@ -106,6 +108,7 @@ export const appRoutes = {
     rule: (ruleId: string) => `/signals/rules/${ruleId}`,
     tags: '/signals/tags',
     tag: (tagId: string) => `/signals/tags/${tagId}`,
+    tagMerge: (tagId: string) => `/signals/tags/${tagId}/merge`,
     /** Attach a playbook to a free tag: it becomes a category. */
     tagPromote: (tagId: string) => `/signals/tags/${tagId}/promote`,
     /** Communication rail rows: categories, pinned tags, projects. */

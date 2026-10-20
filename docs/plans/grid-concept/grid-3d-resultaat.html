@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Grid 3D — van binnenkomst tot resultaat</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121213}
+a{color:#6EDCB4}a:hover{color:#8FE6C6}
+</style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 900px; background: radial-gradient(ellipse 70% 60% at 55% 55%, #1A1A1D 0%, #121213 70%); color: #E2E2E0; font-family: Inter, system-ui, sans-serif; overflow: hidden">
+
+<svg role="img" aria-label="Driedimensionale weergave: vier platen van binnenkomst tot resultaat, afdelingen als stroken op de uitvoerdersplaat, en een terugkerende boog van het antwoord naar het kanaal" width="1440" height="900" viewBox="0 0 1440 900" style="position: absolute; left: 0px; top: 0px; width: 1440px; height: 900px">
+<defs>
+<marker id="terug-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7FA6E8"></path></marker>
+<marker id="kennis3d-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8A8A88"></path></marker>
+<linearGradient id="col-blue-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4D8FE8" stop-opacity="0.9"></stop><stop offset="1" stop-color="#4D8FE8" stop-opacity="0.2"></stop></linearGradient>
+<linearGradient id="col-amber-r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F59E0B" stop-opacity="0.9"></stop><stop offset="1" stop-color="#F59E0B" stop-opacity="0.2"></stop></linearGradient>
+</defs>
+
+<g stroke="#2C2C31" stroke-width="1" stroke-linejoin="round">
+<polygon points="553.2,259.6 254,490.8 254,500.8 553.2,269.6" fill="#0E0E0F"></polygon>
+<polygon points="254,490.8 58,457.2 58,467.2 254,500.8" fill="#0B0B0C"></polygon>
+<polygon points="357.2,226 553.2,259.6 254,490.8 58,457.2" fill="#19191B" fill-opacity="0.94"></polygon>
+<polygon points="833.2,307.6 534,538.8 534,548.8 833.2,317.6" fill="#0E0E0F"></polygon>
+<polygon points="534,538.8 338,505.2 338,515.2 534,548.8" fill="#0B0B0C"></polygon>
+<polygon points="637.2,274 833.2,307.6 534,538.8 338,505.2" fill="#19191B" fill-opacity="0.94"></polygon>
+<polygon points="1113.2,355.6 814,586.8 814,596.8 1113.2,365.6" fill="#0E0E0F"></polygon>
+<polygon points="814,586.8 618,553.2 618,563.2 814,596.8" fill="#0B0B0C"></polygon>
+<polygon points="917.2,322 1113.2,355.6 814,586.8 618,553.2" fill="#19191B" fill-opacity="0.94"></polygon>
+<polygon points="1393.2,403.6 1094,634.8 1094,644.8 1393.2,413.6" fill="#0E0E0F"></polygon>
+<polygon points="1094,634.8 898,601.2 898,611.2 1094,644.8" fill="#0B0B0C"></polygon>
+<polygon points="1197.2,370 1393.2,403.6 1094,634.8 898,601.2" fill="#18201D" fill-opacity="0.96" stroke="#24423A"></polygon>
+</g>
+
+<g stroke-width="1" stroke-linejoin="round">
+<polygon points="631,285.4 813,316.6 720.6,388 538.6,356.8" fill="#6096FF" fill-opacity="0.07" stroke="#2A3A58"></polygon>
+<polygon points="534.2,360.2 716.2,391.4 672.2,425.4 490.2,394.2" fill="#6096FF" fill-opacity="0.07" stroke="#2A3A58"></polygon>
+<polygon points="485.8,397.6 667.8,428.8 623.8,462.8 441.8,431.6" fill="#6096FF" fill-opacity="0.07" stroke="#2A3A58"></polygon>
+<polygon points="437.4,435 619.4,466.2 571,503.6 389,472.4" fill="#ECA530" fill-opacity="0.05" stroke="#5A4520" stroke-dasharray="4 4"></polygon>
+</g>
+
+<g fill="none" stroke-linecap="round">
+<path d="M384.8 292 C470 230 620 250 695.6 316" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" opacity="0.8"></path>
+<path d="M384.8 292 C460 240 600 280 651.6 350" stroke="#6A6A70" stroke-width="4" opacity="0.8"></path>
+<path d="M384.8 292 C440 250 520 350 554.8 425" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.6"></path>
+<path d="M384.8 292 C410 280 440 420 458 500" stroke="#ECA530" stroke-width="1.5" stroke-dasharray="2 5" opacity="0.9"></path>
+<path d="M314.4 346 C400 270 620 260 695.6 316" stroke="#32BF8E" stroke-width="2.5" opacity="0.9"></path>
+<path d="M244 401 C340 330 540 320 603.2 388" stroke="#6A6A70" stroke-width="1.5" opacity="0.8"></path>
+
+<path d="M695.6 316 C770 250 900 300 953.6 381" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" opacity="0.85"></path>
+<path d="M695.6 316 C760 260 860 330 900.8 422" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.85"></path>
+<path d="M651.6 350 C730 280 860 330 900.8 422" stroke="#6A6A70" stroke-width="2" opacity="0.8"></path>
+<path d="M603.2 388 C680 320 810 380 848 463" stroke="#6A6A70" stroke-width="1.5" opacity="0.8"></path>
+<path d="M554.8 425 C630 360 760 410 795.2 504" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="7 6" opacity="0.6"></path>
+<path d="M554.8 425 C620 370 710 450 742.4 545" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.6"></path>
+
+<path d="M953.6 381 C1030 320 1150 380 1189.6 463" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" opacity="0.85"></path>
+<path d="M900.8 422 C980 350 1150 390 1189.6 463" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.85"></path>
+<path d="M900.8 422 C980 360 1100 420 1136.8 504" stroke="#6A6A70" stroke-width="2" opacity="0.8"></path>
+<path d="M848 463 C950 370 1180 350 1242.4 422" stroke="#6A6A70" stroke-width="1.5" opacity="0.8"></path>
+<path d="M795.2 504 C880 440 1040 470 1084 545" stroke="#8B5CF6" stroke-width="2" stroke-dasharray="7 6" opacity="0.6"></path>
+<path d="M742.4 545 C830 480 1040 480 1084 545" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.6"></path>
+<path d="M695.6 316 C820 190 1150 230 1242.4 422" stroke="#32BF8E" stroke-width="2" opacity="0.85"></path>
+
+<path d="M1242.4 418 C1100 60 520 60 384.8 288" stroke="#7FA6E8" stroke-width="1.5" stroke-dasharray="5 6" opacity="0.9" marker-end="url(#terug-arrow)"></path>
+<path d="M1026.8 600 C880 720 620 690 548 552" stroke="#8A8A88" stroke-width="1.5" stroke-dasharray="3 5" opacity="0.9" marker-end="url(#kennis3d-arrow)"></path>
+</g>
+
+<g>
+<ellipse cx="384.8" cy="302.2" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="367.8" y="297.2" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="384.8" cy="297.2" rx="17" ry="9" fill="#6096FF" fill-opacity="0.22" stroke="#6096FF" stroke-width="1.5"></ellipse><ellipse cx="384.8" cy="297.2" rx="6" ry="3.5" fill="#6096FF"></ellipse>
+<ellipse cx="314.4" cy="356.6" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="297.4" y="351.6" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="314.4" cy="351.6" rx="17" ry="9" fill="#6096FF" fill-opacity="0.22" stroke="#32BF8E" stroke-width="2"></ellipse><ellipse cx="314.4" cy="351.6" rx="6" ry="3.5" fill="#6096FF"></ellipse>
+<ellipse cx="244" cy="411" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="227" y="406" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="244" cy="406" rx="17" ry="9" fill="#6096FF" fill-opacity="0.22" stroke="#6096FF" stroke-width="1.5"></ellipse><ellipse cx="244" cy="406" rx="6" ry="3.5" fill="#6096FF"></ellipse>
+
+<ellipse cx="603.2" cy="397.8" rx="15" ry="8" fill="none" stroke="#5A5A60" stroke-width="1.5" stroke-dasharray="3 3"></ellipse><ellipse cx="603.2" cy="392.8" rx="6" ry="3.5" fill="#4D8FE8" fill-opacity="0.5"></ellipse>
+<ellipse cx="554.8" cy="435.2" rx="15" ry="8" fill="#0E0E0F"></ellipse><rect x="539.8" y="430.2" width="30" height="5" fill="#0E0E0F"></rect><ellipse cx="554.8" cy="430.2" rx="15" ry="8" fill="#14B8A6" fill-opacity="0.2" stroke="#14B8A6" stroke-width="1.5"></ellipse><ellipse cx="554.8" cy="430.2" rx="6" ry="3.5" fill="#14B8A6"></ellipse>
+<ellipse cx="515.2" cy="465.8" rx="15" ry="8" fill="#0E0E0F"></ellipse><rect x="500.2" y="460.8" width="30" height="5" fill="#0E0E0F"></rect><ellipse cx="515.2" cy="460.8" rx="15" ry="8" fill="#E0457B" fill-opacity="0.2" stroke="#E0457B" stroke-width="1.5"></ellipse><ellipse cx="515.2" cy="460.8" rx="6" ry="3.5" fill="#E0457B"></ellipse>
+<ellipse cx="491" cy="484.5" rx="15" ry="8" fill="#0E0E0F"></ellipse><rect x="476" y="479.5" width="30" height="5" fill="#0E0E0F"></rect><ellipse cx="491" cy="479.5" rx="15" ry="8" fill="#3A3A40" fill-opacity="0.4" stroke="#4A4A50" stroke-width="1.5"></ellipse><ellipse cx="491" cy="479.5" rx="6" ry="3.5" fill="#4A4A50"></ellipse>
+<ellipse cx="458" cy="510" rx="15" ry="8" fill="#0E0E0F"></ellipse><rect x="443" y="505" width="30" height="5" fill="#0E0E0F"></rect><ellipse cx="458" cy="505" rx="15" ry="8" fill="#ECA530" fill-opacity="0.15" stroke="#ECA530" stroke-width="1.5" stroke-dasharray="3 3"></ellipse><ellipse cx="458" cy="505" rx="6" ry="3.5" fill="#ECA530"></ellipse>
+
+<ellipse cx="953.6" cy="391.4" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="936.6" y="386.4" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="953.6" cy="386.4" rx="17" ry="9" fill="#F472B6" fill-opacity="0.2" stroke="#F472B6" stroke-width="1.5"></ellipse><ellipse cx="953.6" cy="386.4" rx="6" ry="3.5" fill="#F472B6"></ellipse>
+<ellipse cx="900.8" cy="432.2" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="883.8" y="427.2" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="900.8" cy="427.2" rx="17" ry="9" fill="#F472B6" fill-opacity="0.2" stroke="#F472B6" stroke-width="1.5"></ellipse><ellipse cx="900.8" cy="427.2" rx="6" ry="3.5" fill="#F472B6"></ellipse>
+<ellipse cx="848" cy="473" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="831" y="468" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="848" cy="468" rx="17" ry="9" fill="#F472B6" fill-opacity="0.2" stroke="#F472B6" stroke-width="1.5"></ellipse><ellipse cx="848" cy="468" rx="6" ry="3.5" fill="#F472B6"></ellipse>
+<ellipse cx="795.2" cy="513.8" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="778.2" y="508.8" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="795.2" cy="508.8" rx="17" ry="9" fill="#F472B6" fill-opacity="0.2" stroke="#F472B6" stroke-width="1.5"></ellipse><ellipse cx="795.2" cy="508.8" rx="6" ry="3.5" fill="#F472B6"></ellipse>
+<ellipse cx="742.4" cy="554.6" rx="17" ry="9" fill="#0E0E0F"></ellipse><rect x="725.4" y="549.6" width="34" height="5" fill="#0E0E0F"></rect><ellipse cx="742.4" cy="549.6" rx="17" ry="9" fill="#F472B6" fill-opacity="0.2" stroke="#F472B6" stroke-width="1.5"></ellipse><ellipse cx="742.4" cy="549.6" rx="6" ry="3.5" fill="#F472B6"></ellipse>
+
+<ellipse cx="1242.4" cy="432.6" rx="18" ry="10" fill="#0E0E0F"></ellipse><rect x="1224.4" y="427.6" width="36" height="5" fill="#0E0E0F"></rect><ellipse cx="1242.4" cy="427.6" rx="18" ry="10" fill="#6096FF" fill-opacity="0.25" stroke="#7FA6E8" stroke-width="1.5"></ellipse><ellipse cx="1242.4" cy="427.6" rx="7" ry="4" fill="#7FA6E8"></ellipse>
+<ellipse cx="1189.6" cy="473.4" rx="18" ry="10" fill="#0E0E0F"></ellipse><rect x="1171.6" y="468.4" width="36" height="5" fill="#0E0E0F"></rect><ellipse cx="1189.6" cy="468.4" rx="18" ry="10" fill="#F59E0B" fill-opacity="0.22" stroke="#F59E0B" stroke-width="1.5"></ellipse><ellipse cx="1189.6" cy="468.4" rx="7" ry="4" fill="#F59E0B"></ellipse>
+<ellipse cx="1136.8" cy="514.2" rx="18" ry="10" fill="#0E0E0F"></ellipse><rect x="1118.8" y="509.2" width="36" height="5" fill="#0E0E0F"></rect><ellipse cx="1136.8" cy="509.2" rx="18" ry="10" fill="#F59E0B" fill-opacity="0.22" stroke="#F59E0B" stroke-width="1.5"></ellipse><ellipse cx="1136.8" cy="509.2" rx="7" ry="4" fill="#F59E0B"></ellipse>
+<ellipse cx="1084" cy="555" rx="18" ry="10" fill="#0E0E0F"></ellipse><rect x="1066" y="550" width="36" height="5" fill="#0E0E0F"></rect><ellipse cx="1084" cy="550" rx="18" ry="10" fill="#F59E0B" fill-opacity="0.22" stroke="#32BF8E" stroke-width="2"></ellipse><ellipse cx="1084" cy="550" rx="7" ry="4" fill="#F59E0B"></ellipse>
+<ellipse cx="1026.8" cy="599.2" rx="18" ry="10" fill="#0E0E0F"></ellipse><rect x="1008.8" y="594.2" width="36" height="5" fill="#0E0E0F"></rect><ellipse cx="1026.8" cy="594.2" rx="18" ry="10" fill="#A8A8A6" fill-opacity="0.18" stroke="#A8A8A6" stroke-width="1.5"></ellipse><ellipse cx="1026.8" cy="594.2" rx="7" ry="4" fill="#A8A8A6"></ellipse>
+</g>
+
+<g stroke-linejoin="round">
+<polygon points="1212,458 1219,454 1226,458 1219,462" fill="#C8C8C6"></polygon><polygon points="1212,458 1219,462 1219,470 1212,466" fill="#8A8A88"></polygon><polygon points="1226,458 1219,462 1219,470 1226,466" fill="#6A6A70"></polygon>
+
+<polygon points="1159,499 1166,495 1173,499 1166,503" fill="#C8C8C6"></polygon><polygon points="1159,499 1166,503 1166,511 1159,507" fill="#8A8A88"></polygon><polygon points="1173,499 1166,503 1166,511 1173,507" fill="#6A6A70"></polygon>
+<polygon points="1176,505 1183,501 1190,505 1183,509" fill="#C8C8C6"></polygon><polygon points="1176,505 1183,509 1183,517 1176,513" fill="#8A8A88"></polygon><polygon points="1190,505 1183,509 1183,517 1190,513" fill="#6A6A70"></polygon>
+<polygon points="1193,511 1200,507 1207,511 1200,515" fill="none" stroke="#C8C8C6" stroke-width="1"></polygon><polygon points="1193,511 1200,515 1200,523 1193,519" fill="none" stroke="#C8C8C6" stroke-width="1"></polygon><polygon points="1207,511 1200,515 1200,523 1207,519" fill="none" stroke="#C8C8C6" stroke-width="1"></polygon>
+
+<polygon points="1106,540 1113,536 1120,540 1113,544" fill="#C8C8C6"></polygon><polygon points="1106,540 1113,544 1113,552 1106,548" fill="#8A8A88"></polygon><polygon points="1120,540 1113,544 1113,552 1120,548" fill="#6A6A70"></polygon>
+<polygon points="1123,546 1130,542 1137,546 1130,550" fill="#C8C8C6"></polygon><polygon points="1123,546 1130,550 1130,558 1123,554" fill="#8A8A88"></polygon><polygon points="1137,546 1130,550 1130,558 1137,554" fill="#6A6A70"></polygon>
+<polygon points="1140,552 1147,548 1154,552 1147,556" fill="none" stroke="#C8C8C6" stroke-width="1"></polygon><polygon points="1140,552 1147,556 1147,564 1140,560" fill="none" stroke="#C8C8C6" stroke-width="1"></polygon><polygon points="1154,552 1147,556 1147,564 1154,560" fill="none" stroke="#C8C8C6" stroke-width="1"></polygon>
+</g>
+
+<g>
+<ellipse cx="695.6" cy="321.4" rx="15" ry="8" fill="#3A2C14"></ellipse>
+<rect x="680.6" y="305.4" width="30" height="16" fill="url(#col-amber-r)"></rect>
+<ellipse cx="695.6" cy="305.4" rx="15" ry="8" fill="#F5B54A"></ellipse>
+<circle cx="695.6" cy="285" r="12" fill="#F59E0B" stroke="#121213" stroke-width="2"></circle>
+<circle cx="691" cy="285" r="1.8" fill="#FFFFFF"></circle>
+<circle cx="700.2" cy="285" r="1.8" fill="#FFFFFF"></circle>
+</g>
+<g>
+<ellipse cx="651.6" cy="355.4" rx="15" ry="8" fill="#0F2340"></ellipse>
+<rect x="636.6" y="295.4" width="30" height="60" fill="url(#col-blue-r)"></rect>
+<ellipse cx="651.6" cy="295.4" rx="15" ry="8" fill="#4D8FE8"></ellipse>
+<circle cx="651.6" cy="275" r="12" fill="#1F6FD6" stroke="#121213" stroke-width="2"></circle>
+<text x="651.6" y="279" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="9.5" font-weight="600" fill="#FFFFFF">LB</text>
+<circle cx="662" cy="265" r="4" fill="#E86064" stroke="#121213" stroke-width="2"></circle>
+</g>
+</svg>
+
+<div style="position: absolute; left: 40px; top: 36px; display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600; color: #F5F5F3; letter-spacing: -0.01em">Grid</h1>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #A8A8A6">Van binnenkomst tot resultaat. Hoogte is open gesprekken, de boog bovenin is het antwoord dat teruggaat.</p>
+</div>
+
+<div style="position: absolute; left: 560px; top: 40px; width: 840px; display: flex; justify-content: flex-end; align-items: center; gap: 12px">
+<div role="group" aria-label="Lens" style="display: flex; gap: 2px; padding: 3px; background: #19191B; border: 1px solid #2C2C31; border-radius: 10px">
+<button type="button" aria-pressed="true" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #F5F5F3; background: #26262A; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Stroom</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Labels</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Structuur</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Autonomie</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Knelpunten</button>
+</div>
+<div role="group" aria-label="Weergave" style="display: flex; gap: 2px; padding: 3px; background: #19191B; border: 1px solid #2C2C31; border-radius: 10px">
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">2D</button>
+<button type="button" aria-pressed="true" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #F5F5F3; background: #26262A; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">3D</button>
+</div>
+<button type="button" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #E2E2E0; background: #19191B; border: 1px solid #2C2C31; border-radius: 10px; padding: 9px 12px; cursor: pointer">7 dagen</button>
+</div>
+
+<div style="position: absolute; left: 40px; top: 104px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; line-height: 18px">
+<span style="color: #ECA530">Geschat: nog niet alles is als oplevering vastgelegd.</span>
+</div>
+
+<div style="position: absolute; left: 700px; top: 112px; width: 220px; text-align: center"><span style="font-size: 11.5px; line-height: 16px; padding: 3px 8px; border-radius: 6px; background: rgba(18,18,19,0.9); color: #A9C4FF">antwoord gaat terug via het kanaal</span></div>
+
+<div style="position: absolute; left: 360px; top: 206px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">BINNENKOMST</div>
+<div style="position: absolute; left: 640px; top: 254px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">UITVOERDERS</div>
+<div style="position: absolute; left: 960px; top: 302px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">FLOW</div>
+<div style="position: absolute; left: 1210px; top: 350px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #6EDCB4">RESULTAAT</div>
+
+<div style="position: absolute; left: 727px; top: 300px; font-size: 10.5px; line-height: 14px; color: #8FB4FF">Development</div>
+<div style="position: absolute; left: 545px; top: 366px; font-size: 10.5px; line-height: 14px; color: #8FB4FF">Support</div>
+<div style="position: absolute; left: 497px; top: 403px; font-size: 10.5px; line-height: 14px; color: #8FB4FF">Accounting</div>
+<div style="position: absolute; left: 404px; top: 444px; font-size: 10.5px; line-height: 14px; color: #ECA530">Zonder afdeling</div>
+
+<div style="position: absolute; left: 222px; top: 287px; width: 140px; text-align: right"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">lorenzo@bokito.ai</span></div>
+<div style="position: absolute; left: 150px; top: 342px; width: 142px; text-align: right"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Websitechat</span></div>
+<div style="position: absolute; left: 80px; top: 396px; width: 142px; text-align: right"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Support</span></div>
+
+<div style="position: absolute; left: 716px; top: 276px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Orchestrator</span></div>
+<div style="position: absolute; left: 540px; top: 256px; width: 90px; text-align: right"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Lorenzo</span></div>
+<div style="position: absolute; left: 624px; top: 384px"><span style="font-size: 11.5px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #8A8A88">Lorenzo</span></div>
+<div style="position: absolute; left: 576px; top: 421px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Boekhouder</span></div>
+<div style="position: absolute; left: 536px; top: 451px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Extra test agent</span></div>
+<div style="position: absolute; left: 512px; top: 472px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #8A8A88">QA Teammate</span></div>
+<div style="position: absolute; left: 479px; top: 497px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #ECA530">Niet toegewezen</span></div>
+
+<div style="position: absolute; left: 976px; top: 377px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">bug</span></div>
+<div style="position: absolute; left: 923px; top: 418px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">feature</span></div>
+<div style="position: absolute; left: 870px; top: 459px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Support</span></div>
+<div style="position: absolute; left: 817px; top: 500px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Monthly close review</span></div>
+<div style="position: absolute; left: 764px; top: 541px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">VAT filing preparation</span></div>
+
+<div style="position: absolute; left: 1265px; top: 418px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Antwoord aan de klant</span></div>
+<div style="position: absolute; left: 1234px; top: 459px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Development</span></div>
+<div style="position: absolute; left: 1214px; top: 500px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">bokito platform</span></div>
+<div style="position: absolute; left: 1162px; top: 541px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.9); border: 1px solid #24423A; color: #F5F5F3">administratie <span style="color: #8A8A88">· 2 submappen</span></span></div>
+<div style="position: absolute; left: 1049px; top: 585px"><span style="font-size: 12px; line-height: 18px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #E2E2E0">Kennis</span></div>
+<div style="position: absolute; left: 820px; top: 668px"><span style="font-size: 11px; line-height: 16px; padding: 2px 7px; border-radius: 6px; background: rgba(18,18,19,0.85); color: #8A8A88">agents lezen mee</span></div>
+
+<aside aria-label="Geselecteerde werkmap" style="position: absolute; left: 1124px; top: 120px; width: 276px; box-sizing: border-box; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: rgba(25,25,27,0.95); border: 1px solid #2C2C31; border-radius: 14px">
+<div style="display: flex; flex-direction: column; gap: 1px"><span style="font-size: 14px; line-height: 18px; font-weight: 600; color: #F5F5F3">administratie</span><span style="font-size: 12px; line-height: 16px; color: #A8A8A6">Werkmap · facturen, betaalbevestigingen</span></div>
+<div style="display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; line-height: 18px">
+<span style="font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">WERKT IN</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #C8C8C6; flex: none"></span><span style="flex: 1">Canvas · Cijfers Q3</span></span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 2px; background: #C8C8C6; flex: none"></span><span style="flex: 1">Bestanden</span></span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; border-radius: 2px; border: 1px solid #C8C8C6; box-sizing: border-box; flex: none"></span><span style="flex: 1">Exact · Administratie 2026</span></span>
+</div>
+<a href="#" style="text-align: center; font-size: 12.5px; line-height: 18px; font-weight: 500; padding: 8px 10px; border-radius: 9px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0; text-decoration: none">Open werkmap</a>
+</aside>
+
+<div style="position: absolute; left: 40px; top: 836px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; font-size: 12px; line-height: 16px; color: #A8A8A6">
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="32" height="10" viewBox="0 0 32 10"><path d="M2 5h28" stroke="#32BF8E" stroke-width="3" stroke-linecap="round"></path></svg>Autonoom</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="32" height="10" viewBox="0 0 32 10"><path d="M2 5h28" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round"></path></svg>Geassisteerd</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="32" height="10" viewBox="0 0 32 10"><path d="M2 5h28" stroke="#6A6A70" stroke-width="3" stroke-linecap="round"></path></svg>Door een mens</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="32" height="10" viewBox="0 0 32 10"><path d="M2 5h28" stroke="#7FA6E8" stroke-width="2" stroke-dasharray="5 6" stroke-linecap="round"></path></svg>Terugweg naar de klant</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="34" height="14" viewBox="0 0 34 14"><polygon points="2,5 9,1 16,5 9,9" fill="#C8C8C6"></polygon><polygon points="2,5 9,9 9,13 2,9" fill="#8A8A88"></polygon><polygon points="16,5 9,9 9,13 16,9" fill="#6A6A70"></polygon><polygon points="18,5 25,1 32,5 25,9" fill="none" stroke="#C8C8C6"></polygon><polygon points="18,5 25,9 25,13 18,9" fill="none" stroke="#C8C8C6"></polygon><polygon points="32,5 25,9 25,13 32,9" fill="none" stroke="#C8C8C6"></polygon></svg>Werkt in: in Bokito · via koppeling</span>
+<span style="color: #6A6A70">Namen tonen alleen de naam; aantallen bij hover of klik</span>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -279,7 +279,7 @@ export default function TrustPrivacyPage() {
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={busyAction != null || !subjectEmail.trim().includes('@')}
             onClick={() => void runExport()}
           >

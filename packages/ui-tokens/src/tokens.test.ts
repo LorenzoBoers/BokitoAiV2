@@ -7,7 +7,7 @@ import { darkColors, hexCss, lightColors } from './colors'
 describe('ui tokens', () => {
   it('pins the dashboard dark and light backgrounds', () => {
     expect(darkColors.bg).toEqual([18, 18, 19])
-    expect(lightColors.bg).toEqual([247, 247, 246])
+    expect(lightColors.bg).toEqual([244, 244, 243])
     expect(hexCss(darkColors.bg)).toBe('#121213')
     expect(darkColors.ai).toEqual([139, 92, 246])
     expect(lightColors.accent).toEqual([20, 166, 116])
@@ -20,9 +20,9 @@ describe('ui tokens', () => {
     )
     const css = readFileSync(file, 'utf8')
     expect(css).toContain('--color-bg: 18 18 19;')
-    expect(css).toContain('--color-bg: 247 247 246;')
+    expect(css).toContain('--color-bg: 244 244 243;')
     expect(css).toContain('--color-ai: 139 92 246;')
     expect(css).toContain('--body-bg: #121213;')
-    expect(css).toContain('--body-bg: #f7f7f6;')
+    expect(css).toContain('--body-bg: #f4f4f3;')
   })
 })

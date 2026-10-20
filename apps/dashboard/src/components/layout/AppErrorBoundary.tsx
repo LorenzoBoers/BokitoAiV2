@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import i18n from '../../i18n'
+import { Button } from '../ui/button'
 
 interface Props {
   children: ReactNode
@@ -31,13 +32,12 @@ export class AppErrorBoundary extends Component<Props, State> {
             <p className="text-sm text-text-muted">
               {i18n.t('errorBoundary.body', { ns: 'nav' })}
             </p>
-            <button
+            <Button
               type="button"
-              className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg"
               onClick={() => window.location.reload()}
             >
               {i18n.t('errorBoundary.refresh', { ns: 'nav' })}
-            </button>
+            </Button>
           </div>
         </div>
       )

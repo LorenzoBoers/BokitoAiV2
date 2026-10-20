@@ -108,6 +108,10 @@ class EventBus:
 
     # -- redis fanout --
 
+    async def redis(self) -> Any:
+        """The shared Redis client, or None when this process runs without Redis."""
+        return await self._get_redis()
+
     async def _get_redis(self) -> Any:
         if self._redis is not None or self._redis_unavailable:
             return self._redis

@@ -4,11 +4,11 @@ import { cn } from '../../lib/utils'
 
 /** Compact closed control shared by selects and menu chips. */
 export const controlChipClass =
-  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-[11px] font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
+  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
 
 /** Side-panel value without a chip border or fill — icon + label only. */
 export const controlTextClass =
-  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-end gap-1 border-0 bg-transparent p-0 text-[11px] font-medium leading-none text-text-heading outline-none shadow-none transition-colors hover:bg-transparent hover:text-accent focus:border-0 disabled:opacity-50'
+  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-end gap-1 border-0 bg-transparent p-0 text-2xs font-medium leading-none text-text-heading outline-none shadow-none transition-colors hover:bg-transparent hover:text-accent focus:border-0 disabled:opacity-50'
 
 function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root {...props} />
@@ -33,7 +33,7 @@ function SelectTrigger({
       className={cn(
         chip
           ? controlChipClass
-          : 'flex h-10 w-full items-center justify-between rounded-lg border border-border/60 bg-bg-input px-3.5 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus',
+          : 'flex h-9 w-full items-center justify-between rounded-md border border-border bg-bg-input px-3 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus',
         className,
       )}
       {...props}

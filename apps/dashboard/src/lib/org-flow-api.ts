@@ -1,5 +1,6 @@
 import { appRoutes } from '../api/routes/app.routes'
 import { apiGet, apiPost } from './api'
+import type { OrgGraphMark } from './teams-api'
 
 /** Grid data from `GET /api/org/flow`; every count, mode and color is decided by the server. */
 export type OrgFlowLayer = 'input' | 'executor' | 'work' | 'result'
@@ -46,6 +47,15 @@ export type OrgFlowNode = {
   autonomy_why?: { mode: OrgFlowMode; source: string; clamped_by: string | null } | null
   threads_href?: string | null
   module?: { slug: string; name: string } | null
+  /** Avatar of an agent or person, same fields as the Org chart. */
+  mark?: OrgGraphMark | null
+  /** Agent/person function title (job title). */
+  job_title?: string | null
+  /** Agent role description. */
+  description?: string | null
+  /** Flow nodes: the flow label's color and Lucide icon id. */
+  color?: string
+  icon?: string
   done?: number
   channels?: string[]
   works_in?: OrgFlowWorksIn[]
@@ -63,7 +73,7 @@ export type OrgFlowPath = {
   by_label: Record<string, number>
 }
 
-export type OrgFlowLabel = { id: string | null; name: string; color: string; flow_id: string | null }
+export type OrgFlowLabel = { id: string | null; name: string; color: string; icon?: string | null; flow_id: string | null }
 
 export type OrgFlowWorkspaceIssue = {
   severity: 'warning' | 'info'

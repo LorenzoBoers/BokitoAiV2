@@ -291,21 +291,6 @@ def _active_turn_payload(signal: Signal) -> dict[str, Any] | None:
     return data
 
 
-def addressed_agent_payload(signal: Signal, agent: Agent | None) -> dict[str, str] | None:
-    """Who the composer is talking to: the live turn, else the open handoff, else the owner."""
-    turn = _active_turn_payload(signal)
-    if turn and str(turn.get("kind") or "") == "agent" and turn.get("ref_id"):
-        return {"id": str(turn["ref_id"]), "name": str(turn.get("name") or "")}
-    from app.services.handoff_sessions import serialize_handoff_session
-
-    handoff = serialize_handoff_session(signal)
-    if handoff and handoff.get("opener_id"):
-        return {"id": str(handoff["opener_id"]), "name": str(handoff.get("opener_name") or "")}
-    if agent is not None:
-        return {"id": str(agent.id), "name": agent.name}
-    return None
-
-
 def serialize_thread(
     signal: Signal,
     *,
@@ -354,6 +339,7 @@ def serialize_thread(
         "status": signal.status,
         "next_at": _iso(signal.next_at),
         "ends_at": _iso(signal.ends_at),
+        "hidden_until": _iso(signal.hidden_until),
         "schedule_details": thread_details(signal),
         "priority": signal.priority,
         "assigned_to_user_id": assignee_num,
@@ -380,7 +366,6 @@ def serialize_thread(
         "folder": folder,
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
         "agent_name": agent.name if agent else None,
-        "addressed_agent": addressed_agent_payload(signal, agent),
         "agent_kind": agent.kind if agent else None,
         "folder_id": str(signal.project_id) if signal.project_id else None,
         "project_id": str(signal.project_id) if signal.project_id else None,
@@ -539,6 +524,8 @@ def proposal_payload(
                 rows.append({"decision_id": str(row["decision_id"]), "status": "missing"})
             else:
                 entry = bundle_entry_payload(found, card_message_id=row.get("card_message_id"))
+                if isinstance(row.get("items"), list):
+                    entry["items"] = [i for i in row["items"] if isinstance(i, dict)]
                 if found.resolved_by_user_id:
                     entry["resolved_by"] = names.get(found.resolved_by_user_id)
                 rows.append(entry)
@@ -573,6 +560,63 @@ def proposal_payload(
     return out
 
 
+_ANY_MENTION = re.compile(r"@\[([^\]]+)\]\((agent|team|user):([0-9a-fA-F-]{36})\)")
+
+
+def mention_ids(texts: list[str]) -> set[tuple[str, UUID]]:
+    found: set[tuple[str, UUID]] = set()
+    for text in texts:
+        for _name, kind, raw in _ANY_MENTION.findall(text or ""):
+            try:
+                found.add((kind, UUID(raw)))
+            except ValueError:
+                continue
+    return found
+
+
+def message_mentions(body_text: str, names: dict[UUID, str] | None = None) -> list[dict[str, str]]:
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for name, kind, raw in _ANY_MENTION.findall(body_text or ""):
+        try:
+            ref = UUID(raw)
+        except ValueError:
+            continue
+        if str(ref) in seen:
+            continue
+        seen.add(str(ref))
+        out.append({"kind": kind, "id": str(ref), "name": (names or {}).get(ref) or name})
+    return out
+
+
+async def mention_names(session: AsyncSession, tenant_id: UUID, texts: list[str]) -> dict[UUID, str]:
+    """Current names for the agents, teams and people mentioned in ``texts``."""
+    from app.models.auth import User
+    from app.models.team import Team
+
+    refs = mention_ids(texts)
+    by_kind: dict[str, list[UUID]] = {}
+    for kind, ref in refs:
+        by_kind.setdefault(kind, []).append(ref)
+    names: dict[UUID, str] = {}
+    if by_kind.get("agent"):
+        rows = await session.execute(
+            select(Agent.id, Agent.name).where(Agent.tenant_id == tenant_id, Agent.id.in_(by_kind["agent"]))
+        )
+        names.update({rid: n for rid, n in rows.all() if n})
+    if by_kind.get("team"):
+        rows = await session.execute(
+            select(Team.id, Team.name).where(Team.tenant_id == tenant_id, Team.id.in_(by_kind["team"]))
+        )
+        names.update({rid: n for rid, n in rows.all() if n})
+    if by_kind.get("user"):
+        rows = await session.execute(
+            select(User.id, User.display_name, User.email).where(User.id.in_(by_kind["user"]))
+        )
+        names.update({rid: dn or (em or "").split("@")[0] for rid, dn, em in rows.all() if dn or em})
+    return names
+
+
 def serialize_message(
     message: SignalMessage,
     *,
@@ -584,8 +628,12 @@ def serialize_message(
     proposal_resolved_by: str | None = None,
     proposal_resolver_names: dict[UUID, str] | None = None,
     bundle_decisions: list[DecisionRequest] | None = None,
+    mention_names: dict[UUID, str] | None = None,
 ) -> dict[str, Any]:
     """Serialize a message for the timeline.
+
+    ``payload.mentions`` lists ``@agent`` / ``@team`` / ``@user`` chips with the
+    current name from ``mention_names`` (the name saved in the text otherwise).
 
     Timeline windows pass ``include_html=False`` / ``include_trace=False`` so
     chat and assistant threads stay light. Email keeps HTML inline (the
@@ -618,6 +666,11 @@ def serialize_message(
             "resolved_at": _iso(decision.resolved_at),
             "chosen_option_id": decision.chosen_option_id,
         }
+        from app.services.auto_review import verdict_payload
+
+        review = verdict_payload(decision.auto_review_json)
+        if review is not None:
+            payload["decision"]["auto_review"] = review
         if decision.status == "deferred" and decision.chosen_option_id:
             # Why the card was set aside (human_replied, superseded_by_inbound,
             # superseded_by_external_reply, sibling_thread, handled_externally).
@@ -650,6 +703,9 @@ def serialize_message(
             payload["handover"] = str(meta["handover"])
     if isinstance(meta.get("items"), list):
         payload["items"] = meta["items"]
+    guard = meta.get("prompt_guard")
+    if isinstance(guard, dict) and guard.get("flagged"):
+        payload["prompt_guard"] = {"signals": [str(s) for s in guard.get("signals") or []]}
     if meta.get("decision_response"):
         payload["decision_response"] = True
         if meta.get("decision_id"):
@@ -698,8 +754,11 @@ def serialize_message(
             payload["history"] = activity["history"]
     if meta.get("turn_id"):
         payload["turn_id"] = str(meta["turn_id"])
-    if meta.get("in_progress"):
-        payload["in_progress"] = True
+    if meta.get("segment_id"):
+        payload["segment_id"] = str(meta["segment_id"])
+    mentions = message_mentions(message.body_text or "", mention_names)
+    if mentions:
+        payload["mentions"] = mentions
     if include_trace and isinstance(meta.get("usage"), dict) and meta["usage"]:
         payload["usage"] = meta["usage"]
     is_mock = message_is_mock(
@@ -1344,6 +1403,7 @@ async def list_threads(
     scheduled_from: datetime | None = None,
     scheduled_to: datetime | None = None,
     activity: str | None = None,
+    segment: str | None = None,
 ) -> dict[str, Any]:
     pinned = await _pinned_ids(session, tenant_id, user_id)
     from app.services.trash import alive
@@ -1404,10 +1464,19 @@ async def list_threads(
         return {"items": [], "curPage": page, "itemsTotal": 0, "nextPage": None}
     query = query.where(*folder_filters)
 
+    if segment == "scheduled":
+        # The Planned side of a queue: same owner scope, threads with a date.
+        queue = view.removesuffix("_closed")
+        if queue == "for_you":
+            query = query.where(await for_you_clause(session, tenant_id, user_id))
+        elif queue == "unassigned":
+            query = query.where(unassigned_predicate())
+        view = "scheduled"
+
     if view == "all":
-        # Active workload across statuses; closed and spam threads live in
-        # their own views so closing a thread removes it from "All".
-        query = query.where(Signal.status.notin_(("closed", "spam")))
+        # Active workload across statuses; closed, spam and snoozed threads
+        # live in their own views so closing a thread removes it from "All".
+        query = query.where(Signal.status.notin_(("closed", "spam", "snoozed")))
     elif view == "all_open":
         query = query.where(Signal.status == "open")
     elif view == "for_you":
@@ -1772,11 +1841,10 @@ async def get_thread(
     if await retarget_archived_handler(session, signal):
         await session.commit()
 
-    # Hard refresh must not resurrect a stuck “Update folder canvas” trail after
-    # a crashed Ask left ``in_progress`` with no live AgentRun.
+    # A crashed Ask must not keep its live turn open on the thread log.
     try:
         from app.models.agent import AgentRun
-        from app.services.agent.turn_persist import seal_in_progress_checkpoints
+        from app.services.agent.turn_persist import end_dead_turns
 
         busy = (
             await session.execute(
@@ -1787,23 +1855,20 @@ async def get_thread(
                 ).limit(1)
             )
         ).scalar_one_or_none()
-        # A run left "running" across a reload still blocks sealing. After the
-        # stale window, the checkpoint is abandoned — do not keep Nadenken up.
+        # A run left "running" across a reload still holds its turn. After the
+        # stale window the turn is abandoned; do not keep Nadenken up.
         if busy is not None and busy.started_at is not None:
             if busy.started_at < datetime.utcnow() - timedelta(minutes=15):
                 busy.status = "failed"
                 busy.completed_at = datetime.utcnow()
                 busy.pause_reason = "cleared_stale"
                 session.add(busy)
+                await session.commit()
                 busy = None
         if busy is None:
-            sealed = await seal_in_progress_checkpoints(
-                session, signal, older_than=timedelta(minutes=15)
-            )
-            if sealed:
-                await session.commit()
+            await end_dead_turns(session, signal, older_than=timedelta(minutes=15))
     except Exception:  # noqa: BLE001
-        logger.debug("seal orphaned in_progress on get_thread failed", exc_info=True)
+        logger.debug("closing dead turns on get_thread failed", exc_info=True)
 
     page_size = max(1, min(int(limit or 80), 200))
     pinned = await _pinned_ids(session, tenant_id, user_id)
@@ -1867,6 +1932,8 @@ async def get_thread(
     event_filters: list[Any] = [
         SignalEvent.signal_id == signal_id,
         SignalEvent.tenant_id == tenant_id,
+        # Side actions of an inbound read render inside its outcome card.
+        SignalEvent.payload_json.notlike('%"folded_into"%'),
     ]
     if messages:
         stamps = [
@@ -1922,17 +1989,9 @@ async def get_thread(
     # Email needs HTML in the window (LazyEmailHtmlFrame). Chat / assistant /
     # WhatsApp render plain text; agent traces load on expand via get_message.
     include_html = (signal.channel or "").lower() == "email"
+    names_now = await mention_names(session, tenant_id, [m.body_text or "" for m in messages])
     serialized_messages = []
     for m in messages:
-        # Agent-only hints after resolve (not shown in the operator timeline).
-        try:
-            _meta = json.loads(m.metadata_json or "{}")
-        except json.JSONDecodeError:
-            _meta = {}
-        if isinstance(_meta, dict) and (
-            _meta.get("hidden_from_timeline") or _meta.get("decision_outcome_hint")
-        ):
-            continue
         proposal_decision = decisions_by_id.get(proposal_ids[m.id]) if m.id in proposal_ids else None
         row = serialize_message(
             m,
@@ -1950,6 +2009,7 @@ async def get_thread(
             bundle_decisions=[
                 decisions_by_id[did] for did in bundle_ids.get(m.id, []) if did in decisions_by_id
             ],
+            mention_names=names_now,
         )
         reactions = reaction_by_message.get(str(m.id)) or reaction_svc.empty_aggregate()
         row["reactions"] = reactions
@@ -2303,6 +2363,8 @@ async def patch_thread(
         )
     if status is not None:
         signal.status = status
+        if status != "snoozed":
+            signal.hidden_until = None
     newly_assigned: UUID | None = None
     if assignee is None and assigned_to_user_id is not None:
         # Shorthand from the person picker: 0 clears to the channel's owner team.
@@ -2373,6 +2435,10 @@ async def patch_thread(
     )
     owner_changed = owner_payload(signal) != before_owner
     session.add(signal)
+    if owner_changed:
+        from app.services.thread_schedule import sync_rule_runner
+
+        await sync_rule_runner(session, signal)
     self_pick = (
         owner_changed
         and before_owner["kind"] == "department"
@@ -2766,9 +2832,10 @@ async def delete_thread(
             commit=commit,
         )
     subject = signal.subject
+    from app.models.agent_context import SignalCompaction
     from app.models.agent_turn import AgentAsk, AgentTurn
 
-    for model in (AgentTurn, AgentAsk, SignalMessage, SignalEvent, SignalThreadPin):
+    for model in (AgentTurn, AgentAsk, SignalCompaction, SignalMessage, SignalEvent, SignalThreadPin):
         rows = await session.execute(select(model).where(model.signal_id == signal_id))
         for row in rows.scalars().all():
             await session.delete(row)
@@ -3204,11 +3271,12 @@ async def reply_to_thread(
         author_user_id=user_id,
         author_name=author_name,
     )
-    stick_held = False
     if not scheduled:
         from app.services.thread_dispatch import dispatch_mentions
 
-        mention_results = await dispatch_mentions(
+        # Tagged agents, or the team router's pick, get a queued turn. Commit
+        # so the worker can claim it.
+        await dispatch_mentions(
             session,
             tenant_id,
             signal,
@@ -3217,45 +3285,7 @@ async def reply_to_thread(
             author_name=author_name,
             user_role=actor_role,
         )
-        stick_held = any(
-            isinstance(row, dict) and row.get("kind") == "stick" for row in mention_results
-        )
-        # Mention dispatch may set active_turn + enqueue a worker job. Persist
-        # before the request session closes (otherwise the job sees stale_nonce
-        # and @agent notes never wake anyone). notify() already commits when
-        # people are mentioned; agent-only notes skip that path.
         await session.commit()
-    # Internal agent threads are two-way chats: when an operator posts a reply
-    # (not an internal note), run the thread's agent in the background so Send
-    # returns immediately. Deltas stream via gateway; the final message lands
-    # through append_signal_chat_message. Under mock/test execution await
-    # inline — background sessions cannot see the in-memory SQLite fixture.
-    from app.services.ai_handling import is_held
-
-    if (
-        direction == "outbound"
-        and signal.channel == "internal"
-        and not is_held(signal)
-        and not scheduled
-        and not stick_held
-    ):
-        from app.config import get_settings
-
-        if get_settings().bokito_mock_execution:
-            await _generate_agent_reply(
-                session,
-                tenant_id,
-                user_id,
-                signal,
-                attachments=list(attachments) if attachments else None,
-            )
-        else:
-            _schedule_agent_reply(
-                tenant_id,
-                user_id,
-                signal.id,
-                attachments=list(attachments) if attachments else None,
-            )
     return serialize_message(message)
 
 
@@ -3591,6 +3621,7 @@ async def notify_mentions(
 # Rapid Ja/Nee on stacked proposals would otherwise spawn one agent turn each.
 _AGENT_REPLY_COALESCE_S = 1.25
 _pending_agent_replies: dict[UUID, Any] = {}
+_pending_decision_outcomes: dict[UUID, list[dict[str, Any]]] = {}
 
 
 def _schedule_agent_reply(
@@ -3599,11 +3630,12 @@ def _schedule_agent_reply(
     signal_id: UUID,
     *,
     attachments: list[dict] | None = None,
+    decision_outcomes: list[dict[str, Any]] | None = None,
 ) -> None:
     """Fire-and-forget agent reply on a fresh DB session (does not block HTTP).
 
     Multiple schedules for the same thread within ``_AGENT_REPLY_COALESCE_S``
-    collapse into one wake (latest attachments win).
+    collapse into one wake (latest attachments win, decision outcomes add up).
     """
     import asyncio
 
@@ -3619,11 +3651,14 @@ def _schedule_agent_reply(
             existing.cancel()
         except Exception:
             pass
+    if decision_outcomes:
+        _pending_decision_outcomes.setdefault(signal_id, []).extend(decision_outcomes)
 
     async def _run() -> None:
         from app.db.session import async_session_factory
 
         _pending_agent_replies.pop(signal_id, None)
+        outcomes = _pending_decision_outcomes.pop(signal_id, [])
         async with async_session_factory() as bg_session:
             signal = await bg_session.get(Signal, signal_id)
             if not signal or signal.tenant_id != tenant_id:
@@ -3634,6 +3669,7 @@ def _schedule_agent_reply(
                 user_id,
                 signal,
                 attachments=attachments,
+                decision_outcomes=outcomes,
             )
 
     def _fire() -> None:
@@ -3656,6 +3692,7 @@ async def _generate_agent_reply(
     signal: Signal,
     *,
     attachments: list[dict] | None = None,
+    decision_outcomes: list[dict[str, Any]] | None = None,
 ) -> None:
     """Run the thread's agent and append its reply.
 
@@ -3715,6 +3752,9 @@ async def _generate_agent_reply(
         from app.services.thread_schedule import rule_context
 
         context = await rule_context(session, signal)
+        if decision_outcomes:
+            brief = _decision_outcome_brief(decision_outcomes)
+            context = f"{context}\n\n{brief}" if context else brief
         async for event in loop.stream_chat(history, extra_context=context, attachments=attachments):
             if event["type"] == "done":
                 tokens = event.get("usage", tokens)
@@ -3723,16 +3763,16 @@ async def _generate_agent_reply(
         if thinking_meta:
             final_meta["thinking"] = thinking_meta
         saved = await loop.persist_turn(signal, final_metadata=final_meta)
-        await _fill_silent_decision_follow_up(session, signal, saved, agent_id)
+        await _fill_silent_decision_follow_up(session, signal, saved, agent_id, decision_outcomes or [])
         await session.commit()
     except Exception:  # noqa: BLE001 - never break the user's reply
         await session.rollback()
         logger.exception("Failed to generate agent reply for signal %s", signal_id)
-        if agent_id is not None:
+        if agent_id is not None and decision_outcomes:
             try:
                 signal = await session.get(Signal, signal_id)
                 if signal is not None and signal.tenant_id == tenant_id:
-                    await _fill_silent_decision_follow_up(session, signal, [], agent_id)
+                    await _fill_silent_decision_follow_up(session, signal, [], agent_id, decision_outcomes)
             except Exception:  # noqa: BLE001
                 logger.exception("Decision follow-up confirm failed for %s", signal_id)
     finally:
@@ -4115,7 +4155,7 @@ async def resolve_message_decision(
                 tenant_id,
                 signal=signal,
                 at=datetime.utcnow() + timedelta(hours=4),
-                recipient=("user", user_id),
+                owner=("user", user_id),
                 created_by_user_id=user_id,
                 actor_id=str(user_id),
             )
@@ -4402,7 +4442,7 @@ def _decision_option_already_ran(action: str, action_type: str) -> bool:
     return kind in RESOLVER_ACTIONS or get_tool_spec(kind) is not None
 
 
-_SILENT_TURN_BODIES = frozenset({"", "Done.", "Working on this."})
+_SILENT_TURN_BODIES = frozenset({"", "Done."})
 
 
 def _turn_has_visible_speech(messages: list[Any]) -> bool:
@@ -4413,41 +4453,17 @@ def _turn_has_visible_speech(messages: list[Any]) -> bool:
     return False
 
 
-async def _latest_decision_confirm(session: AsyncSession, signal: Signal) -> str:
-    """Canned line stored on the hidden hint for this thread, if any."""
-    rows = (
-        await session.execute(
-            select(SignalMessage)
-            .where(
-                SignalMessage.signal_id == signal.id,
-                SignalMessage.tenant_id == signal.tenant_id,
-            )
-            .order_by(SignalMessage.created_at.desc())
-            .limit(12)
-        )
-    ).scalars().all()
-    for row in rows:
-        try:
-            meta = json.loads(row.metadata_json or "{}")
-        except json.JSONDecodeError:
-            continue
-        if isinstance(meta, dict) and meta.get("decision_outcome_hint"):
-            return str(meta.get("confirm_text") or "").strip()
-    return ""
-
-
 async def _fill_silent_decision_follow_up(
     session: AsyncSession,
     signal: Signal,
     saved: list[Any],
     agent_id: UUID | None,
+    outcomes: list[dict[str, Any]],
 ) -> None:
     """When a choice-wake saved no sentence, leave the short confirm instead."""
-    if _turn_has_visible_speech(saved):
+    if not outcomes or _turn_has_visible_speech(saved):
         return
-    confirm = await _latest_decision_confirm(session, signal)
-    if not confirm:
-        return
+    confirm = _decision_confirm_text_from_outcomes(outcomes)
     from app.gateway.publish import publish_signal_message
     from app.services.assistant_threads import append_signal_chat_message
 
@@ -4475,12 +4491,8 @@ async def _fill_silent_decision_follow_up(
         fresh_after = datetime.utcnow() - timedelta(minutes=2)
         for row in rows:
             text = (row.body_text or "").strip()
-            try:
-                meta = json.loads(row.metadata_json or "{}")
-            except json.JSONDecodeError:
-                meta = {}
             recent = row.created_at is None or row.created_at >= fresh_after
-            if recent and (text in _SILENT_TURN_BODIES or (isinstance(meta, dict) and meta.get("in_progress"))):
+            if recent and text in _SILENT_TURN_BODIES:
                 target = row
                 break
     if target is not None:
@@ -4490,7 +4502,6 @@ async def _fill_silent_decision_follow_up(
             meta = {}
         if not isinstance(meta, dict):
             meta = {}
-        meta.pop("in_progress", None)
         meta.pop("turn_failed", None)
         meta["decision_confirm"] = True
         target.body_text = confirm
@@ -4521,13 +4532,12 @@ def _should_continue_chat_after_decision(signal: Signal) -> bool:
     return signal.source in ("agent_session", "chat", "personal")
 
 
-def _decision_outcome_hint_text(outcomes: list[dict[str, Any]]) -> str:
-    """History-only note so the next agent turn confirms instead of re-proposing."""
+def _decision_outcome_brief(outcomes: list[dict[str, Any]]) -> str:
+    """Why this turn runs: the operator just resolved cards. Context for one wake, never stored."""
     lines: list[str] = [
-        "[System] The operator just resolved decision card(s) on this thread. "
-        "The decision cloud already shows who approved or declined — do not "
-        "echo Approve/Reject as a user message. Confirm briefly. If a tool "
-        "already ran successfully, do not call that gated tool again; "
+        "The operator just resolved your decision card(s) on this thread. "
+        "The card already shows who approved or declined. Confirm briefly. "
+        "If a tool already ran successfully, do not call that gated tool again; "
         "showcase with attach_items when something useful was created. "
         "If something failed, say so and offer a next step."
     ]
@@ -4601,28 +4611,14 @@ async def _follow_up_after_decision_outcomes(
     outcomes: list[dict[str, Any]],
     asker_agent_id: UUID | None,
 ) -> None:
-    """Leave a hidden history hint and wake the agent (or post a canned confirm)."""
+    """Wake the agent with the outcome as its brief (or post a canned confirm).
+
+    The resolved cards are already in the thread; nothing else is written.
+    """
     if not outcomes:
         return
     from app.config import get_settings
     from app.services.assistant_threads import append_signal_chat_message
-
-    hint = _decision_outcome_hint_text(outcomes)
-    await append_signal_chat_message(
-        session,
-        signal,
-        role="user",
-        content=hint,
-        author_user_id=user_id,
-        metadata={
-            "decision_outcome_hint": True,
-            "hidden_from_timeline": True,
-            "confirm_text": _decision_confirm_text_from_outcomes(outcomes),
-            "decision_ids": [str(o.get("decision_id") or "") for o in outcomes if o.get("decision_id")],
-            "decision_action": outcomes[0].get("action"),
-        },
-    )
-    await session.commit()
 
     settings = get_settings()
     agent_id = signal.agent_id or asker_agent_id
@@ -4641,7 +4637,7 @@ async def _follow_up_after_decision_outcomes(
         )
         await session.commit()
         return
-    _schedule_agent_reply(tenant_id, user_id, signal.id)
+    _schedule_agent_reply(tenant_id, user_id, signal.id, decision_outcomes=outcomes)
 
 
 async def _record_no_reply_outcome(

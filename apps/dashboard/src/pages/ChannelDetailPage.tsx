@@ -7,7 +7,8 @@ import { ENTITY_ICONS } from '../lib/entity-icons'
 import { channelFolderPath } from '../lib/open-entity'
 
 const ConversationIcon = ENTITY_ICONS.conversation
-import * as Dialog from '@radix-ui/react-dialog'
+import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
+import { Input } from '../components/ui/input'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { ChannelDetailSkeleton, FolderChecklistSkeleton } from '../components/ui/skeleton'
@@ -382,20 +383,18 @@ export default function ChannelDetailPage() {
 
       <AddChannelDialog open={addOpen} onOpenChange={setAddOpen} onChannelAdded={() => void load()} />
 
-      <Dialog.Root open={renameOpen} onOpenChange={setRenameOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[400px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
-            <Dialog.Title className="mb-1 text-lg font-semibold text-text-heading">
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+          <DialogContent className="block max-w-sm">
+            <DialogTitle className="mb-1 pr-8">
               {t('channelsPage.renameTitle')}
-            </Dialog.Title>
+            </DialogTitle>
             <p className="mb-3 text-sm text-text-secondary">
               {t('channelsPage.renameBody', { address: row.address || row.label })}
             </p>
             <input
               value={renameDraft}
               onChange={(e) => setRenameDraft(e.target.value)}
-              className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm"
+              className="h-8"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && token) {
                   e.preventDefault()
@@ -426,20 +425,17 @@ export default function ChannelDetailPage() {
                 {t('channelsPage.renameSave')}
               </Button>
             </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          </DialogContent>
+      </Dialog>
 
-      <Dialog.Root open={confirm != null} onOpenChange={(open) => (!open ? setConfirm(null) : null)}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content
-            className="fixed left-1/2 top-1/2 z-50 w-[440px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-bg-surface p-5 shadow-overlay"
+      <Dialog open={confirm != null} onOpenChange={(open) => (!open ? setConfirm(null) : null)}>
+          <DialogContent
+            className="block max-w-md"
             data-testid="channel-confirm-dialog"
           >
-            <Dialog.Title className="mb-2 text-lg font-semibold text-text-heading">
+            <DialogTitle className="mb-2 pr-8">
               {confirm === 'delete' ? t('channelsPage.deleteConfirmTitle') : t('channelsPage.archiveConfirmTitle')}
-            </Dialog.Title>
+            </DialogTitle>
             <p className="mb-4 text-sm text-text-secondary">
               {confirm === 'delete'
                 ? t('channelsPage.deleteConfirmBody', {
@@ -453,7 +449,7 @@ export default function ChannelDetailPage() {
                 <span className="text-xs text-text-muted">
                   {t('channelsPage.deleteConfirmType', { name: deleteConfirmText })}
                 </span>
-                <input
+                <Input
                   value={deleteDraft}
                   onChange={(e) => setDeleteDraft(e.target.value)}
                   className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm"
@@ -475,18 +471,15 @@ export default function ChannelDetailPage() {
                 {confirm === 'delete' ? t('channelsPage.delete') : t('channelsPage.archive')}
               </Button>
             </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          </DialogContent>
+      </Dialog>
 
-      <Dialog.Root open={folderTarget != null} onOpenChange={(open) => (!open ? setFolderTarget(null) : null)}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50" />
-          <Dialog.Content
-            className="fixed left-1/2 top-1/2 z-50 flex max-h-[80vh] w-[480px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-border bg-bg-surface p-5 shadow-overlay"
+      <Dialog open={folderTarget != null} onOpenChange={(open) => (!open ? setFolderTarget(null) : null)}>
+          <DialogContent
+            className="flex max-h-[80vh] max-w-lg flex-col gap-0"
             data-testid="mailbox-folders-dialog"
           >
-            <Dialog.Title className="mb-1 text-base font-semibold">{t('channelsPage.foldersTitle')}</Dialog.Title>
+            <DialogTitle className="mb-1 pr-8">{t('channelsPage.foldersTitle')}</DialogTitle>
             {foldersError ? <p className="mb-3 text-xs text-status-error">{foldersError}</p> : null}
             {foldersLoading ? (
               <FolderChecklistSkeleton />
@@ -539,9 +532,8 @@ export default function ChannelDetailPage() {
                 {t('channelsPage.save')}
               </Button>
             </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          </DialogContent>
+      </Dialog>
 
       {signatureTarget ? (
         <SignatureEditor

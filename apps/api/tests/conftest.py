@@ -72,6 +72,7 @@ def _fast_redis_enqueue(monkeypatch: pytest.MonkeyPatch):
     tasks._arq_pool = None
     tasks._arq_pool_unavailable = True
     monkeypatch.setattr(tasks, "enqueue_signal_processing", AsyncMock())
+    monkeypatch.setattr(tasks, "enqueue_inbound_notice_fallback", AsyncMock())
     monkeypatch.setattr(tasks, "enqueue_repo_index", AsyncMock())
     monkeypatch.setattr(tasks, "enqueue_webhook_delivery", AsyncMock())
     if hasattr(tasks, "enqueue_module_source_index"):

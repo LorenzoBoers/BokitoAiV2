@@ -136,7 +136,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
     <div className="space-y-2 border-t border-border/40 px-4 py-3">
       <SectionLabel
         title={t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
-        className="[&_.nav-folder]:h-5 [&_.nav-folder]:text-[10px] [&_.nav-folder]:font-normal"
+        className="[&_.nav-folder]:h-5 [&_.nav-folder]:text-2xs [&_.nav-folder]:font-normal"
         headerClassName="-mx-1"
       />
 

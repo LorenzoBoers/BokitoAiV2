@@ -304,6 +304,101 @@ async def test_stop_cancels_queued_and_running_turns(client, session_override):
 
 
 @pytest.mark.asyncio
+async def test_shutdown_hands_a_running_turn_back_without_spending_an_attempt(
+    client, session_override, monkeypatch
+):
+    from contextlib import asynccontextmanager
+
+    from app.services import thread_log
+
+    _ = client
+    signal, (agent, _peer) = await _seed(session_override)
+    await enqueue_turn(
+        session_override, signal, agent_id=agent.id, cause_kind="human", requested_by_kind="user"
+    )
+    await session_override.commit()
+    running = await claim_next(session_override, signal.id)
+    agent_turns._HELD[running.id] = "queue"
+    await thread_log.append(
+        signal.tenant_id,
+        signal.id,
+        "agent.turn",
+        {"stream_id": "s-restart", "phase": "start", "audience": "operator"},
+    )
+
+    @asynccontextmanager
+    async def _factory():
+        yield session_override
+
+    rung: list = []
+
+    async def _ring(signal_id):
+        rung.append(signal_id)
+
+    monkeypatch.setattr("app.db.session.async_session_factory", _factory)
+    monkeypatch.setattr(agent_turns, "ring", _ring)
+
+    stats = await agent_turns.release_held()
+
+    assert stats == {"requeued": 1, "ended": 0}
+    assert rung == [signal.id]
+    assert agent_turns._HELD == {}
+    await session_override.refresh(running)
+    assert running.status == "queued" and running.attempt == 0
+    assert [r for r in await thread_log.live(signal.id) if r["event"] != "floor"] == []
+    again = await claim_next(session_override, signal.id)
+    assert again is not None and again.id == running.id and again.attempt == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown_requeues_an_inline_chat_so_the_reply_still_happens(
+    client, session_override, monkeypatch
+):
+    from contextlib import asynccontextmanager
+
+    _ = client
+    signal, (agent, _peer) = await _seed(session_override)
+    human = await _human(session_override, signal, "Duidelijk zie je kansen?")
+    row = AgentTurn(
+        tenant_id=signal.tenant_id,
+        signal_id=signal.id,
+        agent_id=agent.id,
+        cause_kind="inline",
+        requested_by_kind="user",
+        episode_id=human.id,
+        status="running",
+        started_at=datetime.utcnow(),
+        lease_until=datetime.utcnow() + timedelta(seconds=600),
+        attempt=1,
+        idempotency_key=f"inline:{uuid4()}",
+    )
+    session_override.add(row)
+    await session_override.commit()
+    agent_turns._HELD[row.id] = "inline"
+
+    @asynccontextmanager
+    async def _factory():
+        yield session_override
+
+    rung: list = []
+
+    async def _ring(signal_id):
+        rung.append(signal_id)
+
+    monkeypatch.setattr("app.db.session.async_session_factory", _factory)
+    monkeypatch.setattr(agent_turns, "ring", _ring)
+
+    stats = await agent_turns.release_held()
+
+    assert stats["requeued"] == 1 and stats["ended"] == 0
+    assert rung == [signal.id]
+    await session_override.refresh(row)
+    assert row.status == "queued" and row.outcome == "requeued"
+    assert row.cause_kind == "human" and row.cause_message_id == human.id
+    assert row.attempt == 0
+
+
+@pytest.mark.asyncio
 async def test_history_marks_an_ask_and_reads_peers_as_users(client, session_override):
     """The asker sees its question was a tool call, so it asks with the tool again."""
     _ = client
@@ -343,6 +438,30 @@ async def test_history_marks_an_ask_and_reads_peers_as_users(client, session_ove
     )
     assert history[-2] == {"role": "assistant", "content": "@Boekito Zelfportret?\n[Sent with ask_agent.]"}
     assert history[-1] == {"role": "user", "content": "Boekito: Nee."}
+
+
+@pytest.mark.asyncio
+async def test_an_agent_bubble_that_starts_with_a_chip_asks_nobody(client, session_override):
+    from app.services.agent.loop import AgentLoop
+
+    _ = client
+    signal, (asker, peer) = await _seed(session_override)
+    await _human(session_override, signal)
+    loop = AgentLoop(session_override, signal.tenant_id, None, agent=asker, signal_id=signal.id)
+    loop._new_turn()
+    await loop.turn.speech(f"@[{peer.name}](agent:{peer.id}) is de juiste agent hiervoor.")
+    await loop.turn.finish()
+    await loop.persist_turn(signal)
+    await session_override.commit()
+
+    asks = (await session_override.execute(select(AgentAsk).where(AgentAsk.signal_id == signal.id))).scalars().all()
+    assert asks == []
+    turns = (
+        await session_override.execute(
+            select(AgentTurn).where(AgentTurn.signal_id == signal.id, AgentTurn.cause_kind == "ask")
+        )
+    ).scalars().all()
+    assert turns == []
 
 
 def test_ring_is_patched_in_tests():

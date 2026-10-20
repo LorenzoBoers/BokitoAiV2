@@ -45,6 +45,12 @@ A document is a page built from `##` sections; each section is the atomic unit a
 2. Open a thread in [Communication](/docs/inbox/communication).
 3. Drafts improve once a handful of documents exist. Whether drafts appear still follows [Autonomy](/docs/inbox/inbox-ai); Knowledge only grounds the wording.
 
+## See the platform skills
+
+1. Under **Platform skills**, Knowledge lists the skills that come with Bokito, such as **Labels**, each with a lock.
+2. Hover a skill to read what it covers. Agents use it when their work calls for it, for example when they label conversations.
+3. Platform skills apply to every workspace. You cannot open or edit them; add your own conventions as a **Skill** document instead.
+
 ## Publish customer help
 
 Customer help articles live in Knowledge, not under a separate **Help center** settings page (that sidebar link redirects here).

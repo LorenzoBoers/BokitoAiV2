@@ -6,7 +6,12 @@ Client -> server
   {"type": "connect", "token": "...", "device": "dashboard"}   # if no query token
   {"type": "sub", "topics": ["threads", "run:<id>", "signal:<id>"]}
   {"type": "unsub", "topics": [...]}
+  {"type": "sync", "topic": "signal:<id>", "after": "<event_id>" | null}
   {"type": "ping"}
+
+``sync`` answers with the conversation's events after ``after`` (or, without
+``after``, the open turns and the floor), then ``log.synced`` with the head id.
+See ``services/thread_log``.
 
 Server -> client
   {"type": "connected", "session": {...}}
@@ -334,7 +339,7 @@ async def gateway_websocket(
                 continue
             frame_type = frame.get("type")
             if frame_type == "ping":
-                await websocket.send_json({"type": "pong"})
+                await connection.send({"type": "pong"})
                 if is_operator:
                     await _touch_presence(session, connection)
                     await publish_presence(
@@ -357,13 +362,28 @@ async def gateway_websocket(
                 response: dict = {"type": "sub_ok", "topics": allowed}
                 if denied:
                     response["denied"] = denied
-                await websocket.send_json(response)
+                await connection.send(response)
                 if is_operator and ("presence" in allowed or "agents" in allowed):
                     await _send_presence_snapshot(
                         session,
                         connection,
                         include_people="presence" in allowed,
                         include_agents="presence" in allowed or "agents" in allowed,
+                    )
+            elif frame_type == "sync":
+                topic = frame.get("topic")
+                if not isinstance(topic, str) or not topic.startswith("signal:") or topic not in connection.topics:
+                    await connection.send({"type": "error", "message": "sync needs a subscribed signal topic"})
+                    continue
+                from app.services.thread_log import sync_frames
+
+                after = frame.get("after")
+                for row in await sync_frames(topic.removeprefix("signal:"), after if isinstance(after, str) else None):
+                    data = row.get("data") or {}
+                    if not connection.allows(data):
+                        continue
+                    await connection.send(
+                        {"type": "event", "event": row.get("event"), "topics": [topic], "data": data}
                     )
             elif frame_type == "unsub":
                 dropped = [topic for topic in frame.get("topics") or [] if isinstance(topic, str)]
@@ -375,12 +395,12 @@ async def gateway_websocket(
                     for topic in dropped:
                         if topic.startswith("signal:"):
                             await forget_thread_viewer(topic.removeprefix("signal:"), connection.user_id)
-                await websocket.send_json({"type": "unsub_ok"})
+                await connection.send({"type": "unsub_ok"})
             elif frame_type == "connect":
                 # Already connected; ignore re-auth frames.
                 continue
             else:
-                await websocket.send_json({"type": "error", "message": "unknown frame type"})
+                await connection.send({"type": "error", "message": "unknown frame type"})
     except WebSocketDisconnect:
         pass
     except Exception:

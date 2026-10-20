@@ -120,11 +120,13 @@ team:
     - /team
     - /workforce
     - /workforce/grid
+    - /workforce/workflow
     - /settings/members
     - /settings/teams
   code_globs:
     - apps/dashboard/src/pages/TeamPage.tsx
     - apps/dashboard/src/pages/OrgCanvasPage.tsx
+    - apps/dashboard/src/pages/WorkflowPage.tsx
     - apps/dashboard/src/components/org/**
     - apps/dashboard/src/lib/org-flow-api.ts
     - apps/dashboard/src/lib/org-flow-layout.ts

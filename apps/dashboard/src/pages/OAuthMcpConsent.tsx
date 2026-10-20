@@ -206,7 +206,7 @@ export default function OAuthMcpConsent() {
             <div className="flex items-center justify-end gap-2 pt-1">
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 disabled={submitting}
                 onClick={() => void onDeny()}

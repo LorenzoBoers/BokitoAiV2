@@ -8,7 +8,7 @@ from app.tools.registry import (
     agent_allowed_tools,
     filter_tools_for_agent,
     get_tool_definitions,
-    with_operator_canvas_tools,
+    with_platform_core,
 )
 
 __all__ = [
@@ -16,5 +16,5 @@ __all__ = [
     "execute_tool",
     "filter_tools_for_agent",
     "get_tool_definitions",
-    "with_operator_canvas_tools",
+    "with_platform_core",
 ]

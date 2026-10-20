@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { normalizeHashtag, stripHash } from '../../lib/hashtag'
 import { TagPill } from '../ui/TagPill'
+import { Input } from '../ui/input'
 
 type Tag = { id?: string; name: string }
 
@@ -82,7 +83,7 @@ export function OwnerTagsField({
           type="button"
           disabled={disabled}
           onClick={() => setExpanded(true)}
-          className="inline-flex h-5 items-center rounded-full bg-bg-hover px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-border-light/35 hover:text-text-heading disabled:opacity-40"
+          className="inline-flex h-5 items-center rounded-md bg-bg-hover px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-border-light/35 hover:text-text-heading disabled:opacity-40"
         >
           {t('tags.moreCount', { count: hiddenCount })}
         </button>
@@ -98,7 +99,7 @@ export function OwnerTagsField({
         {pills}
         {adding ? (
           <>
-            <input
+            <Input
               ref={inputRef}
               value={draft}
               disabled={disabled}
@@ -118,7 +119,7 @@ export function OwnerTagsField({
               }}
               placeholder={t('tags.placeholder')}
               aria-label={t('contactPanel.tags')}
-              className="h-6 w-[5.5rem] min-w-0 rounded-md border border-border/70 bg-bg-input px-1.5 text-2xs"
+              className="h-6 w-[5.5rem] min-w-0 text-2xs"
             />
             <button
               type="button"
@@ -151,7 +152,7 @@ export function OwnerTagsField({
     <div className="space-y-1.5" data-testid="owner-tags">
       <div className="flex flex-wrap items-center gap-1.5">{pills}</div>
       <div className="flex items-center gap-1.5">
-        <input
+        <Input
           value={draft}
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
@@ -162,7 +163,7 @@ export function OwnerTagsField({
             }
           }}
           placeholder={t('tags.placeholder')}
-          className="h-7 min-w-0 flex-1 rounded-md border border-border bg-bg-input px-2 text-xs"
+          className="h-7 min-w-0 flex-1 text-xs"
         />
         <button
           type="button"

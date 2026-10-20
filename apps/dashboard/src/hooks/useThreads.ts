@@ -28,6 +28,7 @@ function buildFilterKey(filters: ThreadFilters): string {
     filters.needsReply ? '1' : '',
     filters.needsDecision ? '1' : '',
     filters.pinnedOnly ? '1' : '',
+    filters.segment ?? '',
   ].join('\0')
 }
 
@@ -58,6 +59,7 @@ export function useThreads(
     filters.needsReply,
     filters.needsDecision,
     filters.pinnedOnly,
+    filters.segment,
   ])
 
   const [rawThreads, setRawThreads] = useState<InboxThread[]>([])
@@ -156,6 +158,7 @@ export function useThreads(
     filters.needsReply,
     filters.needsDecision,
     filters.pinnedOnly,
+    filters.segment,
   ])
 
   useEffect(() => {
@@ -195,6 +198,7 @@ export function useThreads(
     filters.connectionId,
     filters.agentId,
     filters.teamId,
+    filters.segment,
   ])
 
   useEffect(() => {
@@ -287,16 +291,18 @@ export function useThreads(
   // Decorate every fetched thread with isPinned (client-side join with the
   // user's pinned thread IDs) and sort pinned threads to the top of the
   // current page. Within each group the list keeps the server-side order
-  // (last_message_at DESC).
+  // (last_message_at DESC). The Scheduled segment keeps the server order (next moment first).
+  const byMoment = filters.segment === 'scheduled'
   const threads = useMemo<InboxThread[]>(() => {
     const pinSet = new Set(pinnedIds.map((id) => String(id)))
     const decorated = rawThreads.map((t) => ({ ...t, isPinned: pinSet.has(String(t.id)) }))
+    if (byMoment) return decorated
     const toMillis = (iso: string | null) => (iso ? new Date(iso).getTime() : 0)
     return [...decorated].sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
       return toMillis(b.lastMessageAt) - toMillis(a.lastMessageAt)
     })
-  }, [rawThreads, pinnedIds])
+  }, [rawThreads, pinnedIds, byMoment])
 
   const outsideThreads = useMemo<InboxThread[]>(() => {
     const pinSet = new Set(pinnedIds.map((id) => String(id)))

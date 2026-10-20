@@ -113,14 +113,14 @@ export function ConnectionSections({
                             </div>
                             <div className="flex flex-wrap gap-2">
                               {row.source === 'inbox' ? (
-                                <Button size="sm" variant="outline" asChild>
+                                <Button size="sm" variant="secondary" asChild>
                                   <Link to="/settings/channels">
                                     {t('integrations.connected.openChannels')}
                                   </Link>
                                 </Button>
                               ) : null}
                               {row.source === 'calendar' ? (
-                                <Button size="sm" variant="outline" asChild>
+                                <Button size="sm" variant="secondary" asChild>
                                   <Link to="/agenda">{t('integrations.actions.manage')}</Link>
                                 </Button>
                               ) : null}

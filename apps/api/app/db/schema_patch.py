@@ -79,6 +79,7 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "turn_ref_id": "VARCHAR",
         "last_human_owner_json": "VARCHAR DEFAULT '{}'",
         "floor_json": "VARCHAR DEFAULT '{}'",
+        "hidden_until": "TIMESTAMP",
     },
     "handover_codes": {
         "language": "VARCHAR DEFAULT 'en'",
@@ -109,7 +110,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
     "triggers": {
         "purpose": "VARCHAR DEFAULT ''",
         "stage_key": "VARCHAR DEFAULT ''",
-        "recipient_kind": "VARCHAR DEFAULT ''",
     },
     "run_events": {
         "sequence": "INTEGER DEFAULT 0",

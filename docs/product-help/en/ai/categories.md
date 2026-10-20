@@ -58,6 +58,25 @@ When a customer raises something new in an old thread, the new request gets its 
 3. That message and everything after it move into a new conversation with the same contact and channel. Both timelines show the link, and later replies on the same email thread or chat land in the new conversation.
 4. Agents follow the conversation's Autonomy: on **Autonomous** they split on their own, on **Assisted** they propose the split as a decision, on **Manual** they leave it to you.
 
+## Let an agent propose labels
+
+Agents propose labels as one plan you approve once; each line says where the label goes.
+
+1. Ask an agent to propose labels, or choose **Suggest labels** on a Grid node in [Workforce](/docs/getting-started/team).
+2. The card lists each label with **new** or **existing**, how many conversations it covers, and where it lands: on the conversations, **on company** (every conversation from that company shows it), or **rule on** a sender or domain (the next mail is labelled on its own).
+3. Tick the lines you want and choose **Approve selected**, or **Approve all**. Nothing changes before that.
+4. Agents reuse existing labels first and keep one idea per label: a supplier goes on the company, the kind of work (for example `#facturen`) is the label. They do not invent a label per invoice or per document type, and the platform refuses names that join a company and a topic.
+5. On their own, agents only attach labels that already exist. A request that fits none of them shows up under **What we missed**.
+
+## Merge two labels
+
+Two labels that mean the same thing become one. Everything that carried the spare label moves.
+
+1. Open **Settings**, then **Labels**.
+2. On the spare label, choose **Merge**. Flow labels have no merge: that name is the flow's title.
+3. Choose the label to keep and confirm. Conversations, contacts, companies, folders and inbox rules that used the spare label now use the one you kept. The spare name is removed.
+4. Ask an agent the same thing. It proposes **Merge labels** and waits for approval. Deleting a label does not do this: delete takes the label off everything instead of moving the items. An agent can also rename a label: the new name replaces the old one everywhere, and that too waits for approval. Renaming a flow label renames its flow.
+
 ## Turn a missed pattern into a label with a flow
 
 1. Open **Settings**, then **Labels**, and read **What we missed**. It lists requests that kept arriving without a matching label, with how often each was seen.

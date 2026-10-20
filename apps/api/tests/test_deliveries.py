@@ -69,6 +69,7 @@ async def test_works_in_canvas_carries_labels_and_link(session_override):
     assert event["item_label"] == "Cijfers"
     assert event["item_kind"] == "canvas"
     assert event["href"] == item["href"]
+    assert event["canvas_id"] == item["key"].split(":", 1)[1] and "resource_id" not in event
 
     body = await explain_thread(session_override, tenant, signal.id)
     line = next(line for line in body["lines"] if line["kind"] == "delivered_works_in")
@@ -102,6 +103,7 @@ async def test_connection_write_lands_in_its_folder(session_override):
     (event,) = await _events(session_override, signal.id)
     assert event["target_kind"] == "works_in"
     assert event["works_in_key"] == item["key"]
+    assert event["resource_id"] == item["key"].split(":", 1)[1] and "canvas_id" not in event
     assert event["ref"] == "INV-7"
 
 

@@ -1,7 +1,7 @@
 """One Ask action: soft yes/no, floor chip, and which session to stream on.
 
-The dashboard sends the text and who was addressed. This module decides
-whether that text resolves a decision or starts a turn. Streaming stays a
+The dashboard sends the text with its @chips. This module decides whether
+that text resolves a decision or starts a turn. Streaming stays a
 separate transport call on the session id returned here.
 """
 
@@ -126,7 +126,6 @@ async def prepare_ask(
     *,
     text: str,
     agent_id: UUID | None = None,
-    addressed_agent_ids: list[UUID] | None = None,
     continue_pending: bool = False,
     has_attachments: bool = False,
     is_admin: bool = False,
@@ -144,7 +143,9 @@ async def prepare_ask(
     if signal is None:
         raise HTTPException(status_code=404, detail="Signal not found")
 
-    plain = text.strip()
+    from app.services.thread_dispatch import entity_mentions, plain_mentions
+
+    plain = plain_mentions(text).strip()
     if not continue_pending and plain and not has_attachments:
         try:
             resolved = await _soft_decision(session, tenant_id, user.id, signal_id, plain)
@@ -154,39 +155,21 @@ async def prepare_ask(
             return resolved
 
     talks_direct = is_internal_channel(signal.channel) or (signal.channel or "") == "internal"
-    addressed = list(dict.fromkeys(addressed_agent_ids or []))
-    if talks_direct and agent_id is not None and len(addressed) < 2:
-        from app.services.archived_agents import agent_is_live, retarget_archived_handler
-
-        await retarget_archived_handler(session, signal)
-        target = await session.get(Agent, agent_id)
-        if not agent_is_live(target):
-            agent_id = signal.agent_id
-        if agent_id is None:
-            return {
-                "kind": "stream",
-                "session_id": str(signal.id),
-                "agent_id": None,
-                "talks_direct": True,
-            }
-        # The stream is the turn. A run=false floor chip used to stick on
-        # "Thinking" after the stream ended, so the screen reads active_turn
-        # only when a worker actually holds the stick.
-        return {
-            "kind": "stream",
-            "session_id": str(signal.id),
-            "agent_id": str(agent_id),
-            "talks_direct": True,
-        }
-
     if talks_direct:
+        from app.services.archived_agents import retarget_archived_handler
+
+        # The stream decides who answers (tagged agents, else the team router).
+        await retarget_archived_handler(session, signal)
         return {
             "kind": "stream",
             "session_id": str(signal.id),
-            "agent_id": str(agent_id) if agent_id else None,
+            "agent_id": None,
             "talks_direct": True,
         }
 
+    if agent_id is None:
+        tagged = [ref for kind, ref in entity_mentions(text) if kind == "agent"]
+        agent_id = tagged[0] if len(tagged) == 1 else None
     agent = await resolve_session_agent(
         session, tenant_id, user, signal_id, agent_id, is_admin=is_admin
     )

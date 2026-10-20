@@ -37,9 +37,9 @@ const MATCH_KEYS: Record<InboxRule['matchType'], string> = {
 
 function statusBadge(rule: InboxRule, t: (key: string, opts?: Record<string, number>) => string) {
   if (rule.status === 'active') return <Badge variant="success">{t('automationRules.active')}</Badge>
-  if (rule.status === 'paused') return <Badge variant="secondary">{t('automationRules.paused')}</Badge>
+  if (rule.status === 'paused') return <Badge variant="neutral">{t('automationRules.paused')}</Badge>
   return (
-    <Badge variant="secondary">
+    <Badge variant="neutral">
       {t('automationRules.learning', {
         current: Math.min(rule.observations, rule.promotionThreshold),
         threshold: rule.promotionThreshold,

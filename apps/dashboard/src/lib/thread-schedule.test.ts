@@ -1,5 +1,34 @@
 import { describe, expect, it } from 'vitest'
-import { parseServerTime, repeatFromSchedule, repeatToSchedule } from './thread-schedule'
+import {
+  parseServerTime,
+  quickMomentDate,
+  repeatFromSchedule,
+  repeatToSchedule,
+  surfaceBeforeFor,
+} from './thread-schedule'
+
+describe('quickMomentDate', () => {
+  // Wednesday 21 October 2026, 14:07 local time.
+  const now = new Date(2026, 9, 21, 14, 7)
+
+  it('rounds in an hour up to five minutes', () => {
+    expect(quickMomentDate('hour', now)).toEqual(new Date(2026, 9, 21, 15, 10))
+  })
+
+  it('picks tomorrow and next Monday at 9:00', () => {
+    expect(quickMomentDate('tomorrow', now)).toEqual(new Date(2026, 9, 22, 9, 0))
+    expect(quickMomentDate('monday', now)).toEqual(new Date(2026, 9, 26, 9, 0))
+    expect(quickMomentDate('monday', new Date(2026, 9, 26, 8, 0))).toEqual(new Date(2026, 10, 2, 9, 0))
+  })
+})
+
+describe('surfaceBeforeFor', () => {
+  it('maps a stored snooze back to its lead time', () => {
+    expect(surfaceBeforeFor('2026-10-22T09:00:00Z', '2026-10-22T08:00:00Z')).toBe(60)
+    expect(surfaceBeforeFor('2026-10-22T09:00:00Z', '2026-10-22T09:00:00Z')).toBe(0)
+    expect(surfaceBeforeFor('2026-10-22T09:00:00Z', null)).toBe(0)
+  })
+})
 
 describe('parseServerTime', () => {
   it('reads naive server timestamps as UTC', () => {

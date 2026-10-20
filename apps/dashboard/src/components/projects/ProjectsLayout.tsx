@@ -1,7 +1,9 @@
+import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ProjectsFolderNav from './ProjectsFolderNav'
 import { SplitPane, SplitRow } from '../ui/SplitRow'
+import { RouteShellSkeleton } from '../ui/skeleton'
 
 /** Folders hub: resizable tree on the left (like Communication), detail on the right. */
 export default function ProjectsLayout() {
@@ -32,7 +34,9 @@ export default function ProjectsLayout() {
           <div className="mb-3 max-h-72 border-b border-border/60 pb-3 md:hidden">
             <ProjectsFolderNav className="h-full max-h-64" />
           </div>
-          <Outlet />
+          <Suspense fallback={<RouteShellSkeleton />}>
+            <Outlet />
+          </Suspense>
         </div>
       </SplitPane>
     </SplitRow>

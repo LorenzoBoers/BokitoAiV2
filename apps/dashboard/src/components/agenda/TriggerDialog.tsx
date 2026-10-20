@@ -366,7 +366,7 @@ export default function TriggerDialog({
             ) : null}
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
               {savedWebhook ? t('triggerDialog.close') : t('triggerDialog.cancel')}
             </Button>
             <Button type="button" onClick={() => void save()} disabled={!canSave || saving}>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Info, Trash2, type LucideIcon } from 'lucide-react'
@@ -9,6 +9,8 @@ import { EmptyState } from '../ui/empty-state'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
+import { RouteShellSkeleton } from '../ui/skeleton'
+
 type SettingsLink = { labelKey: string; to: string; match?: string | string[]; hintKey?: string }
 type SettingsGroup = { labelKey: string; links: SettingsLink[]; accent?: boolean }
 
@@ -73,12 +75,6 @@ export const SETTINGS_PALETTE_LINKS: SettingsLink[] = [
     to: '/settings/setup',
     hintKey: 'settings.hints.setupGuide',
   },
-  // Connections live in the hub; keep them findable from the palette.
-  {
-    labelKey: 'settings.links.integrations',
-    to: '/connections',
-    hintKey: 'settings.hints.integrations',
-  },
   {
     labelKey: 'integrations.links.mcp',
     to: '/connections?kind=mcp',
@@ -121,7 +117,7 @@ export default function SettingsLayout() {
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      <aside className="hidden w-[220px] shrink-0 flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5 lg:flex">
+      <aside className="hidden w-rail shrink-0 flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5 lg:flex">
         <p className="flex h-7 shrink-0 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>
@@ -164,7 +160,9 @@ export default function SettingsLayout() {
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-4 lg:px-8">
           {ownsHeader ? null : <ContentHeader title={title} subtitle={subtitle} />}
-          <Outlet />
+          <Suspense fallback={<RouteShellSkeleton titled={false} />}>
+            <Outlet />
+          </Suspense>
         </div>
       </div>
     </div>

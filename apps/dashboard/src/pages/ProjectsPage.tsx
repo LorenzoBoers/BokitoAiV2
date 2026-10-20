@@ -254,7 +254,7 @@ export default function ProjectsPage() {
           title={t('projects.page.emptyFiltered')}
           description={t('projects.page.emptyFilteredHint')}
           action={
-            <Button size="sm" variant="outline" onClick={() => setQuery('')}>
+            <Button size="sm" variant="secondary" onClick={() => setQuery('')}>
               {t('projects.page.clearSearch')}
             </Button>
           }

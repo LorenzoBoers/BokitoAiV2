@@ -98,6 +98,9 @@ class ToolSpec:
     display_name: str = ""
     # Integration provider slug for the activity icon (e.g. "king_accountancy").
     provider: str = ""
+    # Output carries outside text (web pages, MCP servers, indexed sources):
+    # the loop fences it and a flagged result taints the turn.
+    untrusted_output: bool = False
 
     def definition(self) -> dict[str, Any]:
         schema = self.input_schema
@@ -157,6 +160,21 @@ def get_tool_definitions() -> list[dict[str, Any]]:
     return [spec.definition() for spec in iter_tool_specs()]
 
 
+# Holding any of these means the agent may also merge labels.
+_LABEL_TOOLS = frozenset(
+    {
+        "create_tag",
+        "update_tag",
+        "delete_tag",
+        "set_thread_tags",
+        "set_contact_tags",
+        "record_thread_read",
+        "propose_label_plan",
+        "apply_label_plan",
+    }
+)
+
+
 def agent_allowed_tools(agent: Any | None) -> set[str] | None:
     """The set of tool names this agent may use, or None for no restriction."""
     if agent is None:
@@ -167,14 +185,21 @@ def agent_allowed_tools(agent: Any | None) -> set[str] | None:
         return None
     if not isinstance(names, list) or not names:
         return None
-    return {str(n) for n in names}
+    allowed = {str(n) for n in names}
+    # Agents that already label may rename a label or fold two together.
+    # A denylist still wins.
+    if allowed & _LABEL_TOOLS:
+        allowed.update(("merge_labels", "update_tag"))
+    return allowed
 
 
 def filter_tools_for_agent(tools: list[dict[str, Any]], agent: Any | None) -> list[dict[str, Any]]:
+    from app.services.agent_definition import filter_tools
+
     allowed = agent_allowed_tools(agent)
-    if allowed is None:
-        return tools
-    return [t for t in tools if t["name"] in allowed]
+    if allowed is not None:
+        tools = [t for t in tools if t["name"] in allowed]
+    return filter_tools(tools, agent)
 
 
 # Snapshot canvases are a platform capability. A specialist passport (for example
@@ -210,7 +235,7 @@ CANVAS_WAKE_DENY = frozenset(
         "split_conversation",
         "close_thread",
         "create_task",
-        "delegate_to_agent",
+        "spawn_subagent",
         "assign_conversation",
         "schedule_task",
         "set_thread_schedule",
@@ -218,7 +243,10 @@ CANVAS_WAKE_DENY = frozenset(
         "create_tag",
         "delete_tag",
         "update_tag",
+        "merge_labels",
         "set_thread_tags",
+        "propose_label_plan",
+        "apply_label_plan",
         "create_project",
         "create_folder",
         "delete_folder",
@@ -231,12 +259,40 @@ CANVAS_WAKE_DENY = frozenset(
 )
 
 
-OPERATOR_PROGRESS_TOOL = "update_progress"
-OPERATOR_REACTION_TOOL = "react_to_message"
-# Reads of who works here. A specialist passport may omit them; an operator
-# chat still needs one request to see agents and teams.
-OPERATOR_ORG_TOOLS = frozenset({"get_tenant_overview", "list_agents", "list_departments"})
+# The workspace an agent works in, whatever its passport lists. A passport
+# narrows a seat's specialty; it never hides who works here, where work is
+# filed, or the conversation itself. Writes here still ask through policy.
+PLATFORM_CORE_TOOLS = frozenset(
+    {
+        "get_tenant_overview",
+        "list_agents",
+        "list_departments",
+        "react_to_message",
+        "update_progress",
+        "list_threads",
+        "list_tags",
+        "list_contacts",
+        "get_contact",
+        "read_doc",
+        "search_index",
+        "list_folders",
+        "list_folder_docs",
+        "list_folder_resources",
+        "create_folder",
+        "propose_folder_resource",
+    }
+    | CANVAS_OPERATOR_TOOLS
+)
 IMAGE_TOOL = "generate_image"
+
+
+def core_tool_names(trust: str, *, refresh: bool = False) -> frozenset[str]:
+    """Tools every seat gets on this surface. Customers get none; a canvas refresh only its canvas."""
+    if trust == "external":
+        return frozenset()
+    if refresh:
+        return CANVAS_REFRESH_TOOLS
+    return PLATFORM_CORE_TOOLS
 
 
 def with_default_image_tool(
@@ -253,58 +309,16 @@ def with_default_image_tool(
     return [*tools, *extra] if extra else tools
 
 
-def with_operator_org_tools(
+def with_platform_core(
     tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
 ) -> list[dict[str, Any]]:
-    """Agents and teams are tenant facts, not a specialist skill."""
-    if trust == "external" or refresh:
-        return tools
-    have = {tool["name"] for tool in tools}
-    missing = OPERATOR_ORG_TOOLS - have
-    if not missing:
-        return tools
-    extra = [tool for tool in get_tool_definitions() if tool["name"] in missing]
-    return [*tools, *extra] if extra else tools
-
-
-def with_operator_reaction_tool(
-    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
-) -> list[dict[str, Any]]:
-    """Reacting on the open chat is part of the conversation, not a specialist passport."""
-    if trust == "external" or refresh:
-        return tools
-    if any(tool["name"] == OPERATOR_REACTION_TOOL for tool in tools):
-        return tools
-    extra = [tool for tool in get_tool_definitions() if tool["name"] == OPERATOR_REACTION_TOOL]
-    return [*tools, *extra] if extra else tools
-
-
-def with_operator_progress_tool(
-    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
-) -> list[dict[str, Any]]:
-    """Interim spoken updates stay available even on a narrow passport."""
-    if trust == "external" or refresh:
-        return tools
-    have = {t["name"] for t in tools}
-    if OPERATOR_PROGRESS_TOOL in have:
-        return tools
-    extra = [t for t in get_tool_definitions() if t["name"] == OPERATOR_PROGRESS_TOOL]
-    return [*tools, *extra] if extra else tools
-
-
-def with_operator_canvas_tools(
-    tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
-) -> list[dict[str, Any]]:
-    if trust == "external":
-        return tools
-    allowed = CANVAS_REFRESH_TOOLS if refresh else CANVAS_OPERATOR_TOOLS
+    """The passport's tools plus the platform core, so what a seat is offered is what it may run."""
     if refresh:
         tools = [t for t in tools if t["name"] not in {"create_canvas", "delete_canvas"}]
+    core = core_tool_names(trust, refresh=refresh)
     have = {t["name"] for t in tools}
-    extra = [t for t in get_tool_definitions() if t["name"] in allowed and t["name"] not in have]
-    if not extra:
-        return tools
-    return [*tools, *extra]
+    extra = [t for t in get_tool_definitions() if t["name"] in core and t["name"] not in have]
+    return [*tools, *extra] if extra else tools
 
 
 def tool_matches_audience(spec: ToolSpec, audience: str) -> bool:

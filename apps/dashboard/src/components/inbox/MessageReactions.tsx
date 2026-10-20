@@ -42,7 +42,7 @@ export const REACTION_EMOJI: Record<ReactionKind, string> = {
 
 /** Fixed square so wide glyphs (💯) never stretch the chip into a pill. */
 const CHIP_CLASS =
-  'inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-bg-surface text-[12px] leading-none shadow-sm'
+  'inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-bg-surface text-xs leading-none shadow-sm'
 
 const EMOJI_GLYPH_CLASS =
   'flex size-full items-center justify-center overflow-hidden text-center leading-none [font-size:12px]'
@@ -254,7 +254,7 @@ export function MessageReactions({
                 {showCount ? (
                   <span
                     className={cn(
-                      'overflow-hidden text-[10px] font-semibold tabular-nums text-text-secondary transition-[max-width,opacity,margin] duration-150',
+                      'overflow-hidden text-2xs font-semibold tabular-nums text-text-secondary transition-[max-width,opacity,margin] duration-150',
                       'max-w-0 opacity-0 group-hover/stack:ml-1 group-hover/stack:max-w-[2rem] group-hover/stack:opacity-100',
                       'focus-within:ml-1 focus-within:max-w-[2rem] focus-within:opacity-100',
                     )}

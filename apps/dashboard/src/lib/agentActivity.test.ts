@@ -14,22 +14,52 @@ import {
   liveAttachResults,
   liveBlocks,
   liveProposalHold,
-  liveTurnFromMessage,
   liveTurnOrbMotion,
-  mergeTurns,
   normalizeActivity,
   normalizeMessageActivity,
   shouldShowWaitingTurn,
   statusLabel,
   stripEchoedImages,
   turnPreparesProposal,
-  turnSaved,
   textOnlyTurn,
   webSearchFavicon,
   webSearchHost,
   webSearchQuery,
   type ActivityItem,
 } from './agentActivity'
+
+describe('message.start', () => {
+  it('opens an empty bubble that the first delta fills', () => {
+    const opened = applyTurnEvent(EMPTY_TURN, 'message.start', { stream_id: 's1', segment_id: 'a' })
+    expect(opened.active).toBe(true)
+    expect(liveBlocks(opened)).toEqual([{ type: 'speech', key: 'a', text: '' }])
+    const again = applyTurnEvent(opened, 'message.start', { stream_id: 's1', segment_id: 'a' })
+    expect(liveBlocks(again)).toHaveLength(1)
+    const filled = applyTurnEvent(again, 'message.delta', { stream_id: 's1', segment_id: 'a', delta: 'Hoi' })
+    expect(liveBlocks(filled)).toEqual([{ type: 'speech', key: 'a', text: 'Hoi' }])
+  })
+})
+
+describe('turn author and silent end', () => {
+  const boekhouder = { kind: 'agent', id: 'a1', name: 'Boekhouder' }
+  const orchestrator = { kind: 'agent', id: 'a2', name: 'Orchestrator' }
+
+  it('keeps the author of its own stream', () => {
+    let turn = applyTurnEvent(EMPTY_TURN, 'message.start', { stream_id: 's1', segment_id: 'a', author: boekhouder })
+    turn = applyTurnEvent(turn, 'message.delta', { stream_id: 's1', segment_id: 'a', delta: 'Hoi' })
+    expect(turn.author).toEqual({ id: 'a1', name: 'Boekhouder' })
+    const next = applyTurnEvent(turn, 'message.start', { stream_id: 's2', segment_id: 'b', author: orchestrator })
+    expect(next.author).toEqual({ id: 'a2', name: 'Orchestrator' })
+  })
+
+  it('empties a turn that ends silent', () => {
+    let turn = applyTurnEvent(EMPTY_TURN, 'agent.turn', { stream_id: 's1', phase: 'start', author: boekhouder })
+    turn = applyTurnEvent(turn, 'agent.turn', { stream_id: 's1', phase: 'end', outcome: 'silent' })
+    expect(turn.outcome).toBe('silent')
+    expect(turn.entries).toEqual([])
+    expect(turn.active).toBe(false)
+  })
+})
 
 describe('turnPreparesProposal', () => {
   it('is true while an active turn has a proposing tool call', () => {
@@ -426,73 +456,6 @@ describe('saved messages', () => {
     expect(parsed.activityAfter[0].kind).toBe('other')
     expect(parsed.activityDetail).toBe(false)
     expect(parsed.turnId).toBe('turn-1')
-    const live = applyTurnEvent(EMPTY_TURN, 'agent.turn', { stream_id: 'turn-1', phase: 'start' })
-    expect(turnSaved(live, [{ turnId: 'turn-1' }])).toBe(true)
-    expect(turnSaved(live, [{ turnId: 'turn-1', inProgress: true }])).toBe(false)
-    expect(turnSaved(live, [{ turnId: 'other' }])).toBe(false)
-  })
-
-  it('ignores an in-progress checkpoint older than the live-turn window', () => {
-    const stale = liveTurnFromMessage({
-      turnId: 'turn-stale',
-      inProgress: true,
-      createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
-      activity: [
-        { id: 't1', kind: 'think', label: '', tool: '', provider: '', startedAt: null, endedAt: null, durationMs: 2000, status: 'ok' },
-      ],
-    })
-    expect(stale).toBeNull()
-    const fresh = liveTurnFromMessage({
-      turnId: 'turn-fresh',
-      inProgress: true,
-      createdAt: new Date().toISOString(),
-      bodyText: 'Working on this.',
-    })
-    expect(fresh?.active).toBe(true)
-    expect(fresh?.streamId).toBe('turn-fresh')
-  })
-
-  it('hydrates an in-progress checkpoint into a live turn', () => {
-    const turn = liveTurnFromMessage({
-      turnId: 'turn-live',
-      inProgress: true,
-      bodyText: 'Working on this.',
-      activity: [
-        { id: 't1', kind: 'think', label: '', tool: '', provider: '', startedAt: null, endedAt: null, durationMs: 2000, status: 'ok' },
-        { id: 'w1', kind: 'work', label: 'create_canvas', tool: 'create_canvas', provider: '', startedAt: null, endedAt: null, durationMs: null, status: 'running' },
-      ],
-    })
-    expect(turn?.active).toBe(true)
-    expect(turn?.streamId).toBe('turn-live')
-    expect(turn?.entries.some((e) => e.type === 'speech')).toBe(false)
-    expect(turn?.entries[1]).toMatchObject({ type: 'activity', item: { id: 'w1', status: 'running' } })
-    const merged = mergeTurns(turn!, applyTurnEvent(EMPTY_TURN, 'agent.activity', {
-      stream_id: 'turn-live',
-      item: { id: 'w1', kind: 'work', status: 'ok', label: 'create_canvas' },
-    }))
-    expect(merged.entries).toHaveLength(2)
-    expect(merged.entries[1]).toMatchObject({ type: 'activity', item: { id: 'w1', status: 'ok' } })
-  })
-
-  it('drops checkpoint speech that duplicates a live speech segment', () => {
-    const checkpoint = liveTurnFromMessage({
-      turnId: 'turn-dup',
-      inProgress: true,
-      bodyText: 'In deze workspace zijn er 3 agents: klaar.',
-    })
-    expect(checkpoint?.entries.some((e) => e.type === 'speech')).toBe(true)
-    let live = applyTurnEvent(EMPTY_TURN, 'agent.turn', { stream_id: 'turn-dup', phase: 'start' })
-    live = applyTurnEvent(live, 'message.delta', {
-      stream_id: 'turn-dup',
-      segment_id: 'seg-1',
-      delta: 'In deze workspace zijn er 3 agents: kla',
-    })
-    const merged = mergeTurns(checkpoint!, live)
-    const speech = liveBlocks(merged).filter((b) => b.type === 'speech')
-    expect(speech).toHaveLength(1)
-    expect(speech[0].type === 'speech' && speech[0].text).toBe(
-      'In deze workspace zijn er 3 agents: kla',
-    )
   })
 
   it('keeps appending to the same segment after a think row', () => {
@@ -612,7 +575,7 @@ describe('liveTurnOrbMotion', () => {
     expect(liveTurnOrbMotion(laterThink)).toBe('working')
   })
 
-  it('stays idle while a proposal is preparing', () => {
+  it('writes while a proposal is preparing', () => {
     const preparing = {
       ...EMPTY_TURN,
       active: true,
@@ -625,7 +588,7 @@ describe('liveTurnOrbMotion', () => {
         },
       ],
     }
-    expect(liveTurnOrbMotion(preparing)).toBe('idle')
+    expect(liveTurnOrbMotion(preparing)).toBe('writing')
   })
 })
 

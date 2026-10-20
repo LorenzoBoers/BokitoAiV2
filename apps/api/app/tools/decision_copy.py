@@ -33,6 +33,7 @@ _TOOL_VERBS: dict[str, str] = {
     "connect_integration": "Connect an integration",
     "suggest_integration": "Suggest an integration",
     "propose_integration": "Propose an integration",
+    "apply_label_plan": "Apply label",
 }
 
 
@@ -109,6 +110,7 @@ _LABEL_ARGS = (
     "display_name",
     "slug",
     "module",
+    "where",
 )
 
 _CONNECT_TOOLS = frozenset(
@@ -132,7 +134,16 @@ def _short(value: Any, limit: int = 60) -> str:
 
 # Tools whose title reads better with the hashtag they touch: "Create tag #vip".
 _HASHTAG_TOOLS = frozenset(
-    {"create_tag", "update_tag", "delete_tag", "create_category", "update_category", "delete_category"}
+    {
+        "create_tag",
+        "update_tag",
+        "merge_labels",
+        "delete_tag",
+        "create_category",
+        "update_category",
+        "delete_category",
+        "apply_label_plan",
+    }
 )
 
 
@@ -140,7 +151,7 @@ def _named_target(tool_name: str, payload: dict[str, Any]) -> str:
     if tool_name not in _HASHTAG_TOOLS:
         return ""
     name = str(payload.get("name") or payload.get("tag") or "").strip().lstrip("#")
-    new_name = str(payload.get("new_name") or "").strip().lstrip("#")
+    new_name = str(payload.get("new_name") or payload.get("into") or "").strip().lstrip("#")
     if name and new_name:
         return f"#{name} -> #{new_name}"
     if name:

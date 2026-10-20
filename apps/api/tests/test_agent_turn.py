@@ -146,13 +146,10 @@ def test_format_for_channel_converts_markup():
 # ── planning a turn ────────────────────────────────────────────────────────
 
 
-def test_chat_turn_becomes_bubbles_with_activity_before_each():
-    planned = plan_turn_messages(_segments(), CHAT)
-    assert [b["text"] for b in planned] == ["Let me check your order.", "Found it.", "It ships today."]
-    assert [a["id"] for a in planned[0]["activity"]] == ["think-1"]
-    # Activity without speech carries to the next bubble with text.
-    assert [a["id"] for a in planned[1]["activity"]] == ["lookup", "status"]
-    assert planned[2]["activity"] == []
+def test_chat_turn_is_one_bubble_with_the_work_above_it():
+    [planned] = plan_turn_messages(_segments(), CHAT)
+    assert planned["text"] == "Let me check your order.\n\nFound it.\n\nIt ships today."
+    assert [a["id"] for a in planned["activity"]] == ["think-1", "lookup", "status"]
 
 
 def test_mail_turn_is_one_message_and_earlier_speech_becomes_a_note():
@@ -202,7 +199,37 @@ def test_live_segments_include_open_tools():
 
 
 @pytest.mark.asyncio
-async def test_blank_line_opens_a_second_bubble_before_save():
+async def test_a_turn_is_one_bubble_across_paragraphs_and_tools():
+    from app.services.agent.turn import TurnRecorder
+    from app.services.agent.turn_persist import plan_turn_messages
+
+    events: list[tuple[str, dict]] = []
+
+    async def publish(event: str, data: dict) -> None:
+        events.append((event, data))
+
+    author = {"kind": "agent", "id": "a1", "name": "Boekhouder"}
+    turn = TurnRecorder(publish, stream_id="s1", author=author)
+    await turn.speech("Eerste zin.\n\nTweede zin.")
+    item = await turn.tool_start("search_index", {"q": "x"})
+    await turn.tool_end(item, {"hits": []})
+    await turn.speech("Gevonden.")
+    await turn.finish()
+
+    assert [name for name, _ in events].count("message.start") == 1
+    bubbles = {data["segment_id"] for name, data in events if name.startswith("message.")}
+    assert len(bubbles) == 1
+    assert all(data.get("author") == author for _, data in events)
+    surface = events[-1][1]["surface"]
+    spoken = [block["text"] for block in surface["blocks"] if block["type"] == "speech"]
+    assert spoken == ["Eerste zin.\n\nTweede zin.\n\nGevonden."]
+    planned = plan_turn_messages(turn.segments, "chat")
+    assert [b["text"] for b in planned] == ["Eerste zin.\n\nTweede zin.\n\nGevonden."]
+    assert [a["tool"] for a in planned[0]["activity"]] == ["search_index"]
+
+
+@pytest.mark.asyncio
+async def test_a_pass_is_never_published():
     from app.services.agent.turn import TurnRecorder
 
     events: list[tuple[str, dict]] = []
@@ -211,14 +238,33 @@ async def test_blank_line_opens_a_second_bubble_before_save():
         events.append((event, data))
 
     turn = TurnRecorder(publish, stream_id="s1")
-    await turn.speech("Eerste zin.\n\nTweede zin.")
+    for piece in ("pa", "ss"):
+        await turn.speech(piece)
     await turn.finish()
-    assert [seg["text"] for seg in turn.segments] == ["Eerste zin.", "Tweede zin."]
-    surface = events[-1][1]["surface"]
-    spoken = [block["text"] for block in surface["blocks"] if block["type"] == "speech"]
-    assert spoken == ["Eerste zin.", "Tweede zin."]
-    segments = {data["segment_id"] for name, data in events if name == "message.delta"}
-    assert len(segments) == 2
+    names = [name for name, _ in events]
+    assert "message.start" not in names
+    assert "message.delta" not in names
+    assert events[-1] == ("agent.turn", events[-1][1])
+    assert events[-1][1]["outcome"] == "silent"
+
+
+@pytest.mark.asyncio
+async def test_text_that_starts_like_pass_streams_once_it_cannot_be_pass():
+    from app.services.agent.turn import TurnRecorder
+
+    events: list[tuple[str, dict]] = []
+
+    async def publish(event: str, data: dict) -> None:
+        events.append((event, data))
+
+    turn = TurnRecorder(publish, stream_id="s1")
+    await turn.speech("Pa")
+    assert not any(name == "message.start" for name, _ in events)
+    await turn.speech("sst prima.")
+    await turn.finish()
+    deltas = "".join(data["delta"] for name, data in events if name == "message.delta")
+    assert deltas == "Passt prima."
+    assert "outcome" not in events[-1][1]
 
 
 @pytest.mark.asyncio
@@ -387,48 +433,14 @@ async def _tenant_agent(session) -> tuple[Tenant, Agent]:
 
 
 @pytest.mark.asyncio
-async def test_checkpoint_then_persist_keeps_one_message(client: AsyncClient, session_override):
-    from app.services.agent.turn_persist import persist_agent_turn, upsert_turn_checkpoint
+async def test_persist_turn_appends_one_message_named_by_segment(client: AsyncClient, session_override):
+    from app.services.agent.turn_persist import persist_agent_turn
 
+    _ = client
     tenant, agent = await _tenant_agent(session_override)
-    signal = Signal(
-        tenant_id=tenant.id,
-        channel="assistant",
-        source="test",
-        subject="Canvas",
-        status="open",
-    )
+    signal = Signal(tenant_id=tenant.id, channel="assistant", source="test", subject="Canvas", status="open")
     session_override.add(signal)
     await session_override.commit()
-
-    first = await upsert_turn_checkpoint(
-        session_override,
-        signal,
-        message_id=None,
-        author_agent_id=agent.id,
-        turn_id="turn-live",
-        segments=[{"id": "s1", "text": "", "activity": [_work("create_canvas", status="running")]}],
-    )
-    await session_override.commit()
-    assert first.body_text == "Working on this."
-    assert json.loads(first.metadata_json)["in_progress"] is True
-
-    second = await upsert_turn_checkpoint(
-        session_override,
-        signal,
-        message_id=first.id,
-        author_agent_id=agent.id,
-        turn_id="turn-live",
-        segments=[
-            {
-                "id": "s1",
-                "text": "",
-                "activity": [_work("create_canvas"), _work("update_folder_canvas")],
-            }
-        ],
-    )
-    await session_override.commit()
-    assert second.id == first.id
 
     bubbles = await persist_agent_turn(
         session_override,
@@ -443,12 +455,13 @@ async def test_checkpoint_then_persist_keeps_one_message(client: AsyncClient, se
         reply_mode=CHAT,
         author_agent_id=agent.id,
         turn_id="turn-live",
-        replace_message_id=first.id,
     )
     await session_override.commit()
-    assert [b.id for b in bubbles] == [first.id]
-    assert bubbles[0].body_text == "Dashboard staat klaar."
-    assert "in_progress" not in json.loads(bubbles[0].metadata_json)
+    assert len(bubbles) == 1
+    meta = json.loads(bubbles[0].metadata_json)
+    assert meta["turn_id"] == "turn-live"
+    assert meta["segment_id"] == "s1"
+    assert "in_progress" not in meta
     rows = (
         await session_override.execute(select(SignalMessage).where(SignalMessage.signal_id == signal.id))
     ).scalars().all()
@@ -456,91 +469,77 @@ async def test_checkpoint_then_persist_keeps_one_message(client: AsyncClient, se
 
 
 @pytest.mark.asyncio
-async def test_seal_in_progress_rewrites_checkpoint_as_error(client: AsyncClient, session_override):
-    """Crash mid-tool must not leave a live Update-folder-canvas trail after refresh."""
-    from app.services.agent.turn_persist import seal_in_progress_checkpoints, upsert_turn_checkpoint
+async def test_end_dead_turns_closes_the_turn_and_leaves_one_error_bubble(
+    client: AsyncClient, session_override
+):
+    """A crash mid-tool ends the turn on the log; the work it did stays, sealed."""
+    from app.services import thread_log
+    from app.services.agent.turn_persist import end_dead_turns
 
     _ = client
+    thread_log.memory.reset()
     tenant, agent = await _tenant_agent(session_override)
-    signal = Signal(
-        tenant_id=tenant.id,
-        channel="assistant",
-        source="test",
-        subject="Wealth map",
-        status="open",
-    )
+    signal = Signal(tenant_id=tenant.id, channel="assistant", source="test", subject="Wealth map", status="open")
     session_override.add(signal)
     await session_override.commit()
 
-    checkpoint = await upsert_turn_checkpoint(
-        session_override,
-        signal,
-        message_id=None,
-        author_agent_id=agent.id,
-        turn_id="turn-crash",
-        segments=[
-            {
-                "id": "s1",
-                "text": "",
-                "activity": [
-                    _work("create_canvas"),
-                    _work("update_folder_canvas", status="running"),
-                ],
-            }
-        ],
+    surface = {
+        "blocks": [
+            {"type": "activity", "id": "a1", "items": [_work("update_folder_canvas", status="running")]},
+        ]
+    }
+    await thread_log.append(
+        tenant.id,
+        signal.id,
+        "agent.turn",
+        {
+            "stream_id": "turn-crash",
+            "phase": "start",
+            "author": {"id": str(agent.id), "name": agent.name},
+            "surface": surface,
+            "audience": "operator",
+        },
     )
-    await session_override.commit()
-    assert json.loads(checkpoint.metadata_json)["in_progress"] is True
+    assert [r["data"]["stream_id"] for r in await thread_log.live(signal.id)] == ["turn-crash"]
 
-    sealed = await seal_in_progress_checkpoints(
+    made = await end_dead_turns(
         session_override,
         signal,
         error_text="The assistant encountered an error while generating a reply.",
-        author_agent_id=agent.id,
-        replace_with_error=True,
-        checkpoint_message_id=checkpoint.id,
     )
     await session_override.commit()
-    assert len(sealed) == 1
-    await session_override.refresh(checkpoint)
-    meta = json.loads(checkpoint.metadata_json)
-    assert "in_progress" not in meta
-    assert meta.get("error") is True
-    assert checkpoint.body_text.startswith("The assistant encountered")
-    statuses = [a.get("status") for a in meta.get("activity") or []]
-    assert "running" not in statuses
-    assert statuses.count("error") >= 1
+    assert len(made) == 1
+    meta = json.loads(made[0].metadata_json)
+    assert meta["turn_id"] == "turn-crash"
+    assert meta["error"] is True
+    assert [a.get("status") for a in meta.get("activity") or []] == ["error"]
+    assert made[0].author_agent_id == agent.id
+    assert await thread_log.live(signal.id) == []
+    events, _ = await thread_log.read_after(signal.id, "")
+    types = [e["data"]["type"] for e in events]
+    assert types[-2:] == ["turn.completed", "message.saved"]
+    assert events[-2]["data"]["stop_reason"] == "error"
 
 
 @pytest.mark.asyncio
-async def test_fresh_checkpoint_is_not_sealed_on_thread_load(client: AsyncClient, session_override):
+async def test_fresh_open_turn_is_not_closed_on_thread_load(client: AsyncClient, session_override):
     from datetime import timedelta
 
-    from app.services.agent.turn_persist import seal_in_progress_checkpoints, upsert_turn_checkpoint
+    from app.services import thread_log
+    from app.services.agent.turn_persist import end_dead_turns
 
     _ = client
-    tenant, agent = await _tenant_agent(session_override)
-    signal = Signal(
-        tenant_id=tenant.id, channel="assistant", source="test", subject="Follow up", status="open"
-    )
+    thread_log.memory.reset()
+    tenant, _agent = await _tenant_agent(session_override)
+    signal = Signal(tenant_id=tenant.id, channel="assistant", source="test", subject="Follow up", status="open")
     session_override.add(signal)
     await session_override.commit()
-    checkpoint = await upsert_turn_checkpoint(
-        session_override,
-        signal,
-        message_id=None,
-        author_agent_id=agent.id,
-        turn_id="turn-live",
-        segments=[],
+    await thread_log.append(
+        tenant.id, signal.id, "agent.turn", {"stream_id": "turn-live", "phase": "start", "audience": "operator"}
     )
-    await session_override.commit()
-    sealed = await seal_in_progress_checkpoints(
-        session_override, signal, older_than=timedelta(minutes=15)
-    )
-    assert sealed == []
-    await session_override.refresh(checkpoint)
-    assert json.loads(checkpoint.metadata_json)["in_progress"] is True
-
+    made = await end_dead_turns(session_override, signal, older_than=timedelta(minutes=15))
+    assert made == []
+    assert len(await thread_log.live(signal.id)) == 1
 
 @pytest.mark.asyncio
 async def test_silent_decision_follow_up_replaces_placeholder(client: AsyncClient, session_override):
@@ -554,27 +553,22 @@ async def test_silent_decision_follow_up_replaces_placeholder(client: AsyncClien
     )
     session_override.add(signal)
     await session_override.commit()
-    await append_signal_chat_message(
-        session_override,
-        signal,
-        role="user",
-        content="[System] approved",
-        metadata={
-            "decision_outcome_hint": True,
-            "hidden_from_timeline": True,
-            "confirm_text": "Gedaan: Ja, altijd.",
-        },
-    )
     placeholder = await append_signal_chat_message(
         session_override,
         signal,
         role="assistant",
-        content="Working on this.",
+        content="Done.",
         author_agent_id=agent.id,
-        metadata={"in_progress": True, "turn_id": "wake"},
+        metadata={"turn_id": "wake"},
     )
     await session_override.commit()
-    await _fill_silent_decision_follow_up(session_override, signal, [placeholder], agent.id)
+    await _fill_silent_decision_follow_up(
+        session_override,
+        signal,
+        [placeholder],
+        agent.id,
+        [{"action": "approved", "label": "Ja, altijd"}],
+    )
     await session_override.refresh(placeholder)
     assert placeholder.body_text == "Gedaan: Ja, altijd."
     assert "in_progress" not in json.loads(placeholder.metadata_json)
@@ -897,11 +891,10 @@ async def test_wait_for_ok_card_sits_after_the_tool_bubble(client: AsyncClient, 
     )
     await session_override.commit()
     await session_override.refresh(card)
-    first, second = bubbles
-    assert first.seq < second.seq < card.seq
-    # The proposal rides on the turn's last bubble; the card points back to it.
+    [second] = bubbles
+    assert second.seq < card.seq
+    # The proposal rides on the turn's bubble; the card points back to it.
     assert json.loads(second.metadata_json)["proposal"]["decision_id"] == str(decision.id)
-    assert "proposal" not in json.loads(first.metadata_json)
     assert json.loads(card.metadata_json)["attached_to_message_id"] == str(second.id)
 
     from app.models.auth import Membership
@@ -1123,7 +1116,9 @@ async def test_agent_prompt_says_a_mention_wakes_nobody(session_override):
     loop = AgentLoop(session_override, tenant.id, None, agent=agent)
     loop.tools = [*loop.tools, {"name": "ask_agent"}]
     prompt = await loop._build_system_prompt()
-    assert "only a link: it wakes nobody" in prompt
+    assert "call ask_agent" in prompt
+    assert "start a bubble with their chip" not in prompt
+    assert "An @mention is only a link" in prompt
 
 
 def test_asking_a_peer_ends_the_turn():

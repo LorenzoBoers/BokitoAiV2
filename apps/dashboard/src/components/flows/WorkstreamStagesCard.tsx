@@ -46,6 +46,7 @@ import { listAgents } from '../../lib/agents-api'
 import { EDITABLE_STAGE_KINDS, waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from './StageProgressIcon'
 import { cn } from '../../lib/utils'
+import { Input } from '../ui/input'
 
 const KINDS: TicketStageKind[] = EDITABLE_STAGE_KINDS
 const FIELD_TYPES: TicketStageFieldType[] = ['text', 'textarea', 'number', 'enum']
@@ -387,7 +388,7 @@ function StageFieldsBlock({
               className="space-y-1.5 rounded-md border border-border/40 bg-bg-surface/80 p-2"
             >
               <div className="flex items-center gap-1">
-                <input
+                <Input
                   value={field.name}
                   disabled={!canEdit}
                   onChange={(e) => {
@@ -397,7 +398,7 @@ function StageFieldsBlock({
                   }}
                   placeholder={t('workstreamsPage.stages.fieldName')}
                   aria-label={t('workstreamsPage.stages.fieldName')}
-                  className="h-7 min-w-0 flex-1 rounded-md border border-border/50 bg-bg-input/80 px-2 text-xs"
+                  className="h-7 min-w-0 flex-1 text-xs"
                 />
                 {canEdit ? (
                   <Button
@@ -471,7 +472,7 @@ function StageFieldsBlock({
                   </p>
                   {(field.options ?? ['', '']).map((option, optionIndex) => (
                     <div key={`${rowId}-opt-${fieldIndex}-${optionIndex}`} className="flex items-center gap-1">
-                      <input
+                      <Input
                         value={option}
                         disabled={!canEdit}
                         onChange={(e) => {
@@ -483,7 +484,7 @@ function StageFieldsBlock({
                         }}
                         placeholder={t('workstreamsPage.stages.fieldOptionPlaceholder')}
                         aria-label={t('workstreamsPage.stages.fieldOptionPlaceholder')}
-                        className="h-7 min-w-0 flex-1 rounded-md border border-border/50 bg-bg-input/80 px-2 text-2xs"
+                        className="h-7 min-w-0 flex-1 text-2xs"
                       />
                       {canEdit && (field.options?.length ?? 0) > 2 ? (
                         <Button

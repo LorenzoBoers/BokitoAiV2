@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select'
+import { Button } from '../ui/button'
 
 function mailboxSyncLabel(
   lastSyncAt: string,
@@ -323,22 +324,22 @@ export default function ThreadListQuickFilters({
             <DropdownMenuSeparator />
             <div className="flex flex-wrap gap-1 px-1 pb-1">
               {onSelectAll ? (
-                <button
+                <Button variant="ghost" size="sm"
                   type="button"
                   onClick={onSelectAll}
-                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                  className="h-7 px-2"
                 >
                   {t('bulkActions.selectAll')}
-                </button>
+                </Button>
               ) : null}
               {onMarkAllRead && unreadCount > 0 ? (
-                <button
+                <Button variant="ghost" size="sm"
                   type="button"
                   onClick={onMarkAllRead}
-                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                  className="h-7 px-2"
                 >
                   {t('threadList.markAllRead')}
-                </button>
+                </Button>
               ) : null}
               {filtersActive ? (
                 <button

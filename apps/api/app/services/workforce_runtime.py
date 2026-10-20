@@ -280,7 +280,7 @@ _MULTI_AGENT_CORE: tuple[str, ...] = (
     "ask_agent",
     "handoff_to",
     "start_conversation",
-    "delegate_to_agent",
+    "spawn_subagent",
     "create_decision_request",
     "propose_action",
     "list_threads",
@@ -301,6 +301,9 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
     "orchestrator": _MULTI_AGENT_CORE
     + (
         "set_thread_tags",
+        "propose_label_plan",
+        "merge_labels",
+        "update_tag",
         "note_no_reply",
         "close_thread",
         "schedule_wake",
@@ -319,6 +322,9 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "list_tags",
         "set_thread_tags",
         "create_tag",
+        "merge_labels",
+        "update_tag",
+        "propose_label_plan",
         "suggest_thread_reply",
         "react_to_message",
         "note_no_reply",
@@ -348,7 +354,7 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "react_to_message",
         "create_decision_request",
         "propose_action",
-        "delegate_to_agent",
+        "spawn_subagent",
         "start_conversation",
         "invite_to_thread",
         "ask_agent",
@@ -356,6 +362,9 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "list_threads",
         "list_agents",
         "list_tags",
+        "propose_label_plan",
+        "merge_labels",
+        "update_tag",
         "get_tenant_overview",
         "read_doc",
         "search_index",
@@ -367,7 +376,7 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "react_to_message",
         "create_decision_request",
         "propose_action",
-        "delegate_to_agent",
+        "spawn_subagent",
         "list_threads",
         "read_doc",
         "search_repo",
@@ -1350,13 +1359,13 @@ async def clear_stale_runtime(
 
     if stale_threads:
         from app.models.signal import Signal
-        from app.services.agent.turn_persist import seal_in_progress_checkpoints
+        from app.services.agent.turn_persist import end_dead_turns
 
         for signal_id in dict.fromkeys(signal_id for _, signal_id in stale_threads):
             signal = await session.get(Signal, signal_id)
             if signal is None:
                 continue
-            await seal_in_progress_checkpoints(session, signal)
+            await end_dead_turns(session, signal, older_than=timedelta(minutes=2))
 
     await session.commit()
     if stale_threads:

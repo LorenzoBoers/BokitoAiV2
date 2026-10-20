@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
+import { Card } from './card'
 
 type StatTileProps = {
   label: ReactNode
@@ -13,14 +14,14 @@ type StatTileProps = {
 /** One KPI: label, large value, optional hint. Sits in a grid inside a page. */
 export function StatTile({ label, value, hint, icon, className }: StatTileProps) {
   return (
-    <div className={cn('rounded-lg border border-border/60 bg-bg-surface px-4 py-3', className)}>
+    <Card className={cn('px-4 py-3', className)}>
       <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-xs font-medium text-text-muted">{label}</p>
+        <p className="title-eyebrow truncate">{label}</p>
         {icon ? <span className="shrink-0 text-text-muted">{icon}</span> : null}
       </div>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-text-heading">{value}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-text-heading">{value}</p>
       {hint ? <p className="mt-0.5 text-xs text-text-muted">{hint}</p> : null}
-    </div>
+    </Card>
   )
 }
 

@@ -1,9 +1,12 @@
-﻿import { useEffect, useState, type ReactNode } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, AlertCircle, Mail, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { resendVerificationEmail, verifyEmail } from '../lib/api'
+import { AuthShell } from '../components/auth/AuthShell'
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 type VerifyState = 'pending' | 'success' | 'error' | 'missing'
 
@@ -102,24 +105,24 @@ export default function VerifyEmail() {
           <label htmlFor="resend-email" className="block text-sm font-medium text-text-secondary mb-1.5">
             {t('loginPage.email')}
           </label>
-          <input
+          <Input
             id="resend-email"
             type="email"
             value={resendEmail}
             onChange={(event) => setResendEmail(event.target.value)}
             placeholder={t('verifyEmailPage.emailPlaceholder')}
-            className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+            className="h-10"
             required
           />
         </div>
-        <button
+        <Button size="lg"
           type="submit"
           disabled={resending || !resendEmail.trim()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+          className="w-full"
         >
           <Mail size={16} />
           {resending ? t('verifyEmailPage.sending') : t('verifyEmailPage.resend')}
-        </button>
+        </Button>
       </form>
 
       {devLink ? (
@@ -154,48 +157,5 @@ export default function VerifyEmail() {
         </button>
       </div>
     </AuthShell>
-  )
-}
-
-function AuthShell({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string
-  subtitle: string
-  children: ReactNode
-}) {
-  const { t } = useTranslation('nav')
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-accent/10 blur-[120px]" />
-      </div>
-
-      <div className="relative w-full max-w-sm">
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src="/bokito-logo.png"
-            alt="Bokito.ai"
-            className="w-12 h-12 mb-3"
-            onError={(event) => {
-              (event.target as HTMLImageElement).style.display = 'none'
-            }}
-          />
-          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">{subtitle}</span>
-        </div>
-
-        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
-          <h1 className="text-xl font-semibold text-text-heading mb-4 text-center">{title}</h1>
-          {children}
-        </div>
-
-        <p className="text-center text-xs text-text-muted mt-6">
-          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-        </p>
-      </div>
-    </div>
   )
 }

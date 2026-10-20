@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
 import { moduleSpecialistVisual } from './ModuleSpecialistCallout'
-import { AiAvatar } from '../ui/AiAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
+import { AgentMark } from '../ui/AgentMark'
+import { AgentGlow } from '../ui/agent-glow'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import {
@@ -157,11 +157,7 @@ export function MarketplaceModuleCard({
       )}
       aria-disabled={comingSoon || undefined}
     >
-      <span
-        aria-hidden
-        className="specialist-glow pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full blur-2xl"
-        style={{ backgroundColor: specialist.titleColor }}
-      />
+      <AgentGlow color={specialist.titleColor} placement="corner-right" />
       <div className="relative z-[1] flex flex-1 items-stretch gap-4">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-2">
@@ -213,8 +209,8 @@ export function MarketplaceModuleCard({
           </div>
         </div>
         <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
-          <AiAvatar
-            {...toAiAvatarProps(specialist.avatar)}
+          <AgentMark
+            agent={specialist.avatar}
             size={40}
             mode="live"
             decorative

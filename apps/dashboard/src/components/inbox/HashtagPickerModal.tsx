@@ -247,7 +247,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setPhase('pick')}>
+              <Button type="button" variant="secondary" disabled={busy} onClick={() => setPhase('pick')}>
                 {t('tags.cancel')}
               </Button>
               <Button
@@ -292,7 +292,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               ))}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setPhase('pick')}>
+              <Button type="button" variant="secondary" disabled={busy} onClick={() => setPhase('pick')}>
                 {t('tags.cancel')}
               </Button>
               <Button
@@ -338,7 +338,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               </button>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setPhase('pick')}>
+              <Button type="button" variant="secondary" disabled={busy} onClick={() => setPhase('pick')}>
                 {t('tags.cancel')}
               </Button>
             </DialogFooter>

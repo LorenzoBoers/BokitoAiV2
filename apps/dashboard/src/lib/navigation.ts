@@ -1,10 +1,10 @@
 /**
  * Navigation model for the control shell.
  *
- * Rail: New conversation on top; Work (Communication, Agenda, Folders, Flows);
- * Team (Agents, Workforce); Settings in the footer above the account menu.
- * Today lives inside Communication, Knowledge under Agents, Grid under
- * Workforce, Connections and Govern under Settings.
+ * Rail: New conversation, then Inbox (pinned above Work). Work holds Agenda,
+ * Folders and Flows. Team holds Agents and Workforce. Connections and Settings
+ * sit above the account-menu divider. Today lives inside Inbox, Knowledge
+ * under Agents, the Grid under Workforce, Govern under Settings.
  */
 
 import {
@@ -13,22 +13,37 @@ import {
   FolderOpen,
   MessageSquare,
   Network,
+  Plug,
   Route,
   Settings,
   Users,
   type LucideIcon,
 } from 'lucide-react'
 
-export type Tab = 'communication' | 'agenda' | 'folders' | 'workstreams' | 'agents' | 'team' | 'settings'
+export type Tab =
+  | 'communication'
+  | 'agenda'
+  | 'folders'
+  | 'workstreams'
+  | 'agents'
+  | 'team'
+  | 'connections'
+  | 'settings'
 
 export type TabGroup = { label: 'work' | 'team'; tabs: readonly Tab[] }
 
+/** Pinned above the Work group. */
+export const PINNED_TABS: readonly Tab[] = ['communication']
+
 export const TAB_GROUPS: readonly TabGroup[] = [
-  { label: 'work', tabs: ['communication', 'agenda', 'folders', 'workstreams'] },
+  { label: 'work', tabs: ['agenda', 'folders', 'workstreams'] },
   { label: 'team', tabs: ['agents', 'team'] },
 ]
 
-/** Rendered in the sidebar footer, not inside a group. */
+/** Pinned above the account-menu divider, not inside a group. */
+export const FOOTER_TABS: readonly Tab[] = ['connections', 'settings']
+
+/** Last footer item. Kept so callers that only need Settings stay stable. */
 export const FOOTER_TAB: Tab = 'settings'
 
 export const TAB_PATHS: Record<Tab, string> = {
@@ -38,6 +53,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   workstreams: '/flows',
   agents: '/agents',
   team: '/workforce',
+  connections: '/connections',
   settings: '/settings',
 }
 
@@ -45,8 +61,9 @@ export const TAB_PATHS: Record<Tab, string> = {
 export const OVERVIEW_PATH = '/communication/today' as const
 export const KNOWLEDGE_PATH = '/agents/knowledge' as const
 export const GRID_PATH = '/workforce/grid' as const
+export const WORKFLOW_PATH = '/workforce/workflow' as const
 export const DEPARTMENTS_PATH = '/workforce?tab=departments' as const
-export const CONNECTIONS_PATH = '/settings/connections' as const
+export const CONNECTIONS_PATH = '/connections' as const
 export const AUTONOMY_PATH = '/settings/govern?tab=policy' as const
 
 /** Org map mark. Same glyph on Open in Grid and the Grid tab. */
@@ -59,16 +76,18 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   workstreams: Route,
   agents: Bot,
   team: Users,
+  connections: Plug,
   settings: Settings,
 }
 
 const TAB_TITLES: Record<Tab, string> = {
-  communication: 'Communication',
+  communication: 'Inbox',
   agenda: 'Agenda',
   folders: 'Folders',
   workstreams: 'Flows',
   agents: 'Agents',
   team: 'Workforce',
+  connections: 'Connections',
   settings: 'Settings',
 }
 
@@ -79,6 +98,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   workstreams: 'Stages for one kind of ticket',
   agents: 'AI teammates, their knowledge and what they may do',
   team: 'People, agents, departments and the Grid',
+  connections: 'Installed modules, partner logins and tools',
   settings: 'Workspace settings',
 }
 
@@ -122,9 +142,13 @@ export function tabFromPath(pathname: string): Tab | null {
     return 'agents'
   if (pathname.startsWith('/flows')) return 'workstreams'
   if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'folders'
-  if (pathname === '/connections') return 'settings'
-  // Installed module workspaces have no rail item.
-  if (pathname.startsWith('/connections/') || pathname.startsWith('/ai/modules')) return null
+  if (
+    pathname === '/connections' ||
+    pathname.startsWith('/connections/') ||
+    pathname.startsWith('/settings/connections')
+  )
+    return 'connections'
+  if (pathname.startsWith('/ai/modules')) return null
   if (
     pathname.startsWith('/settings') ||
     pathname.startsWith('/usage') ||

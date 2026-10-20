@@ -53,6 +53,13 @@ export const COLUMN = {
   result: { x: 786, w: 300 },
 } as const
 
+/** Department sections in 3D are narrower than their 2D box; marks keep their place. */
+const ZONE_WIDTH_3D = 120
+/** Column plates in 3D: this share of the 2D column width, centered on it. */
+const PLATE_WIDTH_3D = 0.58
+/** Gap between column plates in 3D, in scene units. */
+const PLATE_GAP_3D = 0.55
+
 const TOP = 48
 const CARD_H = { input: 52, executor: 44, work: 52, sink: 52, knowledge: 64 }
 const GAP = 14
@@ -60,6 +67,7 @@ const ZONE_HEADER = 30
 const ZONE_PAD = 12
 const ZONE_GAP = 14
 const LANE_GAP = 6
+const UNIT = 1 / 40
 
 /** Line style per mode. Manual agent work is sent by a person, so it reads as human. */
 export const MODE_STYLE: Record<OrgFlowMode, { color: string; dash: string | null; opacity: number }> = {
@@ -93,6 +101,19 @@ export function labelHex(color: string): string {
 
 export function labelKeyOf(label: OrgFlowLabel): string {
   return label.id ?? NO_LABEL_KEY
+}
+
+/** One strip and one filter for every label that has no flow, including unlabeled work. */
+export const OTHER_LABEL_KEY = 'other'
+
+export function isFlowLabel(label: OrgFlowLabel): boolean {
+  return Boolean(label.flow_id)
+}
+
+/** Conversations on a path or node that are not on a flow label. */
+export function otherLabelCount(bag: Record<string, number>, labels: OrgFlowLabel[]): number {
+  const flow = new Set(labels.filter(isFlowLabel).map(labelKeyOf))
+  return Object.entries(bag).reduce((sum, [key, count]) => sum + (flow.has(key) ? 0 : count), 0)
 }
 
 /** Log scale: a thousand conversations is not a thousand times thicker than one. */
@@ -206,10 +227,21 @@ export function layoutOrgFlow2D(data: OrgFlow, options: LayoutOptions = {}): Flo
     cardOf.set(node.id, card)
     y += h + 16
   }
-  const sinkW = (COLUMN.result.w - 12) / 2
+  // Inset from the column edges so both sinks stay on the narrowed 3D result plate.
+  const sinkGap = 12
+  const sinkInset = Math.round(COLUMN.result.w * (1 - PLATE_WIDTH_3D) * 0.5) + 8
+  const sinkW = (COLUMN.result.w - sinkInset * 2 - sinkGap) / 2
   const sinks = ['result:open', 'result:closed_without_result'].map((id) => byId.get(id)).filter(Boolean) as OrgFlowNode[]
   sinks.forEach((node, i) => {
-    const card: CardBox = { nodeId: node.id, ghost: false, zoneId: null, x: COLUMN.result.x + i * (sinkW + 12), y, w: sinkW, h: CARD_H.sink }
+    const card: CardBox = {
+      nodeId: node.id,
+      ghost: false,
+      zoneId: null,
+      x: COLUMN.result.x + sinkInset + i * (sinkW + sinkGap),
+      y,
+      w: sinkW,
+      h: CARD_H.sink,
+    }
     cards.push(card)
     cardOf.set(node.id, card)
   })
@@ -272,22 +304,31 @@ export function layoutOrgFlow2D(data: OrgFlow, options: LayoutOptions = {}): Flo
     const style = MODE_STYLE[p.mode]
     const strips: PathStrip[] = []
     if (options.labels) {
-      const keys = Object.keys(p.by_label).sort((a, b) => {
-        const ia = labelOrder.indexOf(a)
-        const ib = labelOrder.indexOf(b)
-        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
-      })
+      const flowKeys = keysOfFlow(data.labels)
+      const keys = Object.keys(p.by_label)
+        .filter((key) => flowKeys.has(key))
+        .sort((a, b) => {
+          const ia = labelOrder.indexOf(a)
+          const ib = labelOrder.indexOf(b)
+          return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib)
+        })
+      const parts: Array<{ key: string; count: number; color: string }> = keys.map((key) => ({
+        key,
+        count: p.by_label[key] ?? 0,
+        color: labelHex(data.labels.find((l) => labelKeyOf(l) === key)?.color ?? 'neutral'),
+      }))
+      const other = otherLabelCount(p.by_label, data.labels)
+      if (other > 0) parts.push({ key: OTHER_LABEL_KEY, count: other, color: labelHex('neutral') })
       let offset = -width / 2
-      for (const key of keys) {
-        const share = (p.by_label[key] ?? 0) / Math.max(1, p.count)
+      for (const part of parts) {
+        const share = part.count / Math.max(1, p.count)
         const w = Math.max(1, width * share)
-        const label = data.labels.find((l) => labelKeyOf(l) === key)
         strips.push({
-          key: `${p.source}->${p.target}:${key}`,
-          labelKey: key,
+          key: `${p.source}->${p.target}:${part.key}`,
+          labelKey: part.key,
           d: build(offset + w / 2),
           width: w,
-          color: labelHex(label?.color ?? 'neutral'),
+          color: part.color,
           dash: null,
         })
         offset += w
@@ -340,71 +381,89 @@ export type FlowLayout3D = {
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number }
 }
 
-const UNIT = 1 / 40
-
-/**
- * 3D: Intake, Executors and Flow lie in a row; Result curves back under them
- * as a horseshoe that ends next to Intake, so the loop closes.
- */
+/** 3D: the four 2D columns as plates in one row; every mark sits where its 2D card sits. */
 export function layoutOrgFlow3D(data: OrgFlow): FlowLayout3D {
   const flat = layoutOrgFlow2D(data)
-  const nodes: FlowLayout3D['nodes'] = []
-  const center = (c: Rect) => ({ x: (c.x + c.w / 2) * UNIT, z: (c.y + c.h / 2) * UNIT })
-  const row = flat.cards.filter((c) => !c.nodeId.startsWith('result:') && !c.nodeId.startsWith('folder:'))
-  for (const card of row) {
-    const { x, z } = center(card)
-    nodes.push({ nodeId: card.nodeId, x, z, ghost: card.ghost, zoneId: card.zoneId })
-  }
-  const rowBottom = Math.max(...row.map((c) => (c.y + c.h) * UNIT), 4)
-  const inputX = (COLUMN.input.x + COLUMN.input.w / 2) * UNIT
-  const workX = (COLUMN.work.x + COLUMN.work.w / 2) * UNIT
-  const cx = (inputX + workX) / 2
-  const rx = (workX - inputX) / 2 + 1
-  const rz = 4
-  const cz = rowBottom + 2
-  const results = flat.cards.filter((c) => c.nodeId.startsWith('result:') || c.nodeId.startsWith('folder:'))
-  results.forEach((card, i) => {
-    // From under Flow (angle 0) round to under Intake (angle pi).
-    const t = results.length === 1 ? 0.5 : i / (results.length - 1)
-    const angle = t * Math.PI
-    nodes.push({ nodeId: card.nodeId, x: cx + rx * Math.cos(angle), z: cz + rz * Math.sin(angle), ghost: false, zoneId: null })
+  const columns = [
+    { layer: 'input' as const, ...COLUMN.input },
+    { layer: 'executor' as const, ...COLUMN.zone },
+    { layer: 'work' as const, ...COLUMN.work },
+    { layer: 'result' as const, ...COLUMN.result },
+  ]
+  // Plates sit side by side with one small gap; each column's marks move with their plate.
+  let left = (columns[0].x + (columns[0].w * (1 - PLATE_WIDTH_3D)) / 2) * UNIT
+  const placed = columns.map((col) => {
+    const w = col.w * PLATE_WIDTH_3D * UNIT
+    const shift = left + w / 2 - (col.x + col.w / 2) * UNIT
+    const plate = { layer: col.layer, left, right: left + w, shift }
+    left += w + PLATE_GAP_3D
+    return plate
   })
-  const zones = flat.zones.map((z) => ({ id: z.id, none: z.none, x: (z.x + z.w / 2) * UNIT, z: (z.y + z.h / 2) * UNIT, w: z.w * UNIT, d: z.h * UNIT }))
-  const rect = (x: number, w: number): Plate['points'] => [
-    [x * UNIT - 0.4, 0.4],
-    [(x + w) * UNIT + 0.4, 0.4],
-    [(x + w) * UNIT + 0.4, rowBottom + 0.4],
-    [x * UNIT - 0.4, rowBottom + 0.4],
-  ]
-  const arc: Plate['points'] = []
-  for (let i = 0; i <= 24; i++) arc.push([cx + (rx + 1.2) * Math.cos((i / 24) * Math.PI), cz + (rz + 1.2) * Math.sin((i / 24) * Math.PI)])
-  for (let i = 24; i >= 0; i--) arc.push([cx + (rx - 1.2) * Math.cos((i / 24) * Math.PI), cz + (rz - 1.2) * Math.sin((i / 24) * Math.PI)])
-  const plates: Plate[] = [
-    { layer: 'input', points: rect(COLUMN.input.x, COLUMN.input.w) },
-    { layer: 'executor', points: rect(COLUMN.zone.x, COLUMN.zone.w) },
-    { layer: 'work', points: rect(COLUMN.work.x, COLUMN.work.w) },
-    { layer: 'result', points: arc },
-  ]
-  const xs = nodes.map((n) => n.x).concat(arc.map((p) => p[0]))
-  const zs = nodes.map((n) => n.z).concat(arc.map((p) => p[1]))
+  const shiftAt = (x: number) => {
+    const i = columns.findIndex((col) => x >= col.x && x <= col.x + col.w)
+    if (i >= 0) return placed[i].shift
+    const nearest = columns.reduce((best, col, k) =>
+      Math.abs(x - (col.x + col.w / 2)) < Math.abs(x - (columns[best].x + columns[best].w / 2)) ? k : best, 0)
+    return placed[nearest].shift
+  }
+  const nodes: FlowLayout3D['nodes'] = flat.cards.map((c) => ({
+    nodeId: c.nodeId,
+    x: (c.x + c.w / 2) * UNIT + shiftAt(c.x + c.w / 2),
+    z: (c.y + c.h / 2) * UNIT,
+    ghost: c.ghost,
+    zoneId: c.zoneId,
+  }))
+  const zones = flat.zones.map((z) => ({
+    id: z.id,
+    none: z.none,
+    x: (z.x + z.w / 2) * UNIT + placed[1].shift,
+    z: (z.y + z.h / 2) * UNIT,
+    w: Math.min(z.w, ZONE_WIDTH_3D) * UNIT,
+    d: z.h * UNIT,
+  }))
+  const bottom = Math.max(...flat.cards.map((c) => (c.y + c.h) * UNIT), ...zones.map((z) => z.z + z.d / 2), 4)
+  const plates: Plate[] = placed.map((p) => ({
+    layer: p.layer,
+    points: [
+      [p.left, 0.4],
+      [p.right, 0.4],
+      [p.right, bottom + 0.4],
+      [p.left, bottom + 0.4],
+    ],
+  }))
+  const corners = plates.flatMap((p) => p.points)
   return {
     nodes,
     zones,
     plates,
-    bounds: { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) },
+    bounds: {
+      minX: Math.min(...corners.map((c) => c[0])),
+      maxX: Math.max(...corners.map((c) => c[0])),
+      minZ: Math.min(...corners.map((c) => c[1])),
+      maxZ: Math.max(...corners.map((c) => c[1])),
+    },
   }
 }
 
 /** Open per label, biggest first: the stacked bar in 2D and the stacked column in 3D. */
 export function openStack(node: OrgFlowNode, labels: OrgFlowLabel[]): Array<{ key: string; count: number; color: string }> {
-  return Object.entries(node.open_by_label)
-    .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([key, count]) => ({
-      key,
-      count,
-      color: labelHex(labels.find((l) => labelKeyOf(l) === key)?.color ?? 'neutral'),
-    }))
+  const flow = keysOfFlow(labels)
+  const rows: Array<{ key: string; count: number; color: string }> = []
+  let other = 0
+  for (const [key, count] of Object.entries(node.open_by_label)) {
+    if (count <= 0) continue
+    if (!flow.has(key)) {
+      other += count
+      continue
+    }
+    rows.push({ key, count, color: labelHex(labels.find((l) => labelKeyOf(l) === key)?.color ?? 'neutral') })
+  }
+  if (other > 0) rows.push({ key: OTHER_LABEL_KEY, count: other, color: labelHex('neutral') })
+  return rows.sort((a, b) => b.count - a.count)
+}
+
+function keysOfFlow(labels: OrgFlowLabel[]): Set<string> {
+  return new Set(labels.filter(isFlowLabel).map(labelKeyOf))
 }
 
 /** Column height in 3D: grows with open work, capped so one busy agent does not hide the rest. */
@@ -412,9 +471,9 @@ export function columnHeight(open: number, k = 0.6, cap = 4): number {
   return Math.min(Math.log2(1 + open) * k, cap)
 }
 
-export type GridLens = 'flow' | 'labels' | 'structure' | 'autonomy' | 'issues'
+export type GridLens = 'flow' | 'labels' | 'autonomy'
 
-export const GRID_LENSES: GridLens[] = ['flow', 'labels', 'structure', 'autonomy', 'issues']
+export const GRID_LENSES: GridLens[] = ['flow', 'labels', 'autonomy']
 
 export type Emphasis = {
   /** Null: nothing is dimmed. */
@@ -426,7 +485,7 @@ export type Emphasis = {
 
 const pathKey = (p: Pick<OrgFlowPath, 'source' | 'target'>) => `${p.source}->${p.target}`
 
-/** Which cards and lines stay lit for a hover, an isolated label or the Bottlenecks lens. */
+/** Which cards and lines stay lit for a hover or an isolated label. */
 export function emphasis(
   data: OrgFlow,
   lens: GridLens,
@@ -443,15 +502,11 @@ export function emphasis(
     }
     return { litNodes: nodes, litPaths: paths, label: lens === 'labels' ? label : null }
   }
-  if (lens === 'issues') {
-    const flagged = new Set(data.nodes.filter((n) => n.issues.length > 0).map((n) => n.id))
-    for (const issue of data.issues) if (issue.node_id) flagged.add(issue.node_id)
-    const paths = new Set(data.paths.filter((p) => flagged.has(p.source) || flagged.has(p.target) || p.mode === 'none').map(pathKey))
-    return { litNodes: flagged, litPaths: paths, label: null }
-  }
   if (lens === 'labels' && label) {
-    const paths = new Set(data.paths.filter((p) => (p.by_label[label] ?? 0) > 0).map(pathKey))
-    const nodes = new Set(data.nodes.filter((n) => (n.open_by_label[label] ?? 0) > 0).map((n) => n.id))
+    const has = (bag: Record<string, number>) =>
+      label === OTHER_LABEL_KEY ? otherLabelCount(bag, data.labels) > 0 : (bag[label] ?? 0) > 0
+    const paths = new Set(data.paths.filter((p) => has(p.by_label)).map(pathKey))
+    const nodes = new Set(data.nodes.filter((n) => has(n.open_by_label)).map((n) => n.id))
     for (const p of data.paths) {
       if (!paths.has(pathKey(p))) continue
       nodes.add(p.source)

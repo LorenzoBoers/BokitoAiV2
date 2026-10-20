@@ -439,13 +439,26 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
                 return _missing(item_type, ref)
             query = query.where(func.lower(SignalTag.name) == name)
         row = (await session.execute(query.limit(1))).scalar_one_or_none()
+        # A label plan row carries its own meta line; a new label has no row yet.
+        meta = _clip(str(ref.get("subtitle") or ""), 140)
         if not row:
+            if ref.get("planned") and not row_id:
+                name = str(ref.get("name") or raw_id or "").strip().lstrip("#").lower()
+                return {
+                    "type": item_type,
+                    "id": f"planned:{name}",
+                    "title": f"#{name}",
+                    "subtitle": meta,
+                    "kind": "tag",
+                    "name": name,
+                    "planned": True,
+                }
             return _missing(item_type, ref)
         return {
             "type": item_type,
             "id": str(row.id),
             "title": f"#{row.name}",
-            "subtitle": _clip(row.description, 100),
+            "subtitle": meta or _clip(row.description, 100),
             "kind": "action_tag" if row.workstream_id else "tag",
             "name": row.name,
         }

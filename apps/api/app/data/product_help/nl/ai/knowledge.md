@@ -45,6 +45,12 @@ Een document is een pagina opgebouwd uit `##`-secties; elke sectie is de atomair
 2. Open een gesprek in [Communicatie](/docs/inbox/communication).
 3. Concepten worden beter zodra er een handvol documenten is. Of er concepten verschijnen volgt nog steeds [Autonomie](/docs/inbox/inbox-ai); Kennis onderbouwt alleen de tekst.
 
+## Bekijk de platformskills
+
+1. Onder **Platformskills** toont Kennis de skills die bij Bokito horen, zoals **Labels**, elk met een slotje.
+2. Ga met de muis over een skill om te lezen wat die dekt. Agents gebruiken hem wanneer hun werk erom vraagt, bijvoorbeeld bij het labelen van gesprekken.
+3. Platformskills gelden voor elke workspace. Je kunt ze niet openen of bewerken; leg je eigen afspraken vast in een document van het soort **Skill**.
+
 ## Publiceer voor klanten
 
 Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instellingenpagina (die zijbalklink stuurt hierheen).

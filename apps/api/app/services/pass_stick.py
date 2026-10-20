@@ -1,10 +1,10 @@
 """What a saved message means for the next turn.
 
 A person's message queues turns for the agents it names (in order, one per
-agent; "allebei" names them all), or for the agent that spoke last when it
-names nobody. An agent's message never queues a turn: agents move the
-conversation with ``ask_agent`` and ``handoff_to``. Mentioned people get a
-ping either way.
+agent; "allebei" names them all), or for the agent ``team_router`` picks when
+it names nobody. An agent's message never queues a turn here: agents ask with
+``ask_agent``, a bubble that starts with ``@agent``, or ``handoff_to``.
+Mentioned people get a ping either way.
 """
 
 from __future__ import annotations
@@ -23,14 +23,11 @@ from app.models.agent import Agent
 from app.models.signal import Signal, SignalMessage
 from app.models.signal_participant import SignalParticipant
 from app.services.participant_turns import _parse_active
-from app.services.thread_dispatch import entity_mentions, plain_mentions
+from app.services.addressing import _PLURAL
+from app.services.thread_dispatch import plain_mentions
 
 logger = logging.getLogger(__name__)
 
-_PLURAL = re.compile(
-    r"\b(allebei|jullie|ieder|allemaal|each|both|all of you)\b",
-    re.IGNORECASE,
-)
 _USER_MENTION = re.compile(
     r"@\[([^\]]+)\]\(user:([^)]+)\)",
     re.IGNORECASE,
@@ -124,41 +121,28 @@ def _holder(signal: Signal) -> UUID | None:
         return None
 
 
-async def _last_agent_speaker(session: AsyncSession, signal: Signal) -> UUID | None:
-    """The agent of the latest message when that message is an agent's."""
-    row = (
-        await session.execute(
-            select(SignalMessage.author_agent_id)
-            .where(
-                SignalMessage.signal_id == signal.id,
-                SignalMessage.kind.notin_(("system_event", "internal_note")),
-            )
-            .order_by(SignalMessage.seq.desc())
-            .offset(1)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    return row
-
-
 async def _expand_teams(
     session: AsyncSession,
     tenant_id: UUID,
     body_text: str,
 ) -> tuple[list[UUID], list[UUID]]:
-    """Agent ids in mention order, plus people pulled in by an @team."""
+    """Addressed agent ids in mention order, plus people pulled in by an @team.
+
+    A mention inside a sentence only names an agent (``services/addressing``);
+    it pings team members but queues no turn.
+    """
     from app.models.team import is_root_department
+    from app.services.addressing import resolve
     from app.services.lead_agent import get_lead_agent
     from app.services.teams import get_team, team_agent_ids, team_user_ids
 
     agents: list[UUID] = []
     humans: list[UUID] = _user_mentions(body_text)
-    for kind, target_id in entity_mentions(body_text):
-        if kind == "agent":
-            if target_id not in agents:
+    for mention in resolve(body_text).mentions:
+        target_id = mention.id
+        if mention.kind == "agent":
+            if mention.addressed and target_id not in agents:
                 agents.append(target_id)
-            continue
-        if kind != "team":
             continue
         team = await get_team(session, tenant_id, target_id)
         if team is None:
@@ -166,6 +150,8 @@ async def _expand_teams(
         for uid in await team_user_ids(session, team):
             if uid not in humans:
                 humans.append(uid)
+        if not mention.addressed:
+            continue
         picked: UUID | None = None
         if is_root_department(team):
             lead = await get_lead_agent(session, tenant_id)
@@ -457,8 +443,16 @@ async def pass_stick(
         author_id=author_id,
     )
     holder = _holder(signal)
-    if holder is None and author_kind == "user" and is_internal_channel(signal.channel):
-        holder = await _last_agent_speaker(session, signal)
+    if (
+        holder is None
+        and author_kind == "user"
+        and not agents
+        and not humans
+        and is_internal_channel(signal.channel)
+    ):
+        from app.services.team_router import pick_responder
+
+        holder = (await pick_responder(session, signal, body_text)).agent_id
     choice = decide_stick(
         author_kind=author_kind,
         mentioned_agent_ids=agents,
@@ -576,13 +570,3 @@ async def hold_customer_stick(session: AsyncSession, signal: Signal, agent: Agen
             author_user_id=None,
         )
 
-
-async def release_customer_stick(session: AsyncSession, signal: Signal, agent_id: UUID) -> None:
-    from app.services.participant_turns import clear_active_turn
-
-    active = _parse_active(signal)
-    if active.get("ref_id") != str(agent_id) or active.get("turn_id"):
-        return
-    clear_active_turn(signal)
-    session.add(signal)
-    await session.flush()

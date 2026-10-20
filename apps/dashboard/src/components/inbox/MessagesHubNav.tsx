@@ -11,13 +11,12 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Activity, Clock, Inbox, Mail, Plus, Settings, Sunrise } from 'lucide-react'
+import { Activity, Inbox, Mail, Plus, Settings, Sunrise } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { GRID_ICON, GRID_PATH, OVERVIEW_PATH } from '../../lib/navigation'
 import { useTranslation } from 'react-i18next'
-import { AiAvatar } from '../ui/AiAvatar'
+import { AgentMark } from '../ui/AgentMark'
 import { TeamFacepile } from '../ui/TeamFacepile'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { asAgentStatus } from '../../lib/presence'
 import { useAgentLive, seedAgentPresence } from '../../hooks/useAgentPresence'
 import { NavSectionSkeleton } from '../ui/skeleton'
@@ -70,7 +69,7 @@ import { SidebarFolder } from './QueueSublist'
 import { RailEyeButton, RailPenButton } from './RailEditButtons'
 import { useHideSidebarRow } from '../../hooks/useHideSidebarRow'
 import { NavQueueCounts } from '../layout/NavCountBadge'
-import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { ChannelMark } from '../ui/ChannelMark'
 import { HashtagMark } from '../ui/HashtagMark'
 import { TagPill } from '../ui/TagPill'
 import ScrollFade from '../ui/ScrollFade'
@@ -298,14 +297,18 @@ function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading
       ...connections.map((conn) => ({
         leaf: { type: 'channel' as const, channelKey: 'email' as const, connectionId: String(conn.id) },
         label: mailboxDisplayLabel(conn.displayName, conn.mailboxEmail),
-        icon: <MailboxMark provider={conn.provider} size={14} />,
+        icon: (
+          <ChannelMark size={14}>
+            <MailboxMark provider={conn.provider} size={9} />
+          </ChannelMark>
+        ),
       })),
       ...(hasWidget
         ? [
             {
               leaf: { type: 'channel' as const, channelKey: 'webchat' as const },
               label: t('support.channels.webchat'),
-              icon: <ChannelGlyph channel="widget" size={14} />,
+              icon: <ChannelMark channel="widget" size={14} />,
             },
           ]
         : []),
@@ -314,7 +317,7 @@ function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading
             {
               leaf: { type: 'channel' as const, channelKey: 'whatsapp' as const },
               label: t('support.channels.whatsapp'),
-              icon: <ChannelGlyph channel="whatsapp" size={14} />,
+              icon: <ChannelMark channel="whatsapp" size={14} />,
             },
           ]
         : []),
@@ -323,7 +326,7 @@ function useConnectedChannelFolders(t: TFn): { folders: ChannelFolder[]; loading
             {
               leaf: { type: 'channel' as const, channelKey: 'slack' as const },
               label: t('support.channels.slack'),
-              icon: <ChannelGlyph channel="slack" size={14} />,
+              icon: <ChannelMark channel="slack" size={14} />,
             },
           ]
         : []),
@@ -422,8 +425,8 @@ function AgentFolderRow({
       baseLeaf={baseLeaf}
       label={agent.name}
       icon={
-        <AiAvatar
-          {...toAiAvatarProps(agent)}
+        <AgentMark
+          agent={agent}
           size={14}
           decorative
           mode="static"
@@ -542,7 +545,6 @@ const INBOX_QUEUE_LABEL: Record<InboxSidebarQueue, string> = {
   for_you: 'support.inbox.forYou',
   open: 'support.inbox.open',
   unassigned: 'support.inbox.unassigned',
-  scheduled: 'support.inbox.scheduled',
   spam: 'support.inbox.spam',
 }
 
@@ -570,7 +572,6 @@ function InboxQueueRows({
             data-active={isLeafActive(activeLeaf, leaf) ? 'true' : undefined}
             className="nav-row nav-sub-row group/row h-[26px] text-xs"
           >
-            {queue === 'scheduled' ? <Clock size={12} className="shrink-0 text-text-muted" aria-hidden /> : null}
             <span className="min-w-0 flex-1 truncate-fade">{label}</span>
             <span className="hidden group-hover/row:inline-flex">
               <RailEyeButton label={t('support.customize.hide')} onClick={() => hideItem(queueItemId(queue), label)} />
@@ -744,7 +745,6 @@ export default function MessagesHubNav() {
             for_you: t('support.inbox.forYou'),
             open: t('support.inbox.open'),
             unassigned: t('support.inbox.unassigned'),
-            scheduled: t('support.inbox.scheduled'),
             spam: t('support.inbox.spam'),
           },
         },
@@ -771,7 +771,6 @@ export default function MessagesHubNav() {
     icons.set('inbox', <Inbox size={14} className="shrink-0 text-text-muted" />)
     icons.set('contacts', <Users size={14} className="shrink-0 text-text-muted" />)
     icons.set('settings', <Settings size={14} className="shrink-0 text-text-muted" />)
-    icons.set(queueItemId('scheduled'), <Clock size={12} className="shrink-0 text-text-muted" />)
     const walkFolders = (rows: typeof nav.projects) => {
       for (const row of rows) {
         icons.set(folderItemId(row.id), <FolderIcon size={12} className="shrink-0 text-text-muted" />)
@@ -798,7 +797,7 @@ export default function MessagesHubNav() {
     for (const agent of companyAgents) {
       icons.set(
         agentItemId(agent.id),
-        <AiAvatar {...toAiAvatarProps(agent)} size={14} decorative mode="static" />,
+        <AgentMark agent={agent} size={14} decorative mode="static" />,
       )
     }
     for (const team of teams) {

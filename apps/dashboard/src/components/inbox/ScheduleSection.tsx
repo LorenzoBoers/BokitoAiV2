@@ -47,21 +47,23 @@ export function ScheduleSection({ thread, onPlan }: Props) {
   }
 
   const end = parseServerTime(thread.endsAt)
-  const recipient = rule?.recipient
-  const recipientName =
-    recipient?.kind === 'user'
-      ? (members.find((m) => m.uuid === recipient.id)?.name ?? null)
-      : recipient?.kind === 'team'
-        ? (teams.find((team) => team.id === recipient.id)?.name ?? null)
+  const owner = thread.owner
+  const ownerName =
+    owner?.kind === 'user'
+      ? (members.find((m) => m.uuid === owner.userId)?.name ?? null)
+      : owner?.kind === 'team'
+        ? (teams.find((team) => team.id === owner.teamId)?.name ?? null)
         : null
-  const agentName = rule?.agentId ? (agents.find((agent) => agent.id === rule.agentId)?.name ?? null) : null
+  const agentId = rule?.agentId ?? (owner?.kind === 'agent' ? owner.agentId : null)
+  const agentName = agentId ? (agents.find((agent) => agent.id === agentId)?.name ?? null) : null
+  const hiddenUntil = parseServerTime(thread.hiddenUntil)
   const paused = rule != null && !rule.enabled
 
   return (
     <section
       className={cn(
-        'space-y-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-3 py-2.5 text-left',
-        onPlan && 'cursor-pointer transition-colors hover:border-border hover:bg-bg-hover/40',
+        'space-y-2 rounded-md border border-border/50 bg-bg-elevated px-3 py-2.5 text-left',
+        onPlan && 'cursor-pointer transition-colors hover:border-border hover:bg-bg-hover',
       )}
       data-testid="thread-schedule"
       role={onPlan ? 'button' : undefined}
@@ -95,13 +97,17 @@ export function ScheduleSection({ thread, onPlan }: Props) {
         </div>
       </div>
 
-      {recipientName || agentName ? (
+      {ownerName || agentName ? (
         <p className="text-xs text-text-secondary">
-          {agentName && recipientName
-            ? t('schedule.agentWritesTo', { agent: agentName, recipient: recipientName })
-            : agentName
-              ? t('schedule.agentWrites', { agent: agentName })
-              : t('schedule.forRecipient', { recipient: recipientName })}
+          {agentName
+            ? t('schedule.agentWrites', { agent: agentName })
+            : t('schedule.forRecipient', { recipient: ownerName })}
+        </p>
+      ) : null}
+
+      {hiddenUntil ? (
+        <p className="text-xs text-text-muted">
+          {t('schedule.hiddenUntil', { when: scheduleLongLabel(thread.hiddenUntil, i18n.language) })}
         </p>
       ) : null}
 

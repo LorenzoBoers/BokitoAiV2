@@ -42,6 +42,45 @@ export function defaultMoment(now = new Date()): Date {
   return at
 }
 
+export type QuickMoment = 'hour' | 'tomorrow' | 'monday'
+
+export const QUICK_MOMENTS: QuickMoment[] = ['hour', 'tomorrow', 'monday']
+
+/** Snooze shortcuts: in an hour (next 5 minutes), tomorrow 9:00, next Monday 9:00. */
+export function quickMomentDate(kind: QuickMoment, now = new Date()): Date {
+  const at = new Date(now)
+  if (kind === 'hour') {
+    at.setSeconds(0, 0)
+    at.setMinutes(Math.ceil((at.getMinutes() + 60) / 5) * 5)
+    return at
+  }
+  at.setHours(9, 0, 0, 0)
+  if (kind === 'tomorrow') {
+    at.setDate(at.getDate() + 1)
+    return at
+  }
+  const ahead = (8 - at.getDay()) % 7 || 7
+  at.setDate(at.getDate() + ahead)
+  return at
+}
+
+/** Lead times for bringing a snoozed conversation back before its moment. */
+export const SURFACE_BEFORE_MINUTES = [0, 15, 30, 60, 1440] as const
+
+/** Default lead time when planning a new one-moment hide. */
+export const DEFAULT_SURFACE_BEFORE_MINUTES = 30
+
+/** Nearest lead time for a stored snooze (moment minus hidden-until). */
+export function surfaceBeforeFor(nextAt: string | null | undefined, hiddenUntil: string | null | undefined): number {
+  const at = parseServerTime(nextAt)
+  const until = parseServerTime(hiddenUntil)
+  if (!at || !until) return 0
+  const minutes = Math.round((at.getTime() - until.getTime()) / 60_000)
+  return SURFACE_BEFORE_MINUTES.reduce((best, option) =>
+    Math.abs(option - minutes) < Math.abs(best - minutes) ? option : best,
+  )
+}
+
 /** Short label for the list chip: "09:00" today, "vr 09:00" this week, else "12 okt". */
 export function scheduleChipLabel(value: string | null | undefined, language?: string | null, now = new Date()): string {
   const date = parseServerTime(value)

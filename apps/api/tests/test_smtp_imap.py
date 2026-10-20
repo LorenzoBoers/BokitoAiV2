@@ -190,6 +190,19 @@ def test_find_sent_mailbox_unquoted_hostinger_style():
     assert smtp_imap._parse_list_mailbox('(\\Sent) "/" "Sent"') == "Sent"
 
 
+def test_build_outbound_message_uses_attachment_name():
+    msg = smtp_imap._build_outbound_message(
+        from_address="user@example.com",
+        from_display_name=None,
+        to_address="alice@example.com",
+        subject="Hi",
+        body_text="Hi",
+        body_html="<p>Hi</p>",
+        attachments=[{"name": "invoice.pdf", "mime": "application/pdf", "data": b"%PDF"}],
+    )
+    assert [part.get_filename() for part in msg.iter_attachments()] == ["invoice.pdf"]
+
+
 def test_append_to_sent_uses_seen_flag():
     client = MagicMock()
     client.list.return_value = ("OK", [b'(\\Sent) "/" "Sent"'])

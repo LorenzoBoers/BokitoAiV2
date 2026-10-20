@@ -1,165 +1,36 @@
 /**
- * Who the composer is addressing: client (reply), agent(s), teammate(s), or mixed.
- * Drives Ask/Note chrome, facepile marks, and send path.
+ * Composer chrome that follows from what is on screen: which tab opens, and
+ * who the "Aan X" label names. Who answers is decided on the server.
  */
 
-import type { AvatarStackMember } from '../components/ui/AvatarStack'
-import type { AgentAvatarSource } from './agent-avatar'
-import { MENTION_MARKUP_PATTERN, mentionMarkup, type MentionItem } from './mentions'
+import { MENTION_MARKUP_PATTERN } from './mentions'
 
-export type ComposerFocusKind = 'client' | 'agents' | 'humans' | 'mixed'
+export type MentionRef = { type: 'user' | 'agent' | 'team'; id: string; name: string }
 
-export type ComposerFocusTarget = {
-  type: 'agent' | 'user'
-  id: string
-  name: string
-  agent?: AgentAvatarSource
-  avatarUrl?: string | null
-  email?: string
-}
-
-export type ComposerReplyFocus = {
-  kind: ComposerFocusKind
-  /** Ordered unique targets (agents and/or users). Empty for client. */
-  targets: ComposerFocusTarget[]
-  /** Primary agent id for Ask send / live seat (first agent in targets). */
-  primaryAgentId: string | null
-}
-
-export function emptyClientFocus(): ComposerReplyFocus {
-  return { kind: 'client', targets: [], primaryAgentId: null }
-}
-
-export function focusFromTargets(targets: ComposerFocusTarget[]): ComposerReplyFocus {
-  const unique: ComposerFocusTarget[] = []
+/** Unique @chips in a raw composer body, in order. */
+export function mentionedTargets(raw: string): MentionRef[] {
+  const targets: MentionRef[] = []
   const seen = new Set<string>()
-  for (const t of targets) {
-    const key = `${t.type}:${t.id}`
+  for (const match of raw.matchAll(new RegExp(MENTION_MARKUP_PATTERN.source, 'g'))) {
+    const type = match[2]
+    if (type !== 'user' && type !== 'agent' && type !== 'team') continue
+    const key = `${type}:${match[3]}`
     if (seen.has(key)) continue
     seen.add(key)
-    unique.push(t)
+    targets.push({ type, id: match[3], name: match[1] })
   }
-  const agents = unique.filter((t) => t.type === 'agent')
-  const humans = unique.filter((t) => t.type === 'user')
-  if (agents.length === 0 && humans.length === 0) return emptyClientFocus()
-  if (agents.length > 0 && humans.length > 0) {
-    return { kind: 'mixed', targets: unique, primaryAgentId: agents[0].id }
-  }
-  if (agents.length > 0) {
-    return { kind: 'agents', targets: unique, primaryAgentId: agents[0].id }
-  }
-  return { kind: 'humans', targets: unique, primaryAgentId: null }
+  return targets
 }
 
-/** Parse agent/user mention chips from raw composer body (teams expand server-side). */
-export function focusFromMentionBody(
-  raw: string,
-  resolve?: (type: 'agent' | 'user', id: string, name: string) => ComposerFocusTarget | null,
-): ComposerReplyFocus {
-  const targets: ComposerFocusTarget[] = []
-  const pattern = new RegExp(MENTION_MARKUP_PATTERN.source, 'g')
-  for (const match of raw.matchAll(pattern)) {
-    const name = match[1]
-    const type = match[2] as 'user' | 'agent' | 'team'
-    const id = match[3]
-    if (type === 'team') continue
-    if (type !== 'agent' && type !== 'user') continue
-    const resolved = resolve?.(type, id, name)
-    targets.push(resolved ?? { type, id, name })
-  }
-  return focusFromTargets(targets)
+/** Unique names of the @chips in a raw composer body, in order. */
+export function mentionedNames(raw: string): string[] {
+  return mentionedTargets(raw).map((target) => target.name)
 }
 
-export function singleAgentFocus(
-  agent: AgentAvatarSource & { id: string; name: string },
-): ComposerReplyFocus {
-  return focusFromTargets([
-    {
-      type: 'agent',
-      id: agent.id,
-      name: agent.name,
-      agent,
-    },
-  ])
-}
-
-/** Ensure each focus target has a mention chip at the start of the body. */
-export function ensureFocusMentionsInBody(raw: string, focus: ComposerReplyFocus): string {
-  if (focus.kind === 'client' || focus.targets.length === 0) return raw
-  let next = raw
-  for (const target of [...focus.targets].reverse()) {
-    const item: MentionItem = {
-      type: target.type,
-      id: target.id,
-      name: target.name,
-    }
-    const markup = mentionMarkup(item)
-    const pattern = new RegExp(
-      `@\\[${escapeRegExp(target.name)}\\]\\(${target.type}:${escapeRegExp(target.id)}\\)`,
-    )
-    if (pattern.test(next)) continue
-    next = `${markup} ${next}`.trimStart()
-  }
-  return next
-}
-
-/** Replace other agent mentions with the focused agent set (keep non-agent text). */
-export function syncAgentMentionsInBody(raw: string, focus: ComposerReplyFocus): string {
-  if (focus.kind === 'client') return raw
-  const withoutAgents = raw.replace(
-    new RegExp(MENTION_MARKUP_PATTERN.source, 'g'),
-    (full, _name, type) => (type === 'agent' ? '' : full),
-  )
-  const cleaned = withoutAgents.replace(/[ \t]{2,}/g, ' ').trim()
-  return ensureFocusMentionsInBody(cleaned, focus)
-}
-
-/** Replace agent and user mention chips with the current focus set. */
-export function syncFocusMentionsInBody(raw: string, focus: ComposerReplyFocus): string {
-  if (focus.kind === 'client') return raw
-  const without = raw.replace(
-    new RegExp(MENTION_MARKUP_PATTERN.source, 'g'),
-    (full, _name, type) => (type === 'agent' || type === 'user' ? '' : full),
-  )
-  const cleaned = without.replace(/[ \t]{2,}/g, ' ').trim()
-  return ensureFocusMentionsInBody(cleaned, focus)
-}
-
-export function focusLabelName(focus: ComposerReplyFocus, fallback: string): string {
-  if (focus.targets.length === 0) return fallback
-  if (focus.targets.length === 1) return focus.targets[0].name
-  const first = focus.targets[0].name
-  return `${first} +${focus.targets.length - 1}`
-}
-
-export function focusToAvatarStack(
-  focus: ComposerReplyFocus,
-): AvatarStackMember[] {
-  return focus.targets.map((t) => {
-    if (t.type === 'agent') {
-      const agent = t.agent ?? { id: t.id, name: t.name }
-      return {
-        key: `agent:${t.id}`,
-        kind: 'agent' as const,
-        name: t.name,
-        id: t.id,
-        agent,
-      }
-    }
-    return {
-      key: `user:${t.id}`,
-      kind: 'user' as const,
-      name: t.name,
-      email: t.email || '',
-      avatarUrl: t.avatarUrl,
-    }
-  })
-}
-
-/** Mode implied by focus when mentions drive the tab. Teammates share Ask with agents; Note stays manual. */
-export function composerModeForFocus(focus: ComposerReplyFocus): 'ask' | 'note' | 'reply' {
-  if (focus.kind === 'client') return 'reply'
-  return 'ask'
+/** "X", "X, Y" or "X, Y +2" for the Team button. */
+export function teamLabelNames(names: string[], max = 2): string {
+  if (names.length <= max) return names.join(', ')
+  return `${names.slice(0, max).join(', ')} +${names.length - max}`
 }
 
 export type ComposerLandMessage = {
@@ -169,17 +40,6 @@ export type ComposerLandMessage = {
   payload?: { agent_id?: unknown } | null
 }
 
-export type ComposerLanding = {
-  mode: 'reply' | 'ask'
-  agentId: string | null
-  userId: string | null
-}
-
-function payloadAgentId(message: ComposerLandMessage): string | null {
-  const raw = message.payload?.agent_id
-  return typeof raw === 'string' && raw ? raw : null
-}
-
 /**
  * Tab to open from the last message the operator received.
  * Own lines and internal notes are skipped. Note is never chosen here.
@@ -187,32 +47,19 @@ function payloadAgentId(message: ComposerLandMessage): string | null {
 export function composerLanding(
   messages: ComposerLandMessage[],
   opts: { selfUserId?: number | string | null; allowReply: boolean },
-): ComposerLanding {
+): 'reply' | 'ask' {
   const self = opts.selfUserId == null ? null : String(opts.selfUserId)
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i]
     if (!message) continue
     if (message.kind === 'system_event' || message.kind === 'internal_note') continue
-    const agentId = payloadAgentId(message)
-    if (message.kind === 'agent_message' || agentId) {
-      return { mode: 'ask', agentId, userId: null }
-    }
+    const agentId = message.payload?.agent_id
+    if (message.kind === 'agent_message' || (typeof agentId === 'string' && agentId)) return 'ask'
     if (message.authorUserId != null) {
-      const author = String(message.authorUserId)
-      if (self != null && author === self) continue
-      return { mode: 'ask', agentId: null, userId: author }
+      if (self != null && String(message.authorUserId) === self) continue
+      return 'ask'
     }
-    if (message.direction === 'inbound' && opts.allowReply) {
-      return { mode: 'reply', agentId: null, userId: null }
-    }
+    if (message.direction === 'inbound' && opts.allowReply) return 'reply'
   }
-  return {
-    mode: opts.allowReply ? 'reply' : 'ask',
-    agentId: null,
-    userId: null,
-  }
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return opts.allowReply ? 'reply' : 'ask'
 }

@@ -451,7 +451,7 @@ export function ModuleAgentsSection({
         />
       ) : null}
       {roster.some((row) => row.is_default) ? (
-        <Button asChild variant="outline" size="sm" className="mt-1">
+        <Button asChild variant="secondary" size="sm" className="mt-1">
           <Link
             to={talkToAssistantPath(
               t('integrations.modules.setup.assistantPrefill', {

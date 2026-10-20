@@ -129,6 +129,18 @@ async def notify_decision(
     """
     if decision.status != "awaiting_human":
         return 0
+    if decision.notification_id:
+        import json
+
+        from app.models.notification import Notification
+
+        row = await session.get(Notification, decision.notification_id)
+        try:
+            row_payload = json.loads(row.payload_json or "{}") if row else {}
+        except json.JSONDecodeError:
+            row_payload = {}
+        if isinstance(row_payload, dict) and row_payload.get("announce") is False:
+            return 0
 
     from app.models.auth import User
     from app.models.signal import Signal

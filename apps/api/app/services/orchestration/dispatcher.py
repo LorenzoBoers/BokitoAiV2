@@ -114,7 +114,7 @@ async def create_agent_task(
                 tenant_id,
                 signal=thread,
                 at=scheduled_for,
-                recipient=("user", assignee_user_id) if assignee_user_id else ...,
+                owner=("user", assignee_user_id) if assignee_user_id else ...,
                 details={"note": title},
                 created_by_user_id=created_by,
                 actor_type="user" if created_by else "system",

@@ -9,7 +9,7 @@ related: setup-guide,communication,agents,channels
 
 # Zo werkt Workforce
 
-Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de afdelingen waarin je ze groepeert. Open **Workforce** in de rail onder **Team** om iemand uit te nodigen, de directory te bekijken of een afdeling te maken. Bovenaan staan de tabs **Mensen en agents**, **Afdelingen** en **Grid** (`/workforce/grid`). De Grid laat zien hoe werk door het bedrijf loopt: van het kanaal waar het binnenkomt, langs de persoon of agent die het oppakt en de flow waarin het loopt, naar het resultaat waar het landt.
+Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de afdelingen waarin je ze groepeert. Open **Workforce** in de rail onder **Team** om iemand uit te nodigen, de directory te bekijken of een afdeling te maken. Bovenaan staan de tabs **Mensen en agents**, **Afdelingen**, **Grid** (`/workforce/grid`) en **Workflow** (`/workforce/workflow`). De Grid laat in 3D zien hoe het bedrijf is ingericht. Workflow laat zien hoe werk door het bedrijf loopt: van het kanaal waar het binnenkomt, langs de persoon of agent die het oppakt en de flow waarin het loopt, naar het resultaat waar het landt.
 
 ## Nodig iemand uit
 
@@ -61,18 +61,28 @@ Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als
 
 Om de beurt en minst open geven alleen werk aan mensen die beschikbaar zijn en agents die het kanaal mogen afhandelen. Past niemand, dan blijft het gesprek bij het team. Elke toewijzing staat in de tijdlijn en in het auditlog. Maak een team eigenaar van een kanaal onder **Instellingen**, **Kanalen** (zie [Kanalen](/docs/inbox/channels)).
 
-## Lees de Grid
+## Bekijk de Grid
 
-![De Grid in 2D met de lens Stroom](/api/docs/assets/team/grid.png)
+De Grid is de organisatiekaart in 3D: het bedrijf in het midden en elke afdeling als eiland met haar mensen en agents, en de werkmappen, flows en koppelingen waarmee ze werken.
+
+1. Open **Workforce** en kies **Grid**.
+2. Sleep om te schuiven, sleep met rechts om te kantelen en scroll om te zoomen. Namen bij de markeringen verschijnen vanaf **160%**; daaronder toont de kaart alleen de markeringen. Wijs een markering aan om de naam te lezen. Eilandnamen en de bedrijfsnaam blijven zichtbaar.
+3. Wijs een item in de legenda aan om het en zijn directe koppelingen te laten oplichten. Klik erop om het op de kaart te vinden; klik op de kaart om de pagina ervan te openen.
+
+**Open in Grid** op Agents, Flows, Werkmappen en Koppelingen opent deze kaart met dat item gevonden.
+
+## Volg werk in Workflow
+
+![Workflow in 2D met de lens Stroom](/api/docs/assets/team/grid.png)
 *Binnenkomst links, uitvoerders per afdeling, flows, en rechts het resultaat.*
 
-1. Open **Workforce** en kies **Grid**. Vier kolommen lees je van links naar rechts: **Binnenkomst**, **Uitvoerders · per afdeling**, **Flow · hoe** en **Resultaat · waar het landt**. De dikte van een lijn is het aantal gesprekken in de gekozen periode (**7 dagen**, **30 dagen** of **90 dagen**).
-2. Kies een lens. **Stroom** toont de stroom. **Labels** kleurt elke lijn per label; kies een labelchip om alleen dat label door de keten te volgen. **Autonomie** kleurt uitvoerders naar wat ze zelf mogen (**Autonoom**, **Geassisteerd**, **Handmatig**). **Knelpunten** houdt alleen knooppunten over die aandacht vragen, zoals werk dat niemand oppakt of iemand met veel open gesprekken. **Structuur** toont de organisatiekaart met afdelingen als eilanden.
-3. Kies **2D** of **3D**. Beide tonen dezelfde knooppunten; in 3D buigt de resultaatkolom om de scène heen. Sleep om te verschuiven, scroll om te zoomen en kies **Beginbeeld** om terug te gaan naar het startbeeld.
-4. Kies een knooppunt. Het paneel rechts toont wat het zelf mag en waarom, waar het werk vandaan komt en waar het heen gaat, en in de lens Labels de verdeling per label. **Open gesprekken** opent dat werk in Communicatie. Op een werkmap opent **Toevoegen aan Werkt in** de werkmap met het toevoegformulier klaar.
-5. Heeft veel werk van een knooppunt geen label, kies dan **Labels voorstellen**. Er opent een agentchat met dat werk zonder label die labels voorstelt; er verandert niets tot je akkoord geeft.
+1. Open **Workforce** en kies **Workflow**. Vier kolommen lees je van links naar rechts: **Binnenkomst**, **Uitvoerders · per afdeling**, **Flow · hoe** en **Resultaat · waar het landt**. De dikte van een lijn is het aantal gesprekken in de gekozen periode (**7 dagen**, **30 dagen** of **90 dagen**).
+2. Kies een lens. **Stroom** toont de stroom. **Labels** kleurt een lijn in de kleur van het flow-label, met hetzelfde icoon als elders. Labels zonder flow staan samen als **Overig**, in grijs. Kies een label om alleen dat label door de keten te volgen. **Autonomie** kleurt uitvoerders naar wat ze zelf mogen (**Autonoom**, **Geassisteerd**, **Handmatig**). Het paneel rechts begint met **Knelpunten**: knooppunten die aandacht vragen, zoals werk dat niemand oppakt, of een persoon of agent met meer dan 15 open gesprekken of meer dan twee keer wat in het team gewoon is.
+3. Workflow opent in **3D**: de vier lagen staan als platen naast elkaar. Kies **2D** voor het platte bord met dezelfde knooppunten. Sleep om te verschuiven, scroll om te zoomen en kies **Beginbeeld** om terug te gaan naar het startbeeld.
+4. Kies een knooppunt. Het paneel rechts toont waar het werk vandaan komt en waar het heen gaat, elk met het eigen icoon, en de verdeling per label. Zijn er knelpunten, dan staat links van het paneel een knop met een uitroepteken en het aantal. Kies die en de lijst Knelpunten verschijnt op die plek, naast het paneel. Sluit de lijst en de knop komt terug. Het item blijft open. Is het knooppunt een agent of een persoon, dan staat het gezicht links, de functie in kleur ernaast en de omschrijving eronder. Een agent ademt als hij vrij is en toont de werkbeweging als hij bezig is. Een persoon houdt dezelfde opbouw, met zijn foto. **Open gesprekken** opent dat werk in Communicatie. Op een werkmap opent **Toevoegen aan Werkt in** de werkmap met het toevoegformulier klaar.
+5. Heeft veel werk van een knooppunt geen label, kies dan **Labels voorstellen**. Er opent een agentchat met dat werk zonder label, de afzenders en bedrijven, en de agent stuurt één labelplan; er verandert niets tot je het goedkeurt. Zie [Labels en tickets](/docs/ai/categories).
 
-De kolom Resultaat zegt **Geschat** zolang nog niet elk resultaat als oplevering is vastgelegd. Het oranje vak **Zonder afdeling** bevat mensen en agents die gesprekken afhandelen maar in geen afdeling zitten.
+De kolom Resultaat zegt **Geschat** zolang nog niet elk resultaat als oplevering is vastgelegd. Een werkmap in die kolom telt het werk van de werkmappen hierin mee; kies hem om elke werkmap hierin met een eigen aantal te zien. Een gesprek dat gesloten is als **Geen antwoord nodig** of **Al afgehandeld buiten Bokito** telt niet als gesloten zonder resultaat; het paneel van die put toont hoeveel het er waren. Een gesprek telt onder zijn flow-label, of zonder flow-label onder het label dat het als eerste kreeg. Het oranje vak **Zonder afdeling** bevat mensen en agents die gesprekken afhandelen maar in geen afdeling zitten.
 
 ## Persoonlijke instellingen blijven persoonlijk
 

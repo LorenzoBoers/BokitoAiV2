@@ -8,6 +8,8 @@
  * `**bold` never flashes raw asterisks.
  */
 
+import { hostSlugForBrandLabel } from './integration-brand'
+
 export type ChatTagKind = 'tag' | 'action_tag'
 
 export type ChatInline =
@@ -372,6 +374,29 @@ export type AppLinkKind =
   | 'contact'
   | 'agent'
   | 'other'
+
+/**
+ * Catalog slug for a connection chip. `?connect=moneybird` wins. Otherwise
+ * the chip label is matched to a marketplace name (the accounting links are
+ * `[Moneybird](/connections/accounting)`). A bare `/connections` link stays
+ * the generic plug.
+ */
+export function connectionBrandSlug(href: string, label?: string): string | null {
+  if (
+    !href.startsWith('/connections') &&
+    !href.startsWith('/integrations') &&
+    !href.startsWith('/settings/connections')
+  ) {
+    return null
+  }
+  const query = href.split('?')[1]?.split('#')[0]
+  if (query) {
+    const connect = new URLSearchParams(query).get('connect')?.trim()
+    if (connect) return connect
+  }
+  const name = label?.trim()
+  return name ? hostSlugForBrandLabel(name) : null
+}
 
 export function appLinkKind(href: string): AppLinkKind {
   if (href.startsWith('/docs') || href.startsWith('/learn')) return 'docs'

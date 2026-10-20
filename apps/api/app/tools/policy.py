@@ -1,24 +1,29 @@
-"""Allowance policy engine: one resolution path for every tool call.
+"""Tool authorization: one ordered pipeline for every tool call.
 
-Each tool category has an allowance slider: ``deny`` | ``ask`` | ``allow``.
-Resolution layers (later layers refine earlier ones):
+Derived from xai-org/grok-build (Apache-2.0); changes listed in docs/third_party/grok-build/CHANGES.md.
 
-1. Tenant posture preset -> per-category defaults
-2. Tenant per-category slider overrides (``tool_allowances`` in settings)
-3. Agent ceiling (``autonomy_level``: manual caps at ask, autonomous lifts ask to allow)
-4. Explicit per-tool overrides (``tool_overrides`` pinned in Govern)
-5. Exception rules bound to a tool or category (``app.services.agent_rules``)
-6. Session trust clamp (external/widget callers can never auto-mutate)
+Stages, first decisive stage wins:
 
-The executor then weighs the agent's ``certainty`` and cited judgement rule.
+1. ``PreToolUse`` hooks (in-process). ``deny`` stops; ``ask`` forces a
+   question that later stages cannot approve away; ``allow`` only means
+   "not blocked"; ``defer`` has no opinion.
+2. Rules (``permission_rules`` + Govern ``tool_overrides`` + hard agent rules
+   that ask + category sliders set to deny). Deny wins, then ask, then
+   allow. A consequential tool is a fixed ask that no allow can widen.
+3. Remembered grants (hard agent rules set to Autonomous).
+4. Read-only auto-approve (ungated tools, customer reads, MCP discovery).
+5. Mode: posture preset, category sliders, agent ceiling.
 
-Replaces the legacy ActionPolicy/whitelist + apply-modes layering.
+Tighten-only clamps run last on gated tools: member role, external trust,
+AI handling on ``send_reply`` and untrusted input in the turn. The executor
+then weighs the agent's ``certainty`` and cited judgement rule.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, Literal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -26,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import tenant_settings
 from app.models.auth import Tenant
+from app.tools import permission_rules as prules
 from app.tools.registry import TOOL_CATEGORIES, ToolSpec
 
 AllowanceMode = Literal["deny", "ask", "allow"]
@@ -151,36 +157,158 @@ async def resolve_tool_mode(
     trust: str = "operator",
     tool_input: dict[str, Any] | None = None,
     user_role: str | None = None,
+    tainted: bool = False,
 ) -> tuple[AllowanceMode, str]:
-    """Returns (mode, reason)."""
-    from app.tools.decision_copy import is_mcp_discovery_tool, mcp_override_key
+    """Returns (mode, reason). See ``authorize_tool_call`` for the deciding stage."""
+    result = await authorize_tool_call(
+        session,
+        tenant,
+        agent,
+        spec,
+        trust=trust,
+        tool_input=tool_input,
+        user_role=user_role,
+        tainted=tainted,
+    )
+    return result.mode, result.reason  # type: ignore[return-value]
 
+
+@dataclass(frozen=True)
+class Authorization:
+    mode: str
+    reason: str
+    stage: str  # hook | rules | grants | read_only | mode | clamp
+
+
+HookDecision = tuple[str, str] | None
+PreToolUseHook = Callable[..., Awaitable[HookDecision]]
+_PRE_TOOL_USE_HOOKS: list[PreToolUseHook] = []
+
+
+def register_pre_tool_use_hook(hook: PreToolUseHook) -> PreToolUseHook:
+    """In-process ``PreToolUse`` hook: ``await hook(spec=, tool_input=, tenant=, agent=, trust=)``.
+
+    Returns ``None`` or ``(decision, reason)`` with decision allow | deny | ask | defer.
+    A hook that raises fails open.
+    """
+    if hook not in _PRE_TOOL_USE_HOOKS:
+        _PRE_TOOL_USE_HOOKS.append(hook)
+    return hook
+
+
+def unregister_pre_tool_use_hook(hook: PreToolUseHook) -> None:
+    if hook in _PRE_TOOL_USE_HOOKS:
+        _PRE_TOOL_USE_HOOKS.remove(hook)
+
+
+async def _run_pre_tool_use_hooks(
+    spec: ToolSpec, tool_input: dict[str, Any] | None, tenant: Tenant, agent: Any | None, trust: str
+) -> tuple[str, str] | None:
+    """First deny stops the chain; an ask outranks allow and defer."""
+    asked: tuple[str, str] | None = None
+    for hook in list(_PRE_TOOL_USE_HOOKS):
+        try:
+            outcome = await hook(spec=spec, tool_input=tool_input, tenant=tenant, agent=agent, trust=trust)
+        except Exception:
+            continue
+        if not outcome:
+            continue
+        decision, reason = str(outcome[0]).lower(), str(outcome[1] or "")
+        if decision in ("deny", "block"):
+            return "deny", reason or "hook"
+        if decision == "ask" and asked is None:
+            asked = ("ask", reason or "hook")
+    return asked
+
+
+def tenant_permission_rules(tenant: Tenant) -> list[prules.PermissionRule]:
+    settings = tenant_settings(tenant)
+    return prules.parse_rules(settings.get("permission_rules"), source="permission_rule")
+
+
+def _hard_rule(tenant: Tenant, agent: Any | None, spec: ToolSpec) -> dict[str, Any] | None:
+    from app.services.agent_rules import all_rules, matching_hard_rules, strictest
+
+    return strictest(matching_hard_rules(all_rules(tenant, agent), spec.name, spec.category))
+
+
+def _rule_stage(
+    tenant: Tenant, agent: Any | None, spec: ToolSpec, tool_input: dict[str, Any] | None
+) -> Authorization | None:
+    rules = list(tenant_permission_rules(tenant))
+    rules += prules.rules_from_overrides(tenant_tool_overrides(tenant))
+    if spec.gated and tenant_allowances(tenant).get(spec.category) == "deny":
+        rules.append(prules.PermissionRule(action="deny", tool=f"category:{spec.category}", source="category"))
+    hard = _hard_rule(tenant, agent, spec)
+    if hard is not None and hard["mode"] != "autonomous":
+        rules.append(prules.PermissionRule(action="ask", tool=f"tool:{spec.name}", source=f"rule:{hard['id']}"))
+    winner = prules.decide(rules, tool_name=spec.name, category=spec.category, tool_input=tool_input)
+    if winner is not None and winner.action == "deny":
+        return Authorization("deny", _rule_reason(winner), "rules")
     if spec.consequential:
-        return "ask", "consequential"
+        return Authorization("ask", "consequential", "rules")
+    if winner is not None:
+        return Authorization(winner.action, _rule_reason(winner), "rules")
+    return None
+
+
+def _rule_reason(rule: prules.PermissionRule) -> str:
+    if rule.source == "category":
+        return rule.tool
+    if rule.source in ("tool_override",) or rule.source.startswith("rule:"):
+        return rule.source
+    return f"permission_rule:{rule.action}:{rule.tool}"
+
+
+def _read_only_stage(spec: ToolSpec, tool_input: dict[str, Any] | None) -> Authorization | None:
+    from app.tools.decision_copy import is_mcp_discovery_tool
 
     min_assurance = spec.min_assurance or "none"
-    if min_assurance not in ("", "none"):
-        pass
-    elif not spec.gated:
-        return "allow", "ungated"
-    # gated=True reads used to short-circuit here via mutating=False. They
-    # must go through the allowance stack (and execute_tool audience/assurance).
+    if min_assurance in ("", "none") and not spec.gated:
+        return Authorization("allow", "ungated", "read_only")
     if spec.audience == "customer" and not spec.mutating:
-        return "allow", "customer_read"
-
-    # User-role clamp: a session run by a member may not mutate categories the
-    # API reserves for owners and admins, regardless of agent passport.
-    if (
-        user_role
-        and user_role not in ("owner", "admin")
-        and spec.category in MEMBER_DENY_CATEGORIES
-    ):
-        return "deny", "user_role"
-
-    # MCP discovery (list_tools, ping, …) never needs a human gate.
+        return Authorization("allow", "customer_read", "read_only")
     if spec.name == "call_mcp_tool" and is_mcp_discovery_tool(tool_input):
-        return "allow", "mcp_discovery"
+        return Authorization("allow", "mcp_discovery", "read_only")
+    return None
 
+
+async def authorize_tool_call(
+    session: AsyncSession,
+    tenant: Tenant,
+    agent: Any | None,
+    spec: ToolSpec,
+    *,
+    trust: str = "operator",
+    tool_input: dict[str, Any] | None = None,
+    user_role: str | None = None,
+    tainted: bool = False,
+) -> Authorization:
+    hook = await _run_pre_tool_use_hooks(spec, tool_input, tenant, agent, trust)
+    if hook is not None and hook[0] == "deny":
+        return Authorization("deny", f"hook:{hook[1]}", "hook")
+    forced_ask = hook is not None
+
+    decided = _rule_stage(tenant, agent, spec, tool_input)
+    if decided is None:
+        hard = _hard_rule(tenant, agent, spec)
+        if hard is not None and hard["mode"] == "autonomous":
+            decided = Authorization("allow", f"rule:{hard['id']}", "grants")
+    if decided is None:
+        decided = _read_only_stage(spec, tool_input)
+    if decided is not None and decided.stage == "read_only":
+        if forced_ask:
+            return Authorization("ask", f"hook:{hook[1]}", "hook")  # type: ignore[index]
+        return decided
+    if decided is None:
+        mode, reason = _mode_stage(tenant, agent, spec)
+        decided = Authorization(mode, reason, "mode")
+    if forced_ask and decided.mode == "allow":
+        decided = Authorization("ask", f"hook:{hook[1]}", "hook")  # type: ignore[index]
+    return await _clamp(session, tenant, agent, spec, decided, trust, tool_input, user_role, tainted)
+
+
+def _mode_stage(tenant: Tenant, agent: Any | None, spec: ToolSpec) -> tuple[str, str]:
     mode: str = tenant_allowances(tenant).get(spec.category, "ask")
     reason = f"category:{spec.category}"
 
@@ -209,28 +337,30 @@ async def resolve_tool_mode(
                 mode, reason = "ask", "canvas_manual"
         elif spec.name in ("create_canvas", "update_folder_canvas") and mode == "ask":
             mode, reason = "allow", "canvas_snapshot"
+    return mode, reason
 
-    # Explicit per-tool override wins over slider + passport.
-    # MCP Always-allow keys are ``mcp:{server}:{tool}``; fall back to the
-    # wrapper name for legacy blanket overrides.
-    overrides = tenant_tool_overrides(tenant)
-    override = None
-    if spec.name == "call_mcp_tool":
-        mcp_key = mcp_override_key(tool_input)
-        if mcp_key and mcp_key in overrides:
-            override = overrides[mcp_key]
-    if override is None:
-        override = overrides.get(spec.name)
-    if override:
-        mode, reason = override, "tool_override"
 
-    # Exception rules (workspace and agent) bound to this tool or its category.
-    # The strictest matching rule wins; deny from the slider stays deny.
-    from app.services.agent_rules import all_rules, matching_hard_rules, mode_to_allowance, strictest
+async def _clamp(
+    session: AsyncSession,
+    tenant: Tenant,
+    agent: Any | None,
+    spec: ToolSpec,
+    decided: Authorization,
+    trust: str,
+    tool_input: dict[str, Any] | None,
+    user_role: str | None,
+    tainted: bool,
+) -> Authorization:
+    """Tighten-only clamps on gated tools; ungated reads are left to rules."""
+    min_assurance = spec.min_assurance or "none"
+    if not spec.gated and min_assurance in ("", "none"):
+        return decided
+    mode, reason, stage = decided.mode, decided.reason, decided.stage
 
-    hard = strictest(matching_hard_rules(all_rules(tenant, agent), spec.name, spec.category))
-    if hard is not None and mode != "deny":
-        mode, reason = mode_to_allowance(hard["mode"]), f"rule:{hard['id']}"
+    # A member's session may not mutate categories the API reserves for
+    # owners and admins, regardless of agent passport.
+    if user_role and user_role not in ("owner", "admin") and spec.category in MEMBER_DENY_CATEGORIES:
+        return Authorization("deny", "user_role", "clamp")
 
     # Sending to an external party also follows the conversation's AI handling:
     # below Autonomous (dial, channel, agent or a flow set to Always review) asks.
@@ -250,21 +380,23 @@ async def resolve_tool_mode(
             if signal is not None and signal.tenant_id == tenant.id:
                 handling = await resolve_for_signal(session, tenant, signal, agent=agent)
                 if handling.effective != "autonomous":
-                    mode, reason = "ask", f"ai_handling:{handling.effective}"
+                    mode, reason, stage = "ask", f"ai_handling:{handling.effective}", "clamp"
 
     # Trust clamp is absolute: external sessions never auto-mutate.
-    if trust == "external":
-        if spec.audience == "customer" and not spec.mutating:
-            return "allow", "customer_read"
+    if trust == "external" and mode != "deny":
         if spec.category in EXTERNAL_DENY_CATEGORIES:
-            return "deny", "external_trust"
+            return Authorization("deny", "external_trust", "clamp")
         # Ticket tools own their own gate (category mode + certainty).
         # The generic allow→ask clamp would turn every widget intake into a
         # DecisionRequest and hide the category's ask_customer / auto path.
         if spec.category != "tickets" and mode == "allow":
-            mode, reason = "ask", "external_trust"
+            mode, reason, stage = "ask", "external_trust", "clamp"
 
-    return mode, reason  # type: ignore[return-value]
+    # A turn that read content flagged by the prompt guard never mutates on its own.
+    if tainted and spec.mutating and mode == "allow":
+        mode, reason, stage = "ask", "clamp:untrusted_input", "clamp"
+
+    return Authorization(mode, reason, stage)
 
 
 async def set_tool_override(

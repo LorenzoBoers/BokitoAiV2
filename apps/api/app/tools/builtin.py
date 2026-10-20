@@ -838,8 +838,7 @@ async def _peer_for_turn(ctx: ToolContext, tool_input: dict[str, Any]):
 
 async def _ask_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Ask another agent in this conversation; the answer comes back to you."""
-    from app.models.agent_turn import AgentAsk
-    from app.services.agent_turns import _requester_episode, enqueue_turn, latest_human_message_id
+    from app.services.agent_turns import create_ask
 
     signal, peer, error = await _peer_for_turn(ctx, tool_input)
     if error:
@@ -847,64 +846,25 @@ async def _ask_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     question = str(tool_input.get("question") or "").strip()
     if not question:
         return {"error": "question required"}
-    from sqlalchemy import select
-
-    open_ask = (
-        await ctx.session.execute(
-            select(AgentAsk.id).where(
-                AgentAsk.signal_id == signal.id,
-                AgentAsk.from_agent_id == ctx.agent.id,
-                AgentAsk.to_agent_id == peer.id,
-                AgentAsk.status == "open",
-            )
-        )
-    ).scalar_one_or_none()
-    if open_ask is not None:
+    result = await create_ask(ctx.session, signal, from_agent=ctx.agent, peer=peer, question=question)
+    await ctx.session.commit()
+    if not result.get("ok"):
+        return {
+            "error": result.get("error") or "Could not ask",
+            "note": "The conversation goes back to the human. Do not ask again; answer with what you have.",
+        }
+    if result.get("already_asked"):
         return {
             "ok": True,
-            "ask_id": str(open_ask),
+            "ask_id": result["ask_id"],
             "agent_id": str(peer.id),
             "agent_name": peer.name,
             "already_asked": True,
             "note": f"{peer.name} already has your open question and answers after this turn. End your turn now.",
         }
-    episode = await _requester_episode(ctx.session, signal.id, ctx.agent.id) or await latest_human_message_id(
-        ctx.session, signal.id
-    )
-    ask = AgentAsk(
-        tenant_id=ctx.tenant_id,
-        signal_id=signal.id,
-        from_agent_id=ctx.agent.id,
-        to_agent_id=peer.id,
-        question=question[:4000],
-        episode_id=episode,
-    )
-    ctx.session.add(ask)
-    await ctx.session.flush()
-    queued = await enqueue_turn(
-        ctx.session,
-        signal,
-        agent_id=peer.id,
-        cause_kind="ask",
-        requested_by_kind="agent",
-        requested_by_id=ctx.agent.id,
-        prompt=question,
-        ask_id=ask.id,
-        episode_id=episode,
-        idempotency_key=f"ask:{ask.id}",
-    )
-    if not queued.get("ok"):
-        ask.status = "cancelled"
-        ctx.session.add(ask)
-        await ctx.session.commit()
-        return {
-            "error": queued.get("error") or "Could not ask",
-            "note": "The conversation goes back to the human. Do not ask again; answer with what you have.",
-        }
-    await ctx.session.commit()
     return {
         "ok": True,
-        "ask_id": str(ask.id),
+        "ask_id": result["ask_id"],
         "agent_id": str(peer.id),
         "agent_name": peer.name,
         "said": f"@[{peer.name}](agent:{peer.id}) {question}",
@@ -950,7 +910,7 @@ async def _handoff_to(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
 
 
 async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Start a peer conversation (chat) or a background task with another agent."""
+    """Start a peer conversation with another agent."""
     from datetime import datetime
     from uuid import UUID
 
@@ -961,10 +921,6 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     from app.services.ownership import apply_owner
     from app.services.agent_turns import enqueue_turn
     from app.services.participants import ensure_participant
-
-    mode = str(tool_input.get("mode") or "chat").strip()
-    if mode == "task":
-        return await _delegate_to_agent(ctx, tool_input)
 
     try:
         peer_id = UUID(str(tool_input.get("agent_id") or ""))
@@ -1063,7 +1019,13 @@ async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) ->
         }
 
     outcome = await create_reply_suggestion(
-        ctx.session, ctx.tenant_id, signal, ctx.agent, reply_text=body_text
+        ctx.session,
+        ctx.tenant_id,
+        signal,
+        ctx.agent,
+        reply_text=body_text,
+        run_id=ctx.run_id,
+        announce=ctx.surface != "inbound",
     )
     if outcome.get("skipped"):
         reason = str(outcome.get("reason") or "skipped")
@@ -1136,7 +1098,13 @@ async def _note_no_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         reason="agent_judgement",
         run_id=ctx.run_id,
     )
-    return {"ok": True, "awaiting_approval": True, **outcome}
+    note = (
+        "The card for this message was already on the thread; its summary is updated. "
+        "This read has its outcome: finish now."
+        if outcome.get("updated")
+        else "The no-reply card is on the thread. This read has its outcome: finish now."
+    )
+    return {"ok": True, "awaiting_approval": True, "note": note, **outcome}
 
 
 async def _latest_user_message(ctx: ToolContext, signal_id: UUID):
@@ -1591,6 +1559,7 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             agent_id=ctx.agent.id if ctx.agent else None,
             agent_name=str(getattr(ctx.agent, "name", "") or "") if ctx.agent else None,
             body_quote=body_quote,
+            run_id=ctx.run_id,
         )
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
@@ -1607,7 +1576,8 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Add or remove free labels on this conversation.
 
-    Adds only names that already exist (unless create_missing). Removes only
+    Adds only names that already exist; new labels come from a label plan or
+    create_tag. Removes only
     free labels linked on this conversation — never an action tag, never a
     label that arrives only through the contact or company, and never a
     catalog delete.
@@ -1629,7 +1599,6 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     if not requested and not remove_requested:
         return {"error": "tags or remove must be a non-empty list of strings"}
 
-    create_missing = bool(tool_input.get("create_missing"))
     catalog = set(await allowed_tag_names(ctx.session, ctx.tenant_id))
     allowed: list[str] = []
     rejected: list[str] = []
@@ -1637,12 +1606,12 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         name = normalize_tag(raw) if isinstance(raw, str) else ""
         if not name:
             continue
-        (allowed if (name in catalog or create_missing) else rejected).append(name)
+        (allowed if name in catalog else rejected).append(name)
     if requested and not allowed and not remove_requested:
         return {
             "error": (
-                "None of the requested tags exist in the tag registry. Pass "
-                "create_missing=true (or call create_tag first) to add new free tags."
+                "None of the requested labels exist. Attach an existing label from "
+                "the catalog, or propose new ones with propose_label_plan."
             ),
             "rejected": rejected,
             "catalog": sorted(catalog)[:30],
@@ -1652,7 +1621,6 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     from app.services.folders import inherited_tag_names
     from app.services.signal_tags import (
         add_signal_tag_rows,
-        ensure_tags,
         remove_signal_tag_ids,
         signal_tag_names,
     )
@@ -1662,24 +1630,18 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     added: list[str] = []
     replaced: list[str] = []
     if allowed:
-        rows_by_name = (
-            await ensure_tags(ctx.session, ctx.tenant_id, allowed, user_id=ctx.user_id)
-            if create_missing
-            else {}
-        )
-        if not create_missing:
-            rows_by_name = {
-                row.name: row
-                for row in (
-                    await ctx.session.execute(
-                        select(SignalTag).where(
-                            SignalTag.tenant_id == ctx.tenant_id,
-                            SignalTag.name.in_(allowed),
-                            SignalTag.workstream_id.is_(None),
-                        )
+        rows_by_name = {
+            row.name: row
+            for row in (
+                await ctx.session.execute(
+                    select(SignalTag).where(
+                        SignalTag.tenant_id == ctx.tenant_id,
+                        SignalTag.name.in_(allowed),
+                        SignalTag.workstream_id.is_(None),
                     )
-                ).scalars()
-            }
+                )
+            ).scalars()
+        }
         outcome = await add_signal_tag_rows(
             ctx.session,
             ctx.tenant_id,
@@ -1759,6 +1721,8 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
         if ctx.agent:
             payload["agent_id"] = str(ctx.agent.id)
             payload["agent_name"] = ctx.agent.name
+        if ctx.run_id:
+            payload["run_id"] = str(ctx.run_id)
         ctx.session.add(
             SignalEvent(
                 signal_id=signal.id,
@@ -1997,6 +1961,7 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         **tool_input,
         "title": strip_emoji(str(tool_input.get("title", ""))) or "Decision needed",
         "summary": strip_emoji(str(tool_input.get("summary", ""))),
+        "options": _with_learn(ctx, tool_input.get("options") or []),
     }
     raw_signal = tool_input.get("signal_id") or (str(ctx.signal_id) if ctx.signal_id else None)
     target_signal_id: UUID | None = None
@@ -2414,63 +2379,6 @@ async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     }
 
 
-async def _delegate_to_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from uuid import UUID
-
-    from sqlalchemy import select
-
-    from app.models.agent import Agent
-    from app.services.orchestration.dispatcher import create_agent_task
-
-    target: Agent | None = None
-    if tool_input.get("agent_id"):
-        target = (
-            await ctx.session.execute(
-                select(Agent).where(
-                    Agent.id == UUID(str(tool_input["agent_id"])),
-                    Agent.tenant_id == ctx.tenant_id,
-                    Agent.is_active.is_(True),
-                )
-            )
-        ).scalar_one_or_none()
-    elif tool_input.get("agent_slug"):
-        target = (
-            await ctx.session.execute(
-                select(Agent).where(
-                    Agent.slug == tool_input["agent_slug"],
-                    Agent.tenant_id == ctx.tenant_id,
-                    Agent.is_active.is_(True),
-                )
-            )
-        ).scalar_one_or_none()
-    if not target:
-        return {"error": "Target agent not found in this tenant"}
-
-    from app.services.agent.style import strip_emoji
-
-    instructions = tool_input.get("instructions") or tool_input.get("message") or ""
-    title = strip_emoji(str(tool_input.get("title") or "")) or f"Delegated to {target.name}"
-    task = await create_agent_task(
-        ctx.session,
-        ctx.tenant_id,
-        title=title,
-        description=instructions,
-        agent_id=target.id,
-        project_id=UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
-        workstream_id=UUID(str(tool_input["workstream_id"])) if tool_input.get("workstream_id") else None,
-        signal_id=ctx.signal_id,
-        created_by=ctx.user_id,
-        auto_start=tool_input.get("auto_start", True),
-    )
-    return {
-        "task_id": str(task.id),
-        "agent_id": str(target.id),
-        "agent_name": target.name,
-        "signal_id": str(task.signal_id) if task.signal_id else None,
-        "status": task.status,
-    }
-
-
 async def _propose_agent_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Suggest a rule for yourself; a person confirms it inline before it applies."""
     from fastapi import HTTPException
@@ -2599,7 +2507,15 @@ async def _call_mcp_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     from app.services.agent.mcp_client import call_mcp_tool
     from app.services.connection_scope import mcp_server_denial, record_denial
 
+    from app.services.agent_definition import mcp_server_allowed
+
     agent_id = ctx.agent.id if ctx.agent is not None else None
+    if not mcp_server_allowed(ctx.agent, str(tool_input.get("server_name") or "")):
+        return {
+            "error": "This agent does not inherit that MCP server",
+            "status": "denied",
+            "reason": "mcp_inheritance",
+        }
     denial = await mcp_server_denial(
         ctx.session,
         ctx.tenant_id,
@@ -2704,6 +2620,7 @@ register_tool(
         handler=_search_index,
         mutating=False,
         gated=False,
+        untrusted_output=True,
     )
 )
 
@@ -2738,6 +2655,7 @@ register_tool(
         handler=_web_search,
         mutating=False,
         gated=False,
+        untrusted_output=True,
         audience="both",
         display_name="Web search",
     )
@@ -2767,6 +2685,7 @@ register_tool(
         handler=_fetch_url,
         mutating=False,
         gated=False,
+        untrusted_output=True,
         audience="both",
         display_name="Fetch page",
     )
@@ -3055,7 +2974,7 @@ register_tool(
         description=(
             "Post a visible message on a conversation where you are a participant. "
             "Never reaches the external customer — use suggest_thread_reply or "
-            "send_reply for that."
+            "send_reply for that. It does not ask other agents; use ask_agent for that."
         ),
         category="messaging",
         input_schema={
@@ -3085,7 +3004,8 @@ register_tool(
             "Ask another agent something in this conversation. Your question is "
             "posted for you with their name; they answer after your turn, and "
             "their answer (text and images) comes back to you as a new turn. "
-            "Do not repeat the question in your reply; end your turn."
+            "Do not repeat the question in your reply; end your turn. This is the "
+            "only way to ask: an @mention in your reply wakes nobody."
         ),
         category="messaging",
         input_schema={
@@ -3133,28 +3053,19 @@ register_tool(
     ToolSpec(
         name="start_conversation",
         description=(
-            "Start a separate peer conversation with another agent (mode=chat) or a "
-            "background job (mode=task, same as delegate_to_agent). Chat creates "
-            "an internal thread with both as participants and gives the peer the floor. "
+            "Start a separate peer conversation with another agent: an internal "
+            "thread with both as participants, and the peer gets the floor. "
             "Do not use this to ask an agent something in the current conversation: "
-            "use ask_agent so their answer stays inline here."
+            "use ask_agent so their answer stays inline here. For background work "
+            "that reports back to you, use spawn_subagent."
         ),
         category="messaging",
         input_schema={
             "type": "object",
             "properties": {
                 "agent_id": {"type": "string"},
-                "mode": {
-                    "type": "string",
-                    "enum": ["chat", "task"],
-                    "description": "chat (default) or task",
-                },
                 "title": {"type": "string"},
                 "message": {"type": "string"},
-                "instructions": {
-                    "type": "string",
-                    "description": "For mode=task: task brief (alias of message)",
-                },
             },
             "required": ["agent_id"],
         },
@@ -3259,7 +3170,8 @@ register_tool(
             "team note (use post_internal_note for that). Only call this when "
             "the teammate asked you to handle the inbound or mark no reply, "
             "or when that is the clear next step for their ask — not after a "
-            "plain lookup question. Do not also draft a reply."
+            "plain lookup question. Do not also draft a reply. It is the "
+            "outcome of the read: call it once, after any labels."
         ),
         category="messaging",
         input_schema={
@@ -3535,14 +3447,14 @@ register_tool(
         name="set_thread_tags",
         description=(
             "Add or remove free labels on a conversation. Omit signal_id to "
-            "use the current thread — never invent a uuid. tags adds names "
-            "from the catalog; create_missing registers a new free label. "
-            "remove unlinks a free label that is already on this conversation. "
+            "use the current thread — never invent a uuid. tags adds existing "
+            "labels from the catalog only; propose new ones with "
+            "propose_label_plan. remove unlinks a free label that is already on this conversation. "
             "It does not delete the label from the workspace, and it refuses "
             "an action tag and a label that only comes from the contact or "
             "company. Use file_ticket for an action tag. If a folder does not "
-            "fit, remove the label before note_no_reply. If the tool returns "
-            "an error, fix the call; do not claim the label changed."
+            "fit, remove its label. If the tool returns an error, fix the "
+            "call; do not claim the label changed."
         ),
         category="messaging",
         input_schema={
@@ -3557,10 +3469,6 @@ register_tool(
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Free labels to take off this conversation.",
-                },
-                "create_missing": {
-                    "type": "boolean",
-                    "description": "Register tags the catalog does not have yet (free tags only).",
                 },
             },
             "required": [],
@@ -3850,6 +3758,30 @@ def _learn_blob(ctx: ToolContext, tool_name: str) -> dict[str, Any] | None:
     }
 
 
+def _with_learn(ctx: ToolContext, options: list[Any]) -> list[Any]:
+    """Every option that runs a platform tool can teach the agent "always" / "never".
+
+    One place for every card producer, so a new proposal tool cannot forget it.
+    """
+    from app.tools.registry import get_tool_spec
+
+    out: list[Any] = []
+    for option in options:
+        if not isinstance(option, dict) or isinstance(option.get("learn"), dict):
+            out.append(option)
+            continue
+        action_type = str(option.get("action_type") or "").strip()
+        runs_tool = (
+            action_type
+            and action_type not in ("reject", "defer", "escalate")
+            and action_type not in NON_EXECUTABLE_ACTIONS
+            and get_tool_spec(action_type) is not None
+        )
+        learn = _learn_blob(ctx, action_type) if runs_tool else None
+        out.append({**option, "learn": learn} if learn else option)
+    return out
+
+
 async def _propose_action(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.tools.registry import get_tool_spec
 
@@ -3867,9 +3799,6 @@ async def _propose_action(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
             "action_type": action,
             "payload": tool_input.get("payload") or {},
         }
-        learn = _learn_blob(ctx, action)
-        if learn:
-            approve_opt["learn"] = learn
         options.append(approve_opt)
     for extra in tool_input.get("options") or []:
         if isinstance(extra, dict) and extra.get("id") and extra.get("label"):
@@ -3885,16 +3814,6 @@ async def _propose_action(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
                 and get_tool_spec(action_type) is None
             ):
                 row.pop("action_type", None)
-                action_type = ""
-            if (
-                action_type
-                and action_type not in ("reject", "defer", "escalate")
-                and get_tool_spec(action_type) is not None
-                and "learn" not in row
-            ):
-                learn = _learn_blob(ctx, action_type)
-                if learn:
-                    row["learn"] = learn
             options.append(row)
     if not options:
         return {
@@ -4277,9 +4196,16 @@ async def _find_tag_row(ctx: ToolContext, tool_input: dict[str, Any], *keys: str
 async def _create_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.signal_tags import create_tag, normalize_tag, serialize_tag
 
+    from app.services.label_policy import check_new_label
+
     name = normalize_tag(str(tool_input.get("name") or ""))
     if not name:
         return {"error": "missing_name", "message": "Pass the hashtag name without #."}
+    refusal = await check_new_label(
+        ctx.session, ctx.tenant_id, name, str(tool_input.get("description") or "")
+    )
+    if refusal:
+        return refusal
     row = await create_tag(
         ctx.session,
         ctx.tenant_id,
@@ -4304,6 +4230,18 @@ async def _update_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         return error
     fields: dict[str, Any] = {}
     if tool_input.get("new_name"):
+        from app.services.label_policy import check_new_label
+
+        description = tool_input.get("description")
+        refusal = await check_new_label(
+            ctx.session,
+            ctx.tenant_id,
+            str(tool_input["new_name"]),
+            str(description if description is not None else row.description or ""),
+            renaming=row.name,
+        )
+        if refusal:
+            return refusal
         fields["name"] = str(tool_input["new_name"])
     if "description" in tool_input and tool_input["description"] is not None:
         fields["description"] = str(tool_input["description"])
@@ -4319,13 +4257,69 @@ async def _update_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     return {"ok": True, "tag": serialize_tag(row)}
 
 
+async def _merge_labels(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.signal_tags import merge_tags, normalize_tag, serialize_tag
+
+    source_name = normalize_tag(str(tool_input.get("name") or ""))
+    into_name = normalize_tag(str(tool_input.get("into") or ""))
+    if not source_name or not into_name:
+        return {"error": "missing_name", "message": "Pass name (the label to remove) and into (the label to keep)."}
+    source, error = await _find_tag_row(ctx, {"name": source_name}, "tag_id", "id")
+    if error:
+        return error
+    target, error = await _find_tag_row(ctx, {"name": into_name}, "tag_id", "id")
+    if error:
+        return {"error": "not_found", "message": f"#{into_name} is not a label. Merge into one that already exists."}
+    try:
+        row = await merge_tags(ctx.session, ctx.tenant_id, source.id, target.id, commit=False)
+    except ValueError as exc:
+        return {"error": "invalid", "message": str(exc)}
+    return {
+        "ok": True,
+        "removed": source_name,
+        "tag": serialize_tag(row),
+        "message": f"#{source_name} is now #{row.name}. Conversations, contacts, companies, folders and rules moved.",
+    }
+
+
+register_tool(
+    ToolSpec(
+        name="merge_labels",
+        description=(
+            "Merge one free label into another that already exists. Every conversation, "
+            "contact, company, calendar, folder and inbox rule that used the spare label "
+            "moves to the one you keep, and the spare label is removed. Pass name for "
+            "the label to remove and into for the label to keep. Do not use this on a "
+            "flow label; rename that flow on its page. Do not delete the spare label: "
+            "delete drops it instead of moving the items."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Label to remove, without #"},
+                "into": {"type": "string", "description": "Existing label to keep, without #"},
+            },
+            "required": ["name", "into"],
+        },
+        handler=_merge_labels,
+        gated=True,
+        mutating=True,
+        audience="both",
+        display_name="Merge labels",
+    )
+)
+
+
 register_tool(
     ToolSpec(
         name="create_tag",
         description=(
             "Create a plain label (no flow, no color) in the workspace catalog. "
-            "Use create_category when the label should have a flow and start a ticket. "
-            "Idempotent: an existing name is updated. Never say action tag or actietag."
+            "To propose labels for conversations, companies or inbox rules, use "
+            "propose_label_plan instead. Use create_category when the label should "
+            "have a flow and start a ticket. Idempotent: an existing name is updated. "
+            "Never say action tag or actietag."
         ),
         category="messaging",
         input_schema={
@@ -4335,7 +4329,7 @@ register_tool(
                 "description": {"type": "string", "description": "When to apply it"},
                 "show_in_nav": {"type": "boolean", "description": "Show in the Folders and tags rail for everyone"},
             },
-            "required": ["name"],
+            "required": ["name", "description"],
         },
         handler=_create_tag,
         gated=True,
@@ -4370,6 +4364,138 @@ register_tool(
         mutating=True,
         audience="both",
         display_name="Update tag",
+    )
+)
+
+
+async def _propose_label_plan(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.label_plan import validate_entries
+    from app.services.language import resolve_workspace_language
+
+    lang = "nl" if resolve_workspace_language(await _get_tenant(ctx)) == "nl" else "en"
+    entries, errors = await validate_entries(
+        ctx.session, ctx.tenant_id, tool_input.get("entries"), lang=lang
+    )
+    if errors:
+        return {
+            "ok": False,
+            "error": "plan_refused",
+            "message": "No card was raised. Fix these lines and call propose_label_plan again.",
+            "lines": errors,
+        }
+    question = str(tool_input.get("question") or "").strip()
+    approve = "Toepassen" if lang == "nl" else "Apply"
+    decisions: list[str] = []
+    for entry in entries:
+        title = f"#{entry['name']} · {entry['where']}"
+        result = await _create_decision_request(
+            ctx,
+            {
+                "title": title[:200],
+                "summary": entry.get("description") or "",
+                "question": question or None,
+                "items": [
+                    {"type": "tag", "name": entry["name"], "planned": True, "subtitle": entry["where"]}
+                ],
+                "options": [
+                    {
+                        "id": "approve",
+                        "label": approve,
+                        "action_type": "apply_label_plan",
+                        "payload": entry,
+                    },
+                    {"id": "reject", "label": "Nee" if lang == "nl" else "Reject", "action_type": "reject"},
+                ],
+            },
+        )
+        if result.get("decision_request_id"):
+            decisions.append(str(result["decision_request_id"]))
+    return {
+        "ok": True,
+        "status": "awaiting_human",
+        "decision_request_ids": decisions,
+        "message": "The plan is on one card. Nothing changes until the operator approves; end your turn.",
+    }
+
+
+async def _apply_label_plan(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.label_plan import apply_entry
+
+    return await apply_entry(ctx.session, ctx.tenant_id, tool_input, user_id=ctx.user_id)
+
+
+register_tool(
+    ToolSpec(
+        name="propose_label_plan",
+        description=(
+            "Propose labels in one card the operator approves once. One line per "
+            "label: label (existing name, or a new one with description), scope "
+            "conversation (signal_ids it covers), company (company id, domain or "
+            "name; every conversation from them inherits it), contact (id or email) "
+            "or rule (match_type sender|domain|list_id + match_value; labels the "
+            "next mail, and signal_ids are labelled now). Who sent it belongs on "
+            "the company or a rule, not in the label name. The server refuses "
+            "combined, duplicate or item labels and returns what to use instead."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "One short line above the card"},
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "label": {"type": "string", "description": "Name without #"},
+                            "description": {"type": "string", "description": "When to apply it (new labels)"},
+                            "scope": {"type": "string", "enum": ["conversation", "company", "contact", "rule"]},
+                            "signal_ids": {"type": "array", "items": {"type": "string"}},
+                            "company": {"type": "string"},
+                            "contact": {"type": "string"},
+                            "match_type": {"type": "string", "enum": ["sender", "domain", "list_id"]},
+                            "match_value": {"type": "string"},
+                        },
+                        "required": ["label", "scope"],
+                    },
+                },
+            },
+            "required": ["entries"],
+        },
+        handler=_propose_label_plan,
+        gated=False,
+        audience="both",
+        display_name="Proposed labels",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="apply_label_plan",
+        description=(
+            "Runs one approved line of a label plan. Do not call it yourself; "
+            "propose_label_plan raises the card that runs it."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "scope": {"type": "string"},
+                "signal_ids": {"type": "array", "items": {"type": "string"}},
+                "company_id": {"type": "string"},
+                "contact_id": {"type": "string"},
+                "match_type": {"type": "string"},
+                "match_value": {"type": "string"},
+            },
+            "required": ["name", "scope"],
+        },
+        handler=_apply_label_plan,
+        gated=True,
+        mutating=True,
+        audience="both",
+        display_name="Apply label",
     )
 )
 
@@ -4461,6 +4587,7 @@ register_tool(
             "required": ["server_name", "tool_name"],
         },
         handler=_call_mcp_tool,
+        untrusted_output=True,
     )
 )
 
@@ -4488,25 +4615,113 @@ register_tool(
     )
 )
 
+async def _spawn_subagent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import subagents
+
+    return await subagents.spawn(ctx, tool_input)
+
+
+async def _get_subagent_output(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import subagents
+
+    return await subagents.output(ctx, tool_input)
+
+
+async def _kill_subagent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import subagents
+
+    return await subagents.kill(ctx, tool_input)
+
+
+async def _send_subagent_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services import subagents
+
+    return await subagents.send_message(ctx, tool_input)
+
+
 register_tool(
     ToolSpec(
-        name="delegate_to_agent",
-        description="Delegate work to another agent in this tenant by creating an orchestration task.",
+        name="spawn_subagent",
+        description=(
+            "Hand one piece of work to a subagent with its own context. It sees only "
+            "your prompt, not this conversation, so write a complete brief. Its final "
+            "message comes back to you as the result. Background (default): you get the "
+            "result in this conversation when it ends. run_in_background=false waits up "
+            "to 120 seconds. Leave agent_id empty to start a copy of yourself."
+        ),
         category="delegation",
         input_schema={
             "type": "object",
             "properties": {
-                "agent_id": {"type": "string"},
-                "agent_slug": {"type": "string"},
-                "title": {"type": "string"},
-                "instructions": {"type": "string"},
-                "message": {"type": "string"},
-                "project_id": {"type": "string"},
-                "workstream_id": {"type": "string"},
-                "auto_start": {"type": "boolean"},
+                "prompt": {"type": "string", "description": "Complete brief for the subagent"},
+                "description": {"type": "string", "description": "3-8 word label shown in the thread"},
+                "run_in_background": {"type": "boolean", "default": True},
+                "resume_from": {"type": "string", "description": "run_id of a completed subagent of the same agent"},
+                "model": {"type": "string", "description": "Model slug override"},
+                "agent_id": {"type": "string", "description": "Agent to run; default is you"},
+                "persona": {"type": "string", "description": "Workspace persona name"},
+                "role": {"type": "string", "description": "Workspace role name"},
             },
+            "required": ["prompt", "description"],
         },
-        handler=_delegate_to_agent,
+        handler=_spawn_subagent,
+        display_name="Started subagent",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="get_subagent_output",
+        description="Status and result of a subagent you started.",
+        category="delegation",
+        input_schema={
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"],
+        },
+        handler=_get_subagent_output,
+        mutating=False,
+        gated=False,
+        display_name="Read subagent result",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="kill_subagent",
+        description="Stop a subagent you started.",
+        category="delegation",
+        input_schema={
+            "type": "object",
+            "properties": {"run_id": {"type": "string"}},
+            "required": ["run_id"],
+        },
+        handler=_kill_subagent,
+        gated=False,
+        display_name="Stopped subagent",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="send_subagent_message",
+        description=(
+            "Send a running subagent a follow-up. steer (default) and interject land "
+            "before its next step (interject first); queue waits until it would stop."
+        ),
+        category="delegation",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "message": {"type": "string"},
+                "delivery": {"type": "string", "enum": ["steer", "queue", "interject"]},
+            },
+            "required": ["run_id", "message"],
+        },
+        handler=_send_subagent_message,
+        gated=False,
+        display_name="Messaged subagent",
     )
 )
 
@@ -5331,7 +5546,12 @@ async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> 
 
     from app.models.signal import Signal
     from app.services.agent.style import strip_emoji
-    from app.services.thread_schedule import apply_thread_schedule, resolve_recipient, schedule_payload
+    from app.services.thread_schedule import (
+        apply_thread_schedule,
+        resolve_owner,
+        runner_agent_id,
+        schedule_payload,
+    )
 
     at = _parse_when(tool_input.get("at"))
     if tool_input.get("at") and at is None:
@@ -5345,13 +5565,14 @@ async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     instructions = tool_input.get("instructions")
     instructions = strip_emoji(str(instructions)).strip() if instructions is not None else None
     title = strip_emoji(str(tool_input.get("title") or "")).strip()
+    raw_owner = tool_input.get("owner") or tool_input.get("agent_id")
     try:
-        agent_id = _UUID(str(tool_input["agent_id"])) if tool_input.get("agent_id") else None
-    except ValueError:
-        return {"error": "agent_id is not a valid id"}
-    if agent_id is None and instructions and ctx.agent is not None:
-        agent_id = ctx.agent.id
-    wants_rule = bool(cron or every_minutes or (agent_id and instructions))
+        owner = await resolve_owner(ctx.session, ctx.tenant_id, raw_owner) if raw_owner else ...
+    except HTTPException as exc:
+        return {"error": str(exc.detail)}
+    if owner is None and ctx.user_id:
+        owner = ("user", ctx.user_id)
+    wants_rule = bool(cron or every_minutes or instructions)
 
     signal: Signal | None = None
     raw_id = tool_input.get("signal_id")
@@ -5371,16 +5592,30 @@ async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> 
         title = (instructions or "")[:60].strip()
     if not wants_rule and at is None and signal is not None and ends_at is None:
         return {"error": "Pass at (a moment), cron or every_minutes."}
+    if owner is ...:
+        if signal is None:
+            if instructions and ctx.agent is not None:
+                owner = ("agent", ctx.agent.id)
+            elif ctx.user_id:
+                owner = ("user", ctx.user_id)
+        elif instructions and runner_agent_id(signal) is None:
+            return {
+                "error": (
+                    "This conversation is owned by a person or team, so no agent runs at the "
+                    "moment. Pass owner (an agent) to hand it to that agent with these "
+                    "instructions, or pass note instead of instructions for a reminder."
+                )
+            }
+    if owner is not ... and owner[0] != "agent" and instructions and not tool_input.get("note"):
+        tool_input = {**tool_input, "note": instructions}
+        instructions = None
 
+    details: dict = {}
+    if tool_input.get("note"):
+        details["note"] = str(tool_input["note"])
+    if "notify" in tool_input:
+        details["notify"] = bool(tool_input.get("notify"))
     try:
-        if "recipient" in tool_input:
-            recipient = await resolve_recipient(ctx.session, ctx.tenant_id, tool_input.get("recipient"))
-            if recipient is None and ctx.user_id:
-                recipient = ("user", ctx.user_id)
-        elif signal is None and ctx.user_id:
-            recipient = ("user", ctx.user_id)
-        else:
-            recipient = ...
         signal, rule = await apply_thread_schedule(
             ctx.session,
             ctx.tenant_id,
@@ -5390,10 +5625,11 @@ async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> 
             ends_at=ends_at,
             cron=cron,
             every_minutes=every_minutes,
-            agent_id=agent_id,
             instructions=instructions,
-            recipient=recipient,
-            details={"note": str(tool_input["note"])} if tool_input.get("note") else None,
+            owner=owner,
+            hide=bool(tool_input.get("hide")),
+            surface_before_minutes=int(tool_input.get("surface_before_minutes") or 0),
+            details=details or None,
             created_by_user_id=ctx.user_id,
             project_id=_UUID(str(tool_input["project_id"])) if tool_input.get("project_id") else None,
             actor_type="agent" if ctx.agent else "user",
@@ -5450,8 +5686,8 @@ async def _schedule_wake(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
     mapped = dict(tool_input)
     if tool_input.get("name") and not tool_input.get("title"):
         mapped["title"] = tool_input["name"]
-    if not mapped.get("agent_id") and ctx.agent is None:
-        return {"error": "No agent to wake: pass agent_id or call as an agent."}
+    if not (mapped.get("owner") or mapped.get("agent_id")) and ctx.agent is None:
+        return {"error": "No agent to wake: pass owner (an agent) or call as an agent."}
     return await _set_thread_schedule(ctx, mapped)
 
 
@@ -5501,14 +5737,29 @@ _THREAD_SCHEDULE_PROPS: dict[str, Any] = {
     "ends_at": {"type": "string", "description": "ISO datetime the appointment ends."},
     "cron": {"type": "string", "description": "5-field cron (UTC) for a repeat, e.g. 0 7 * * 1-5."},
     "every_minutes": {"type": "integer", "description": "Repeat every N minutes (min 5)."},
-    "agent_id": {
+    "owner": {
         "type": "string",
-        "description": "Agent that works on each moment (default: yourself when instructions are set).",
+        "description": (
+            "Who it is for, which also becomes the conversation owner: a member's name or "
+            "email, an agent's name or id, a team name, or 'me' (the person asking). A person "
+            "or team gets the conversation back unread; an agent runs the instructions. "
+            "Default: keep the current owner (a new conversation goes to you when you pass "
+            "instructions, else to the person asking)."
+        ),
     },
-    "instructions": {"type": "string", "description": "What the agent does on each moment."},
-    "recipient": {
-        "type": "string",
-        "description": "Who it is for: a member's name or email, or a team name (default: the person asking).",
+    "instructions": {"type": "string", "description": "What the agent owner does on each moment."},
+    "hide": {
+        "type": "boolean",
+        "description": "Snooze: hide the conversation from the open lists until the moment (one moment only).",
+    },
+    "surface_before_minutes": {
+        "type": "integer",
+        "enum": [0, 15, 30, 60, 1440],
+        "description": "With hide: bring it back this many minutes before the moment.",
+    },
+    "notify": {
+        "type": "boolean",
+        "description": "Push a notification when the conversation comes back (default true).",
     },
     "note": {"type": "string", "description": "Short note shown with the date."},
     "project_id": {"type": "string"},
@@ -5520,13 +5771,14 @@ register_tool(
         name="set_thread_schedule",
         description=(
             "Plan a conversation. A conversation with a date is an agenda item; with "
-            "a repeat (cron or every_minutes) it is a recurring task. Without an agent "
-            "the conversation comes back (open, unread, owner notified) at the moment. "
-            "With agent_id + instructions the agent works in the conversation on each "
-            "moment and writes to the recipient only when there is something new. "
-            "Use for reminders ('look at this Friday'), appointments, and recurring "
-            "tasks such as a weekly summary for a person or team. Edits the existing "
-            "schedule when called again on the same conversation."
+            "a repeat (cron or every_minutes) it is a recurring task. The conversation "
+            "owner is who the moment is for: a person or team owner gets it back (open, "
+            "unread, notified); an agent owner works in the conversation with the "
+            "instructions and writes only when there is something new. hide snoozes it "
+            "out of the open lists until the moment; a new inbound message wakes it. "
+            "Use for reminders ('look at this Friday'), snoozes, appointments, and "
+            "recurring tasks such as a weekly summary. Edits the existing schedule when "
+            "called again on the same conversation."
         ),
         category="triggers",
         input_schema={"type": "object", "properties": _THREAD_SCHEDULE_PROPS},
@@ -6480,19 +6732,29 @@ async def _list_teams(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         elif data.get("kind") == "agents":
             data["label_nl"] = "Alle agents"
         teams.append(data)
-    return {"teams": teams, "count": len(teams)}
+    return {
+        "departments": teams,
+        "count": len(teams),
+        "note": (
+            "Departments (afdelingen): groups of people and agents. "
+            "Not folders (werkmappen). Call list_folders to list or file into folders."
+        ),
+    }
 
 
 register_tool(
     ToolSpec(
         name="list_departments",
         description=(
-            "List workspace teams. Always includes the two system teams "
-            "(kind=people / All people / Alle mensen, and kind=agents / "
-            "All agents / Alle agents) plus any custom teams. Returns mention "
-            "chips @[Name](team:{id}). Use this for 'which teams exist' — never "
-            "list_threads or list_contacts for that. System teams are real "
-            "roster groups; do not say there are no teams when only these two exist."
+            "List departments (Afdelingen): groups of people and agents. Always "
+            "includes the two system departments (kind=people / All people / "
+            "Alle mensen, and kind=agents / All agents / Alle agents) plus custom "
+            "departments such as Accounting or Support. These are not folders "
+            "(Werkmappen). Never present this list as folders or werkmappen; to "
+            "list or file places where work is stored, call list_folders. Returns "
+            "mention chips @[Name](team:{id}). Use this for which departments "
+            "exist — never list_threads, list_contacts, or list_folders. Do not "
+            "say there are no departments when only the two system ones exist."
         ),
         category="agents",
         input_schema={"type": "object", "properties": {}},

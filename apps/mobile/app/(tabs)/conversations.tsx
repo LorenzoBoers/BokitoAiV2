@@ -164,7 +164,7 @@ function listStyles(colors: ColorTokens) {
     time: { color: colors.textMuted, fontSize: 12 },
     preview: { color: colors.textSecondary, fontSize: 13 },
     meta: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: spacing.sm },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+    dot: { width: 8, height: 8, borderRadius: radius.pill, backgroundColor: colors.accent },
     footer: { marginVertical: spacing.md },
   }
 }

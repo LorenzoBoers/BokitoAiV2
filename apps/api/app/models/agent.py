@@ -46,6 +46,16 @@ class Agent(SQLModel, table=True):
     autonomy_level: str = Field(default="assisted")  # manual | assisted | autonomous
     # Passport: free-form permission scopes (e.g. ["platform:doc:write"]).
     permission_scopes_json: str = Field(default="[]")
+    # Definition (services/agent_definition.py). Denied tools win over tools_json.
+    disallowed_tools_json: str = Field(default="[]")
+    prompt_mode: str = Field(default="extend")  # extend | full
+    capability_mode: str = Field(default="all")  # read-only | read-write | all
+    # Workspace doc paths the agent reads as skills.
+    skills_json: str = Field(default="[]")
+    # {"any_of": [tool, ...], "reminder": str}; empty = no requirement.
+    completion_requirement_json: str = Field(default="{}")
+    # {"mode": "all" | "none" | "named" | "except", "servers": [...]}
+    mcp_inheritance_json: str = Field(default="{}")
     # When true, this agent acts for the signed-in user (Bokito assistant).
     # Ceiling = user role intersect posture. One per workspace; not deletable.
     acts_for_user: bool = Field(default=False, index=True)
@@ -106,6 +116,8 @@ class AgentRun(SQLModel, table=True):
     runtime_snapshot_json: str = Field(default="{}")
     checkpoint_json: str = Field(default="{}")
     pause_reason: Optional[str] = None
+    # end_turn | max_turns | no_progress | user_interrupt | permission_rejected | requirement_forced
+    stop_reason: str = ""
     started_at: datetime = Field(default_factory=datetime.utcnow)
     completed_at: Optional[datetime] = None
 

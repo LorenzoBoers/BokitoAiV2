@@ -266,7 +266,7 @@ function settingsStyles(colors: ColorTokens) {
   hint: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.textMuted },
+  statusDot: { width: 8, height: 8, borderRadius: radius.pill, backgroundColor: colors.textMuted },
   statusOn: { backgroundColor: colors.success },
   statusWait: { backgroundColor: colors.warning },
   langRow: { flexDirection: 'row', gap: spacing.sm, marginTop: 4 },

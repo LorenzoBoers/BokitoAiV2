@@ -1,6 +1,7 @@
 from app.models.agent import Agent, AgentChatUser, AgentRun, RunEvent
 from app.models.agent_call import AgentCall
 from app.models.agent_turn import AgentAsk, AgentTurn
+from app.models.agent_context import SignalCompaction, SubagentMessage
 from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User, UserPreference
 from app.models.auth_token import AuthToken
@@ -79,6 +80,8 @@ __all__ = [
     "AgentCall",
     "AgentTurn",
     "AgentAsk",
+    "SignalCompaction",
+    "SubagentMessage",
     "WorkspaceDoc",
     "DocSection",
     "DocChunk",
@@ -160,3 +163,4 @@ __all__ = [
 # Owner normalization and turn hooks attach to the mappers on import.
 import app.services.ownership  # noqa: E402, F401
 import app.services.message_seq  # noqa: E402, F401
+import app.services.prompt_guard  # noqa: E402, F401

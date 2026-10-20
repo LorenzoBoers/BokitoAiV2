@@ -14,6 +14,7 @@ import {
   type HelpCenterIndex,
 } from '../lib/help-api'
 import { parseHelpSearch } from '../lib/help-search-url'
+import { TextLink } from '../components/ui/text-link'
 
 function formatDate(iso: string, language?: string | null): string {
   try {
@@ -190,9 +191,9 @@ export default function HelpCenter() {
               {query.trim() ? t('helpPublic.emptySearch') : t('helpPublic.empty')}
             </p>
             {query.trim() ? (
-              <button
+              <TextLink
                 type="button"
-                className="text-sm font-medium text-accent hover:underline"
+                className="text-sm"
                 onClick={() => {
                   const params = new URLSearchParams(searchParams)
                   params.delete('q')
@@ -200,7 +201,7 @@ export default function HelpCenter() {
                 }}
               >
                 {t('helpPublic.clearSearch')}
-              </button>
+              </TextLink>
             ) : (
               <p className="text-xs text-muted-foreground">{t('helpPublic.emptyIndexHint')}</p>
             )}

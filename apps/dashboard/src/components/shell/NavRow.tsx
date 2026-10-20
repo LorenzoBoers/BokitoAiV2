@@ -45,7 +45,7 @@ function RowInner({ icon: Icon, label, count, unread, trailing, iconOnly }: NavR
 function rowClass({ iconOnly, depth, active, className }: NavRowBaseProps) {
   return cn(
     'nav-row relative',
-    iconOnly && 'h-8 w-8 justify-center px-0',
+    iconOnly && 'nav-row-icon h-8 w-8 justify-center px-0',
     depth === 1 && !iconOnly && 'pl-6',
     className,
   )

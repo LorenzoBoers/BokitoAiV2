@@ -41,8 +41,10 @@ from app.tools.policy import (
     resolve_posture,
     serialize_posture_catalog,
     tenant_allowances,
+    tenant_permission_rules,
     tenant_tool_overrides,
 )
+from app.tools import permission_rules as prules
 from app.tools.registry import TOOL_CATEGORIES, iter_tool_specs
 
 router = APIRouter(prefix="/govern", tags=["govern"])
@@ -293,6 +295,139 @@ async def update_tool_override(
     return _allowance_state(tenant)
 
 
+class PermissionRulesUpdate(BaseModel):
+    rules: list[dict]
+
+
+def _permission_rules_state(tenant: Tenant) -> dict:
+    return {
+        "rules": [r.as_dict() for r in tenant_permission_rules(tenant)],
+        "actions": list(prules.RULE_ACTIONS),
+        "tool_filters": list(prules.TOOL_FILTERS),
+        "filter_prefixes": list(prules.FILTER_PREFIXES),
+        "pattern_modes": list(prules.PATTERN_MODES),
+    }
+
+
+@router.get("/permission-rules")
+async def get_permission_rules(auth: Annotated[AuthContext, Depends(get_current_auth)]):
+    return _permission_rules_state(auth.tenant)
+
+
+@router.put("/permission-rules")
+async def update_permission_rules(
+    body: PermissionRulesUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    if len(body.rules) > prules.MAX_RULES:
+        raise HTTPException(status_code=422, detail=f"At most {prules.MAX_RULES} rules")
+    try:
+        parsed = prules.parse_rules(body.rules, strict=True)
+    except prules.InvalidRule as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    tenant = (await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))).scalar_one()
+    before = [r.as_dict() for r in tenant_permission_rules(tenant)]
+    settings = tenant_settings(tenant)
+    settings["permission_rules"] = [r.as_dict() for r in parsed]
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:permission_rules_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary=f"Permission rules updated ({len(parsed)} rules)",
+        before={"rules": before},
+        after={"rules": settings["permission_rules"]},
+        commit=False,
+    )
+    await session.commit()
+    await session.refresh(tenant)
+    return _permission_rules_state(tenant)
+
+
+class AutoReviewBody(BaseModel):
+    mode: str = "off"
+    instructions: str = ""
+
+
+class AutoReviewOut(BaseModel):
+    mode: str
+    instructions: str
+    modes: list[str]
+    agreement_rate: float | None = None
+    agreement_sample: int = 0
+
+
+async def _auto_review_state(session: AsyncSession, tenant: Tenant) -> AutoReviewOut:
+    from app.services import auto_review
+
+    config = auto_review.settings_for(tenant)
+    stats = await auto_review.agreement(session, tenant.id)
+    return AutoReviewOut(
+        mode=config["mode"],
+        instructions=config["instructions"],
+        modes=list(auto_review.MODES),
+        agreement_rate=stats["rate"],
+        agreement_sample=stats["sample_size"],
+    )
+
+
+@router.get("/auto-review", response_model=AutoReviewOut)
+async def get_auto_review(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Auto-reviewer mode (off, shadow, enforce), instructions and human agreement over 30 days."""
+    return await _auto_review_state(session, auth.tenant)
+
+
+@router.put("/auto-review", response_model=AutoReviewOut)
+async def update_auto_review(
+    body: AutoReviewBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Set the auto-reviewer mode and instructions. Owner or admin."""
+    from app.services import auto_review
+
+    auth.require_role("owner", "admin")
+    try:
+        config = auto_review.validate_settings(body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    tenant = (await session.execute(select(Tenant).where(Tenant.id == auth.tenant.id))).scalar_one()
+    before = auto_review.settings_for(tenant)
+    settings = tenant_settings(tenant)
+    settings["auto_review"] = config
+    tenant.settings_json = json.dumps(settings)
+    session.add(tenant)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:auto_review_update",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary=f"Auto-review set to {config['mode']}",
+        before=before,
+        after=config,
+        commit=False,
+    )
+    await session.commit()
+    await session.refresh(tenant)
+    return await _auto_review_state(session, tenant)
+
+
 @router.get("/audit")
 async def list_audit(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -365,6 +500,8 @@ class RuleTestOut(BaseModel):
     tool: str
     mode: str
     reason: str
+    # hook | rules | grants | read_only | mode | clamp | judgement
+    stage: str = ""
     outcome: str  # runs | asks | refused
     rule: dict | None = None
 

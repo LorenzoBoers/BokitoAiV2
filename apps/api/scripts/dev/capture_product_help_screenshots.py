@@ -115,6 +115,10 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
         ("click", '[data-testid="mailbox-folders-edit"]'),
         ("wait", '[data-testid="mailbox-folders-dialog"]'),
     ],
+    ("communication", "composer-modes"): [
+        ("click", 'main [role="button"][tabindex="0"]:has-text("Assisted bezoeker")'),
+        ("click", '[data-testid="composer-team-tab"]'),
+    ],
     ("communication", "agent-turn"): [
         ("click", 'main [role="button"][tabindex="0"]:has-text("Bokito Assistant")'),
     ],

@@ -74,6 +74,7 @@ import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { ChatMessageBubble } from './ChatBubble'
 import ActivityTrail from './ActivityTrail'
 import { CHAT_AVATAR_SIZE, THREAD_INDENT } from './ThreadMeta'
+import { TextLink } from '../ui/text-link'
 
 type Props = {
   message: InboxMessage
@@ -416,6 +417,14 @@ export default function DecisionRequestMessage({
       ),
     [message.payload],
   )
+  const autoReview = (() => {
+    const raw = (message.payload?.decision as { auto_review?: unknown } | undefined)?.auto_review
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as { decision?: unknown; reason?: unknown }
+    const decision = String(row.decision ?? '')
+    if (!['allow', 'deny', 'ask'].includes(decision)) return null
+    return { decision, reason: typeof row.reason === 'string' ? row.reason : '' }
+  })()
   const addressee = parseDecisionAddressee(
     (message.payload?.decision as { addressee?: unknown } | undefined)?.addressee,
   )
@@ -657,20 +666,21 @@ export default function DecisionRequestMessage({
     })
   }
 
+  const agentMark = toAiAvatarProps(
+    {
+      name: agentName || agentDisplayName,
+      agentId,
+      agentAvatarKind,
+      agentAvatarIcon,
+      agentAvatarColor,
+      agentAvatarShape,
+      agentAvatarImageUrl,
+    },
+    'Agent',
+  )
   const agentAvatar = (
     <AiAvatar
-      {...toAiAvatarProps(
-        {
-          name: agentName || agentDisplayName,
-          agentId,
-          agentAvatarKind,
-          agentAvatarIcon,
-          agentAvatarColor,
-  agentAvatarShape,
-          agentAvatarImageUrl,
-        },
-        'Agent',
-      )}
+      {...agentMark}
       size={CHAT_AVATAR_SIZE}
       decorative
       mode="static"
@@ -711,6 +721,7 @@ export default function DecisionRequestMessage({
           side="left"
           avatar={agentAvatar}
           variant="agent"
+          accent={agentMark.color}
           reactions={reactions}
           body={
             <div className="flex min-w-0 flex-col gap-1.5">
@@ -722,7 +733,7 @@ export default function DecisionRequestMessage({
                   aria-expanded={compactOpen}
                 >
                   <AiMark size={14} className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate-fade text-[13px] font-medium leading-5 text-text-heading">
+                  <span className="min-w-0 flex-1 truncate-fade text-base font-medium leading-5 text-text-heading">
                     {t('decision.compactProposal')}
                   </span>
                   <ChevronDown
@@ -738,7 +749,7 @@ export default function DecisionRequestMessage({
                     type="button"
                     size="sm"
                     variant={activeInComposer ? 'ghost' : 'secondary'}
-                    className="h-7 shrink-0 px-2.5 text-[13px]"
+                    className="h-7 shrink-0 px-2.5 text-base"
                     onClick={takeOver}
                   >
                     {activeInComposer
@@ -749,7 +760,7 @@ export default function DecisionRequestMessage({
               </div>
               {compactOpen ? (
                 <div className="rounded-md border border-border/60 bg-bg-surface/80 px-2.5 py-2">
-                  <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">
+                  <p className="whitespace-pre-wrap text-base leading-relaxed text-text-secondary">
                     {draftBody}
                   </p>
                 </div>
@@ -792,6 +803,7 @@ export default function DecisionRequestMessage({
       sibling_thread: 'decisionCard.draftSiblingThread',
       handled_externally: 'decisionCard.draftHandledExternally',
       human_replied: 'decisionCard.draftHumanReplied',
+      superseded_by_newer_read: 'decisionCard.supersededByNewerRead',
     }
     const resolvedLabel = !isReplyProposal(options)
       ? t('decisionCard.titleDecision')
@@ -861,6 +873,25 @@ export default function DecisionRequestMessage({
     )
   }
 
+  if (isActionSuggestion && proposalResolutionReason(message) === 'superseded_by_newer_read') {
+    return (
+      <div className="flex flex-col gap-1" data-testid="no-reply-superseded">
+        <ChatMessageBubble
+          side="left"
+          avatar={agentAvatar}
+          variant="external"
+          reactions={reactions}
+          body={
+            <span className="block min-w-0 truncate-fade text-xs text-text-muted">
+              {t('decisionCard.supersededByNewerRead')}
+              {excerpt ? ` — ${excerpt}` : ''}
+            </span>
+          }
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-1">
       {activityTrail}
@@ -868,6 +899,7 @@ export default function DecisionRequestMessage({
       side="left"
       avatar={agentAvatar}
       variant="agent"
+      accent={agentMark.color}
       reactions={reactions}
       body={
         <>
@@ -880,7 +912,7 @@ export default function DecisionRequestMessage({
             )}
             <span
               className={cn(
-                'text-[13px] font-semibold leading-5',
+                'text-base font-semibold leading-5',
                 resolved ? 'text-text-muted' : AI_TEXT_CLASS,
               )}
             >
@@ -900,6 +932,12 @@ export default function DecisionRequestMessage({
             data-testid="decision-outdated"
           >
             {t('decisionCard.customerWroteAgain')}
+          </p>
+        ) : null}
+        {autoReview ? (
+          <p className="mb-1.5 text-xs text-text-muted" data-testid="decision-auto-review">
+            {t(`decisionCard.autoReview.${autoReview.decision}`)}
+            {autoReview.reason ? ` — ${autoReview.reason}` : ''}
           </p>
         ) : null}
         {message.decisionId && !isChatAsk ? (
@@ -1115,9 +1153,7 @@ export default function DecisionRequestMessage({
                             ? 'ai'
                             : quiet
                               ? 'ghost'
-                              : activeText
-                                ? 'outline'
-                                : 'secondary'
+                              : 'secondary'
                       }
                       disabled={busy}
                       aria-pressed={multiSelect && !isRejectDecisionOption(option) ? selected : undefined}
@@ -1204,30 +1240,27 @@ export default function DecisionRequestMessage({
               <span className="text-text-secondary">{t(`decisionCard.learn.done.${learned}`)}</span>
             ) : (
               <>
-                <button
+                <TextLink
                   type="button"
                   disabled={learnBusy || busy}
-                  className="text-accent hover:underline disabled:opacity-50"
                   onClick={() => void teach('allow', { approveOptionId })}
                 >
                   {t('decisionCard.learn.allow')}
-                </button>
-                <button
+                </TextLink>
+                <TextLink
                   type="button"
                   disabled={learnBusy || busy}
-                  className="text-accent hover:underline disabled:opacity-50"
                   onClick={() => void teach('ask')}
                 >
                   {t('decisionCard.learn.ask')}
-                </button>
-                <button
+                </TextLink>
+                <TextLink
                   type="button"
                   disabled={learnBusy || busy}
-                  className="text-accent hover:underline disabled:opacity-50"
                   onClick={() => void teach('deny')}
                 >
                   {t('decisionCard.learn.deny')}
-                </button>
+                </TextLink>
               </>
             )}
           </div>

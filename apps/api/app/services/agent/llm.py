@@ -407,6 +407,28 @@ class MockLLMProvider:
                 "usage": {"input_tokens": 10, "output_tokens": 25},
             }
         lowered_user = last_user.lower()
+        if "name this conversation in at most 6 words" in lowered_user:
+            from app.services.conversation_title import intent_title, normalize_ai_title
+
+            body = last_user
+            marker = "Message:\n"
+            if marker in body:
+                body = body.split(marker, 1)[1]
+            # Drop polite openers so the mock looks like a topic label, not a
+            # truncated first sentence.
+            body = re.sub(
+                r"^(can you|could you|please|please help|kun je|kan jij|"
+                r"zou je|laat mij|laat me|help me|help mij)[,!.:\s]+",
+                "",
+                body.strip(),
+                flags=re.IGNORECASE,
+            )
+            title = normalize_ai_title(intent_title(body, max_words=5, max_len=40)) or "Conversation"
+            return {
+                "stop_reason": "end_turn",
+                "content": [{"type": "text", "text": title}],
+                "usage": {"input_tokens": 8, "output_tokens": 6},
+            }
         if "reply with json only" in lowered_user and '"category"' in last_user:
             # Triage/classification prompts expect machine-readable JSON.
             topic = _mock_topic(last_user) or "Inbound signal"

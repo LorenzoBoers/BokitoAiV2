@@ -22,11 +22,11 @@ Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organi
 ## Daily loop at the top
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*New conversation, Today and Communication sit above the grouped sections.*
+*New conversation and Inbox sit above the grouped sections.*
 
 - **New conversation** — opens `/new` to start a conversation.
-- **Today** — the morning scan of open work, decisions and usage. See [Today](/docs/getting-started/cockpit). You can set Today as your start page under Profile; Communication is the default.
-- **Communication** — the conversations, and the contacts behind them. Standalone in the rail (not under a section). See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
+- **Inbox** — the conversations, and the contacts behind them. Pinned above **Work**, not inside that section. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
+- **Today** — the morning scan of open work, decisions and usage, first inside Inbox. See [Today](/docs/getting-started/cockpit). You can set Today as your start page under Profile; Inbox is the default.
 
 ## Work and AI
 
@@ -42,7 +42,7 @@ Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organi
 At the bottom of the rail, **Organization** groups the workspace itself:
 
 - **Workforce** — the people, the agents and the departments they form, with who is available now. See [Workforce](/docs/getting-started/team).
-- **Connections** — modules, partner logins, tools and AI tools on one page. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Connections](/docs/integrations/integrations).
+- **Connections** — its own item in the main menu, above **Settings**. Modules, partner logins, tools and AI tools on one page (`/connections`). Installed modules (for example **Accounting**) do not add their own rail tabs. See [Connections](/docs/integrations/integrations).
 - **Settings** — grouped as Personal (**Profile & security**, **Notifications**, **My assistant**), Workspace (**General**, **Branding**), Communication (**Channels**, **Autonomy**, **Labels**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Bin** and **Support** sit at the bottom of the settings sidebar. **Support** opens the setup guide, product tour, docs, API reference and contact options. Website chat is a channel row under **Channels**, not its own settings item. See [Labels and tickets](/docs/ai/categories).
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).

@@ -1,7 +1,7 @@
-"""Ticket tools: file an action tag on a conversation, move it, accept or dismiss it.
+"""Ticket tools: file a label with a flow on a conversation, move it, accept or dismiss it.
 
 Structural edits (which hashtags have which flow) go through govern.
-An action tag is a hashtag with a playbook (``SignalTag.workstream_id``).
+A label with a flow is a hashtag whose ``SignalTag.workstream_id`` is set.
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     ref = str(tool_input.get("category") or tool_input.get("tag_id") or "").strip()
     tag = await find_category(ctx.session, ctx.tenant_id, ref)
     if tag is None:
-        return {"error": "Unknown action tag. Use list_categories for the hashtags that start a ticket flow."}
+        return {"error": "Unknown label with a flow. Use list_categories for the hashtags that start a ticket flow."}
     raw_project = tool_input.get("folder_id", tool_input.get("project_id"))
     project_id = None
     if str(raw_project or "").strip().lower() not in _NO_PROJECT:
@@ -146,8 +146,8 @@ register_tool(
     ToolSpec(
         name="list_categories",
         description=(
-            "List action tags (also called categories): hashtags that start a ticket "
-            "flow, with the folders that carry each tag. "
+            "List labels with a flow (also called categories): hashtags that start a "
+            "ticket flow, with the folders that carry each label. "
             "Free hashtags without a flow are not listed here; use set_thread_tags for those."
         ),
         category="tickets",
@@ -163,7 +163,7 @@ register_tool(
     ToolSpec(
         name="get_ticket",
         description=(
-            "Show a conversation's ticket: action tag, stage, flow and folder path "
+            "Show a conversation's ticket: label with a flow, stage, flow and folder path "
             "(defaults to the current thread)."
         ),
         category="tickets",
@@ -179,11 +179,12 @@ register_tool(
     ToolSpec(
         name="file_ticket",
         description=(
-            "File an action tag on this conversation, making it a ticket in that tag's "
-            "flow. A conversation has one action tag; when it already has another one, "
-            "split the conversation instead (do not stack). The folder follows from the "
-            "conversation's tags (its own, the action tag, and its contact's); add the "
-            "missing tag with set_thread_tags rather than guessing a folder. Pass optional "
+            "File a label with a flow on this conversation, making it a ticket in that "
+            "label's flow. A conversation has one label with a flow; when it already has "
+            "another one, split the conversation instead (do not stack). The folder "
+            "follows from the conversation's labels (its own, the one with a flow, and "
+            "its contact's); add the missing label with set_thread_tags rather than "
+            "guessing a folder. Pass optional "
             "intake fields from list_categories (first open stage). Same path as the Hashtags picker."
         ),
         category="tickets",
@@ -192,7 +193,7 @@ register_tool(
             "properties": {
                 "category": {
                     "type": "string",
-                    "description": "Action-tag hashtag name (e.g. klacht) or id",
+                    "description": "Hashtag name of a label with a flow (e.g. klacht) or id",
                 },
                 "signal_id": {"type": "string"},
                 "folder_id": {
@@ -207,7 +208,7 @@ register_tool(
                 "summary": {"type": "string"},
                 "certainty": {
                     "type": "integer",
-                    "description": "0-10 how sure you are of the action tag",
+                    "description": "0-10 how sure you are of the label",
                 },
             },
             "required": ["category"],

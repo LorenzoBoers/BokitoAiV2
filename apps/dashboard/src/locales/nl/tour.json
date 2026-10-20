@@ -29,10 +29,10 @@
     "skip": "Nu overslaan"
   },
   "steps": {
-    "communication": {
-      "title": "Communicatie",
-      "body": "Elk kanaal komt hier binnen: e-mail, websitechat en gesprekken met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
-    },
+      "communication": {
+        "title": "Inbox",
+        "body": "Elk kanaal komt hier binnen: e-mail, websitechat en gesprekken met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
+      },
     "ai": {
       "title": "Je AI-workforce",
       "body": "Agents zijn je digitale collega's. Kennis staat naast ze onder Agents, en Workforce toont mensen, afdelingen en de Grid."
@@ -43,14 +43,14 @@
     },
     "settings": {
       "title": "Instellingen en setupgids",
-      "body": "Kanalen, koppelingen, Govern, je team en de stapsgewijze setupgids staan hier."
+      "body": "Kanalen, Govern, je team en de stapsgewijze setupgids staan hier. Koppelingen heeft een eigen item in het hoofdmenu."
     }
   },
   "finish": {
     "title": "Samen inrichten met je assistent",
     "body": "De snelste manier om Bokito in te richten is een gesprek. Je assistent interviewt je over je bedrijf en zet samen met jou kanalen, agents en kennis op.",
     "cta": "Start de setupchat",
-    "communication": "Open Communicatie",
+    "communication": "Open Inbox",
     "setupGuide": "Open setupgids",
     "later": "Ik verken het zelf"
   },

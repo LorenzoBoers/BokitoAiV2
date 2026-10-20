@@ -121,6 +121,12 @@ async def _start_whatsapp(session: AsyncSession, auth: AuthContext, body: StartT
     ).scalar_one_or_none()
     if existing is not None:
         signal = existing
+        if signal.status == "snoozed":
+            from app.services.thread_schedule import wake_hidden_on_inbound
+
+            woke = wake_hidden_on_inbound(signal)
+            if woke is not None:
+                session.add(woke)
         if signal.status in ("closed", "pending"):
             signal.status = "open"
     else:
@@ -452,28 +458,40 @@ class AskBody(BaseModel):
     """One Ask. The server resolves a soft yes/no or names the session to stream."""
 
     text: str = ""
+    # Agent for an Ask on a customer thread (side session). Internal threads
+    # route on the server from the text.
     agent_id: UUID | None = None
-    addressed_agent_ids: list[UUID] = []
     continue_pending: bool = False
     has_attachments: bool = False
 
 
-class RecipientRef(BaseModel):
-    kind: str  # user | team
+class OwnerRef(BaseModel):
+    kind: str  # user | agent | team
     id: str | int
 
 
 class ScheduleBody(BaseModel):
-    """A date and/or repeat on a thread. Omit ``signal_id`` paths to start a new one."""
+    """A date and/or repeat on a thread. Omit ``signal_id`` paths to start a new one.
+
+    ``owner`` is the conversation owner and who the moment is for: a person or
+    team gets the thread back unread, an agent runs ``instructions`` in it.
+    Omitted keeps the current owner (a new item belongs to you). ``hide``
+    keeps a one-moment thread out of the open lists until
+    ``surface_before_minutes`` (0, 15, 30, 60, 1440) before the moment.
+    ``notify`` (default on) pushes when the thread comes back; omit to keep
+    the stored preference.
+    """
 
     title: str = ""
     at: datetime | None = None
     ends_at: datetime | None = None
     cron: str | None = None
     every_minutes: int | None = None
-    agent_id: UUID | None = None
     instructions: str | None = None
-    recipient: RecipientRef | None = None
+    owner: OwnerRef | None = None
+    hide: bool = False
+    surface_before_minutes: int = 0
+    notify: bool | None = None
     note: str | None = None
     location: str | None = None
     project_id: UUID | None = None
@@ -810,6 +828,11 @@ async def list_signal_threads(
     team_id: str | None = Query(None),
     scheduled_from: datetime | None = Query(None),
     scheduled_to: datetime | None = Query(None),
+    segment: str | None = Query(
+        None,
+        description="scheduled: the Planned side of this queue (threads with a date or repeat, "
+        "including snoozed ones), soonest first.",
+    ),
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
 ):
@@ -820,6 +843,8 @@ async def list_signal_threads(
     ``all_open``, ``unassigned`` (team-owned, not picked up), ``unassigned_closed``,
     ``closed``,
     ``scheduled`` (threads with a date, soonest first), ``spam``, ``all``.
+    ``segment=scheduled`` keeps the queue's owner scope and lists its planned
+    threads instead. Snoozed threads appear only there.
     ``team_id`` narrows to one team's work. ``activity`` keeps threads whose last
     message falls in ``today`` / ``7d`` / ``30d`` / ``90d``. ``scheduled_from`` /
     ``scheduled_to`` narrow to threads whose next date falls in the window.
@@ -859,6 +884,7 @@ async def list_signal_threads(
         team_id=team_id,
         scheduled_from=naive_utc(scheduled_from),
         scheduled_to=naive_utc(scheduled_to),
+        segment=segment,
         page=page,
         per_page=per_page,
         visible_account_ids=await visible_channel_account_ids(
@@ -911,6 +937,22 @@ async def get_signal_why(
     payload = await explain_thread(session, auth.tenant, signal_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="Signal not found")
+    return payload
+
+
+@router.get("/{signal_id}/subagents/{run_id}")
+async def get_signal_subagent(
+    signal_id: UUID,
+    run_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """A subagent started in this conversation: status, result and its step log."""
+    from app.services.subagents import transcript
+
+    payload = await transcript(session, auth.tenant.id, signal_id, run_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Subagent not found")
     return payload
 
 
@@ -1047,7 +1089,6 @@ async def ask_signal(
         signal_id,
         text=body.text,
         agent_id=body.agent_id,
-        addressed_agent_ids=body.addressed_agent_ids,
         continue_pending=body.continue_pending,
         has_attachments=body.has_attachments,
         is_admin=auth.role in ("owner", "admin"),
@@ -1085,18 +1126,36 @@ async def _schedule_response(session: AsyncSession, auth: AuthContext, signal_id
 async def _apply_schedule(
     session: AsyncSession, auth: AuthContext, body: ScheduleBody, signal: Signal | None
 ) -> dict:
-    from app.services.thread_schedule import apply_thread_schedule, resolve_recipient
+    from app.services.ownership import owner_payload
+    from app.services.thread_schedule import apply_thread_schedule, resolve_owner
 
-    recipient = (
-        await resolve_recipient(session, auth.tenant.id, body.recipient.model_dump())
-        if body.recipient
-        else None
-    )
+    owner: tuple[str, UUID] | None | object = ...
+    if body.owner is not None:
+        resolved = await resolve_owner(session, auth.tenant.id, body.owner.model_dump())
+        if signal is None:
+            owner = resolved
+        else:
+            kind, owner_id = resolved or ("user", auth.user.id)
+            current = owner_payload(signal)
+            if current["kind"] != kind or str(current["id"] or "") != str(owner_id):
+                # Same path as the assign picker: access checks, events, audit.
+                await svc.patch_thread(
+                    session,
+                    auth.tenant.id,
+                    auth.user.id,
+                    _num(auth),
+                    signal.id,
+                    assignee={"kind": kind, "id": str(owner_id)},
+                    actor_role=auth.role,
+                )
+                signal = await session.get(Signal, signal.id)
     details: dict = {}
     if body.note is not None:
         details["note"] = body.note
     if body.location is not None:
         details["location"] = body.location
+    if body.notify is not None:
+        details["notify"] = body.notify
     updated, _rule = await apply_thread_schedule(
         session,
         auth.tenant.id,
@@ -1106,9 +1165,10 @@ async def _apply_schedule(
         ends_at=body.ends_at,
         cron=body.cron,
         every_minutes=body.every_minutes,
-        agent_id=body.agent_id,
         instructions=body.instructions,
-        recipient=recipient,
+        owner=owner,
+        hide=body.hide,
+        surface_before_minutes=body.surface_before_minutes,
         details=details,
         created_by_user_id=auth.user.id,
         project_id=body.project_id,

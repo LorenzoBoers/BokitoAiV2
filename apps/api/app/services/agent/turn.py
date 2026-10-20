@@ -9,8 +9,8 @@ Activity item shape (persisted and streamed):
 ``{id, kind: think|work|other, label, tool, provider, started_at, ended_at,
 status: running|ok|error, input?, result?, text?}``
 
-Gateway events (topic ``signal:{id}``):
-- ``agent.turn``     ``{stream_id, phase: start|end}``
+Gateway events (topic ``signal:{id}``), numbered by ``services/thread_log``:
+- ``agent.turn``     ``{stream_id, phase: start|end, stop_reason?}``
 - ``agent.activity`` ``{stream_id, phase: start|end, item}``
 - ``agent.thinking`` ``{stream_id, item_id, delta}``
 - ``message.start``  ``{stream_id, segment_id, seq}`` a bubble opens at its place in the thread
@@ -75,7 +75,7 @@ _OTHER_TOOLS = frozenset(
         "list_tags",
         "request_callback",
         "request_customer_verify",
-        "delegate_to_agent",
+        "spawn_subagent",
         "continue_on_whatsapp",
     }
 )
@@ -91,6 +91,20 @@ _NON_WORD = re.compile(r"[^\w]+", re.UNICODE)
 def _normalized_line(text: str) -> str:
     plain = _MENTION.sub(r"\1", text or "")
     return " ".join(_NON_WORD.sub(" ", plain.lower()).split())
+
+
+PASS_WORDS = ("pass", "i pass", "skip")
+
+
+def is_pass(text: str) -> bool:
+    """The agent's way to stay silent. Such a turn has no bubble."""
+    return _normalized_line(text) in PASS_WORDS
+
+
+def may_be_pass(text: str) -> bool:
+    """True while the text so far could still become the pass word."""
+    line = _normalized_line(text)
+    return bool(line) and any(word.startswith(line) for word in PASS_WORDS)
 
 
 def _now() -> str:
@@ -257,9 +271,16 @@ class TurnRecorder:
         publish: Publisher | None = None,
         stream_id: str | None = None,
         reserve_seq: SeqReserver | None = None,
+        author: dict[str, Any] | None = None,
     ):
         self._publish = publish
         self._reserve_seq = reserve_seq
+        # Who speaks. Every event carries it, so a client never borrows the
+        # name of whoever holds the floor next.
+        self.author = author
+        # The one bubble of this turn: its id and the text the stream showed.
+        self._bubble_id: str | None = None
+        self._shown = ""
         # Thread order per bubble, taken when its first token arrives.
         self._seqs: dict[str, int] = {}
         # Lines said on the agent's behalf (an ask, a handoff). The model
@@ -299,26 +320,19 @@ class TurnRecorder:
         from app.services.agent.turn_persist import slim_activity_item
 
         blocks: list[dict[str, Any]] = []
+        items: list[dict[str, Any]] = []
         for seg in self.live_segments():
-            seg_id = str(seg.get("id") or "")
-
-            def pack(rows: Any, suffix: str) -> None:
-                items: list[dict[str, Any]] = []
-                for row in rows or []:
-                    if not isinstance(row, dict):
-                        continue
-                    shown = slim_activity_item(row)
-                    if row.get("kind") == "think" and str(row.get("text") or "").strip():
-                        shown["text"] = str(row["text"])[:4000]
-                    items.append(shown)
-                if items:
-                    blocks.append({"type": "activity", "id": f"{suffix}-{seg_id}", "items": items})
-
-            pack(seg.get("activity"), "a")
-            text = str(seg.get("text") or "")
-            if text.strip():
-                blocks.append({"type": "speech", "id": seg_id, "text": text})
-            pack(seg.get("activity_after"), "z")
+            for row in [*(seg.get("activity") or []), *(seg.get("activity_after") or [])]:
+                if not isinstance(row, dict):
+                    continue
+                shown = slim_activity_item(row)
+                if row.get("kind") == "think" and str(row.get("text") or "").strip():
+                    shown["text"] = str(row["text"])[:4000]
+                items.append(shown)
+        if items:
+            blocks.append({"type": "activity", "id": f"a-{self.stream_id}", "items": items})
+        if self._bubble_id and self._shown:
+            blocks.append({"type": "speech", "id": self._bubble_id, "text": self._shown})
         from app.services.agent.turn_surface import surface_motion
 
         speaking = any(text.strip() for text in self._part_texts)
@@ -337,6 +351,8 @@ class TurnRecorder:
         if self._publish is None:
             return
         payload = {"stream_id": self.stream_id, **data}
+        if self.author:
+            payload["author"] = self.author
         if "status" not in payload:
             payload["status"] = self._status()
         surface = self._surface(payload.get("status") if isinstance(payload.get("status"), dict) else None)
@@ -461,18 +477,20 @@ class TurnRecorder:
         return list(self._part_texts)
 
     def _speech_parts(self) -> list[str]:
-        """Bubbles for the open reply. The same split the saved messages use."""
-        from app.services.agent.reply_mode import split_chat_messages
+        """The open speech as one block. A turn is one bubble."""
+        visible = self._visible_speech().strip()
+        return [visible] if visible else []
 
-        visible = self._visible_speech()
-        if not visible.strip():
-            return []
-        return split_chat_messages(visible, max_messages=0, settle=False)
+    def bubble_text(self) -> str:
+        """Everything this turn said so far, as the one bubble shows it."""
+        lines = [str(seg.get("text") or "").strip() for seg in self.segments]
+        lines.extend(text.strip() for text in self._part_texts)
+        return "\n\n".join(line for line in lines if line)
 
-    async def _open_part(self) -> str:
-        """A new bubble: its id, and its place in the thread from the first token."""
-        seg_id = f"seg-{uuid.uuid4().hex[:10]}"
-        self._part_ids.append(seg_id)
+    async def _open_bubble(self) -> None:
+        """The bubble opens on its first visible word and takes its place in the thread."""
+        seg_id = self._part_ids[0] if self._part_ids else f"seg-{uuid.uuid4().hex[:10]}"
+        self._bubble_id = seg_id
         seq: int | None = None
         if self._reserve_seq is not None:
             try:
@@ -482,7 +500,28 @@ class TurnRecorder:
         if seq is not None:
             self._seqs[seg_id] = seq
         await self._emit("message.start", {"segment_id": seg_id, "seq": seq})
-        return seg_id
+
+    async def _sync_bubble(self) -> None:
+        text = self.bubble_text()
+        if may_be_pass(text):
+            text = ""
+        if not text:
+            if self._bubble_id and self._shown:
+                self._shown = ""
+                await self._emit("message.part", {"segment_id": self._bubble_id, "text": ""})
+            return
+        if self._bubble_id is None:
+            await self._open_bubble()
+        if text == self._shown:
+            return
+        seq = self._seqs.get(self._bubble_id or "")
+        old, self._shown = self._shown, text
+        if old and not text.startswith(old):
+            await self._emit("message.part", {"segment_id": self._bubble_id, "seq": seq, "text": text})
+            return
+        await self._emit(
+            "message.delta", {"segment_id": self._bubble_id, "seq": seq, "delta": text[len(old) :]}
+        )
 
     def seq_for(self, segment_id: str) -> int | None:
         return self._seqs.get(segment_id)
@@ -510,29 +549,13 @@ class TurnRecorder:
 
     async def _sync_speech_parts(self) -> None:
         parts = self._speech_parts()
-        while len(self._part_ids) < len(parts):
-            await self._open_part()
-        if len(parts) < len(self._part_ids):
-            for seg_id in self._part_ids[len(parts) :]:
-                await self._emit("message.part", {"segment_id": seg_id, "text": ""})
-            self._part_ids = self._part_ids[: len(parts)]
-        previous = self._part_texts
+        if parts and not self._part_ids:
+            self._part_ids = [f"seg-{uuid.uuid4().hex[:10]}"]
+        if not parts:
+            self._part_ids = []
         self._part_texts = list(parts)
         self._speech_id = self._part_ids[0] if self._part_ids else None
-        for index, text in enumerate(parts):
-            old = previous[index] if index < len(previous) else ""
-            if text == old:
-                continue
-            seg_id = self._part_ids[index]
-            seq = self._seqs.get(seg_id)
-            if not old or text.startswith(old):
-                piece = text[len(old) :]
-                if piece:
-                    await self._emit(
-                        "message.delta", {"segment_id": seg_id, "seq": seq, "delta": piece}
-                    )
-            else:
-                await self._emit("message.part", {"segment_id": seg_id, "seq": seq, "text": text})
+        await self._sync_bubble()
 
     def _close_speech(self) -> None:
         parts = self._speech_parts()
@@ -575,6 +598,7 @@ class TurnRecorder:
         await self.start()
         await self._end_think()
         self._close_speech()
+        await self._sync_bubble()
         self._worked = True
         item = {
             "id": f"tool-{uuid.uuid4().hex[:10]}",
@@ -615,9 +639,18 @@ class TurnRecorder:
 
     # -- finish -------------------------------------------------------------
 
-    async def finish(self) -> None:
+    async def finish(self, outcome: str | None = None) -> None:
+        if self._sealed:
+            return
         await self._end_think()
         self._close_speech()
+        if outcome == "silent" or is_pass(self.bubble_text()):
+            outcome = "silent"
+            if self._bubble_id and self._shown:
+                self._shown = ""
+                await self._emit("message.part", {"segment_id": self._bubble_id, "text": ""})
+        else:
+            await self._sync_bubble()
         if self._pending:
             if self.segments:
                 self.segments[-1].setdefault("activity_after", []).extend(self._pending)
@@ -625,8 +658,22 @@ class TurnRecorder:
                 self.segments.append({"id": f"seg-{uuid.uuid4().hex[:10]}", "text": "", "activity": self._pending})
             self._pending = []
         if self.started:
+            from app.services.agent.turn_surface import closing_motion
+
             self._sealed = True
-            await self._emit("agent.turn", {"phase": "end", "status": None})
+            end: dict[str, Any] = {"phase": "end", "status": None}
+            if outcome:
+                end["outcome"] = outcome
+            items = [
+                row
+                for seg in self.segments
+                for row in [*(seg.get("activity") or []), *(seg.get("activity_after") or [])]
+                if isinstance(row, dict)
+            ]
+            closing = closing_motion(items, outcome)
+            if closing:
+                end["closing"] = closing
+            await self._emit("agent.turn", end)
 
     # -- views --------------------------------------------------------------
 

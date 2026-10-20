@@ -102,7 +102,7 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
           </ul>
         )}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             {t('common:cancel', { defaultValue: 'Cancel' })}
           </Button>
         </DialogFooter>

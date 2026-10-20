@@ -6,7 +6,7 @@
  * `to`, `cc`, `mode`, `subject`, `quoted_html`, `source_message_id`.
  */
 
-import type { InboxMessage } from './inbox-api'
+import { asMessageAttachments, type InboxMessage, type MessageAttachment } from './inbox-api'
 
 export type MailDraftMode = 'reply' | 'reply_all' | 'forward'
 
@@ -28,6 +28,11 @@ export type MailDraftIntent = {
   quotedHtml: string
   /** Short plain-text preview of the quoted mail for the collapsed state. */
   quotedPreview: string
+  /**
+   * Files that go out with this mail. Forward starts with the source mail's
+   * file attachments (inline images stay in the quoted letter).
+   */
+  attachments?: MessageAttachment[]
 }
 
 /** Extract bare lowercase addresses from "Name <a@b>" / comma-separated / JSON-array headers. */
@@ -92,6 +97,13 @@ export function forwardSubject(subject: string): string {
   const base = (subject || '').trim().replace(RE_PREFIX, '')
   if (!base) return 'Fwd:'
   return FWD_PREFIX.test(base) ? base : `Fwd: ${base}`
+}
+
+/** File attachments on a mail, skipping images that already live in the HTML. */
+export function mailFileAttachments(
+  message: Pick<InboxMessage, 'attachments'>,
+): MessageAttachment[] {
+  return asMessageAttachments(message.attachments).filter((att) => !att.inline)
 }
 
 function escapeHtml(input: string): string {
@@ -208,5 +220,6 @@ export function buildMailDraftIntent(
     subject: mode === 'forward' ? forwardSubject(subjectBase) : replySubject(subjectBase),
     quotedHtml,
     quotedPreview,
+    attachments: mode === 'forward' ? mailFileAttachments(message) : [],
   }
 }

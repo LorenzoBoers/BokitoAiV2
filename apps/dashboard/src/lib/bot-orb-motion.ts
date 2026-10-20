@@ -1,8 +1,8 @@
 /**
- * Bot-orb motion model — timings stolen from apps/dashboard/docs/references/ai-robo.lottie
- * (markers @ 60fps). SVG BotOrbAvatar implements these; the Lottie is reference only.
- *
- * Markers: idle 0–29, yes 31–105, no 106–180, alert 181–270, thinking 271–390, jump 391–479.
+ * Bot-orb motion model. Loops are moods the server names on the live turn
+ * (`surface.motion`) or the thread sets (listening); one-shots are short
+ * reactions to events (decision, wake, turn end). BotOrbAvatar plays them
+ * on a spring rig (`bot-orb-rig.ts`).
  */
 
 import type { AgentPresenceStatus } from './teams-api'
@@ -10,13 +10,20 @@ import type { AgentPresenceStatus } from './teams-api'
 /** Face / chrome mood for the bot orb. */
 export type BotOrbMotion =
   | 'idle'
+  | 'listening'
   | 'thinking'
   | 'typing'
   | 'working'
+  | 'searching'
+  | 'writing'
+  | 'sending'
+  | 'sleeping'
   | 'yes'
   | 'no'
   | 'alert'
   | 'jump'
+  | 'done'
+  | 'leave'
 
 export type BotOrbDrive = {
   motion: BotOrbMotion
@@ -24,46 +31,51 @@ export type BotOrbDrive = {
   pulseId?: string | null
 }
 
-export const BOT_ORB_ONE_SHOTS = ['yes', 'no', 'alert', 'jump'] as const
+export const BOT_ORB_LOOPS = [
+  'idle',
+  'listening',
+  'thinking',
+  'typing',
+  'working',
+  'searching',
+  'writing',
+  'sending',
+  'sleeping',
+] as const
+
+export const BOT_ORB_ONE_SHOTS = ['yes', 'no', 'alert', 'jump', 'done', 'leave'] as const
 export type BotOrbOneShot = (typeof BOT_ORB_ONE_SHOTS)[number]
+
+const BUSY_LOOPS = new Set<BotOrbMotion>(['thinking', 'typing', 'working', 'searching', 'writing', 'sending'])
+
+export function isBotOrbMotion(value: unknown): value is BotOrbMotion {
+  return (
+    typeof value === 'string' &&
+    ((BOT_ORB_LOOPS as readonly string[]).includes(value) || (BOT_ORB_ONE_SHOTS as readonly string[]).includes(value))
+  )
+}
 
 export function isBotOrbOneShot(motion: BotOrbMotion): motion is BotOrbOneShot {
   return (BOT_ORB_ONE_SHOTS as readonly string[]).includes(motion)
 }
 
 export function isBotOrbBusyLoop(motion: BotOrbMotion): boolean {
-  return motion === 'thinking' || motion === 'typing' || motion === 'working'
+  return BUSY_LOOPS.has(motion)
 }
 
-/** Frames @ 60fps → ms (from Lottie markers). */
-const FRAME_MS = 1000 / 60
-
 export const BOT_ORB_MS = {
-  /** idle segment length (~29f) — breathe cycle half-period uses this. */
-  idleLoop: Math.round(29 * FRAME_MS),
-  yes: Math.round(74 * FRAME_MS),
-  no: Math.round(74 * FRAME_MS),
-  alert: Math.round(89 * FRAME_MS),
-  thinkingSegment: Math.round(119 * FRAME_MS),
-  jump: Math.round(88 * FRAME_MS),
+  yes: 1300,
+  no: 1350,
+  alert: 1500,
+  jump: 1300,
+  done: 1600,
+  leave: 1900,
   look: 580,
-  thinkSway: 700,
   settle: 1200,
-  track: 90,
-  typeBob: 420,
 } as const
 
 export function oneShotDurationMs(motion: BotOrbOneShot): number {
-  switch (motion) {
-    case 'yes':
-      return BOT_ORB_MS.yes
-    case 'no':
-      return BOT_ORB_MS.no
-    case 'alert':
-      return BOT_ORB_MS.alert
-    case 'jump':
-      return BOT_ORB_MS.jump
-  }
+  return BOT_ORB_MS[motion]
 }
 
 /**
@@ -104,4 +116,10 @@ export function errorOrbPulse(id?: string): BotOrbDrive {
 
 export function wakeOrbPulse(id?: string): BotOrbDrive {
   return { motion: 'jump', pulseId: id ?? `jump-${Date.now()}` }
+}
+
+/** The reaction the server named when a turn sealed (`agent.turn end.closing`). */
+export function closingOrbPulse(closing: BotOrbMotion | null | undefined, streamId: string): BotOrbDrive | null {
+  if (!closing || !isBotOrbOneShot(closing)) return null
+  return { motion: closing, pulseId: `closing-${closing}-${streamId}` }
 }

@@ -341,7 +341,7 @@ export default function CalendarEventDialog({
           {error ? <p className="text-xs text-status-error">{error}</p> : null}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
             {t('agendaPage.cancel', { defaultValue: 'Cancel' })}
           </Button>
           <Button

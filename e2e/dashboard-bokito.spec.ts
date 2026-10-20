@@ -8,6 +8,34 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('New conversation').first()).toBeVisible({ timeout: 20000 })
   })
 
+  test('main rail: New conversation once, Work and Team groups, Settings at the bottom', async ({ page }) => {
+    await loginDashboard(page)
+    for (const path of ['/communication/inbox/all', '/agents', '/settings']) {
+      await page.goto(path)
+      const work = page.locator('[data-tour="nav-group-work"]')
+      const team = page.locator('[data-tour="nav-group-team"]')
+      await expect(work).toBeVisible({ timeout: 20000 })
+      await expect(work).toContainText('Work')
+      await expect(team).toContainText('Team')
+      for (const tab of ['communication', 'agenda', 'folders', 'workstreams']) {
+        await expect(work.locator(`[data-tour="nav-${tab}"]`)).toBeVisible()
+      }
+      for (const tab of ['agents', 'team']) {
+        await expect(team.locator(`[data-tour="nav-${tab}"]`)).toBeVisible()
+      }
+      await expect(page.locator('[data-tour="nav-newChat"]')).toHaveCount(1)
+      await expect(page.getByRole('link', { name: 'New conversation', exact: true })).toHaveCount(1)
+
+      const settings = page.locator('[data-tour="nav-settings"]')
+      await expect(settings).toHaveCount(1)
+      await expect(work.locator('[data-tour="nav-settings"]')).toHaveCount(0)
+      await expect(team.locator('[data-tour="nav-settings"]')).toHaveCount(0)
+      const settingsBox = await settings.boundingBox()
+      const teamBox = await team.boundingBox()
+      expect(settingsBox && teamBox && settingsBox.y >= teamBox.y + teamBox.height).toBe(true)
+    }
+  })
+
   test('communication rail shows fixed inbox block and customizable sections', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/communication/inbox/all')

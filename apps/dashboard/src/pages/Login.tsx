@@ -10,7 +10,9 @@ import { MicrosoftSignInButton } from '../components/auth/MicrosoftSignInButton'
 import { GoogleSignInButton } from '../components/auth/GoogleSignInButton';
 import { describeSsoError } from '../components/auth/sso-errors';
 import { readLastLoginEmail, writeLastLoginEmail } from '../lib/last-login-email';
-import { AmbientSpotlights } from '../components/ui/ambient-spotlights';
+import { AuthShell } from '../components/auth/AuthShell';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 
 function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
   if (!rawReturnTo) return '/';
@@ -227,25 +229,46 @@ export default function Login() {
   }
 
   return (
-    <div className="app-atmosphere relative min-h-screen flex items-center justify-center overflow-hidden px-4">
-      <AmbientSpotlights />
-
-      <div className="relative w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <img
-            src="/bokito-logo.png"
-            alt="Bokito.ai"
-            className="w-12 h-12 mb-3"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <span className="text-2xl font-semibold text-text-heading tracking-tight">Bokito.ai</span>
-          <span className="text-sm text-text-secondary mt-1">{t('loginPage.subtitle')}</span>
-          <span className="text-sm text-text-muted mt-2 text-center">{t('loginPage.about')}</span>
+    <AuthShell
+      subtitle={t('loginPage.subtitle')}
+      intro={t('loginPage.about')}
+      above={
+        <div className="flex items-center justify-center gap-2 text-xs">
+          {(['nl', 'en'] as const).map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              onClick={() => {
+                void i18n.changeLanguage(lang);
+                document.documentElement.lang = lang;
+                try {
+                  window.localStorage.setItem('bokito-language', lang);
+                } catch {
+                  /* private mode */
+                }
+              }}
+              className={`rounded-md px-2 py-1 ${
+                (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
+                  ? 'bg-bg-hover font-medium text-text-heading'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              {lang === 'nl' ? t('loginPage.languageNl') : t('loginPage.languageEn')}
+            </button>
+          ))}
         </div>
-
-        {/* Card */}
-        <div className="bg-bg-surface border border-border/60 rounded-lg p-8 shadow-overlay animate-page-enter">
+      }
+      below={
+        <>
+          <p className="mt-1 text-center text-2xs text-text-muted/80">build: {APP_VERSION}</p>
+          {import.meta.env.DEV ? (
+            <p className="mx-auto mt-3 max-w-sm text-center text-xs leading-relaxed text-text-muted">
+              {t('loginPage.localDevHint', { email: 'admin@bokito.ai', password: 'bokito-test-password' })}
+            </p>
+          ) : null}
+        </>
+      }
+    >
           {workspaceSetup ? (
             <div className="space-y-5">
               <div className="flex flex-col items-center text-center">
@@ -293,20 +316,20 @@ export default function Login() {
                 <p className="text-xs font-medium text-text-muted">
                   {workspaceSetup.pendingInvites.length > 0 ? t('loginPage.orStartFresh') : t('loginPage.startFresh')}
                 </p>
-                <input
+                <Input
                   value={newWorkspaceName}
                   onChange={(e) => setNewWorkspaceName(e.target.value)}
                   placeholder={t('loginPage.workspaceNamePlaceholder')}
-                  className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
+                  className="h-10"
                 />
-                <button
+                <Button size="lg"
                   type="submit"
                   disabled={isLoading || !newWorkspaceName.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                  className="w-full"
                 >
                   {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
                   {t('loginPage.createWorkspace')}
-                </button>
+                </Button>
               </form>
 
               {error && (
@@ -359,10 +382,10 @@ export default function Login() {
                   {error}
                 </div>
               )}
-              <button
+              <Button size="lg"
                 type="submit"
                 disabled={isLoading || totpCode.length !== 6}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+                className="w-full"
               >
                 {isLoading ? (
                   <>
@@ -372,7 +395,7 @@ export default function Login() {
                 ) : (
                   t('loginPage.verify')
                 )}
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={() => {
@@ -393,14 +416,14 @@ export default function Login() {
               <label htmlFor="email" className="block text-sm font-medium text-text-secondary mb-1.5">
                 {t('loginPage.email')}
               </label>
-              <input
+              <Input
                 id="email"
                 type="email"
                 autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+                className="h-10"
                 placeholder={t('loginPage.emailPlaceholder')}
               />
               {email && email === readLastLoginEmail() ? (
@@ -414,14 +437,14 @@ export default function Login() {
                 {t('loginPage.password')}
               </label>
               <div className="relative">
-                <input
+                <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 pr-10 rounded-md bg-bg-input border border-border text-text-primary placeholder-text-muted text-sm focus:outline-none focus:border-border-focus transition"
+                  className="h-10 pr-10"
                   placeholder={t('loginPage.passwordPlaceholder')}
                 />
                 <button
@@ -443,10 +466,10 @@ export default function Login() {
             )}
 
             {/* Submit */}
-            <button
+            <Button size="lg"
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md text-sm font-semibold text-accent-fg bg-accent hover:bg-accent-hover disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="w-full"
             >
               {isLoading ? (
                 <>
@@ -456,7 +479,7 @@ export default function Login() {
               ) : (
                 t('loginPage.signIn')
               )}
-            </button>
+            </Button>
           </form>
 
           {/* SSO */}
@@ -499,46 +522,6 @@ export default function Login() {
           </div>
           </>
           )}
-        </div>
-
-        <div className="mt-5 flex items-center justify-center gap-2 text-xs">
-          {(['nl', 'en'] as const).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              onClick={() => {
-                void i18n.changeLanguage(lang);
-                document.documentElement.lang = lang;
-                try {
-                  window.localStorage.setItem('bokito-language', lang);
-                } catch {
-                  /* private mode */
-                }
-              }}
-              className={`rounded-md px-2 py-1 ${
-                (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
-                  ? 'bg-bg-hover font-medium text-text-heading'
-                  : 'text-text-muted hover:text-text-primary'
-              }`}
-            >
-              {lang === 'nl' ? t('loginPage.languageNl') : t('loginPage.languageEn')}
-            </button>
-          ))}
-        </div>
-        <p className="text-center text-xs text-text-muted mt-3">
-          © {new Date().getFullYear()} Bokito.ai · {t('loginPage.rights')}
-          {' · '}
-          <a href="/privacy.html" className="hover:text-accent">{t('loginPage.privacy')}</a>
-        </p>
-        <p className="text-center text-2xs text-text-muted/80 mt-1">
-          build: {APP_VERSION}
-        </p>
-        {import.meta.env.DEV ? (
-          <p className="text-center text-xs text-text-muted mt-3 max-w-sm mx-auto leading-relaxed">
-            {t('loginPage.localDevHint', { email: 'admin@bokito.ai', password: 'bokito-test-password' })}
-          </p>
-        ) : null}
-      </div>
-    </div>
+    </AuthShell>
   );
 }

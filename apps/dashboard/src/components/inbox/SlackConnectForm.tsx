@@ -9,6 +9,8 @@ import { createSlackAccount } from '../../lib/channel-accounts-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
 import { AUTONOMY_PATH } from '../../lib/navigation'
+import { TextLink } from '../ui/text-link'
+import { Input } from '../ui/input'
 
 /**
  * Connect a Slack workspace so decision cards arrive as DMs with
@@ -78,9 +80,9 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
         <p className="flex items-center gap-1.5">
           <span className="font-medium text-text-secondary">{t('slackCard.eventsUrl')}</span>
           <code className="rounded bg-bg-input px-1 py-0.5 text-xs">{eventsUrl}</code>
-          <button type="button" className="text-accent hover:underline" onClick={() => void copyEventsUrl()}>
+          <TextLink type="button" onClick={() => void copyEventsUrl()}>
             {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
-          </button>
+          </TextLink>
         </p>
         <p>
           <span className="font-medium text-text-secondary">{t('slackCard.interactivityUrl')}</span>{' '}
@@ -106,42 +108,42 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-xs text-text-muted">
           {t('slackCard.workspaceName')}
-          <input
+          <Input
             value={workspaceName}
             onChange={(e) => setWorkspaceName(e.target.value)}
             placeholder={t('slackCard.workspaceNamePlaceholder')}
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+            className="h-8"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-muted">
           {t('slackCard.notifyChannel')}
-          <input
+          <Input
             value={notifyChannelId}
             onChange={(e) => setNotifyChannelId(e.target.value)}
             placeholder={t('slackCard.notifyChannelPlaceholder')}
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60"
+            className="h-8"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-muted">
           {t('slackCard.botToken')}
-          <input
+          <Input
             value={botToken}
             onChange={(e) => setBotToken(e.target.value)}
             placeholder={t('slackCard.botTokenPlaceholder')}
             type="password"
             autoComplete="off"
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-sm text-text-primary outline-none focus:border-accent/60"
+            className="h-8 font-mono"
           />
         </label>
         <label className="flex flex-col gap-1 text-xs text-text-muted">
           {t('slackCard.signingSecret')}
-          <input
+          <Input
             value={signingSecret}
             onChange={(e) => setSigningSecret(e.target.value)}
             placeholder={t('slackCard.signingPlaceholder')}
             type="password"
             autoComplete="off"
-            className="rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 font-mono text-sm text-text-primary outline-none focus:border-accent/60"
+            className="h-8 font-mono"
           />
         </label>
       </div>

@@ -19,6 +19,8 @@ import {
   ChevronDown,
   Forward,
   Mail,
+  Maximize2,
+  Minimize2,
   MoreHorizontal,
   Paperclip,
   PenLine,
@@ -41,6 +43,7 @@ import {
 import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDictation'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
+import { Button } from '../ui/button'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { channelCanSend, listChannels, type ChannelRow } from '../../lib/channels-api'
 import {
@@ -388,15 +391,19 @@ export default function MailComposer({
     Boolean(intent.cc || restoredDraft?.cc || restoredDraft?.bcc),
   )
   const [quoteOpen, setQuoteOpen] = useState(false)
-  const [attachments, setAttachments] = useState<MessageAttachment[]>(
-    () => restoredDraft?.attachments ?? [],
-  )
+  const [attachments, setAttachments] = useState<MessageAttachment[]>(() => {
+    // A draft for this same mail keeps whatever the operator already attached
+    // or removed. A fresh forward starts with the source mail's files.
+    if (restoredMatchesIntent && restoredDraft) return restoredDraft.attachments
+    return intent.attachments ?? []
+  })
   const [uploading, setUploading] = useState(false)
   const [sending, setSending] = useState(false)
   // Thread variant mounts collapsed at composer height, then grows — the
   // standard composer visually transforms into the mail surface. The page
   // variant renders at full height right away.
   const [expanded, setExpanded] = useState(variant === 'page')
+  const [fullscreen, setFullscreen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -431,11 +438,25 @@ export default function MailComposer({
   const prevIntentKeyRef = useRef(intentKey)
   useEffect(() => {
     if (prevIntentKeyRef.current === intentKey) return
+    const previous = prevIntentKeyRef.current
+    const previousSource = previous.slice(previous.indexOf(':') + 1)
     prevIntentKeyRef.current = intentKey
     setTo(intent.to)
     setCc(intent.cc)
     setSubject(intent.subject)
     setCcBccOpen((open) => open || Boolean(intent.cc))
+    // Same letter: keep files the operator added, and pick up forward files.
+    // A different letter starts from that letter's files.
+    setAttachments((current) => {
+      const seeded = intent.attachments ?? []
+      const sameNewMail = previous.startsWith('new:') && intentKey.startsWith('new:')
+      if (sameNewMail || previousSource === intent.sourceMessageId) {
+        if (!seeded.length) return current
+        const seen = new Set(current.map((att) => att.id))
+        return [...current, ...seeded.filter((att) => !seen.has(att.id))]
+      }
+      return seeded
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- key change carries the new intent
   }, [intentKey])
 
@@ -772,6 +793,10 @@ export default function MailComposer({
     if (e.key === 'Escape') {
       e.preventDefault()
       e.stopPropagation()
+      if (fullscreen) {
+        setFullscreen(false)
+        return
+      }
       onCancel()
     }
   }
@@ -783,9 +808,62 @@ export default function MailComposer({
   const ModeIcon = MODE_META[effectiveMode].icon
   const modeLabel = t(MODE_META[effectiveMode].labelKey)
 
+  const onPasteFiles = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!token) return
+    const images: File[] = []
+    const items = e.clipboardData?.items
+    if (items?.length) {
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file && file.size > 0) images.push(file)
+        }
+      }
+    }
+    if (!images.length && e.clipboardData?.files?.length) {
+      for (const file of Array.from(e.clipboardData.files)) {
+        if (file.type.startsWith('image/') && file.size > 0) images.push(file)
+      }
+    }
+    if (!images.length) return
+    e.preventDefault()
+    const named = images.map((file, index) => {
+      const type = file.type || 'image/png'
+      const ext = type.split('/')[1]?.replace('jpeg', 'jpg') || 'png'
+      const generic = !file.name || file.name === 'image.png' || file.name === 'blob'
+      if (!generic) return file
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      return new File([file], `pasted-${stamp}${images.length > 1 ? `-${index + 1}` : ''}.${ext}`, {
+        type,
+      })
+    })
+    void onPickFiles(named)
+  }
+
+  const onDropFiles = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.files?.length) return
+    e.preventDefault()
+    void onPickFiles(e.dataTransfer.files)
+  }
+
   return (
-    <div className={variant === 'thread' ? 'relative shrink-0 bg-bg px-4 pb-4 pt-1' : undefined}>
-      {variant === 'thread' ? (
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4'
+          : variant === 'thread'
+            ? 'relative shrink-0 bg-bg px-4 pb-4 pt-1'
+            : undefined
+      }
+      onMouseDown={
+        fullscreen
+          ? (event) => {
+              if (event.target === event.currentTarget) setFullscreen(false)
+            }
+          : undefined
+      }
+    >
+      {variant === 'thread' && !fullscreen ? (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-full z-10 h-12 bg-gradient-to-t from-bg from-20% to-transparent"
@@ -793,11 +871,16 @@ export default function MailComposer({
       ) : null}
       <div
         className={cn(
-          variant === 'thread' && CHAT_COLUMN_CLASS,
+          !fullscreen && variant === 'thread' && CHAT_COLUMN_CLASS,
           'overflow-hidden transition-[height] duration-300 ease-out',
+          fullscreen && 'w-full max-w-3xl',
         )}
-        style={{ height: expanded ? 'min(62vh, 640px)' : '148px' }}
+        style={fullscreen ? { height: 'min(92vh, 900px)' } : { height: expanded ? 'min(62vh, 640px)' : '148px' }}
         onKeyDown={onKeyDown}
+        onDragOver={(event) => {
+          if (event.dataTransfer?.types?.includes('Files')) event.preventDefault()
+        }}
+        onDrop={onDropFiles}
       >
         <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-sm">
           {/* Header: mode + From + close */}
@@ -878,12 +961,24 @@ export default function MailComposer({
                 </span>
               </span>
             ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="iconSm"
+              onClick={() => setFullscreen((open) => !open)}
+              title={fullscreen ? t('mailComposer.exitFullscreen') : t('mailComposer.fullscreen')}
+              aria-label={fullscreen ? t('mailComposer.exitFullscreen') : t('mailComposer.fullscreen')}
+              aria-pressed={fullscreen}
+              className="ml-auto h-6 w-6 text-text-muted"
+            >
+              {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+            </Button>
             <button
               type="button"
               onClick={onCancel}
               title={t('compose.cancel')}
               aria-label={t('compose.cancel')}
-              className="ml-auto flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
               <XIcon size={13} />
             </button>
@@ -977,6 +1072,7 @@ export default function MailComposer({
               onChange={(e) => {
                 if (!dictation.listening) setBody(e.target.value)
               }}
+              onPaste={onPasteFiles}
               onInput={fitBodyHeight}
               placeholder={
                 dictation.listening ? t('composer.dictationListening') : t('compose.bodyPlaceholder')
@@ -992,6 +1088,8 @@ export default function MailComposer({
             <div className="px-3">
               <MessageAttachments
                 attachments={attachments}
+                placement="composer"
+                pending={uploading}
                 onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
               />
             </div>
@@ -1047,7 +1145,7 @@ export default function MailComposer({
               ref={fileInputRef}
               type="file"
               multiple
-              className="hidden"
+              className="pointer-events-none absolute h-0 w-0 opacity-0"
               onChange={(e) => void onPickFiles(e.target.files)}
             />
             {threadId ? (

@@ -17,6 +17,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { DecisionResolvedBy, memberForUuid } from './DecisionResolvedBy'
 import { useDecisionResolve } from './useDecisionResolve'
+import ProposalItemPreview from './ProposalItemPreview'
 
 type RowState = 'awaiting_human' | 'approved' | 'rejected' | 'deferred' | 'failed' | 'missing'
 
@@ -51,6 +52,7 @@ export function ActionBundleCard({
   membersById,
   onResolved,
   onAnswer,
+  enter = false,
 }: {
   proposal: MessageProposal
   threadId: ThreadId
@@ -59,6 +61,8 @@ export function ActionBundleCard({
   membersById?: Record<number, InboxMember>
   onResolved?: (info?: { closed?: boolean }) => void
   onAnswer?: (answer: { text: string; decisionId: string } | null) => void
+  /** Freshly arrived: rows land one after another (CSS delay only). */
+  enter?: boolean
 }) {
   const { t, i18n } = useTranslation('communication')
   const { user } = useAuth()
@@ -136,10 +140,14 @@ export function ActionBundleCard({
   }
 
   const agent = agentName || t('timeline.aiAgent')
+  const showsItems = entries.some((e) => e.items.length > 0)
 
   return (
     <div
-      className="rounded-xl border border-border bg-bg-surface/70 px-3 py-2 text-sm"
+      className={cn(
+        'text-sm',
+        showsItems ? 'px-0.5' : 'rounded-xl border border-border bg-bg-surface/70 px-3 py-2',
+      )}
       data-testid="action-bundle"
     >
       <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1" data-testid="action-bundle-header">
@@ -156,16 +164,18 @@ export function ActionBundleCard({
           />
         ) : null}
       </div>
-      <ul className="divide-y divide-border/60">
-        {entries.map((entry) => {
+      <ul className={showsItems ? 'space-y-1.5' : 'divide-y divide-border/60'}>
+        {entries.map((entry, index) => {
           const state = states[entry.decisionId]
           const isOpen = state === 'awaiting_human'
           const checked = selected.includes(entry.decisionId)
           const learned = taught[entry.decisionId]
+          const item = entry.items[0] ?? null
           return (
             <li
               key={entry.decisionId}
-              className="flex items-center gap-2 py-1.5"
+              className={cn('flex items-center gap-2', !showsItems && 'py-1.5', enter && 'turn-follow-in')}
+              style={enter ? { animationDelay: `${120 + index * 110}ms` } : undefined}
               data-testid="action-bundle-row"
               data-state={state}
             >
@@ -195,24 +205,30 @@ export function ActionBundleCard({
                   ) : null}
                 </span>
               )}
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className={cn('truncate', !isOpen && 'text-text-secondary')}>{label(entry)}</span>
-                {(() => {
-                  const sub = bundleRowSubtitle(entry, i18n.language)
-                  if (!sub) return null
-                  const mono = Boolean(entry.action?.tool && sub === entry.action.tool)
-                  return (
-                    <span
-                      className={cn(
-                        'truncate text-2xs text-text-muted',
-                        mono && 'font-mono',
-                      )}
-                    >
-                      {sub}
-                    </span>
-                  )
-                })()}
-              </span>
+              {item ? (
+                <div className={cn('min-w-0 flex-1 [&>*]:!mt-0', !isOpen && 'opacity-80')}>
+                  <ProposalItemPreview item={item} />
+                </div>
+              ) : (
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className={cn('truncate', !isOpen && 'text-text-secondary')}>{label(entry)}</span>
+                  {(() => {
+                    const sub = bundleRowSubtitle(entry, i18n.language)
+                    if (!sub) return null
+                    const mono = Boolean(entry.action?.tool && sub === entry.action.tool)
+                    return (
+                      <span
+                        className={cn(
+                          'truncate text-2xs text-text-muted',
+                          mono && 'font-mono',
+                        )}
+                      >
+                        {sub}
+                      </span>
+                    )
+                  })()}
+                </span>
+              )}
               {!isOpen ? (
                 <span className="sr-only">{t(`actionBundle.status.${state}`)}</span>
               ) : null}
@@ -276,7 +292,7 @@ export function ActionBundleCard({
             {open.length > 1 ? t('actionBundle.approveAll') : t('actionBundle.approve')}
           </Button>
           {multi && selected.length > 0 && selected.length < open.length ? (
-            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void approveIds(selected)}>
+            <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => void approveIds(selected)}>
               {t('actionBundle.approveSelected', { count: selected.length })}
             </Button>
           ) : null}

@@ -31,6 +31,16 @@ TARGET_KNOWLEDGE = "knowledge"
 TARGETS = (TARGET_REPLY, TARGET_FOLDER, TARGET_WORKS_IN, TARGET_KNOWLEDGE)
 ISSUE_CONNECTION_WITHOUT_FOLDER = "connection_without_folder"
 
+# Every write through a connection ends in ``record_connection_write``:
+# module verbs ({slug}_{verb}) in the tool executor, and these approved
+# decision actions in the decision resolver. Proposing tools write nothing.
+APPROVED_CONNECTION_WRITES = {
+    "calendar_propose_event": "calendar_create_event",
+    "calendar_propose_update": "calendar_update_event",
+}
+# Tools that take a connection id but only change Bokito's own settings.
+CONNECTION_SETTINGS_TOOLS = frozenset({"set_module_default_connection", "set_connection_scope"})
+
 
 def _payload(row: SignalEvent) -> dict[str, Any]:
     try:
@@ -90,6 +100,9 @@ async def record_delivery(
             return None
 
     payload: dict[str, Any] = {"target_kind": target_kind, "works_in_key": works_in_key, "ref": ref}
+    item_type, _, item_id = works_in_key.partition(":")
+    if item_type in ("resource", "canvas") and item_id:
+        payload[f"{item_type}_id"] = item_id
     if channel:
         payload["channel"] = channel
     if title:

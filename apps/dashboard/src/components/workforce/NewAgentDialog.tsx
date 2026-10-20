@@ -25,6 +25,7 @@ import {
   normalizeAgentChatMode,
   type SelectableChatModel,
 } from '../../lib/models-api'
+import { TextLink } from '../ui/text-link'
 
 type Props = {
   open: boolean
@@ -205,13 +206,13 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
               </SelectContent>
             </Select>
             {modelsError ? (
-              <button
+              <TextLink
                 type="button"
                 onClick={loadModels}
-                className="text-xs font-medium text-accent hover:underline"
+                className="text-xs"
               >
                 {t('workforce.agents.create.modelsRetry')}
-              </button>
+              </TextLink>
             ) : null}
           </div>
 

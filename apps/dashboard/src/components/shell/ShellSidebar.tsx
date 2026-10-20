@@ -5,7 +5,8 @@ import { PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-react'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import {
-  FOOTER_TAB,
+  FOOTER_TABS,
+  PINNED_TABS,
   TAB_GROUPS,
   iconForTab,
   pathForTab,
@@ -117,6 +118,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             className="nav-row-accent"
             data-tour="nav-newChat"
           />
+          {PINNED_TABS.map(renderTab)}
           {TAB_GROUPS.map((group) => {
             const open = !(collapsedGroups[group.label] ?? false)
             return (
@@ -136,13 +138,21 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
         </nav>
       </ScrollFade>
 
-      {/* Footer: Settings + account row */}
+      {/* Settings above the divider (same pattern as Bin in settings nav). */}
+      <div
+        className={`shrink-0 ${
+          collapsed ? 'flex flex-col items-center px-0 pb-1' : 'px-2 pb-1'
+        }`}
+      >
+        {FOOTER_TABS.map(renderTab)}
+      </div>
+
+      {/* Footer: account row */}
       <div
         className={`shrink-0 border-t border-border/60 ${
           collapsed ? 'flex flex-col items-center gap-1 py-1.5' : 'space-y-px px-1.5 py-1.5'
         }`}
       >
-        {renderTab(FOOTER_TAB)}
         <SidebarUserMenu collapsed={collapsed} onNavigate={onNavigate} />
       </div>
     </div>

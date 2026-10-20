@@ -3,12 +3,15 @@ import { Line2 } from 'three/addons/lines/Line2.js'
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js'
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js'
 
-/** Points along a raised arc between two marks; `offset` stacks parallel strips. */
-export function arcPoints(a: THREE.Vector3, b: THREE.Vector3, { lift = 18, offset = 0, segments = 36 } = {}): number[] {
-  const start = a.clone().add(new THREE.Vector3(0, offset, 0))
-  const end = b.clone().add(new THREE.Vector3(0, offset, 0))
+/**
+ * Points along a raised arc between two marks. Start and end stay fixed;
+ * `rise` lifts only the peak so parallel strips fan apart in the middle.
+ */
+export function arcPoints(a: THREE.Vector3, b: THREE.Vector3, { lift = 18, rise = 0, segments = 36 } = {}): number[] {
+  const start = a.clone()
+  const end = b.clone()
   const mid = start.clone().lerp(end, 0.5)
-  mid.y += lift + start.distanceTo(end) * 0.14
+  mid.y += lift + rise + start.distanceTo(end) * 0.14
   const curve = new THREE.QuadraticBezierCurve3(start, mid, end)
   return curve.getPoints(segments).flatMap((p) => [p.x, p.y, p.z])
 }

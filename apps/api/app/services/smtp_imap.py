@@ -651,7 +651,7 @@ def _build_outbound_message(
         data = att.get("data")
         if not data:
             continue
-        filename = str(att.get("filename") or "file")
+        filename = str(att.get("name") or att.get("filename") or "file")
         mime = str(att.get("mime") or "application/octet-stream")
         maintype, _, subtype = mime.partition("/")
         if not subtype:

@@ -126,7 +126,7 @@ async def test_helper_passport_is_platform_owned(client: AsyncClient, session_ov
 @pytest.mark.asyncio
 async def test_helper_may_delegate_but_not_reply_to_customers():
     """The passport hands work over instead of doing customer-facing work."""
-    assert "delegate_to_agent" in TOOL_ALLOWLIST
+    assert "spawn_subagent" in TOOL_ALLOWLIST
     assert "create_task" in TOOL_ALLOWLIST
     assert "get_operator_settings" in TOOL_ALLOWLIST
     assert "send_message" not in TOOL_ALLOWLIST
@@ -135,7 +135,7 @@ async def test_helper_may_delegate_but_not_reply_to_customers():
 
 def test_delegation_tools_left_the_agents_category():
     """Members may hand work over even when configuring agents is denied."""
-    for name in ("delegate_to_agent", "create_task", "list_tasks", "schedule_task"):
+    for name in ("spawn_subagent", "create_task", "list_tasks", "schedule_task"):
         spec = get_tool_spec(name)
         assert spec is not None, name
         assert spec.category == "delegation", name

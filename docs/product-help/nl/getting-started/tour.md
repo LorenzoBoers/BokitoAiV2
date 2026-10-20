@@ -22,11 +22,11 @@ Bokito heeft één zijbalk. Vastgezette items staan boven drie groepen: Werk, AI
 ## Dagelijkse loop bovenaan
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*Nieuw gesprek, Vandaag en Communicatie staan boven de gegroepeerde secties.*
+*Nieuw gesprek en Inbox staan boven de gegroepeerde secties.*
 
 - **Nieuw gesprek** — opent `/new` om een gesprek te starten.
-- **Vandaag** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Vandaag](/docs/getting-started/cockpit). Onder Profiel kun je Vandaag als startpagina zetten; Communicatie is de standaard.
-- **Communicatie** — de gesprekken, en de contacten erachter. Staat los in de rail (niet onder een sectie). Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
+- **Inbox** — de gesprekken, en de contacten erachter. Vastgezet boven **Werk**, niet binnen die sectie. Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
+- **Vandaag** — de ochtendscan van open werk, beslissingen en verbruik, als eerste item in Inbox. Zie [Vandaag](/docs/getting-started/cockpit). Onder Profiel kun je Vandaag als startpagina zetten; Inbox is de standaard.
 
 ## Werk en AI
 
@@ -42,7 +42,7 @@ Bokito heeft één zijbalk. Vastgezette items staan boven drie groepen: Werk, AI
 Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 - **Workforce** — de mensen, de agents en de afdelingen die ze vormen, met wie nu beschikbaar is. Zie [Workforce](/docs/getting-started/team).
-- **Koppelingen** — modules, partnerlogins, tools en AI-tools op één pagina. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Koppelingen](/docs/integrations/integrations).
+- **Koppelingen** — een eigen item in het hoofdmenu, boven **Instellingen**. Modules, partnerlogins, tools en AI-tools op één pagina (`/connections`). Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Koppelingen](/docs/integrations/integrations).
 - **Instellingen** — gegroepeerd als Persoonlijk (**Profiel en beveiliging**, **Notificaties**, **Mijn assistent**), Organisatie (**Algemeen**, **Branding**), Communicatie (**Kanalen**, **Autonomie**, **Labels**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Prullenbak** en **Support** staan onderaan de instellingenzijbalk. **Support** opent setupgids, producttour, documentatie, API-reference en contactopties. Websitechat is een kanaalrij onder **Kanalen**, geen eigen instellingenitem. Zie [Labels en tickets](/docs/ai/categories).
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).

@@ -9,7 +9,7 @@ export type SidebarLayoutPrefs = {
 
 export const INBOX_PARENT = 'inbox'
 export const FOLDER_TAGS_PARENT = 'folders:tags'
-export const INBOX_SIDEBAR_QUEUES = ['for_you', 'open', 'unassigned', 'scheduled', 'spam'] as const
+export const INBOX_SIDEBAR_QUEUES = ['for_you', 'open', 'unassigned', 'spam'] as const
 export type InboxSidebarQueue = (typeof INBOX_SIDEBAR_QUEUES)[number]
 
 export function queueItemId(queue: string): string {

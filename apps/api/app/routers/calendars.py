@@ -422,7 +422,7 @@ async def open_event_thread(
         title=row.title or "Meeting",
         at=row.start_at,
         ends_at=row.end_at,
-        recipient=("user", auth.user.id),
+        owner=("user", auth.user.id),
         details={
             "note": row.description[:2000],
             "location": row.location,

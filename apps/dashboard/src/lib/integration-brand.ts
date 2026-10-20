@@ -115,6 +115,47 @@ function apiImageUrlOrNull(value: unknown): string | null {
   return url
 }
 
+function brandLabelKey(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+let brandLabelToSlug: Map<string, string> | null = null
+
+function brandLabelIndex(): Map<string, string> {
+  if (brandLabelToSlug) return brandLabelToSlug
+  const map = new Map<string, string>()
+  const put = (name: string, slug: string) => {
+    const key = brandLabelKey(name)
+    if (key.length < 2 || map.has(key)) return
+    map.set(key, slug)
+  }
+  for (const [slug, meta] of Object.entries(HOST_STATIC_BRAND_META)) {
+    put(meta.name, slug)
+    put(slug.replace(/_/g, ' '), slug)
+  }
+  for (const provider of REMOTE_MCP_PROVIDERS) {
+    put(provider.name, provider.hostSlug)
+  }
+  brandLabelToSlug = map
+  return map
+}
+
+/** Marketplace host slug for a chip label such as "KING Accountancy". */
+export function hostSlugForBrandLabel(label: string): string | null {
+  const key = brandLabelKey(label)
+  if (key.length < 2) return null
+  const map = brandLabelIndex()
+  const direct = map.get(key)
+  if (direct) return direct
+  const stripped = key.replace(/ mcp$/, '')
+  return stripped === key ? null : (map.get(stripped) ?? null)
+}
+
 export function hostSlugForProvider(providerOrCatalogId: string): string {
   const key = providerOrCatalogId.trim()
   if (!key) return key

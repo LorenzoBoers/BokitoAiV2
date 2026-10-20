@@ -16,6 +16,7 @@ import {
   type SelectableChatModel,
 } from '../../lib/models-api'
 import { humanizeModelId } from '../../lib/model-label'
+import { TextLink } from '../ui/text-link'
 
 type Props = {
   agentId: string
@@ -166,13 +167,13 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
       </div>
 
       {loadError ? (
-        <button
+        <TextLink
           type="button"
           onClick={() => setReloadKey((k) => k + 1)}
-          className="mt-2 text-xs font-medium text-accent hover:underline"
+          className="mt-2 text-xs"
         >
           {loadError}
-        </button>
+        </TextLink>
       ) : null}
       {error ? <p className="mt-2 text-xs text-status-error">{error}</p> : null}
     </Card>

@@ -3,7 +3,7 @@ import { useCopy } from '../context/LocaleContext'
 import { useThemedStyles } from '../context/ThemeContext'
 import type { ThreadEvent } from '../lib/api'
 import { eventLabel, translateKnownText } from '../lib/format'
-import { spacing, type ColorTokens } from '../theme'
+import { radius, spacing, type ColorTokens } from '../theme'
 
 type Props = {
   event: ThreadEvent
@@ -45,7 +45,7 @@ function eventStyles(colors: ColorTokens) {
     dot: {
       width: 6,
       height: 6,
-      borderRadius: 3,
+      borderRadius: radius.sm / 2,
       backgroundColor: colors.textMuted,
     },
     label: { color: colors.textMuted, fontSize: 12 },

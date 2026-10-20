@@ -43,7 +43,7 @@ async def _seed(session):
     session.add_all([email, chat, ava, bram, helper, person, folder, billing_flow, bug_flow])
     await session.flush()
     billing = SignalTag(tenant_id=tenant.id, name="billing", workstream_id=billing_flow.id)
-    bug = SignalTag(tenant_id=tenant.id, name="bug", workstream_id=bug_flow.id)
+    bug = SignalTag(tenant_id=tenant.id, name="bug", workstream_id=bug_flow.id, color="orange", icon="bug")
     vip = SignalTag(tenant_id=tenant.id, name="vip")
     session.add_all([billing, bug, vip])
     session.add_all(
@@ -124,6 +124,9 @@ async def test_paths_modes_and_results(session_override):
     billing, bugs = f"flow:{d['billing_flow'].id}", f"flow:{d['bug_flow'].id}"
     folder = f"folder:{d['folder'].id}"
 
+    nodes = {n["id"]: n for n in body["nodes"]}
+    assert (nodes[bugs]["color"], nodes[bugs]["icon"]) == ("orange", "bug")
+    assert (nodes[billing]["color"], nodes[billing]["icon"]) == ("sky", "route")
     assert _path(body, email, ava)["count"] == 4
     from app.services.ai_handling import resolve_for_signal
 
@@ -161,6 +164,8 @@ async def test_zones_issues_and_waiting(session_override, monkeypatch):
     bram = _node(body, f"agent:{d['bram'].id}")
     assert bram["zones"] == [] and "no_department" in bram["issues"]
     assert _node(body, f"user:{d['person'].id}")["zones"] == [str(d["dev"].id)]
+    assert ava["mark"]["name"] == d["ava"].name and ava["mark"]["avatar_kind"]
+    assert _node(body, f"user:{d['person'].id}")["mark"]["avatar_kind"] in ("image", "initials")
     assert "unassigned" in _node(body, org_flow.UNASSIGNED)["issues"]
     zones = {z["id"]: z for z in body["zones"]}
     assert zones[str(d["support"].id)]["hint"] == "agent_first"
@@ -259,3 +264,105 @@ async def test_suggest_labels_opens_a_chat_with_the_unlabeled_work(session_overr
     assert await org_flow.open_label_suggestion(
         session_override, d["tenant"], user, f"agent:{d['ava'].id}", is_admin=True
     ) is None
+
+
+@pytest.mark.asyncio
+async def test_subfolders_count_on_their_top_folder(session_override):
+    d = await _seed(session_override)
+    tenant = d["tenant"]
+    sub = Project(tenant_id=tenant.id, name="Offerte", slug=f"offerte-{uuid4().hex[:4]}", parent_id=d["folder"].id)
+    session_override.add(sub)
+    await session_override.flush()
+    deeper = Project(tenant_id=tenant.id, name="Bijlagen", slug=f"bijlagen-{uuid4().hex[:4]}", parent_id=sub.id)
+    session_override.add(deeper)
+    await session_override.flush()
+    session_override.add(
+        Signal(tenant_id=tenant.id, channel="email", channel_account_id=d["email"].id, status="open",
+               assignee_kind="agent", assignee_id=d["bram"].id, agent_id=d["bram"].id, project_id=deeper.id)
+    )
+    await session_override.commit()
+    body = await org_flow.build_org_flow(session_override, tenant, None)
+    ids = {n["id"] for n in body["nodes"]}
+    assert f"folder:{sub.id}" not in ids and f"folder:{deeper.id}" not in ids
+    top = _node(body, f"folder:{d['folder'].id}")
+    assert top["children_count"] == 2
+    by_id = {s["id"]: s for s in top["subfolders"]}
+    assert by_id[str(deeper.id)]["count"] == 1 and by_id[str(deeper.id)]["open"] == 1
+    assert by_id[str(sub.id)]["count"] == 0
+    assert _path(body, f"agent:{d['bram'].id}", f"folder:{d['folder'].id}")["count"] == 1
+    sample = await org_flow.unlabeled_sample(session_override, tenant.id, f"folder:{d['folder'].id}")
+    assert any(s.project_id == deeper.id for s in sample)
+
+
+def test_overload_is_above_fifteen_or_twice_the_median():
+    assert org_flow.overload_threshold([]) == 15
+    assert org_flow.overload_threshold([0, 0]) == 15
+    assert org_flow.overload_threshold([10, 10, 10]) == 15
+    assert org_flow.overload_threshold([1, 1, 1, 8]) == 2
+    assert org_flow.overload_threshold([3, 4, 5]) == 8
+
+
+@pytest.mark.asyncio
+async def test_replies_per_channel(session_override):
+    d = await _seed(session_override)
+    body = await org_flow.build_org_flow(session_override, d["tenant"], None)
+    # s8 has a delivered reply, s2 an outbound message.
+    assert _node(body, f"channel:{d['email'].id}")["replies"] == 2
+    assert _node(body, f"channel:{d['chat'].id}")["replies"] == 0
+
+
+@pytest.mark.asyncio
+async def test_closed_on_purpose_stays_out_of_the_sink(session_override):
+    from app.models.signal import SignalEvent
+
+    d = await _seed(session_override)
+    tenant = d["tenant"]
+    before = await org_flow.build_org_flow(session_override, tenant, None)
+    sunk = _node(before, org_flow.SINK_CLOSED)["count"]
+    quiet = Signal(tenant_id=tenant.id, channel="email", channel_account_id=d["email"].id, status="closed")
+    outside = Signal(tenant_id=tenant.id, channel="email", channel_account_id=d["email"].id, status="closed")
+    suggested = Signal(tenant_id=tenant.id, channel="email", channel_account_id=d["email"].id, status="closed")
+    session_override.add_all([quiet, outside, suggested])
+    await session_override.flush()
+    session_override.add_all([
+        SignalEvent(signal_id=quiet.id, tenant_id=tenant.id, event_type="no_reply_noted", payload_json="{}"),
+        SignalEvent(signal_id=outside.id, tenant_id=tenant.id, event_type="handled_externally", payload_json="{}"),
+        SignalEvent(signal_id=suggested.id, tenant_id=tenant.id, event_type="suggestion_created",
+                    payload_json=json.dumps({"kind": "action_suggestion"})),
+    ])
+    await session_override.commit()
+    body = await org_flow.build_org_flow(session_override, tenant, None)
+    sink = _node(body, org_flow.SINK_CLOSED)
+    assert sink["count"] == sunk
+    assert sink["closed_on_purpose"] == {"no_reply": 2, "handled_externally": 1}
+
+
+@pytest.mark.asyncio
+async def test_without_flow_label_the_first_free_label_counts(session_override):
+    d = await _seed(session_override)
+    tenant = d["tenant"]
+    alpha = SignalTag(tenant_id=tenant.id, name="alpha")
+    session_override.add(alpha)
+    signal = Signal(tenant_id=tenant.id, channel="widget", channel_account_id=d["chat"].id, status="open",
+                    assignee_kind="agent", assignee_id=d["bram"].id, agent_id=d["bram"].id)
+    session_override.add(signal)
+    await session_override.flush()
+    now = datetime.utcnow()
+    session_override.add(SignalTagLink(signal_id=signal.id, tag_id=alpha.id, tenant_id=tenant.id, created_at=now))
+    session_override.add(
+        SignalTagLink(signal_id=signal.id, tag_id=d["vip"].id, tenant_id=tenant.id, created_at=now - timedelta(hours=1))
+    )
+    await session_override.commit()
+    body = await org_flow.build_org_flow(session_override, tenant, None)
+    path = _path(body, f"channel:{d['chat'].id}", f"agent:{d['bram'].id}")
+    assert path["by_label"].get(str(d["vip"].id)) == 1 and str(alpha.id) not in path["by_label"]
+
+
+@pytest.mark.asyncio
+async def test_works_in_marks_what_lives_in_bokito(session_override):
+    d = await _seed(session_override)
+    await works_in.add_item(session_override, d["tenant"].id, d["folder"].id, kind="canvas", title="Cijfers")
+    body = await org_flow.build_org_flow(session_override, d["tenant"], None)
+    items = _node(body, f"folder:{d['folder'].id}")["works_in"]
+    assert items and all(i["in_bokito"] == (i["origin"] == "bokito") for i in items)
+    assert any(i["kind"] == "canvas" and i["in_bokito"] for i in items)

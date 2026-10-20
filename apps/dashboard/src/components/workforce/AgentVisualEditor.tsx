@@ -4,7 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { SectionLabel } from '../ui/section-label'
 import { BotOrbAvatar } from '../ui/BotOrbAvatar'
 import { useWorkspace } from '../../context/WorkspaceContext'
-import { BOT_ORB_SHAPE_KEYS, CODING_AGENT_SHAPE_KEYS, botOrbMoreColors, DEFAULT_BOT_ORB_COLOR } from '../../lib/bot-orb-shapes'
+import {
+  BOT_ORB_SHAPE_KEYS,
+  CODING_AGENT_SHAPE_KEYS,
+  botOrbMoreColors,
+  botOrbShapeHasFixedColors,
+  DEFAULT_BOT_ORB_COLOR,
+} from '../../lib/bot-orb-shapes'
 import { useAuth } from '../../context/AuthContext'
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import type { useLocalOrbPreview } from '../../hooks/useBotOrbPulse'
@@ -14,17 +20,25 @@ import { cn } from '../../lib/utils'
 type PreviewMotionId = BotOrbMotion | 'spawn'
 type OrbPreview = ReturnType<typeof useLocalOrbPreview>
 
-const PREVIEW_MOTIONS: { id: PreviewMotionId; labelKey: string }[] = [
-  { id: 'idle', labelKey: 'workforce.agents.orbPreview.idle' },
-  { id: 'thinking', labelKey: 'workforce.agents.orbPreview.thinking' },
-  { id: 'typing', labelKey: 'workforce.agents.orbPreview.typing' },
-  { id: 'working', labelKey: 'workforce.agents.orbPreview.working' },
-  { id: 'spawn', labelKey: 'workforce.agents.orbPreview.spawn' },
-  { id: 'yes', labelKey: 'workforce.agents.orbPreview.yes' },
-  { id: 'no', labelKey: 'workforce.agents.orbPreview.no' },
-  { id: 'alert', labelKey: 'workforce.agents.orbPreview.alert' },
-  { id: 'jump', labelKey: 'workforce.agents.orbPreview.jump' },
+const PREVIEW_MOTION_IDS: PreviewMotionId[] = [
+  'idle',
+  'listening',
+  'thinking',
+  'typing',
+  'working',
+  'searching',
+  'writing',
+  'sending',
+  'sleeping',
+  'spawn',
+  'yes',
+  'no',
+  'alert',
+  'jump',
+  'done',
+  'leave',
 ]
+const PREVIEW_MOTIONS = PREVIEW_MOTION_IDS.map((id) => ({ id, labelKey: `workforce.agents.orbPreview.${id}` }))
 
 const QUICK_SHAPES = ['blob', 'square', 'triangle'] as const
 
@@ -131,6 +145,11 @@ export function AgentVisualEditor({
           )}
         </div>
 
+        {botOrbShapeHasFixedColors(shape) ? (
+          <p className={cn('text-xs text-text-muted', compactShapes && 'text-center')}>
+            {t('workforce.agents.visualFixedColors')}
+          </p>
+        ) : (
         <div className="space-y-2">
           <p className={cn('text-xs font-medium text-text-secondary', compactShapes && 'text-center')}>{t('workforce.agents.visualPickColor')}</p>
           <div className={cn('flex flex-wrap gap-1.5', compactShapes && 'justify-center')}>
@@ -166,6 +185,7 @@ export function AgentVisualEditor({
             </div>
           </SectionLabel>
         </div>
+        )}
 
         {showMotion && preview ? (
           <div className="space-y-1.5">

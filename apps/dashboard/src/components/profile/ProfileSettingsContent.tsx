@@ -1,7 +1,7 @@
-import { useRef, useState, useCallback, useEffect, useMemo, type KeyboardEvent, type ChangeEvent } from 'react'
+import { useRef, useState, useCallback, useEffect, useMemo, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2, X } from 'lucide-react'
+import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2 } from 'lucide-react'
 import { Switch } from '../ui/switch'
 import { toast } from 'sonner'
 import { UserAvatar } from '../ui/UserAvatar'
@@ -9,158 +9,27 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { authRoutes } from '../../api/routes/auth.routes'
 import { apiPatchAuth, apiPostAuth, AUTH_API_BASE, buildAuthHeaders, resendVerificationEmail } from '../../lib/api'
-import {
-  getSsoIdentities,
-  startSsoLink,
-  unlinkSsoProvider,
-  type SsoIdentitiesPayload,
-  type SsoProviderId,
-} from '../../lib/sso-api'
+import { getSsoIdentities, startSsoLink, unlinkSsoProvider, type SsoIdentitiesPayload, type SsoProviderId } from '../../lib/sso-api'
 import { GoogleLogo, MicrosoftLogo } from '../auth/provider-logos'
 import { describeSsoError } from '../auth/sso-errors'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog'
+import { DangerZone, DangerZoneRow } from '../layout/DangerZone'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Input } from '../ui/input'
+import { IconTile } from '../ui/icon-tile'
 import { Tip } from '../ui/Tip'
 import { TotpQrCode } from './TotpQrCode'
 import SignatureEditor from '../inbox/SignatureEditor'
 import { previewSignatureHtml, type SignatureIdentityVars } from '../../lib/default-signature'
 import { applyUiLanguageLocally, persistUiLanguage } from '../../lib/language-preference'
-import {
-  fetchDefaultLanding,
-  persistDefaultLanding,
-  readCachedDefaultLanding,
-  type DefaultLanding,
-} from '../../lib/landing-preference'
-import {
-  fetchCloseEmailOnSend,
-  persistCloseEmailOnSend,
-  readCachedCloseEmailOnSend,
-} from '../../lib/email-close-pref'
+import { fetchDefaultLanding, persistDefaultLanding, readCachedDefaultLanding, type DefaultLanding } from '../../lib/landing-preference'
+import { fetchCloseEmailOnSend, persistCloseEmailOnSend, readCachedCloseEmailOnSend } from '../../lib/email-close-pref'
 import { prepareProfilePhoto, PrepareProfilePhotoError, assertProfilePhotoFile, type ProfilePhotoCrop } from '../../lib/prepare-profile-photo'
 import { AvatarCropDialog } from './AvatarCropDialog'
-
-// ── inline editable field ────────────────────────────────────────────────────
-
-function EditableField({
-  label,
-  value,
-  onSave,
-  type = 'text',
-}: {
-  label: string
-  value: string
-  placeholder?: string
-  onSave: (next: string) => Promise<void>
-  type?: string
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const { t } = useTranslation('profile')
-
-  const startEdit = () => {
-    setDraft(value)
-    setEditing(true)
-    setTimeout(() => {
-      inputRef.current?.focus()
-      inputRef.current?.select()
-    }, 0)
-  }
-
-  const cancel = () => {
-    setEditing(false)
-    setDraft(value)
-  }
-
-  const save = async () => {
-    if (draft === value) { setEditing(false); return }
-    setSaving(true)
-    try {
-      await onSave(draft)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-      setEditing(false)
-    } catch (err) {
-      // Keep edit mode open so the user does not mistake a failure for a save.
-      toast.error(err instanceof Error ? err.message : t('errors.saveField', { label: label.toLowerCase() }))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') void save()
-    if (e.key === 'Escape') cancel()
-  }
-
-  return (
-    <div className="group flex items-center gap-4 border-b border-border/60 py-3.5 pr-4 last:border-b-0">
-      <span className="w-36 shrink-0 text-sm font-medium text-text-heading">{label}</span>
-
-      {editing ? (
-        <div className="flex flex-1 items-center justify-end gap-2">
-          <Input
-            ref={inputRef}
-            type={type}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            className="h-8 w-52 rounded-lg border-border/60 text-sm"
-            autoComplete="off"
-          />
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving}
-            aria-label={t('personalInformation.saveField', { label })}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg hover:bg-accent/90 disabled:opacity-50"
-          >
-            <Check size={13} />
-          </button>
-          <button
-            type="button"
-            onClick={cancel}
-            aria-label={t('personalInformation.cancelEdit')}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/60 text-text-muted hover:text-text-primary"
-          >
-            <X size={13} />
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-end gap-2">
-          {saved && <Check size={12} className="text-status-success" />}
-          <button
-            type="button"
-            onClick={startEdit}
-            className={`max-w-[16rem] truncate text-right text-sm ${value ? 'text-text-primary' : 'text-text-muted'}`}
-          >
-            {value || t('personalInformation.emptyValue')}
-          </button>
-          <button
-            type="button"
-            onClick={startEdit}
-            aria-label={t('personalInformation.editField', { label })}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-primary"
-          >
-            <Pencil size={12} />
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
+import { EditableField } from './EditableField'
+import { ThemeOption } from './ThemeOption'
 
 // ── section wrapper ──────────────────────────────────────────────────────────
 
@@ -168,7 +37,7 @@ function Section({ title, description, children }: { title: string; description?
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-lg font-semibold text-text-heading">{title}</h3>
+        <h3 className="text-base font-semibold text-text-heading">{title}</h3>
         {description ? <p className="mt-0.5 text-sm text-text-muted">{description}</p> : null}
       </div>
       {children}
@@ -181,109 +50,6 @@ function Card({ children }: { children: React.ReactNode }) {
     <div className="panel px-4">
       {children}
     </div>
-  )
-}
-
-// ── theme card ───────────────────────────────────────────────────────────────
-
-type ThemeVariant = 'light' | 'dark' | 'system'
-
-interface ThemeTokens {
-  chrome: string       // outermost window bg
-  sidebar: string      // left nav
-  content: string      // main content area
-  card: string         // card / row bg
-  accent: string       // purple accent bar
-  muted: string        // muted lines
-  border: string
-}
-
-const T: Record<'light' | 'dark', ThemeTokens> = {
-  light: {
-    chrome:  '#eceef0',
-    sidebar: '#f4f5f7',
-    content: '#ffffff',
-    card:    '#f0f1f3',
-    accent:  '#635bff',
-    muted:   '#d0d2d8',
-    border:  '#dde0e6',
-  },
-  dark: {
-    chrome:  '#0d0d10',
-    sidebar: '#141418',
-    content: '#1a1a22',
-    card:    '#22222c',
-    accent:  '#635bff',
-    muted:   '#2e2e3a',
-    border:  '#242430',
-  },
-}
-
-function AppFrame({ tokens }: { tokens: ThemeTokens }) {
-  return (
-    <div
-      className="flex h-full w-full overflow-hidden rounded-[5px]"
-      style={{ background: tokens.chrome, border: `1px solid ${tokens.border}` }}
-    >
-      {/* Sidebar */}
-      <div className="flex w-[30%] flex-col gap-1.5 p-2" style={{ background: tokens.sidebar }}>
-        <div className="h-2 w-8 rounded-full" style={{ background: tokens.accent }} />
-        <div className="h-1.5 w-10 rounded-full" style={{ background: tokens.muted }} />
-        <div className="h-1.5 w-7 rounded-full" style={{ background: tokens.muted }} />
-        <div className="h-1.5 w-9 rounded-full" style={{ background: tokens.muted }} />
-      </div>
-      {/* Content */}
-      <div className="flex flex-1 flex-col gap-1.5 p-2" style={{ background: tokens.content }}>
-        <div className="h-2 w-12 rounded-full" style={{ background: tokens.muted }} />
-        <div className="h-5 rounded-md" style={{ background: tokens.card }} />
-        <div className="h-5 rounded-md" style={{ background: tokens.card }} />
-        <div className="h-5 rounded-md" style={{ background: tokens.card }} />
-      </div>
-    </div>
-  )
-}
-
-function ThemeOption({ label, icon, active, onClick, variant }: {
-  label: string
-  icon: React.ReactNode
-  active: boolean
-  onClick: () => void
-  variant: ThemeVariant
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`flex-1 rounded-lg border p-2.5 transition-all ${
-        active
-          ? 'border-accent shadow-[0_0_0_1px_rgba(99,91,255,0.4)]'
-          : 'border-border/60 hover:border-border'
-      }`}
-    >
-      <div className="h-[88px] overflow-hidden rounded-lg">
-        {variant === 'system' ? (
-          <div className="flex h-full">
-            <div className="w-1/2 overflow-hidden" style={{ clipPath: 'inset(0)' }}>
-              <div className="h-full w-[200%]">
-                <AppFrame tokens={T.light} />
-              </div>
-            </div>
-            <div className="w-px shrink-0" style={{ background: '#888' }} />
-            <div className="w-1/2 overflow-hidden" style={{ clipPath: 'inset(0)' }}>
-              <div className="relative h-full w-[200%]" style={{ marginLeft: '-100%' }}>
-                <AppFrame tokens={T.dark} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <AppFrame tokens={T[variant]} />
-        )}
-      </div>
-      <span className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-text-secondary">
-        {icon}{label}
-      </span>
-    </button>
   )
 }
 
@@ -1022,7 +788,7 @@ export function ProfileSettingsContent() {
                 const disconnectDisabled = ssoBusy === provider || !configured || !canUnlink
                 const disconnectButton = (
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="h-8 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
                     disabled={disconnectDisabled}
@@ -1039,9 +805,9 @@ export function ProfileSettingsContent() {
                     data-linked={linked ? 'true' : 'false'}
                   >
                     <div className="flex min-w-0 items-start gap-3">
-                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-surface">
-                        <Logo size={18} />
-                      </span>
+                      <IconTile className="mt-0.5">
+                        <Logo size={16} />
+                      </IconTile>
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium text-text-heading">
@@ -1115,15 +881,7 @@ export function ProfileSettingsContent() {
               data-enabled={user?.totpEnabled ? 'true' : 'false'}
             >
               <div className="flex min-w-0 items-start gap-3">
-                <span
-                  className={
-                    user?.totpEnabled
-                      ? 'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-status-success/30 bg-status-success/10 text-status-success'
-                      : 'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-bg-surface text-text-muted'
-                  }
-                >
-                  <ShieldCheck size={18} aria-hidden />
-                </span>
+                <IconTile icon={ShieldCheck} tone={user?.totpEnabled ? 'success' : 'neutral'} className="mt-0.5" />
                 <div className="min-w-0 space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-text-heading">
@@ -1148,7 +906,7 @@ export function ProfileSettingsContent() {
               </div>
               {user?.totpEnabled ? (
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="h-8 shrink-0 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
                   onClick={() => { setShowTotpDisable(true); setTotpError(null) }}
@@ -1417,14 +1175,11 @@ export function ProfileSettingsContent() {
         </Card>
       </Section>
 
-      {/* ── Danger zone ── */}
-      <Section title={t('profile:dangerZone.title')} description={t('profile:dangerZone.description')}>
-        <div className="rounded-lg border border-status-error/30 bg-status-error/[0.03] px-4">
-          <div className="flex items-center justify-between py-3.5">
-            <div>
-              <p className="text-sm font-medium text-text-heading">{t('profile:account.deleteTitle')}</p>
-              <p className="text-xs text-text-muted">{t('profile:account.deleteDescription')}</p>
-            </div>
+      <DangerZone title={t('profile:dangerZone.title')} description={t('profile:dangerZone.description')}>
+        <DangerZoneRow
+          title={t('profile:account.deleteTitle')}
+          description={t('profile:account.deleteDescription')}
+          action={
             <Button
               variant="destructive"
               size="sm"
@@ -1435,35 +1190,21 @@ export function ProfileSettingsContent() {
                 setDeleteOpen(true)
                 setTimeout(() => deletePasswordRef.current?.focus(), 0)
               }}
-              className="h-8 rounded-lg px-3 text-xs"
             >
-              <Trash2 size={12} />
+              <Trash2 size={14} />
               {deleting ? t('profile:account.deleting') : t('common:actions.delete')}
             </Button>
-          </div>
-        </div>
-      </Section>
-      {deleteOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeDelete()
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') closeDelete()
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-account-title"
-            className="w-full max-w-md rounded-lg border border-border bg-bg-elevated p-5 shadow-lg"
-          >
-            <h3 id="delete-account-title" className="text-base font-semibold text-text-heading">
-              {t('profile:account.deleteTitle')}
-            </h3>
-            <p className="mt-1 text-sm text-text-secondary">{t('profile:account.deleteConfirm')}</p>
-            <label className="mt-4 block text-sm font-medium text-text-heading" htmlFor="delete-account-password">
+          }
+        />
+      </DangerZone>
+      <Dialog open={deleteOpen} onOpenChange={(next) => { if (!next) closeDelete() }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('profile:account.deleteTitle')}</DialogTitle>
+            <DialogDescription>{t('profile:account.deleteConfirm')}</DialogDescription>
+          </DialogHeader>
+          <div>
+            <label className="block text-sm font-medium text-text-heading" htmlFor="delete-account-password">
               {t('profile:account.deletePasswordLabel')}
             </label>
             <Input
@@ -1475,27 +1216,26 @@ export function ProfileSettingsContent() {
               onChange={(event) => setDeletePassword(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') void handleDeleteAccount()
-                if (event.key === 'Escape') closeDelete()
               }}
               className="mt-1.5"
             />
             {deleteError ? <p className="mt-2 text-xs text-status-error">{deleteError}</p> : null}
-            <div className="mt-4 flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={closeDelete} disabled={deleting}>
-                {t('profile:security.cancel')}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={deleting || !deletePassword.trim()}
-                onClick={() => void handleDeleteAccount()}
-              >
-                {deleting ? t('profile:account.deleting') : t('profile:account.deleteTitle')}
-              </Button>
-            </div>
           </div>
-        </div>
-      ) : null}
+          <DialogFooter className="gap-2">
+            <Button variant="secondary" size="sm" onClick={closeDelete} disabled={deleting}>
+              {t('profile:security.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={deleting || !deletePassword.trim()}
+              onClick={() => void handleDeleteAccount()}
+            >
+              {deleting ? t('profile:account.deleting') : t('profile:account.deleteTitle')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -31,10 +31,11 @@ from app.services.teams import ensure_all_department, list_teams, team_members
 
 _CHANNEL_KEYS = frozenset({"email", "webchat", "internal", "agent", "slack", "whatsapp"})
 
-CHIP = 70
+# Chip grid pitch inside a rectangular plot (legacy span helper).
+CHIP = 56
 COLS = 4
-PAD = 28
-HEADER = 40
+PAD = 20
+HEADER = 32
 
 
 def iso_point(x: float, y: float) -> tuple[float, float]:
@@ -160,11 +161,11 @@ def settle(
 
 
 # Outer radius of the All halo around the company logo.
-ALL_AREA_RADIUS = 64.0
+ALL_AREA_RADIUS = 52.0
 # Open band between that halo and the nearest island edge. Members sit here.
-MEMBER_CORRIDOR = 88.0
-# Two pucks are 9 units across in the scene. Keep a gap so people do not stack.
-MEMBER_CLEARANCE = 38.0
+MEMBER_CORRIDOR = 64.0
+# Two pucks are ~7.5 units across in the scene. Keep a gap so people do not stack.
+MEMBER_CLEARANCE = 30.0
 
 
 def _island_radius(region: dict[str, Any], logical: dict[str, tuple[float, float]]) -> float:
@@ -256,7 +257,7 @@ def seat_shared_members(
         dist = math.hypot(hx, hy) or 1.0
         island = island_radius.get(hid, 70.0)
         inner = dist - island
-        seat_r = (all_radius + inner) / 2.0 if inner > all_radius + 24.0 else all_radius + 36.0
+        seat_r = (all_radius + inner) / 2.0 if inner > all_radius + 18.0 else all_radius + 28.0
         return (hx / dist * seat_r, hy / dist * seat_r)
 
     placed: list[tuple[str, float, float]] = []
@@ -267,7 +268,7 @@ def seat_shared_members(
         ax = sum(point[0] for point in seats) / len(seats)
         ay = sum(point[1] for point in seats) / len(seats)
         radius = math.hypot(ax, ay)
-        if radius < all_radius + 20.0:
+        if radius < all_radius + 16.0:
             angle = math.atan2(ay, ax) if radius > 1.0 else math.atan2(seats[0][1], seats[0][0])
             band = sum(math.hypot(point[0], point[1]) for point in seats) / len(seats)
             ax, ay = math.cos(angle) * band, math.sin(angle) * band
@@ -457,7 +458,7 @@ def relax_islands(
         radius[rid] = rad
     if len(hubs) < 2:
         return False
-    gap = 16.0
+    gap = 12.0
 
     def overlapping() -> bool:
         for index, left in enumerate(hubs):
@@ -777,7 +778,7 @@ def arrange(
     center_extent = 0.0
     if center_ids:
         # One ring around the logo. Linked items share a slice so chords stay short.
-        center_ring = 58.0 if len(center_ids) <= 8 else 70.0
+        center_ring = 46.0 if len(center_ids) <= 8 else 56.0
         for node_id, (x, y) in cluster_disc(
             center_ids, links, 0.0, 0.0, -math.pi / 2, center_ring, center_ring
         ).items():
@@ -785,15 +786,16 @@ def arrange(
             center_extent = max(center_extent, math.hypot(x, y))
 
     # Keep the map compact: wide rings leave a huge empty stage on the Grid.
-    hub_r = 170.0 if len(cards) <= 6 else 200.0
-    shared_r = 78.0 if not center_ids else center_extent + 52.0
-    if center_ids and hub_r < shared_r + 88.0:
-        hub_r = shared_r + 88.0
+    hub_r = 138.0 if len(cards) <= 6 else 162.0
+    shared_r = 62.0 if not center_ids else center_extent + 40.0
+    if center_ids and hub_r < shared_r + 70.0:
+        hub_r = shared_r + 70.0
     # Children orbit the department hub. Tighter rings keep a busy island
     # (accounting) from swallowing the center; clearance still pushes it out.
-    child_base = 44.0
-    child_step = 36.0
-    pad = 22.0
+    child_base = 30.0
+    child_step = 24.0
+    # Island fill padding around seated items — smaller = narrower white pads.
+    pad = 12.0
 
     n_cards = max(len(cards), 1)
     for index, (plot_id, label, items) in enumerate(cards):
@@ -841,7 +843,7 @@ def arrange(
         )
 
     # All is the halo around the logo. Grow it only enough to hold center items.
-    all_radius = max(ALL_AREA_RADIUS, center_extent + 26.0)
+    all_radius = max(ALL_AREA_RADIUS, center_extent + 20.0)
     all_ring = []
     for step in range(24):
         t = 2 * math.pi * step / 24
@@ -876,7 +878,7 @@ def arrange(
             if other in logical
         ]
         if not anchors:
-            logical[node_id] = (0.0, all_radius + 28.0)
+            logical[node_id] = (0.0, all_radius + 22.0)
             continue
         ax = sum(point[0] for point in anchors) / len(anchors)
         ay = sum(point[1] for point in anchors) / len(anchors)

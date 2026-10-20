@@ -131,9 +131,18 @@ async def create_action_suggestion(
     Automated / no-reply senders (system notifications, newsletters, bounces)
     must never get a drafted reply. Instead the operator gets a compact card:
     close the thread, plan a task, or keep it open.
+
+    One outcome per read: a second call in the same run rewrites that card,
+    and any other open outcome card on the thread is set aside. The card
+    never notifies on its own; the conversation notice carries it.
     """
     text = (summary or "").strip() or "Automated notification; no reply needed."
     subject = signal.subject or "Automated message"
+
+    same_run = await _open_run_card(session, tenant_id, signal.id, run_id, NO_REPLY_TITLE_SET)
+    if same_run is not None:
+        return await _rewrite_no_reply_card(session, signal, same_run, text, reason=reason)
+    await supersede_open_outcomes(session, tenant_id, signal.id)
 
     options = [
         {
@@ -187,7 +196,7 @@ async def create_action_suggestion(
         signal_id=signal.id,
         project_id=signal.project_id,
         run_id=run_id,
-        notification_title="No reply needed",
+        announce=False,
         notification_payload={
             "kind": "action_suggestion",
             "channel": signal.channel,
@@ -217,8 +226,6 @@ async def create_action_suggestion(
         )
     )
     await session.commit()
-    # Deliberately no email notification: emailing a human about an automated
-    # notification that needs no reply would just move the noise around.
     return {
         "suggestion": True,
         "kind": "action_suggestion",
@@ -227,6 +234,192 @@ async def create_action_suggestion(
         "message_id": str(message.id),
         "channel": signal.channel,
         "delivery": "no_reply_needed",
+        "summary": text,
+    }
+
+
+NO_REPLY_TITLE_SET = ("No reply needed",)
+# Why an open outcome card was set aside by a newer read of the thread.
+SUPERSEDED_BY_NEWER_READ = "superseded_by_newer_read"
+
+
+def _outcome_titles() -> tuple[str, ...]:
+    from app.services.signal_threads import REPLY_SUGGESTION_TITLES
+
+    return (*NO_REPLY_TITLE_SET, *REPLY_SUGGESTION_TITLES)
+
+
+async def _open_run_card(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    run_id: UUID | None,
+    titles: tuple[str, ...],
+):
+    """The open outcome card this run already raised on the thread, if any."""
+    if run_id is None:
+        return None
+    from app.models.notification import DecisionRequest
+
+    return (
+        await session.execute(
+            select(DecisionRequest)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.run_id == run_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.title.in_(titles),
+            )
+            .order_by(DecisionRequest.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def supersede_open_outcomes(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal_id: UUID,
+    *,
+    titles: tuple[str, ...] | None = None,
+) -> int:
+    """Set aside open outcome cards (no reply needed, suggested reply) on a thread.
+
+    A thread shows one live outcome: the newest read wins. The cards stay in
+    the log as a muted line.
+    """
+    from app.gateway.publish import publish_decision
+    from app.models.notification import DecisionRequest, Notification
+
+    rows = (
+        await session.execute(
+            select(DecisionRequest).where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.status == "awaiting_human",
+                DecisionRequest.platform_change_id.is_(None),
+                DecisionRequest.title.in_(titles or _outcome_titles()),
+            )
+        )
+    ).scalars().all()
+    now = datetime.utcnow()
+    for decision in rows:
+        decision.status = "deferred"
+        decision.resolved_at = now
+        decision.chosen_option_id = SUPERSEDED_BY_NEWER_READ
+        session.add(decision)
+        if decision.notification_id:
+            notif = await session.get(Notification, decision.notification_id)
+            if notif is not None and notif.status == "unread":
+                notif.status = "read"
+                session.add(notif)
+    if rows:
+        await session.flush()
+        for decision in rows:
+            await publish_decision(
+                tenant_id,
+                decision_id=decision.id,
+                status=decision.status,
+                title=decision.title,
+                signal_id=signal_id,
+                payload={"chosen_option_id": SUPERSEDED_BY_NEWER_READ},
+            )
+    return len(rows)
+
+
+async def run_outcome_card(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID, run_id: UUID
+) -> tuple[SignalMessage | None, str]:
+    """The live outcome card one inbound run left, and its delivery status."""
+    from app.models.notification import DecisionRequest
+    from app.services.signal_threads import REPLY_SUGGESTION_TITLES
+
+    decision = (
+        await session.execute(
+            select(DecisionRequest)
+            .where(
+                DecisionRequest.tenant_id == tenant_id,
+                DecisionRequest.signal_id == signal_id,
+                DecisionRequest.run_id == run_id,
+                DecisionRequest.status == "awaiting_human",
+            )
+            .order_by(DecisionRequest.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if decision is None:
+        return None, ""
+    if decision.title in NO_REPLY_TITLE_SET:
+        status = "no_reply_needed"
+    elif decision.title in REPLY_SUGGESTION_TITLES:
+        status = "pending_approval"
+    else:
+        status = "pending_decision"
+    card = await session.get(SignalMessage, decision.message_id) if decision.message_id else None
+    return card, status
+
+
+# Side actions of a read that render inside its outcome card, not as timeline lines.
+FOLDABLE_EVENT_TYPES = ("thread_updated", "triaged")
+
+
+async def fold_run_events(
+    session: AsyncSession, signal_id: UUID, run_id: UUID, card_id: UUID
+) -> int:
+    """Mark this run's label and read events as part of its outcome card.
+
+    The thread timeline skips folded events; the card's activity trail
+    already lists the same steps.
+    """
+    rows = (
+        await session.execute(
+            select(SignalEvent).where(
+                SignalEvent.signal_id == signal_id,
+                SignalEvent.event_type.in_(FOLDABLE_EVENT_TYPES),
+                SignalEvent.payload_json.like(f'%"run_id": "{run_id}"%'),
+            )
+        )
+    ).scalars().all()
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict) or payload.get("folded_into"):
+            continue
+        payload["folded_into"] = str(card_id)
+        row.payload_json = json.dumps(payload)
+        session.add(row)
+    return len(rows)
+
+
+async def _rewrite_no_reply_card(
+    session: AsyncSession, signal: Signal, decision, text: str, *, reason: str
+) -> dict:
+    """Same run, same outcome: update the card in place instead of adding one."""
+    from app.gateway.publish import publish_signal_message
+
+    decision.summary = text
+    session.add(decision)
+    message = await session.get(SignalMessage, decision.message_id) if decision.message_id else None
+    if message is not None:
+        message.body_text = text
+        message.body_preview = text[:200]
+        session.add(message)
+    await session.commit()
+    if message is not None:
+        await publish_signal_message(signal, message, decision=decision)
+    return {
+        "suggestion": True,
+        "kind": "action_suggestion",
+        "reason": reason,
+        "decision_id": str(decision.id),
+        "message_id": str(message.id) if message is not None else None,
+        "channel": signal.channel,
+        "delivery": "no_reply_needed",
+        "summary": text,
+        "updated": True,
     }
 
 
@@ -329,6 +522,44 @@ async def archive_automated_mail_if_enabled(
     return True
 
 
+# The agent says this itself, in the workspace language. Not a system string.
+_CHANNEL_NOT_READY_NOTE = {
+    "nl": (
+        "Ik heb geen antwoord voor de klant opgesteld, want dit kanaal kan nog niet versturen. "
+        "Rond de setup af onder Instellingen → E-mail en berichten. "
+        "Daarna kun je het overnemen of het gesprek weer aan mij geven."
+    ),
+    "en": (
+        "I did not draft a reply for the customer, because this channel cannot send yet. "
+        "Finish the setup under Settings → Email & messages. "
+        "Then take over or hand the conversation back to me."
+    ),
+    "de": (
+        "Ich habe keine Antwort für den Kunden entworfen, weil dieser Kanal noch nicht senden kann. "
+        "Schließe die Einrichtung unter Einstellungen → E-Mail und Nachrichten ab. "
+        "Danach kannst du übernehmen oder das Gespräch wieder an mich geben."
+    ),
+    "fr": (
+        "Je n'ai pas rédigé de réponse pour le client, car ce canal ne peut pas encore envoyer. "
+        "Termine la configuration sous Paramètres → E-mail et messages. "
+        "Ensuite, tu peux reprendre ou me rendre la conversation."
+    ),
+    "es": (
+        "No he redactado una respuesta para el cliente, porque este canal aún no puede enviar. "
+        "Termina la configuración en Ajustes → Correo y mensajes. "
+        "Después puedes retomarlo o devolverme la conversación."
+    ),
+}
+
+
+async def _channel_not_ready_note(session: AsyncSession, tenant_id: UUID) -> str:
+    from app.models.auth import Tenant
+    from app.services.language import resolve_workspace_language
+
+    lang = resolve_workspace_language(await session.get(Tenant, tenant_id))
+    return _CHANNEL_NOT_READY_NOTE.get(lang, _CHANNEL_NOT_READY_NOTE["nl"])
+
+
 async def acknowledge_channel_not_ready(
     session: AsyncSession,
     tenant_id: UUID,
@@ -344,11 +575,7 @@ async def acknowledge_channel_not_ready(
     see an internal note plus a timeline event; no ``Send`` decision card.
     """
     reason = (state_reason or state or "cannot_send").strip()
-    note = (
-        "AI did not draft a customer reply: this channel cannot send yet. "
-        "Finish channel setup under Settings → Email & messages, then take over "
-        "or hand the thread back to AI."
-    )
+    note = await _channel_not_ready_note(session, tenant_id)
     session.add(
         SignalMessage(
             signal_id=signal.id,
@@ -544,8 +771,12 @@ async def create_reply_suggestion(
     is_mock: bool = False,
     messages: list[str] | None = None,
     activity: list[dict] | None = None,
+    announce: bool = True,
 ) -> dict:
     """Persist an inline DecisionRequest for a drafted reply (suggest-only).
+
+    ``announce=False`` on an inbound read: the conversation notice says the
+    draft is ready, so the card does not notify on its own.
 
     Channel-agnostic: works for email, widget, chat, whatsapp, slack threads.
     Approving the `send` option executes the `send_reply` tool on the thread.
@@ -615,8 +846,10 @@ async def create_reply_suggestion(
 
     from app.services.signal_threads import _defer_open_reply_suggestions
 
-    # One open suggestion per thread: a newer draft replaces the leftover card.
+    # One open outcome per thread: a newer draft replaces the leftover card,
+    # and a "no reply needed" card from an earlier read steps aside too.
     await _defer_open_reply_suggestions(session, tenant_id, signal.id)
+    await supersede_open_outcomes(session, tenant_id, signal.id, titles=NO_REPLY_TITLE_SET)
     # One live proposal per person: older conversations with the same contact
     # on other channels drop their open draft in favour of this one.
     await _defer_sibling_thread_suggestions(session, tenant_id, signal)
@@ -652,6 +885,7 @@ async def create_reply_suggestion(
         signal_id=signal.id,
         project_id=signal.project_id,
         run_id=run_id,
+        announce=announce,
         notification_payload={
             "kind": "reply_suggestion",
             "channel": signal.channel,
@@ -951,6 +1185,7 @@ async def persist_inbound_agent_reply(
             is_mock=is_mock_reply,
             messages=[b["text"] for b in chat_bubbles] or None,
             activity=activity_from_segments(segments) or None,
+            announce=False,
         )
         if outcome.get("reason") == "meta_draft":
             return await create_human_attention_suggestion(
@@ -1041,9 +1276,6 @@ async def persist_inbound_agent_reply(
         metadata["llm_mode"] = "mock"
         metadata["llm_configured"] = False
 
-    from app.services.pass_stick import release_customer_stick
-
-    await release_customer_stick(session, signal, agent.id)
     message = await append_signal_chat_message(
         session,
         signal,

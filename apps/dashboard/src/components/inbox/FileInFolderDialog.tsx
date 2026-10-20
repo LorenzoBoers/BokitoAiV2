@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
+import { Input } from '../ui/input'
 
 const FolderKanban = ENTITY_ICONS.project
 
@@ -106,12 +107,12 @@ export default function FileInFolderDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description ?? defaultDescription}</DialogDescription>
         </DialogHeader>
-        <input
+        <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={t('threadChrome.fileSearch')}
           aria-label={t('threadChrome.fileSearch')}
-          className="h-8 w-full rounded-md border border-border/70 bg-bg-input px-2 text-sm text-text-heading outline-none focus:border-accent"
+          className="h-8 w-full"
         />
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {loading ? <FolderChecklistSkeleton rows={4} /> : null}
@@ -155,7 +156,7 @@ export default function FileInFolderDialog({
         </div>
         {error ? <ApiErrorBanner message={error} /> : null}
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={busy}>
             {t('threadChrome.fileCancel')}
           </Button>
           <Button type="button" onClick={() => void confirm()} disabled={busy || picked == null || loading}>

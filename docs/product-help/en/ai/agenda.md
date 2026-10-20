@@ -40,7 +40,7 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 Every agenda item is a conversation with a date. With a repeat it becomes a recurring task: the agent writes in that one conversation each time, so the history stays together.
 
 1. Choose **New** and pick **Agenda item**, **Recurring task**, **Webhook** or **Calendar block**.
-2. For an agenda item or recurring task, fill **Title**, **When** (**One moment** or **Repeat**, for example **Every weekday** at 09:00), **For whom** (you, a teammate or a team) and optionally an **Agent** with a **Task for the agent**. Without an agent the conversation comes back unread for whoever you chose. Choose **Save**.
+2. For an agenda item or recurring task, fill **Title**, **When** (**One moment** or **Repeat**, for example **Every weekday** at 09:00), **For whom** (**Me** by default, or a teammate, agent or team). If you pick an agent, fill in a **Task for the agent** and that agent runs it at the moment; otherwise the conversation comes back unread for whoever you chose. Choose **Save**.
 3. Choosing an agenda item opens its conversation in Communication, where you change the date, pause the repeat or choose **Run now**. Calendar meetings have **Open as conversation** to discuss them with colleagues or an agent.
 4. For a calendar block, pick the **Calendar**, title, start and end. Turn on **All day** to put it in the top row under the date headers.
 5. **Tasks** and **Activity** under **Show**, and each connected calendar you leave on, appear in the grid at their own time. Manage recurring tasks under **Manage tasks** on the left.

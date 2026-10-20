@@ -1,5 +1,6 @@
-import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, PackageCheck, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, Maximize2, Minimize2, PackageCheck, Pencil, Phone, Reply, ReplyAll, ShieldAlert, Trash2, User, Users, X as XIcon } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { EntityAvatarLink } from './EntityAvatarLink'
 import { Trans, useTranslation } from 'react-i18next'
@@ -9,6 +10,9 @@ import { humanizeIsoDatetimes } from '../../lib/bundleActionLabel'
 import { cn } from '../../lib/utils'
 import { cancelScheduledMessage } from '../../lib/signals-api'
 import { MessageReactions } from './MessageReactions'
+import { SubagentRow } from './SubagentRow'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { UserAvatar } from '../ui/UserAvatar'
 import { Tip } from '../ui/Tip'
@@ -54,7 +58,7 @@ import {
   type BubbleVariant,
 } from './ChatBubble'
 import MessageAttachments from './MessageAttachments'
-import ChatText from './ChatText'
+import ChatText, { type ChatMention } from './ChatText'
 import ActivityTrail from './ActivityTrail'
 import { PRIORITY_META } from './ConversationWorkSection'
 import { CHAT_AVATAR_SIZE, THREAD_ICON, THREAD_INDENT, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
@@ -451,12 +455,15 @@ function EmailHtmlFrame({
   isDark,
   initialHeight,
   onDisplayHeight,
+  uncapped = false,
 }: {
   html: string
   isDark: boolean
   /** Last known display height (cache) so the row does not start at 80px. */
   initialHeight?: number
   onDisplayHeight?: (height: number) => void
+  /** Full-screen reading: grow to the letter, no 480px clip. */
+  uncapped?: boolean
 }) {
   const { t } = useTranslation('communication')
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -693,7 +700,7 @@ a { color: #2563eb; }
 
   // Clip with the outer wrapper when content is tall; keep the iframe at the
   // full natural height so it never grows its own scrollbar.
-  const heightCapped = !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
+  const heightCapped = !uncapped && !expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
   const canCollapseHeight = expandedFull && naturalHeight > EMAIL_HEIGHT_CAP_PX
   const displayHeight = heightCapped ? EMAIL_HEIGHT_CAP_PX : naturalHeight
 
@@ -777,10 +784,12 @@ function LazyEmailHtmlFrame({
   html,
   isDark,
   plainText,
+  uncapped = false,
 }: {
   html: string
   isDark: boolean
   plainText?: string
+  uncapped?: boolean
 }) {
   const { t } = useTranslation('communication')
   const hostRef = useRef<HTMLDivElement>(null)
@@ -790,6 +799,10 @@ function LazyEmailHtmlFrame({
   )
 
   useEffect(() => {
+    if (uncapped) {
+      setVisible(true)
+      return
+    }
     const el = hostRef.current
     if (!el || typeof IntersectionObserver === 'undefined') {
       setVisible(true)
@@ -808,7 +821,7 @@ function LazyEmailHtmlFrame({
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [uncapped])
 
   const plainPreview = useMemo(
     () => htmlToPlainPreview(html, plainText),
@@ -826,7 +839,8 @@ function LazyEmailHtmlFrame({
           html={html}
           isDark={isDark}
           initialHeight={reservedHeight ?? undefined}
-          onDisplayHeight={setReservedHeight}
+          onDisplayHeight={uncapped ? undefined : setReservedHeight}
+          uncapped={uncapped}
         />
       ) : (
         <div
@@ -846,16 +860,24 @@ function LazyEmailHtmlFrame({
 }
 
 /** Plain-text mail: fold the Outlook/Gmail quote trail behind its own control. */
-function PlainMessageBody({ text, tags }: { text: string; tags?: ChatTagMap }) {
+function PlainMessageBody({
+  text,
+  tags,
+  mentions,
+}: {
+  text: string
+  tags?: ChatTagMap
+  mentions?: ChatMention[]
+}) {
   const { t } = useTranslation('communication')
   const { head, quote } = useMemo(() => splitPlainEmailQuote(text), [text])
   const [expanded, setExpanded] = useState(false)
   if (!quote) {
-    return <ChatText content={text} tags={tags} />
+    return <ChatText content={text} tags={tags} mentions={mentions} />
   }
   return (
     <div className="space-y-1.5">
-      <ChatText content={expanded ? text : head} tags={tags} />
+      <ChatText content={expanded ? text : head} tags={tags} mentions={mentions} />
       <button
         type="button"
         className="text-xs font-medium text-text-muted hover:text-text-primary"
@@ -871,10 +893,12 @@ function MessageHtmlBody({
   html,
   plainText,
   attachments,
+  uncapped = false,
 }: {
   html: string
   plainText?: string
   attachments?: Array<{ url: string; contentId?: string | null; inline?: boolean }>
+  uncapped?: boolean
 }) {
   const { isDark } = useTheme()
   const { token } = useAuth()
@@ -885,7 +909,66 @@ function MessageHtmlBody({
   if (isSimpleMessageHtml(resolvedHtml)) {
     return <SimpleMessageHtml html={resolvedHtml} />
   }
-  return <LazyEmailHtmlFrame html={resolvedHtml} isDark={isDark} plainText={plainText} />
+  return (
+    <LazyEmailHtmlFrame html={resolvedHtml} isDark={isDark} plainText={plainText} uncapped={uncapped} />
+  )
+}
+
+function MailReadOverlay({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string
+  subtitle?: string
+  onClose: () => void
+  children: ReactNode
+}) {
+  const { t } = useTranslation('communication')
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-sm" style={{ height: 'min(92vh, 960px)' }}>
+        <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-text-heading">{title}</p>
+            {subtitle ? <p className="truncate text-2xs text-text-muted">{subtitle}</p> : null}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="iconSm"
+            onClick={onClose}
+            title={t('mailComposer.exitFullscreen')}
+            aria-label={t('mailComposer.exitFullscreen')}
+            className="h-6 w-6 text-text-muted"
+          >
+            <Minimize2 size={13} />
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
+      </div>
+    </div>,
+    document.body,
+  )
 }
 
 type MemberNameResolver = (userId: number | null | undefined) => string | undefined
@@ -1028,9 +1111,13 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     const repeat = p.repeat && typeof p.repeat === 'object' ? (p.repeat as Record<string, unknown>) : null
     const at = scheduleLongLabel(typeof p.at === 'string' ? p.at : null)
     if (repeat) return t('timeline.events.scheduledRepeat')
+    const hiddenUntil = scheduleLongLabel(typeof p.hidden_until === 'string' ? p.hidden_until : null)
+    if (at && hiddenUntil) return t('timeline.events.scheduledHidden', { when: at, until: hiddenUntil })
     return at ? t('timeline.events.scheduledAt', { when: at }) : t('timeline.events.scheduled')
   },
   schedule_cleared: (t) => t('timeline.events.scheduleCleared'),
+  surfaced: (t) => t('timeline.events.surfaced'),
+  woke_by_reply: (t) => t('timeline.events.wokeByReply'),
   due: (t) => t('timeline.events.due'),
   wake_started: (t, p) => {
     const agent = typeof p.agent_name === 'string' && p.agent_name ? p.agent_name : ''
@@ -1781,9 +1868,17 @@ export function handledExternallyLabel(
   return note ? `${base} - ${note}` : base
 }
 
-function SystemEventTimelineItem({ message }: { message: InboxMessage }) {
+function SystemEventTimelineItem({ message, threadId }: { message: InboxMessage; threadId?: ThreadId }) {
   const { t } = useTranslation('communication')
   const raw = (message.bodyText || message.bodyPreview || '').trim()
+  if (message.payload?.kind === 'subagent' && threadId && typeof message.payload.run_id === 'string') {
+    return (
+      <SubagentRow
+        threadId={String(threadId)}
+        meta={message.payload as unknown as Parameters<typeof SubagentRow>[0]['meta']}
+      />
+    )
+  }
   const handled = handledExternallyLabel(message.payload, t)
   if (handled) {
     return (
@@ -1874,6 +1969,7 @@ export function MessageTimelineItem({
   // Initial fold only; once a reader opens an older mail it stays open, and a
   // mail that was the newest when it mounted does not fold when a reply lands.
   const [mailCollapsed, setMailCollapsed] = useState(mailCollapsedByDefault)
+  const [mailFullscreen, setMailFullscreen] = useState(false)
   const chooseOptionRef = useRef<((optionId: string) => void) | null>(null)
   const [enriched, setEnriched] = useState<Pick<
     InboxMessage,
@@ -1999,7 +2095,7 @@ export function MessageTimelineItem({
 
   // Same centered activity pill as SignalEvents — never "Teamlid / Interne notitie".
   if (isSystemEvent) {
-    return <SystemEventTimelineItem message={message} />
+    return <SystemEventTimelineItem message={message} threadId={threadId ?? undefined} />
   }
 
   // Resolve author info for outbound / internal bubbles
@@ -2059,8 +2155,13 @@ export function MessageTimelineItem({
     (message.bodyHtml
       ? htmlToPlainPreview(message.bodyHtml)
       : '')
+  // Older channel-not-ready notes were stored in English. New ones are written
+  // in the workspace language; this only rewrites the old fixed sentence.
+  const spokenBody = plainBody.startsWith('AI did not draft a customer reply')
+    ? t('timeline.events.channelNotReady')
+    : plainBody
   const displayBody = humanizeIsoDatetimes(
-    translateMockAgentBody(message.proposal ? stripChoiceEcho(plainBody) : plainBody, t),
+    translateMockAgentBody(message.proposal ? stripChoiceEcho(spokenBody) : spokenBody, t),
     i18n.language,
   )
   // Prefer HTML whenever we have it (or the plain body is mislabelled HTML).
@@ -2078,7 +2179,7 @@ export function MessageTimelineItem({
   )
   const usePlainBody = deliveryNotice || !htmlSource || mockPlainOverride
 
-  const bubbleBody = editingNote ? (
+  const bubbleContent = editingNote ? (
     <div className="space-y-1.5">
       <textarea
         value={noteDraft}
@@ -2115,7 +2216,11 @@ export function MessageTimelineItem({
           <span>{t('timeline.events.emailContent')}</span>
         </div>
       ) : (
-        <PlainMessageBody text={displayBody} tags={chatTags} />
+        <PlainMessageBody
+          text={displayBody}
+          tags={chatTags}
+          mentions={Array.isArray(message.payload?.mentions) ? (message.payload.mentions as ChatMention[]) : undefined}
+        />
       )}
       {deliveryNotice && htmlSource ? (
         <div className="pt-1">
@@ -2148,6 +2253,24 @@ export function MessageTimelineItem({
       />
       <MessageAttachments attachments={attachmentItems.filter((a) => !a.inline)} />
     </div>
+  )
+  const promptGuard = isInbound && message.payload?.prompt_guard ? (
+    <Tip label={t('timeline.promptGuard.hint')}>
+      <span className="mb-1.5 inline-flex">
+        <Badge variant="warning" className="gap-1">
+          <ShieldAlert className="h-3 w-3" aria-hidden />
+          {t('timeline.promptGuard.label')}
+        </Badge>
+      </span>
+    </Tip>
+  ) : null
+  const bubbleBody = promptGuard ? (
+    <>
+      {promptGuard}
+      {bubbleContent}
+    </>
+  ) : (
+    bubbleContent
   )
 
   const contactAvatar = (
@@ -2403,6 +2526,7 @@ export function MessageTimelineItem({
         cannot_send: 'timeline.deliveryFail.cannotSend',
         network: 'timeline.deliveryFail.network',
         no_recipient: 'timeline.deliveryFail.noRecipient',
+        attachment_unavailable: 'timeline.deliveryFail.attachment',
         unknown: 'timeline.deliveryFail.unknown',
       }
       const failReason = failReasonKey[failCode]
@@ -2741,6 +2865,15 @@ export function MessageTimelineItem({
     ) : null
   // Mail-client actions (top-right on the envelope): Reply / Reply all /
   // Forward on inbound external mail; Forward only on mail we or a colleague sent.
+  const openMailFullscreen = () => {
+    setMailFullscreen(true)
+    if (message.hasHtml && !message.bodyHtml) void ensureFullMessage()
+  }
+  const mailFullscreenAction = isMailCard ? (
+    <BubbleAction label={t('mailComposer.fullscreen')} onClick={openMailFullscreen}>
+      <Maximize2 size={12} />
+    </BubbleAction>
+  ) : null
   const mailActions =
     isMailCard && onMailAction ? (
       <>
@@ -2796,7 +2929,14 @@ export function MessageTimelineItem({
       envelopeAria={t('timeline.envelope.details')}
       body={bubbleBodyWithMeta}
       meta={timeMeta}
-      headerActions={mailActions}
+      headerActions={
+        mailFullscreenAction || mailActions ? (
+          <>
+            {mailFullscreenAction}
+            {mailActions}
+          </>
+        ) : null
+      }
       actions={actions}
       reactions={reactionOverlay}
       collapsed={mailStillSending ? false : mailCollapsed}
@@ -2819,6 +2959,9 @@ export function MessageTimelineItem({
       variant={variant}
       stack={stack}
       enter={playEnter}
+      accent={
+        variant === 'agent' || variant === 'ai_note' ? agentMarkProps.color : undefined
+      }
       bubbleClassName={message.decisionResponse ? 'decision-answer-bubble' : undefined}
     />
   )
@@ -2845,7 +2988,14 @@ export function MessageTimelineItem({
   const traceIndent = isOwn ? 'ml-auto' : THREAD_INDENT
   const proposalActions =
     proposal && threadId ? (
-      <div className={cn(traceIndent, 'mb-1 min-w-0 max-w-full', proposal.bundle.length > 0 && 'self-stretch')}>
+      <div
+        className={cn(
+          traceIndent,
+          'mb-1 min-w-0 max-w-full',
+          proposal.bundle.length > 0 && 'self-stretch',
+          playEnter && 'turn-follow-in turn-follow-after',
+        )}
+      >
         {proposal.bundle.length > 0 ? (
           <ActionBundleCard
             proposal={proposal}
@@ -2855,6 +3005,7 @@ export function MessageTimelineItem({
             membersById={membersById}
             onResolved={onProposalResolved}
             onAnswer={onAnswer}
+            enter={playEnter}
           />
         ) : (
           <ProposalActions
@@ -2872,15 +3023,44 @@ export function MessageTimelineItem({
       </div>
     ) : null
 
+  const mailReadOverlay =
+    mailFullscreen && isMailCard ? (
+      <MailReadOverlay
+        title={message.subject || mailFromName}
+        subtitle={mailFromName}
+        onClose={() => setMailFullscreen(false)}
+      >
+        {htmlSource ? (
+          <MessageHtmlBody
+            html={htmlSource}
+            plainText={message.bodyText || message.bodyPreview || undefined}
+            attachments={attachmentItems}
+            uncapped
+          />
+        ) : (
+          <PlainMessageBody text={displayBody} />
+        )}
+        <MessageAttachments attachments={attachmentItems.filter((att) => !att.inline)} />
+      </MailReadOverlay>
+    ) : null
+
   const activityBefore = message.activity ?? []
   const activityAfter = message.activityAfter ?? []
   if (activityBefore.length === 0 && activityAfter.length === 0) {
-    if (!workbenchCard && !proposalActions) return bubble
+    if (!workbenchCard && !proposalActions) {
+      return (
+        <>
+          {bubble}
+          {mailReadOverlay}
+        </>
+      )
+    }
     return (
       <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
         <div className="w-full">{bubble}</div>
         {proposalActions}
         {workbenchCard}
+        {mailReadOverlay}
       </div>
     )
   }
@@ -2897,6 +3077,7 @@ export function MessageTimelineItem({
         />
       ) : null}
       <div className="w-full">{bubble}</div>
+      {mailReadOverlay}
       {proposalActions}
       {activityAfter.length > 0 ? (
         <ActivityTrail
@@ -2964,6 +3145,7 @@ function LiveAgentMark({
 // Consecutive events share one meta block (agent left, self right, teammate left).
 export function EventClusterTimelineItem({
   events,
+  lead = true,
   memberNameFor,
   membersById,
   currentUserId,
@@ -2978,6 +3160,8 @@ export function EventClusterTimelineItem({
 }: {
   events: InboxEvent[]
   time?: string
+  /** False when this cluster continues a run that already showed the avatar. */
+  lead?: boolean
   memberNameFor: MemberNameResolver
   membersById?: Record<number, InboxMember>
   currentUserId?: number | null
@@ -3038,8 +3222,9 @@ export function EventClusterTimelineItem({
   if (agentSide) {
     return (
       <ThreadMetaBlock
-        header={named || undefined}
+        header={lead ? named || undefined : undefined}
         avatar={
+          lead ? (
           <EntityAvatarLink
             to={avatarAgentId ? `/agents/${avatarAgentId}` : null}
             label={t('timeline.openProfile', { name: named || t('timeline.aiAgent') })}
@@ -3054,6 +3239,7 @@ export function EventClusterTimelineItem({
               agentAvatarImageUrl={agentAvatarImageUrl}
             />
           </EntityAvatarLink>
+          ) : null
         }
       >
         {pills}

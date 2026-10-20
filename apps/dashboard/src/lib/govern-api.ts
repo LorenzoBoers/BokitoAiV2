@@ -179,6 +179,27 @@ export async function setToolOverride(toolName: string, mode: AllowanceMode | nu
   })
 }
 
+export type AutoReviewMode = 'off' | 'shadow' | 'enforce'
+
+export interface AutoReviewState {
+  mode: AutoReviewMode
+  instructions: string
+  modes: AutoReviewMode[]
+  agreement_rate: number | null
+  agreement_sample: number
+}
+
+export async function getAutoReview() {
+  return governFetch<AutoReviewState>(governRoutes.autoReview)
+}
+
+export async function setAutoReview(body: { mode: AutoReviewMode; instructions: string }) {
+  return governFetch<AutoReviewState>(governRoutes.autoReview, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
 export async function setPosture(posture: AutonomyPostureId) {
   return governFetch<AllowanceState>(governRoutes.posture, {
     method: 'PUT',

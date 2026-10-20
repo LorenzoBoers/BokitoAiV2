@@ -125,6 +125,19 @@ def _truncate_trace_value(value: Any, max_chars: int = 480) -> Any:
     return f"{text[:max_chars]}..."
 
 
+def _append_user_text(llm_messages: list[dict[str, Any]], text: str) -> None:
+    """Add text as user input without breaking user/assistant alternation."""
+    last = llm_messages[-1] if llm_messages else None
+    if last is not None and last.get("role") == "user":
+        content = last.get("content")
+        if isinstance(content, list):
+            last["content"] = [*content, {"type": "text", "text": text}]
+        else:
+            last["content"] = f"{content or ''}\n\n{text}".strip()
+        return
+    llm_messages.append({"role": "user", "content": text})
+
+
 class AgentLoop:
     def __init__(
         self,
@@ -171,9 +184,6 @@ class AgentLoop:
         # Showcase cards from attach_items for this turn (request-scoped backup
         # for the module-level stash that persist_agent_turn consumes).
         self._showcase_items: list[dict[str, Any]] = []
-        # In-progress SignalMessage written as tools run so a reload still
-        # shows thinking and tool calls on the thread.
-        self._checkpoint_message_id: UUID | None = None
         # Membership role of the session user; explicit when the caller has an
         # AuthContext (staff sessions map to admin there), else resolved from
         # the membership row on first tool call. Autonomous runs stay None.
@@ -215,8 +225,16 @@ class AgentLoop:
         self.thinking_text = ""
         self.thinking_ms = 0
         self.thinking_budget = 0
-        # One soft nudge per turn when the model announces work but emits no tools.
-        self._continue_nudged = False
+        # Set when this loop runs a subagent: parent messages land between rounds.
+        self.subagent_run_id: UUID | None = None
+        # Why the last turn ended (see app.services.agent.stop_gate.STOP_REASONS).
+        self.stop_reason = ""
+        # Caller override of the agent's completion requirement ({} = none).
+        self.completion_requirement: dict[str, Any] | None = None
+        self._new_stop_gate()
+        # Prompt-guard verdict of the first flagged untrusted text this turn.
+        # While set, mutating tools ask first (clamp:untrusted_input).
+        self.tainted: dict[str, Any] | None = None
         self._started = 0.0
         self._last_progress = 0.0
         self._progress_count = 0
@@ -231,7 +249,8 @@ class AgentLoop:
         r"ik begin|hier komt|komt[- ]ie|"
         r"i(?:'| a)?m going to|let me |i(?:'| wi)?ll |looking up|checking |"
         r"i will |going to (?:look|check|list|find|create|file|open)|"
-        r"here we go|i(?:'| wi)?ll start"
+        r"here we go|i(?:'| wi)?ll start|working on (?:this|it)|i(?:'| a)?m on it|"
+        r"ik ben (?:er )?mee bezig|ik regel|ik vraag|een moment|one moment|i(?:'| wi)?ll ask"
         r")\b"
     )
     _STORY_ASK_RE = re.compile(
@@ -250,6 +269,8 @@ class AgentLoop:
 
     def _looks_like_work_announce(self, text: str) -> bool:
         cleaned = (text or "").strip()
+        if is_progress_filler(cleaned):
+            return True
         if len(cleaned) < 12 or len(cleaned) > 400:
             return False
         if not self._WORK_ANNOUNCE_RE.search(cleaned):
@@ -285,28 +306,73 @@ class AgentLoop:
         await self.turn.say(line[:240])
         self._last_progress = now
         self._progress_count += 1
-        await self._checkpoint_turn()
+        await self._keep_lease()
         return True
 
-    def _append_continue_nudge(
+    def _new_stop_gate(self) -> None:
+        from app.services.agent.stop_gate import StopGate
+        from app.services.agent_definition import completion_requirement
+
+        requirement = (
+            self.completion_requirement
+            if self.completion_requirement is not None
+            else completion_requirement(self.agent)
+        )
+        self._stop_gate = StopGate(requirement=requirement or {})
+        self._called_ok: set[str] = set()
+
+    async def _stop_check(
         self,
         llm_messages: list[dict[str, Any]],
         assistant_content: list[dict[str, Any]],
-    ) -> None:
-        """Ask the model to follow through after a plan-only reply."""
-        self._continue_nudged = True
-        llm_messages.append({"role": "assistant", "content": assistant_content})
+        joined: str,
+        *,
+        rounds_left: int,
+    ) -> bool:
+        """True when the stop gate sends the model back for another round."""
+        if rounds_left <= 0:
+            if not self._stop_gate.satisfied(self._called_ok):
+                self._stop_gate.forced = True
+            return False
+        queued = ""
+        if self.subagent_run_id is not None:
+            from app.services import subagents
+
+            bodies = await subagents.take_messages(
+                self.session, self.subagent_run_id, deliveries=("interject", "steer", "queue")
+            )
+            if bodies:
+                queued = subagents.reminder(bodies)
+        reminder = self._stop_gate.check(
+            called_ok=self._called_ok,
+            announced_work=self._looks_like_work_announce(joined)
+            or self._looks_like_unfinished_story(joined),
+            queued_messages=queued,
+        )
+        if reminder is None:
+            return False
         llm_messages.append(
             {
-                "role": "user",
-                "content": (
-                    "Continue now. Finish what you started in this turn — the "
-                    "full answer in several short bubbles if that is what was "
-                    "asked, and any tools you still need. Do not stop after "
-                    "the opening line."
-                ),
+                "role": "assistant",
+                "content": assistant_content or [{"type": "text", "text": joined or "(no reply yet)"}],
             }
         )
+        llm_messages.append({"role": "user", "content": reminder})
+        return True
+
+    async def _between_rounds(self, llm_messages: list[dict[str, Any]]) -> None:
+        """Model view upkeep before each round: prune old tool results, deliver parent messages."""
+        from app.services.compaction import prune_tool_results
+
+        prune_tool_results(llm_messages)
+        if self.subagent_run_id is not None:
+            from app.services import subagents
+
+            bodies = await subagents.take_messages(
+                self.session, self.subagent_run_id, deliveries=("interject", "steer")
+            )
+            if bodies:
+                _append_user_text(llm_messages, subagents.reminder(bodies))
 
     def _resolve_thinking_budget(self) -> int:
         """This turn's reasoning budget (see ``reasoning_policy``).
@@ -410,7 +476,12 @@ class AgentLoop:
             async def reserve() -> int | None:
                 return await reserve_seq(bind, signal_id)
 
-        self.turn = TurnRecorder(publish, reserve_seq=reserve)
+        author = (
+            {"kind": "agent", "id": str(self.agent.id), "name": self.agent.name or ""}
+            if self.agent is not None
+            else None
+        )
+        self.turn = TurnRecorder(publish, reserve_seq=reserve, author=author)
         # Asking or handing over ends the turn: the peer speaks next.
         self._passed_floor = False
         return self.turn
@@ -445,7 +516,6 @@ class AgentLoop:
             fallback_text=fallback_text,
             append_to_last=append_to_last,
             showcase_items=showcase,
-            replace_message_id=self._checkpoint_message_id,
             knowledge_hits=[*self.last_rag_hits, *reads],
         )
         try:
@@ -496,28 +566,16 @@ class AgentLoop:
 
         event.listen(self.session.sync_session, "after_commit", _after_commit, once=True)
 
-    async def _checkpoint_turn(self) -> None:
-        """Write thinking and tools onto the thread while the turn is still open."""
+    async def _keep_lease(self) -> None:
+        """Mark the turn alive between steps. The open turn itself lives on the thread log."""
         if not self.signal_id or self.turn is None:
             return
         from app.models.signal import Signal, is_internal_channel
-        from app.services.agent.turn_persist import upsert_turn_checkpoint
+        from app.services.agent_turns import extend_lease
 
         signal = await self.session.get(Signal, self.signal_id)
         if signal is None or not is_internal_channel(signal.channel):
             return
-        turn = self.turn
-        message = await upsert_turn_checkpoint(
-            self.session,
-            signal,
-            message_id=self._checkpoint_message_id,
-            author_agent_id=self.agent.id if self.agent else None,
-            turn_id=turn.stream_id,
-            segments=turn.live_segments(),
-            fallback_text="Working on this.",
-        )
-        from app.services.agent_turns import extend_lease
-
         if self.agent_turn_id or self._inline_turn_id:
             await extend_lease(
                 self.session,
@@ -525,7 +583,6 @@ class AgentLoop:
                 inline=self.agent_turn_id is None,
             )
         await self.session.commit()
-        self._checkpoint_message_id = message.id
 
     async def _resolve_reply_mode(self) -> str:
         if self.reply_mode:
@@ -746,7 +803,11 @@ class AgentLoop:
                 hits = []
             self.last_rag_hits = hits or []
             if hits:
-                rag_context = "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits)
+                from app.services.prompt_guard import fence
+
+                rag_context = fence(
+                    "\n".join(f"- {h['title']}: {h['content'][:300]}" for h in hits), "knowledge"
+                )
             if self.trust != "external":
                 from app.services.language import resolve_workspace_language
                 from app.services.product_help import search_product_help
@@ -773,7 +834,30 @@ class AgentLoop:
             "projects, tags, or activity."
         )
         base = self.agent.system_prompt if self.agent and self.agent.system_prompt else default_prompt
+        from app.services.agent_definition import prompt_mode, skills_block
+        from app.services.platform_skills import platform_skills_block
+        from app.services.prompt_guard import SYSTEM_RULE
+
         parts = [base]
+        skills = "\n\n".join(
+            s for s in (platform_skills_block(self.tools), skills_block(self.agent)) if s
+        )
+        if self.agent is not None and self.agent.system_prompt and prompt_mode(self.agent) == "full":
+            from app.services.agent_rules import all_rules, when_to_ask_prompt
+            from app.services.language import language_rules_for_trust
+
+            parts.append(SYSTEM_RULE)
+            if skills:
+                parts.append(skills)
+            if rag_context:
+                parts.append(f"## Relevant context\n{rag_context}")
+            if extra_context:
+                parts.append(extra_context)
+            tenant_for_lang = await self._get_tenant()
+            parts.append(language_rules_for_trust(self.trust, tenant_for_lang))
+            if self.trust != "external":
+                parts.append(when_to_ask_prompt(all_rules(tenant_for_lang, self.agent)))
+            return "\n\n".join(parts).strip()
         if self.agent is not None:
             if self.trust == "external":
                 parts.append(f"## You\nYour name is {self.agent.name}.")
@@ -790,10 +874,10 @@ class AgentLoop:
                 if any(t.get("name") == "ask_agent" for t in self.tools or []):
                     parts.append(
                         "## Other agents\n"
-                        "To get another agent to act here, call ask_agent (a "
-                        "question; their answer comes back to you) or handoff_to "
-                        "(they take over). An @mention in your reply is only a "
-                        "link: it wakes nobody."
+                        "To ask another agent here, call ask_agent; their answer "
+                        "comes back to you, so end your turn after asking. "
+                        "handoff_to gives them the conversation. An @mention is "
+                        "only a link: it wakes nobody."
                     )
                 role_key = (self.agent.role or "").strip().lower()
                 if role_key in ("po", "orchestrator", "manager", "orchestra"):
@@ -803,13 +887,16 @@ class AgentLoop:
                         "agent something in this same conversation, use ask_agent "
                         "(their answer comes back to you) or handoff_to (they take "
                         "over). Use start_conversation only when you need a "
-                        "separate peer chat; use delegate_to_agent / "
-                        "start_conversation mode=task for longer background jobs. "
+                        "separate peer chat; use spawn_subagent for a longer job "
+                        "that runs in the background and reports back to you. "
                         "Keep your own tools to orchestration, messaging, and decisions."
                     )
         opener = await self._conversation_opened_by_agent()
         if opener:
             parts.append(opener)
+        parts.append(SYSTEM_RULE)
+        if skills:
+            parts.append(skills)
         if workspace:
             parts.append(workspace)
         # Always remind agents with custom prompts that live tenant tools exist.
@@ -913,21 +1000,26 @@ class AgentLoop:
         return "\n\n".join(parts).strip()
 
     def _with_canvas_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        from app.tools.registry import (
-            CANVAS_WAKE_DENY,
-            with_operator_canvas_tools,
-            with_operator_org_tools,
-            with_operator_progress_tool,
-            with_operator_reaction_tool,
-        )
+        from app.tools.registry import CANVAS_WAKE_DENY, with_platform_core
 
-        tools = with_operator_canvas_tools(tools, trust=self.trust, refresh=self.canvas_refresh)
-        tools = with_operator_progress_tool(tools, trust=self.trust, refresh=self.canvas_refresh)
-        tools = with_operator_reaction_tool(tools, trust=self.trust, refresh=self.canvas_refresh)
-        tools = with_operator_org_tools(tools, trust=self.trust, refresh=self.canvas_refresh)
+        tools = with_platform_core(tools, trust=self.trust, refresh=self.canvas_refresh)
         if self.canvas_refresh:
             tools = [t for t in tools if t["name"] not in CANVAS_WAKE_DENY]
-        return tools
+        return self._apply_definition(tools)
+
+    def _apply_definition(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Denylist and capability mode win over every default tool."""
+        from app.services.agent_definition import tool_permitted
+        from app.tools.executor import _EXTERNAL_PASSPORT_BYPASS
+
+        if self.agent is None:
+            return tools
+        return [
+            t
+            for t in tools
+            if (self.trust == "external" and t["name"] in _EXTERNAL_PASSPORT_BYPASS)
+            or tool_permitted(self.agent, t["name"])[0]
+        ]
 
     async def _team_reachable(self) -> bool:
         if self.trust != "external":
@@ -1157,6 +1249,7 @@ class AgentLoop:
                     self.tools,
                     enabled=not image_generation_disabled(prefs),
                 )
+                self.tools = self._apply_definition(self.tools)
             self._module_tools_applied = True
         if self.trust == "external" and not getattr(self, "_reachability_tools_applied", False):
             await self._apply_reachability_tools()
@@ -1185,6 +1278,9 @@ class AgentLoop:
         if not attachments and history_attachments:
             attachments = history_attachments
             self._turn_has_attachments = True
+        from app.services.prompt_guard import scan_messages
+
+        self.tainted = scan_messages(chat_messages)
         system = await self._build_system_prompt(extra_context, user_query=user_query)
         if attachments:
             vision_note = self._attachments_context(attachments)
@@ -1223,6 +1319,10 @@ class AgentLoop:
         if extra_context:
             system = f"{system}\n\n{extra_context}"
         chat_messages, history_attachments = _strip_message_attachments(messages)
+        from app.services.prompt_guard import SYSTEM_RULE, scan_messages
+
+        self.tainted = scan_messages(chat_messages)
+        system = f"{system}\n\n{SYSTEM_RULE}"
         if not attachments and history_attachments:
             attachments = history_attachments
         if messages:
@@ -1423,7 +1523,7 @@ class AgentLoop:
                     provider=shown["provider"],
                 )
             if opened:
-                await self._checkpoint_turn()
+                await self._keep_lease()
         for tool_use in tool_uses:
             if await self._is_cancelled():
                 tool_results.append(
@@ -1465,7 +1565,7 @@ class AgentLoop:
                 item = await self.turn.tool_start(
                     tool_use["name"], tool_input, label=shown["label"], provider=shown["provider"]
                 )
-                await self._checkpoint_turn()
+                await self._keep_lease()
             # Proposal cards must land next to agent speech on the session
             # thread. tool_signal_id may be a context host (mail) for outbound
             # replies/tags; explicit ask/propose tools use the speech signal.
@@ -1497,6 +1597,7 @@ class AgentLoop:
                 user_role=await self._session_user_role(),
                 surface=self.surface,
                 turn_id=self.turn.stream_id if self.turn is not None else None,
+                tainted=self.tainted is not None,
             )
             if (
                 tool_use["name"] == "attach_items"
@@ -1513,10 +1614,12 @@ class AgentLoop:
                     if isinstance(hit, dict):
                         self._knowledge_reads.append(hit)
             self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
+            if not (isinstance(result, dict) and result.get("error")):
+                self._called_ok.add(tool_use["name"])
             if self.turn is not None and item is not None:
                 await self.turn.tool_end(item, result)
                 await self._speak_peer_request(tool_use.get("name") or "", tool_use.get("input") or {}, result)
-                await self._checkpoint_turn()
+                await self._keep_lease()
             if (
                 tool_use["name"] == "update_progress"
                 and isinstance(result, dict)
@@ -1539,10 +1642,25 @@ class AgentLoop:
                 {
                     "type": "tool_result",
                     "tool_use_id": tool_use["id"],
-                    "content": json.dumps(result),
+                    "content": self._tool_result_content(tool_use["name"], result),
                 }
             )
         return tool_results
+
+    def _tool_result_content(self, name: str, result: Any) -> str:
+        """JSON for the model; outside content is fenced and can taint the turn."""
+        from app.services import prompt_guard
+        from app.tools.registry import get_tool_spec
+
+        text = json.dumps(result)
+        spec = get_tool_spec(name)
+        if spec is None or not spec.untrusted_output:
+            return text
+        if self.tainted is None:
+            verdict = prompt_guard.assess(text)
+            if verdict["flagged"]:
+                self.tainted = {**verdict, "source": f"tool:{name}"}
+        return prompt_guard.fence(text, f"tool:{name}")
 
     async def run_chat(
         self,
@@ -1557,14 +1675,17 @@ class AgentLoop:
         full_budget = self._resolve_thinking_budget()
         self.thinking_budget = full_budget
         max_tokens = self._resolve_max_tokens()
-        self._continue_nudged = False
+        self._new_stop_gate()
         started = time.monotonic()
         self._started = started
         ack_first = self._turn_pace() == "reply_then_think"
 
+        self.stop_reason = "max_turns"
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
+                self.stop_reason = "user_interrupt"
                 break
+            await self._between_rounds(llm_messages)
             await self._log_event("think", f"Loop {loop_idx + 1}")
             self.thinking_budget = 0 if ack_first and loop_idx == 0 else full_budget
             response = await self._llm_chat(llm_messages, max_tokens)
@@ -1586,6 +1707,7 @@ class AgentLoop:
             # incorrectly label tool turns as end_turn.
             if tool_uses:
                 if await self._is_cancelled():
+                    self.stop_reason = "user_interrupt"
                     break
                 if text_blocks and all(is_progress_filler(t) for t in text_blocks):
                     turn.discard_open_speech()
@@ -1593,26 +1715,19 @@ class AgentLoop:
                 tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
                 llm_messages.append({"role": "user", "content": tool_results})
                 if self._passed_floor:
+                    self.stop_reason = "end_turn"
                     break
                 continue
 
             joined = "\n".join(text_blocks)
-            if (
-                not self._continue_nudged
-                and (
-                    self._looks_like_work_announce(joined)
-                    or self._looks_like_unfinished_story(joined)
-                )
-                and loop_idx + 1 < self.max_loops
+            if await self._stop_check(
+                llm_messages, content, joined, rounds_left=self.max_loops - loop_idx - 1
             ):
-                self._append_continue_nudge(
-                    llm_messages,
-                    content or [{"type": "text", "text": joined}],
-                )
                 continue
+            self.stop_reason = self._stop_gate.stop_reason()
             break
 
-        await turn.finish()
+        await turn.finish("cancelled" if self.stop_reason == "user_interrupt" else None)
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
         final_text = turn.final_text
@@ -1640,7 +1755,6 @@ class AgentLoop:
         """
         turn = self._new_turn()
         stream_id = turn.stream_id
-        self._continue_nudged = False
         started = time.monotonic()
         self._started = started
         # Yield before any publish/commit. A slow WebSocket or a locked
@@ -1676,13 +1790,16 @@ class AgentLoop:
         self.thinking_budget = full_budget
         max_tokens = self._resolve_max_tokens()
         ack_first = self._turn_pace() == "reply_then_think"
-        await self._checkpoint_turn()
+        await self._keep_lease()
 
         cancelled = False
+        self._new_stop_gate()
+        self.stop_reason = "max_turns"
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
                 cancelled = True
                 break
+            await self._between_rounds(llm_messages)
             await self._log_event("think", f"Loop {loop_idx + 1}")
             self.thinking_budget = 0 if ack_first and loop_idx == 0 else full_budget
 
@@ -1742,25 +1859,22 @@ class AgentLoop:
                 )
                 llm_messages.append({"role": "user", "content": tool_results})
                 if self._passed_floor:
+                    self.stop_reason = "end_turn"
                     break
                 continue
 
             joined = "\n".join(text_blocks) if text_blocks else turn.final_text
-            if (
-                not cancelled
-                and not self._continue_nudged
-                and (
-                    self._looks_like_work_announce(joined or "")
-                    or self._looks_like_unfinished_story(joined or "")
-                )
-                and loop_idx + 1 < self.max_loops
+            if not cancelled and await self._stop_check(
+                llm_messages,
+                response_content,
+                joined or "",
+                rounds_left=self.max_loops - loop_idx - 1,
             ):
-                assistant_content = response_content or [
-                    {"type": "text", "text": joined or ""}
-                ]
-                self._append_continue_nudge(llm_messages, assistant_content)
                 continue
+            self.stop_reason = self._stop_gate.stop_reason()
             break
+        if cancelled:
+            self.stop_reason = "user_interrupt"
 
         if (
             not cancelled
@@ -1805,7 +1919,7 @@ class AgentLoop:
             finally:
                 self.tools = saved_tools
 
-        await turn.finish()
+        await turn.finish("cancelled" if self.stop_reason == "user_interrupt" else None)
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
         base = {

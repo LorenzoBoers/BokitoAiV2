@@ -12,7 +12,7 @@ import { PageContent } from '../components/layout/PageContent'
 import ContentHeader from '../components/shell/ContentHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-import { Badge } from '../components/ui/badge'
+import { Badge, type BadgeTone } from '../components/ui/badge'
 import { EmptyState } from '../components/ui/empty-state'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
@@ -71,16 +71,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog'
+import { TextLink } from '../components/ui/text-link'
 
 const ALLOWANCE_OPTIONS: AllowanceMode[] = ['deny', 'ask', 'allow']
 const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
 
-const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  pending_review: 'secondary',
-  draft: 'secondary',
-  accepted: 'default',
-  applied_yolo: 'default',
-  rejected: 'destructive',
+const STATUS_BADGE: Record<string, BadgeTone> = {
+  pending_review: 'warning',
+  draft: 'neutral',
+  accepted: 'success',
+  applied_yolo: 'success',
+  rejected: 'error',
 }
 
 function DiffPreview({ change }: { change: PlatformChangeRow }) {
@@ -475,7 +476,7 @@ export default function GovernPage() {
                 <TabsTrigger value="drafts">
                   {t('tabs.drafts')}
                   {changes.length > 0 ? (
-                    <Badge variant="secondary" className="ml-1.5 h-5 px-1.5 text-2xs">
+                    <Badge variant="neutral" className="ml-1.5 h-5 px-1.5 text-2xs">
                       {changes.length}
                     </Badge>
                   ) : null}
@@ -510,10 +511,10 @@ export default function GovernPage() {
                         <Button size="sm" asChild>
                           <Link to={inboxPath('open')}>{t('drafts.openCommunication')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to="/agents">{t('drafts.openAgents')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to={AUTONOMY_PATH}>{t('drafts.openInboxAi')}</Link>
                         </Button>
                       </div>
@@ -529,7 +530,7 @@ export default function GovernPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium text-text-heading">{change.summary}</p>
-                            <Badge variant={STATUS_BADGE[change.status] ?? 'outline'} className="text-2xs">
+                            <Badge variant={STATUS_BADGE[change.status] ?? 'neutral'} size="sm">
                               {governChangeStatusLabel(change.status, t)}
                             </Badge>
                           </div>
@@ -577,7 +578,7 @@ export default function GovernPage() {
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="secondary"
                             disabled={busyId === change.id}
                             onClick={() => requestReject(change)}
                           >
@@ -745,7 +746,7 @@ export default function GovernPage() {
                 <p className="text-xs text-text-muted">
                   {t('tokens.movedIntro')}
                 </p>
-                <Button size="sm" variant="outline" className="mt-3" asChild>
+                <Button size="sm" variant="secondary" className="mt-3" asChild>
                   <Link to="/settings/developers">
                     {t('tokens.manageLink')}
                   </Link>
@@ -769,10 +770,10 @@ export default function GovernPage() {
                         <Button size="sm" asChild>
                           <Link to={talkToAssistantPath(t('history.talkPrefill'))}>{t('history.talkAssistant')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to="/settings/govern?tab=drafts">{t('history.openDrafts')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to={inboxPath('open')}>{t('drafts.openCommunication')}</Link>
                         </Button>
                       </div>
@@ -811,7 +812,7 @@ export default function GovernPage() {
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
+                        variant="secondary"
                         disabled={busyId === row.id || !row.can_rollback}
                         onClick={() => requestRollback(row)}
                         title={!row.can_rollback ? t('history.revertExpired') : undefined}
@@ -866,7 +867,7 @@ export default function GovernPage() {
                         <Button type="button" size="sm" variant="secondary" asChild>
                           <Link to="/agents">{t('passports.openAgents')}</Link>
                         </Button>
-                        <Button type="button" size="sm" variant="outline" asChild>
+                        <Button type="button" size="sm" variant="secondary" asChild>
                           <Link to={AUTONOMY_PATH}>{t('drafts.openInboxAi')}</Link>
                         </Button>
                       </div>
@@ -930,13 +931,13 @@ export default function GovernPage() {
                         <Button size="sm" asChild>
                           <Link to={talkToAssistantPath(t('audit.talkPrefill'))}>{t('audit.talkAssistant')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to={inboxPath('open')}>{t('audit.openCommunication')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to="/agents">{t('audit.openAgent')}</Link>
                         </Button>
-                        <Button size="sm" variant="outline" asChild>
+                        <Button size="sm" variant="secondary" asChild>
                           <Link to="/settings/govern?tab=drafts">{t('history.openDrafts')}</Link>
                         </Button>
                       </div>
@@ -975,20 +976,19 @@ export default function GovernPage() {
                             </>
                           ) : null}
                           {' · '}
-                          <button
+                          <TextLink
                             type="button"
                             onClick={() => setOpenAuditId((id) => (id === event.id ? null : event.id))}
-                            className="text-accent hover:underline"
                           >
                             {openAuditId === event.id ? t('audit.hidePayload') : t('audit.showPayload')}
-                          </button>
+                          </TextLink>
                         </p>
                         {openAuditId === event.id ? (
                           <div className="mt-1.5">
                             <pre className="max-h-40 overflow-auto rounded-md bg-bg-elevated/70 px-2 py-1.5 text-xs text-text-secondary">
                               {JSON.stringify(event, null, 2)}
                             </pre>
-                            <button
+                            <TextLink
                               type="button"
                               onClick={() => {
                                 void navigator.clipboard.writeText(JSON.stringify(event, null, 2)).then(
@@ -996,10 +996,10 @@ export default function GovernPage() {
                                   () => toast.error(t('audit.copyFailed')),
                                 )
                               }}
-                              className="mt-1 text-xs font-medium text-accent hover:underline"
+                              className="mt-1 text-xs"
                             >
                               {t('audit.copyPayload')}
-                            </button>
+                            </TextLink>
                           </div>
                         ) : null}
                       </div>

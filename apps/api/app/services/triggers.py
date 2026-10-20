@@ -83,8 +83,6 @@ def serialize_trigger(row: Trigger) -> dict[str, Any]:
         "agent_role": row.agent_role,
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
         "signal_id": str(row.signal_id) if row.signal_id else None,
-        "recipient_kind": row.recipient_kind or None,
-        "recipient_id": str(row.recipient_user_id or row.recipient_department_id or "") or None,
         "purpose": row.purpose or None,
         "instructions": row.instructions,
         "has_webhook_secret": bool(row.webhook_secret),
@@ -232,7 +230,6 @@ async def create_trigger(
     run_at: datetime | None = None,
     signal_id: UUID | None = None,
     created_by_user_id: UUID | None = None,
-    recipient: tuple[str, UUID] | None = None,
     defer_thread: bool = False,
     hold: bool = False,
 ) -> Trigger:
@@ -263,10 +260,6 @@ async def create_trigger(
         signal_id=signal_id,
         created_by_user_id=created_by_user_id,
     )
-    if recipient is not None:
-        trigger.recipient_kind = recipient[0]
-        trigger.recipient_user_id = recipient[1] if recipient[0] == "user" else None
-        trigger.recipient_department_id = recipient[1] if recipient[0] == "department" else None
     if kind in ("once", "event"):
         trigger.next_run_at = run_at
     else:
@@ -290,12 +283,38 @@ async def create_trigger(
 # ── firing ───────────────────────────────────────────────────────────
 
 
+def is_planned_moment(trigger: Trigger) -> bool:
+    """A rule set through Plan (``apply_thread_schedule``) on a conversation."""
+    return (
+        bool(trigger.signal_id)
+        and not trigger.purpose
+        and trigger.agent_role == "assistant"
+        and trigger.kind in ("once", "cron", "interval")
+        and not trigger.workstream_id
+    )
+
+
 async def resolve_trigger_agent(session: AsyncSession, trigger: Trigger) -> Agent | None:
     """Resolve the agent for a trigger. Archived / inactive agents never fire.
 
     Public because the seeded check-in binds its thread to the same agent that
     will run it (`platform_watch`); two resolutions would fight over the row.
+
+    A planned moment (``is_planned_moment``) runs for the conversation owner:
+    an agent owner runs it, a person or team owner gets a reminder (None).
     """
+    if is_planned_moment(trigger):
+        from app.models.signal import Signal
+        from app.services.thread_schedule import runner_agent_id
+
+        signal = await session.get(Signal, trigger.signal_id)
+        agent_id = (runner_agent_id(signal) if signal is not None else None) or trigger.agent_id
+        if agent_id is None:
+            return None
+        agent = await session.get(Agent, agent_id)
+        if agent is None or agent.tenant_id != trigger.tenant_id:
+            return None
+        return agent if agent.is_active and agent.kind == "company" else None
     if trigger.agent_id:
         result = await session.execute(
             select(Agent).where(Agent.id == trigger.agent_id, Agent.tenant_id == trigger.tenant_id)
@@ -365,11 +384,18 @@ async def previous_heartbeat_report(
     return "", None
 
 
-async def _recipient_label(session: AsyncSession, signal: Any) -> str:
-    """Who the wake writes to, for the prompt: a person, a team, or the team at large."""
+async def _recipient_label(session: AsyncSession, signal: Any, trigger: Trigger) -> str:
+    """Who the wake writes to, for the prompt: a person, a team, or the team at large.
+
+    On a thread the agent owns, that is whoever planned the task.
+    """
     from app.models.auth import User
     from app.models.team import Team
 
+    if signal.assignee_kind == "agent" and trigger.created_by_user_id:
+        user = await session.get(User, trigger.created_by_user_id)
+        if user is not None:
+            return f"{user.display_name or user.email} (a person)"
     if signal.assignee_kind == "user" and signal.assigned_user_id:
         user = await session.get(User, signal.assigned_user_id)
         if user is not None:
@@ -413,7 +439,11 @@ async def _surface_result(
     refreshed = await session.get(Signal, signal.id)
     if refreshed is not None:
         await notify_moment(
-            session, refreshed, title=refreshed.subject or trigger.name, body=text[:300]
+            session,
+            refreshed,
+            title=refreshed.subject or trigger.name,
+            body=text[:300],
+            fallback_user_id=trigger.created_by_user_id,
         )
 
 
@@ -438,6 +468,53 @@ async def _wake_event(
             ),
         )
     )
+
+
+async def _fire_reminder(
+    session: AsyncSession, trigger: Trigger, *, now: datetime, manual: bool
+) -> dict[str, Any]:
+    """A planned moment for a person or team: the thread comes back unread."""
+    from app.gateway.publish import publish_thread_update
+    from app.models.signal import SignalEvent
+    from app.services.thread_schedule import (
+        ensure_trigger_thread,
+        mirror_next_at,
+        notify_moment,
+        reopen_for_moment,
+        thread_details,
+    )
+
+    signal = await ensure_trigger_thread(session, trigger, detach_assistant=False)
+    due_at = trigger.next_run_at
+    reopen_for_moment(signal, now)
+    signal.hidden_until = None
+    trigger.last_run_at = now
+    trigger.last_status = "reminded"
+    if not manual:
+        trigger.next_run_at = compute_next_run(trigger, now)
+        if trigger.kind == "once":
+            trigger.enabled = False
+            trigger.next_run_at = None
+    trigger.updated_at = now
+    session.add(trigger)
+    mirror_next_at(signal, trigger)
+    session.add(signal)
+    session.add(
+        SignalEvent(
+            signal_id=signal.id,
+            tenant_id=signal.tenant_id,
+            event_type="due",
+            actor_type="system",
+            actor_id="",
+            payload_json=json.dumps(
+                {"at": _iso(due_at), "note": thread_details(signal).get("note") or trigger.instructions or ""}
+            ),
+        )
+    )
+    await session.commit()
+    await notify_moment(session, signal, title=signal.subject or trigger.name)
+    await publish_thread_update(signal)
+    return {"status": "reminded", "signal_id": str(signal.id)}
 
 
 async def fire_trigger(
@@ -534,6 +611,8 @@ async def fire_trigger(
         }
 
     agent = await resolve_trigger_agent(session, trigger)
+    if not agent and is_planned_moment(trigger) and not trigger.agent_id:
+        return await _fire_reminder(session, trigger, now=now, manual=manual)
     if not agent:
         status = "no_agent"
         if trigger.agent_id:
@@ -582,7 +661,7 @@ async def fire_trigger(
 
     recurring = trigger.kind in ("cron", "interval", "heartbeat")
     prompt_parts = [
-        SCHEDULED_WAKE_PREAMBLE.format(recipient=await _recipient_label(session, signal)),
+        SCHEDULED_WAKE_PREAMBLE.format(recipient=await _recipient_label(session, signal, trigger)),
     ]
     if trigger.kind == "heartbeat":
         checklist = await _heartbeat_checklist(session, trigger.tenant_id)

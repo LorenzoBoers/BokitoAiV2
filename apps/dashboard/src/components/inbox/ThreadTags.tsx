@@ -160,7 +160,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             type="button"
             disabled={saving}
             onClick={() => setExpanded(true)}
-            className="inline-flex h-5 items-center rounded-full bg-bg-hover px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-border-light/35 hover:text-text-heading disabled:opacity-40"
+            className="inline-flex h-5 items-center rounded-md bg-bg-hover px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-border-light/35 hover:text-text-heading disabled:opacity-40"
           >
             {t('tags.moreCount', { count: hiddenCount })}
           </button>

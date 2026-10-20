@@ -74,7 +74,7 @@ export function ChannelExceptionsCard({
                           {tc('aiHandling.breakerBadge')}
                         </Badge>
                         {group.scope === 'channel' ? (
-                          <Button size="sm" variant="outline" onClick={() => onResumeBreaker(row.id)}>
+                          <Button size="sm" variant="secondary" onClick={() => onResumeBreaker(row.id)}>
                             {tc('aiHandling.breakerResume')}
                           </Button>
                         ) : null}

@@ -171,7 +171,7 @@ export function CalendarConnectBar({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           className="h-7"
           disabled={busy != null}
           onClick={() => void sync()}

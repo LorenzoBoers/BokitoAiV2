@@ -20,6 +20,7 @@ import { AUTONOMY_PATH } from '../../lib/navigation'
 import MailboxSyncWindowField, {
   DEFAULT_INSTALL_SYNC_WINDOW_DAYS,
 } from './MailboxSyncWindowField'
+import { TextLink } from '../ui/text-link'
 
 type SmtpMode = 'starttls' | 'ssl'
 type PresetId = 'custom' | 'gmail' | 'outlook' | 'yahoo' | 'icloud' | 'zoho'
@@ -306,16 +307,16 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               </Field>
             </div>
             {!showUsername ? (
-              <button
+              <TextLink
                 type="button"
                 onClick={() => {
                   setShowUsername(true)
                   if (!username) setUsername(email)
                 }}
-                className="text-xs font-medium text-accent hover:underline"
+                className="text-xs"
               >
                 {t('channelsPage.email.smtp.showUsername')}
-              </button>
+              </TextLink>
             ) : (
               <Field
                 label={t('channelsPage.email.smtp.username')}

@@ -70,7 +70,7 @@ export function AgentInstructionsCard({ agentId, systemPrompt, canEdit, onChange
           </p>
         </div>
         {canEdit ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => setOpen(true)}>
             <Pencil size={14} className="mr-1.5" aria-hidden />
             {t('workforce.agents.editInstructions')}
           </Button>

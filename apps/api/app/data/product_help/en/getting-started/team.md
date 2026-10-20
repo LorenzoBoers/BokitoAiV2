@@ -9,7 +9,7 @@ related: setup-guide,communication,agents,channels
 
 # How Workforce works
 
-Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the departments you group them into. Open **Workforce** in the rail under **Team** to invite someone, scan the directory, or build a department. The tabs at the top are **People and agents**, **Departments** and **Grid** (`/workforce/grid`). The Grid shows how work runs through the company: from the channel it arrives on, past the person or agent who picks it up and the flow it runs in, to the result it lands in.
+Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the departments you group them into. Open **Workforce** in the rail under **Team** to invite someone, scan the directory, or build a department. The tabs at the top are **People and agents**, **Departments**, **Grid** (`/workforce/grid`) and **Workflow** (`/workforce/workflow`). The Grid shows in 3D how the company is organized. Workflow shows how work runs through the company: from the channel it arrives on, past the person or agent who picks it up and the flow it runs in, to the result it lands in.
 
 ## Invite someone
 
@@ -61,18 +61,28 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 
 Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the team. Each hand-out appears in the timeline and in the audit log. Make a team the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
 
-## Read the Grid
+## View the Grid
 
-![The Grid in 2D with the Flow lens](/api/docs/assets/team/grid.png)
+The Grid is the organization map in 3D: the company in the center and each department as an island with its people and agents, and the folders, flows and connections they work with.
+
+1. Open **Workforce** and choose **Grid**.
+2. Drag to pan, right-drag to tilt and scroll to zoom. Names next to the marks appear from **160%**; below that the map shows the marks only. Point at a mark to read its name. Department islands and the company name stay visible.
+3. Hover an item in the legend to light it and its direct links. Click it to find it on the map; click it on the map to open its page.
+
+**Open in Grid** on Agents, Flows, Folders and Connections opens this map with that item found.
+
+## Follow work in Workflow
+
+![Workflow in 2D with the Flow lens](/api/docs/assets/team/grid.png)
 *Intake on the left, executors per department, flows, and results on the right.*
 
-1. Open **Workforce** and choose **Grid**. Four columns read left to right: **Intake**, **Executors · per department**, **Flow · how** and **Result · where it lands**. Line width is the number of conversations in the chosen period (**7 days**, **30 days** or **90 days**).
-2. Pick a lens. **Flow** shows the stream. **Labels** colors every line by label; choose a label chip to follow only that label through the chain. **Autonomy** colors executors by what they may do alone (**Autonomous**, **Assisted**, **Manual**). **Bottlenecks** keeps only nodes that need attention, such as work nobody picks up or a person with many open conversations. **Structure** shows the organization map with departments as islands.
-3. Choose **2D** or **3D**. Both show the same nodes; in 3D the result column bends around the scene. Drag to pan, scroll to zoom, and choose **Reset** to return to the start view.
-4. Choose a node. The panel on the right shows what it may do alone and why, where its work comes from and where it goes, and in the Labels lens the split per label. **Open conversations** opens that work in Communication. On a folder, **Add to Works in** opens the folder with the add form ready.
-5. When much of a node's work has no label, choose **Suggest labels**. An agent chat opens with that unlabeled work and proposes labels; nothing changes until you agree.
+1. Open **Workforce** and choose **Workflow**. Four columns read left to right: **Intake**, **Executors · per department**, **Flow · how** and **Result · where it lands**. Line width is the number of conversations in the chosen period (**7 days**, **30 days** or **90 days**).
+2. Pick a lens. **Flow** shows the stream. **Labels** colors a line in the flow label's color, with the same icon as elsewhere. Labels without a flow sit together as **Other**, in gray. Choose a label to follow only that label through the chain. **Autonomy** colors executors by what they may do alone (**Autonomous**, **Assisted**, **Manual**). The panel on the right starts with **Bottlenecks**: nodes that need attention, such as work nobody picks up, or a person or agent with more than 15 open conversations or more than twice what is usual in the team.
+3. Workflow opens in **3D**: the four layers stand as plates side by side. Choose **2D** for the flat board with the same nodes. Drag to pan, scroll to zoom, and choose **Reset** to return to the start view.
+4. Choose a node. The panel on the right shows where its work comes from and where it goes, each with its own icon, and the split per label. When there are bottlenecks, a button with an exclamation mark and the count sits to the left of the panel. Choose it and the Bottlenecks list appears in that spot, beside the panel. Close the list and the button comes back. The item stays open. When the node is an agent or a person, the face sits on the left, the function in color beside it, and the description under that. An agent breathes while idle and shows the working motion while busy. A person uses the same layout, with their photo. **Open conversations** opens that work in Communication. On a folder, **Add to Works in** opens the folder with the add form ready.
+5. When much of a node's work has no label, choose **Suggest labels**. An agent chat opens with that unlabeled work, its senders and companies, and the agent sends one label plan; nothing changes until you approve it. See [Labels and tickets](/docs/ai/categories).
 
-The Result column says **Estimated** while not every result is recorded as a delivery yet. The orange box **No department** holds people and agents who work conversations but sit in no department.
+The Result column says **Estimated** while not every result is recorded as a delivery yet. A folder in that column includes the work of its subfolders; choose it to see each subfolder with its own count. A conversation closed as **No reply needed** or **Already handled outside Bokito** does not count as closed without result; the panel of that sink shows how many there were. A conversation counts under its flow label, or without one under the label it got first. The orange box **No department** holds people and agents who work conversations but sit in no department.
 
 ## Personal settings stay personal
 

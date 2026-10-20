@@ -40,7 +40,7 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 Elk agenda-item is een gesprek met een datum. Met een herhaling wordt het een terugkerende taak: de agent schrijft elke keer in dat ene gesprek, zodat de geschiedenis bij elkaar blijft.
 
 1. Kies **Nieuw** en daarna **Agenda-item**, **Terugkerende taak**, **Webhook** of **Agendablok**.
-2. Vul voor een agenda-item of terugkerende taak **Titel**, **Wanneer** (**Eén moment** of **Herhalen**, bijvoorbeeld **Elke werkdag** om 09:00), **Voor wie** (jij, een collega of een team) en eventueel een **Agent** met een **Opdracht voor de agent** in. Zonder agent komt het gesprek ongelezen terug bij wie je koos. Kies **Opslaan**.
+2. Vul voor een agenda-item of terugkerende taak **Titel**, **Wanneer** (**Eén moment** of **Herhalen**, bijvoorbeeld **Elke werkdag** om 09:00), **Voor wie** (standaard **Ik**, of een collega, agent of afdeling) in. Kies je een agent, dan vul je een **Opdracht voor de agent** in en voert die agent hem op het moment uit; anders komt het gesprek ongelezen terug bij wie je koos. Kies **Opslaan**.
 3. Een agenda-item kiezen opent het gesprek in Communicatie, waar je de datum wijzigt, de herhaling pauzeert of **Nu uitvoeren** kiest. Agenda-afspraken hebben **Open als gesprek** om ze met collega's of een agent te bespreken.
 4. Voor een agendablok kies je de **Agenda**, titel, start en eind. Zet **Hele dag** aan om hem in de bovenste rij onder de datumheaders te zetten.
 5. **Taken** en **Activiteit** onder **Tonen**, en elke gekoppelde agenda die je aanzet, staan in het rooster op hun eigen tijd. Beheer terugkerende taken links onder **Taken beheren**.

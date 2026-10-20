@@ -7,7 +7,11 @@ import { CSS3DObject, CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer
 import { useTheme } from '../../context/ThemeContext'
 import type { OrgGraph, OrgGraphNode } from '../../lib/teams-api'
 import { OrgNodeFace } from './OrgNodeFace'
-import { makeSoftGrid, makeStageFloor, themePalette, type ScenePalette } from './org3d/stage'
+import { makeContactShadow } from './org3d/plates'
+import { cssRgbHex, makeSoftGrid, makeStageFloor, themePalette, type ScenePalette } from './org3d/stage'
+import { ORG_FLOAT_GLASS } from './org-float-panel'
+import { Button } from '../ui/button'
+import { cn } from '../../lib/utils'
 
 CameraControls.install({ THREE })
 
@@ -18,12 +22,17 @@ const FLAT_HOVER_LIFT_PX = 14
 const HOVER_SCALE = 1.1
 const LERP = 0.2
 /** Orthographic zoom: 1 = 100%. Wheel / buttons clamp to this range. */
-const ZOOM_DEFAULT = 1.2
-/** Opening frame and Reset: All disc centered, a step wider than 100%. */
-const HOME_ZOOM = 0.85
+const ZOOM_DEFAULT = 1.35
+/** Names beside marks appear from this zoom. Below it the map stays icons only. */
+const NAME_ZOOM = 1.6
+/**
+ * Opening frame and Reset. Raised after the map was tightened (closer hubs,
+ * narrower islands) so the first view shows more detail without cropping.
+ */
+const HOME_ZOOM = 1.05
 /** Zoom-out floor when nothing is measured yet; the scene lowers it until the whole organization fits. */
-const ZOOM_MIN = 0.7
-const ZOOM_MAX = 2.4
+const ZOOM_MIN = 0.75
+const ZOOM_MAX = 2.6
 /**
  * How far the camera target may truck past the org content bounds.
  * Ratio of the content span, with a floor so tiny orgs still have room to pan.
@@ -62,20 +71,20 @@ type Props = {
 }
 
 function puckRadius(kind: string): number {
-  if (kind === 'organization') return 16
-  return 9
+  if (kind === 'organization') return 13
+  return 7.5
 }
 
 function puckHeight(kind: string): number {
-  if (kind === 'organization') return 4.5
-  return 3.2
+  if (kind === 'organization') return 3.8
+  return 2.8
 }
 
 function markSize(kind: string): number {
-  if (kind === 'organization') return 44
-  if (kind === 'department') return 40
-  if (kind === 'agent' || kind === 'user') return 36
-  return 30
+  if (kind === 'organization') return 38
+  if (kind === 'department') return 34
+  if (kind === 'agent' || kind === 'user') return 30
+  return 26
 }
 
 /** People, agents and company logo: upright billboards. Everything else: flat on the pad. */
@@ -311,16 +320,7 @@ function makePuck(node: OrgGraphNode, palette: ScenePalette): THREE.Group {
   halo.renderOrder = 5
   group.add(halo)
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(r * 1.1, 32),
-    new THREE.MeshBasicMaterial({
-      color: 0x000000,
-      transparent: true,
-      opacity: 0.06,
-      depthWrite: false,
-    }),
-  )
-  shadow.rotation.x = -Math.PI / 2
+  const shadow = makeContactShadow(r * 1.7, 0.3)
   shadow.position.y = 0.12
   group.add(shadow)
 
@@ -878,8 +878,9 @@ export function OrgMakeScene({
     const reactRoots: Root[] = []
 
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(palette.wash)
-    scene.fog = new THREE.Fog(palette.wash, palette.fogNear, palette.fogFar)
+    // Same stage as Workflow: floor and backdrop match the page; the raster fades outside the org.
+    const pageBg = cssRgbHex('--color-bg')
+    scene.background = new THREE.Color(pageBg)
 
     const width = host.clientWidth || 800
     const height = host.clientHeight || 600
@@ -957,10 +958,7 @@ export function OrgMakeScene({
     scene.add(fill)
 
     // Unlit, so the stage color stays the color. A lit white plane renders gray.
-    scene.add(makeStageFloor(5200, palette.ground, palette.groundEdge))
-
-    const grid = makeSoftGrid(2800, 400, palette.gridMajor, palette.gridMinor, palette.gridOpacity)
-    scene.add(grid)
+    scene.add(makeStageFloor(5200, pageBg, pageBg))
 
     const nodeById = new Map(graph.nodes.map((node) => [node.id, node]))
     const puckById = new Map<string, THREE.Group>()
@@ -1420,6 +1418,19 @@ export function OrgMakeScene({
     if (!box.isEmpty()) {
       const size = box.getSize(new THREE.Vector3())
       const span = Math.max(size.x, size.z, 140)
+      // Same cell pitch and tight content fade as Workflow: grid is solid over the org, then dies quickly.
+      const gridSize = Math.max(2800, span * 2.2)
+      const gridPad = Math.max(28, span * 0.04)
+      const grid = makeSoftGrid(gridSize, Math.round(gridSize / 80), palette.gridMajor, palette.gridMajor, palette.gridOpacity, {
+        minX: box.min.x - gridPad,
+        maxX: box.max.x + gridPad,
+        minZ: box.min.z - gridPad,
+        maxZ: box.max.z + gridPad,
+        feather: 110,
+      })
+      const mid = box.getCenter(new THREE.Vector3())
+      grid.position.set(mid.x, 0.05, mid.z)
+      scene.add(grid)
       // All sits at the company node. Frame that disc, not the bounding box of every island.
       const orgNode = graph.nodes.find((node) => node.kind === 'organization')
       const allX = orgNode?.x ?? 0
@@ -1432,14 +1443,15 @@ export function OrgMakeScene({
       controls.setLookAt(...homeLookAt, false)
       controls.zoomTo(homeZoom, false)
       // Keep left-drag trucking near the organisation — no endless empty void.
-      const pad = Math.max(span * PAN_BOUNDARY_PAD_RATIO, PAN_BOUNDARY_PAD_MIN)
+      const panPad = Math.max(span * PAN_BOUNDARY_PAD_RATIO, PAN_BOUNDARY_PAD_MIN)
       const boundary = box.clone()
       boundary.min.y = -40
       boundary.max.y = 40
-      boundary.expandByVector(new THREE.Vector3(pad, 0, pad))
+      boundary.expandByVector(new THREE.Vector3(panPad, 0, panPad))
       controls.setBoundary(boundary)
       controls.boundaryFriction = 0
     } else {
+      scene.add(makeSoftGrid(2800, Math.round(2800 / 80), palette.gridMajor, palette.gridMajor, palette.gridOpacity))
       controls.setBoundary(
         new THREE.Box3(
           new THREE.Vector3(-PAN_BOUNDARY_FALLBACK, -40, -PAN_BOUNDARY_FALLBACK),
@@ -1646,7 +1658,8 @@ export function OrgMakeScene({
         const nameEl = puck.userData.nameEl as HTMLElement | undefined
         if (nameEl) {
           const expanded = hover > 0.12
-          nameEl.style.opacity = String(Math.max(0.35, dimFactor))
+          const showName = camera.zoom >= NAME_ZOOM || expanded
+          nameEl.style.opacity = showName ? String(Math.max(0.35, dimFactor)) : '0'
           nameEl.style.maxWidth = expanded ? '220px' : '148px'
           const nameLine = nameEl.querySelector('[data-role="name"]') as HTMLElement | null
           const metaLine = nameEl.querySelector('[data-role="meta"]') as HTMLElement | null
@@ -1667,7 +1680,7 @@ export function OrgMakeScene({
           halo.scale.setScalar(1 + 0.22 * hover)
         }
         if (shadow?.material) {
-          ;(shadow.material as THREE.MeshBasicMaterial).opacity = (0.05 + 0.18 * hover) * dimFactor
+          ;(shadow.material as THREE.MeshBasicMaterial).opacity = (0.3 + 0.2 * hover) * dimFactor
           shadow.scale.setScalar(1 + 0.4 * hover)
         }
         const shade = 0.18 + 0.82 * dimFactor
@@ -1784,13 +1797,13 @@ export function OrgMakeScene({
   }, [graph, linkedIds, isDark, kindLabel, openHint])
 
   return (
-    <div className={`relative z-0 h-full min-h-0 w-full ${isDark ? 'bg-[#141418]' : 'bg-[#d4d0ca]'}`}>
+    <div className={`relative h-full min-h-0 w-full ${isDark ? 'bg-[#141418]' : 'bg-[#d4d0ca]'}`}>
       <div ref={hostRef} className="absolute inset-0 z-0 touch-none" />
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center gap-2 px-3">
-        <div className="pointer-events-auto flex items-center gap-1 rounded-full border border-border/40 bg-bg-surface/75 px-1.5 py-1 shadow-sm backdrop-blur-sm">
-          <button
+        <div className={cn('pointer-events-auto flex items-center gap-1 rounded-full px-1.5 py-1', ORG_FLOAT_GLASS)}>
+          <Button variant="ghost" size="sm"
             type="button"
-            className="rounded-full px-2.5 py-1 text-xs text-text-muted hover:bg-bg-elevated hover:text-text-heading"
+            className="h-7 px-2.5"
             onClick={() =>
               controlsRef.current?.zoomTo(
                 Math.max(
@@ -1802,11 +1815,11 @@ export function OrgMakeScene({
             }
           >
             -
-          </button>
-          <span className="min-w-[3rem] text-center text-[11px] tabular-nums text-text-muted">{zoomPct}%</span>
-          <button
+          </Button>
+          <span className="min-w-[3rem] text-center text-2xs tabular-nums text-text-muted">{zoomPct}%</span>
+          <Button variant="ghost" size="sm"
             type="button"
-            className="rounded-full px-2.5 py-1 text-xs text-text-muted hover:bg-bg-elevated hover:text-text-heading"
+            className="h-7 px-2.5"
             onClick={() =>
               controlsRef.current?.zoomTo(
                 Math.min(
@@ -1818,10 +1831,10 @@ export function OrgMakeScene({
             }
           >
             +
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="sm"
             type="button"
-            className="rounded-full px-2.5 py-1 text-xs text-text-muted hover:bg-bg-elevated hover:text-text-heading"
+            className="h-7 px-2.5"
             onClick={() => {
               const controls = controlsRef.current
               if (!controls) return
@@ -1837,7 +1850,7 @@ export function OrgMakeScene({
             }}
           >
             Reset
-          </button>
+          </Button>
         </div>
       </div>
     </div>

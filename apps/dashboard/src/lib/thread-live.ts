@@ -62,6 +62,7 @@ export function threadMatchesFilters(
   currentUserId: number | null,
 ): boolean | null {
   if (filters.search && filters.search.trim()) return null
+  if (filters.segment) return null
 
   const channel = thread.channel ?? ''
   // Private Bokito helper chats live in the corner widget, not Communication.
@@ -139,7 +140,7 @@ export function threadMatchesFilters(
   switch (filters.view ?? 'all_open') {
     case 'all':
       // Closed and spam have dedicated views; closing evicts the row live.
-      viewMatch = thread.status !== 'closed' && thread.status !== 'spam'
+      viewMatch = thread.status !== 'closed' && thread.status !== 'spam' && thread.status !== 'snoozed'
       break
     case 'all_open':
       viewMatch = thread.status === 'open'

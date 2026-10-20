@@ -132,6 +132,7 @@ export function announceNotification(
     (typeof raw.signal_id === 'string' && raw.signal_id) ||
     (typeof raw.payload?.signal_id === 'string' ? raw.payload.signal_id : null);
   const tier = raw.tier === 1 || raw.tier === 3 ? raw.tier : 2;
+  if (raw.payload?.announce === false) return;
   const audible = AUDIBLE_KINDS.has(kind) || (!signalId && tier === 1);
   if (!audible) return;
   if (viewingSignal(signalId)) return;
@@ -175,6 +176,8 @@ export function announceNotification(
       />
     ),
     {
+      // A rewritten row (same conversation) replaces its toast instead of stacking.
+      id: raw.id,
       duration: 6000,
       closeButton: false,
       // Own glass chrome — strip Sonner's opaque card around the custom body.

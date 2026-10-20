@@ -71,6 +71,19 @@ export async function listWorkspaceDocs(
   return page.docs
 }
 
+export type PlatformSkillRow = {
+  slug: string
+  name: string
+  description: string
+  locked: boolean
+}
+
+/** Skills every agent carries. The API never returns their content. */
+export async function listPlatformSkills(lang: string): Promise<PlatformSkillRow[]> {
+  const res = await apiGet<{ skills: PlatformSkillRow[] }>(workspaceRoutes.platformSkills(lang))
+  return res.skills ?? []
+}
+
 export async function listWorkspaceDocsPage(
   params?: WorkspaceDocsQuery | string,
 ): Promise<{ docs: WorkspaceDocRow[]; nextOffset: number | null }> {

@@ -5,14 +5,16 @@ Usage (from the repo root or anywhere):
     python apps/api/scripts/dev/sync_product_help.py [--check]
 
 Copies ``docs/product-help/{en,nl}`` and ``assets/`` to
-``apps/api/app/data/product_help`` (pruning stale files), and validates
-frontmatter and en/nl slug parity. ``--check`` validates and diffs without
+``apps/api/app/data/product_help`` (pruning stale files), writes
+``glossary.yaml`` there as ``glossary.json`` for the agents' vocabulary
+block, and validates frontmatter and en/nl slug parity. ``--check`` validates and diffs without
 writing (CI-friendly).
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -26,6 +28,7 @@ TARGET = API_ROOT / "app" / "data" / "product_help"
 LANGS = ("en", "nl")
 SECTIONS = ("getting-started", "inbox", "ai", "govern", "integrations", "developers")
 REQUIRED_KEYS = ("title", "intro", "description", "keywords", "sort")
+GLOSSARY = "glossary.json"
 
 
 def parse_frontmatter(raw: str) -> dict[str, str] | None:
@@ -100,10 +103,21 @@ def tree_assets(root: Path) -> dict[str, bytes]:
     }
 
 
+def glossary_json() -> str:
+    import yaml
+
+    data = yaml.safe_load((SOURCE / "glossary.yaml").read_text(encoding="utf-8"))
+    return json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+
+
 def tree(root: Path) -> dict[str, str | bytes]:
     merged: dict[str, str | bytes] = {}
     merged.update(tree_markdown(root))
     merged.update(tree_assets(root))
+    if root == SOURCE:
+        merged[GLOSSARY] = glossary_json()
+    elif (root / GLOSSARY).is_file():
+        merged[GLOSSARY] = (root / GLOSSARY).read_text(encoding="utf-8")
     return merged
 
 
@@ -134,6 +148,7 @@ def sync(check_only: bool) -> bool:
     src_assets = SOURCE / "assets"
     if src_assets.is_dir():
         shutil.copytree(src_assets, dest_assets)
+    (TARGET / GLOSSARY).write_text(source_tree[GLOSSARY], encoding="utf-8", newline="\n")
     print(f"synced {len(source_tree)} files to {TARGET}")
     return True
 

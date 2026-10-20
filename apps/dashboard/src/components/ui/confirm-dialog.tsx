@@ -68,7 +68,7 @@ export function ConfirmDialog({
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base">{title ?? t('confirmDialog.title')}</DialogTitle>
+          <DialogTitle>{title ?? t('confirmDialog.title')}</DialogTitle>
           {description ? (
             <DialogDescription className="whitespace-pre-line text-sm text-text-secondary">
               {description}

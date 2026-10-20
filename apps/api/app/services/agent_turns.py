@@ -6,9 +6,10 @@ per conversation runs (partial unique index), and every enqueue carries an
 idempotency key so a retry never doubles a turn. Redis only rings the bell.
 A sweep every ten seconds re-rings lost bells and re-queues expired leases.
 
-Agents move the conversation with two tools: ``ask_agent`` (a question; the
-answer comes back to the asker as its next turn) and ``handoff_to`` (the other
-agent takes over). A mention alone does not wake anyone.
+Agents move the conversation with ``ask_agent`` (a question; the answer comes
+back to the asker as its next turn) and ``handoff_to`` (the other agent takes
+over). An ``@agent`` mention in an agent's text is only a link; it wakes
+nobody.
 
 An episode is everything agents do after one human message. It ends when no
 turn is queued, or when the budget below runs out; then a system line hands
@@ -52,6 +53,9 @@ QUEUED_MAX_AGE_S = 900
 # A queued turn this old without a running neighbour gets its bell again.
 REBELL_AFTER_S = 20
 _MAX_DRAIN = 12
+
+# Turns this process runs right now: "queue" (drain) or "inline". A shutdown hands them back.
+_HELD: dict[UUID, str] = {}
 
 _BELLS = "agent_turn_bells"
 _HOOKED = "agent_turn_hooked"
@@ -392,6 +396,63 @@ async def enqueue_turn(
     }
 
 
+async def create_ask(
+    session: AsyncSession,
+    signal: Signal,
+    *,
+    from_agent: Agent,
+    peer: Agent,
+    question: str,
+) -> dict[str, Any]:
+    """Open a question to ``peer`` and queue its turn. One open ask per pair."""
+    question = (question or "").strip()
+    if not question:
+        return {"ok": False, "error": "question required"}
+    open_ask = (
+        await session.execute(
+            select(AgentAsk.id).where(
+                AgentAsk.signal_id == signal.id,
+                AgentAsk.from_agent_id == from_agent.id,
+                AgentAsk.to_agent_id == peer.id,
+                AgentAsk.status == "open",
+            )
+        )
+    ).scalar_one_or_none()
+    if open_ask is not None:
+        return {"ok": True, "ask_id": str(open_ask), "already_asked": True}
+    episode = await _requester_episode(session, signal.id, from_agent.id) or await latest_human_message_id(
+        session, signal.id
+    )
+    ask = AgentAsk(
+        tenant_id=signal.tenant_id,
+        signal_id=signal.id,
+        from_agent_id=from_agent.id,
+        to_agent_id=peer.id,
+        question=question[:4000],
+        episode_id=episode,
+    )
+    session.add(ask)
+    await session.flush()
+    queued = await enqueue_turn(
+        session,
+        signal,
+        agent_id=peer.id,
+        cause_kind="ask",
+        requested_by_kind="agent",
+        requested_by_id=from_agent.id,
+        prompt=question,
+        ask_id=ask.id,
+        episode_id=episode,
+        idempotency_key=f"ask:{ask.id}",
+    )
+    if not queued.get("ok"):
+        ask.status = "cancelled"
+        session.add(ask)
+        await session.flush()
+        return {"ok": False, "error": queued.get("error") or "Could not ask"}
+    return {"ok": True, "ask_id": str(ask.id), "already_asked": False}
+
+
 async def cancel_turns(
     session: AsyncSession,
     signal: Signal,
@@ -485,12 +546,14 @@ async def drain(signal_id: UUID) -> int:
             if turn is None:
                 return done
             turn_id = turn.id
+            _HELD[turn_id] = "queue"
             try:
                 await execute_turn(session, turn)
             except Exception:  # noqa: BLE001
                 logger.exception("agent turn %s crashed", turn_id)
                 await session.rollback()
                 await _fail_turn(session, turn_id, "error")
+            _HELD.pop(turn_id, None)
             done += 1
     return done
 
@@ -596,7 +659,14 @@ async def _turn_brief(session: AsyncSession, turn: AgentTurn, agent: Agent) -> t
             "You now answer the human. Take it from here."
         )
     elif turn.cause_kind in ("human", "mention"):
-        text_ = f"{who} addressed you in this conversation. Reply to what they asked."
+        text_ = f"{who} wrote in this conversation and it is your turn. Reply to what they asked."
+        cause = await session.get(SignalMessage, turn.cause_message_id) if turn.cause_message_id else None
+        if cause is not None:
+            from app.services.addressing import turn_line
+
+            line = turn_line(cause.body_text or "", agent.id)
+            if line:
+                text_ += "\n" + line
     else:
         text_ = turn.prompt or "It is your turn in this conversation."
     return text_, attachments
@@ -609,6 +679,7 @@ def _history_tail_is_assistant(history: list[dict[str, Any]]) -> bool:
 async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]:
     """Run one claimed turn to the end and queue whatever it asked for."""
     from app.services.agent.style import strip_emoji
+    from app.services.agent.turn import is_pass
     from app.services.assistant_threads import signal_chat_history
     from app.services.chat_runtime import build_agent_loop
     from app.services.participants import serialize_participants
@@ -653,11 +724,11 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
         "## Your turn in this conversation\n"
         f"You are {agent.name}. Also here: {peer_line or 'nobody else'}.\n"
         f"{brief}\n"
-        "Your reply is saved as chat bubbles everyone here reads. "
+        "Your reply is saved as one chat bubble everyone here reads. "
         "To ask another agent something, call ask_agent; to give the "
-        "conversation to another agent, call handoff_to. A mention alone does "
-        "not wake anyone. If there is nothing for you to say, reply with "
-        "exactly: pass"
+        "conversation to another agent, call handoff_to. An @mention is only "
+        "a link and wakes nobody. If there is nothing for you to say, reply "
+        "with exactly: pass"
     )
     asks = await _open_asks_block(session, signal.id, agent.id)
     if asks:
@@ -675,7 +746,7 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
         run=run,
     )
     loop.agent_turn_id = turn.id
-    history = await signal_chat_history(session, signal.id, compact=False, for_agent_id=agent.id)
+    history = await signal_chat_history(session, signal.id, compact=True, for_agent_id=agent.id)
     if not history or _history_tail_is_assistant(history):
         history = [*history, {"role": "user", "content": brief}]
 
@@ -700,7 +771,7 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     spoken = [line for line in spoken if line]
     has_activity = bool(loop.turn and loop.turn.all_activity())
     final = strip_emoji(" ".join(spoken)).strip()
-    passed = final.lower() in ("pass", "i pass", "skip") and not has_activity
+    passed = is_pass(final)
 
     outcome = "spoke"
     if error is not None:
@@ -708,11 +779,15 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
         await _seal_failed_turn(session, loop, signal, agent)
     elif cancelled:
         outcome = "cancelled"
+        reason = (
+            await session.execute(select(AgentTurn.outcome).where(AgentTurn.id == turn.id))
+        ).scalar_one_or_none()
+        await _close_live_turn(loop, "superseded" if reason == "superseded" else "cancelled")
         if spoken or has_activity:
             await loop.persist_turn(signal, final_metadata={"cancelled": True, "participant_turn": True})
     elif passed or (not spoken and not has_activity):
         outcome = "silent"
-        await _drop_checkpoint(session, loop)
+        await _close_live_turn(loop, "silent")
     else:
         if previous_text and _same_line(previous_text, final):
             outcome = "stalled"
@@ -805,24 +880,24 @@ def _same_line(a: str, b: str) -> bool:
     return left == right or SequenceMatcher(None, left, right).ratio() >= 0.9
 
 
-async def _drop_checkpoint(session: AsyncSession, loop: Any) -> None:
-    checkpoint_id = getattr(loop, "_checkpoint_message_id", None)
-    if checkpoint_id is None:
+async def _close_live_turn(loop: Any, outcome: str) -> None:
+    """``turn.completed`` for a turn that ends without reaching its own finish."""
+    if loop.turn is None:
         return
-    message = await session.get(SignalMessage, checkpoint_id)
-    if message is None:
-        return
-    await session.delete(message)
-    await session.flush()
+    try:
+        await loop.turn.finish(outcome)
+    except Exception:  # noqa: BLE001
+        logger.debug("closing live turn failed", exc_info=True)
 
 
 async def _seal_failed_turn(session: AsyncSession, loop: Any, signal: Signal, agent: Agent) -> None:
-    from app.services.agent.turn_persist import seal_in_progress_checkpoints
+    from app.services.assistant_threads import append_signal_chat_message
 
     error_text = (
         "The assistant encountered an error while generating a reply. "
         "Please try again in a moment."
     )
+    await _close_live_turn(loop, "error")
     try:
         if loop.turn is not None and (loop.turn.segments or loop.turn.all_activity()):
             await loop.persist_turn(
@@ -831,15 +906,14 @@ async def _seal_failed_turn(session: AsyncSession, loop: Any, signal: Signal, ag
                 final_metadata={"error": True, "participant_turn": True},
                 fallback_text=error_text,
             )
-            await seal_in_progress_checkpoints(session, signal)
         else:
-            await seal_in_progress_checkpoints(
+            await append_signal_chat_message(
                 session,
                 signal,
-                error_text=error_text,
+                role="assistant",
+                content=error_text,
                 author_agent_id=agent.id,
-                replace_with_error=True,
-                checkpoint_message_id=getattr(loop, "_checkpoint_message_id", None),
+                metadata={"error": True, "participant_turn": True},
             )
     except Exception:  # noqa: BLE001
         logger.exception("seal after agent turn failure failed for %s", signal.id)
@@ -937,6 +1011,7 @@ async def begin_inline_turn(
             if signal is not None:
                 await sync_floor(side, signal)
             await side.commit()
+            _HELD[row.id] = "inline"
             return row.id
     except Exception:  # noqa: BLE001
         logger.info("inline turn not recorded for %s", signal_id)
@@ -950,6 +1025,8 @@ async def end_inline_turn(
     outcome: str = "spoke",
     tokens: int = 0,
 ) -> None:
+    if turn_id is not None:
+        _HELD.pop(turn_id, None)
     if bind is None or turn_id is None:
         return
     from sqlalchemy.ext.asyncio import AsyncSession as _Session
@@ -989,12 +1066,80 @@ async def extend_lease(session: AsyncSession, turn_id: UUID | None, *, inline: b
     )
 
 
+# -- shutdown ---------------------------------------------------------------------------
+
+
+async def release_held() -> dict[str, int]:
+    """Process shutdown: every running turn goes back on the queue.
+
+    A restart is not the turn's fault, so the attempt is not counted. Operator
+    chats run inline in this process; ending them here dropped the agent with
+    no reply. They are queued again, the same as worker turns. The open turn
+    closes on the thread log at once and the next worker gets a bell.
+    """
+    from app.db.session import async_session_factory
+    from app.services import thread_log
+
+    held = dict(_HELD)
+    _HELD.clear()
+    stats = {"requeued": 0, "ended": 0}
+    if not held:
+        return stats
+    requeued: set[UUID] = set()
+    async with async_session_factory() as session:
+        rows = (
+            await session.execute(
+                select(AgentTurn).where(AgentTurn.id.in_(list(held)), AgentTurn.status == "running")
+            )
+        ).scalars().all()
+        touched: set[UUID] = set()
+        for row in rows:
+            if held.get(row.id) == "queue":
+                row.status = "queued"
+                row.outcome = "requeued"
+                row.attempt = max(0, int(row.attempt or 0) - 1)
+                row.finished_at = None
+                requeued.add(row.signal_id)
+                stats["requeued"] += 1
+            else:
+                # Operator Ask / thread reply. The process that was streaming
+                # it is gone; the worker runs it from the conversation.
+                row.status = "queued"
+                row.outcome = "requeued"
+                row.attempt = max(0, int(row.attempt or 0) - 1)
+                row.finished_at = None
+                if row.cause_kind == "inline":
+                    row.cause_kind = "human"
+                    if row.cause_message_id is None and row.episode_id is not None:
+                        row.cause_message_id = row.episode_id
+                requeued.add(row.signal_id)
+                stats["requeued"] += 1
+            row.lease_until = None
+            session.add(row)
+            touched.add(row.signal_id)
+        await session.flush()
+        for signal_id in touched:
+            signal = await session.get(Signal, signal_id)
+            if signal is None:
+                continue
+            await thread_log.close_open_turns(
+                signal.tenant_id,
+                signal.id,
+                reason="superseded" if signal_id in requeued else "error",
+            )
+            await sync_floor(session, signal)
+        await session.commit()
+    for signal_id in requeued:
+        await ring(signal_id)
+    return stats
+
+
 # -- sweep ------------------------------------------------------------------------------
 
 
 async def sweep(session: AsyncSession) -> dict[str, int]:
     """Expired leases go back to the queue (or fail); lost bells ring again."""
-    from app.services.agent.turn_persist import seal_in_progress_checkpoints
+    from app.services.agent.turn_persist import end_dead_turns
 
     now = datetime.utcnow()
     stats = {"requeued": 0, "failed": 0, "rung": 0, "dropped": 0}
@@ -1005,12 +1150,13 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
     ).scalars().all()
     touched: set[UUID] = set()
     for row in expired:
-        if row.cause_kind == "inline":
-            row.status = "done"
-            row.outcome = "expired"
-        elif int(row.attempt or 0) < MAX_ATTEMPTS:
+        if int(row.attempt or 0) < MAX_ATTEMPTS:
             row.status = "queued"
             row.outcome = "requeued"
+            if row.cause_kind == "inline":
+                row.cause_kind = "human"
+                if row.cause_message_id is None and row.episode_id is not None:
+                    row.cause_message_id = row.episode_id
             stats["requeued"] += 1
         else:
             row.status = "failed"
@@ -1040,7 +1186,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
         signal = await session.get(Signal, signal_id)
         if signal is None:
             continue
-        await seal_in_progress_checkpoints(session, signal, older_than=timedelta(seconds=LEASE_S))
+        await end_dead_turns(session, signal, older_than=timedelta(seconds=LEASE_S))
         await sync_floor(session, signal)
     waiting = (
         await session.execute(

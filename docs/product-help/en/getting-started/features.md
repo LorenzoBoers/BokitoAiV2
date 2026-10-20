@@ -1,235 +1,234 @@
 ---
 title: Platform features
-intro: Every part of Bokito, from the rail to the small controls, and how they connect.
-description: A map of every Bokito feature. Each entry gives the English and Dutch name, what it does, and which other parts it works with.
-keywords: features, today, rail, conversation, flow, folder, agent, govern, agenda
+intro: Every part of Bokito, from the rail to the small buttons, and how they connect.
+description: Overview of all Bokito features. For each part the English and Dutch name, what it does, and which other parts it works with.
+keywords: features, overview, rail, conversation, folder, works in, delivered, flow, agent, autonomy, govern, grid, agenda
 sort: 15
 related: welcome,communication,agents,folders,flows,agenda,team,govern
 ---
 
 # Platform features
 
-Bokito is one conversation for the company. Customers keep writing where they already write. The team and the agents answer in the same list. Pages are for browsing. The conversation is where you start, watch and correct the work.
+Bokito is one conversation for the company. Clients write where they already write. The team and the agents answer in the same list. Pages are for browsing. The conversation is where you start, watch and correct the work.
 
-Each block below names the English and Dutch label. The text says what it does and which other features it connects to.
+Each block below has the English name as title and the Dutch name under it. The text says what it does and which other features it touches.
 
-## The seven things you name
+## The five concepts
 
-Everything else is a screen, a setting, or something that runs in the background.
+Everything in Bokito hangs on these five. Label, department, channel and contact are properties and filters, not places where work lands.
 
 ### {icon:conversation} Conversation
 
-**NL:** Gesprek. The only thread in the platform. A status makes it a ticket. A date makes it an agenda item. A repeat makes it recurring. What an agent did appears as a message in that conversation. Connects to [Communication](/docs/inbox/communication), [Today](/docs/getting-started/cockpit), [Agenda](/docs/ai/agenda) and [Decisions](/docs/ai/decisions).
-
-### {icon:hash} label
-
-**NL:** label. A hashtag that starts a flow. A conversation carries at most one. Filing it makes the conversation a ticket that moves through that flow's stages. Color and icon exist only while the flow is attached. Free hashtags beside it are labels, not a separate object. Connects to [Labels](/docs/ai/categories), [Flows](/docs/ai/flows) and [Folders](/docs/ai/folders).
-
-### {icon:flow} Flow
-
-**NL:** Flow. The stage pipeline for exactly one label. The list shows a title beside the label, for example `#klacht`. The label stays the identity. Each stage has an owner: a person, an agent or a department. The rail says Flows. These docs and the product say Flow. Connects to [Labels](/docs/ai/categories), [Folders](/docs/ai/folders) and [Agenda](/docs/ai/agenda).
+**NL:** Gesprek. Everything that comes in or gets started. A status makes it a ticket. A date puts it on the agenda. A repeat makes it recurring. What an agent did shows as a message in that conversation. Connects to [Communication](/docs/inbox/communication), [Agenda](/docs/ai/agenda) and [Decisions](/docs/ai/decisions).
 
 ### {icon:folder} Folder
 
-**NL:** Map. A named place in a tree. Optional labels decide which conversations belong: the conversation must carry every label in the set, including labels on the contact and the company. Nesting only moves the place. The hub holds conversations, the board, canvas, docs and files. Connects to [Labels](/docs/ai/categories), [Flows](/docs/ai/flows) and [Knowledge](/docs/ai/knowledge). A department in the Communication sidebar is a different kind of folder.
+**NL:** Werkmap. The place where all work on one subject comes together and lands: a client, a project or a department task. Folders nest. **Works in** shows where work in that folder happens: Board, Files and canvases in Bokito, and connections such as a GitHub repo, a Drive folder or an Exact administration. What a conversation produced lands here as **Delivered**. Connects to [Folders](/docs/ai/folders), [Labels](/docs/ai/categories) and [Knowledge](/docs/ai/knowledge).
 
-### {icon:contact} Contact
+### {icon:flow} Flow
 
-**NL:** Contact. The person on the other side, per channel. Status is approved, pending or blocked. Labels on the contact count toward folders. Connects to [Contacts](/docs/inbox/contacts), [Channels](/docs/inbox/channels) and the [widget](/docs/inbox/widget).
-
-### {icon:company} Organization
-
-**NL:** Bedrijf. The CRM company linked to a contact by email domain. This is not the workspace. Labels pass to every contact of that company and on to their conversations. Connects to [Contacts](/docs/inbox/contacts) and [Folders](/docs/ai/folders).
+**NL:** Flow. How one kind of work runs: stages, an owner per stage and an optional destination (**Delivers to**). The label with the flow is the mechanism underneath, for example `#complaint`. When a ticket reaches a Done stage, it is delivered to that destination. Connects to [Flows](/docs/ai/flows), [Labels](/docs/ai/categories) and [Folders](/docs/ai/folders).
 
 ### {icon:agent} Agent
 
-**NL:** Agent. An AI coworker with a name, job title, instructions, model and allowed tools. One agent is the lead and catches whatever nothing more specific is bound to. The same agent appears in the library, on Workforce, on Grid and in Communication. Connects to [Agents](/docs/ai/agents), [Workforce](/docs/getting-started/team), [Knowledge](/docs/ai/knowledge) and [Govern](/docs/govern/govern).
+**NL:** Agent. An AI worker with a name, job title, instruction, model, allowed tools and a ceiling. One agent is the lead and catches what is bound nowhere else. The same agent shows on Agents, on Workforce, on the Grid and in Communication. Connects to [Agents](/docs/ai/agents), [Workforce](/docs/getting-started/team) and [Knowledge](/docs/ai/knowledge).
 
-### {icon:decision} Decision
+### {icon:autonomy} Autonomy
 
-**NL:** Beslissing. A question in the conversation itself. Approving runs the action. Declining or deferring leaves it. Cards from the same turn form one bundle. [Today](/docs/getting-started/cockpit) shows the same cards under For you. [Govern](/docs/govern/govern) keeps only structural changes. Connects to [Decisions](/docs/ai/decisions).
+**NL:** Autonomie. What an agent may do on its own: **Autonomous**, **Assisted** or **Manual**. One dial in **Govern**, tab **Policy**, for the whole workspace. A channel, a conversation, an agent or a flow on **Always review** may sit lower; nothing goes above the dial. Connects to [Set Autonomy](/docs/govern/autonomy) and [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
+
+## Properties
+
+### {icon:hash} Label
+
+**NL:** Label. A hashtag on a conversation. A label with a flow makes the conversation a ticket in that flow; a conversation has at most one. Color and icon exist only while the flow is attached. Labels also decide which folder a conversation sits in. Connects to [Labels](/docs/ai/categories) and [Flows](/docs/ai/flows).
+
+### {icon:contact} Contact
+
+**NL:** Contact. The person on the other side, per channel. Status is approved, pending or blocked. Labels on the contact count for folders. Connects to [Contacts](/docs/inbox/contacts), [Channels](/docs/inbox/channels) and the [widget](/docs/inbox/widget).
+
+### {icon:company} Organization
+
+**NL:** Bedrijf. The CRM company of a contact, linked by email domain. This is not the workspace. Its labels pass down to every contact of that company and so to their conversations. Connects to [Contacts](/docs/inbox/contacts) and [Folders](/docs/ai/folders).
 
 ## Rail
 
-Pinned: New conversation, Today, Communication. Work: Folders, Flows, Agenda. AI: Agents, Knowledge, Grid. Organization: Workforce, Connections, Settings. Govern lives under Settings, not as its own rail item.
+At the top the **New conversation** button, then **Inbox** on its own, above the **Work** group. Group **Work**: Agenda, Folders, Flows. Group **Team**: Agents, Workforce. Above your account: **Connections**, then **Settings**. Today lives in Inbox, Knowledge under Agents, the Grid under Workforce, and Govern and Usage under Settings.
 
 ### {icon:new-chat} New conversation
 
-**NL:** Nieuw gesprek. Start a conversation with a company agent that is open to you, or an outbound customer message. With no reachable agent the composer says none are available. The corner helper is a different conversation and stays hidden on this screen. Connects to [Agents](/docs/ai/agents) and [Communication](/docs/inbox/communication).
+**NL:** Nieuw gesprek. Start a conversation with a company agent open to you, or an outbound client message. Without a reachable agent the composer says there are no agents. The helper in the corner is a different chat and is hidden on this screen. Connects to [Agents](/docs/ai/agents) and [Communication](/docs/inbox/communication).
+
+### {icon:communication} Inbox
+
+**NL:** Inbox. The desk of the day. Mail, website chat, Slack, WhatsApp and chats with agents in one list. Queues are views: For you, open, unassigned, closed, spam, per channel, per department and per agent. See [Communication](/docs/inbox/communication).
 
 ### {icon:today} Today
 
-**NL:** Today. The morning scan inside Communication (`/communication/today`): what needs attention, AI activity, open tickets, what is running and the week's trajectory. For you is the same list as For you in Communication. Connects to [Today](/docs/getting-started/cockpit), [Communication](/docs/inbox/communication) and [Agenda](/docs/ai/agenda).
-
-### {icon:canvas} Canvas
-
-**NL:** Canvas. A snapshot, not live tiles. You pick an agent. That agent builds the canvas in a conversation. Refresh is that conversation's repeat on the agenda. Folders have their own canvas. Connects to [Agents](/docs/ai/agents), [Agenda](/docs/ai/agenda) and [Folders](/docs/ai/folders).
-
-### {icon:usage} Usage
-
-**NL:** Verbruik. A tab on Today. Tokens and cost against a budget. An owner or admin changes the budget. Spend does not bypass an approval. Connects to [Today](/docs/getting-started/cockpit) and [Models](/docs/govern/models).
-
-### {icon:communication} Communication
-
-**NL:** Communicatie. Where the day happens. Mail, website chat, Slack, WhatsApp and chats with agents in one list. Queues are views: For you, open, unassigned, closed, spam, per channel, per department and per agent. Connects to each of the seven objects above. See [Communication](/docs/inbox/communication).
+**NL:** Vandaag. The first item in Inbox (`/communication/today`): what waits on you, AI activity, open tickets, what is running and the trend of the week. Connects to [Today](/docs/getting-started/cockpit) and [Agenda](/docs/ai/agenda).
 
 ### {icon:for-you} For you
 
-**NL:** Voor jou. Conversations whose turn or open decision sits with you or your department. The same block is called For you on Today. The bell counts these rows.
+**NL:** Voor jou. Conversations where the turn or an open decision sits with you or your department. The same block shows on Today. The bell counts these rows.
 
 ### {icon:composer} Composer
 
-**NL:** Opsteller. Reply, ask the AI, or leave an internal note. A note stays hidden from the customer. Email supports reply, reply all and forward. `/ticket #name` files a ticket. While you type, an autonomous agent drafts instead of sending. Connects to [Autonomy](/docs/inbox/inbox-ai).
+**NL:** Opsteller. Reply, ask the AI, or write an internal note. The client does not see a note. Email has reply, reply all and forward. `/ticket #name` files a ticket. While you type, an autonomous agent drafts instead of sending. Connects to [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
 
-### {icon:plan} Plan
+### {icon:decision} Decision
 
-**NL:** Plannen. Set a date or a repeat from a conversation. Agenda shows it. Closing lasts until the next run. Connects to [Agenda](/docs/ai/agenda).
-
-### {icon:assignment} Assignment
-
-**NL:** Toewijzen. One owner: a person, an agent or a department. Assigning a person sets that conversation's Autonomy to Manual. With no assignment it falls to the channel owner, otherwise to All people. Connects to [Workforce](/docs/getting-started/team) and [Channels](/docs/inbox/channels).
-
-### {icon:split} Split conversation
-
-**NL:** Gesprek splitsen. A second request in the same email thread becomes a new conversation. Later replies land there. Connects to [Labels](/docs/ai/categories).
-
-### {icon:no-reply} No reply needed
-
-**NL:** Geen antwoord nodig. The read says no answer is required. Repeated choices become a rule for that sender. Connects to [Autonomy](/docs/inbox/inbox-ai).
+**NL:** Beslissing. A question inside the conversation. Approve runs the action. Reject or snooze leaves it. Cards from the same turn form one bundle. Govern keeps only structural changes. Connects to [Decisions](/docs/ai/decisions).
 
 ### {icon:reply} Suggested reply
 
-**NL:** Voorgesteld antwoord. An agent draft in the conversation. In Assisted you approve, edit or decline it. A draft the customer has overtaken is marked outdated. Connects to [Decisions](/docs/ai/decisions).
+**NL:** Voorgesteld antwoord. A draft from the agent in the conversation. In Assisted you approve, edit or reject. A draft the client has overtaken is marked outdated. Connects to [Decisions](/docs/ai/decisions).
+
+### {icon:no-reply} No reply needed
+
+**NL:** Geen antwoord nodig. The reading says no answer is needed. Repeated choices become a rule for that sender. On the Grid such a conversation does not count as closed without a result. Connects to [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
+
+### {icon:delivered} Delivered
+
+**NL:** Opgeleverd. Where the work from a conversation landed: a reply through the channel, a place in a folder, or knowledge after a correction. The conversation shows a chip such as "Delivered in administration › Exact", and the Why panel lists the latest deliveries. Connects to [Folders](/docs/ai/folders) and [Communication](/docs/inbox/communication).
+
+### {icon:plan} Plan
+
+**NL:** Plannen. Set a date or repeat from a conversation. Agenda shows it. Closing lasts until the next time. Connects to [Agenda](/docs/ai/agenda).
+
+### {icon:assignment} Assignment
+
+**NL:** Toewijzen. One owner: a person, an agent or a department. Assigning a person sets the Autonomy of that conversation to Manual. Without an assignment it falls to the channel owner, otherwise to All people. Connects to [Workforce](/docs/getting-started/team) and [Channels](/docs/inbox/channels).
+
+### {icon:split} Split conversation
+
+**NL:** Gesprek splitsen. A second request in the same mail thread becomes a new conversation. New replies land there. Connects to [Labels](/docs/ai/categories).
 
 ### {icon:participants} Participants
 
-**NL:** Deelnemers. Several people and agents in one conversation. You invite, hand over the turn or post a visible message. `@agent` in the composer does that in one step. Too many turns in a row from one agent force a decision. Connects to [Agents](/docs/ai/agents).
-
-### {icon:folder} Folders
-
-**NL:** Mappen. The folder tree. Members read. Owners and admins rename, set labels and nest. Connects to [Folders](/docs/ai/folders). Docs on a folder are the same knowledge as on [Knowledge](/docs/ai/knowledge).
-
-### {icon:board} Board
-
-**NL:** Bord. Tickets of a flow, per stage. A folder shows the flows that match here. A flow shows a lane per folder. Dragging changes the stage. Connects to [Flows](/docs/ai/flows).
-
-### {icon:flows} Flows
-
-**NL:** Flows. The rail name of [Flows](/docs/ai/flows). Members see the board. Owners and admins create flows and edit stages. A flow picks a free hashtag or creates one.
-
-### {icon:stages} Stages
-
-**NL:** Fasen. Open, waiting, done, closed. A proposed ticket sits before the pipeline. A stage can carry a check-up. That check-up shows on the agenda and goes to whoever owns the conversation at that moment. Connects to [Agenda](/docs/ai/agenda).
+**NL:** Deelnemers. Several people and agents in one conversation. You invite, pass the turn or post a visible message. `@agent` in the composer does that in one step. Too many turns in a row from one agent force a decision. Connects to [Agents](/docs/ai/agents).
 
 ### {icon:agenda} Agenda
 
-**NL:** Agenda. What happened, what is due and what is planned, plus meetings from Google or Outlook. The What list is the same label tree as Communication. The rail count is due work on conversations assigned to you. Connects to [Agenda](/docs/ai/agenda), [Communication](/docs/inbox/communication) and [Connections](/docs/integrations/integrations).
+**NL:** Agenda. What happened, what is due and what is planned, plus events from Google or Outlook. The number on the rail counts due work on conversations assigned to you. Connects to [Agenda](/docs/ai/agenda), [Communication](/docs/inbox/communication) and [Connections](/docs/integrations/integrations).
+
+### {icon:folder} Folders
+
+**NL:** Werkmappen. The tree of folders. Members read. Owners and admins rename, set labels and nest. Each folder shows conversations, documentation and **Works in**. Connects to [Folders](/docs/ai/folders).
+
+### {icon:works-in} Works in
+
+**NL:** Werkt in. One section on the folder with every place where work in that folder happens, one card per place. A filled icon is inside Bokito (Board, Files, Canvas), an outlined icon is a connection. A connection that receives work always hangs on a folder. **Add to Works in** adds a place. Connects to [Folders](/docs/ai/folders) and [Connections](/docs/integrations/integrations).
+
+### {icon:canvas} Canvas
+
+**NL:** Canvas. A workspace inside a folder, for example for a client's numbers. It sits under Works in. An agent builds it in a conversation; refreshing is the repeat of that conversation on the agenda. Connects to [Folders](/docs/ai/folders), [Agents](/docs/ai/agents) and [Agenda](/docs/ai/agenda).
+
+### {icon:board} Board
+
+**NL:** Bord. Tickets of a flow, per stage. On a folder you see the flows that match there. On a flow you see a lane per folder. Dragging changes the stage. Connects to [Flows](/docs/ai/flows).
+
+### {icon:flows} Flows
+
+**NL:** Flows. The list of flows. Members see the board. Owners and admins create flows, change stages and pick **Delivers to**. A flow picks a free label or creates one. Connects to [Flows](/docs/ai/flows).
+
+### {icon:stages} Stages
+
+**NL:** Fasen. Not started, Waiting and Done, plus closed. A suggested ticket sits before the pipeline. A stage can have a checkup. It shows on the agenda and goes to the owner at that moment. Connects to [Agenda](/docs/ai/agenda).
 
 ### {icon:agent} Agents
 
-**NL:** Agents. The library. Members read and can chat when chat access allows it. Owners and admins create, brief, pick a model, set tools, choose the lead and archive. Deactivating moves open conversations to the lead. History stays. Connects to [Agents](/docs/ai/agents), [Workforce](/docs/getting-started/team) and [Models](/docs/govern/models).
-
-### {icon:assistant} Bokito assistant
-
-**NL:** Bokito. Your helper in the corner and under Help. Not a company agent, not on Grid, not in the library. It knows the screen, answers from these docs and hands work on within your role. A member cannot change channels, agents or Govern through Bokito. Connects to [Bokito](/docs/getting-started/assistant).
+**NL:** Agents. The library, with the **Knowledge** tab. Members read and may chat when chat access allows it. Owners and admins create, set instruction, model, tools, lead and archive. Deactivating moves open conversations to the lead. History stays. Connects to [Agents](/docs/ai/agents) and [Models](/docs/govern/models).
 
 ### {icon:knowledge} Knowledge
 
-**NL:** Kennis. Markdown agents read on every run. Scoped to the organization, a folder or an agent. Kinds include a document, memory, a persona, a skill and a heartbeat. Publishing makes an article for the widget. Connects to [Knowledge](/docs/ai/knowledge), [Agents](/docs/ai/agents) and the [widget](/docs/inbox/widget).
+**NL:** Kennis. Markdown agents read on every run, for the organization, a folder or an agent. Kinds are document, memory, persona, skill and heartbeat. Publishing makes an article for the widget. Connects to [Knowledge](/docs/ai/knowledge) and the [widget](/docs/inbox/widget).
 
-### {icon:grid} Grid
+### {icon:assistant} Bokito assistant
 
-**NL:** Grid. The organization map. The company in the center, departments as islands, people, agents, channels and flows as marks. Labels and Bokito are not on the map. Open in Grid sits on Workforce, Agents, Flows, Folders and Connections. You edit on those pages, not on the map. Connects to [Workforce](/docs/getting-started/team).
-
-### {icon:workforce} Workforce
-
-**NL:** Workforce. The directory of people, invites and agents, plus departments. Owners and admins invite and change roles. Only the owner changes another owner. An agent's ceiling sits in the same column as a person's role. Hire opens Connections. Connects to [Workforce](/docs/getting-started/team) and [Agents](/docs/ai/agents).
-
-### {icon:department} Department
-
-**NL:** Afdeling. A group of people and agents. All people and All agents always exist and do not appear as folders in Communication. Custom departments do, with a pickup: people pick up, agent first, round robin, or least open. Installing a module creates one department. Removing that department removes the module. Connects to [Channels](/docs/inbox/channels) and [Connections](/docs/integrations/integrations).
-
-### {icon:presence} Presence
-
-**NL:** Aanwezigheid. Available, away or offline. You set away from the account menu. Agents skip you, departments do not hand you new conversations, and website chat does not count you for a live handover. Connects to [Workforce](/docs/getting-started/team) and the [widget](/docs/inbox/widget).
-
-### {icon:connections} Connections
-
-**NL:** Koppelingen. Modules, partner logins and AI tools on one page. A login does not yet give agents tools. Install the module and assign an agent first. Mailboxes open Channels. Calendar apps open Agenda. Connects to [Connections](/docs/integrations/integrations) and [MCP](/docs/integrations/mcp).
-
-### {icon:module} Module
-
-**NL:** Module. A package that drops once: a department, a specialist, labels, a flow and a skill. After that it is ordinary workspace data. It does not add a rail item. Connects to [Workforce](/docs/getting-started/team), [Flows](/docs/ai/flows) and [Labels](/docs/ai/categories).
+**NL:** Bokito-assistent. Your helper in the corner and under Help. Not a company agent, not on the Grid and not in the library. Knows the screen, answers from these docs and hands work on within your role. A member cannot change channels, agents or Govern through Bokito. Connects to [Bokito](/docs/getting-started/assistant).
 
 ### {icon:workbench} Workbench
 
-**NL:** Werkbank. Coding work handed to Cursor, Claude, Devin or a similar tool. The result comes back in the conversation. Bokito does not host its own code editor. Connects to [Decisions](/docs/ai/decisions) and [Connections](/docs/integrations/integrations).
+**NL:** Werkbank. Coding work goes to Cursor, Claude, Devin or a similar tool. The result comes back in the conversation. Bokito shows no code editor of its own. Connects to [Decisions](/docs/ai/decisions) and [Connections](/docs/integrations/integrations).
+
+### {icon:workforce} Workforce
+
+**NL:** Workforce. The sections **People and agents** and **Departments**, plus the Grid and Workflow. Owners and admins invite and change roles. Only the owner changes another owner. An agent's ceiling sits in the same column as a person's role. Connects to [Workforce](/docs/getting-started/team) and [Agents](/docs/ai/agents).
+
+### {icon:department} Department
+
+**NL:** Afdeling. A group of people and agents. All people and All agents always exist and do not show in the Communication sidebar. Your own departments do, with a pickup mode: people pick up, agent first, round robin, or least open. A module install creates one department. Connects to [Workforce](/docs/getting-started/team) and [Channels](/docs/inbox/channels).
+
+### {icon:presence} Presence
+
+**NL:** Aanwezigheid. Available, away or offline. You set away in the account menu. Agents skip you, departments give you no new conversation, and website chat does not count you for a live handover. Connects to [Workforce](/docs/getting-started/team) and the [widget](/docs/inbox/widget).
+
+### {icon:grid} Grid
+
+**NL:** Grid. The organization map in 3D: departments with their people and agents, and the folders, flows and connections they work with. Next to it sits **Workflow**: how work runs through the company, in four layers from left to right: **Intake** (channels), **Executors** (people and agents per department), **Flow** and **Result** (reply, folders with their Works in, knowledge). Workflow's lenses are Flow, Labels and Autonomy, in 3D or 2D; bottlenecks sit in the side panel. **Open in Grid** sits on Agents, Flows, Folders and Connections. You edit on those pages. Connects to [Workforce](/docs/getting-started/team).
 
 ## Settings
 
-Personal settings belong to the member. Workspace, channels, labels, models, privacy and Govern belong to an owner or admin.
+Personal belongs to the member. Workspace, channels, labels, Govern, models, connections, usage and privacy belong to owners and admins.
 
-### {icon:profile} Profile and security
+### {icon:profile} Profile & security
 
-**NL:** Profiel en beveiliging. Name, interface language, start page, appearance, a personal signature and two-factor sign-in. The interface language is not the language agents write in.
+**NL:** Profiel en beveiliging. Name, screen language, start page, appearance, personal signature and two-step verification. The screen language is not the working language agents write in; that sits in Govern.
 
 ### {icon:notifications} Notifications
 
-**NL:** Meldingen. Now, later, or a daily digest. The bell opens For you. Connects to [Decisions](/docs/ai/decisions).
+**NL:** Meldingen. Now, later or in a daily digest. The bell opens For you. Connects to [Decisions](/docs/ai/decisions).
 
-### {icon:branding} General and branding
+### {icon:branding} General and Branding
 
-**NL:** Algemeen en huisstijl. The workspace name, logo and look. The logo also shows in the widget. Connects to the [setup guide](/docs/getting-started/setup-guide).
+**NL:** Algemeen en huisstijl. Name, logo and look of the workspace. The logo also shows in the widget. Connects to the [setup guide](/docs/getting-started/setup-guide).
 
 ### {icon:channels} Channels
 
-**NL:** Kanalen. Email, website chat, Slack and WhatsApp. Each channel has a default agent, an owner, Autonomy and a signature. A choice on the conversation wins over the default agent. Connects to [Channels](/docs/inbox/channels) and [Autonomy](/docs/inbox/inbox-ai).
-
-### {icon:Autonomy} Autonomy
-
-**NL:** Autonomie. Autonomous, Assisted or Manual. One dial on Govern for the whole workspace. A channel or a conversation may sit lower, as may an agent or a flow on Always review; nothing goes above the dial. Connects to [Autonomy](/docs/inbox/inbox-ai) and [autonomy](/docs/govern/autonomy).
+**NL:** Kanalen. Email, website chat, Slack and WhatsApp. Per channel a default agent, an owner and a signature. Autonomy per channel sits in Govern. A choice on the conversation wins over the default agent. Connects to [Channels](/docs/inbox/channels).
 
 ### {icon:labels} Labels
 
-**NL:** Labels. One list. Make a free label, attach a flow, or save it as a folder. This page also sets who may confirm an AI proposal. Members can always file a ticket themselves. Connects to [Labels](/docs/ai/categories).
+**NL:** Labels. One list. A free label, attach a flow, or turn it into a folder. Here you also set who may confirm an AI suggestion. Members may always file a ticket themselves. Connects to [Labels](/docs/ai/categories).
 
 ### {icon:govern} Govern
 
-**NL:** Govern. Two parts. The log shows pending proposals, history and the audit log. Autonomy holds the one dial, the default tool permissions and each agent's passport. Day-to-day replies stay in the conversation. Connects to [Govern](/docs/govern/govern) and [autonomy](/docs/govern/autonomy).
+**NL:** Govern. Two parts. The **Log**: pending reviews, version history and the recent audit. **Policy**: from top to bottom the Autonomy dial, the default per channel, **Safeguards**, handovers, the working language, and collapsed the default tool permissions. **Agent access** shows per agent what it may do. Daily replies stay in the conversation. Connects to [Govern](/docs/govern/govern) and [Set Autonomy](/docs/govern/autonomy).
 
 ### {icon:models} Models
 
-**NL:** Modellen. The workspace default, an image model, and per agent automatic or a pinned model. Without a live key, replies are placeholders. Connects to [Models](/docs/govern/models) and [Usage](/docs/getting-started/cockpit).
+**NL:** Modellen. The workspace default, an image model, and per agent automatic or a fixed model. Without a live key replies are placeholders. Connects to [Models](/docs/govern/models).
 
-### {icon:privacy} Data and privacy
+### {icon:connections} Connections
+
+**NL:** Koppelingen. Modules, partner logins and AI tools on one page. A login does not give agents tools yet: install the module first and assign an agent. A connection that receives work goes under Works in on a folder. Mailboxes open Channels. Calendar apps open Agenda. Connects to [Connections](/docs/integrations/integrations) and [MCP](/docs/integrations/mcp).
+
+### {icon:module} Module
+
+**NL:** Module. A package that sets up once: a department, a specialist, labels, a flow, a skill and a folder with the right Works in item. After that it is plain data. No extra rail item. Connects to [Workforce](/docs/getting-started/team), [Flows](/docs/ai/flows) and [Connections](/docs/integrations/integrations).
+
+### {icon:usage} Usage
+
+**NL:** Verbruik. Under **Settings**, **Usage**. Tokens and cost against a budget. An owner or admin changes the budget. Cost never bypasses an approval. Connects to [Today](/docs/getting-started/cockpit) and [Models](/docs/govern/models).
+
+### {icon:privacy} Data & privacy
 
 **NL:** Gegevens en privacy. Retention, whether the AI may use message text, EU-only models, and export or erase a person. Connects to [Data & privacy](/docs/govern/privacy-security).
 
 ### {icon:developers} Developers
 
-**NL:** Ontwikkelaars. API tokens, MCP clients and outbound webhooks. Connects to the [API today](/docs/developers/api-today), [webhooks](/docs/developers/webhooks) and the [MCP endpoint](/docs/developers/mcp-endpoint).
+**NL:** Voor ontwikkelaars. API tokens, MCP clients and outbound webhooks. Connects to the [API overview](/docs/developers/api-overview), [webhooks](/docs/developers/webhooks) and the [MCP endpoint](/docs/developers/mcp-endpoint).
 
 ### {icon:bin} Bin
 
-**NL:** Prullenbak. Deleted conversations, contacts, folders, knowledge, flows, agenda items and departments. Restore or delete permanently. Connects to [Data & privacy](/docs/govern/privacy-security).
+**NL:** Prullenbak. Deleted conversations, contacts, folders, knowledge, flows, agenda items and departments. Restore or delete for good. Connects to [Data & privacy](/docs/govern/privacy-security).
 
 ### {icon:help} Help and setup guide
 
 **NL:** Hulp en instelgids. The checklist for a new workspace and the tour of the rail. Connects to the [setup guide](/docs/getting-started/setup-guide) and the [tour](/docs/getting-started/tour).
 
-## Where names meet
-
-| What you see | What it is |
-| --- | --- |
-| Flows in the rail | [Flows](/docs/ai/flows) |
-| For you and For you | The same conversations, two doors |
-| A folder in the Communication sidebar | A department, not a [folder](/docs/ai/folders) |
-| Autonomous, Assisted, Manual | The Autonomy dial in [Govern](/docs/govern/autonomy) and the exceptions in [Autonomy](/docs/inbox/inbox-ai) |
-| Agents in four places | Library, Workforce, Grid and Communication |
-| Knowledge and docs on a folder | The same documents, two doors |
-
 ## What to do next
 
 1. Open [Communication](/docs/inbox/communication) and work one conversation.
-2. Set the Autonomy dial in [Govern](/docs/govern/autonomy), then the safeguards in [Autonomy](/docs/inbox/inbox-ai).
-3. Follow the [setup guide](/docs/getting-started/setup-guide) when the workspace is still empty.
+2. In **Govern**, tab **Policy**, set the Autonomy dial ([Set Autonomy](/docs/govern/autonomy)) and then, on the same tab, the **Safeguards** ([Replies, safeguards and handovers](/docs/inbox/inbox-ai)).
+3. Follow the [setup guide](/docs/getting-started/setup-guide) if the workspace is still empty.

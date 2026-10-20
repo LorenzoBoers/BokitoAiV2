@@ -272,7 +272,7 @@ export function CanvasHost({
                   <CANVAS_ICON size={14} className="shrink-0 opacity-80" aria-hidden />
                   <span className="truncate">{row.title}</span>
                   {pending ? (
-                    <span className="ml-1 truncate text-[10px] font-normal text-text-muted">
+                    <span className="ml-1 truncate text-2xs font-normal text-text-muted">
                       {t('projects.canvas.buildingBadge')}
                     </span>
                   ) : null}
@@ -300,7 +300,7 @@ export function CanvasHost({
               <CANVAS_ICON size={28} className="text-text-muted opacity-70" aria-hidden />
               <p className="text-sm text-text-muted">{t('projects.canvas.emptyHint')}</p>
               {canEdit ? (
-                <Button type="button" size="sm" variant="outline" onClick={() => void openAdd()} disabled={busy}>
+                <Button type="button" size="sm" variant="secondary" onClick={() => void openAdd()} disabled={busy}>
                   <Plus size={14} className="mr-1.5 shrink-0" aria-hidden />
                   {t('projects.canvas.add')}
                 </Button>
@@ -376,7 +376,7 @@ export function CanvasHost({
                     </Button>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" size="sm" variant="outline" asChild>
+                    <Button type="button" size="sm" variant="secondary" asChild>
                       <Link to={threadHref(row)}>
                         <ENTITY_ICONS.conversation size={14} className="mr-1.5 shrink-0" aria-hidden />
                         {row.thread?.title || t('projects.canvas.openThread')}

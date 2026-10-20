@@ -89,7 +89,7 @@ export function TicketStageGateProvider({ children }: { children: ReactNode }) {
             ))}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => close(null)}>
+            <Button type="button" variant="secondary" onClick={() => close(null)}>
               {t('tickets.stageFieldsCancel')}
             </Button>
             <Button type="button" disabled={!valid} onClick={() => close(draft)}>

@@ -53,11 +53,15 @@ async def test_internal_agent_thread_generates_reply(client: AsyncClient, sessio
     )
     assert reply.status_code == 200
 
-    detail = await client.get(f"/api/signals/{sig.id}", headers=headers)
-    assert detail.status_code == 200
-    messages = detail.json()["messages"]
-    # The operator's message plus a generated agent reply.
-    assert any(m.get("direction") == "outbound" and m.get("kind") == "agent_message" for m in messages)
+    from sqlalchemy import select
+
+    from app.models.agent_turn import AgentTurn
+
+    turns = (
+        await session_override.execute(select(AgentTurn).where(AgentTurn.signal_id == sig.id))
+    ).scalars().all()
+    # The thread's agent gets the turn; the worker writes the reply.
+    assert [(t.agent_id, t.cause_kind, t.status) for t in turns] == [(agent.id, "human", "queued")]
 
 
 @pytest.mark.asyncio

@@ -8,6 +8,7 @@ import {
   streamRateJitter,
 } from '@bokito/shared'
 import { nextChipRevealLength } from '../lib/chatText'
+import { publishLiveGlowPace } from '../lib/live-glow-pace'
 
 export { SMOOTH_STREAM, SMOOTH_STREAM_CPS, revealLimit, smoothStreamRate, streamRateJitter }
 
@@ -35,6 +36,7 @@ export function useSmoothStreamText(
   const startedAtRef = useRef<number | null>(null)
   const carryRef = useRef(0)
   const lastRef = useRef(0)
+  const shownRef = useRef(0)
 
   useEffect(() => {
     const reduceMotion =
@@ -47,6 +49,7 @@ export function useSmoothStreamText(
 
     const tick = (now: number) => {
       if (cancelled) return
+      const frameDt = Math.min(Math.max(now - lastRef.current, 0), SMOOTH_STREAM.maxFrameMs)
       const result = advanceSmoothStream({
         goal: targetRef.current,
         prev: visibleRef.current,
@@ -62,6 +65,13 @@ export function useSmoothStreamText(
       lastRef.current = result.lastMs
       startedAtRef.current = result.startedAtMs
       carryRef.current = result.carry
+      const gained = result.visible.length - shownRef.current
+      const behind = result.visible.length < targetRef.current.length
+      if (!reduceMotion && (behind || gained > 0)) {
+        const cps = frameDt > 0 ? (Math.max(0, gained) * 1000) / frameDt : 0
+        publishLiveGlowPace(cps / SMOOTH_STREAM_CPS.cruiseCps)
+      }
+      shownRef.current = result.visible.length
       if (result.visible !== visibleRef.current) {
         visibleRef.current = result.visible
         setVisible(result.visible)

@@ -9,6 +9,7 @@ import ContactPanel from './ContactPanel'
 import AgentContextPanel from './AgentContextPanel'
 import { ConversationWorkSection } from './ConversationWorkSection'
 import ScrollFade from '../ui/ScrollFade'
+import { Button } from '../ui/button'
 
 type Props = {
   thread: InboxThread
@@ -124,15 +125,15 @@ export default function AgentThreadPanel({
   }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId, t])
 
   const closeAction = (
-    <button
+    <Button variant="ghost" size="iconSm"
       type="button"
       onClick={onClose}
-      className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
+      className="-mr-1 shrink-0 text-text-muted"
       aria-label={t('threadChrome.hideDetails', { ns: 'communication' })}
       title={t('threadChrome.hideDetails', { ns: 'communication' })}
     >
       <PanelRightClose size={14} />
-    </button>
+    </Button>
   )
 
   return (

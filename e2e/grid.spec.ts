@@ -8,17 +8,24 @@ async function firstAgentNode(page: Page, scope: string) {
 }
 
 test.describe('Grid', () => {
-  test('2D board opens the detail of a node', async ({ page }) => {
+  test('Grid shows the relation map without lenses', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/workforce/grid')
+    await expect(page.getByTestId('grid-page')).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Labels' })).toHaveCount(0)
+  })
+
+  test('Workflow 2D board opens the detail of a node', async ({ page }) => {
+    await loginDashboard(page)
+    await page.goto('/workforce/workflow?view=2d')
     const node = await firstAgentNode(page, '')
     await node.click()
     await expect(page.getByTestId('grid-detail')).toBeVisible()
   })
 
-  test('3D scene opens the same detail', async ({ page }) => {
+  test('Workflow opens in 3D and opens the same detail', async ({ page }) => {
     await loginDashboard(page)
-    await page.goto('/workforce/grid?view=3d')
+    await page.goto('/workforce/workflow')
     await expect(page.getByTestId('grid-3d')).toBeVisible({ timeout: 20000 })
     const node = await firstAgentNode(page, '[data-testid="grid-3d"]')
     await node.click()
@@ -27,7 +34,7 @@ test.describe('Grid', () => {
 
   test('Labels lens keeps the lens and an isolated label in the URL', async ({ page }) => {
     await loginDashboard(page)
-    await page.goto('/workforce/grid')
+    await page.goto('/workforce/workflow')
     await firstAgentNode(page, '')
     await page.getByRole('radio', { name: 'Labels' }).click()
     await expect(page).toHaveURL(/lens=labels/)

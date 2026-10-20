@@ -1,9 +1,8 @@
 import { getInitials, getAvatarColor } from '../../lib/avatar'
 import { cn } from '../../lib/utils'
+import { AvatarDisc } from './AvatarDisc'
 import { PresenceCorner } from './PresenceCorner'
 import type { PresenceStatus } from '../../lib/teams-api'
-
-type Presence = PresenceStatus
 
 interface UserAvatarProps {
   name: string
@@ -14,38 +13,30 @@ interface UserAvatarProps {
   /** Hide the name/initials from assistive tech when a parent already labels the control. */
   decorative?: boolean
   /** Availability dot in the corner. */
-  presence?: Presence
+  presence?: PresenceStatus
 }
 
+/** Workspace member face: photo or colored initials, optional presence corner. */
 export function UserAvatar({
   name,
   email,
   avatarUrl,
   size = 32,
-  className = '',
+  className,
   decorative = false,
   presence,
 }: UserAvatarProps) {
-  const initials = getInitials(name)
-  const { bg, text } = getAvatarColor(email)
-  const fontSize = Math.round(size * 0.36)
-  const borderRadius = Math.round(size / 2)
-
-  const face = avatarUrl ? (
-    <img
-      src={avatarUrl}
-      alt={decorative ? '' : name}
-      style={{ width: size, height: size, borderRadius }}
-      className={`object-cover shrink-0 ${presence ? '' : className}`}
-    />
-  ) : (
-    <span
-      aria-hidden={decorative || undefined}
-      style={{ width: size, height: size, borderRadius, background: bg, color: text, fontSize }}
-      className={`inline-flex items-center justify-center font-semibold leading-none shrink-0 select-none ${presence ? '' : className}`}
+  const face = (
+    <AvatarDisc
+      size={size}
+      imageUrl={avatarUrl}
+      alt={name}
+      colors={getAvatarColor(email)}
+      decorative={decorative}
+      className={presence ? undefined : className}
     >
-      {initials}
-    </span>
+      {getInitials(name)}
+    </AvatarDisc>
   )
 
   if (!presence) return face

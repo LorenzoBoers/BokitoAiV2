@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Eye, PenLine } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -6,6 +7,7 @@ import SidebarCustomizeDialog from '../inbox/SidebarCustomizeDialog'
 import { SidebarEditorProvider, useSidebarEditor } from '../../context/SidebarEditorContext'
 import { SidebarPrefsProvider } from '../../context/SidebarPrefsContext'
 import { SplitPane, SplitRow } from '../ui/SplitRow'
+import { HubMainSkeleton } from '../ui/skeleton'
 
 /**
  * Communication hub layout: customizable inner rail (Today, All
@@ -62,7 +64,9 @@ function MessagesHubFrame() {
         <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
           <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-hidden">
-              <Outlet />
+              <Suspense fallback={<HubMainSkeleton />}>
+                <Outlet />
+              </Suspense>
             </div>
           </div>
         </SplitPane>

@@ -1,9 +1,11 @@
 import { cn } from '../../lib/utils'
 import type { LabelColor } from '../../lib/signals-api'
 import { useTagMark } from '../../lib/tag-marks'
+import { StatusDot } from './status-dot'
 import {
   FLOW_LABEL_COLOR,
   FLOW_LABEL_ICON,
+  TAG_PILL_SIZE,
   labelMarkIcon,
   labelMarkInk,
 } from './label-marks'
@@ -31,16 +33,7 @@ export function HashtagMark({
   className?: string
 }) {
   const tint = color ? MARK_COLOR[color] : null
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        'inline-block h-2 w-2 shrink-0 rounded-full',
-        tint ?? 'bg-text-muted',
-        className,
-      )}
-    />
-  )
+  return <StatusDot className={cn(tint ?? 'bg-text-muted', className)} />
 }
 
 function MarkedPill({
@@ -65,7 +58,7 @@ function MarkedPill({
     <span
       className={cn(
         'tag-pill inline-flex max-w-full items-center font-medium leading-none',
-        size === 'sm' ? 'h-5 gap-1 rounded-full px-2 text-2xs' : 'h-7 gap-2 rounded-full px-3.5 text-xs',
+        TAG_PILL_SIZE[size],
         !ink && 'bg-bg-hover text-text-heading',
         className,
       )}

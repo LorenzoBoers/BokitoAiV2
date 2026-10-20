@@ -1,12 +1,16 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
+import { isBotOrbBusyLoop, isBotOrbOneShot, oneShotDurationMs, type BotOrbOneShot } from '../../lib/bot-orb-motion'
 import {
-  BOT_ORB_MS,
-  isBotOrbBusyLoop,
-  isBotOrbOneShot,
-  oneShotDurationMs,
-  type BotOrbOneShot,
-} from '../../lib/bot-orb-motion'
+  BotOrbRig,
+  GAZE_MAX_X,
+  GAZE_MAX_Y,
+  playLoop,
+  playShot,
+  restingFace,
+  type Gaze,
+  type RigFrame,
+} from '../../lib/bot-orb-rig'
 import {
   botOrbShapeDef,
   resolveBotOrbColor,
@@ -74,11 +78,6 @@ function resolveBotOrbPaused(
   return Boolean(paused)
 }
 
-type EyeAct = 'base' | 'squint' | 'blink' | 'happy'
-type ActKind = 'look' | 'squint' | 'blink'
-type ThinkSide = 'center' | 'left' | 'right'
-type Gaze = { x: number; y: number }
-
 /** Orbit chrome always uses brand violet — independent of avatar body color. */
 const BOT_ORB_ORBIT_COLOR = '#9159fe'
 /**
@@ -93,59 +92,22 @@ const BOT_ORB_BADGE_FILL = BOT_ORB_ORBIT_COLOR
  * so the stroke reads as wrapping around the mark.
  */
 type OrbitRing = {
-  /** CSS BEM suffix: a | b */
   id: 'a' | 'b'
-  /** Screen-plane tilt of the orbital plane (deg). */
   tiltDeg: number
-  /** Minor radius — smaller = steeper foreshortening. */
   ry: number
   rx?: number
   dash: string
   strokeWidth: number
   opacity: number
-  /** Optional leading arc on this plane (thinking / typing). */
   load?: boolean
 }
 
-/**
- * Dash lengths use pathLength=100 so crawl animations can shift
- * stroke-dashoffset by exactly one lap without rotating the ellipse.
- * Typing uses dots (no orbits). Working reuses the former typing orbit pace.
- */
-function orbitRingsForMotion(motion: BotOrbMotion): OrbitRing[] | null {
-  if (motion === 'working') {
-    return [
-      {
-        id: 'a',
-        tiltDeg: 38,
-        ry: 11.5,
-        dash: '4 10',
-        strokeWidth: 1.4,
-        opacity: 0.45,
-        load: true,
-      },
-      {
-        id: 'b',
-        tiltDeg: -52,
-        ry: 13,
-        dash: '3 11',
-        strokeWidth: 1.1,
-        opacity: 0.3,
-      },
-    ]
-  }
-  return null
-}
+const WORK_RINGS: OrbitRing[] = [
+  { id: 'a', tiltDeg: 38, ry: 11.5, dash: '4 10', strokeWidth: 1.4, opacity: 0.45, load: true },
+  { id: 'b', tiltDeg: -52, ry: 13, dash: '3 11', strokeWidth: 1.1, opacity: 0.3 },
+]
 
-function OrbitHalves({
-  rings,
-  clipId,
-  layer,
-}: {
-  rings: OrbitRing[]
-  clipId: string
-  layer: 'back' | 'front'
-}) {
+function OrbitHalves({ rings, clipId, layer }: { rings: OrbitRing[]; clipId: string; layer: 'back' | 'front' }) {
   const frontBoost = layer === 'front' ? 1.2 : 0.88
   return (
     <g className={`bot-orb__orbits bot-orb__orbits--${layer}`} aria-hidden>
@@ -156,10 +118,6 @@ function OrbitHalves({
           transform={`rotate(${ring.tiltDeg} 32 32)`}
         >
           <g clipPath={`url(#${clipId})`}>
-            {/*
-              Ellipse stays fixed in its tilted plane. Only dashoffset crawls,
-              so the segment travels along the orbit (behind then in front).
-            */}
             <ellipse
               className="bot-orb__orbit-ring"
               cx="32"
@@ -196,70 +154,27 @@ function OrbitHalves({
   )
 }
 
-/** Idle look targets (SVG user units; view-box transform). */
-const LOOK_GAZE: Record<string, Gaze> = {
-  'look-left': { x: -5.4, y: 0 },
-  'look-right': { x: 5.4, y: 0 },
-  'look-up': { x: 0, y: -4.6 },
-  'look-down': { x: 0, y: 3.8 },
-  'look-up-left': { x: -5.2, y: -3.2 },
-  'look-up-right': { x: 5.2, y: -3.2 },
-  'look-down-left': { x: -5.2, y: 3.2 },
-  'look-down-right': { x: 5.2, y: 3.2 },
-}
-
-const LOOK_SEQS: (keyof typeof LOOK_GAZE)[][] = [
-  ['look-left', 'look-up-left'],
-  ['look-right', 'look-up-right'],
-  ['look-left', 'look-down-left'],
-  ['look-right', 'look-down-right'],
-  ['look-left'],
-  ['look-right'],
-  ['look-down'],
-  ['look-up'],
-]
-
-/** Thinking: glance up, still on the face (not into the forehead/ears). */
-const THINK_Y = -6.8
-const THINK_X = 4.6
-const THINK_GAZE: Record<ThinkSide, Gaze> = {
-  center: { x: 0, y: THINK_Y },
-  left: { x: -THINK_X, y: THINK_Y },
-  right: { x: THINK_X, y: THINK_Y },
-}
-
-/** Typing: slight down toward the composer. */
-const TYPE_GAZE: Gaze = { x: 0, y: 4.2 }
-
-/** Working focus rest; glances stay a small jitter around this. */
-const WORK_FOCUS: Gaze = { x: 0.25, y: -0.35 }
-/** Max SVG-unit offset from focus (keep subtle — eyes should barely jitter). */
-const WORK_JITTER_X = 0.55
-const WORK_JITTER_Y = 0.4
-const MS_WORK_GLANCE = 75
-
-const GAZE_MAX_X = 9.2
-const GAZE_MAX_Y = 6.4
-const GAZE_NORM_Y = Math.max(GAZE_MAX_Y, Math.abs(THINK_Y))
-const PROXIMITY_PX = 200
-
 const EYE_TILT_MAX = 11
 const EYE_SQUASH_MAX = 0.34
 const EYE_WIDEN_MAX = 0.1
+const GAZE_NORM_Y = 6.8
+const PROXIMITY_PX = 200
+/** Beyond eye range the whole body still leans a little toward the cursor. */
+const LEAN_PX = 720
 
-const MS_LOOK = BOT_ORB_MS.look
-const MS_THINK = BOT_ORB_MS.thinkSway
-const MS_SETTLE = BOT_ORB_MS.settle
-const MS_TRACK = BOT_ORB_MS.track
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
 
 function gazeEyePose(gaze: Gaze): { tiltDeg: number; scaleX: number; scaleY: number } {
   const nx = clamp(gaze.x / GAZE_MAX_X, -1, 1)
   const ny = clamp(gaze.y / GAZE_NORM_Y, -1, 1)
   const absNy = Math.abs(ny)
-  const tiltDeg = -nx * ny * EYE_TILT_MAX
-  const scaleY = 1 - absNy * EYE_SQUASH_MAX
-  const scaleX = 1 + absNy * EYE_WIDEN_MAX
-  return { tiltDeg, scaleX, scaleY }
+  return {
+    tiltDeg: -nx * ny * EYE_TILT_MAX,
+    scaleX: 1 + absNy * EYE_WIDEN_MAX,
+    scaleY: 1 - absNy * EYE_SQUASH_MAX,
+  }
 }
 
 /**
@@ -272,74 +187,261 @@ const NOSE_SEP = 0.28
 const NOSE_TILT_MAX = 6
 const NOSE_SQUASH_MAX = 0.18
 
-function gazeNostrilPose(
-  gaze: Gaze,
-  side: 'left' | 'right',
-): { x: number; y: number; tiltDeg: number; scaleX: number; scaleY: number } {
+function gazeNostrilPose(gaze: Gaze, side: 'left' | 'right') {
   const nx = clamp(gaze.x / GAZE_MAX_X, -1, 1)
   const ny = clamp(gaze.y / GAZE_NORM_Y, -1, 1)
-  const sideSign = side === 'left' ? -1 : 1
-  // Positive when this nostril is on the near side of a head turn toward gaze.
-  const toward = sideSign * nx
-  const x = gaze.x * NOSE_PARALLAX_X + toward * NOSE_SEP
-  const y = gaze.y * NOSE_PARALLAX_Y
-  const tiltDeg = -nx * ny * NOSE_TILT_MAX
-  const scaleX = 1 + toward * 0.16 - Math.abs(nx) * 0.05
-  const scaleY = 1 - Math.abs(ny) * NOSE_SQUASH_MAX + toward * 0.05
-  return { x, y, tiltDeg, scaleX, scaleY }
-}
-
-function sleep(ms: number, signal: AbortSignal) {
-  return new Promise<void>((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException('aborted', 'AbortError'))
-      return
-    }
-    const id = window.setTimeout(() => resolve(), ms)
-    const onAbort = () => {
-      window.clearTimeout(id)
-      reject(new DOMException('aborted', 'AbortError'))
-    }
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
-}
-
-function randBetween(min: number, max: number) {
-  return min + Math.random() * (max - min)
+  const toward = (side === 'left' ? -1 : 1) * nx
+  return {
+    x: gaze.x * NOSE_PARALLAX_X + toward * NOSE_SEP,
+    y: gaze.y * NOSE_PARALLAX_Y,
+    tiltDeg: -nx * ny * NOSE_TILT_MAX,
+    scaleX: 1 + toward * 0.16 - Math.abs(nx) * 0.05,
+    scaleY: 1 - Math.abs(ny) * NOSE_SQUASH_MAX + toward * 0.05,
+  }
 }
 
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n))
+/** Spawn class for this paint. The CSS rise must be on the first frame that
+ * has the key — waiting for an effect flashes the orb at full size first. */
+function unplayedSpawn(spawnKey: string | null, frozen: boolean): BotOrbSpawnStyle | null {
+  if (!spawnKey || frozen || prefersReducedMotion()) return null
+  if (playedBotOrbSpawnKeys.has(spawnKey)) return null
+  return spawnStyleFromKey(spawnKey)
 }
 
-function pickAct(last: ActKind | null): ActKind {
-  const roll = Math.random()
-  let kind: ActKind
-  if (roll < 0.4) kind = 'blink'
-  else if (roll < 0.78) kind = 'look'
-  else kind = 'squint'
-  if (last !== null && kind === last && Math.random() < 0.65) {
-    const others: ActKind[] = (['blink', 'look', 'squint'] as const).filter((k) => k !== last)
-    kind = others[Math.floor(Math.random() * others.length)]!
-  }
-  return kind
+const n2 = (v: number) => (Math.round(v * 100) / 100).toString()
+
+const EYE_CY = 31
+const EYE_CX = { left: 22.8, right: 41.2 } as const
+const NOSE_ORIGIN = { left: [29.2, 35.2], right: [34.9, 35.2] } as const
+
+type PaintRefs = {
+  rig: SVGGElement | null
+  gaze: SVGGElement | null
+  eyes: SVGGElement | null
+  eyeL: SVGRectElement | null
+  eyeR: SVGRectElement | null
+  arcL: SVGPathElement | null
+  arcR: SVGPathElement | null
+  noseL: SVGPathElement | null
+  noseR: SVGPathElement | null
+  noseOne: SVGPathElement | null
 }
 
-function pickLookSeq(lastIdx: number | null): { seq: (keyof typeof LOOK_GAZE)[]; idx: number } {
-  let idx = Math.floor(Math.random() * LOOK_SEQS.length)
-  if (lastIdx !== null && idx === lastIdx && LOOK_SEQS.length > 1 && Math.random() < 0.7) {
-    idx = (idx + 1 + Math.floor(Math.random() * (LOOK_SEQS.length - 1))) % LOOK_SEQS.length
+function eyeTransform(cx: number, f: RigFrame, side: 'left' | 'right') {
+  const k = side === 'left' ? f.kl : f.kr
+  const tilt = side === 'left' ? f.tl : f.tr
+  const dy = side === 'left' ? f.dyl : f.dyr
+  const sy = Math.max(0.02, f.esy * k * f.lid)
+  return `translate(${cx} ${n2(EYE_CY + dy)}) rotate(${n2(tilt)}) scale(${n2(f.esx * k)} ${n2(sy)}) translate(${-cx} ${-EYE_CY})`
+}
+
+function paintFrame(el: PaintRefs, f: RigFrame) {
+  el.rig?.setAttribute(
+    'transform',
+    `translate(${n2(f.bx)} ${n2(f.by)}) rotate(${n2(f.br)} 32 44) translate(32 56) scale(${n2(f.sx)} ${n2(f.sy)}) translate(-32 -56)`,
+  )
+  if (el.rig) {
+    el.rig.style.opacity = f.alpha < 0.999 ? n2(Math.max(0, f.alpha)) : ''
+    el.rig.style.filter = f.speed > 60 ? `blur(${n2(Math.min(2.4, f.speed / 140))}px)` : ''
   }
-  return { seq: LOOK_SEQS[idx]!, idx }
+  const gaze = { x: f.gx, y: f.gy }
+  el.gaze?.setAttribute('transform', `translate(${n2(gaze.x)} ${n2(gaze.y)})`)
+  const pose = gazeEyePose(gaze)
+  el.eyes?.setAttribute(
+    'transform',
+    `translate(32 31) rotate(${n2(pose.tiltDeg)}) scale(${n2(pose.scaleX)} ${n2(pose.scaleY)}) translate(-32 -31)`,
+  )
+  const left = eyeTransform(EYE_CX.left, f, 'left')
+  const right = eyeTransform(EYE_CX.right, f, 'right')
+  for (const [node, t, show] of [
+    [el.eyeL, left, !f.arc],
+    [el.eyeR, right, !f.arc],
+    [el.arcL, left, f.arc],
+    [el.arcR, right, f.arc],
+  ] as const) {
+    if (!node) continue
+    node.setAttribute('transform', t)
+    node.setAttribute('opacity', show ? '1' : '0')
+  }
+  for (const side of ['left', 'right'] as const) {
+    const node = side === 'left' ? el.noseL : el.noseR
+    if (!node) continue
+    const p = gazeNostrilPose(gaze, side)
+    const [ox, oy] = NOSE_ORIGIN[side]
+    node.setAttribute(
+      'transform',
+      `translate(${n2(p.x - gaze.x)} ${n2(p.y - gaze.y)}) translate(${ox} ${oy}) rotate(${n2(p.tiltDeg)}) scale(${n2(p.scaleX)} ${n2(p.scaleY)}) translate(${-ox} ${-oy})`,
+    )
+  }
+  el.noseOne?.setAttribute(
+    'transform',
+    `translate(${n2(gaze.x * (NOSE_PARALLAX_X - 1))} ${n2(gaze.y * (NOSE_PARALLAX_Y - 1))})`,
+  )
+}
+
+const SPARKLE = 'M0 -4 L1 -1 L4 0 L1 1 L0 4 L-1 1 L-4 0 L-1 -1 Z'
+
+/** Mood chrome around the face. Pure SVG; CSS animates it. */
+function MoodChrome({ motion }: { motion: BotOrbMotion }) {
+  switch (motion) {
+    case 'thinking':
+      return (
+        <g transform="translate(48 10) rotate(12)">
+          <g className="bot-orb__think-mark">
+            <text
+              className="bot-orb__badge-glyph"
+              x="0"
+              y="0"
+              fill={BOT_ORB_BADGE_FILL}
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="0.95"
+              paintOrder="stroke fill"
+              strokeLinejoin="round"
+              fontSize="19"
+              fontWeight="700"
+              fontFamily="var(--font-sans), system-ui, sans-serif"
+              textAnchor="middle"
+              dominantBaseline="central"
+            >
+              ?
+            </text>
+          </g>
+        </g>
+      )
+    case 'typing':
+      return (
+        <g className="bot-orb__type-dots" transform="translate(32 56)">
+          {[-8.5, 0, 8.5].map((cx) => (
+            <circle
+              key={cx}
+              className="bot-orb__type-dot bot-orb__badge-glyph"
+              cx={cx}
+              cy="0"
+              r="2.8"
+              fill={BOT_ORB_BADGE_FILL}
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="0.7"
+            />
+          ))}
+        </g>
+      )
+    case 'searching':
+      return (
+        <g className="bot-orb__fx bot-orb__sonar" fill="none">
+          <circle className="bot-orb__ping" cx="32" cy="32" r="29" />
+          <circle className="bot-orb__ping bot-orb__ping--late" cx="32" cy="32" r="29" />
+        </g>
+      )
+    case 'writing':
+      return (
+        <g className="bot-orb__fx">
+          <path className="bot-orb__scribble" d="M38 59 q3 -3.4 6 0 t6 0 t6 0" fill="none" pathLength={100} />
+          <g transform="translate(55 50) rotate(32)">
+            <g className="bot-orb__pencil bot-orb__badge-glyph">
+              <rect x="-2.2" y="-12" width="4.4" height="10.5" rx="1.2" />
+              <path d="M-2.2 -1.5 L2.2 -1.5 L0 3.2 Z" />
+            </g>
+          </g>
+        </g>
+      )
+    case 'sending':
+      return (
+        <g className="bot-orb__fx">
+          {[0, 1, 2].map((i) => (
+            <circle key={i} className={`bot-orb__send-dot bot-orb__send-dot--${i}`} cx="56" cy="30" r={2.6 - i * 0.5} />
+          ))}
+        </g>
+      )
+    case 'sleeping':
+      return (
+        <g className="bot-orb__fx" fontFamily="var(--font-sans), system-ui, sans-serif" fontWeight="700">
+          <text className="bot-orb__zz" x="48" y="14" fontSize="11">
+            z
+          </text>
+          <text className="bot-orb__zz bot-orb__zz--late" x="55" y="6" fontSize="8">
+            z
+          </text>
+        </g>
+      )
+    case 'yes':
+    case 'done':
+      return (
+        <g className="bot-orb__fx">
+          {[
+            [6, 14],
+            [58, 10],
+            [3, 42],
+            [61, 40],
+          ].map(([x, y], i) => (
+            <g key={i} transform={`translate(${x} ${y})`}>
+              <path className={`bot-orb__sparkle bot-orb__sparkle--${i}`} d={SPARKLE} />
+            </g>
+          ))}
+        </g>
+      )
+    case 'no':
+      return (
+        <g className="bot-orb__fx" transform="translate(53 14)">
+          <path className="bot-orb__sweat" d="M0 -4.5 C2 -1.2 3.2 0.8 3.2 2.3 A3.2 3.2 0 0 1 -3.2 2.3 C-3.2 0.8 -2 -1.2 0 -4.5 Z" />
+        </g>
+      )
+    case 'alert':
+      return (
+        <g className="bot-orb__fx" transform="translate(32 -1)">
+          <g className="bot-orb__bang">
+            <rect x="-2.1" y="-11" width="4.2" height="9" rx="2.1" />
+            <circle cx="0" cy="2.4" r="2.2" />
+          </g>
+        </g>
+      )
+    case 'jump':
+      return (
+        <g className="bot-orb__fx bot-orb__ticks" fill="none" strokeLinecap="round">
+          <path d="M22 5 l-3 -5" />
+          <path d="M32 2 v-6" />
+          <path d="M42 5 l3 -5" />
+        </g>
+      )
+    case 'leave':
+      return (
+        <g className="bot-orb__fx bot-orb__speed" fill="none" strokeLinecap="round">
+          <path d="M-6 24 h14" />
+          <path d="M-10 33 h18" />
+          <path d="M-5 42 h12" />
+          <circle className="bot-orb__puff" cx="24" cy="58" r="4" />
+          <circle className="bot-orb__puff bot-orb__puff--late" cx="38" cy="59" r="3" />
+        </g>
+      )
+    default:
+      return null
+  }
+}
+
+/** Five motes spiral in while the orb rises out of the ground. */
+function SpawnGather() {
+  return (
+    <g className="bot-orb__gather" aria-hidden>
+      {[0, 72, 144, 216, 288].map((deg, i) => (
+        <circle
+          key={deg}
+          className="bot-orb__mote"
+          cx="32"
+          cy="38"
+          r="2.2"
+          style={{ ['--mote-a' as string]: `${deg}deg`, animationDelay: `${i * 0.06}s` }}
+        />
+      ))}
+    </g>
+  )
 }
 
 /**
- * Colored bot mark: silhouette + white eyes + Lottie-inspired chrome.
- * Gaze is JS-driven; chrome spin/pulse is CSS via data-motion.
+ * Colored bot mark: silhouette + white eyes + mood chrome. Face and body run
+ * on a spring rig painted per frame; chrome and glow are CSS via data-motion.
  */
 export function BotOrbAvatar({
   color,
@@ -360,9 +462,27 @@ export function BotOrbAvatar({
   const uid = useId().replace(/:/g, '')
   const clipId = `bot-orb-clip-${uid}`
   const maskId = `bot-orb-mask-${uid}`
+  const haloId = `bot-orb-halo-${uid}`
   const rootRef = useRef<HTMLSpanElement>(null)
+  const rigRef = useRef<BotOrbRig | null>(null)
+  if (!rigRef.current) rigRef.current = new BotOrbRig()
+  const paintRefs = useRef<PaintRefs>({
+    rig: null,
+    gaze: null,
+    eyes: null,
+    eyeL: null,
+    eyeR: null,
+    arcL: null,
+    arcR: null,
+    noseL: null,
+    noseR: null,
+    noseOne: null,
+  })
   const [spawning, setSpawning] = useState(false)
   const [spawnStyle, setSpawnStyle] = useState<BotOrbSpawnStyle>('full')
+  const pendingRise = unplayedSpawn(spawnKey, frozen)
+  const rising = spawning || pendingRise !== null
+  const riseStyle: BotOrbSpawnStyle = pendingRise ?? spawnStyle
   const lastSpawnKey = useRef<string | null>(null)
   const spawnActiveRef = useRef(false)
   const spawnStartedAt = useRef(0)
@@ -372,45 +492,61 @@ export function BotOrbAvatar({
   const shapeKey: BotOrbShapeKey = resolveBotOrbShape(shape)
   const def = botOrbShapeDef(shapeKey)
   const faceClip = def.path
-  const fill = resolveBotOrbColor(color)
+  const fill = def.palette?.body ?? resolveBotOrbColor(color)
   const faceY = def.faceY ?? 0
   const faceScale = def.faceScale ?? 1
+  const reduced = prefersReducedMotion()
 
-  const [eyeAct, setEyeAct] = useState<EyeAct>('base')
-  const [thinkSide, setThinkSide] = useState<ThinkSide | null>(null)
-  const [tracking, setTracking] = useState(false)
-  const [gaze, setGaze] = useState<Gaze>({ x: 0, y: 0 })
-  const [gazeMs, setGazeMs] = useState<number>(MS_LOOK)
-  /** Active face mood after one-shot settle. */
   const [activeMotion, setActiveMotion] = useState<BotOrbMotion>(() =>
     isBotOrbOneShot(motion) ? (isBotOrbOneShot(baseMotion) ? 'idle' : baseMotion) : motion,
   )
-  const [playingShot, setPlayingShot] = useState<BotOrbOneShot | null>(
-    () => (isBotOrbOneShot(motion) ? motion : null),
+  const [playingShot, setPlayingShot] = useState<BotOrbOneShot | null>(() =>
+    isBotOrbOneShot(motion) ? motion : null,
   )
 
-  // Spawn always finishes as a neutral idle face — mood chrome (thinking ?,
-  // typing dots, orbits) waits until the entrance ends.
-  const displayMotion: BotOrbMotion = frozen || spawning
-    ? 'idle'
-    : playingShot ?? activeMotion
-  const thinking = displayMotion === 'thinking'
-  const typing = displayMotion === 'typing'
-  const working = displayMotion === 'working'
+  // Spawn always finishes as a neutral idle face — mood chrome waits until the entrance ends.
+  const displayMotion: BotOrbMotion = frozen || rising ? 'idle' : playingShot ?? activeMotion
   const busyLoop = isBotOrbBusyLoop(displayMotion)
-  const allowTrack =
-    !frozen && !spawning && !busyLoop && !playingShot && displayMotion === 'idle'
+  const allowTrack = !frozen && !rising && !busyLoop && !playingShot && displayMotion === 'idle'
+  const runRig = !frozen && !rising && !reduced
 
-  const moveGaze = (next: Gaze, ms: number) => {
-    setGazeMs(ms)
-    setGaze(next)
-  }
+  const ref = <K extends keyof PaintRefs>(key: K) =>
+    (node: PaintRefs[K]) => {
+      paintRefs.current[key] = node
+    }
 
-  const settleHome = () => {
-    setEyeAct('base')
-    setThinkSide(null)
-    moveGaze({ x: 0, y: 0 }, MS_SETTLE)
-  }
+  const paint = useCallback(() => {
+    const rig = rigRef.current
+    if (rig) paintFrame(paintRefs.current, rig.frame())
+  }, [])
+
+  // One rAF loop per mark; it sleeps once every spring is at rest.
+  useEffect(() => {
+    const rig = rigRef.current!
+    let last = 0
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000))
+      last = now
+      const settled = rig.step(dt)
+      paintFrame(paintRefs.current, rig.frame())
+      rafRef.current = settled ? 0 : window.requestAnimationFrame(tick)
+    }
+    rig.onWake = () => {
+      if (rafRef.current) return
+      last = performance.now()
+      rafRef.current = window.requestAnimationFrame(tick)
+    }
+    return () => {
+      if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
+      rafRef.current = 0
+      rig.dispose()
+    }
+  }, [])
+
+  // New shape nodes need the current pose before the next spring tick.
+  useLayoutEffect(() => {
+    paint()
+  }, [paint, shapeKey])
 
   // One rise per spawnKey. Cleanup must not drop the class: StrictMode replays
   // this effect, and removing `.bot-orb--spawn` restarts the CSS animation.
@@ -439,7 +575,6 @@ export function BotOrbAvatar({
       spawnActiveRef.current = true
       setSpawnStyle(style)
       setPlayingShot(null)
-      settleHome()
       setSpawning(true)
     }
     const remain = Math.max(0, duration - (performance.now() - spawnStartedAt.current))
@@ -457,349 +592,176 @@ export function BotOrbAvatar({
   useEffect(() => {
     if (frozen) return
     if (isBotOrbOneShot(motion)) {
-      if (spawning) return
+      if (rising) return
       setPlayingShot(motion)
       return
     }
     setActiveMotion(motion)
-    if (!playingShot) setPlayingShot(null)
-  }, [motion, frozen, spawning])
+  }, [motion, frozen, rising])
 
   // Replay one-shot when pulseId changes (after spawn finishes).
   useEffect(() => {
-    if (frozen || spawning || !pulseId) return
-    if (isBotOrbOneShot(motion)) {
-      setPlayingShot(motion)
-    }
+    if (frozen || rising || !pulseId) return
+    if (isBotOrbOneShot(motion)) setPlayingShot(motion)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional pulse trigger
-  }, [pulseId, spawning])
+  }, [pulseId, rising])
 
-  // One-shot choreography + settle back to base/loop.
+  // Static, spawning and reduced motion: hold the resting face, no springs.
   useEffect(() => {
-    if (!playingShot || frozen || spawning || prefersReducedMotion()) {
-      if (playingShot && (frozen || prefersReducedMotion())) {
-        setPlayingShot(null)
-      }
+    const rig = rigRef.current!
+    if (runRig) return
+    const face = frozen ? (motion === 'sleeping' ? 'sleepy' : 'neutral') : rising ? 'neutral' : restingFace(displayMotion)
+    rig.setFace(face, { instant: true })
+    rig.snap({ gx: 0, gy: 0, bx: 0, by: 0, br: 0, sx: 1, sy: 1, lid: 1, alpha: 1 })
+    if (frozen || rising) setPlayingShot(null)
+    trackingRef.current = false
+  }, [runRig, frozen, rising, displayMotion, motion])
+
+  // Every mood change lands with a small squash, like a beat in a cartoon.
+  const lastMotionRef = useRef(displayMotion)
+  useEffect(() => {
+    if (!runRig || lastMotionRef.current === displayMotion) {
+      lastMotionRef.current = displayMotion
       return
     }
-    const shot = playingShot
-    const controller = new AbortController()
-    const { signal } = controller
-    const ms = oneShotDurationMs(shot)
+    lastMotionRef.current = displayMotion
+    rigRef.current!.kick({ sy: -1.4, sx: 0.9 })
+  }, [runRig, displayMotion])
 
+  // One-shot choreography, then back to the base loop.
+  useEffect(() => {
+    if (!playingShot) return
+    const shot = playingShot
+    const settle = () => {
+      const next = isBotOrbOneShot(baseMotion) ? 'idle' : baseMotion
+      setActiveMotion(isBotOrbOneShot(motion) ? next : motion)
+      setPlayingShot(null)
+    }
+    if (!runRig) {
+      if (!reduced || frozen || rising) return
+      const id = window.setTimeout(settle, oneShotDurationMs(shot))
+      return () => window.clearTimeout(id)
+    }
+    const controller = new AbortController()
+    trackingRef.current = false
     const run = async () => {
       try {
-        setThinkSide(null)
-        trackingRef.current = false
-        setTracking(false)
-        if (shot === 'yes') {
-          setEyeAct('happy')
-          moveGaze({ x: 0, y: -3 }, 180)
-          await sleep(ms * 0.45, signal)
-          setEyeAct('squint')
-          await sleep(ms * 0.35, signal)
-        } else if (shot === 'no') {
-          setEyeAct('squint')
-          moveGaze({ x: -6, y: 0 }, 120)
-          await sleep(ms * 0.25, signal)
-          moveGaze({ x: 6, y: 0 }, 120)
-          await sleep(ms * 0.25, signal)
-          moveGaze({ x: -4, y: 0 }, 120)
-          await sleep(ms * 0.25, signal)
-        } else if (shot === 'alert') {
-          setEyeAct('blink')
-          moveGaze({ x: 0, y: -2 }, 100)
-          await sleep(ms * 0.35, signal)
-          setEyeAct('squint')
-          await sleep(ms * 0.4, signal)
-        } else {
-          // jump
-          setEyeAct('happy')
-          moveGaze({ x: 0, y: -5 }, 160)
-          await sleep(ms * 0.4, signal)
-          setEyeAct('base')
-          await sleep(ms * 0.35, signal)
-        }
-        const next = isBotOrbOneShot(baseMotion) ? 'idle' : baseMotion
-        const fromProp = isBotOrbOneShot(motion) ? next : motion
-        setActiveMotion(fromProp === 'idle' || isBotOrbBusyLoop(fromProp) ? fromProp : next)
-        settleHome()
-        setPlayingShot(null)
+        await playShot(shot, rigRef.current!, controller.signal)
       } catch {
-        // aborted
+        return
       }
+      if (!controller.signal.aborted) settle()
     }
-
     void run()
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playingShot, frozen, spawning])
+  }, [playingShot, runRig])
 
-  // Idle look / blink / squint — skip tiny facepile marks (lists stay CSS-breathe).
-  // Threshold 28 so Communication thread headers (28px) still track + look.
+  // The mood loop. Tiny facepile marks keep blinks only (idle checks size).
   useEffect(() => {
-    if (
-      frozen ||
-      spawning ||
-      tracking ||
-      busyLoop ||
-      playingShot ||
-      size < 28 ||
-      prefersReducedMotion()
-    ) {
-      if (!tracking && !thinking) {
-        setEyeAct((a) => (a === 'happy' ? a : 'base'))
-      }
-      return
-    }
+    if (!runRig || playingShot) return
     const controller = new AbortController()
-    const { signal } = controller
-    let last: ActKind | null = null
-    let lastLookIdx: number | null = null
+    void playLoop(displayMotion, rigRef.current!, {
+      signal: controller.signal,
+      size,
+      tracking: () => trackingRef.current,
+    })
+    return () => controller.abort()
+  }, [runRig, playingShot, displayMotion, size])
 
-    const run = async () => {
-      try {
-        while (!signal.aborted) {
-          setEyeAct('base')
-          await sleep(randBetween(1400, 4800), signal)
-
-          const kind = pickAct(last)
-          last = kind
-
-          if (kind === 'look') {
-            const { seq, idx } = pickLookSeq(lastLookIdx)
-            lastLookIdx = idx
-            for (const step of seq) {
-              moveGaze(LOOK_GAZE[step]!, MS_LOOK)
-              await sleep(randBetween(650, 950), signal)
-            }
-            moveGaze({ x: 0, y: 0 }, MS_SETTLE)
-            await sleep(randBetween(220, 480), signal)
-          } else if (kind === 'squint') {
-            setEyeAct('squint')
-            await sleep(1500, signal)
-            setEyeAct('base')
-          } else {
-            setEyeAct('blink')
-            await sleep(randBetween(220, 300), signal)
-            setEyeAct('base')
-          }
-        }
-      } catch {
-        // aborted
-      }
-    }
-
-    void run()
-    return () => {
-      controller.abort()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frozen, spawning, tracking, busyLoop, playingShot, size])
-
+  // Idle: eyes follow a near cursor; from further away only the body leans.
   useEffect(() => {
-    if (!frozen) return
-    settleHome()
-    setPlayingShot(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frozen])
-
-  // Thinking sway.
-  useEffect(() => {
-    if (!thinking || frozen || tracking || prefersReducedMotion()) return
-    const controller = new AbortController()
-    const { signal } = controller
-
-    const run = async () => {
-      try {
-        while (!signal.aborted) {
-          setThinkSide('center')
-          moveGaze(THINK_GAZE.center, MS_THINK)
-          await sleep(randBetween(1100, 1500), signal)
-          setThinkSide('left')
-          moveGaze(THINK_GAZE.left, MS_THINK)
-          await sleep(randBetween(1200, 1600), signal)
-          setThinkSide('right')
-          moveGaze(THINK_GAZE.right, MS_THINK)
-          await sleep(randBetween(1200, 1600), signal)
-        }
-      } catch {
-        // aborted
-      }
-    }
-
-    void run()
-    return () => {
-      controller.abort()
-      settleHome()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thinking, frozen, tracking])
-
-  // Typing: focused down + micro-blink.
-  useEffect(() => {
-    if (!typing || frozen || tracking || prefersReducedMotion()) return
-    const controller = new AbortController()
-    const { signal } = controller
-
-    const run = async () => {
-      try {
-        moveGaze(TYPE_GAZE, MS_THINK)
-        while (!signal.aborted) {
-          setEyeAct('base')
-          await sleep(randBetween(500, 900), signal)
-          setEyeAct('blink')
-          await sleep(randBetween(140, 200), signal)
-          setEyeAct('base')
-          await sleep(randBetween(400, 700), signal)
-        }
-      } catch {
-        // aborted
-      }
-    }
-
-    void run()
-    return () => {
-      controller.abort()
-      settleHome()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typing, frozen, tracking])
-
-  // Working: focused (CSS scaleY) + tight, quick gaze jitter around a rest point.
-  useEffect(() => {
-    if (!working || frozen || tracking || prefersReducedMotion()) return
-    setThinkSide(null)
-    setEyeAct('base')
-    const controller = new AbortController()
-    const { signal } = controller
-
-    const run = async () => {
-      try {
-        moveGaze(WORK_FOCUS, MS_WORK_GLANCE)
-        while (!signal.aborted) {
-          // Alternate axis-biased nudges so it reads as busy focus, not random spasms.
-          const axis = Math.random()
-          const nx = axis < 0.55 ? (Math.random() < 0.5 ? -1 : 1) * randBetween(0.2, WORK_JITTER_X) : randBetween(-0.25, 0.25)
-          const ny = axis >= 0.45 ? (Math.random() < 0.5 ? -1 : 1) * randBetween(0.15, WORK_JITTER_Y) : randBetween(-0.2, 0.2)
-          moveGaze({ x: WORK_FOCUS.x + nx, y: WORK_FOCUS.y + ny }, MS_WORK_GLANCE)
-          await sleep(randBetween(55, 95), signal)
-          moveGaze(WORK_FOCUS, MS_WORK_GLANCE)
-          await sleep(randBetween(40, 70), signal)
-        }
-      } catch {
-        // aborted
-      }
-    }
-
-    void run()
-    return () => {
-      controller.abort()
-      settleHome()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [working, frozen, tracking])
-
-  // Pointer tracking — idle only; 28px+ (thread header + heroes).
-  useEffect(() => {
-    if (!allowTrack || size < 28 || prefersReducedMotion()) {
+    if (!allowTrack || size < 28 || reduced) {
       if (trackingRef.current) {
         trackingRef.current = false
-        setTracking(false)
+        rigRef.current!.set({ gx: 0, gy: 0 })
       }
       return
     }
-
+    const rig = rigRef.current!
     const applyPointer = (clientX: number, clientY: number) => {
       const el = rootRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
-      const near = distanceToRect(clientX, clientY, rect) <= PROXIMITY_PX
-
-      if (!near) {
+      const cx = rect.left + rect.width / 2
+      const cy = rect.top + rect.height / 2
+      const dist = distanceToRect(clientX, clientY, rect)
+      if (dist > LEAN_PX) {
         if (trackingRef.current) {
           trackingRef.current = false
-          setTracking(false)
-          setEyeAct('base')
-          moveGaze({ x: 0, y: 0 }, MS_SETTLE)
+          rig.set({ gx: 0, gy: 0 })
         }
+        rig.set({ bx: 0, by: 0, br: 0 })
         return
       }
-
-      if (!trackingRef.current) {
-        trackingRef.current = true
-        setEyeAct('base')
-        setThinkSide(null)
-        setTracking(true)
+      const lx = clamp((clientX - cx) / LEAN_PX, -1, 1)
+      const ly = clamp((clientY - cy) / LEAN_PX, -1, 1)
+      const lean = { bx: lx * 2.2, by: ly * 1.4, br: lx * 4 }
+      if (dist > PROXIMITY_PX) {
+        if (trackingRef.current) {
+          trackingRef.current = false
+          rig.set({ gx: 0, gy: 0 })
+        }
+        rig.set(lean)
+        return
       }
-
+      trackingRef.current = true
       const halfW = Math.max(rect.width / 2, 1)
       const halfH = Math.max(rect.height / 2, 1)
-      const nx = clamp((clientX - (rect.left + halfW)) / halfW, -1, 1)
-      const ny = clamp((clientY - (rect.top + halfH)) / halfH, -1, 1)
-      const dist = distanceToRect(clientX, clientY, rect)
+      const nx = clamp((clientX - cx) / halfW, -1, 1)
+      const ny = clamp((clientY - cy) / halfH, -1, 1)
       const pull = dist <= 0 ? 1 : clamp(1 - dist / PROXIMITY_PX, 0.35, 1)
-      moveGaze({ x: nx * GAZE_MAX_X * pull, y: ny * GAZE_MAX_Y * pull }, MS_TRACK)
+      rig.set({ ...lean, gx: nx * GAZE_MAX_X * pull, gy: ny * GAZE_MAX_Y * pull })
     }
-
+    let frame = 0
     const flush = () => {
-      rafRef.current = 0
+      frame = 0
       const pending = pendingPtr.current
       pendingPtr.current = null
-      if (!pending) return
-      applyPointer(pending.x, pending.y)
+      if (pending) applyPointer(pending.x, pending.y)
     }
-
-    return subscribeBotOrbPointer((clientX, clientY) => {
+    const unsubscribe = subscribeBotOrbPointer((clientX, clientY) => {
       pendingPtr.current = { x: clientX, y: clientY }
-      if (!rafRef.current) {
-        rafRef.current = window.requestAnimationFrame(flush)
-      }
+      if (!frame) frame = window.requestAnimationFrame(flush)
     })
-  }, [allowTrack, size])
-
-  useEffect(() => {
     return () => {
-      if (rafRef.current) window.cancelAnimationFrame(rafRef.current)
+      unsubscribe()
+      if (frame) window.cancelAnimationFrame(frame)
+      trackingRef.current = false
+      rig.set({ gx: 0, gy: 0, bx: 0, by: 0, br: 0 })
     }
-  }, [])
+  }, [allowTrack, size, reduced])
 
-  const eyePose = gazeEyePose(gaze)
-  const noseLeft = gazeNostrilPose(gaze, 'left')
-  const noseRight = gazeNostrilPose(gaze, 'right')
-  const gazeTransition = {
-    transitionDuration: `${gazeMs}ms`,
-    transitionTimingFunction:
-      gazeMs >= MS_SETTLE ? 'cubic-bezier(0.22, 1, 0.36, 1)' : 'ease',
-  } as const
-  const nostrilTransition = {
-    transitionProperty: 'transform',
-    transitionDuration: `${gazeMs}ms`,
-    transitionTimingFunction:
-      gazeMs >= MS_SETTLE ? 'cubic-bezier(0.22, 1, 0.36, 1)' : 'ease',
-  } as const
+  const canPoke = runRig && !playingShot && size >= 28 && (displayMotion === 'idle' || displayMotion === 'listening')
+  const onPointerEnter = () => {
+    if (!canPoke) return
+    const rig = rigRef.current!
+    rig.setFace('surprised')
+    rig.kick({ sy: -2.4, by: -8 })
+    rig.after(420, () => rig.setFace(restingFace(displayMotion)))
+  }
+  const onPointerDown = () => {
+    if (!canPoke) return
+    const rig = rigRef.current!
+    rig.setFace('happy')
+    rig.kick({ sy: -4, sx: 2.6, by: -12 })
+    rig.after(700, () => rig.setFace(restingFace(displayMotion)))
+  }
+
   const style = {
     width: size,
     height: size,
     ['--bot-orb-color' as string]: fill,
-    ['--bot-orb-ink' as string]: '#ffffff',
-    ['--bot-orb-gaze-ms' as string]: `${gazeMs}ms`,
+    ['--bot-orb-detail' as string]: def.palette?.detail ?? 'color-mix(in srgb, var(--bot-orb-color) 82%, #000)',
+    ['--bot-orb-ink' as string]: def.palette?.ink ?? '#ffffff',
   } as CSSProperties
   const a11y = decorative
     ? { 'aria-hidden': true as const }
     : { role: 'img' as const, 'aria-label': label }
 
-  const dataMotion = spawning ? 'idle' : frozen ? 'paused' : displayMotion
-  const showChrome = !frozen && !spawning && !prefersReducedMotion()
-  const orbitRings = showChrome ? orbitRingsForMotion(displayMotion) : null
-  const showThinkMark = showChrome && displayMotion === 'thinking'
-  const showTypeDots = showChrome && displayMotion === 'typing'
-  const showAlert = showChrome && displayMotion === 'alert'
-  const showShotBody =
-    displayMotion === 'yes' ||
-    displayMotion === 'no' ||
-    displayMotion === 'jump' ||
-    displayMotion === 'alert'
+  const dataMotion = rising ? 'idle' : frozen ? 'paused' : displayMotion
+  const showChrome = !frozen && !rising && !reduced
+  const orbitRings = showChrome && displayMotion === 'working' ? WORK_RINGS : null
   const orbitBackClipId = `bot-orb-orbit-back-${uid}`
   const orbitFrontClipId = `bot-orb-orbit-front-${uid}`
 
@@ -808,8 +770,8 @@ export function BotOrbAvatar({
       ref={rootRef}
       className={cn(
         'bot-orb',
-        frozen && !spawning && 'bot-orb--paused',
-        spawning && (spawnStyle === 'quick' ? 'bot-orb--quickspawn' : 'bot-orb--spawn'),
+        frozen && !rising && 'bot-orb--paused',
+        rising && (riseStyle === 'quick' ? 'bot-orb--quickspawn' : 'bot-orb--spawn'),
         stackOutline && 'bot-orb--stack',
         className,
       )}
@@ -818,29 +780,22 @@ export function BotOrbAvatar({
       data-shape={shapeKey}
       data-motion={dataMotion}
       data-pulse={pulseId || undefined}
-      data-act={eyeAct}
-      data-think-side={thinkSide ?? undefined}
-      data-tracking={tracking ? 'true' : undefined}
+      onPointerEnter={canPoke ? onPointerEnter : undefined}
+      onPointerDown={canPoke ? onPointerDown : undefined}
       {...a11y}
     >
-      <svg
-        className="bot-orb__svg"
-        viewBox="0 0 64 64"
-        width={size}
-        height={size}
-        aria-hidden
-      >
+      <svg className="bot-orb__svg" viewBox="0 0 64 64" width={size} height={size} aria-hidden>
         <defs>
           <clipPath id={clipId} clipPathUnits="userSpaceOnUse" clipRule="nonzero">
             <path d={faceClip} fillRule="nonzero" />
           </clipPath>
-          <mask
-            id={maskId}
-            maskUnits="userSpaceOnUse"
-            maskContentUnits="userSpaceOnUse"
-          >
+          <mask id={maskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
             <path d={faceClip} fill="#ffffff" fillRule="nonzero" />
           </mask>
+          <radialGradient id={haloId} cx="32" cy="33" r="38" gradientUnits="userSpaceOnUse">
+            <stop offset="0.5" className="bot-orb__halo-stop" stopOpacity="0.6" />
+            <stop offset="1" className="bot-orb__halo-stop" stopOpacity="0" />
+          </radialGradient>
           {/* Local y < 32 = far side of the orbital plane (paints behind the body). */}
           <clipPath id={orbitBackClipId} clipPathUnits="userSpaceOnUse">
             <rect x="0" y="0" width="64" height="32" />
@@ -850,198 +805,108 @@ export function BotOrbAvatar({
           </clipPath>
         </defs>
 
-        {/* Orbit back halves — drawn before the body so they pass behind. */}
-        {orbitRings ? (
-          <OrbitHalves rings={orbitRings} clipId={orbitBackClipId} layer="back" />
-        ) : null}
+        {!frozen ? <circle className="bot-orb__halo" cx="32" cy="33" r="38" fill={`url(#${haloId})`} /> : null}
+        {rising && riseStyle === 'full' ? <SpawnGather /> : null}
 
-        {/* Figure scales as one unit (e.g. working shrink) so eyes stay locked to the body. */}
+        {orbitRings ? <OrbitHalves rings={orbitRings} clipId={orbitBackClipId} layer="back" /> : null}
+
+        {/* Figure carries the CSS entrance; the rig group inside carries every spring. */}
         <g className="bot-orb__figure">
-        <g
-          className={cn(
-            'bot-orb__body',
-            showShotBody && `bot-orb__body--${displayMotion}`,
-          )}
-          style={{ transformOrigin: '32px 32px' }}
-        >
-          {def.underPath ? (
-            <path d={def.underPath} fill="var(--bot-orb-color)" fillRule="nonzero" />
-          ) : null}
-          {def.shadePath ? (
-            <path
-              d={def.shadePath}
-              fill="color-mix(in srgb, var(--bot-orb-color) 90%, #000)"
-              fillRule="nonzero"
-            />
-          ) : null}
-          <path d={def.path} fill="var(--bot-orb-color)" fillRule="nonzero" />
-        </g>
-        <g
-          className="bot-orb__face-clip"
-          clipPath={`url(#${clipId})`}
-          mask={`url(#${maskId})`}
-        >
-          {/*
-            Gaze wraps both features. faceY/faceScale only lift the eyes into
-            the head — nostrils stay on the muzzle at path coordinates.
-          */}
-          <g
-            className="bot-orb__gaze"
-            style={{
-              transform: `translate(${gaze.x}px, ${gaze.y}px)`,
-              ...gazeTransition,
-            }}
-          >
-            {def.detailLeft || def.detailRight || def.detailPath ? (
-              <g className="bot-orb__nose">
-                {def.detailLeft ? (
-                  <path
-                    className="bot-orb__nostril"
-                    d={def.detailLeft}
-                    fill="color-mix(in srgb, var(--bot-orb-color) 82%, #000)"
-                    fillRule="nonzero"
-                    style={{
-                      transformOrigin: '29.2px 35.2px',
-                      transform: `translate(${noseLeft.x - gaze.x}px, ${noseLeft.y - gaze.y}px) rotate(${noseLeft.tiltDeg}deg) scale(${noseLeft.scaleX}, ${noseLeft.scaleY})`,
-                      ...nostrilTransition,
-                    }}
-                  />
-                ) : null}
-                {def.detailRight ? (
-                  <path
-                    className="bot-orb__nostril"
-                    d={def.detailRight}
-                    fill="color-mix(in srgb, var(--bot-orb-color) 82%, #000)"
-                    fillRule="nonzero"
-                    style={{
-                      transformOrigin: '34.9px 35.2px',
-                      transform: `translate(${noseRight.x - gaze.x}px, ${noseRight.y - gaze.y}px) rotate(${noseRight.tiltDeg}deg) scale(${noseRight.scaleX}, ${noseRight.scaleY})`,
-                      ...nostrilTransition,
-                    }}
-                  />
-                ) : null}
-                {!def.detailLeft && !def.detailRight && def.detailPath ? (
-                  <path
-                    className="bot-orb__nostril"
-                    d={def.detailPath}
-                    fill="color-mix(in srgb, var(--bot-orb-color) 82%, #000)"
-                    fillRule="nonzero"
-                    style={{
-                      transformOrigin: '32px 35.5px',
-                      transform: `translate(${gaze.x * (NOSE_PARALLAX_X - 1)}px, ${gaze.y * (NOSE_PARALLAX_Y - 1)}px)`,
-                      ...nostrilTransition,
-                    }}
-                  />
-                ) : null}
-              </g>
-            ) : null}
-            <g
-              className="bot-orb__face"
-              style={{
-                transform: `translate(0px, ${faceY}px) scale(${faceScale})`,
-                transformOrigin: '32px 30px',
-              }}
-            >
-              <g
-                className="bot-orb__eyes"
-                style={{
-                  transform: `rotate(${eyePose.tiltDeg}deg) scale(${eyePose.scaleX}, ${eyePose.scaleY})`,
-                  ...gazeTransition,
-                }}
-              >
-                <rect
-                  className="bot-orb__eye"
-                  x="19.2"
-                  y="25.5"
-                  width="7.2"
-                  height="11"
-                  rx="3.6"
-                  fill="var(--bot-orb-ink)"
+          <g ref={ref('rig')} className="bot-orb__rig">
+            <g className="bot-orb__body" style={{ transformOrigin: '32px 32px' }}>
+              {def.underPath ? <path d={def.underPath} fill="var(--bot-orb-color)" fillRule="nonzero" /> : null}
+              {def.shadePath ? (
+                <path
+                  d={def.shadePath}
+                  fill="color-mix(in srgb, var(--bot-orb-color) 90%, #000)"
+                  fillRule="nonzero"
                 />
-                <rect
-                  className="bot-orb__eye"
-                  x="37.6"
-                  y="25.5"
-                  width="7.2"
-                  height="11"
-                  rx="3.6"
-                  fill="var(--bot-orb-ink)"
-                />
+              ) : null}
+              <path d={def.path} fill="var(--bot-orb-color)" fillRule="nonzero" />
+            </g>
+            <g className="bot-orb__face-clip" clipPath={`url(#${clipId})`} mask={`url(#${maskId})`}>
+              {/*
+                Gaze wraps both features. faceY/faceScale only lift the eyes into
+                the head — nostrils stay on the muzzle at path coordinates.
+              */}
+              <g ref={ref('gaze')} className="bot-orb__gaze">
+                {def.detailLeft || def.detailRight || def.detailPath ? (
+                  <g className="bot-orb__nose">
+                    {def.detailLeft ? (
+                      <path
+                        ref={ref('noseL')}
+                        className="bot-orb__nostril"
+                        d={def.detailLeft}
+                        fill="var(--bot-orb-detail)"
+                        fillRule="nonzero"
+                      />
+                    ) : null}
+                    {def.detailRight ? (
+                      <path
+                        ref={ref('noseR')}
+                        className="bot-orb__nostril"
+                        d={def.detailRight}
+                        fill="var(--bot-orb-detail)"
+                        fillRule="nonzero"
+                      />
+                    ) : null}
+                    {!def.detailLeft && !def.detailRight && def.detailPath ? (
+                      <path
+                        ref={ref('noseOne')}
+                        className="bot-orb__nostril"
+                        d={def.detailPath}
+                        fill="var(--bot-orb-detail)"
+                        fillRule="nonzero"
+                      />
+                    ) : null}
+                  </g>
+                ) : null}
+                <g
+                  className="bot-orb__face"
+                  transform={`translate(0 ${faceY}) translate(32 30) scale(${faceScale}) translate(-32 -30)`}
+                >
+                  <g ref={ref('eyes')} className="bot-orb__eyes">
+                    <rect
+                      ref={ref('eyeL')}
+                      className="bot-orb__eye"
+                      x="19.2"
+                      y="25.5"
+                      width="7.2"
+                      height="11"
+                      rx="3.6"
+                      fill="var(--bot-orb-ink)"
+                    />
+                    <rect
+                      ref={ref('eyeR')}
+                      className="bot-orb__eye"
+                      x="37.6"
+                      y="25.5"
+                      width="7.2"
+                      height="11"
+                      rx="3.6"
+                      fill="var(--bot-orb-ink)"
+                    />
+                    <path
+                      ref={ref('arcL')}
+                      className="bot-orb__eye-arc"
+                      d="M19.4 33.4 Q22.8 25.2 26.2 33.4"
+                      opacity="0"
+                    />
+                    <path
+                      ref={ref('arcR')}
+                      className="bot-orb__eye-arc"
+                      d="M37.8 33.4 Q41.2 25.2 44.6 33.4"
+                      opacity="0"
+                    />
+                  </g>
+                </g>
               </g>
             </g>
           </g>
-        </g>
         </g>
 
-        {/* Orbit front halves — after the body so they pass in front. */}
-        {orbitRings ? (
-          <OrbitHalves rings={orbitRings} clipId={orbitFrontClipId} layer="front" />
-        ) : null}
-        {showThinkMark ? (
-          <g transform="translate(48 10) rotate(12)">
-            <g className="bot-orb__think-mark">
-              <text
-                className="bot-orb__badge-glyph"
-                x="0"
-                y="0"
-                fill={BOT_ORB_BADGE_FILL}
-                stroke="var(--bot-orb-badge-edge)"
-                strokeWidth="0.95"
-                paintOrder="stroke fill"
-                strokeLinejoin="round"
-                fontSize="19"
-                fontWeight="700"
-                fontFamily="var(--font-sans), system-ui, sans-serif"
-                textAnchor="middle"
-                dominantBaseline="central"
-              >
-                ?
-              </text>
-            </g>
-          </g>
-        ) : null}
-        {showTypeDots ? (
-          <g className="bot-orb__type-dots" transform="translate(32 56)">
-            <circle
-              className="bot-orb__type-dot bot-orb__badge-glyph"
-              cx="-8.5"
-              cy="0"
-              r="2.8"
-              fill={BOT_ORB_BADGE_FILL}
-              stroke="var(--bot-orb-badge-edge)"
-              strokeWidth="0.7"
-            />
-            <circle
-              className="bot-orb__type-dot bot-orb__badge-glyph"
-              cx="0"
-              cy="0"
-              r="2.8"
-              fill={BOT_ORB_BADGE_FILL}
-              stroke="var(--bot-orb-badge-edge)"
-              strokeWidth="0.7"
-            />
-            <circle
-              className="bot-orb__type-dot bot-orb__badge-glyph"
-              cx="8.5"
-              cy="0"
-              r="2.8"
-              fill={BOT_ORB_BADGE_FILL}
-              stroke="var(--bot-orb-badge-edge)"
-              strokeWidth="0.7"
-            />
-          </g>
-        ) : null}
-        {showAlert ? (
-          <g
-            className="bot-orb__alert-cross"
-            stroke="var(--bot-orb-color)"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          >
-            <line x1="24" y1="24" x2="40" y2="40" />
-            <line x1="40" y1="24" x2="24" y2="40" />
-          </g>
-        ) : null}
+        {orbitRings ? <OrbitHalves rings={orbitRings} clipId={orbitFrontClipId} layer="front" /> : null}
+        {showChrome ? <MoodChrome motion={displayMotion} /> : null}
       </svg>
     </span>
   )

@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import * as Dialog from '@radix-ui/react-dialog'
-import { ArrowLeft, Check, ChevronRight, Copy, Mail, MessageSquare } from 'lucide-react'
+import { ArrowLeft, Check, ChevronRight, Copy, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import ProviderLogo from '../email/ProviderLogo'
-import { BrandMark } from '../integrations/BrandMark'
 import WhatsAppConnectForm from './WhatsAppConnectForm'
 import SlackConnectForm from './SlackConnectForm'
 import SmtpImapConnectForm from './SmtpImapConnectForm'
@@ -29,6 +28,8 @@ import { startOAuthConnection } from '../../lib/email-api'
 import { isChannelParked } from '../../lib/channel-surface'
 import { cn } from '../../lib/utils'
 import type { Provider } from '../../lib/email-oauth'
+import { Input } from '../ui/input'
+import { ChannelMark } from '../ui/ChannelMark'
 
 type Choice = 'menu' | 'email' | 'oauth_history' | 'relay' | 'whatsapp' | 'slack' | 'smtp_imap'
 
@@ -50,19 +51,6 @@ export type AddChannelDialogProps = {
   onOpenChange: (open: boolean) => void
   /** Refresh the channel list after a channel is added. */
   onChannelAdded: () => void
-}
-
-function IconTile({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span
-      className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-bg-elevated/80',
-        className,
-      )}
-    >
-      {children}
-    </span>
-  )
 }
 
 function ChoiceRow({
@@ -315,21 +303,21 @@ export default function AddChannelDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-surface p-5">
+        <Dialog.Overlay className="scrim fixed inset-0 z-40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border/70 bg-bg-surface p-5 shadow-overlay">
           <div className="flex items-start gap-2.5">
             {choice !== 'menu' ? (
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={goBack}
                 aria-label={t('channelsPage.back')}
-                className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                className="mt-0.5 text-text-muted"
               >
                 <ArrowLeft size={15} />
-              </button>
+              </Button>
             ) : null}
             <div className="min-w-0">
-              <Dialog.Title className="text-xl font-semibold tracking-tight text-text-heading">
+              <Dialog.Title className="title-dialog">
                 {title}
               </Dialog.Title>
               <Dialog.Description className="mt-0.5 text-sm leading-snug text-text-secondary">
@@ -343,33 +331,21 @@ export default function AddChannelDialog({
               <div className="space-y-2">
                 <ChoiceRow
                   onClick={() => setChoice('email')}
-                  icon={
-                    <IconTile className="text-text-secondary">
-                      <Mail size={16} />
-                    </IconTile>
-                  }
+                  icon={<ChannelMark channel="email" size={40} />}
                   title={t('channelsPage.option.email')}
                   titleAddon={<EmailOptionMarks />}
                   hint={t('channelsPage.option.emailHint')}
                 />
                 <ChoiceRow
                   onClick={() => setChoice('whatsapp')}
-                  icon={
-                    <IconTile>
-                      <BrandMark slug="whatsapp" size={18} />
-                    </IconTile>
-                  }
+                  icon={<ChannelMark channel="whatsapp" size={40} />}
                   title={t('channelsPage.option.whatsapp')}
                   hint={t('whatsappCard.description')}
                 />
                 {slackParked ? null : (
                   <ChoiceRow
                     onClick={() => setChoice('slack')}
-                    icon={
-                      <IconTile>
-                        <BrandMark slug="slack" size={18} />
-                      </IconTile>
-                    }
+                    icon={<ChannelMark channel="slack" size={40} />}
                     title={t('channelsPage.option.slack')}
                     hint={t('slackCard.description')}
                   />
@@ -390,11 +366,7 @@ export default function AddChannelDialog({
                       })
                       .finally(() => setWidgetBusy(false))
                   }}
-                  icon={
-                    <IconTile className="text-text-secondary">
-                      <MessageSquare size={16} />
-                    </IconTile>
-                  }
+                  icon={<ChannelMark channel="widget" size={40} />}
                   title={t('channelsPage.option.widget')}
                   hint={t('channelsPage.option.widgetHint')}
                 />
@@ -493,12 +465,12 @@ export default function AddChannelDialog({
                 <div className="space-y-3">
                   <label className="flex flex-col gap-1.5 text-xs text-text-muted">
                     {t('channelsPage.relay.prefixLabel')}
-                    <input
+                    <Input
                       value={prefix}
                       onChange={(e) => setPrefix(e.target.value)}
                       placeholder={t('channelsPage.relay.prefixPlaceholder')}
                       autoFocus
-                      className="rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 font-mono text-sm text-text-primary outline-none transition-colors focus:border-accent/60"
+                      className="font-mono"
                     />
                   </label>
                   <div className="rounded-lg border border-dashed border-border/60 bg-bg-elevated px-3 py-2.5">

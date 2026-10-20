@@ -29,7 +29,7 @@ export function ModuleToolsetDropdown({ module }: Props) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" size="sm" variant="outline" className="gap-1.5">
+        <Button type="button" size="sm" variant="secondary" className="gap-1.5">
           {t('integrations.modules.toolset', { defaultValue: 'AI toolset' })}
           <ChevronDown size={14} aria-hidden />
         </Button>

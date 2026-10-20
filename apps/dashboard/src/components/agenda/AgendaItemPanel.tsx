@@ -56,14 +56,14 @@ export default function AgendaItemPanel(props: Props) {
             {selection.title} <span className="font-normal text-text-muted">· {selection.items.length}</span>
           </p>
         )}
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-text-muted hover:bg-bg-elevated hover:text-text-heading"
+          className="h-6 w-6 text-text-muted"
           aria-label={t('agendaPage.panel.close')}
         >
           <X className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {selection.kind === 'item' ? <ItemBody {...props} item={selection.item} /> : <GroupBody {...props} items={selection.items} />}
@@ -237,7 +237,7 @@ function ItemBody({
 
       <div className="flex flex-wrap gap-2 border-t border-border/50 pt-3">
         {item.kind === 'calendar' && item.can_edit !== false ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => onOpenCalendar(item)}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onOpenCalendar(item)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {t('agendaPage.calendar.edit')}
           </Button>
@@ -246,7 +246,7 @@ function ItemBody({
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={busy != null}
             onClick={() =>
               void act('run', () => runTrigger(item.trigger_id as string), t('agendaPage.panel.ran'))
@@ -257,7 +257,7 @@ function ItemBody({
           </Button>
         ) : null}
         {!trigger && item.source === 'thread' && item.signal_id ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => onEditThread(item.signal_id as string)}>
+          <Button type="button" size="sm" variant="secondary" onClick={() => onEditThread(item.signal_id as string)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden />
             {t('agendaPage.edit')}
           </Button>
@@ -267,7 +267,7 @@ function ItemBody({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               disabled={busy != null}
               onClick={() => void act('toggle', () => updateTrigger(trigger.id, { enabled: !trigger.enabled }))}
             >

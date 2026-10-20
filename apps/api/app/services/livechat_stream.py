@@ -332,9 +332,9 @@ async def widget_stream_events(
                 bubbles = [m.body_text or "" for m in saved]
                 message_ids = [str(m.id) for m in saved]
                 if signal.subject in ("New conversation", "Website chat") and message:
-                    from app.services.conversation_title import maybe_apply_intent_title
+                    from app.services.conversation_title import apply_title_once
 
-                    maybe_apply_intent_title(signal, message)
+                    apply_title_once(signal, message)
                 if signal.channel == "widget":
                     from app.services.inbound_agent import apply_suggested_actions
 

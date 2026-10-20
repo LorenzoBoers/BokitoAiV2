@@ -2,7 +2,7 @@
 title: Autonomie instellen
 intro: Eén dial voor de hele werkruimte bepaalt hoe ver agents zelf mogen gaan. Kanalen, agents en flows blijven op of onder dat niveau.
 description: Zet de ene Autonomie-dial op Govern (Handmatig, Geassisteerd, Autonoom), zie wat eronder mag staan en stel toolrechten apart in.
-keywords: autonomie, dial, plafond, houding, handmatig, geassisteerd, autonoom, altijd controle, toolrechten, apply-modi
+keywords: autonomie, dial, plafond, houding, handmatig, geassisteerd, autonoom, altijd controle, toolrechten, apply-modi, auto-review, prompt-injectie, verborgen instructies
 sort: 20
 related: govern,agents,inbox-ai,flows
 ---
@@ -37,6 +37,24 @@ Toolrechten staan los van de dial: ze zeggen wat tools mogen wijzigen zonder op 
 1. Open op dezelfde pagina **Standaardrechten voor tools**.
 2. Kies een preset voor werkruimte- en structuurtools, of zet elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**.
 3. **Eerst vragen** maakt een [beslissingskaart](/docs/ai/decisions) in het gesprek. Berichten op **Eerst vragen** of **Weigeren** houdt ook klantantwoorden tegen die zelf zouden gaan; geen preset laat een gesprek verder gaan dan de dial.
+
+## Laat auto-review eerst kijken
+
+Auto-review is een tweede AI-controle op een actie die anders op jouw akkoord zou wachten.
+
+1. Zoek op dezelfde pagina de kaart **Auto-review**.
+2. Kies **Uit** (elke afgeschermde actie vraagt een mens), **Meekijken** (elke afgeschermde actie vraagt nog steeds; de kaart toont wat auto-review zou hebben gedaan) of **Afdwingen**.
+3. Bij **Afdwingen** houdt auto-review acties tegen die het fout vindt en voert het routinewerk uit als het minstens 80% zeker is. Ingrijpende acties, zoals versturen naar een klant, vragen altijd nog. Dat geldt ook voor elke beurt die een bericht met mogelijk verborgen instructies las.
+4. Schrijf onder **Beoordelingsinstructies** waar de beoordelaar op moet letten en kies **Instructies opslaan**.
+5. De kaart toont hoe vaak mensen het in de laatste 30 dagen eens waren met auto-review. Begin op **Meekijken** en schakel naar **Afdwingen** als dat getal hoog is.
+
+## Verborgen instructies in berichten
+
+Klantberichten, webpagina's en toolresultaten kunnen tekst bevatten die de AI wil sturen, zoals "negeer je vorige instructies".
+
+1. Agents behandelen die inhoud altijd als gegevens, nooit als opdracht.
+2. Een bericht dat leest als een opdracht aan de AI krijgt in het gesprek de badge **Mogelijk verborgen instructies**.
+3. Zolang een agent met zulke inhoud werkt, vraagt elke afgeschermde actie eerst een mens, wat de dial en auto-review ook zeggen.
 
 ## Begin voorzichtig
 

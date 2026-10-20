@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
 import { Skeleton } from './skeleton'
 import { Spinner } from './spinner'
@@ -250,16 +251,17 @@ export function WizardSkeleton() {
   )
 }
 
-/** Signed-out gate while the session resolves. */
+/** Session check before the shell. The next screen is unknown, so this is a spinner. */
 export function AuthScreenSkeleton() {
+  const { t } = useTranslation('nav')
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg" role="status" aria-busy="true">
-      <div className="w-full max-w-sm space-y-4 px-6">
-        <Skeleton className="mx-auto h-8 w-28" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-10 w-full rounded-lg" />
-      </div>
+    <div
+      className="flex min-h-screen items-center justify-center bg-bg"
+      role="status"
+      aria-busy="true"
+      aria-label={t('app.loading')}
+    >
+      <Spinner size="xl" className="text-text-secondary" />
     </div>
   )
 }
@@ -733,19 +735,102 @@ export function AgendaMiniSkeleton() {
   )
 }
 
-/** Lazy route: page title and two panels. */
-export function RouteShellSkeleton() {
+/** Page body while a route chunk loads. The shell around it stays mounted. */
+export function RouteShellSkeleton({ titled = true }: { titled?: boolean }) {
   return (
-    <Status className="space-y-4 px-5 py-6">
-      <div className="space-y-2">
-        <Skeleton className="h-6 w-40" />
-        <Skeleton className="h-3 w-64" />
+    <Status className="flex h-full min-h-0 flex-col gap-4">
+      {titled ? (
+        <div className="flex items-end justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-3 w-64 max-w-full" />
+          </div>
+          <Skeleton className="hidden h-8 w-24 rounded-lg sm:block" />
+        </div>
+      ) : null}
+      <Skeleton className="h-28 w-full rounded-lg" />
+      <Skeleton className="min-h-48 w-full flex-1 rounded-lg" />
+    </Status>
+  )
+}
+
+/** Communication main pane: thread list and conversation. */
+export function HubMainSkeleton() {
+  return (
+    <Status className="flex h-full min-h-0">
+      <div className="flex w-80 shrink-0 flex-col gap-2 border-r border-border/40 p-3">
+        <Skeleton className="h-8 w-full rounded-lg" />
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2 py-1">
+            <Skeleton className="h-8 w-8 shrink-0 rounded-md" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-2.5 w-5/6" />
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-48 rounded-lg" />
-        <Skeleton className="h-48 rounded-lg" />
+      <div className="flex min-w-0 flex-1 flex-col gap-3 p-4">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="min-h-40 flex-1 rounded-lg" />
       </div>
     </Status>
+  )
+}
+
+/**
+ * Whole app while a route chunk loads outside the shell.
+ * Rail, top bar, then the page body — the same frame as AppShell.
+ */
+export function PlatformFrameSkeleton() {
+  const { t } = useTranslation('nav')
+  return (
+    <div
+      className="flex h-screen overflow-hidden bg-bg"
+      role="status"
+      aria-busy="true"
+      aria-label={t('app.loading')}
+    >
+      <aside className="hidden w-rail shrink-0 flex-col border-r border-border/60 px-2 pb-2 pt-2 lg:flex">
+        <div className="flex h-11 items-center gap-2 px-1.5">
+          <Skeleton className="h-7 w-7 shrink-0 rounded-md" />
+          <Skeleton className="h-3.5 min-w-0 flex-1" />
+          <Skeleton className="h-7 w-7 shrink-0 rounded-md" />
+        </div>
+        <div className="mt-1 space-y-1 px-1.5">
+          <div className="flex items-center gap-2 py-1.5">
+            <Skeleton className="h-4 w-4 shrink-0 rounded" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2 py-1.5">
+              <Skeleton className="h-4 w-4 shrink-0 rounded" />
+              <Skeleton className="h-3 flex-1" style={{ maxWidth: 72 + (i % 3) * 28 }} />
+            </div>
+          ))}
+        </div>
+        <div className="mt-auto flex items-center gap-2 px-1.5 py-2">
+          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-2.5 w-32" />
+          </div>
+        </div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="relative flex h-11 shrink-0 items-center gap-3 border-b border-border/60 px-3">
+          <Skeleton className="h-3.5 w-28" />
+          <Skeleton className="absolute left-1/2 hidden h-7 w-64 -translate-x-1/2 rounded-md sm:block" />
+          <div className="ml-auto flex items-center gap-2">
+            <Skeleton className="h-7 w-7 rounded-md" />
+            <Skeleton className="h-7 w-7 rounded-md" />
+          </div>
+        </header>
+        <div className="min-h-0 flex-1 px-6 pb-8 pt-4">
+          <RouteShellSkeleton />
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -34,6 +34,7 @@ import { IconTile } from '../ui/icon-tile'
 import { UserAvatar } from '../ui/UserAvatar'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { AiAvatar } from '../ui/AiAvatar'
+import { AgentGlow } from '../ui/agent-glow'
 
 type IconComponent = ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>
 
@@ -192,19 +193,19 @@ export function ProposalItemPreview({
   const row = (
     <EntityRow
       density="sm"
-      interactive={!item.missing}
+      interactive={!item.missing && (!item.planned || Boolean(onSelect))}
       leading={<ItemLeading item={item} />}
       title={item.title || typeLabel}
       meta={<span className="block truncate">{metaParts.join(' · ')}</span>}
       className={cn(
-        'rounded-lg border border-border/60 bg-bg-surface',
+        'panel',
         item.missing && 'opacity-60',
         selected && 'ring-1 ring-ai/50 border-ai/40',
       )}
       data-testid="proposal-item"
     />
   )
-  if (item.missing) return row
+  if (item.missing || (item.planned && !onSelect)) return row
   if (onSelect) {
     return (
       <button
@@ -321,7 +322,7 @@ export function CanvasShowcaseCard({
   const card = (
     <div
       className={cn(
-        'overflow-hidden rounded-xl border border-border/60 bg-bg-surface text-left transition-opacity',
+        'panel overflow-hidden text-left transition-opacity',
         selected && !blocked && 'ring-1 ring-ai/50 border-ai/40',
         blocked && 'opacity-55',
       )}
@@ -441,11 +442,7 @@ function ModuleShowcaseCard({
       )}
       data-testid="module-showcase"
     >
-      <span
-        aria-hidden
-        className="specialist-glow pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full blur-2xl"
-        style={{ backgroundColor: color }}
-      />
+      <AgentGlow color={color} placement="corner-right" />
       <div className="relative z-[1] flex items-stretch gap-4">
         <div className="flex min-w-0 flex-1 flex-col">
           <h3 className="text-sm font-semibold text-text-heading">{name}</h3>

@@ -29,7 +29,15 @@ import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
-import { FOOTER_TAB, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
+import {
+  FOOTER_TABS,
+  PINNED_TABS,
+  TAB_GROUPS,
+  iconForTab,
+  pathForTab,
+  subtitleForTab,
+  titleForTab,
+} from '../../lib/navigation'
 import { activityTerminalPath, agentChatPath, inboxPath, newConversationPath, tagPath } from '../../lib/messages-paths'
 import { withNavReveal } from '../../lib/nav-reveal'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
@@ -152,7 +160,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }, [open, token])
 
   const catalog = useMemo(() => {
-    const navTabs = [...TAB_GROUPS.flatMap((group) => group.tabs), FOOTER_TAB]
+    const navTabs = [...PINNED_TABS, ...TAB_GROUPS.flatMap((group) => group.tabs), ...FOOTER_TABS]
     const nav: PaletteItem[] = navTabs
       .map((tab) => ({
         id: `nav-${tab}`,
@@ -749,7 +757,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       <button
         type="button"
         aria-label={t('palette.ariaClose')}
-        className="absolute inset-0 bg-bg/70 backdrop-blur-[6px] animate-fade-in"
+        className="scrim absolute inset-0 animate-fade-in"
         onClick={onClose}
       />
       <AmbientSpotlights />
