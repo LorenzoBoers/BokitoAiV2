@@ -2,16 +2,16 @@
 title: Labels and tickets
 intro: A label has color and an icon only while a flow is attached. Filing that label turns the conversation into a ticket that moves through the flow's stages.
 description: Attach a flow to a label, file a ticket from the Labels picker, confirm what the AI proposed, move a ticket through its stages, and split a conversation when a second request shows up.
-keywords: labels, flows, tickets, stages, project, intake, split conversation
+keywords: labels, flows, tickets, stages, folder, intake, split conversation
 sort: 46
-related: workstreams,communication,channels,folders,widget
+related: flows,communication,channels,folders,widget
 ---
 
 # Labels and tickets
 
 A label with a flow is still just a label. A conversation carries at most one: filing it makes the conversation a ticket that moves through that flow's stages. The folder comes from the conversation's labels, including labels on the contact. The same label can also be a folder via **Save as map**. Color and icon exist only while the flow is attached, and are set on the flow. Take the flow off and the label is plain at once.
 
-When a channel has an **AI agent** linked, that agent reads each inbound message (summary, priority, labels and tickets) in one run. Under **Manual** AI handling the agent still reads and may file labels or tickets, but it does not draft a customer reply. Without a channel agent there is no AI read. A certain read files the ticket when that label allows auto-labeling. A certain read on a label that does not auto-label becomes a card **File as name** with **File** and **Not now**. An unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free labels stay next to the label for grouping; see [Communication](/docs/inbox/communication).
+When a channel has an **AI agent** linked, that agent reads each inbound message (summary, priority, labels and tickets) in one run. Under **Manual** Autonomy the agent still reads and may file labels or tickets, but it does not draft a customer reply. Without a channel agent there is no AI read. A certain read files the ticket when that label allows auto-labeling. A certain read on a label that does not auto-label becomes a card **File as name** with **File** and **Not now**. An unsure read becomes a confirm on the conversation, and a request that matches nothing is counted under **What we missed**. Free labels stay next to the label for grouping; see [Communication](/docs/inbox/communication).
 
 ## Attach a flow to a label
 
@@ -26,7 +26,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 ## File a ticket on a conversation
 
 ![Ticket panel on a conversation](/api/docs/assets/categories/ticket-panel.png)
-*The Ticket panel shows the flow, a stage bar, the project and the flow's custom fields.*
+*The Ticket panel shows the flow, a stage bar, the folder and the flow's custom fields.*
 
 1. Open a conversation in **Communication**. Under **This conversation**, choose **Add labels**.
 2. Type with a soft `#` and pick a label with a flow (marked **Label**), or a free tag. An unknown name asks whether to add it as a tag or **Attach a flow**.
@@ -38,16 +38,16 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 
 1. An unsure read shows on the conversation as "Looks like #complaint" with **Confirm** and **Dismiss**.
 2. Nothing routes and no flow starts before someone confirms. Members can always file a ticket themselves; **Who may confirm tickets** on **Settings** → **Labels** decides who may confirm a proposal.
-3. Proposals do not count as filed tickets on Overview until they are confirmed.
+3. Proposals do not count as filed tickets on Today until they are confirmed.
 4. Set the **Tickets** posture on [Govern](/docs/govern/govern) if agents should stop filing tickets.
 
 ## Move a ticket through its stages
 
-1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or project board, drag the card to another column instead; see [Folders](/docs/ai/folders). On a board card, the contact name is a link to that contact when the conversation is linked to one.
+1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or folder board, drag the card to another column instead; see [Folders](/docs/ai/folders). On a board card, the contact name is a link to that contact when the conversation is linked to one.
 2. If the target stage has required fields that are still empty, a dialog asks for them. The ticket stays on its current stage until those values are filled. The same dialog appears when you drag a card. Closing the conversation moves its ticket to the done stage in the same step. If that stage still needs required fields, a dialog asks for them, and neither the conversation nor the ticket closes until they are filled.
 3. Every move shows in the timeline, for example **Ticket moved to Waiting**. The ticket's status always follows the kind of its stage: open, waiting or done.
-4. Under the project, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.
-5. Admins without fields see **Add custom fields to this flow**, which opens the flow in edit mode. Change the stages and fields there; see [Flows](/docs/ai/workstreams).
+4. Under the folder, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.
+5. Admins without fields see **Add custom fields to this flow**, which opens the flow in edit mode. Change the stages and fields there; see [Flows](/docs/ai/flows).
 
 ## Split off a new request
 
@@ -56,7 +56,7 @@ When a customer raises something new in an old thread, the new request gets its 
 1. Hover the message where the new request starts and choose **Split from here**.
 2. Pick the **Label for the new conversation**, or **Decide later**, then **Split**.
 3. That message and everything after it move into a new conversation with the same contact and channel. Both timelines show the link, and later replies on the same email thread or chat land in the new conversation.
-4. Agents follow the conversation's AI handling: on **Autonomous** they split on their own, on **Assisted** they propose the split as a decision, on **Manual** they leave it to you.
+4. Agents follow the conversation's Autonomy: on **Autonomous** they split on their own, on **Assisted** they propose the split as a decision, on **Manual** they leave it to you.
 
 ## Turn a missed pattern into a label with a flow
 
@@ -66,4 +66,4 @@ When a customer raises something new in an old thread, the new request gets its 
 
 ## What to do next
 
-Put the flow's action tag on a [folder](/docs/ai/folders) filterset so that folder becomes a lane on the flow board; tickets filed in the folder also show under **Flows** on the folder page. Give each stage an owner and a check-up rhythm on [Flows](/docs/ai/workstreams); due check-ups show on [Agenda](/docs/ai/agenda) and on the ticket panel.
+Put the flow's label on a [folder](/docs/ai/folders) filterset so that folder becomes a lane on the flow board; tickets filed in the folder also show under **Flows** on the folder page. Give each stage an owner and a check-up rhythm on [Flows](/docs/ai/flows); due check-ups show on [Agenda](/docs/ai/agenda) and on the ticket panel.

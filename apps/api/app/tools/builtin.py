@@ -551,6 +551,18 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
             ),
         )
     )
+    from app.services.deliveries import TARGET_REPLY, record_delivery
+
+    await record_delivery(
+        ctx.session,
+        ctx.tenant_id,
+        signal.id,
+        target_kind=TARGET_REPLY,
+        ref=str(sent[-1].id),
+        channel=signal.channel,
+        agent_id=None if as_user else identity_agent_id,
+        user_id=ctx.user_id if as_user else None,
+    )
     await ctx.session.flush()
     out: dict[str, Any] = {
         "ok": True,
@@ -675,7 +687,6 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
     from uuid import UUID
 
     from app.services.participants import ensure_participant
-    from app.services.participant_turns import request_participant_turn
 
     signal, err = await _resolve_messaging_signal(ctx, tool_input)
     if signal is None:
@@ -718,8 +729,8 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
 
         user = await ctx.session.get(User, ref_id)
         name = ((user.display_name or user.email) if user else "") or ""
-    wake = bool(tool_input.get("wake"))
-    out: dict[str, Any] = {
+    await ctx.session.commit()
+    return {
         "ok": True,
         "signal_id": str(signal.id),
         "kind": kind,
@@ -727,20 +738,6 @@ async def _invite_to_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         "name": name,
         "role": role,
     }
-    if wake and kind == "agent":
-        turn = await request_participant_turn(
-            ctx.session,
-            signal,
-            member_kind="agent",
-            member_ref_id=ref_id,
-            prompt=str(tool_input.get("message") or tool_input.get("prompt") or ""),
-            requested_by_kind="agent" if ctx.agent else "user",
-            requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
-            run=True,
-        )
-        out["turn"] = turn
-    await ctx.session.commit()
-    return out
 
 
 async def _leave_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -816,31 +813,140 @@ async def _post_thread_message(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     }
 
 
-async def _request_participant_turn(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+async def _peer_for_turn(ctx: ToolContext, tool_input: dict[str, Any]):
+    """Signal and target agent for ask_agent / handoff_to, or an error dict."""
     from uuid import UUID
 
-    from app.services.participant_turns import request_participant_turn
+    from app.models.agent import Agent
 
+    if not ctx.agent:
+        return None, None, {"error": "Only an agent can pass the conversation to another agent"}
     signal, err = await _resolve_messaging_signal(ctx, tool_input)
     if signal is None:
-        return {"error": err or "Signal not found"}
+        return None, None, {"error": err or "Signal not found"}
     try:
-        ref_id = UUID(str(tool_input.get("agent_id") or tool_input.get("id") or ""))
+        peer_id = UUID(str(tool_input.get("agent_id") or ""))
     except ValueError:
-        return {"error": "agent_id required"}
-    result = await request_participant_turn(
+        return None, None, {"error": "agent_id must be an agent uuid from the snapshot or a tool result"}
+    peer = await ctx.session.get(Agent, peer_id)
+    if peer is None or peer.tenant_id != ctx.tenant_id or not peer.is_active:
+        return None, None, {"error": "Target agent not found"}
+    if peer.id == ctx.agent.id:
+        return None, None, {"error": "You cannot ask yourself"}
+    return signal, peer, None
+
+
+async def _ask_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Ask another agent in this conversation; the answer comes back to you."""
+    from app.models.agent_turn import AgentAsk
+    from app.services.agent_turns import _requester_episode, enqueue_turn, latest_human_message_id
+
+    signal, peer, error = await _peer_for_turn(ctx, tool_input)
+    if error:
+        return error
+    question = str(tool_input.get("question") or "").strip()
+    if not question:
+        return {"error": "question required"}
+    from sqlalchemy import select
+
+    open_ask = (
+        await ctx.session.execute(
+            select(AgentAsk.id).where(
+                AgentAsk.signal_id == signal.id,
+                AgentAsk.from_agent_id == ctx.agent.id,
+                AgentAsk.to_agent_id == peer.id,
+                AgentAsk.status == "open",
+            )
+        )
+    ).scalar_one_or_none()
+    if open_ask is not None:
+        return {
+            "ok": True,
+            "ask_id": str(open_ask),
+            "agent_id": str(peer.id),
+            "agent_name": peer.name,
+            "already_asked": True,
+            "note": f"{peer.name} already has your open question and answers after this turn. End your turn now.",
+        }
+    episode = await _requester_episode(ctx.session, signal.id, ctx.agent.id) or await latest_human_message_id(
+        ctx.session, signal.id
+    )
+    ask = AgentAsk(
+        tenant_id=ctx.tenant_id,
+        signal_id=signal.id,
+        from_agent_id=ctx.agent.id,
+        to_agent_id=peer.id,
+        question=question[:4000],
+        episode_id=episode,
+    )
+    ctx.session.add(ask)
+    await ctx.session.flush()
+    queued = await enqueue_turn(
         ctx.session,
         signal,
-        member_kind="agent",
-        member_ref_id=ref_id,
-        prompt=str(tool_input.get("prompt") or tool_input.get("message") or ""),
-        deadline_s=int(tool_input.get("deadline_s") or 120),
-        requested_by_kind="agent" if ctx.agent else "user",
-        requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
-        run=tool_input.get("run", True) is not False,
+        agent_id=peer.id,
+        cause_kind="ask",
+        requested_by_kind="agent",
+        requested_by_id=ctx.agent.id,
+        prompt=question,
+        ask_id=ask.id,
+        episode_id=episode,
+        idempotency_key=f"ask:{ask.id}",
+    )
+    if not queued.get("ok"):
+        ask.status = "cancelled"
+        ctx.session.add(ask)
+        await ctx.session.commit()
+        return {
+            "error": queued.get("error") or "Could not ask",
+            "note": "The conversation goes back to the human. Do not ask again; answer with what you have.",
+        }
+    await ctx.session.commit()
+    return {
+        "ok": True,
+        "ask_id": str(ask.id),
+        "agent_id": str(peer.id),
+        "agent_name": peer.name,
+        "said": f"@[{peer.name}](agent:{peer.id}) {question}",
+        "note": (
+            f"{peer.name} answers after this turn, and their answer comes back to you. "
+            "The question is already in the chat. Do not repeat it; end your turn now."
+        ),
+    }
+
+
+async def _handoff_to(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Hand the conversation to another agent; they take over."""
+    from app.services.agent_turns import enqueue_turn
+
+    signal, peer, error = await _peer_for_turn(ctx, tool_input)
+    if error:
+        return error
+    brief = str(tool_input.get("brief") or "").strip()
+    if not brief:
+        return {"error": "brief required"}
+    queued = await enqueue_turn(
+        ctx.session,
+        signal,
+        agent_id=peer.id,
+        cause_kind="handoff",
+        requested_by_kind="agent",
+        requested_by_id=ctx.agent.id,
+        prompt=brief,
     )
     await ctx.session.commit()
-    return result
+    if not queued.get("ok"):
+        return {
+            "error": queued.get("error") or "Could not hand over",
+            "note": "The conversation goes back to the human. Answer with what you have.",
+        }
+    return {
+        "ok": True,
+        "agent_id": str(peer.id),
+        "agent_name": peer.name,
+        "said": f"@[{peer.name}](agent:{peer.id}) {brief}",
+        "note": f"{peer.name} takes over after this turn. The brief is in the chat; end your turn now.",
+    }
 
 
 async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -853,8 +959,8 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     from app.models.agent import Agent
     from app.models.signal import Signal
     from app.services.ownership import apply_owner
+    from app.services.agent_turns import enqueue_turn
     from app.services.participants import ensure_participant
-    from app.services.participant_turns import request_participant_turn
 
     mode = str(tool_input.get("mode") or "chat").strip()
     if mode == "task":
@@ -908,15 +1014,14 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         joined_via="a2a",
     )
     prompt = str(tool_input.get("message") or tool_input.get("instructions") or "").strip()
-    turn = await request_participant_turn(
+    turn = await enqueue_turn(
         ctx.session,
         signal,
-        member_kind="agent",
-        member_ref_id=peer.id,
-        prompt=prompt or f"Join this conversation about: {title}",
+        agent_id=peer.id,
+        cause_kind="handoff",
         requested_by_kind="agent" if ctx.agent else "user",
         requested_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
-        run=True,
+        prompt=prompt or f"Join this conversation about: {title}",
     )
     await ctx.session.commit()
     return {
@@ -2892,8 +2997,8 @@ register_tool(
         name="invite_to_thread",
         description=(
             "Add a teammate, agent, or team as a participant on this conversation. "
-            "Use wake=true with kind=agent to give them the floor immediately "
-            "(request_participant_turn). Prefer this over doing specialist work yourself."
+            "This does not give anyone a turn: use ask_agent or handoff_to for that "
+            "(they add the agent themselves)."
         ),
         category="messaging",
         input_schema={
@@ -2910,14 +3015,6 @@ register_tool(
                     "type": "string",
                     "enum": ["member", "watcher"],
                     "description": "member (default) or watcher",
-                },
-                "wake": {
-                    "type": "boolean",
-                    "description": "If true and kind=agent, start their turn now",
-                },
-                "message": {
-                    "type": "string",
-                    "description": "Optional brief for the woken agent",
                 },
             },
             "required": ["kind", "id"],
@@ -2958,7 +3055,7 @@ register_tool(
         description=(
             "Post a visible message on a conversation where you are a participant. "
             "Never reaches the external customer — use suggest_thread_reply or "
-            "send_reply for that. Prefer this during a requested participant turn."
+            "send_reply for that."
         ),
         category="messaging",
         input_schema={
@@ -2983,35 +3080,52 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="request_participant_turn",
+        name="ask_agent",
         description=(
-            "Give the floor to another agent on this conversation. They see peers "
-            "and your prompt, then reply or pass. Use after invite_to_thread when "
-            "a specialist should speak. The peer starts only after you finish this "
-            "turn — write one short handoff (what you asked them), then stop. "
-            "You will be woken to summarize for the human; do not claim you are "
-            "still waiting after they reply. Loop guard: same agent cannot take "
-            "too many turns in a row — then ask a human."
+            "Ask another agent something in this conversation. Your question is "
+            "posted for you with their name; they answer after your turn, and "
+            "their answer (text and images) comes back to you as a new turn. "
+            "Do not repeat the question in your reply; end your turn."
         ),
         category="messaging",
         input_schema={
             "type": "object",
             "properties": {
                 "signal_id": {"type": "string"},
-                "agent_id": {"type": "string"},
-                "prompt": {"type": "string"},
-                "deadline_s": {"type": "integer"},
-                "run": {
-                    "type": "boolean",
-                    "description": "Run the turn now (default true)",
-                },
+                "agent_id": {"type": "string", "description": "Agent uuid from the snapshot"},
+                "question": {"type": "string", "description": "What you need from them"},
             },
-            "required": ["agent_id"],
+            "required": ["agent_id", "question"],
         },
-        handler=_request_participant_turn,
+        handler=_ask_agent,
         gated=False,
         audience="both",
-        display_name="Asked a participant to reply",
+        display_name="Asked an agent",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="handoff_to",
+        description=(
+            "Hand this conversation to another agent who is better placed. Your "
+            "brief is posted for you with their name; they take over after your "
+            "turn and nothing comes back to you. End your turn."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string"},
+                "agent_id": {"type": "string", "description": "Agent uuid from the snapshot"},
+                "brief": {"type": "string", "description": "What they should pick up"},
+            },
+            "required": ["agent_id", "brief"],
+        },
+        handler=_handoff_to,
+        gated=False,
+        audience="both",
+        display_name="Handed over",
     )
 )
 
@@ -3022,8 +3136,8 @@ register_tool(
             "Start a separate peer conversation with another agent (mode=chat) or a "
             "background job (mode=task, same as delegate_to_agent). Chat creates "
             "an internal thread with both as participants and gives the peer the floor. "
-            "Do not use this to ask a peer who is already on the current conversation — "
-            "use request_participant_turn so their reply stays inline here."
+            "Do not use this to ask an agent something in the current conversation: "
+            "use ask_agent so their answer stays inline here."
         ),
         category="messaging",
         input_schema={
@@ -4511,7 +4625,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="create_workstream",
+        name="create_flow",
         description="Propose a playbook with an ordered list of canonical steps.",
         category="agents",
         input_schema={
@@ -4549,7 +4663,7 @@ register_tool(
             "required": ["name"],
         },
         handler=_make_platform_handler(
-            "create_workstream", "workstream", "create", lambda i: f"Create workstream {i.get('name')}"
+            "create_flow", "workstream", "create", lambda i: f"Create workstream {i.get('name')}"
         ),
         handles_ask=True,
     )
@@ -4557,7 +4671,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="update_workstream",
+        name="update_flow",
         description="Propose updating a playbook, including replacing its ordered steps.",
         category="agents",
         input_schema={
@@ -4597,7 +4711,7 @@ register_tool(
             "required": ["workstream_id"],
         },
         handler=_make_platform_handler(
-            "update_workstream", "workstream", "update", lambda i: f"Update workstream {i.get('workstream_id')}"
+            "update_flow", "workstream", "update", lambda i: f"Update workstream {i.get('workstream_id')}"
         ),
         handles_ask=True,
     )
@@ -4731,7 +4845,6 @@ register_tool(
                 },
                 "ask_threshold": {"type": "integer"},
                 "auto_threshold": {"type": "integer"},
-                "send_mode": {"type": "string", "enum": ["draft", "ask", "send"]},
                 "requires_verification": {"type": "boolean"},
             },
             "required": ["name"],
@@ -4748,7 +4861,7 @@ register_tool(
         name="update_category",
         description=(
             "Propose an update to a category: description, playbook (workstream_id; "
-            "null makes it a free tag), intake mode, thresholds, send mode or rail visibility."
+            "null makes it a free tag), intake mode, thresholds or rail visibility."
         ),
         category="govern",
         input_schema={
@@ -4760,8 +4873,6 @@ register_tool(
                 "create_mode": {"type": "string"},
                 "ask_threshold": {"type": "integer"},
                 "auto_threshold": {"type": "integer"},
-                "send_mode": {"type": "string"},
-                "autonomy_level": {"type": "string"},
                 "requires_verification": {"type": "boolean"},
                 "show_in_nav": {"type": "boolean"},
             },
@@ -5019,7 +5130,7 @@ register_tool(
             "queue rows. A lookup does not show cards. Call attach_items "
             "(type conversation) when you want those threads as cards, and do not "
             "repeat them as a numbered list. "
-            "Not for workspace users or teams — use list_teams (and membership tools) instead. "
+            "Not for workspace users or teams — use list_departments (and membership tools) instead. "
             "Defaults to open/pending threads. Does not include Bin items — use list_trash "
             "for deleted conversations (type conversation, alias signal). "
             "In prose chip a thread with [Subject](/communication/inbox/open/t/{id}) from "
@@ -6183,7 +6294,7 @@ async def _get_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     return _serialize_agent_row(row, detail=True)
 
 
-async def _list_playbooks(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+async def _list_flows(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.services.workstreams import list_workstreams
 
     project_id = None
@@ -6198,7 +6309,7 @@ async def _list_playbooks(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
     return {"playbooks": await list_workstreams(ctx.session, ctx.tenant_id, project_id=project_id)}
 
 
-async def _get_playbook(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+async def _get_flow(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from fastapi import HTTPException
 
     from app.services.workstreams import (
@@ -6374,7 +6485,7 @@ async def _list_teams(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
 
 register_tool(
     ToolSpec(
-        name="list_teams",
+        name="list_departments",
         description=(
             "List workspace teams. Always includes the two system teams "
             "(kind=people / All people / Alle mensen, and kind=agents / "
@@ -6416,7 +6527,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="list_playbooks",
+        name="list_flows",
         description=(
             "List playbooks (workstreams) with their step counts. Scoped to a "
             "project when project_id is given or the run is project-scoped."
@@ -6426,7 +6537,7 @@ register_tool(
             "type": "object",
             "properties": {"project_id": {"type": "string"}},
         },
-        handler=_list_playbooks,
+        handler=_list_flows,
         mutating=False,
         gated=False,
     )
@@ -6434,7 +6545,7 @@ register_tool(
 
 register_tool(
     ToolSpec(
-        name="get_playbook",
+        name="get_flow",
         description="Read one playbook (workstream) with its ordered steps.",
         category="agents",
         input_schema={
@@ -6444,7 +6555,7 @@ register_tool(
                 "workstream_id": {"type": "string"},
             },
         },
-        handler=_get_playbook,
+        handler=_get_flow,
         mutating=False,
         gated=False,
     )

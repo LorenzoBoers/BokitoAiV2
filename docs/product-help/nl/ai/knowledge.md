@@ -1,26 +1,26 @@
 ---
 title: Zo werkt Kennis
-intro: Markdown die de workspace bezit over organisatie-, project- en agentscopes. Dit is de brief die agents meenemen.
-description: Beheer Kennis als hub voor org-, project- en agentdocs, bewerk in Schrijven of Markdown, en publiceer klantartikelen.
-keywords: kennis, docs, stem, geheugen, skills, helpcenter, onderbouwing, projectdocumentatie
+intro: Markdown die de workspace bezit over organisatie-, folder- en agentscopes. Dit is de brief die agents meenemen.
+description: Beheer Kennis als hub voor org-, folder- en agentdocs, bewerk in Schrijven of Markdown, en publiceer klantartikelen.
+keywords: kennis, docs, stem, geheugen, vaardigheden, helpcenter, onderbouwing, folderdocumentatie
 sort: 30
-related: agents,communication,folders,workstreams
+related: agents,communication,folders,flows
 ---
 
 # Zo werkt Kennis
 
-Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, project- en agentdocumenten in één hub te beheren — niet om een privéwiki te schrijven.
+Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, folder- en agentdocumenten in één hub te beheren — niet om een privéwiki te schrijven.
 
 ## Kies een scope
 
 ![Kennis-pagina](/api/docs/assets/knowledge/add-doc.png)
-*Elke chip is een echte entiteit, gelabeld Platform, Project of Agent.*
+*Elke chip is een echte entiteit, gelabeld Platform, Werkmap of Agent.*
 
 1. Open **Kennis**.
-2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **projectnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als Projectdocumentatie.
-3. Met een project of agent geselecteerd verschijnt **Map openen** of **Agent openen** onder de chips; dat brengt je naar die projectpagina of agentpagina, zodat documentatie en het werk waar ze bij hoort één klik uit elkaar blijven.
+2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **werkmapnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als documentatie in een werkmap.
+3. Met een werkmap of agent geselecteerd verschijnt **Werkmap openen** of **Agent openen** onder de chips; dat brengt je naar die folderpagina of agentpagina, zodat documentatie en het werk waar ze bij hoort één klik uit elkaar blijven.
 
-De zijbalk groepeert documenten naar de soorten die er echt zijn — bijvoorbeeld Stem, Geheugen, Skills, Docs, Check-ins of Dagnotities wanneer die bestaan. Lege soorten blijven weg. Geheugen, check-ins en dagnotities onderhoudt de AI: bewerk ze als een feit fout is; behandel ze niet als tweede wiki.
+De zijbalk groepeert documenten naar de soorten die er echt zijn — bijvoorbeeld Stem, Geheugen, Vaardigheden, Docs, Check-ins of Dagnotities wanneer die bestaan. Lege soorten blijven weg. Geheugen, check-ins en dagnotities onderhoudt de AI: bewerk ze als een feit fout is; behandel ze niet als tweede wiki.
 
 ## Voeg of bewerk een document
 
@@ -43,7 +43,7 @@ Een document is een pagina opgebouwd uit `##`-secties; elke sectie is de atomair
 
 1. Voeg de pagina's toe die je team al gebruikt: prijzen, beleid, productfeiten.
 2. Open een gesprek in [Communicatie](/docs/inbox/communication).
-3. Concepten worden beter zodra er een handvol documenten is. Of er concepten verschijnen volgt nog steeds [AI-afhandeling](/docs/inbox/inbox-ai); Kennis onderbouwt alleen de tekst.
+3. Concepten worden beter zodra er een handvol documenten is. Of er concepten verschijnen volgt nog steeds [Autonomie](/docs/inbox/inbox-ai); Kennis onderbouwt alleen de tekst.
 
 ## Publiceer voor klanten
 
@@ -55,4 +55,4 @@ Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instelling
 
 ## Wat nu
 
-Houd mapgebonden docs op het tabblad Documentatie van [Mappen](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet nog **Project**). Laat agents Skills en Geheugen gebruiken zodat antwoorden onderbouwd blijven.
+Houd docs van een werkmap op het tabblad Documentatie van [Wappen](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet **Werkmap**). Laat agents Vaardigheden en Geheugen gebruiken zodat antwoorden onderbouwd blijven.

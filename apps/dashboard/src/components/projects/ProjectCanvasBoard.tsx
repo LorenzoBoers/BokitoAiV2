@@ -13,7 +13,6 @@ export function ProjectCanvasBoard({
 }) {
   return (
     <CanvasHost
-      ownerKind="project"
       ownerId={projectId}
       ownerLabel={projectName}
       fallbackAgentId={agentId}

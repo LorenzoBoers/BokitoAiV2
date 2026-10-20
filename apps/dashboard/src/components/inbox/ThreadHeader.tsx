@@ -36,6 +36,7 @@ import type {
   ThreadParticipant,
 } from '../../lib/inbox-api'
 import { ParticipantStrip } from './ParticipantStrip'
+import { ThreadWhyPanel } from './ThreadWhyPanel'
 import { setThreadExample } from '../../lib/signals-api'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
@@ -301,6 +302,7 @@ export default function ThreadHeader({
         </Tooltip>
       ) : null}
       <div className={THREAD_ACTION_CLUSTER_CLASS} role="toolbar" aria-label={t('threadChrome.threadActions')}>
+        {showHandling ? <ThreadWhyPanel threadId={String(thread.id)} /> : null}
         {showHandling && onChangeAiHandling ? (
           <AiHandlingPicker
             handling={handling}

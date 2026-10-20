@@ -7,8 +7,6 @@ from sqlalchemy import select
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.models.signal import SignalTag
-from app.models.orchestra import Workstream
 from app.services.audit import search_audit
 from app.tools import execute_tool
 from app.tools.policy import resolve_tool_mode, tenant_allowances
@@ -39,43 +37,6 @@ async def test_passports_endpoint_lists_agents(client: AsyncClient, session_over
     assistant = next(a for a in items if a["role"] == "assistant")
     assert assistant["autonomy_level"] == "assisted"
     assert assistant["tools"] == []  # empty = all default tools
-
-
-@pytest.mark.asyncio
-async def test_autonomy_scopes_list_and_update(client: AsyncClient, session_override):
-    headers = await _auth_headers(client)
-    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    workstream = Workstream(tenant_id=tenant.id, name="Resolve support")
-    session_override.add(workstream)
-    await session_override.flush()
-    case_type = SignalTag(tenant_id=tenant.id, name="support", workstream_id=workstream.id)
-    session_override.add(case_type)
-    await session_override.commit()
-
-    listed = await client.get("/api/govern/autonomy-scopes", headers=headers)
-    assert listed.status_code == 200
-    assert any(row["id"] == str(case_type.id) for row in listed.json()["categories"])
-    assert any(row["id"] == str(workstream.id) for row in listed.json()["workstreams"])
-
-    updated = await client.patch(
-        f"/api/govern/autonomy-scopes/category/{case_type.id}",
-        headers=headers,
-        json={"autonomy_level": "auto"},
-    )
-    assert updated.status_code == 200
-    assert updated.json()["autonomy_level"] == "autonomous"
-
-    listed_again = await client.get("/api/govern/autonomy-scopes", headers=headers)
-    row = next(item for item in listed_again.json()["categories"] if item["id"] == str(case_type.id))
-    assert row["autonomy_level"] == "autonomous"
-
-    canon = await client.patch(
-        f"/api/govern/autonomy-scopes/workstream/{workstream.id}",
-        headers=headers,
-        json={"autonomy_level": "assisted"},
-    )
-    assert canon.status_code == 200
-    assert canon.json()["autonomy_level"] == "assisted"
 
 
 @pytest.mark.asyncio

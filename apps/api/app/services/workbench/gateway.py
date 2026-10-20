@@ -397,6 +397,9 @@ async def ingest(
 
     await publish_events(session, job, applied)
 
+    if job.state == "finished":
+        await _record_job_delivery(session, job, artifacts)
+
     if job.state in TERMINAL:
         await revoke_job_token(session, job)
         if job.cost_cents:
@@ -472,6 +475,44 @@ async def refresh(session: AsyncSession, job: WorkJob) -> None:
     session.add(job)
     await ingest(session, job, events)
     await session.commit()
+
+
+async def _record_job_delivery(session: AsyncSession, job: WorkJob, artifacts: list[Any]) -> None:
+    """A finished job delivers its PR (or branch) into the folder's Works in."""
+    if not job.signal_id or not job.project_id:
+        return
+    from app.models.project_work import ProjectResource
+    from app.services.deliveries import TARGET_FOLDER, TARGET_WORKS_IN, record_delivery
+    from app.services.works_in import resource_key
+
+    art = next(
+        (a for a in artifacts if isinstance(a, dict) and a.get("type") == "pr"),
+        next((a for a in artifacts if isinstance(a, dict) and a.get("type") == "branch"), None),
+    )
+    if art is None:
+        return
+    external = str(art.get("external_id") or art.get("url") or art.get("ref") or "")[:500]
+    resource = (
+        await session.execute(
+            select(ProjectResource).where(
+                ProjectResource.tenant_id == job.tenant_id,
+                ProjectResource.project_id == job.project_id,
+                ProjectResource.external_ref == external,
+                ProjectResource.deleted_at.is_(None),
+            )
+        )
+    ).scalars().first() if external else None
+    await record_delivery(
+        session,
+        job.tenant_id,
+        job.signal_id,
+        target_kind=TARGET_WORKS_IN if resource else TARGET_FOLDER,
+        folder_id=job.project_id,
+        works_in_key=resource_key(resource.id) if resource else "",
+        ref=str(art.get("url") or external),
+        agent_id=job.agent_id,
+        title=str(art.get("title") or ""),
+    )
 
 
 async def _link_project_artifact(

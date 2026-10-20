@@ -150,6 +150,10 @@ cd apps\api && uvicorn app.main:app --reload --port 8000
 cd apps\dashboard && npm run dev
 ```
 
+## Mobile release
+
+The Expo app shares `packages/ui`, `packages/ui-tokens` and `packages/shared` with the dashboard. Web still ships through `deploy.yml`. A JavaScript-only change in those packages can go to installed preview builds with `eas update --channel preview` (workflow `.github/workflows/mobile-update.yml`, `workflow_dispatch`, secret `EXPO_TOKEN`). `runtimeVersion` is the project fingerprint, and updates check on load. A native dependency (fonts, `react-native-svg`) changes the fingerprint and needs a new EAS build before the update will apply.
+
 Production-like local build:
 
 ```bash

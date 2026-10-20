@@ -13,4 +13,13 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ]
 
+// @bokito/shared source uses NodeNext `.js` specifiers that point at `.ts` files.
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  const fromShared = context.originModulePath.includes(`${path.sep}packages${path.sep}shared${path.sep}src${path.sep}`)
+  if (fromShared && moduleName.endsWith('.js')) {
+    return context.resolveRequest(context, moduleName.slice(0, -3), platform)
+  }
+  return context.resolveRequest(context, moduleName, platform)
+}
+
 module.exports = config

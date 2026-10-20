@@ -91,8 +91,6 @@ _TAG_DEFAULTS = {
     "create_mode": "'ask_customer'",
     "ask_threshold": "6",
     "auto_threshold": "9",
-    "send_mode": "'draft'",
-    "autonomy_level": "'assisted'",
     "requires_verification": "0",
     "module_slug": "''",
     "template_slug": "''",
@@ -109,6 +107,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
     _cases_to_tickets(connection)
     _connection_instance_index(connection)
     _tenant_calendars(connection)
+    _message_seq(connection)
     inspector = inspect(connection)
     for table in _DROPPED_TABLES:
         if inspector.has_table(table):
@@ -147,6 +146,37 @@ def converge_sqlite_schema(connection: Connection) -> None:
                     connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
                 except Exception:  # noqa: BLE001
                     pass
+
+
+def _message_seq(connection: Connection) -> None:
+    """128: seq on messages, last_seq on threads, numbered in timeline order."""
+    inspector = inspect(connection)
+    if not inspector.has_table("signals") or not inspector.has_table("signal_messages"):
+        return
+    if "last_seq" not in {c["name"] for c in inspector.get_columns("signals")}:
+        connection.execute(text("ALTER TABLE signals ADD COLUMN last_seq INTEGER NOT NULL DEFAULT 0"))
+    if "seq" in {c["name"] for c in inspector.get_columns("signal_messages")}:
+        return
+    connection.execute(text("ALTER TABLE signal_messages ADD COLUMN seq INTEGER"))
+    connection.execute(
+        text(
+            "UPDATE signal_messages SET seq = (SELECT n FROM (SELECT id, ROW_NUMBER() OVER ("
+            "PARTITION BY signal_id ORDER BY COALESCE(received_at, created_at), created_at, id) AS n "
+            "FROM signal_messages) ranked WHERE ranked.id = signal_messages.id)"
+        )
+    )
+    connection.execute(
+        text(
+            "UPDATE signals SET last_seq = COALESCE((SELECT MAX(seq) FROM signal_messages "
+            "WHERE signal_messages.signal_id = signals.id), 0)"
+        )
+    )
+    connection.execute(
+        text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_signal_messages_signal_seq "
+            "ON signal_messages (signal_id, seq)"
+        )
+    )
 
 
 def _connection_instance_index(connection: Connection) -> None:
@@ -451,7 +481,6 @@ def _cases_to_tickets(connection: Connection) -> None:
             text(
                 "UPDATE signal_tags SET description = CASE WHEN description = '' THEN :d ELSE description END, "
                 "create_mode = :create_mode, ask_threshold = :ask, auto_threshold = :auto, "
-                "send_mode = :send_mode, autonomy_level = :autonomy, "
                 "requires_verification = :verify, module_slug = :module, template_slug = :template, "
                 "sort_order = :sort, "
                 "workstream_id = COALESCE(workstream_id, :ws), "
@@ -464,8 +493,6 @@ def _cases_to_tickets(connection: Connection) -> None:
                 "create_mode": ct["create_mode"] or "ask_customer",
                 "ask": ct["ask_threshold"] if ct["ask_threshold"] is not None else 6,
                 "auto": ct["auto_threshold"] if ct["auto_threshold"] is not None else 9,
-                "send_mode": ct.get("send_mode") or "draft",
-                "autonomy": ct.get("autonomy_level") or "assisted",
                 "verify": bool(ct["requires_verification"]),
                 "module": ct["module_slug"] or "",
                 "template": ct["template_slug"] or "",

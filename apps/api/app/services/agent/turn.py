@@ -13,8 +13,9 @@ Gateway events (topic ``signal:{id}``):
 - ``agent.turn``     ``{stream_id, phase: start|end}``
 - ``agent.activity`` ``{stream_id, phase: start|end, item}``
 - ``agent.thinking`` ``{stream_id, item_id, delta}``
-- ``message.delta``  ``{stream_id, segment_id, delta}``
-- ``message.part``   ``{stream_id, segment_id, text}`` full bubble when a split rewrites it
+- ``message.start``  ``{stream_id, segment_id, seq}`` a bubble opens at its place in the thread
+- ``message.delta``  ``{stream_id, segment_id, seq, delta}``
+- ``message.part``   ``{stream_id, segment_id, seq, text}`` full bubble when a split rewrites it
 - ``thread.presence`` same moments, one envelope (thinking/working/writing/idle).
   Typing for WhatsApp or teammates uses this event too; it is never a row.
 """
@@ -22,6 +23,7 @@ Gateway events (topic ``signal:{id}``):
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
@@ -29,6 +31,7 @@ from typing import Any, Awaitable, Callable
 from app.services.agent.turn_persist import slim_activity_item
 
 Publisher = Callable[[str, dict[str, Any]], Awaitable[None]]
+SeqReserver = Callable[[], Awaitable[int | None]]
 
 
 def _surface_without_think_text(surface: dict[str, Any]) -> dict[str, Any]:
@@ -81,17 +84,26 @@ _MAX_THINK_CHARS = 4000
 _MAX_PAYLOAD_CHARS = 480
 
 
+_MENTION = re.compile(r"@\[([^\]]+)\]\([^)]*\)")
+_NON_WORD = re.compile(r"[^\w]+", re.UNICODE)
+
+
+def _normalized_line(text: str) -> str:
+    plain = _MENTION.sub(r"\1", text or "")
+    return " ".join(_NON_WORD.sub(" ", plain.lower()).split())
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _activity_input(tool: str, tool_input: Any) -> Any:
     """Drop the spoken request from the trail. It is its own chat bubble."""
-    if tool not in ("invite_to_thread", "request_participant_turn"):
+    if tool not in ("ask_agent", "handoff_to"):
         return tool_input
     if not isinstance(tool_input, dict):
         return tool_input
-    return {key: value for key, value in tool_input.items() if key not in ("message", "prompt")}
+    return {key: value for key, value in tool_input.items() if key not in ("question", "brief")}
 
 
 def _compact(value: Any) -> Any:
@@ -106,6 +118,8 @@ def _compact(value: Any) -> Any:
 
 def _activity_result(tool: str, result: Any) -> Any:
     """Keep activity payloads small but keep fields the UI needs (e.g. favicons)."""
+    if tool in ("ask_agent", "handoff_to") and isinstance(result, dict):
+        return {key: result[key] for key in ("ok", "error", "agent_id", "agent_name") if key in result}
     if tool == "web_search" and isinstance(result, dict):
         rows: list[dict[str, Any]] = []
         kind = str(result.get("kind") or "web")[:20]
@@ -238,8 +252,19 @@ def _is_error(result: Any) -> bool:
 
 
 class TurnRecorder:
-    def __init__(self, publish: Publisher | None = None, stream_id: str | None = None):
+    def __init__(
+        self,
+        publish: Publisher | None = None,
+        stream_id: str | None = None,
+        reserve_seq: SeqReserver | None = None,
+    ):
         self._publish = publish
+        self._reserve_seq = reserve_seq
+        # Thread order per bubble, taken when its first token arrives.
+        self._seqs: dict[str, int] = {}
+        # Lines said on the agent's behalf (an ask, a handoff). The model
+        # repeating one does not become a second bubble.
+        self._said: list[str] = []
         self.stream_id = stream_id or str(uuid.uuid4())
         self.segments: list[dict[str, Any]] = []
         self._pending: list[dict[str, Any]] = []
@@ -410,6 +435,10 @@ class TurnRecorder:
         await self.speech(cleaned)
         self._close_speech()
 
+    def image_urls(self) -> list[str]:
+        """Pictures this turn made, in order."""
+        return self._echo_urls()
+
     def _echo_urls(self) -> list[str]:
         from app.services.agent.turn_persist import _generated_image_urls
 
@@ -440,10 +469,49 @@ class TurnRecorder:
             return []
         return split_chat_messages(visible, max_messages=0, settle=False)
 
+    async def _open_part(self) -> str:
+        """A new bubble: its id, and its place in the thread from the first token."""
+        seg_id = f"seg-{uuid.uuid4().hex[:10]}"
+        self._part_ids.append(seg_id)
+        seq: int | None = None
+        if self._reserve_seq is not None:
+            try:
+                seq = await self._reserve_seq()
+            except Exception:  # noqa: BLE001
+                seq = None
+        if seq is not None:
+            self._seqs[seg_id] = seq
+        await self._emit("message.start", {"segment_id": seg_id, "seq": seq})
+        return seg_id
+
+    def seq_for(self, segment_id: str) -> int | None:
+        return self._seqs.get(segment_id)
+
+    def note_said(self, text: str) -> None:
+        cleaned = _normalized_line(text)
+        if cleaned:
+            self._said.append(cleaned)
+
+    def _repeats_said(self, text: str) -> bool:
+        line = _normalized_line(text)
+        if not line or not self._said:
+            return False
+        from difflib import SequenceMatcher
+
+        for said in self._said:
+            if line == said:
+                return True
+            short, long_ = sorted((line, said), key=len)
+            if short in long_ and len(short) >= 0.8 * len(long_):
+                return True
+            if SequenceMatcher(None, line, said).ratio() >= 0.85:
+                return True
+        return False
+
     async def _sync_speech_parts(self) -> None:
         parts = self._speech_parts()
         while len(self._part_ids) < len(parts):
-            self._part_ids.append(f"seg-{uuid.uuid4().hex[:10]}")
+            await self._open_part()
         if len(parts) < len(self._part_ids):
             for seg_id in self._part_ids[len(parts) :]:
                 await self._emit("message.part", {"segment_id": seg_id, "text": ""})
@@ -456,12 +524,15 @@ class TurnRecorder:
             if text == old:
                 continue
             seg_id = self._part_ids[index]
+            seq = self._seqs.get(seg_id)
             if not old or text.startswith(old):
                 piece = text[len(old) :]
                 if piece:
-                    await self._emit("message.delta", {"segment_id": seg_id, "delta": piece})
+                    await self._emit(
+                        "message.delta", {"segment_id": seg_id, "seq": seq, "delta": piece}
+                    )
             else:
-                await self._emit("message.part", {"segment_id": seg_id, "text": text})
+                await self._emit("message.part", {"segment_id": seg_id, "seq": seq, "text": text})
 
     def _close_speech(self) -> None:
         parts = self._speech_parts()
@@ -470,15 +541,22 @@ class TurnRecorder:
                 self._part_ids.extend(
                     f"seg-{uuid.uuid4().hex[:10]}" for _ in range(len(parts) - len(self._part_ids))
                 )
+            kept = 0
             for index, text in enumerate(parts):
+                if self._repeats_said(text):
+                    continue
+                seg_id = self._part_ids[index]
                 self.segments.append(
                     {
-                        "id": self._part_ids[index],
+                        "id": seg_id,
                         "text": text,
-                        "activity": self._pending if index == 0 else [],
+                        "seq": self._seqs.get(seg_id),
+                        "activity": self._pending if kept == 0 else [],
                     }
                 )
-            self._pending = []
+                kept += 1
+            if kept:
+                self._pending = []
         self._speech_id = None
         self._speech_text = ""
         self._part_ids = []
@@ -573,10 +651,12 @@ class TurnRecorder:
             for index, text in enumerate(self._part_texts):
                 if not text.strip():
                     continue
+                seg_id = self._part_ids[index]
                 segs.append(
                     {
-                        "id": self._part_ids[index],
+                        "id": seg_id,
                         "text": text,
+                        "seq": self._seqs.get(seg_id),
                         "activity": pending if index == 0 else [],
                     }
                 )

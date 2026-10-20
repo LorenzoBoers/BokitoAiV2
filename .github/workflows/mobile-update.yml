@@ -1,0 +1,22 @@
+name: Mobile update
+
+on:
+  workflow_dispatch:
+  # JS-only shared UI can publish an EAS update once EXPO_TOKEN is set.
+  # Keep this on workflow_dispatch until that secret exists.
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Publish preview update
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: npx eas update --channel preview --non-interactive --message "${{ github.sha }}"

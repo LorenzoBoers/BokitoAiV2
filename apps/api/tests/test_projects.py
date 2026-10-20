@@ -60,7 +60,7 @@ async def test_project_workstreams_crud(client: AsyncClient):
     project_id = created.json()["id"]
 
     stream = await client.post(
-        "/api/workstreams",
+        "/api/flows",
         headers=headers,
         json={
             "name": "Weekly digest",
@@ -73,7 +73,7 @@ async def test_project_workstreams_crud(client: AsyncClient):
     assert body["project_ids"] == [project_id]
 
     listed = await client.get(
-        f"/api/workstreams?project_id={project_id}", headers=headers
+        f"/api/flows?project_id={project_id}", headers=headers
     )
     assert listed.status_code == 200
     assert any(s["id"] == body["id"] for s in listed.json()["items"])

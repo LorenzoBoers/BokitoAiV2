@@ -1,37 +1,37 @@
 ---
-title: Set AI handling
-intro: Choose whether the AI answers on its own, drafts for review, or stays quiet — once for the workspace, with exceptions per channel, contact, or conversation.
-description: Configure AI handling (Autonomous, Assisted, Manual), its layers, safeguards, handovers between agent and people, disclosure, reply language and send-as.
-keywords: ai handling, autonomous, assisted, manual, drafts, auto reply, safeguards, handover, owner, return to agent, bounce limit, close after reply, reopen, disclosure, reply language, send as, certainty, automated mail, automation rule, no reply needed
+title: Set Autonomy
+intro: Choose whether the AI answers on its own, drafts for review, or stays quiet. One dial for the workspace; a channel or a single conversation may sit lower.
+description: Configure Autonomy (Autonomous, Assisted, Manual), exceptions per channel, safeguards, handovers between agent and people, disclosure, reply language and send-as.
+keywords: Autonomy, autonomous, assisted, manual, drafts, auto reply, safeguards, handover, owner, return to agent, bounce limit, close after reply, reopen, disclosure, reply language, send as, certainty, automated mail, automation rule, no reply needed
 sort: 25
 related: communication,contacts,channels,govern,autonomy,agents
 ---
 
-# Set AI handling
+# Set Autonomy
 
-AI handling is one setting with three modes: **Autonomous** (AI answers on its own), **Assisted** (AI drafts replies and suggests actions, a person sends) and **Manual** (no customer draft or send; the linked channel agent may still read the thread, set summary and priority, and file tags or tickets). You set it once for the workspace and only set it again where a channel, a contact or a single conversation should differ — the most specific setting wins. Without an **AI agent** on the channel there is no inbound interpretation or reply.
+Autonomy is one setting with three modes: **Autonomous** (AI answers on its own), **Assisted** (AI drafts replies and suggests actions, a person sends) and **Manual** (no customer draft or send; the linked channel agent may still read the thread, set summary and priority, and file tags or tickets). You set it once with the Autonomy dial on Govern, and only set it lower where a channel or a single conversation should differ. Nothing goes above the dial. Without an **AI agent** on the channel there is no inbound interpretation or reply.
 
-The same icons appear everywhere: a lightning bolt for Autonomous and a pen for Assisted (both purple), and a hand for Manual (gray). [Govern](/docs/govern/govern) sets the ceiling: nothing below it can be more autonomous than Govern allows. Each agent has its own ceiling too (see [Agents](/docs/ai/agents)): a conversation the agent handles never runs above it, and the picker says so.
+The same icons appear everywhere: a lightning bolt for Autonomous and a pen for Assisted (both purple), and a hand for Manual (gray). The dial is described in [Autonomy](/docs/govern/autonomy). Each agent has its own level too (see [Agents](/docs/ai/agents)): a conversation the agent handles never runs above it, and the picker says so.
 
-## Set the workspace default
+## Set the workspace dial
 
-![Workspace default for AI handling](/api/docs/assets/inbox-ai/workspace-default.png)
-*Three cards: Autonomous, Assisted and Manual.*
+![The Autonomy dial](/api/docs/assets/inbox-ai/workspace-default.png)
+*Three cards: Manual, Assisted and Autonomous.*
 
-1. Open **Settings**, then **AI handling**.
-2. Under **Workspace default**, pick **Autonomous**, **Assisted** or **Manual**. The change saves at once.
-3. Turning on **Autonomous** shows a confirmation with how many open conversations follow this setting and how often drafts were sent unedited recently. Only an owner or admin can turn on Autonomous.
-4. Under the cards, the **Ceiling** shows the Govern limit. Choose **Pause autonomous replies** to cap every conversation at Assisted in one step; **Allow autonomous replies** lifts that cap. Open **Govern ceiling** from the note when you need to change the workspace posture or Messaging allowance.
+1. Open **Settings**, then **Govern**, then **Policy**. Every setting on this page lives there.
+2. Under **Autonomy**, pick **Manual**, **Assisted** or **Autonomous**. The change saves at once.
+3. Turning on **Autonomous** asks **Turn on Autonomous?** first. Only an owner or admin can change the dial.
+4. To pause autonomous replies for the whole workspace, set the dial to **Assisted**. Every conversation then drafts until you raise it again.
 
-Start with **Assisted**. Bokito suggests Autonomous once at least 80% of 50 or more drafts go out unedited. On an Assisted channel, the AI handling row shows how many of those 50 drafts were sent unchanged.
+Start with **Assisted**. Bokito suggests Autonomous once at least 80% of 50 or more drafts go out unedited. On an Assisted channel, the Autonomy row shows how many of those 50 drafts were sent unchanged.
 
 ## Review exceptions
 
-1. On the same page, open **Exceptions**. It lists every channel, contact and open conversation that does not follow the workspace default, grouped by layer.
+1. On the same page, open **Per channel**. It lists every channel and open conversation set below the dial, grouped by layer.
 2. Each row shows its mode icon and name. Choose **Follow the default again** to remove the exception. A tripped circuit breaker shows **Resume autonomous** on the channel row.
-3. Set new exceptions where you work: on the channel under [Channels](/docs/inbox/channels), on a contact under [Contacts](/docs/inbox/contacts), or in the conversation header in [Communication](/docs/inbox/communication).
+3. Set new exceptions where you work: on the channel under [Channels](/docs/inbox/channels), or in the conversation header in [Communication](/docs/inbox/communication).
 
-A conversation exception lasts until the conversation closes. Channel and contact exceptions stay until you clear them.
+A conversation exception lasts until the conversation closes. Channel exceptions stay until you clear them.
 
 ## Set safeguards for autonomous replies
 
@@ -39,14 +39,11 @@ A conversation exception lasts until the conversation closes. Channel and contac
 2. Set the **Certainty threshold** (1–10, from **permissive** to **strict**). Below that certainty, the reply becomes a draft.
 3. Turn on **Review replies to new contacts** to draft instead of send while a contact awaits approval. Website chat visitors are exempt.
 4. Turn on **Disclose AI replies** to add a short note to autonomous replies. Change the **Note text** or leave it empty for the default; the preview shows what customers see.
-5. Under **Circuit breaker**, set **Autonomous replies per hour per channel** and **Negative signals per hour per channel**. A tripped channel runs Assisted until someone resumes it from Exceptions or the channel.
-6. Changes save automatically. **Last modified** in the page header shows when the last save finished.
+5. Under **Circuit breaker**, set **Autonomous replies per hour per channel** and **Negative signals per hour per channel**. A tripped channel runs Assisted until someone resumes it from **Per channel** or the channel.
+6. Set the **Bounce limit**: how often per day a conversation may move between the agent and people. After that, people keep it until someone hands it back explicitly, and the thread shows a note from the agent. 0 turns the limit off.
+7. Changes save automatically.
 
-## Labels with a flow that always need review
-
-1. On the same page, open **Labels with a flow that always need review**.
-2. Turn **Always review** on for a label with a flow. Replies on a ticket with that tag become a draft, even when the conversation is Autonomous.
-3. Turn it off (**May send**) when autonomous send is fine for that tag.
+A flow can keep its tickets on review: turn on **Always review** on the flow page (see [Flows](/docs/ai/flows)). Replies on those tickets become a draft, even when the conversation is Autonomous.
 
 The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies. The same line appears with **the agent does not own this conversation** when a person or team owns it (the agent then drafts for them) and with **a colleague is typing a reply** when someone is writing in the composer at that moment.
 
@@ -54,14 +51,13 @@ Replies follow the channel. Email gets one structured message. On WhatsApp and w
 
 ## Set handovers between agent and people
 
-AI handling says what the agent may do; the owner says whose turn it is right now. The agent owns a conversation while it has the next step: on an **Autonomous** channel it answers new conversations itself; on **Assisted** it picks them up, gathers context, prepares a draft or choice card and then hands the conversation to a person (the timeline shows **Draft ready: {name} is up**). It also hands over when the customer asks for a person, when a safeguard or decision escalates, or when someone takes over. These rules decide what happens around that handover.
+Autonomy says what the agent may do; the owner says whose turn it is right now. The agent owns a conversation while it has the next step: on an **Autonomous** channel it answers new conversations itself; on **Assisted** it picks them up, gathers context, prepares a draft or choice card and then hands the conversation to a person (the timeline shows **Draft ready: {name} is up**). It also hands over when the customer asks for a person, when a safeguard or decision escalates, or when someone takes over. These rules decide what happens around that handover.
 
 1. On the same page, open **Handovers between agent and people**.
 2. Under **After a person replies**, pick **Return to the agent** (the agent owns the conversation again and picks up the customer's next message: it answers itself on Autonomous, drafts for you on Assisted; the default), **Stays with the person** (whoever replies becomes the owner and the agent drafts for them) or **Ask when sending** (the send menu in the conversation offers **Send and hand back to {agent}** and **Send and keep with me**).
 3. Turn on **Close after an autonomous reply** to close a conversation as soon as a delivered autonomous reply goes out, or **Close after a person replies** to make **Send** close it by default; the send menu then offers **Send and keep open**. A new message from the contact reopens a closed conversation.
 4. Under **Owner on reopen**, choose **Same owner** (the last owner gets the reopened conversation; a person who left the workspace falls back to the contact owner or the channel team) or **Route again** (the reopened conversation is routed like a new one).
-5. Set the **Bounce limit**: how often per day a conversation may move between the agent and people. After that, people keep it until someone hands it back explicitly, and the thread shows a note from the agent. 0 turns the limit off.
-6. Override every rule except the bounce limit per channel under [Channels](/docs/inbox/channels), section **Handovers**. A channel value shows the **Company default** badge until the channel picks its own rule.
+5. Override every rule except the bounce limit per channel under [Channels](/docs/inbox/channels), section **Handovers**. A channel value shows the **Company default** badge until the channel picks its own rule.
 
 When the agent hands a conversation to people, it picks the owner in this order: the person named by the agent or decision, a learned routing rule, the last person or team who handled the conversation, the owner of the contact (see [Contacts](/docs/inbox/contacts)), the channel's owner team, All people. The thread gets an internal note from the agent with the reason, and **Take over** always stays a hard stop until someone chooses **Hand back to AI**.
 
@@ -77,12 +73,21 @@ When the agent hands a conversation to people, it picks the owner in this order:
 
 - **Manual** is in effect somewhere in the chain, or a teammate took over the conversation.
 - A person or team owns the conversation (for example after **Stays with the person**): the agent drafts for them instead of sending.
-- Govern caps conversations at Assisted (messaging set to ask) or Manual (messaging denied).
-- **Privacy** keeps AI away from message bodies; AI handling then shows Manual.
+- The Autonomy dial sits on Assisted or Manual, or the flow of the ticket is on **Always review**.
+- **Privacy** keeps AI away from message bodies; Autonomy then shows Manual.
 - The channel's circuit breaker tripped after unusual activity; the channel runs Assisted until someone resumes it.
 - The mailbox still needs setup or reconnect. The thread gets an **Internal note** pointing to **Settings → Channels** instead of a draft.
 
-Hover the mode in the conversation header to see which layer decided and why.
+## See why a conversation runs this way
+
+The **Why** button in the conversation header lists every reason in one place, each as a sentence that links to where you change it.
+
+1. Open a conversation and click **Why** in the header.
+2. The first line names the agent: who wrote the last reply, owns the conversation, or is addressed.
+3. The next lines show the Autonomy setting and where it comes from (workspace, channel or this conversation), followed by everything that keeps it lower: the dial, Privacy, the breaker, the agent's own level or a flow on **Always review**.
+4. Below that are the knowledge documents the last reply read, the folder the conversation sits in (and whether its label comes from the conversation, the contact or the company), and the flow with its current stage.
+5. The last lines show where the work was delivered: replies per channel, the folder and its **Works in** place (a connection, canvas or the board), and a correction kept as an example.
+6. Click a line to open that setting or place. Replies from before this panel existed show no documents.
 
 ## No reply needed
 
@@ -100,4 +105,4 @@ The same mode decides who an unknown chatter is. When a visitor gives an email o
 
 ## What to do next
 
-Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Set **Who answers** on [Channels](/docs/inbox/channels) when a channel should skip the workspace default agent — that is routing, not AI handling.
+Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Set **Who answers** on [Channels](/docs/inbox/channels) when a channel should skip the workspace default agent — that is routing, not Autonomy.

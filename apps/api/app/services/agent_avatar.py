@@ -49,6 +49,9 @@ ALLOWED_ICONS = frozenset(
     }
 )
 
+# Hidden until FEATURE_CODING_AGENT_INTEGRATIONS is on (coding-agent bodies).
+CODING_AGENT_SHAPES = frozenset({"claude", "cursor"})
+
 # Bot-orb silhouettes (mirrored in dashboard bot-orb-shapes.ts).
 ALLOWED_SHAPES = frozenset(
     {
@@ -69,6 +72,7 @@ ALLOWED_SHAPES = frozenset(
         "arch",
         "teardrop",
         "heart",
+        *CODING_AGENT_SHAPES,
     }
 )
 
@@ -143,11 +147,19 @@ def normalize_color(value: str | None) -> str | None:
     return hex_color.lower()
 
 
+def coding_agent_integrations_enabled() -> bool:
+    from app.config import get_settings
+
+    return bool(get_settings().feature_coding_agent_integrations)
+
+
 def normalize_shape(value: str | None) -> str | None:
     if not value:
         return None
     key = value.strip().lower()
     key = _RETIRED_SHAPES.get(key, key)
+    if key in CODING_AGENT_SHAPES and not coding_agent_integrations_enabled():
+        return None
     return key if key in ALLOWED_SHAPES else None
 
 

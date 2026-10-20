@@ -1,3 +1,5 @@
+import { AUTONOMY_PATH } from './navigation'
+
 export const PAGE_GUIDE_SLUGS = [
   'cockpit',
   'communication',
@@ -24,7 +26,7 @@ export const PAGE_GUIDE_BACK: Record<PageGuideSlug, string> = {
   contacts: '/contacts',
   agenda: '/agenda',
   team: '/team',
-  categories: '/settings/action-tags',
+  categories: '/settings/labels',
   agents: '/agents',
   projects: '/folders',
   knowledge: '/knowledge',
@@ -46,7 +48,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   communication: [
     { to: '/settings/channels', labelKey: 'pageGuides.related.channels' },
-    { to: '/settings/communication', labelKey: 'pageGuides.related.inboxAi' },
+    { to: AUTONOMY_PATH, labelKey: 'pageGuides.related.inboxAi' },
     { to: '/settings/channels', labelKey: 'pageGuides.related.widget' },
     { to: '/contacts', labelKey: 'pageGuides.related.contacts' },
     { to: '/agents#activity', labelKey: 'pageGuides.related.activity' },
@@ -68,7 +70,7 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
   ],
   categories: [
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
-    { to: '/workstreams', labelKey: 'pageGuides.related.workstreams' },
+    { to: '/flows', labelKey: 'pageGuides.related.workstreams' },
     { to: '/folders', labelKey: 'pageGuides.related.projects' },
   ],
   agents: [
@@ -77,8 +79,8 @@ export const PAGE_GUIDE_RELATED: Record<PageGuideSlug, { to: string; labelKey: s
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
   ],
   projects: [
-    { to: '/workstreams', labelKey: 'pageGuides.related.workstreams' },
-    { to: '/settings/action-tags', labelKey: 'pageGuides.related.categories' },
+    { to: '/flows', labelKey: 'pageGuides.related.workstreams' },
+    { to: '/settings/labels', labelKey: 'pageGuides.related.categories' },
     { to: '/communication/inbox/open', labelKey: 'pageGuides.related.communication' },
     { to: '/agents', labelKey: 'pageGuides.related.agents' },
   ],

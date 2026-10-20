@@ -66,7 +66,7 @@ def test_narrow_passport_still_gets_canvas_tools():
     reaction = {tool["name"] for tool in with_operator_reaction_tool(narrowed, trust="operator")}
     assert "react_to_message" in reaction
     org = {tool["name"] for tool in with_operator_org_tools(narrowed, trust="operator")}
-    assert {"get_tenant_overview", "list_agents", "list_teams"} <= org
+    assert {"get_tenant_overview", "list_agents", "list_departments"} <= org
     assert "get_tenant_overview" not in {
         tool["name"] for tool in with_operator_org_tools(narrowed, trust="external")
     }

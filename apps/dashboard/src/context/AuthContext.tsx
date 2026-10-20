@@ -138,6 +138,8 @@ interface User {
   parkedChannels: string[];
   /** In-app agent calls. Off unless the API env enables them. */
   agentCallsEnabled: boolean;
+  /** Claude and Cursor agent bodies. Off unless the API env enables them. */
+  codingAgentIntegrationsEnabled: boolean;
 }
 
 /** Thrown by `login` when the account requires a TOTP code as a second step. */
@@ -406,6 +408,7 @@ function normalizeAuthUser(raw: unknown): User {
     environment: toString(payload.environment).toLowerCase(),
     parkedChannels: normalizeParkedChannels(payload.parked_channels),
     agentCallsEnabled: payload.agent_calls_enabled === true,
+    codingAgentIntegrationsEnabled: payload.coding_agent_integrations_enabled === true,
   };
 }
 

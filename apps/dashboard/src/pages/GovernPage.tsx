@@ -5,6 +5,7 @@ import { ShieldCheck, Check, X, ChevronDown, ChevronUp, RefreshCw, KeyRound, Ext
 import { openEntityPath } from '../lib/open-entity'
 import { toast } from 'sonner'
 import { inboxPath } from '../lib/messages-paths'
+
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { activityEntryPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
@@ -21,21 +22,17 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import {
   acceptGovernChange,
   getAllowances,
-  getAutonomyScopes,
+  getPosture,
   listAcceptedChanges,
   listAgentPassports,
   listGovernAudit,
   listGovernChanges,
   rejectGovernChange,
   rollbackGovernChange,
-  setAutonomyScope,
   setPosture,
   updateAllowances,
-  normalizeAutonomyScopeLevel,
   type AllowanceMode,
   type AuditEventRow,
-  type AutonomyScopeLevel,
-  type AutonomyScopeRow,
   type AutonomyPostureId,
   type GovernToolRow,
   type LearningAllowanceNote,
@@ -61,9 +58,11 @@ import { useChannelStatus } from '../hooks/useChannelStatus'
 import { useLlmRuntime } from '../hooks/useLlmRuntime'
 import { Input } from '../components/ui/input'
 import { AgentActionRulesCard } from '../components/govern/AgentActionRulesCard'
+import { AutonomySettings } from '../components/govern/autonomy/AutonomySettings'
 import { AgentRulesEditor } from '../components/workforce/AgentRulesEditor'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import type { AgentPassport } from '../lib/workforce-api'
+import { AUTONOMY_PATH } from '../lib/navigation'
 import {
   Dialog,
   DialogContent,
@@ -75,7 +74,6 @@ import {
 
 const ALLOWANCE_OPTIONS: AllowanceMode[] = ['deny', 'ask', 'allow']
 const POSTURE_ORDER: AutonomyPostureId[] = ['manual', 'assisted', 'autonomous']
-const SCOPE_LEVELS: AutonomyScopeLevel[] = ['inherit', 'manual', 'assisted', 'autonomous']
 
 const STATUS_BADGE: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   pending_review: 'secondary',
@@ -167,8 +165,7 @@ export default function GovernPage() {
   const [tools, setTools] = useState<GovernToolRow[]>([])
   const [learningHistory, setLearningHistory] = useState<LearningAllowanceNote[]>([])
   const [posture, setPostureState] = useState<AutonomyPostureId>('assisted')
-  const [categoryScopes, setCategoryScopes] = useState<AutonomyScopeRow[]>([])
-  const [workstreamScopes, setWorkstreamScopes] = useState<AutonomyScopeRow[]>([])
+  const [toolDefaultsOpen, setToolDefaultsOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -204,9 +201,9 @@ export default function GovernPage() {
       listGovernAudit(200, serverQuery || undefined),
       listAgentPassports(),
       getAllowances(),
-      getAutonomyScopes(),
+      getPosture(),
     ])
-      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp, scopeResp]) => {
+      .then(([changeResp, historyResp, auditResp, passportResp, allowanceResp, postureResp]) => {
         setChanges(changeResp.items)
         if (!tabParam && !readLastGovernTab() && changeResp.items.length > 0) {
           writeLastGovernTab('drafts')
@@ -221,9 +218,7 @@ export default function GovernPage() {
         setCategories(allowanceResp.categories)
         setTools(allowanceResp.tools)
         setLearningHistory(allowanceResp.learning_history ?? [])
-        setPostureState(allowanceResp.posture)
-        setCategoryScopes(scopeResp.categories)
-        setWorkstreamScopes(scopeResp.workstreams)
+        setPostureState(postureResp.posture)
         setRefreshedAt(new Date())
       })
       .catch((err) => setError(formatApiErrorMessage(err, t('loadError'))))
@@ -367,25 +362,6 @@ export default function GovernPage() {
       load()
     } finally {
       setSavingModes(false)
-    }
-  }
-
-  async function handleScopeChange(
-    kind: 'category' | 'workstream',
-    row: AutonomyScopeRow,
-    level: AutonomyScopeLevel,
-  ) {
-    if (normalizeAutonomyScopeLevel(row.autonomy_level) === level || busyId === row.id) return
-    setBusyId(row.id)
-    try {
-      const updated = await setAutonomyScope(kind, row.id, level)
-      const setter = kind === 'category' ? setCategoryScopes : setWorkstreamScopes
-      setter((current) => current.map((item) => (item.id === updated.id ? updated : item)))
-      toast.success(t('scopes.saved'))
-    } catch (err) {
-      setError(formatApiErrorMessage(err, t('scopes.saveError')))
-    } finally {
-      setBusyId(null)
     }
   }
 
@@ -538,7 +514,7 @@ export default function GovernPage() {
                           <Link to="/agents">{t('drafts.openAgents')}</Link>
                         </Button>
                         <Button size="sm" variant="outline" asChild>
-                          <Link to="/settings/communication">{t('drafts.openInboxAi')}</Link>
+                          <Link to={AUTONOMY_PATH}>{t('drafts.openInboxAi')}</Link>
                         </Button>
                       </div>
                     }
@@ -619,200 +595,144 @@ export default function GovernPage() {
           </TabsContent>
 
           <TabsContent value="policy" className="mt-4 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('posture.title')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-text-muted">{t('posture.intro')}</p>
-                <p className="text-xs text-text-muted">{t('posture.perAgentHint')}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
-                    {t('drafts.openAgents')}
-                  </Link>
-                  <Link to="/settings/communication" className="text-xs font-medium text-accent hover:underline">
-                    {t('drafts.openInboxAi')}
-                  </Link>
-                </div>
-                <OptionCardGrid columns={3}>
-                  {POSTURE_ORDER.map((id) => {
-                    const active = posture === id
-                    const blocked = id === 'autonomous' && Boolean(autonomousBlockedReason)
-                    return (
-                      <OptionCard
-                        key={id}
-                        selected={active}
-                        disabled={savingPosture || blocked}
-                        title={t(`posture.${id}.label`)}
-                        description={t(`posture.${id}.summary`)}
-                        badge={
-                          active ? (
-                            <Badge variant="accent" size="sm">
-                              {t('posture.current')}
-                            </Badge>
-                          ) : null
-                        }
-                        onClick={() => void handlePostureChange(id)}
-                      >
-                        <ul className="list-disc space-y-0.5 pl-4 text-xs text-text-muted">
-                          <li>{t(`posture.${id}.effects.inbox`)}</li>
-                          <li>{t(`posture.${id}.effects.tools`)}</li>
-                          <li>{t(`posture.${id}.effects.structure`)}</li>
-                        </ul>
-                        {blocked ? (
-                          <span className="text-xs text-status-warning">{autonomousBlockedReason}</span>
-                        ) : null}
-                      </OptionCard>
-                    )
-                  })}
-                </OptionCardGrid>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('scopes.title')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-xs text-text-muted">{t('scopes.intro')}</p>
-                {(
-                  [
-                    ['category', t('scopes.types'), categoryScopes],
-                    ['workstream', t('scopes.playbooks'), workstreamScopes],
-                  ] as const
-                ).map(([kind, title, rows]) => (
-                  <section key={kind} className="space-y-2">
-                    <h3 className="text-xs font-semibold text-text-muted">{title}</h3>
-                    {rows.length === 0 ? (
-                      <EmptyState tone="plain" size="sm" className="px-0 py-1" title={t('scopes.empty')} />
-                    ) : (
-                      rows.map((row) => (
-                        <div
-                          key={row.id}
-                          className="flex flex-col gap-2 rounded-lg border border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <Link
-                            to={
-                              kind === 'category'
-                                ? openEntityPath({ type: 'tag', name: row.name })
-                                : openEntityPath({ type: 'flow', id: row.id })
-                            }
-                            className="text-sm font-medium text-text-heading hover:text-accent hover:underline"
-                            title={kind === 'category' ? t('scopes.openTag') : t('scopes.openFlow')}
-                            data-testid="govern-scope-link"
-                          >
-                            {kind === 'category' ? `#${row.name}` : row.name}
-                          </Link>
-                          <div className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5" role="radiogroup">
-                            {SCOPE_LEVELS.map((level) => (
-                              <button
-                                key={level}
-                                type="button"
-                                role="radio"
-                                aria-checked={normalizeAutonomyScopeLevel(row.autonomy_level) === level}
-                                disabled={busyId === row.id}
-                                onClick={() => void handleScopeChange(kind, row, level)}
-                                className={cn(
-                                  'rounded-md px-3 py-1 text-xs transition-colors',
-                                  normalizeAutonomyScopeLevel(row.autonomy_level) === level
-                                    ? 'bg-bg-hover font-medium text-text-heading'
-                                    : 'text-text-muted hover:text-text-heading',
-                                )}
+            <AutonomySettings
+              after={
+                <Card data-testid="govern-tool-defaults">
+                  <CardHeader>
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                      aria-expanded={toolDefaultsOpen}
+                      onClick={() => setToolDefaultsOpen((open) => !open)}
+                    >
+                      <span>
+                        <CardTitle>{t('posture.title')}</CardTitle>
+                        <span className="mt-1 block text-xs font-normal text-text-muted">{t('posture.intro')}</span>
+                      </span>
+                      {toolDefaultsOpen ? (
+                        <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
+                      )}
+                    </button>
+                  </CardHeader>
+                  {toolDefaultsOpen ? (
+                    <CardContent className="space-y-4">
+                      <p className="text-xs text-text-muted">{t('posture.perAgentHint')}</p>
+                      <OptionCardGrid columns={3}>
+                        {POSTURE_ORDER.map((id) => {
+                          const active = posture === id
+                          const blocked = id === 'autonomous' && Boolean(autonomousBlockedReason)
+                          return (
+                            <OptionCard
+                              key={id}
+                              selected={active}
+                              disabled={savingPosture || blocked}
+                              title={t(`posture.${id}.label`)}
+                              description={t(`posture.${id}.summary`)}
+                              badge={
+                                active ? (
+                                  <Badge variant="accent" size="sm">
+                                    {t('posture.current')}
+                                  </Badge>
+                                ) : null
+                              }
+                              onClick={() => void handlePostureChange(id)}
+                            >
+                              <ul className="list-disc space-y-0.5 pl-4 text-xs text-text-muted">
+                                <li>{t(`posture.${id}.effects.tools`)}</li>
+                                <li>{t(`posture.${id}.effects.structure`)}</li>
+                              </ul>
+                              {blocked ? (
+                                <span className="text-xs text-status-warning">{autonomousBlockedReason}</span>
+                              ) : null}
+                            </OptionCard>
+                          )
+                        })}
+                      </OptionCardGrid>
+                      <div className="space-y-3 border-t border-border/60 pt-4">
+                        <h3 className="text-sm font-medium text-text-heading">{t('allowances.title')}</h3>
+                        <p className="text-xs text-text-muted">
+                          {t('allowances.intro')}
+                        </p>
+                        {learningHistory.length > 0 ? (
+                          <div className="rounded-lg border border-border/60 bg-bg-muted/40 px-3 py-2 space-y-1.5">
+                            <p className="text-xs text-text-muted">{t('allowances.learningIntro')}</p>
+                            {learningHistory.slice(0, 3).map((note, index) => (
+                              <p
+                                key={`${note.category ?? 'cat'}-${note.at ?? index}`}
+                                className="text-xs text-text-secondary"
+                                title={note.reason}
                               >
-                                {t(`scopes.levels.${level}`)}
-                              </button>
+                                {t('allowances.learningNote', {
+                                  category: toolCategoryLabel(String(note.category || ''), t),
+                                  from: allowanceModeLabel((note.from as AllowanceMode) || 'allow', t),
+                                  to: allowanceModeLabel((note.to as AllowanceMode) || 'ask', t),
+                                })}
+                              </p>
                             ))}
                           </div>
-                        </div>
-                      ))
-                    )}
-                  </section>
-                ))}
-              </CardContent>
-            </Card>
+                        ) : null}
+                        {categories.map((category) => {
+                          const current = allowances[category] ?? 'ask'
+                          return (
+                            <div key={category} className="rounded-lg border border-border/60 p-3">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="min-w-0">
+                                  <span className="text-sm font-medium text-text-heading">
+                                    {toolCategoryLabel(category, t)}
+                                  </span>
+                                  <p className="text-xs text-text-muted mt-0.5">
+                                    {toolCategoryHint(category, t)}
+                                  </p>
+                                </div>
+                                <div
+                                  className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5"
+                                  role="radiogroup"
+                                  aria-label={t('toolOverride.categoryAria', {
+                                    category: toolCategoryLabel(category, t),
+                                  })}
+                                >
+                                  {ALLOWANCE_OPTIONS.map((mode) => (
+                                    <button
+                                      key={mode}
+                                      type="button"
+                                      role="radio"
+                                      aria-checked={current === mode}
+                                      disabled={savingModes}
+                                      onClick={() => void handleAllowanceChange(category, mode)}
+                                      className={cn(
+                                        'rounded-md px-3 py-1 text-xs transition-colors',
+                                        current === mode
+                                          ? mode === 'deny'
+                                            ? 'bg-destructive/10 text-destructive font-medium'
+                                            : mode === 'allow'
+                                              ? 'bg-bg-hover font-medium text-text-heading'
+                                              : 'bg-bg-muted text-text-heading font-medium'
+                                          : 'text-text-muted hover:text-text-heading',
+                                      )}
+                                    >
+                                      {allowanceModeLabel(mode, t)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="mt-1.5 text-xs text-text-muted">
+                                {allowanceModeHint(current, t)}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  ) : null}
+                </Card>
+              }
+            />
 
             <AgentActionRulesCard isAdmin={isAdmin} />
 
             <AgentRulesEditor canEdit canGrant={isAdmin} />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('allowances.title')}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-text-muted">
-                  {t('allowances.intro')}
-                </p>
-                {learningHistory.length > 0 ? (
-                  <div className="rounded-lg border border-border/60 bg-bg-muted/40 px-3 py-2 space-y-1.5">
-                    <p className="text-xs text-text-muted">{t('allowances.learningIntro')}</p>
-                    {learningHistory.slice(0, 3).map((note, index) => (
-                      <p
-                        key={`${note.category ?? 'cat'}-${note.at ?? index}`}
-                        className="text-xs text-text-secondary"
-                        title={note.reason}
-                      >
-                        {t('allowances.learningNote', {
-                          category: toolCategoryLabel(String(note.category || ''), t),
-                          from: allowanceModeLabel((note.from as AllowanceMode) || 'allow', t),
-                          to: allowanceModeLabel((note.to as AllowanceMode) || 'ask', t),
-                        })}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-                {categories.map((category) => {
-                  const current = allowances[category] ?? 'ask'
-                  return (
-                    <div key={category} className="rounded-lg border border-border/60 p-3">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <span className="text-sm font-medium text-text-heading">
-                            {toolCategoryLabel(category, t)}
-                          </span>
-                          <p className="text-xs text-text-muted mt-0.5">
-                            {toolCategoryHint(category, t)}
-                          </p>
-                        </div>
-                        <div
-                          className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5"
-                          role="radiogroup"
-                          aria-label={t('toolOverride.categoryAria', {
-                            category: toolCategoryLabel(category, t),
-                          })}
-                        >
-                          {ALLOWANCE_OPTIONS.map((mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              role="radio"
-                              aria-checked={current === mode}
-                              disabled={savingModes}
-                              onClick={() => void handleAllowanceChange(category, mode)}
-                              className={cn(
-                                'rounded-md px-3 py-1 text-xs transition-colors',
-                                current === mode
-                                  ? mode === 'deny'
-                                    ? 'bg-destructive/10 text-destructive font-medium'
-                                    : mode === 'allow'
-                                      ? 'bg-bg-hover font-medium text-text-heading'
-                                      : 'bg-bg-muted text-text-heading font-medium'
-                                  : 'text-text-muted hover:text-text-heading',
-                              )}
-                            >
-                              {allowanceModeLabel(mode, t)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="mt-1.5 text-xs text-text-muted">
-                        {allowanceModeHint(current, t)}
-                      </p>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
 
             <Card>
               <CardHeader>
@@ -832,6 +752,7 @@ export default function GovernPage() {
                 </Button>
               </CardContent>
             </Card>
+
           </TabsContent>
 
           <TabsContent value="history" className="mt-4">
@@ -946,7 +867,7 @@ export default function GovernPage() {
                           <Link to="/agents">{t('passports.openAgents')}</Link>
                         </Button>
                         <Button type="button" size="sm" variant="outline" asChild>
-                          <Link to="/settings/communication">{t('drafts.openInboxAi')}</Link>
+                          <Link to={AUTONOMY_PATH}>{t('drafts.openInboxAi')}</Link>
                         </Button>
                       </div>
                     }

@@ -59,10 +59,10 @@
   },
   "landing": {
     "title": "Startpagina",
-    "description": "Kies waar Bokito opent na het inloggen. Chat is de standaard.",
-    "chat": "Chat",
+    "description": "Kies waar Bokito opent na het inloggen. Communicatie is de standaard.",
+    "chat": "Communicatie",
     "communication": "Communicatie",
-    "overview": "Overview",
+    "overview": "Vandaag",
     "saveError": "Startpagina opslaan is niet gelukt."
   },
   "theme": {
@@ -174,7 +174,7 @@
   "links": {
     "openInboxSettings": "Open kanaalinstellingen",
     "openMailboxSignatures": "Mailbox-handtekeningen",
-    "openAssistant": "Mijn assistent",
+    "openAssistant": "Geheugen van Bokito",
     "openNotifications": "Meldingen"
   }
 }

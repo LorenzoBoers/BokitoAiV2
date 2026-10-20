@@ -30,6 +30,12 @@ type Props = {
   /** Menus and pickers should not navigate away on agent faces. */
   linkAgents?: boolean
   presence?: PresenceStatus
+  /**
+   * Cap the pile. The communication rail uses 2: a +N disc at 14px
+   * paints over the department name.
+   */
+  faces?: number
+  cutout?: 'surface' | 'bg'
 }
 
 /**
@@ -42,6 +48,8 @@ export function TeamFacepile({
   className,
   linkAgents = false,
   presence,
+  faces,
+  cutout = 'surface',
 }: Props) {
   const { members: people } = useMembers()
   const { agents } = useAgents()
@@ -56,8 +64,17 @@ export function TeamFacepile({
     })),
     agents,
   })
-  if (stack.length > 0) {
-    return <AvatarStack members={stack} size={size} className={className} linkAgents={linkAgents} />
+  const visible = faces != null && faces > 0 ? stack.slice(0, faces) : stack
+  if (visible.length > 0) {
+    return (
+      <AvatarStack
+        members={visible}
+        size={size}
+        className={className}
+        linkAgents={linkAgents}
+        cutout={cutout}
+      />
+    )
   }
   const teamPresence =
     presence ??

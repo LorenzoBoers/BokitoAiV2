@@ -21,13 +21,13 @@ import {
   type MessageAttachment,
   type InboxMessage,
 } from '../../lib/inbox-api'
-import { messageHeldForReveal, prefersReducedMotion, useRevealClock } from '../../lib/thread-reveal'
 import {
   clearStoredMailDraft,
   MAIL_DRAFT_CHANGED_EVENT,
   readStoredMailDraft,
   type StoredMailDraft,
 } from '../../lib/mail-draft-store'
+import { buildMailDraftIntent, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import MailComposer, { type MailSendPayload } from './MailComposer'
 import { getContactThreadPage, updateContact } from '../../lib/contacts-api'
@@ -77,7 +77,7 @@ import type { ChatTagMap } from '../../lib/chatText'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { Button } from '../ui/button'
 import { TagPill } from '../ui/TagPill'
-import { StageProgressIcon } from '../workstreams/StageProgressIcon'
+import { StageProgressIcon } from '../flows/StageProgressIcon'
 import { useConfirm } from '../ui/confirm-dialog'
 import { InboxThreadSkeleton } from '../ui/skeleton'
 import { TooltipProvider } from '../ui/tooltip'
@@ -91,7 +91,7 @@ import {
 } from '../../lib/message-composer'
 import { useSignalStream } from '../../hooks/useSignalStream'
 import { onGatewayEvent } from '../../lib/gateway'
-import type { ThreadActiveTurn } from '../../lib/inbox-api'
+import { parseActiveTurn, type ThreadActiveTurn } from '../../lib/inbox-api'
 import { visibleFloor } from '../../lib/participant-stack'
 import AgentTurnLive from './AgentTurnLive'
 import { ClaimIdleAgentSeat, LiveAgentSeatProvider, SyncLiveAgentFocus } from './LiveAgentSeat'
@@ -273,20 +273,9 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       const item = event.data?.item
       if (!item || typeof item !== 'object') return
       const floor = (item as Record<string, unknown>).active_turn
-      const row =
-        floor && typeof floor === 'object' ? (floor as Record<string, unknown>) : null
-      // Require a floor holder; empty `{}` / null means idle (do not keep a stale wait label).
-      if (row && typeof row.ref_id === 'string' && row.ref_id && row.deferred !== true) {
-        setLiveActiveTurn({
-          kind: typeof row.kind === 'string' ? row.kind : undefined,
-          ref_id: row.ref_id,
-          name: typeof row.name === 'string' ? row.name : undefined,
-          nonce: typeof row.nonce === 'string' ? row.nonce : undefined,
-          deadline: typeof row.deadline === 'string' ? row.deadline : undefined,
-          prompt: typeof row.prompt === 'string' ? row.prompt : undefined,
-          streak: typeof row.streak === 'number' ? row.streak : undefined,
-          deferred: undefined,
-        })
+      const parsed = parseActiveTurn(floor)
+      if (parsed) {
+        setLiveActiveTurn(parsed)
         return
       }
       if (!floor || event.data?.phase === 'idle') {
@@ -673,11 +662,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         item && typeof item === 'object'
           ? (item as Record<string, unknown>).active_turn
           : null
-      const row =
-        floor && typeof floor === 'object' ? (floor as Record<string, unknown>) : null
-      const peerFloor = Boolean(
-        row && typeof row.ref_id === 'string' && row.ref_id && row.deferred !== true,
-      )
+      const peerFloor = Boolean(parseActiveTurn(floor))
       // Only seal on an explicit peer floor or host idle — not on thinking/writing
       // presence that simply omits active_turn.
       if (!peerFloor && event.data?.phase !== 'idle') return
@@ -837,21 +822,15 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     return ids
   }, [checkpointTurn, sessionCheckpointTurn, gatewayStream.turn, sessionLive.turn])
 
-  // Cards arrive from the server after speech is persisted (reveal). Only hide
-  // saved rows that the live overlay still owns for this turn. Bubbles with a
-  // future reveal_at wait their turn so a saved burst does not land at once.
-  const revealNow = useRevealClock(timelineDetail?.messages.map((message) => message.revealAt) ?? [])
+  // Only hide saved rows that the live overlay still owns for this turn.
   const visibleTimelineDetail = useMemo(() => {
     if (!timelineDetail) return timelineDetail
-    const reduced = prefersReducedMotion()
-    const messages = timelineDetail.messages.filter((message) => {
-      if (message.turnId && liveOverlayTurnIds.has(message.turnId)) return false
-      if (messageHeldForReveal(message.revealAt, revealNow, reduced)) return false
-      return true
-    })
+    const messages = timelineDetail.messages.filter(
+      (message) => !(message.turnId && liveOverlayTurnIds.has(message.turnId)),
+    )
     if (messages.length === timelineDetail.messages.length) return timelineDetail
     return { ...timelineDetail, messages }
-  }, [timelineDetail, liveOverlayTurnIds, revealNow])
+  }, [timelineDetail, liveOverlayTurnIds])
 
   const rows = useMemo(
     () => buildTimelineRows(visibleTimelineDetail, t, i18n.language),
@@ -908,6 +887,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const pinToLatest = useCallback(
     (behavior: ScrollBehavior = 'auto') => {
       anchorToBottomRef.current = true
+      setUnseenNew(0)
       scrollToLatestMessage(behavior)
     },
     [scrollToLatestMessage],
@@ -2025,35 +2005,12 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     }
     if (checkpointTurn && !(liveTurnSaved && livePlaybackDone)) return checkpointTurn
     if (sessionCheckpointTurn && !(sessionTurnSaved && sessionPlaybackDone)) return sessionCheckpointTurn
-    // Placeholder only while an Ask SSE is open (or already has text). Do not
-    // invent an empty "Nadenken" row from stale agent_live working presence —
-    // that stuck after leave/re-enter with no avatar and never cleared.
-    if (agentStreaming) {
-      return textOnlyTurn(sessionStream.text || sessionStream.thinking || '', sessionStream.parts)
-    }
-    // Peer floor / nested handoff: keep Nadenken after reload while the
-    // worker still holds active_turn (no SSE on participant turns).
-    // Skip when that agent already posted the latest bubble — Ask finishes
-    // before the run=false floor chip clears, and inventing Nadenken again
-    // left Stop / “Wacht op …” stuck under the answer.
-    // A deferred peer is not on screen yet; the caller is still the speaker.
+    // The gateway carries the words; the Ask SSE and the floor only say that
+    // a turn is open, so both show an empty Nadenken row until frames land.
+    if (agentStreaming) return textOnlyTurn('')
     const floor = shownFloor
-    if (floor?.kind === 'agent' && floor.ref_id) {
-      const last = detail?.messages?.[detail.messages.length - 1]
-      const lastAgentId =
-        typeof last?.payload?.agent_id === 'string' && last.payload.agent_id
-          ? last.payload.agent_id
-          : last?.kind === 'agent_message'
-            ? detail?.thread.agentId
-            : null
-      const floorAlreadySpoke =
-        Boolean(last) &&
-        !last?.inProgress &&
-        lastAgentId != null &&
-        String(lastAgentId) === String(floor.ref_id)
-      if (!floorAlreadySpoke) {
-        return textOnlyTurn('')
-      }
+    if (floor?.kind === 'agent' && floor.ref_id && floor.status !== 'queued') {
+      return textOnlyTurn('')
     }
     return null
   }, [
@@ -2066,12 +2023,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     sessionPlaybackDone,
     sessionCheckpointTurn,
     agentStreaming,
-    sessionStream.text,
-    sessionStream.parts,
-    sessionStream.thinking,
     shownFloor,
-    detail?.messages,
-    detail?.thread.agentId,
   ])
   const liveTurnIsSession = Boolean(
     threadLiveTurn &&
@@ -2097,18 +2049,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   if (sessionTurn.streamId) watchedTurnIdsRef.current.add(sessionTurn.streamId)
   // Whether the live turn joins the last saved agent bubble's run (no avatar
   // or author line, flattened top corner), as the saved bubble will.
-  const liveContinuesRun = useMemo(() => liveRunContinues(rows), [rows])
-  // The user bubble enters for 0.48s. Hold the agent seat until that lands
-  // when this turn was just started by a message still on screen.
-  const waitForUserBubble = useMemo(() => {
-    if (liveContinuesRun) return false
-    const messages = visibleTimelineDetail?.messages
-    if (!messages?.length) return false
-    const last = messages[messages.length - 1]
-    if (!last || last.kind !== 'user_message') return false
-    const at = Date.parse(last.createdAt || last.receivedAt || '')
-    return Number.isFinite(at) && Date.now() - at < 1200
-  }, [liveContinuesRun, visibleTimelineDetail])
+  const liveContinuesRun = useMemo(
+    () => liveRunContinues(rows, liveOrbAgentId ?? detail?.thread.agentId ?? null),
+    [rows, liveOrbAgentId, detail?.thread.agentId],
+  )
 
   // User's turn: park idle live orb on the latest agent bubble until the user
   // replies or leaves. Mid-turn / rejoin-while-busy uses threadLiveTurn instead.
@@ -2190,7 +2134,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   useEffect(() => {
     if (sseBusy || !agentWorkingHere || !liveAgentId) return
     const floor = liveActiveTurn ?? detail?.activeTurn
-    const floorHeld = Boolean(floor?.ref_id && (floor?.nonce || floor?.claimed_at || floor?.deferred))
+    const floorHeld = Boolean(floor?.ref_id && floor?.nonce)
     if (!floorHeld) {
       applyAgentLive(liveAgentId, {
         status: 'standby',
@@ -2603,6 +2547,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           outdatedDecisionMessageIds={outdatedDecisionMessageIds}
           onAtBottomChange={(atBottom) => {
             anchorToBottomRef.current = atBottom
+            if (atBottom) setUnseenNew(0)
           }}
           quietTurnIds={watchedTurnIdsRef.current}
           liveTrace={
@@ -2613,7 +2558,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                 key={liveSeatAgentId ?? 'live'}
                 turn={threadLiveTurn}
                 continuesRun={liveContinuesRun}
-                waitForUserBubble={waitForUserBubble}
                 onPlaybackDone={handleLivePlaybackDone}
                 // Same source as the saved author line (TimelineItem), so the
                 // hand-off keeps the name.
@@ -2731,7 +2675,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           mode={composerMode}
           onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}
-          agentModeName={activeSession?.agentName ?? askAgentName ?? thread.agentName ?? null}
+          agentModeName={thread.addressedAgent?.name ?? activeSession?.agentName ?? askAgentName ?? thread.agentName ?? null}
           askAgent={askChromeAgent}
           replyFocus={replyFocus}
           onReplyFocusChange={handleReplyFocusChange}

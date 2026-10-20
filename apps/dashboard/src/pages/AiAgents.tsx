@@ -1,3 +1,4 @@
+import { GRID_PATH, AUTONOMY_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -13,6 +14,7 @@ import { SegmentedControl } from '../components/ui/segmented-control'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
+import { AgentsSectionTabs } from '../components/shell/SectionTabs'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { AgentModuleOrigin } from '../components/workforce/AgentModuleOrigin'
@@ -369,6 +371,7 @@ export default function AiAgents() {
 
   return (
     <PageContent width="xl" className="space-y-5 py-1">
+      <AgentsSectionTabs />
       <ContentHeader
         guide="agents"
         title={t('workforce.agents.title')}
@@ -514,11 +517,11 @@ export default function AiAgents() {
       <PageRelatedLinks
         links={[
           { to: '/team', label: t('workforce.agents.relatedWorkforce') },
-          { to: '/grid', label: t('orgCanvas.link') },
+          { to: GRID_PATH, label: t('orgCanvas.link') },
           ...(isAdmin
             ? [
                 { to: '/folders', label: t('workforce.agents.projectsLink') },
-                { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
+                { to: AUTONOMY_PATH, label: t('workforce.agents.relatedInboxAi') },
               ]
             : []),
         ]}

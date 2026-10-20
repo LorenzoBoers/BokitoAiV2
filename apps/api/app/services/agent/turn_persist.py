@@ -24,22 +24,7 @@ from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage, is_internal_channel
 from app.services.agent.reply_mode import CHAT, MAX_CHAT_MESSAGES, split_chat_messages
 
-# Space saved bubbles so a turn lands one cloud at a time. Cap the wait so a
-# long turn does not park the fourth bubble.
-BUBBLE_REVEAL_MS = 450
-BUBBLE_REVEAL_STEPS = 3
 _RULE_SETTINGS_LINK = re.compile(r"/settings/channels#automation-rules", re.IGNORECASE)
-
-
-def bubble_reveal_at(base: datetime, index: int) -> datetime:
-    """When bubble ``index`` (0-based) may appear. Later bubbles share the cap."""
-    step = min(max(index, 0), BUBBLE_REVEAL_STEPS)
-    return base + timedelta(milliseconds=BUBBLE_REVEAL_MS * step)
-
-
-def iso_utc(dt: datetime) -> str:
-    """Naive UTC timestamp with a Z suffix so clients do not read it as local."""
-    return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{int(dt.microsecond):06d}Z"
 
 
 def _note_item(segment: dict[str, Any]) -> dict[str, Any]:
@@ -415,14 +400,6 @@ def _message_time(row: SignalMessage) -> datetime:
     return row.received_at or row.created_at
 
 
-def _stamp_after(anchor: datetime, *, before: datetime | None) -> datetime:
-    later = anchor + timedelta(milliseconds=40)
-    if before is not None and before > anchor:
-        mid = anchor + (before - anchor) / 2
-        return mid if mid > anchor else later
-    return later
-
-
 async def place_turn_decisions(
     session: AsyncSession,
     signal: Signal,
@@ -509,21 +486,16 @@ async def place_turn_decisions(
         return
     first_time = _message_time(turn_messages[0])
     last_time = _message_time(turn_messages[-1])
-    later_times = [_message_time(row) for row in turn_messages[1:]]
     turn_window_start = (first_time or datetime.utcnow()) - timedelta(seconds=2)
     turn_window_end = (last_time or datetime.utcnow()) + timedelta(seconds=2)
     for card in cards:
         did = str(card.decision_id) if card.decision_id else str(card.id)
         current = _message_time(card)
         if did in anchors:
-            anchor = anchors[did]
-            before = next((t for t in later_times if t and t > anchor), None)
-            # No later bubble: sit one reveal gap after the last sentence.
-            landed = _stamp_after(anchor, before=before) if before else bubble_reveal_at(anchor, 1)
-            card.received_at = landed
-            card_meta = _json_meta(card)
-            card_meta["reveal_at"] = iso_utc(landed)
-            card.metadata_json = json.dumps(card_meta, default=str)
+            from app.services.message_seq import next_seq
+
+            card.received_at = anchors[did]
+            card.seq = await next_seq(session, signal.id)
             continue
         # Heal cards an older bug dragged into a later turn: snap back to
         # created_at when the stamp clearly does not belong to this turn's work.
@@ -1168,6 +1140,26 @@ async def upsert_turn_checkpoint(
     return message
 
 
+MAX_KNOWLEDGE_REFS = 8
+
+
+def knowledge_refs(hits: list[dict[str, Any]] | None) -> list[dict[str, str]]:
+    """The workspace docs a turn read: ``[{doc_id, title}]``, unique, in read order."""
+    out: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for hit in hits or []:
+        if not isinstance(hit, dict):
+            continue
+        doc_id = str(hit.get("doc_id") or "").strip()
+        if not doc_id or doc_id in seen or not _is_uuid(doc_id):
+            continue
+        seen.add(doc_id)
+        out.append({"doc_id": doc_id, "title": str(hit.get("title") or "")[:160]})
+        if len(out) >= MAX_KNOWLEDGE_REFS:
+            break
+    return out
+
+
 async def persist_agent_turn(
     session: AsyncSession,
     signal: Signal,
@@ -1183,6 +1175,7 @@ async def persist_agent_turn(
     append_to_last: str = "",
     showcase_items: list[dict[str, Any]] | None = None,
     replace_message_id: UUID | None = None,
+    knowledge_hits: list[dict[str, Any]] | None = None,
 ) -> list[SignalMessage]:
     """Append the turn's bubbles to the thread. ``first_metadata`` (AI
     disclosure) lands on the first message, ``final_metadata`` (usage,
@@ -1201,11 +1194,18 @@ async def persist_agent_turn(
     if append_to_last and planned:
         planned[-1]["text"] = f"{planned[-1]['text']}{append_to_last}"
     planned = drop_redundant_rule_link(planned)
+    refs = knowledge_refs(knowledge_hits)
     messages: list[SignalMessage] = []
     replaced = False
-    reveal_base = datetime.utcnow()
+    reserved = {
+        str(seg.get("id")): int(seg["seq"])
+        for seg in segments
+        if seg.get("id") and isinstance(seg.get("seq"), int)
+    }
     for index, bubble in enumerate(planned):
         meta: dict[str, Any] = dict(metadata or {})
+        if refs:
+            meta["knowledge_refs"] = refs
         if index == 0 and first_metadata:
             meta.update(first_metadata)
         if bubble["activity"]:
@@ -1221,27 +1221,23 @@ async def persist_agent_turn(
         if index == len(planned) - 1 and final_metadata:
             meta.update(final_metadata)
         meta.pop("in_progress", None)
-        reveal = bubble_reveal_at(reveal_base, index)
-        meta["reveal_at"] = iso_utc(reveal)
         # AI speech only — never strip operator/customer content here.
         speech = strip_emoji(bubble["text"] or "") or (bubble["text"] or "")
         speech = await repair_mentions(session, signal.tenant_id, speech)
+        seq = reserved.pop(str(bubble.get("segment_id") or ""), None)
+        if messages and seq is not None and messages[-1].seq is not None and seq <= messages[-1].seq:
+            seq = None
         existing = None
         if not replaced and replace_message_id:
             existing = await session.get(SignalMessage, replace_message_id)
             if existing is None or existing.signal_id != signal.id:
                 existing = None
         if existing is not None:
+            # The checkpoint took its place when the turn started; it keeps it.
             existing.body_text = speech
             existing.body_preview = speech[:200]
             existing.metadata_json = json.dumps(meta, default=str)
             existing.author_agent_id = author_agent_id or existing.author_agent_id
-            # Checkpoint rows keep the early created_at from "Working on this.".
-            # Bump so the finished bubble sorts after mid-turn side effects
-            # (tag events, notes) that landed while the turn was open.
-            existing.created_at = reveal
-            if hasattr(existing, "received_at"):
-                existing.received_at = reveal
             await session.flush()
             await publish_signal_message(signal, existing)
             msg = existing
@@ -1254,16 +1250,8 @@ async def persist_agent_turn(
                 content=speech,
                 author_agent_id=author_agent_id,
                 metadata=meta,
+                seq=seq,
             )
-        if (msg.received_at or msg.created_at) != reveal:
-            msg.received_at = reveal
-        if messages:
-            prev_t = messages[-1].received_at or messages[-1].created_at
-            if (msg.received_at or msg.created_at) <= prev_t:
-                msg.received_at = prev_t + timedelta(milliseconds=BUBBLE_REVEAL_MS)
-                bumped = _json_meta(msg)
-                bumped["reveal_at"] = iso_utc(msg.received_at)
-                msg.metadata_json = json.dumps(bumped, default=str)
         messages.append(msg)
     if choice_options and messages:
         await _raise_tag_choice(

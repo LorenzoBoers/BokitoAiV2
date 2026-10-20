@@ -4,7 +4,7 @@ intro: Het technische contract van het embedbare chatwidgetscript.
 description: Embed de Bokito-chatwidget met een scripttag. Referentie voor de data-attributen, anonieme en geauthenticeerde modus, en hoe widgetverkeer je inbox bereikt.
 keywords: widget, embed, script, livechat, chatwidget
 sort: 60
-related: widget,api-overview,channels
+related: widget,api-today,channels
 ---
 
 # Widget embedden

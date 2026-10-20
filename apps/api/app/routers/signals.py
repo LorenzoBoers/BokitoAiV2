@@ -899,6 +899,21 @@ async def get_signal(
     return detail
 
 
+@router.get("/{signal_id}/why")
+async def get_signal_why(
+    signal_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Why this conversation is on its current AI handling."""
+    from app.services.thread_why import explain_thread
+
+    payload = await explain_thread(session, auth.tenant, signal_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return payload
+
+
 @router.get("/{signal_id}/messages/{message_id}")
 async def get_signal_message(
     signal_id: UUID,

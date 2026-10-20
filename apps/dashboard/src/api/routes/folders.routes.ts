@@ -31,6 +31,7 @@ export const foldersRoutes = {
     `${base(folderId)}/docs/${encodeURIComponent(docId)}/sections/${encodeURIComponent(sectionId)}`,
   docSectionLinks: (folderId: string, docId: string, sectionId: string) =>
     `${base(folderId)}/docs/${encodeURIComponent(docId)}/sections/${encodeURIComponent(sectionId)}/links`,
+  worksIn: (folderId: string) => `${base(folderId)}/works-in`,
   resources: (folderId: string) => `${base(folderId)}/resources`,
   resourceById: (folderId: string, resourceId: string) =>
     `${base(folderId)}/resources/${encodeURIComponent(resourceId)}`,
@@ -44,5 +45,9 @@ export const canvasesRoutes = {
     `/canvases?owner_kind=${encodeURIComponent(ownerKind)}&owner_id=${encodeURIComponent(ownerId)}`,
   bySignal: (signalId: string) => `/canvases?signal_id=${encodeURIComponent(signalId)}`,
   create: '/canvases',
+  defaultLocation: (canvasId?: string | null) =>
+    canvasId
+      ? `/canvases/default-location?canvas_id=${encodeURIComponent(canvasId)}`
+      : '/canvases/default-location',
   byId: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}`,
 } as const

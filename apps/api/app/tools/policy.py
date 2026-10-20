@@ -232,9 +232,9 @@ async def resolve_tool_mode(
     if hard is not None and mode != "deny":
         mode, reason = mode_to_allowance(hard["mode"]), f"rule:{hard['id']}"
 
-    # Sending to an external party is additionally governed by the category
-    # filed on the thread. No category, or draft mode, safely asks.
-    if spec.name == "send_reply":
+    # Sending to an external party also follows the conversation's AI handling:
+    # below Autonomous (dial, channel, agent or a flow set to Always review) asks.
+    if spec.name == "send_reply" and mode == "allow":
         signal_id = None
         raw_signal_id = (tool_input or {}).get("signal_id")
         if raw_signal_id:
@@ -243,22 +243,14 @@ async def resolve_tool_mode(
             except ValueError:
                 signal_id = None
         if signal_id:
-            from app.models.signal import Signal, SignalTag
+            from app.models.signal import Signal
+            from app.services.ai_handling import resolve_for_signal
 
-            send_mode = (
-                await session.execute(
-                    select(SignalTag.send_mode)
-                    .join(Signal, Signal.ticket_tag_id == SignalTag.id)
-                    .where(
-                        Signal.tenant_id == tenant.id,
-                        Signal.id == signal_id,
-                        # An unaccepted proposal must not widen what may be sent.
-                        Signal.ticket_status.in_(("open", "waiting")),
-                    )
-                )
-            ).scalar_one_or_none() or "draft"
-            if send_mode in ("draft", "ask"):
-                mode, reason = "ask", f"category:{send_mode}"
+            signal = await session.get(Signal, signal_id)
+            if signal is not None and signal.tenant_id == tenant.id:
+                handling = await resolve_for_signal(session, tenant, signal, agent=agent)
+                if handling.effective != "autonomous":
+                    mode, reason = "ask", f"ai_handling:{handling.effective}"
 
     # Trust clamp is absolute: external sessions never auto-mutate.
     if trust == "external":

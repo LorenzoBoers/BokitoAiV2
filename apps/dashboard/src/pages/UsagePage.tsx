@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { RefreshCw } from 'lucide-react'
 import ContentHeader from '../components/shell/ContentHeader'
-import CockpitTabs from '../components/shell/CockpitTabs'
 import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -346,7 +345,6 @@ export default function UsagePage() {
         }
       />
 
-      <CockpitTabs />
 
       {error ? (
         <div className="mb-4 space-y-2">

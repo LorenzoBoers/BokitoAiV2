@@ -120,7 +120,7 @@ export function participantsToAvatarStack(
 }
 
 export function visibleFloor(activeTurn?: ThreadActiveTurn): ThreadActiveTurn {
-  if (!activeTurn?.ref_id?.trim() || activeTurn.deferred) return null
+  if (!activeTurn?.ref_id?.trim()) return null
   return activeTurn
 }
 

@@ -411,9 +411,7 @@ async def process_inbound_signal(ctx, tenant_id: str, signal_id: str):
                 channel_state = str(row.get("state") or "")
                 channel_state_reason = str(row.get("state_reason") or "")
 
-        handling = ai_handling.resolve_ai_handling(
-            tenant, account, contact, signal, agent=agent
-        )
+        handling = await ai_handling.resolve_for_signal(session, tenant, signal, agent=agent)
         # Manual / held: agent still reads (summary, tags, ticket); no draft.
         read_only = (
             ai_handling.is_held(signal)
@@ -1333,135 +1331,26 @@ async def drive_operator_chat_job(
 WorkerSettings.functions.append(drive_operator_chat_job)
 
 
-async def run_participant_turn_job(
-    ctx,
-    tenant_id: str,
-    signal_id: str,
-    agent_id: str,
-    prompt: str,
-    requested_by_kind: str,
-    requested_by_id: str | None,
-    nonce: str,
-):
-    """Execute a multi-agent floor turn on the worker (no double floor)."""
-    from sqlalchemy import select
+async def run_agent_turns_job(ctx, signal_id: str):
+    """Run the queued agent turns of one conversation, one at a time."""
+    from app.services.agent_turns import drain
 
-    from app.models.agent import Agent
-    from app.models.signal import Signal
-    from app.services.participant_turns import (
-        _deadline_expired,
-        _parse_active,
-        claim_active_turn,
-        execute_participant_turn,
-    )
+    return {"ok": True, "ran": await drain(UUID(signal_id))}
+
+
+WorkerSettings.functions.append(run_agent_turns_job)
+
+
+async def sweep_agent_turns_job(ctx):
+    """Expired leases back to the queue, stale rows cancelled, lost bells rung."""
+    from app.services.agent_turns import sweep
 
     async with async_session_factory() as session:
-        signal = (
-            await session.execute(
-                select(Signal)
-                .where(
-                    Signal.id == UUID(signal_id),
-                    Signal.tenant_id == UUID(tenant_id),
-                )
-                .with_for_update()
-            )
-        ).scalar_one_or_none()
-        agent = (
-            await session.execute(
-                select(Agent).where(
-                    Agent.id == UUID(agent_id),
-                    Agent.tenant_id == UUID(tenant_id),
-                )
-            )
-        ).scalar_one_or_none()
-        if signal is None or agent is None:
-            return {"ok": False, "error": "not_found"}
-        from app.services.participant_turns import deferred_job_block, opener_still_writing
-
-        active = _parse_active(signal)
-        # Floor cleared (timeout/pass/sent) or replaced — do not revive a stale job.
-        if not active.get("nonce") or (nonce and active.get("nonce") != nonce):
-            return {"ok": False, "error": "stale_nonce"}
-        if active.get("deferred") and await opener_still_writing(session, signal, active):
-            await enqueue_participant_turn(
-                tenant_id=tenant_id,
-                signal_id=signal_id,
-                agent_id=agent_id,
-                prompt=prompt or "",
-                requested_by_kind=requested_by_kind or "system",
-                requested_by_id=requested_by_id,
-                nonce=nonce or str(active.get("nonce") or ""),
-                defer_by_s=15,
-            )
-            return {"ok": False, "error": "opener_still_writing"}
-        blocked = deferred_job_block(active)
-        if blocked:
-            return {"ok": False, "error": blocked}
-        if _deadline_expired(active):
-            return {"ok": False, "error": "expired"}
-        job_nonce = nonce or active.get("nonce") or ""
-        claimed = claim_active_turn(signal, nonce=job_nonce)
-        if claimed is None:
-            return {"ok": False, "error": "already_claimed"}
-        session.add(signal)
-        await session.commit()
-        result = await execute_participant_turn(
-            session,
-            signal,
-            agent=agent,
-            prompt=prompt or "",
-            nonce=job_nonce,
-            requested_by_kind=requested_by_kind or "system",
-            requested_by_id=UUID(requested_by_id) if requested_by_id else None,
-        )
-        await session.commit()
-        return result
+        return await sweep(session)
 
 
-WorkerSettings.functions.append(run_participant_turn_job)
-
-
-async def enqueue_participant_turn(
-    *,
-    tenant_id: str,
-    signal_id: str,
-    agent_id: str,
-    prompt: str,
-    requested_by_kind: str,
-    requested_by_id: str | None,
-    nonce: str,
-    defer_by_s: int = 0,
-) -> bool:
-    """True when the worker accepted the job."""
-    try:
-        from datetime import timedelta
-
-        redis = await _get_arq_pool()
-        kwargs: dict = {}
-        if defer_by_s and defer_by_s > 0:
-            kwargs["_defer_by"] = timedelta(seconds=min(int(defer_by_s), 30))
-        await redis.enqueue_job(
-            "run_participant_turn_job",
-            tenant_id,
-            signal_id,
-            agent_id,
-            prompt,
-            requested_by_kind,
-            requested_by_id,
-            nonce,
-            **kwargs,
-        )
-        return True
-    except Exception as exc:  # noqa: BLE001
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "Redis unavailable, participant turn %s stays in-process: %s",
-            signal_id,
-            exc,
-        )
-        return False
-
+WorkerSettings.functions.append(sweep_agent_turns_job)
+WorkerSettings.cron_jobs.append(cron(sweep_agent_turns_job, second={0, 10, 20, 30, 40, 50}))
 
 async def enqueue_operator_chat_turn(
     *,

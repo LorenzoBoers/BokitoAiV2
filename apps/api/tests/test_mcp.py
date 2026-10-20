@@ -164,8 +164,8 @@ async def test_mcp_lists_contact_workforce_and_govern_tools(client: AsyncClient)
         "upsert_contact",
         "list_agents",
         "get_agent",
-        "list_playbooks",
-        "get_playbook",
+        "list_flows",
+        "get_flow",
         "list_triggers",
         "resolve_decision",
     } <= names
@@ -218,7 +218,7 @@ async def test_mcp_workforce_reads_are_tenant_scoped(client: AsyncClient):
     assert detail["name"] == "Test Assistant"
     assert detail["purpose"] == "Test assistant"
 
-    playbooks = await _call_tool(client, headers, "list_playbooks", {})
+    playbooks = await _call_tool(client, headers, "list_flows", {})
     assert isinstance(playbooks["playbooks"], list)
 
     triggers = await _call_tool(client, headers, "list_triggers", {})

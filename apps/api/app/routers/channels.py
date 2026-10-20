@@ -36,7 +36,6 @@ from app.services.channel_access import (
     set_account_access,
     visible_channel_account_ids,
 )
-from app.services.ai_handling import contact_mode
 from app.services.signal_threads import serialize_thread
 from app.services.signals import _is_anonymous_contact_identity, _is_unnamed_visitor
 from app.workers.tasks import enqueue_signal_processing
@@ -914,7 +913,6 @@ class ContactBulkStatusBody(BaseModel):
     status: str
     search: str | None = None
     channel: str | None = None
-    ai_handling: str | None = None
 
 
 class ContactUpdateBody(BaseModel):
@@ -1006,8 +1004,6 @@ def _serialize_contact(row: Contact, *, thread_count: int | None = None) -> dict
         "merged_into_id": str(row.merged_into_id) if row.merged_into_id else None,
         "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
         "created_at": row.created_at.isoformat(),
-        # Own AI handling override (null follows the channel).
-        "ai_handling": contact_mode(row),
         # Account manager: {"kind": "user"|"team", "id"} or null.
         "owner": _contact_owner_payload(row),
     }
@@ -1047,11 +1043,9 @@ async def list_contacts(
     status: str | None = None,
     channel: str | None = None,
     search: str | None = None,
-    ai_handling: str | None = None,
     offset: int = Query(0, ge=0),
 ):
-    """Contacts, optionally filtered by status, channel, search text or AI
-    handling (``manual|assisted|autonomous`` own override, ``custom`` any).
+    """Contacts, optionally filtered by status, channel or search text.
 
     One page is 200 rows. ``next_offset`` is set when another page exists.
     """
@@ -1062,10 +1056,6 @@ async def list_contacts(
     )
     if status:
         stmt = stmt.where(Contact.status == status)
-    if ai_handling == "custom":
-        stmt = stmt.where(Contact.ai_handling.is_not(None))
-    elif ai_handling in ("manual", "assisted", "autonomous"):
-        stmt = stmt.where(Contact.ai_handling.contains(f'"{ai_handling}"'))
     if channel:
         stmt = stmt.where(Contact.channel == channel)
     if search:
@@ -1206,10 +1196,6 @@ async def bulk_contact_status(
         Contact.deleted_at.is_(None),
         Contact.status == "pending",
     )
-    if body.ai_handling == "custom":
-        stmt = stmt.where(Contact.ai_handling.is_not(None))
-    elif body.ai_handling in ("manual", "assisted", "autonomous"):
-        stmt = stmt.where(Contact.ai_handling.contains(f'"{body.ai_handling}"'))
     if body.channel:
         stmt = stmt.where(Contact.channel == body.channel)
     if body.search and body.search.strip():

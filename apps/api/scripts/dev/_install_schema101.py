@@ -10,7 +10,6 @@ PAIRS = [
     ("003_apps_api_app_models___init__.py", "apps/api/app/models/__init__.py"),
     ("004_apps_api_app_models_agent.py", "apps/api/app/models/agent.py"),
     ("005_apps_api_app_models_channel.py", "apps/api/app/models/channel.py"),
-    ("006_apps_api_app_models_custom_db.py", "apps/api/app/models/custom_db.py"),
     ("007_apps_api_app_models_orchestra.py", "apps/api/app/models/orchestra.py"),
     ("008_apps_api_app_models_orchestration.py", "apps/api/app/models/orchestration.py"),
     ("009_apps_api_app_models_os_graph.py", "apps/api/app/models/os_graph.py"),

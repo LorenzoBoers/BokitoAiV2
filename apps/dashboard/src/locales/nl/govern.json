@@ -16,7 +16,7 @@
   "loadOlder": "Ouder laden",
   "loadingOlder": "Ouder laden",
   "sections": {
-    "ledger": "Ledger",
+    "ledger": "Logboek",
     "autonomy": "Autonomie"
   },
   "tabs": {
@@ -30,7 +30,7 @@
     "empty": "Niets wacht op review. Klantbeslissingen blijven in Communicatie. Workspace-wijzigingen verschijnen hier als je agents laat wachten.",
     "openCommunication": "Communicatie openen",
     "openAgents": "Agents openen",
-    "openInboxAi": "AI-afhandeling openen",
+    "openInboxAi": "Autonomie openen",
     "openInCommunication": "Open in Communicatie",
     "viewDiff": "Bekijk wijzigingen",
     "accept": "Accepteren",
@@ -55,7 +55,7 @@
     "openDrafts": "Openstaande concepten openen",
     "rollback": "Ongedaan maken",
     "rollbackTitle": "Deze wijziging ongedaan maken?",
-    "rollbackConfirm": "Dit maakt en past een compenserende wijziging toe die de vorige staat herstelt. De oorspronkelijke ledgerregel blijft bestaan.",
+    "rollbackConfirm": "Dit maakt en past een compenserende wijziging toe die de vorige staat herstelt. De oorspronkelijke logregel blijft bestaan.",
     "cancel": "Annuleren",
     "rolledBack": "Wijziging ongedaan gemaakt",
     "rollbackError": "Kon deze wijziging niet ongedaan maken.",
@@ -86,8 +86,8 @@
     "copyFailed": "Kopiëren mislukt"
   },
   "posture": {
-    "title": "Workspace-plafond voor agents",
-    "intro": "Dit is het plafond voor wat agents mogen doen zonder op jou te wachten. Dagelijkse klantantwoorden staan onder AI-afhandeling en blijven op of onder dit plafond. Stel toolcategorieën hieronder bij.",
+    "title": "Standaardrechten voor tools",
+    "intro": "Wat tools mogen zonder op jou te wachten. Dit verandert niet hoe ver agents zelf antwoorden aan klanten; dat doet de Autonomie-dial hierboven.",
     "perAgentHint": "Uitzonderingen per agent stel je in op de agentpagina onder Tools en toestemmingen.",
     "saved": "Autonomie-instelling bijgewerkt",
     "current": "Huidige instelling",
@@ -98,7 +98,6 @@
       "label": "Handmatig",
       "summary": "Mensen keuren elke muterende agent-actie goed voordat die wordt toegepast.",
       "effects": {
-        "inbox": "Begrenst AI-afhandeling zodat antwoorden op jou wachten.",
         "tools": "Tools vragen altijd.",
         "structure": "Govern-concepten blijven concepten."
       }
@@ -107,18 +106,16 @@
       "label": "Geassisteerd",
       "summary": "Routineberichten en workspace-bewerkingen draaien automatisch; structurele wijzigingen vragen eerst.",
       "effects": {
-        "inbox": "Begrenst AI-afhandeling tot Geassisteerd bij autonome verhogingen.",
         "tools": "Alledaagse tools draaien; risicovolle vragen.",
         "structure": "Structurele wijzigingen wachten op review."
       }
     },
     "autonomous": {
       "label": "Autonoom",
-      "summary": "AI draait de operatie; integraties en inloggegevens vragen nog steeds een mens.",
+      "summary": "AI draait de operatie; koppelingen en inloggegevens vragen nog steeds een mens.",
       "effects": {
-        "inbox": "Staat AI-afhandeling toe tot Autonoom waar jij dat zet.",
         "tools": "De meeste tools draaien zelf.",
-        "structure": "Integraties en inloggegevens vragen nog."
+        "structure": "Koppelingen en inloggegevens vragen nog."
       }
     }
   },
@@ -147,23 +144,6 @@
     "learningNote": "Learning heeft {{category}} aangescherpt van {{from}} naar {{to}}.",
     "learningIntro": "Recente automatische aanscherpingen (toestaan naar eerst vragen). Losser maken blijft hier een handmatige edit."
   },
-  "scopes": {
-    "openTag": "De gesprekken met dit label openen",
-    "openFlow": "De flow openen",
-    "title": "Autonomie per label en flow",
-    "intro": "Bedrijfsstandaard volgt de AI-afhandeling van het gesprek. Een gekozen modus is een plafond.",
-    "types": "Labels",
-    "playbooks": "Flows",
-    "empty": "Geen actieve items.",
-    "saved": "Autonomieniveau bijgewerkt.",
-    "saveError": "Kon dit autonomieniveau niet bijwerken.",
-    "levels": {
-      "inherit": "Bedrijfsstandaard",
-      "manual": "Handmatig",
-      "assisted": "Geassisteerd",
-      "autonomous": "Autonoom"
-    }
-  },
   "toolCategories": {
     "messaging": {
       "label": "Gesprekken",
@@ -190,7 +170,7 @@
       "hint": "Planningen, check-ins en inkomende triggers."
     },
     "integrations": {
-      "label": "Integraties",
+      "label": "Koppelingen",
       "hint": "Externe koppelingen en verbonden tools."
     },
     "govern": {
@@ -198,8 +178,8 @@
       "hint": "Beleid en governance-wijzigingen."
     },
     "projects": {
-      "label": "Projecten",
-      "hint": "Projectdocumenten, queue-items en repositorywerk."
+      "label": "Werkmappen",
+      "hint": "Documenten in werkmappen, queue-items en repositorywerk."
     },
     "tickets": {
       "label": "Tickets",
@@ -297,5 +277,10 @@
     "workstream_id": "Flow",
     "node_type": "Nodetype",
     "ref_id": "Referentie"
+  },
+  "dial": {
+    "adminOnly": "Alleen een eigenaar of beheerder kan de dial wijzigen.",
+    "intro": "Eén instelling voor de hele werkruimte: hoe ver agents zelf mogen gaan. Kanalen, agents en flows blijven op of onder dit niveau.",
+    "title": "Autonomie"
   }
 }

@@ -1,7 +1,7 @@
 ---
 title: Beslissingen goedkeuren en afwijzen
 intro: Agents vragen in het gesprek om jouw oordeel. Elke open goedkeuring staat in Communicatie onder Beslissingen.
-description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Overview of een notificatie.
+description: Keur goed, bewerk of wijs af via de keuzekaart in het gesprek, via de map Beslissingen, Vandaag of een notificatie.
 keywords: beslissingen, goedkeuringen, decision requests, notificaties, human in the loop, alles afwijzen, dubbele vragen, alles goedkeuren, altijd toestaan, niet toestaan, actiebundel
 sort: 20
 related: communication,agent-runs,autonomy,govern
@@ -16,9 +16,9 @@ Automatische mail (bonnen, nieuwsbrieven, no-reply-afzenders) stelt geen besliss
 ## Vind een wachtende beslissing
 
 ![Een wachtende beslissing in het gesprek](/api/docs/assets/decisions/approve.png)
-*Open het gesprek via Beslissingen, Overview of een notificatie.*
+*Open het gesprek via Beslissingen, Vandaag of een notificatie.*
 
-1. Open **Communicatie**, dan **Beslissingen**. Overview **Needs you** en het bel-menu landen op dezelfde lijst. Een badge **Wacht op beslissing** markeert de rijen.
+1. Open **Communicatie**, dan **Beslissingen**. Vandaag **Voor jou** en het bel-menu landen op dezelfde lijst. Een badge **Wacht op beslissing** markeert de rijen.
 2. Selecteer een gesprek (de eerste match opent automatisch) en scroll naar de keuzekaart. Die toont de voorgestelde actie en waarom de agent stopte.
 3. Als niets op jou wacht, toont Beslissingen een lege staat met links terug naar de inbox en Agents.
 
@@ -29,7 +29,7 @@ Vraag je een agent iets te doen waar jouw OK voor nodig is, dan stelt zijn laats
 ![Een voorstel van een agent met een item uit de prullenbak en knoppen onder het bericht](/api/docs/assets/decisions/inline-proposal.png)
 *Het item dat de agent wil terugzetten staat in zijn bericht; de knoppen staan eronder.*
 
-1. Lees het bericht van de agent. Tags zoals `#klacht` (label) en `#storing` (tag) staan als chips in de tekst. Objecten waar het voorstel over gaat, staan eronder als showcase-kaarten: een gesprek, item in de prullenbak, agenda-item, bestand, afbeelding, teamlid, agent, koppeling, module, hulp-artikel, bericht, flow, project, canvas of contact. Canvaskaarten gebruiken hetzelfde layout-template-icoon als Overview **Canvas** en het projecttabblad **Canvas**. Bij een open voorstel kiest een kaart die optie; zonder voorstel opent de kaart het object.
+1. Lees het bericht van de agent. Tags zoals `#klacht` (label) en `#storing` (tag) staan als chips in de tekst. Objecten waar het voorstel over gaat, staan eronder als showcase-kaarten: een gesprek, item in de prullenbak, agenda-item, bestand, afbeelding, teamlid, agent, koppeling, module, hulp-artikel, bericht, flow, werkmap, canvas of contact. Canvaskaarten gebruiken hetzelfde layout-template-icoon als Vandaag **Canvas** en het tabblad **Canvas** van een werkmap. Bij een open voorstel kiest een kaart die optie; zonder voorstel opent de kaart het object.
 2. Kies een knop onder het bericht, bijvoorbeeld **Goedkeuren** of een label dat de agent schreef. Die keuze geldt **deze keer**. Stuurt de agent meerdere wolken, dan komen die na elkaar binnen en volgt de keuze op de laatste. Mag je meerdere keuzes maken, selecteer dan de opties (of kaarten) en kies **Bevestigen**. **Afwijzen** zegt nee. Een keuze die tekst vraagt opent een klein veld; typ je antwoord en kies **Antwoord versturen**.
 3. In een chat met de agent doet een gewoon **Ja** / **Nee** in **Vraag** hetzelfde als de bijbehorende Ja/Nee-knoppen wanneer precies één open kaart dat soort keuze is. Multi-select en tekstantwoorden blijven via de knoppen. Meerdere Ja/Nee-kaarten tegelijk ook.
 4. Als de actie de agent kan leren, staat onder de knoppen **Volgende keer:** met **Dit mag je voortaan zelf**, **Altijd vragen** of **Dit nooit doen** (ook in het meer-menu). Zie *Leer de agent voor de volgende keer* hieronder.
@@ -52,7 +52,7 @@ Heeft een agent in dezelfde beurt jouw OK nodig voor meer dan één wijziging (b
 ## Goedkeuren, bewerken of afwijzen
 
 1. Lees het voorstel in de context van het gesprek. Conceptantwoorden in klantgesprekken, check-ins en geplande wake-ups houden hun eigen kaart in het gesprek.
-2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Plannen** of **Open houden**. Conceptantwoord-kaarten van [AI-afhandeling](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
+2. Kaarten gebruiken de actie die nodig is: **Goedkeuren**, **Afwijzen**, **Bewerken**, **Escaleren**, **Uitstellen**, **Later**, **Gesprek sluiten**, **Plannen** of **Open houden**. Conceptantwoord-kaarten van [Autonomie](/docs/inbox/inbox-ai) gebruiken **Versturen**, **Bewerken** of **Escaleren**.
 3. Een voorgesteld chatantwoord kan uit meerdere korte berichten bestaan. De kaart toont ze als **Bericht 1**, **Bericht 2** enzovoort. Kies **Bericht verwijderen** bij een bericht dat je niet wilt, of **Bewerken** om ze als één tekst te herschrijven; een lege regel start een nieuw bericht. **Versturen** levert ze op volgorde af.
 4. Hover de beslissingskaart, of een agentbericht, en reageer met Leuk, Niet behulpzaam, Mee eens, Gefrustreerd of Denk na. Die reacties voeden learning. Escaleren zet het gesprek op Handmatig en wijst jou toe.
 
@@ -71,7 +71,7 @@ Elk oordeel geldt voor **deze agent en deze actie**: Mila mag zelf hashtags aanm
 
 1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** de keuzes. Onder een agentbericht staan ze in het menu **Meer opties**; op een kaart met meerdere acties open je het menu op een rij en kijk je onder **Volgende keer, {agent}:**. Is een eerder concept opzij gezet omdat de persoon elders verderging, dan biedt de afgehandelde regel **Actief openen** om naar dat gesprek te springen.
 2. **Altijd toestaan voor {agent}** (of **Dit mag je voortaan zelf**) laat de agent deze actie zonder vragen uitvoeren; staat de rij nog open, dan voert hij hem ook nu uit. **Altijd vragen** blijft vragen. **Niet toestaan** (of **Dit nooit doen**) blokkeert de actie voor deze agent; een open rij wordt afgewezen.
-3. Als owner of admin geldt de regel op het moment dat je kiest en staat hij op [Govern](/docs/govern/govern) **Ledger** als toegepaste wijziging die je kunt terugdraaien. Als member komt de regel als Govern-concept dat een owner of admin bevestigt.
+3. Als owner of admin geldt de regel op het moment dat je kiest en staat hij op [Govern](/docs/govern/govern) **Logboek** als toegepaste wijziging die je kunt terugdraaien. Als member komt de regel als Govern-concept dat een owner of admin bevestigt.
 4. **Weet ik nog niet** bewaart het geval als voorbeeld. Na een paar voorbeelden stelt de agent er zelf een regel uit voor.
 5. Een nieuw oordeel over dezelfde agent en actie vervangt de oude regel. Regels staan op Govern **Beleid** onder **Per agent: altijd, vragen, nooit** en op de agent onder **Regels** (zie [Agents](/docs/ai/agents)); verwijder er een om de agent weer te laten vragen.
 
@@ -82,7 +82,7 @@ Elke vraag gaat naar één geadresseerde: de persoon of het team in **Vragen ste
 ## Antwoorden vanuit een notificatie
 
 1. Kies de beslissing in het belmenu, of open de pushmelding op je telefoon. Beide openen Beslissingen op dat gesprek en springen direct naar de wachtende kaart.
-2. Open **Technisch** op de kaart voor de bronregel: die noemt waar de vraag vandaan komt — een projectqueue, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe, samen met de geadresseerde en het beslissings-id.
+2. Open **Technisch** op de kaart voor de bronregel: die noemt waar de vraag vandaan komt — een werkmapwachtrij, een agentrun of een voorgestelde workspacewijziging — en linkt ernaartoe, samen met de geadresseerde en het beslissings-id.
 3. Antwoord in het gesprek. Geassisteerde concepten hebben nog een menselijke verzending nodig; alleen autonome gesprekken versturen zelf.
 4. Onder **Instellingen**, daarna **Notificaties**, gebruik je de matrix. Elke sectie (**Aflevering**, **Gesprekken**, **Workspace**, **Overzicht**) heeft in de sectiekop een masterschakelaar per kolom. Een melding komt alleen aan als zowel het niveau als de gebeurtenis aan staat. Zet **Wanneer een nieuw bericht binnenkomt op een gesprek van jou of je team** aan om nieuwe mail te horen. **Push** aanzetten vraagt zo nodig om toestemming in deze browser; na inloggen kan Bokito eenmaal een zachte banner **Push aanzetten** tonen.
 

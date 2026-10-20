@@ -28,9 +28,9 @@ This is the shortest path from a fresh workspace to real work happening. After s
 
 ## 3. Let the assistant draft
 
-1. Open **Settings**, then **AI handling**.
-2. Under **Workspace default**, pick **Assisted**. The AI drafts; you review and send.
-3. See [AI handling](/docs/inbox/inbox-ai).
+1. Open **Settings**, then **Govern**, then **Policy**.
+2. Under **Autonomy**, pick **Assisted**. The AI drafts; you review and send.
+3. See [Autonomy](/docs/govern/autonomy).
 
 ## 4. Add knowledge
 

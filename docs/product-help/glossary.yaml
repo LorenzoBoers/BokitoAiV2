@@ -1,0 +1,173 @@
+# Operator vocabulary for Bokito. UI copy, product-help and mobile strings
+# come from this list. check-copy.mjs fails the dashboard lint when a
+# forbidden synonym shows up in locale values, product-help or mobile copy.
+#
+# Code and table names stay (Signal, Project, Workstream, Department).
+# URL slugs stay English.
+
+terms:
+  - id: conversation
+    nl: Gesprek
+    en: Conversation
+    code: Signal
+    api: /api/signals
+    slug: /communication
+    forbidden: []
+  - id: folder
+    # The place where all work on one subject lands: a client, a project or a
+    # department task. "Map" alone is not used for this term in NL; mailbox
+    # and Drive folders keep "map". See bad_outcomes for the guarded phrases.
+    nl: Werkmap
+    en: Folder
+    code: Project
+    api: /api/folders
+    slug: /folders
+    forbidden: ["Projecten", "Projects"]
+  - id: flow
+    nl: Flow
+    en: Flow
+    code: Workstream
+    api: /api/flows
+    slug: /flows
+    forbidden: ["Playbook", "Playbooks", "actietag", "action tag", "action-tag"]
+  - id: label
+    nl: Label
+    en: Label
+    code: SignalTag
+    api: /api/categories
+    slug: /settings/labels
+    forbidden: []
+  - id: ticket
+    nl: Ticket
+    en: Ticket
+    code: Signal
+    api: /api/signals
+    slug: ""
+    forbidden: []
+  - id: department
+    nl: Afdeling
+    en: Department
+    code: Department
+    api: /api/departments
+    slug: /workforce
+    forbidden: []
+  - id: agent
+    nl: Agent
+    en: Agent
+    code: Agent
+    api: /api/workforce/agents
+    slug: /agents
+    forbidden: []
+  - id: autonomy
+    nl: Autonomie
+    en: Autonomy
+    code: ai_handling
+    api: /api/settings/autonomy
+    slug: /settings/govern
+    forbidden: ["AI-antwoordinstellingen", "AI-afhandeling", "AI handling", "AI-handling"]
+  - id: today
+    nl: Vandaag
+    en: Today
+    code: cockpit
+    api: /api/cockpit
+    slug: /communication/today
+    forbidden: []
+  - id: for_you
+    nl: Voor jou
+    en: For you
+    code: for_you
+    api: /api/signals
+    slug: /communication/inbox/for_you
+    forbidden: ["Jij bent nodig", "Needs you"]
+  - id: new_conversation
+    nl: Nieuw gesprek
+    en: New conversation
+    code: ""
+    api: ""
+    slug: /new
+    forbidden: ["New chat", "Nieuwe chat starten", "Nieuwe chat"]
+  - id: connections
+    nl: Koppelingen
+    en: Connections
+    code: ""
+    api: /api/integrations
+    slug: /settings/connections
+    forbidden: ["Integraties", "Integrations"]
+  - id: knowledge
+    nl: Kennis
+    en: Knowledge
+    code: ""
+    api: ""
+    slug: /agents/knowledge
+    forbidden: []
+  - id: log
+    nl: Logboek
+    en: Log
+    code: UsageLedger
+    api: ""
+    slug: /settings/govern
+    forbidden: ["Ledger"]
+  - id: safeguards
+    nl: Waarborgen
+    en: Safeguards
+    code: ai_handling.safeguards
+    api: /api/ai-handling/settings
+    slug: /settings/govern
+    forbidden: []
+  - id: decision
+    nl: Beslissing
+    en: Decision
+    code: DecisionRequest
+    api: /api/notifications
+    slug: ""
+    forbidden: []
+
+# Whole words that must not appear in Dutch UI values.
+# Loanwords that stay: Agents, Govern, Workforce, Bokito, and product names.
+nl_forbidden_words:
+  - Files
+  - Marketplace
+  - Skills
+  - Playbook
+  - Playbooks
+  - Projects
+  - Project
+  - Overview
+  - Teams
+
+# Phrases the glossary rewrite produced. They must not come back.
+bad_outcomes:
+  - "Logboek in"
+  - "Logboek uit"
+  - "Logboek opnieuw"
+  - "Logboek eerst"
+  - "an today"
+  - "Foldermappen"
+  - "de Aanbod"
+  - "/docs/connections/"
+  - "Nieuwe map"
+  - "Geen map"
+  - "Map openen"
+  - "Mappen openen"
+  - "Opbergen in map"
+  - "Mapagent"
+  - " mapwachtrij"
+  - "Mapdocumenten"
+  - "Submappen"
+  - "Maplead"
+  - "Rapport"
+
+loanwords:
+  - Agents
+  - Govern
+  - Workforce
+  - Bokito
+  - API
+  - URL
+  - MCP
+  - HTTP
+  - WhatsApp
+  - Slack
+  - GitHub
+  - Exact
+  - AI

@@ -51,23 +51,6 @@ def parse_autonomy_level(value: Any) -> str:
     return mapped
 
 
-def scope_autonomy_ceiling(value: Any) -> str | None:
-    """Tag or flow autonomy. Empty means follow the company, not a ceiling."""
-    raw = str(value or "").strip().lower()
-    if raw in ("", "inherit", "default"):
-        return None
-    raw = LEGACY_AUTONOMY.get(raw, raw)
-    return raw if raw in AUTONOMY_MODES else None
-
-
-def parse_scope_autonomy(value: Any) -> str:
-    """Store ``inherit`` as empty. A real mode is a ceiling."""
-    raw = str(value or "").strip().lower()
-    if raw in ("", "inherit", "default"):
-        return ""
-    return parse_autonomy_level(raw)
-
-
 def _json(raw: str | None) -> dict[str, Any]:
     try:
         data = json.loads(raw or "{}")

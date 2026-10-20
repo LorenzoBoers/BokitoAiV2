@@ -42,7 +42,7 @@ async def test_serialize_thread_includes_ai_handling(client: AsyncClient, sessio
     session_override.add(signal)
     await session_override.commit()
 
-    handling = resolve_ai_handling(tenant, account, None, signal)
+    handling = resolve_ai_handling(tenant, account, signal)
     assert handling.requested == "autonomous"
     assert handling.source == "channel"
     payload = threads_svc.serialize_thread(signal, ai_handling=handling.to_payload())

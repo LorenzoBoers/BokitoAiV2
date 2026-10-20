@@ -23,7 +23,7 @@ import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
 import { waitingStageFill } from '../../lib/stage-order'
-import { StageProgressIcon } from '../workstreams/StageProgressIcon'
+import { StageProgressIcon } from '../flows/StageProgressIcon'
 import { TagPill } from '../ui/TagPill'
 import { TicketFieldControl } from './TicketFieldControl'
 

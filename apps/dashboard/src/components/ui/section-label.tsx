@@ -111,7 +111,7 @@ export function SectionLabel({
         className,
       )}
     >
-      <div className={cn('group/header flex items-center gap-0.5', headerClassName)}>
+      <div className={cn('nav-section-line group/header flex items-center gap-0.5', headerClassName)}>
         {collapsible ? (
           <button
             type="button"

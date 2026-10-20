@@ -95,7 +95,7 @@ export function openEntityPath(ref: EntityRef): string | null {
     case 'tag':
       return `/communication/tag/${enc(ref.name.replace(/^#/, ''))}`
     case 'flow':
-      return `/workstreams/${enc(ref.id)}`
+      return `/flows/${enc(ref.id)}`
     case 'file':
       if (ref.url) return ref.url
       if (ref.signalId) return openEntityPath({ type: 'signal', id: ref.signalId, messageId: ref.messageId })

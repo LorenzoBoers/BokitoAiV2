@@ -16,7 +16,7 @@ describe('restoredEntityPath', () => {
     expect(restoredEntityPath('knowledge', 'd1')).toBe('/knowledge/d1')
     expect(restoredEntityPath('contact', 'c1')).toBe('/contacts/c1')
     expect(restoredEntityPath('company', 'o1')).toBe('/contacts/companies/o1')
-    expect(restoredEntityPath('playbook', 'w1')).toBe('/workstreams/w1')
+    expect(restoredEntityPath('playbook', 'w1')).toBe('/flows/w1')
     expect(restoredEntityPath('trigger', 't1')).toBe('/agenda?trigger=t1')
   })
 

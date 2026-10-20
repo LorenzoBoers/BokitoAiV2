@@ -133,7 +133,7 @@ export type CatalogSection = 'folders' | 'flows' | 'channels' | 'agents' | 'team
 
 const SECTION_HREF: Partial<Record<CatalogSection, string>> = {
   folders: '/folders',
-  flows: '/workstreams',
+  flows: '/flows',
   channels: '/settings/channels',
   agents: '/agents',
   teams: '/team',

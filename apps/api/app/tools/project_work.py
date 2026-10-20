@@ -672,28 +672,30 @@ register_tool(
 
 
 async def _resolve_canvas_owner(ctx: ToolContext, tool_input: dict[str, Any]) -> tuple[str, Any]:
-    from app.services.project_canvas import OWNER_PROJECT, OWNER_TENANT
+    """A canvas lives in a folder; without one it goes to the general folder."""
+    from uuid import UUID as _UUID
 
-    kind = str(tool_input.get("owner_kind") or "").strip().lower()
-    owner_raw = str(tool_input.get("owner_id") or "").strip()
-    if kind == OWNER_TENANT:
-        return OWNER_TENANT, ctx.tenant_id
+    from app.services.project_canvas import OWNER_PROJECT
+    from app.services.works_in import general_folder
+
     project, _err = await _resolve_project(ctx, tool_input)
     if project is not None:
         return OWNER_PROJECT, project.id
-    if owner_raw and kind == OWNER_PROJECT:
-        return OWNER_PROJECT, __import__("uuid").UUID(owner_raw)
-    return OWNER_TENANT, ctx.tenant_id
+    owner_raw = str(tool_input.get("owner_id") or "").strip()
+    if owner_raw:
+        return OWNER_PROJECT, _UUID(owner_raw)
+    folder = await general_folder(ctx.session, ctx.tenant_id)
+    return OWNER_PROJECT, folder.id
 
 
 def _canvas_link(row: dict[str, Any]) -> str | None:
     """In-app path for a canvas row. Lookups return this; they do not showcase."""
+    from app.services.works_in import folder_href
+
     cid = row.get("id")
-    if not cid:
+    if not cid or not row.get("owner_id"):
         return None
-    if str(row.get("owner_kind") or "") == "project" and row.get("owner_id"):
-        return f"/projects/{row['owner_id']}?tab=canvas&canvas={cid}"
-    return f"/cockpit/canvas?canvas={cid}"
+    return folder_href(row["owner_id"], "canvas", canvas=str(cid))
 
 
 async def _stash_canvas_showcase(
@@ -861,6 +863,22 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
     )
     canvas = result.get("canvas") if isinstance(result, dict) else None
     if isinstance(canvas, dict) and canvas.get("id"):
+        if ctx.agent is not None and canvas.get("owner_id"):
+            from uuid import UUID as _UUID
+
+            from app.services.deliveries import TARGET_WORKS_IN, record_delivery
+            from app.services.works_in import canvas_key
+
+            await record_delivery(
+                ctx.session,
+                ctx.tenant_id,
+                ctx.signal_id,
+                target_kind=TARGET_WORKS_IN,
+                folder_id=_UUID(str(canvas["owner_id"])),
+                works_in_key=canvas_key(canvas["id"]),
+                agent_id=ctx.agent.id,
+            )
+            await ctx.session.commit()
         showcase = await _stash_canvas_showcase(ctx, canvas)
         return _canvas_reply(result, showcase)
     return result
@@ -977,9 +995,8 @@ register_tool(
     ToolSpec(
         name="list_canvases",
         description=(
-            "List snapshot canvases for a project or the workspace Overview. "
-            "Pass project_id / owner_kind=project for a project; omit or use "
-            "owner_kind=tenant for Overview canvases. A lookup does not show cards. "
+            "List snapshot canvases in a folder. Pass project_id for that folder; "
+            "omit it for the folder General. A lookup does not show cards. "
             "Call attach_items (type canvas) when you want a preview card. "
             "Link each path inline in the same sentence."
         ),
@@ -988,7 +1005,6 @@ register_tool(
             "type": "object",
             "properties": {
                 "project_id": {"type": "string"},
-                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
                 "owner_id": {"type": "string"},
             },
         },
@@ -1002,9 +1018,9 @@ register_tool(
     ToolSpec(
         name="get_folder_canvas",
         description=(
-            "Read a snapshot canvas (project or tenant/Overview). Returns bokito/canvas "
-            "source and tree. Not live queue/budget data. Pass canvas_id, or owner_kind "
-            "+ slug (project_id for a project canvas; omit for the workspace Overview). "
+            "Read a snapshot canvas in a folder. Returns bokito/canvas source and "
+            "tree. Not live queue/budget data. Pass canvas_id, or slug with project_id "
+            "(omit project_id for the folder General). "
             "A lookup does not show a card. Call attach_items (type canvas) when "
             "you want a preview card. Link the returned path inline, for example "
             "[Title](path)."
@@ -1015,7 +1031,6 @@ register_tool(
             "properties": {
                 "canvas_id": {"type": "string"},
                 "project_id": {"type": "string"},
-                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
                 "owner_id": {"type": "string"},
                 "slug": {"type": "string"},
             },
@@ -1042,7 +1057,6 @@ register_tool(
             "Badge. Embed numbers you just looked up. Omit empty sections. "
             "refresh_cadence is manual, hourly, daily, weekly, monthly, or custom "
             "(then pass refresh_cron). managing_agent_id changes the owner. "
-            "Works for project canvases and tenant canvases on Overview. "
             "A preview card is attached when the write applies. Link its path inline."
         ),
         category="projects",
@@ -1051,7 +1065,6 @@ register_tool(
             "properties": {
                 "canvas_id": {"type": "string"},
                 "project_id": {"type": "string"},
-                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
                 "slug": {"type": "string"},
                 "source": {"type": "string"},
                 "tree": {"type": "object"},
@@ -1074,7 +1087,8 @@ register_tool(
     ToolSpec(
         name="create_canvas",
         description=(
-            "Create a snapshot canvas under a project or the workspace Overview, "
+            "Create a snapshot canvas in a folder (project_id; omit it for the "
+            "folder General), "
             "then write its content in the same turn with update_folder_canvas "
             "and the returned canvas_id. Do not stop at an empty canvas. The same "
             "title on that owner returns the existing canvas; update that id "
@@ -1088,7 +1102,7 @@ register_tool(
             "chat is about something else — then a new thread owns the canvas "
             "and its Agenda repeat). When the UI starts a setup chat, interview "
             "first, propose a plan, then call this after they agree. Pass "
-            "owner_kind and project_id from the opener when present. A preview "
+            "project_id from the opener when present. A preview "
             "card is attached when it is created. Link its path inline in the "
             "same sentence."
         ),
@@ -1099,7 +1113,6 @@ register_tool(
                 "title": {"type": "string"},
                 "slug": {"type": "string"},
                 "project_id": {"type": "string"},
-                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
                 "refresh_minutes": {"type": "integer"},
                 "refresh_cadence": {
                     "type": "string",
@@ -1127,7 +1140,6 @@ register_tool(
             "properties": {
                 "canvas_id": {"type": "string"},
                 "project_id": {"type": "string"},
-                "owner_kind": {"type": "string", "enum": ["project", "tenant"]},
                 "slug": {"type": "string"},
             },
         },

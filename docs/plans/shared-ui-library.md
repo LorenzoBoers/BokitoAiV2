@@ -2,7 +2,7 @@
 
 Plan om de dashboard-webapp en de Expo-app dezelfde componenten, kleuren, typografie en spacing te laten gebruiken. De repo is al een npm-workspace. Dit plan voegt een UI-bibliotheek toe in die workspace. Het vervangt het dashboard niet door een React Native-app, en het vervangt de mobiele shell niet door een ingepakte website.
 
-Datum: 2026-10-19. Status: voorstel, nog niet gebouwd.
+Datum: 2026-10-19. Status: in progress. Uitwerking: shared app UI execution plan (packages/ui-tokens, packages/ui, phases A-G).
 
 ## Aanbeveling
 

@@ -1,3 +1,4 @@
+import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -280,9 +281,9 @@ export default function ProjectsPage() {
 
       <PageRelatedLinks
         links={[
-          { to: '/grid', label: t('orgCanvas.link') },
-          { to: '/workstreams', label: t('pageGuides.related.workstreams', { defaultValue: 'Flows' }) },
-          { to: '/settings/action-tags', label: t('pageGuides.related.categories', { defaultValue: 'Action tags' }) },
+          { to: GRID_PATH, label: t('orgCanvas.link') },
+          { to: '/flows', label: t('pageGuides.related.workstreams', { defaultValue: 'Flows' }) },
+          { to: '/settings/labels', label: t('pageGuides.related.categories', { defaultValue: 'Action tags' }) },
           {
             to: '/communication/inbox/open',
             label: t('pageGuides.related.communication', { defaultValue: 'Communication' }),

@@ -1,51 +1,51 @@
 ---
-title: Autonomiehouding instellen
-intro: Zet hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen.
-description: Zet hoe zelfstandig agents werken met de autonomiehouding: handmatig, geassisteerd of autonoom.
-keywords: autonomie, houding, handmatig, geassisteerd, autonoom, apply-modi
+title: Autonomie instellen
+intro: Eén dial voor de hele werkruimte bepaalt hoe ver agents zelf mogen gaan. Kanalen, agents en flows blijven op of onder dat niveau.
+description: Zet de ene Autonomie-dial op Govern (Handmatig, Geassisteerd, Autonoom), zie wat eronder mag staan en stel toolrechten apart in.
+keywords: autonomie, dial, plafond, houding, handmatig, geassisteerd, autonoom, altijd controle, toolrechten, apply-modi
 sort: 20
-related: govern,agents,inbox-ai
+related: govern,agents,inbox-ai,flows
 ---
 
-# Autonomiehouding instellen
+# Autonomie instellen
 
-Autonomiehouding is de vertrouwensdraaiknop van de workspace. Die staat op [Govern](/docs/govern/govern) en vormt het plafond voor het beleid eronder.
+Autonomie is één dial op [Govern](/docs/govern/govern): **Handmatig**, **Geassisteerd** of **Autonoom**. Elk kanaal, gesprek, elke agent en flow blijft op of onder dat niveau, dus de dial is het meeste wat een deel van de werkruimte zelf mag doen.
 
-## Kies een preset
+## De dial zetten
 
-![Autonomiehouding-presets](/api/docs/assets/autonomy/presets.png)
-*Het preset staat op Govern.*
+![De Autonomie-dial op Govern](/api/docs/assets/autonomy/dial.png)
+*Drie standen. De huidige draagt een badge.*
 
-1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De kaart heet **Workspace-plafond voor agents**.
-2. Kies **Handmatig** (agents concepten, jij past toe), **Geassisteerd** (laag risico gaat door, de rest vraagt), of **Autonoom** (agents handelen binnen toestemmingen). Bij **Autonoom** vraagt de UI eerst **Overschakelen naar Autonoom?**. **Autonoom** blijft uit tot er een live model onder **Providers en modellen** is én minstens één verzendklaar kanaal — anders zie je **Koppel eerst een live model onder Providers en modellen…** of **Koppel eerst een kanaal dat kan versturen…**.
-3. De instelling slaat op zodra je kiest. Beleid per label of flow mag strenger zijn, nooit ruimer. Zonder live model zijn AI-antwoorden tijdelijk en worden ze nooit als verstuurd naar de klant getoond.
+1. Open **Instellingen**, daarna **Govern**, daarna **Beleid**. De eerste kaart is **Autonomie**.
+2. Kies **Handmatig** (agents lezen en bereiden voor, een mens doet de rest), **Geassisteerd** (agents stellen antwoorden voor en stellen acties voor, een mens verstuurt) of **Autonoom** (agents antwoorden en handelen zelf binnen de toolrechten).
+3. Bij **Autonoom** vraagt Bokito eerst **Autonoom aanzetten?** Alleen een eigenaar of beheerder kan de dial wijzigen; anderen zien **Alleen een eigenaar of beheerder kan de dial wijzigen.**
+4. De dial slaat op zodra je kiest.
 
-## Stel de drie lagen in
+## Wat onder de dial mag staan
 
-1. Blijf op Govern, daarna **Beleid**.
-2. Stel eerst de workspace-houding in en maak daarna waar nodig strenger beleid voor een categorie of draaiboek. De scopenaam op elke beleidsrij is een link: een label met een flow opent de gesprekken in Communicatie, een flow opent de flowpagina. Agentnamen in de paspoorttabel openen de agent.
-3. Zet op elke agent **Autonomieniveau** (**Handmatig — altijd vragen**, **Goedkeuring — begrensde acties**, **Automatisch — zelfstandig handelen**, of **Workspace-standaard**) en de tool-allowlist. Er zijn geen autonomie-overschrijvingen per tool.
-4. **Eerst vragen** maakt de [beslissingskaart](/docs/ai/decisions) in het gesprek.
+1. Een kanaal of één open gesprek kan lager staan. Die staan onder **Per kanaal** op dezelfde pagina; kies **Weer de standaard volgen** om er een weg te halen. Zie [Autonomie](/docs/inbox/inbox-ai).
+2. Elke agent heeft een eigen niveau (zie [Agents](/docs/ai/agents)). Een gesprek dat die agent afhandelt gaat nooit hoger.
+3. Een flow met **Altijd controle** houdt elk antwoord op zijn tickets op Geassisteerd. Zie [Flows](/docs/ai/flows).
+4. **Privacy** die AI weghoudt van berichtinhoud zet alles op Handmatig, en een geactiveerde noodrem houdt een kanaal op Geassisteerd tot iemand het hervat.
+
+Ga met de muis over de modus in een gesprekskop om te zien welke van deze besliste.
+
+## Toolrechten instellen
+
+Toolrechten staan los van de dial: ze zeggen wat tools mogen wijzigen zonder op jou te wachten, niet hoe ver agents klanten antwoorden.
+
+1. Open op dezelfde pagina **Standaardrechten voor tools**.
+2. Kies een preset voor werkruimte- en structuurtools, of zet elke categorie op **Weigeren**, **Eerst vragen** of **Toestaan**.
+3. **Eerst vragen** maakt een [beslissingskaart](/docs/ai/decisions) in het gesprek. Berichten op **Eerst vragen** of **Weigeren** houdt ook klantantwoorden tegen die zelf zouden gaan; geen preset laat een gesprek verder gaan dan de dial.
 
 ## Begin voorzichtig
 
-1. Gebruik **Handmatig** of **Geassisteerd** terwijl je leert hoe de workspace zich gedraagt.
-2. Kijk welke beslissingen je altijd goedkeurt.
-3. Verruim één toolcategorie in plaats van meteen naar **Autonoom** te springen.
+1. Zet de dial eerst op **Geassisteerd** terwijl je leert hoe de werkruimte zich gedraagt.
+2. Kijk welke concepten ongewijzigd de deur uit gaan. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd verstuurd is.
+3. Zet flows die altijd gecontroleerd moeten worden op **Altijd controle** voordat je de dial verhoogt.
 
-## Externe sessies blijven veilig
-
-Websitebezoekers muteren de workspace nooit automatisch, ongeacht de houding. [AI-afhandeling](/docs/inbox/inbox-ai) bepaalt nog steeds wanneer een klantconcept verschijnt.
-
-## Eén draaiknop begrenst ook AI-afhandeling
-
-AI-afhandeling op gesprekken (Autonoom, Geassisteerd, Handmatig) valt onder de Berichten-toestemming: een workspace, kanaal, contact of gesprek kan nooit meer dan Govern toestaat.
-
-1. Staat Berichten op **Eerst vragen**, dan is elk gesprek begrensd op **Geassisteerd**: antwoorden wachten op goedkeuring.
-2. Staat Berichten op **Weigeren**, dan is elk gesprek **Handmatig**.
-3. Staat Berichten op **Toestaan**, dan geldt de meest specifieke instelling voor AI-afhandeling.
-4. Autonome antwoorden pauzeren, de noodrem en labels die altijd controle nodig hebben staan onder [AI-afhandeling](/docs/inbox/inbox-ai).
+Websitebezoekers wijzigen de werkruimte nooit zelf, wat de dial ook zegt.
 
 ## Wat nu
 
-Vergrendel tools op [Govern](/docs/govern/govern). Controleer of elke [agent](/docs/ai/agents) de houding erfde.
+Zet waarborgen en overdracht onder [Autonomie](/docs/inbox/inbox-ai). Vergrendel tools op [Govern](/docs/govern/govern).

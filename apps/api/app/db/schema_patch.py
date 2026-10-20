@@ -911,43 +911,6 @@ def _ensure_search_indexes(connection: Connection) -> None:
     )
 
 
-def _clear_untouched_scope_defaults(connection: Connection, inspector) -> None:
-    """Column defaults are not ceilings until someone edits the row.
-
-    A tag or flow still on assisted with ``updated_at == created_at`` follows
-    the company. A tag still on draft the same way follows AI handling.
-    """
-    if inspector.has_table("signal_tags"):
-        connection.execute(
-            text(
-                """
-                UPDATE signal_tags
-                SET autonomy_level = ''
-                WHERE autonomy_level = 'assisted' AND updated_at = created_at
-                """
-            )
-        )
-        connection.execute(
-            text(
-                """
-                UPDATE signal_tags
-                SET send_mode = 'send'
-                WHERE send_mode = 'draft' AND updated_at = created_at
-                """
-            )
-        )
-    if inspector.has_table("workstreams"):
-        connection.execute(
-            text(
-                """
-                UPDATE workstreams
-                SET autonomy_level = ''
-                WHERE autonomy_level = 'assisted' AND updated_at = created_at
-                """
-            )
-        )
-
-
 def apply_data_repairs(connection: Connection) -> None:
     """Idempotent data fixes that ALTER cannot express (legacy role cleanup)."""
     _fix_postgres_uuid_columns(connection)
@@ -976,7 +939,6 @@ def apply_data_repairs(connection: Connection) -> None:
             text("UPDATE agents SET slug='orchestrator' WHERE slug IN ('po', 'manager')")
         )
 
-    _clear_untouched_scope_defaults(connection, inspector)
 
     # Remove orphan tenant-level orchestrators (no project link, no runs) in
     # tenants that already have a project-linked orchestrator.

@@ -19,7 +19,7 @@ Iedereen die binnenkomt met een echte naam of adres landt hier. Open Contacten o
 1. Open een gesprek in [Communicatie](/docs/inbox/communication).
 2. Bij een bekende persoon klik je hun naam in het zijpaneel of de gespreksheader om hun contact te openen.
 3. Lees geschiedenis en andere gesprekken, en spring terug naar het open werk. In het zijpaneel staat het bedrijf op dezelfde regel als **Contact**. **Andere gesprekken** is een lijst van één regel (status, kanaal, onderwerp, tijd). Die omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis.
-4. Op het contact labelt **Tags** de persoon. Die tags gelden voor elk gesprek van dit contact (gestippelde chips **via contact** op het gesprek). Bedrijfstags tonen als gestippelde chips **via bedrijf**. Wijzigen herborgt elk gesprek. Boven de gesprekken toont **In mappen** elke map waarin die gesprekken landen. Klik op een map om die te openen. Bedrijven tonen dezelfde rij voor al hun mensen samen.
+4. Op het contact labelt **Tags** de persoon. Die tags gelden voor elk gesprek van dit contact (gestippelde chips **via contact** op het gesprek). Bedrijfstags tonen als gestippelde chips **via bedrijf**. Wijzigen herborgt elk gesprek. Boven de gesprekken toont **In werkmappen** elke werkmap waarin die gesprekken landen. Klik op een werkmap om die te openen. Bedrijven tonen dezelfde rij voor al hun mensen samen.
 
 Onbekende websitebezoekers blijven in het gesprek als **Websitebezoeker**. Ze hebben geen **Profiel** en staan niet onder Contacten tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen of je [het gesprek koppelt](#een-gesprek-aan-een-contact-koppelen).
 
@@ -33,7 +33,7 @@ Onbekende websitebezoekers blijven in het gesprek als **Websitebezoeker**. Ze he
 3. De bezoeker blijft een identiteit van de persoon: eerdere chats gaan mee, en de contactpagina toont die onder **Ook bereikbaar via**. Er wordt niets overschreven. Een eigenaar of beheerder kiest daar **Losmaken** om een identiteit weer een apart contact te maken.
 4. Een gesprek dat via een onbevestigd adres is gekoppeld toont **Geclaimd**; nadat de bezoeker een e-maillink bevestigt toont het **Bevestigd**. Persoonlijke gegevens zoals facturen blijven achter **Bevestigd**.
 
-De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppelt alleen bevestigde adressen en vraagt je voor de rest met een beslissingskaart; **Autonoom** koppelt ook geclaimde adressen en maakt nieuwe contacten aan; **Handmatig** laat het aan jou. Twee bekende contacten samenvoegen vraagt altijd een eigenaar of beheerder. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppelt alleen bevestigde adressen en vraagt je voor de rest met een beslissingskaart; **Autonoom** koppelt ook geclaimde adressen en maakt nieuwe contacten aan; **Handmatig** laat het aan jou. Twee bekende contacten samenvoegen vraagt altijd een eigenaar of beheerder. Zie [Autonomie](/docs/inbox/inbox-ai).
 
 ## Voeg iemand toe of start mail
 
@@ -52,18 +52,6 @@ De AI koppelt zelf wanneer een bezoeker een adres geeft. **Geassisteerd** koppel
 1. Open het contact onder **Contacten**. Status kan **Goedgekeurd**, **In afwachting** of **Geblokkeerd** zijn.
 2. Kies **Goedkeuren** voor een adres dat je in het boek wilt.
 3. Kies **Blokkeren** voor een afzender die uit Communicatie moet. Nieuwe berichten van hen worden gedropt. Vanuit een gesprek kun je ook het gespreksmenu (⋯) openen en **[naam] blokkeren** kiezen.
-
-## AI-afhandeling voor een contact instellen
-
-![AI-afhandeling op een contact](/api/docs/assets/contacts/contact-handling.png)
-*Een contact kan het kanaal volgen of een eigen modus hebben.*
-
-1. Open het contact onder Contacten.
-2. Zoek **AI-afhandeling** onder het profiel. Daar staat de huidige modus. Open het menu om te zien wat die volgt: de overgenomen modus draagt een badge zoals **Kanaalstandaard**. Het gesprekszijpaneel herhaalt deze instelling niet; de gespreksheader zet de modus nog wel voor dat ene gesprek.
-3. Kies **Autonoom**, **Geassisteerd** of **Handmatig** om dat toe te passen op elk gesprek met deze persoon. Kies de modus met **Kanaalstandaard** om het weer weg te halen.
-4. Filter op Contacten met het menu **Elke AI-afhandeling** om contacten met **Eigen AI-afhandeling** of een specifieke modus te vinden. Rijen met een eigen modus tonen het icoon.
-
-Een enkel gesprek kan nog steeds afwijken van het contact. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
 
 ## Een contact een vaste eigenaar geven
 

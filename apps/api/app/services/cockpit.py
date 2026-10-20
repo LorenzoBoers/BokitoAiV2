@@ -303,6 +303,33 @@ async def usage_breakdown(
     by_user.sort(key=lambda r: r["tokens"], reverse=True)
 
     regions = await usage_by_region(session, tenant_id, since=since)
+    scope_labels = {
+        "workbench": "Workbench",
+        "chat": "Chat",
+        "email": "Email",
+        "workstream": "Flow",
+        "orchestration": "Orchestration",
+    }
+    scope_rows = (
+        await session.execute(
+            select(
+                UsageLedger.scope,
+                func.sum(UsageLedger.tokens_in + UsageLedger.tokens_out),
+                func.sum(UsageLedger.customer_cost_micros),
+            )
+            .where(UsageLedger.tenant_id == tenant_id, UsageLedger.created_at >= since)
+            .group_by(UsageLedger.scope)
+        )
+    ).all()
+    by_scope = [
+        {
+            "scope": row[0] or "chat",
+            "label": scope_labels.get(row[0] or "", row[0] or "Chat"),
+            "tokens": int(row[1] or 0),
+            "customer_cost_micros": int(row[2] or 0),
+        }
+        for row in scope_rows
+    ]
 
     return {
         "days": days,
@@ -312,6 +339,7 @@ async def usage_breakdown(
         "by_model": by_model,
         "by_agent": by_agent,
         "by_user": by_user,
+        "by_scope": by_scope,
         "by_region": regions["by_region"],
         "eu_share_pct": regions["eu_share_pct"],
     }

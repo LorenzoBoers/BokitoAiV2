@@ -24,8 +24,9 @@ import {
 import { DefaultBadge } from '../ui/DefaultBadge'
 import { OptionCard, OptionCardGrid } from '../ui/option-card'
 import { AiHandlingIcon } from './AiHandlingIcon'
+import { AUTONOMY_PATH } from '../../lib/navigation'
 
-export const AI_HANDLING_SETTINGS_PATH = '/settings/communication'
+export const AI_HANDLING_SETTINGS_PATH = AUTONOMY_PATH
 
 type Props = {
   handling: AiHandling | null

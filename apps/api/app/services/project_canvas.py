@@ -21,7 +21,6 @@ from app.models.project_canvas import (
     CANVAS_SCHEMA_VERSION,
     CANVAS_OWNERS,
     OWNER_PROJECT,
-    OWNER_TENANT,
     ProjectCanvas,
 )
 from app.models.trigger import Trigger
@@ -74,16 +73,10 @@ def refresh_instructions(
     brief: str = "",
     folder_lines: str = "",
 ) -> str:
-    if owner_kind == OWNER_TENANT:
-        lookup = (
-            "This canvas hangs on Overview for the workspace. Use list_threads, "
-            "list_projects, list_triggers and get_platform_watch as needed."
-        )
-    else:
-        lookup = (
-            f"This canvas belongs to project {owner_id}. Use list_queue_items, "
-            "list_project_docs and list_project_resources, then embed those numbers."
-        )
+    lookup = (
+        f"This canvas belongs to folder {owner_id}. Use list_queue_items, "
+        "list_project_docs and list_project_resources, then embed those numbers."
+    )
     brief_line = f"What it must show: {brief.strip()}\n" if (brief or "").strip() else ""
     folder_block = f"{folder_lines.strip()}\n" if (folder_lines or "").strip() else ""
     return (
@@ -190,15 +183,57 @@ async def resolve_owner(
     if project_id and not kind:
         kind = OWNER_PROJECT
         owner_id = project_id
+    if not kind and owner_id is None:
+        from app.services.works_in import general_folder
+
+        folder = await general_folder(session, tenant_id)
+        kind, owner_id = OWNER_PROJECT, folder.id
     if kind not in CANVAS_OWNERS:
-        raise HTTPException(status_code=400, detail="owner_kind must be project or tenant")
+        raise HTTPException(status_code=400, detail="A canvas lives in a folder: owner_kind must be project")
     if owner_id is None:
         raise HTTPException(status_code=400, detail="owner_id is required")
-    if kind == OWNER_PROJECT:
-        await _require_project(session, tenant_id, owner_id)
-    elif owner_id != tenant_id:
-        raise HTTPException(status_code=400, detail="Tenant canvas owner_id must be this workspace")
+    await _require_project(session, tenant_id, owner_id)
     return kind, owner_id
+
+
+async def default_location(
+    session: AsyncSession, tenant_id: UUID, canvas_id: UUID | None = None
+) -> dict[str, Any]:
+    """Where a canvas link without a folder lands.
+
+    The named canvas when it is alive, else the canvas touched last, else the
+    folder General.
+    """
+    from app.services.works_in import folder_href, general_folder
+
+    row = None
+    for named in ([ProjectCanvas.id == canvas_id] if canvas_id else [], []):
+        row = (
+            await session.execute(
+                select(ProjectCanvas)
+                .join(Project, Project.id == ProjectCanvas.owner_id)
+                .where(
+                    *named,
+                    ProjectCanvas.tenant_id == tenant_id,
+                    ProjectCanvas.owner_kind == OWNER_PROJECT,
+                    ProjectCanvas.deleted_at.is_(None),
+                    Project.deleted_at.is_(None),
+                )
+                .order_by(ProjectCanvas.updated_at.desc())
+                .limit(1)
+            )
+        ).scalars().first()
+        if row is not None:
+            break
+    if row is not None:
+        return {
+            "folder_id": str(row.owner_id),
+            "canvas_id": str(row.id),
+            "href": folder_href(row.owner_id, "canvas", canvas=str(row.id)),
+        }
+    folder = await general_folder(session, tenant_id)
+    await session.commit()
+    return {"folder_id": str(folder.id), "canvas_id": None, "href": folder_href(folder.id, "canvas")}
 
 
 async def resolve_managing_agent(
@@ -452,17 +487,11 @@ def _document_from_legacy(canvas: ProjectCanvas) -> tuple[str, dict[str, Any]] |
 async def _hydrate_owner_fields(canvas: ProjectCanvas, tenant_id: UUID) -> bool:
     changed = False
     if not canvas.owner_kind:
-        canvas.owner_kind = OWNER_PROJECT if canvas.project_id else OWNER_TENANT
+        canvas.owner_kind = OWNER_PROJECT
         changed = True
-    if canvas.owner_id is None:
-        if canvas.project_id:
-            canvas.owner_id = canvas.project_id
-            canvas.owner_kind = OWNER_PROJECT
-            changed = True
-        else:
-            canvas.owner_id = tenant_id
-            canvas.owner_kind = OWNER_TENANT
-            changed = True
+    if canvas.owner_id is None and canvas.project_id:
+        canvas.owner_id = canvas.project_id
+        changed = True
     return changed
 
 

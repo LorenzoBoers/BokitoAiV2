@@ -1,7 +1,7 @@
 ---
 title: Workspace setup guide
 intro: Configure the workspace — branding, team, channels, knowledge, agents and autonomy.
-description: The complete setup checklist: branding, members, channels, AI handling, knowledge, agents and autonomy posture.
+description: The complete setup checklist: branding, members, channels, Autonomy, knowledge, agents and autonomy posture.
 keywords: setup, configuration, workspace, branding, checklist, onboarding
 sort: 30
 related: quickstart,channels,team,agents,autonomy
@@ -9,7 +9,7 @@ related: quickstart,channels,team,agents,autonomy
 
 # Workspace setup guide
 
-The quickstart gets you running. This guide gets you configured. The settings sidebar has a search field; Escape clears it. Open **Settings**, then **Support**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, folders, Govern, numbers on Overview).
+The quickstart gets you running. This guide gets you configured. The settings sidebar has a search field; Escape clears it. Open **Settings**, then **Support**, then **Setup guide** for the live checklist (or use the **Setup** button in the top bar while onboarding is incomplete). Owners first finish the first-run wizard (**About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel**), then the product tour. After that, the guide follows the same activation steps as the first-run card, then a quiet **Later** list (branding, team, modules, folders, Govern, numbers on Today).
 
 ## Workspace basics and branding
 
@@ -26,11 +26,11 @@ The quickstart gets you running. This guide gets you configured. The settings si
 2. Invite the people who will answer customers. Group them into departments under **Departments** when more than one group answers.
 3. See [How Workforce works](/docs/getting-started/team).
 
-## Connect channels and set AI handling
+## Connect channels and set Autonomy
 
 1. Create a Bokito address or connect every mailbox under **Settings**, then **Channels**. See [Channels](/docs/inbox/channels).
 2. Add routing and signatures.
-3. Open [AI handling](/docs/inbox/inbox-ai) under **Settings** → **AI handling**. Start the workspace on **Assisted**. Website chat can wait until the widget is installed.
+3. Open [Autonomy](/docs/inbox/inbox-ai) under **Settings** → **Autonomy**. Start the workspace on **Assisted**. Website chat can wait until the widget is installed.
 4. Website chat and WhatsApp can wait until mail runs.
 
 ## Load knowledge and agents
@@ -39,11 +39,11 @@ The quickstart gets you running. This guide gets you configured. The settings si
 2. Review the default assistant under [Agents](/docs/ai/agents). Deactivate agents you do not want on the roster; tighten chat access if they should not appear in Communication.
 3. Set posture under [Autonomy](/docs/govern/autonomy). Start conservative.
 4. Optional: open **Folders** when work should be grouped around a place. See [Folders](/docs/ai/folders).
-5. Optional: open **Connections** in the rail and turn on Accounting when invoices or VAT come up. See [Integrations](/docs/integrations/integrations).
+5. Optional: open **Connections** in the rail and turn on Accounting when invoices or VAT come up. See [Connections](/docs/integrations/integrations).
 
 ## Schedule recurring work
 
-A daily **platform check-in** does not exist until you say yes. The lead asks in the setup conversation after the tour. When you turn it on, the assistant wakes once a day, reads the Daily check-in note in Knowledge and what it wrote last time, and writes in its own channel in Communication only when something new needs you. It does not repeat a question it already asked, and it only raises a decision card when the question is about a conversation or has an action you can approve. Change the rhythm on the wake in [Agenda](/docs/ai/agenda). That is the same conversation you open under **Agents** in the Communication sidebar, so findings sit next to the questions you already ask that assistant. Turn it on from the setup guide, from Overview, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Overview](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Overview **Usage**.
+A daily **platform check-in** does not exist until you say yes. The lead asks in the setup conversation after the tour. When you turn it on, the assistant wakes once a day, reads the Daily check-in note in Knowledge and what it wrote last time, and writes in its own channel in Communication only when something new For you. It does not repeat a question it already asked, and it only raises a decision card when the question is about a conversation or has an action you can approve. Change the rhythm on the wake in [Agenda](/docs/ai/agenda). That is the same conversation you open under **Agents** in the Communication sidebar, so findings sit next to the questions you already ask that assistant. Turn it on from the setup guide, from Today, or by asking the assistant. Extra recurring work still lives on the [Agenda](/docs/ai/agenda). Keep [Today](/docs/getting-started/cockpit) as the daily scan. Usage caps live on Today **Usage**.
 
 ## Follow the live checklist
 
@@ -55,6 +55,6 @@ On first login, owners complete the **first-run wizard**, then the product tour.
 4. **Resolve your first decision** — the checklist card (and **Try the demo** where offered) starts a sample thread so you can approve a card.
 5. **Turn on check-in** — say yes in the setup conversation, or turn it on from the setup guide, when you want watching.
 
-**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), folders, [Govern](/docs/govern/govern), **Numbers on Overview** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
+**Later** (no numbers): branding, invite the team, add a field of work on [Connections](/docs/integrations/integrations), folders, [Govern](/docs/govern/govern), **Numbers on Today** (custom KPIs), and [Data & privacy](/docs/govern/privacy-security) (retention, data region, and data subject requests).
 
 **Hide setup** only hides the card. The checklist on Settings stays until those steps are done. You are ready when mail flows in, one decision is understood, and the assistant is watching.

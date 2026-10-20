@@ -589,7 +589,7 @@ async def route_new_conversation(
         account = account or loaded_account
         contact = contact or loaded_contact
     agent = await resolve_inbound_agent_for_signal(session, signal)
-    handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal, agent=agent)
+    handling = await ai_handling.resolve_for_signal(session, tenant, signal, agent=agent)
     agent_can_own = await agent_may_own(session, signal, agent=agent, account=account, tenant=tenant, handling=handling)
 
     owner = await contact_owner(session, tenant_id, contact)
@@ -651,10 +651,8 @@ async def agent_may_own(
 
             tenant = await session.get(Tenant, signal.tenant_id)
         if account is None:
-            account, contact = await ai_handling.load_layers(session, signal.tenant_id, signal)
-        else:
-            _account, contact = await ai_handling.load_layers(session, signal.tenant_id, signal)
-        handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal, agent=agent)
+            account, _contact = await ai_handling.load_layers(session, signal.tenant_id, signal)
+        handling = await ai_handling.resolve_for_signal(session, tenant, signal, agent=agent)
     if handling.effective not in ("autonomous", "assisted"):
         return False
     if handling.effective == "autonomous" and signal.channel_account_id:

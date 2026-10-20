@@ -4,12 +4,12 @@ intro: The request budgets on public endpoints and how to handle 429 responses.
 description: Bokito API rate limits per endpoint group, the 429 response format with Retry-After, and patterns for staying under the limits.
 keywords: rate limits, 429, retry-after, throttling, quotas
 sort: 70
-related: api-overview,api-signals,webhooks
+related: api-today,api-signals,webhooks
 ---
 
 # Rate limits
 
-Public endpoints are rate limited per client IP over a rolling 60-second window. Limits exist to keep the platform responsive; normal integrations rarely hit them.
+Public endpoints are rate limited per client IP over a rolling 60-second window. Limits exist to keep the platform responsive; normal connections rarely hit them.
 
 ## Limits by endpoint group
 

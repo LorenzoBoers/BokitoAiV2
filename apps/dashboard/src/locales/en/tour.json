@@ -10,7 +10,7 @@
       },
       "ai": {
         "title": "AI workforce",
-        "body": "Agents with clear permissions do the work. Projects and Knowledge give them context that grows over time."
+        "body": "Agents with clear permissions do the work. Folders and Knowledge give them context that grows over time."
       },
       "automations": {
         "title": "Automations",
@@ -35,19 +35,15 @@
     },
     "ai": {
       "title": "Your AI workforce",
-      "body": "Agents are your digital coworkers. Projects group their work, and Knowledge is what they learn from. Teach it once, they use it everywhere."
+      "body": "Agents are your digital coworkers. Knowledge sits next to them under Agents, and Workforce shows people, departments and the Grid."
     },
     "agenda": {
       "title": "Agenda",
       "body": "Scheduled runs and background automations. Set them up once and work happens while you are away."
     },
-    "modules": {
-      "title": "Modules",
-      "body": "Turn on business capabilities and connect the packages behind them — one place for every connection."
-    },
     "settings": {
       "title": "Settings and setup guide",
-      "body": "Channels, branding, your team and the step-by-step setup guide all live here."
+      "body": "Channels, connections, Govern, your team and the step-by-step setup guide all live here."
     }
   },
   "finish": {

@@ -4,7 +4,7 @@ intro: Receive an HTTP POST when signals or decisions change in the workspace.
 description: Create webhook endpoints in Settings, Developers, verify the HMAC signature, test deliveries and handle retries.
 keywords: webhooks, events, hmac, signature, developers, callbacks
 sort: 40
-related: api-overview,api-signals,authentication
+related: api-today,api-signals,authentication
 ---
 
 # Webhooks

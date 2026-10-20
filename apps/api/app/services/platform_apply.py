@@ -20,7 +20,6 @@ from app.models.agent import Agent
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.orchestra import Workstream
 from app.models.platform_change import PlatformChange
-from app.services.agent_rules import parse_autonomy_level
 from app.services.os_graph import OS_GRAPH_RETIRED
 
 
@@ -180,8 +179,6 @@ async def apply_workstream_change(
             ws.name = after["name"]
         if "description" in after:
             ws.description = after["description"]
-        if "autonomy_level" in after:
-            ws.autonomy_level = parse_autonomy_level(after["autonomy_level"])
         # steps retired — stages-only playbooks
         await session.flush()
         return {

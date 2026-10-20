@@ -447,6 +447,76 @@ async def test_bokito_identity_line_in_system_prompt(session_override):
 
 
 @pytest.mark.asyncio
+async def test_agent_opened_thread_is_stated_in_prompt(session_override):
+    """The first stored message decides who opened the thread."""
+    from app.models.signal import Signal, SignalMessage
+    from app.services.agent.loop import AgentLoop
+
+    tenant = Tenant(slug="opener-fact", name="Opener")
+    session_override.add(tenant)
+    await session_override.flush()
+    agent = Agent(
+        tenant_id=tenant.id,
+        name="Orchestrator",
+        role="orchestrator",
+        model="bokito-ai-3-1",
+    )
+    session_override.add(agent)
+    await session_override.flush()
+    opened = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="onboarding",
+        subject="Orchestrator",
+        agent_id=agent.id,
+    )
+    human_first = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="operator",
+        subject="Later",
+        agent_id=agent.id,
+    )
+    session_override.add(opened)
+    session_override.add(human_first)
+    await session_override.flush()
+    session_override.add(
+        SignalMessage(
+            signal_id=opened.id,
+            tenant_id=tenant.id,
+            kind="user_message",
+            direction="outbound",
+            role="assistant",
+            author_agent_id=agent.id,
+            body_text="Ik ben Orchestrator. Klopt die naam?",
+        )
+    )
+    session_override.add(
+        SignalMessage(
+            signal_id=human_first.id,
+            tenant_id=tenant.id,
+            kind="user_message",
+            direction="inbound",
+            role="user",
+            body_text="Hoi",
+        )
+    )
+    await session_override.commit()
+
+    opened_loop = AgentLoop(
+        session_override, tenant.id, None, agent=agent, signal_id=opened.id
+    )
+    opened_prompt = await opened_loop._build_system_prompt()
+    assert "You opened this conversation" in opened_prompt
+
+    human_loop = AgentLoop(
+        session_override, tenant.id, None, agent=agent, signal_id=human_first.id
+    )
+    human_prompt = await human_loop._build_system_prompt()
+    assert "You opened this conversation" not in human_prompt
+
+
+@pytest.mark.asyncio
 async def test_resolve_raw_agent_model_id(session_override):
     await seed_model_catalog(session_override)
     tenant = Tenant(slug="raw-model", name="Raw Model")

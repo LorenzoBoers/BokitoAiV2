@@ -3,17 +3,10 @@ import { useEffect } from 'react'
 import {
   addNote,
   badgeCounts,
-  createConversation,
-  deleteConversation,
   deleteThread,
   deleteThreadNote,
-  getCockpitSummary,
   getNotificationPreferences,
   getThread,
-  listChatMessages,
-  listChatTargets,
-  listConversations,
-  listDecisions,
   listNotifications,
   listSignalMembers,
   listThreads,
@@ -23,7 +16,6 @@ import {
   patchThread,
   setThreadDate,
   pinThread,
-  renameConversation,
   replyToThread,
   resolveThreadDecision,
   setThreadAiHandling,
@@ -64,9 +56,6 @@ export function useGatewayInvalidation() {
         debounce = null
         void queryClient.invalidateQueries({ queryKey: ['threads'] })
         void queryClient.invalidateQueries({ queryKey: messagingKeys.badgeCounts })
-        void queryClient.invalidateQueries({ queryKey: messagingKeys.conversations })
-        void queryClient.invalidateQueries({ queryKey: messagingKeys.decisions })
-        void queryClient.invalidateQueries({ queryKey: messagingKeys.cockpit })
         void queryClient.invalidateQueries({ queryKey: messagingKeys.notifications })
       }, 600)
     }
@@ -128,57 +117,6 @@ export function useThreadDetail(threadId: string | null) {
   }, [threadId, query.data?.thread.has_unread, queryClient])
 
   return query
-}
-
-export function useConversations() {
-  return useQuery({
-    queryKey: messagingKeys.conversations,
-    queryFn: listConversations,
-  })
-}
-
-export function useChatMessages(conversationId: string | null) {
-  const queryClient = useQueryClient()
-
-  const query = useQuery({
-    queryKey: messagingKeys.chatMessages(conversationId ?? ''),
-    queryFn: () => listChatMessages(conversationId!),
-    enabled: !!conversationId,
-  })
-
-  useEffect(() => {
-    if (!conversationId) return
-    const unsub = onGatewayEvent(`signal:${conversationId}`, () => {
-      void queryClient.invalidateQueries({ queryKey: messagingKeys.chatMessages(conversationId) })
-    })
-    return unsub
-  }, [conversationId, queryClient])
-
-  return query
-}
-
-export function useChatTargets() {
-  return useQuery({
-    queryKey: messagingKeys.chatTargets,
-    queryFn: listChatTargets,
-    staleTime: 60_000,
-  })
-}
-
-export function useDecisions() {
-  return useQuery({
-    queryKey: messagingKeys.decisions,
-    queryFn: () => listDecisions('awaiting_human'),
-    staleTime: 15_000,
-  })
-}
-
-export function useCockpitSummary() {
-  return useQuery({
-    queryKey: messagingKeys.cockpit,
-    queryFn: getCockpitSummary,
-    staleTime: 30_000,
-  })
 }
 
 export function useNotificationPreferences() {
@@ -267,10 +205,7 @@ export function useThreadMutations(threadId: string) {
       subject?: string
       sendAs?: 'user' | 'agent'
     }) => resolveThreadDecision(threadId, messageId, action, { optionId, body, subject, sendAs }),
-    onSuccess: () => {
-      invalidate()
-      void queryClient.invalidateQueries({ queryKey: messagingKeys.decisions })
-    },
+    onSuccess: invalidate,
   })
 
   const pin = useMutation({
@@ -309,37 +244,4 @@ export function useThreadMutations(threadId: string) {
   })
 
   return { patch, setDate, reply, note, resolveDecision, pin, takeover, markUnread, remove, updateNote, removeNote }
-}
-
-export function useConversationMutations() {
-  const queryClient = useQueryClient()
-
-  const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: messagingKeys.conversations })
-  }
-
-  const create = useMutation({
-    mutationFn: ({
-      title,
-      agentId,
-      contextSignalId,
-    }: {
-      title?: string
-      agentId?: string
-      contextSignalId?: string
-    }) => createConversation(title, agentId, contextSignalId),
-    onSuccess: invalidate,
-  })
-
-  const rename = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => renameConversation(id, title),
-    onSuccess: invalidate,
-  })
-
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteConversation(id),
-    onSuccess: invalidate,
-  })
-
-  return { create, rename, remove }
 }

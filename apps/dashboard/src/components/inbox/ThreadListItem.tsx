@@ -49,7 +49,7 @@ import { parseServerTime, scheduleChipLabel, scheduleLongLabel } from '../../lib
 import { stageLabel } from '../../lib/tickets-api'
 import type { LabelColor } from '../../lib/signals-api'
 import { TagPill } from '../ui/TagPill'
-import { StageProgressIcon } from '../workstreams/StageProgressIcon'
+import { StageProgressIcon } from '../flows/StageProgressIcon'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { setThreadDragData } from '../../lib/thread-folder-drag'
 
@@ -122,13 +122,17 @@ const PRIORITY_DOT: Record<string, string> = {
   normal: '',
 }
 
-/** Hover-revealed icon button in the row's right cluster. */
+/**
+ * Row actions sit out of the layout until the row is hovered, keyboard-focused,
+ * or its menu is open. A hidden-but-reserved slot made the name fade early.
+ */
 const ROW_ICON_BUTTON = cn(
-  'inline-flex h-6 w-6 items-center justify-center rounded text-text-muted transition-opacity',
-  'opacity-0 pointer-events-none group-hover/thread:opacity-100 group-hover/thread:pointer-events-auto',
-  'group-data-[menu-open]/thread:opacity-100 group-data-[menu-open]/thread:pointer-events-auto',
-  'data-[state=open]:opacity-100 data-[state=open]:pointer-events-auto',
-  'focus-visible:opacity-100 focus-visible:pointer-events-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+  'hidden h-6 w-6 items-center justify-center rounded text-text-muted',
+  'group-hover/thread:inline-flex',
+  'group-focus-visible/thread:inline-flex',
+  'group-has-[:focus-visible]/thread:inline-flex',
+  'group-data-[menu-open]/thread:inline-flex',
+  'focus-visible:inline-flex focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
 )
 
 /**
@@ -247,7 +251,7 @@ function ThreadListItem({
   // follow their channel stay quiet.
   const handling = thread.aiHandling
   const handlingOverride =
-    !isDirect && !isAgentThread && handling && (handling.source === 'conversation' || handling.source === 'contact')
+    !isDirect && !isAgentThread && handling && handling.source === 'conversation'
       ? handling.effective
       : null
   const selectable = Boolean(onToggleChecked)
@@ -373,7 +377,7 @@ function ThreadListItem({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex items-center justify-between gap-1">
+          <div className="mb-0.5 flex h-6 items-center justify-between gap-1">
             <span
               className={cn(
                 'min-w-0 truncate-fade text-sm font-medium',

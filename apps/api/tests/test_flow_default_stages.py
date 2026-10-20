@@ -1,6 +1,6 @@
 """A flow is its stages: creating one without stages stores the default
-pipeline, saving an empty pipeline is refused, and old stage-less flows are
-backfilled at startup."""
+pipeline named in the workspace language, and saving an empty pipeline is
+refused. Migration 125 backfills old stage-less flows."""
 
 import json
 import os
@@ -8,16 +8,14 @@ from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 
-from app.models.auth import Tenant
 from app.models.orchestra import Workstream
-from app.services.tickets import DEFAULT_TICKET_STAGES, ensure_flow_stages, has_explicit_stages
+from app.services.tickets import DEFAULT_TICKET_STAGES, default_stages, has_explicit_stages
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
 os.environ["BOKITO_MOCK_EXECUTION"] = "true"
 
-API = "/api/workstreams"
+API = "/api/flows"
 
 
 async def _login(client: AsyncClient) -> dict[str, str]:
@@ -56,24 +54,7 @@ async def test_saving_empty_or_doneless_pipeline_is_refused(client: AsyncClient)
     assert [s["key"] for s in unchanged["stages"]] == [s["key"] for s in DEFAULT_TICKET_STAGES]
 
 
-@pytest.mark.asyncio
-async def test_startup_backfills_stage_less_flows(client: AsyncClient, session_override):
-    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    legacy = Workstream(tenant_id=tenant.id, name="legacy", stages_json="[]")
-    custom = Workstream(
-        tenant_id=tenant.id,
-        name="custom",
-        stages_json=json.dumps([{"key": "a", "name": "A", "kind": "open"}, {"key": "b", "name": "B", "kind": "done"}]),
-    )
-    session_override.add_all([legacy, custom])
-    await session_override.commit()
-
-    fixed = await ensure_flow_stages(session_override)
-    assert fixed >= 1
-
-    await session_override.refresh(legacy)
-    await session_override.refresh(custom)
-    assert has_explicit_stages(legacy)
-    assert json.loads(custom.stages_json)[0]["key"] == "a"
-
-    assert await ensure_flow_stages(session_override) == 0
+def test_default_stages_are_named_in_the_workspace_language():
+    assert [s["name"] for s in default_stages("en")] == ["Not started", "Waiting", "Done"]
+    assert [s["name"] for s in default_stages("nl")] == ["Niet gestart", "Wachtend", "Klaar"]
+    assert [s["key"] for s in default_stages("nl")] == ["open", "waiting", "done"]

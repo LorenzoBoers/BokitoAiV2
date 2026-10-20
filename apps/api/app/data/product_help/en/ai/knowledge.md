@@ -1,24 +1,24 @@
 ---
 title: How Knowledge works
-intro: Markdown the workspace owns across organization, project, and agent scopes. This is the brief agents carry.
-description: Browse Knowledge as a hub for org, project, and agent docs, edit in Write or Markdown mode, and publish customer help articles.
-keywords: knowledge, docs, voice, memory, skills, help center, grounding, project documentation
+intro: Markdown the workspace owns across organization, folder, and agent scopes. This is the brief agents carry.
+description: Browse Knowledge as a hub for org, folder, and agent docs, edit in Write or Markdown mode, and publish customer help articles.
+keywords: knowledge, docs, voice, memory, skills, help center, grounding, folder documentation
 sort: 30
-related: agents,communication,folders,workstreams
+related: agents,communication,folders,flows
 ---
 
 # How Knowledge works
 
-Knowledge is what agents read on every run. Open **Knowledge** to manage organization, project, and agent-scoped documents in one hub — not a private wiki.
+Knowledge is what agents read on every run. Open **Knowledge** to manage organization, folder, and agent-scoped documents in one hub — not a private wiki.
 
 ## Pick a scope
 
 ![Knowledge page](/api/docs/assets/knowledge/add-doc.png)
-*Each chip is a real entity, labeled Platform, Project, or Agent.*
+*Each chip is a real entity, labeled Platform, Folder, or Agent.*
 
 1. Open **Knowledge**.
-2. Click your **workspace name** (default, marked **Platform**), a **project name**, or an **agent name**. Creating a document in that scope stores it on the same `WorkspaceDoc` table Project Documentation uses.
-3. With a project or agent selected, **Open folder** or **Open agent** appears under the chips and takes you to that project page or agent page, so documentation and the work it belongs to stay one click apart.
+2. Click your **workspace name** (default, marked **Platform**), a **folder name**, or an **agent name**. Creating a document in that scope stores it on the same `WorkspaceDoc` table Folder Documentation uses.
+3. With a folder or agent selected, **Open folder** or **Open agent** appears under the chips and takes you to that folder page or agent page, so documentation and the work it belongs to stay one click apart.
 
 The sidebar groups documents by the kinds that are actually present — for example Voice, Memory, Skills, Docs, Check-ins, or Daily notes when those exist. Empty kinds stay hidden. Memory, check-ins and daily notes are AI-maintained: edit them when a fact is wrong; do not treat them as a second wiki.
 
@@ -43,7 +43,7 @@ A document is a page built from `##` sections; each section is the atomic unit a
 
 1. Add the pages your team already uses: pricing, policies, product facts.
 2. Open a thread in [Communication](/docs/inbox/communication).
-3. Drafts improve once a handful of documents exist. Whether drafts appear still follows [AI handling](/docs/inbox/inbox-ai); Knowledge only grounds the wording.
+3. Drafts improve once a handful of documents exist. Whether drafts appear still follows [Autonomy](/docs/inbox/inbox-ai); Knowledge only grounds the wording.
 
 ## Publish customer help
 
@@ -55,4 +55,4 @@ Customer help articles live in Knowledge, not under a separate **Help center** s
 
 ## What to do next
 
-Keep folder-specific docs on the [Folders](/docs/ai/folders) Documentation tab — they appear under Knowledge when you click that name (the chip still reads **Project**). Point agents at Skills and Memory so replies stay grounded.
+Keep folder-specific docs on the [Folders](/docs/ai/folders) Documentation tab — they appear under Knowledge when you click that name (the chip still reads **Folder**). Point agents at Skills and Memory so replies stay grounded.

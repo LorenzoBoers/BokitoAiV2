@@ -1,15 +1,13 @@
 import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-react'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
 import {
-  PINNED_TABS,
+  FOOTER_TAB,
   TAB_GROUPS,
   iconForTab,
-  isNewTab,
-  markTabSeen,
   pathForTab,
   tabFromPath,
   titleForTab,
@@ -19,6 +17,7 @@ import ScrollFade from '../ui/ScrollFade'
 import { Tip } from '../ui/Tip'
 import NavFolder from './NavFolder'
 import { NavRowLink } from './NavRow'
+import { newConversationPath } from '../../lib/messages-paths'
 import SidebarUserMenu from './SidebarUserMenu'
 import SidebarWorkspaceSwitcher from './SidebarWorkspaceSwitcher'
 
@@ -45,7 +44,6 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const { counts } = useOptionalNavBadges()
   const activeTab = tabFromPath(pathname)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups)
-  const [, setNewBadgeTick] = useState(0)
 
   const tabTitle = (tab: Tab) => t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
 
@@ -63,49 +61,23 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
 
   const badgeForTab = (tab: Tab): number => {
     if (tab === 'communication') return countForBadgeSlot(counts, 'inbox')
-    if (tab === 'agents') return countForBadgeSlot(counts, 'agents')
     if (tab === 'agenda') return countForBadgeSlot(counts, 'agenda')
     return 0
   }
 
-  const isTabActive = (tab: Tab) => {
-    if (activeTab === tab) return true
-    if (tab === 'knowledge') {
-      return (
-        pathname.startsWith('/knowledge') || pathname.startsWith('/workspace') || pathname.startsWith('/skills')
-      )
-    }
-    return false
-  }
-
   const renderTab = (tab: Tab) => {
     const badge = badgeForTab(tab)
-    const showNew = isNewTab(tab)
-    const newLabel = t(`tabs.${tab}.newBadge`, { defaultValue: 'New' })
     return (
       <NavRowLink
         key={tab}
         to={pathForTab(tab)}
-        onClick={() => {
-          // Clear New only when the operator picks the rail row (not on deep-link).
-          if (isNewTab(tab)) {
-            markTabSeen(tab)
-            setNewBadgeTick((n) => n + 1)
-          }
-          onNavigate?.()
-        }}
+        onClick={() => onNavigate?.()}
         icon={iconForTab(tab)}
         label={tabTitle(tab)}
         iconOnly={collapsed}
-        active={isTabActive(tab)}
-        className={tab === 'newChat' ? 'nav-row-accent' : undefined}
+        active={activeTab === tab}
         count={badge}
         unread={badge > 0}
-        trailing={
-          showNew && !collapsed ? (
-            <span className="text-2xs font-medium text-accent">{newLabel}</span>
-          ) : undefined
-        }
         data-tour={`nav-${tab}`}
       />
     )
@@ -133,25 +105,29 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
       </div>
 
       {/* Body */}
-      <ScrollFade className={collapsed ? 'px-2 py-1' : 'px-2 py-1'}>
+      <ScrollFade className="px-2 py-1">
         <nav className={`flex flex-col ${collapsed ? 'items-center gap-1' : 'gap-3'}`}>
-          {PINNED_TABS.length > 0 ? (
-            <section data-tour="nav-pinned" className={collapsed ? 'flex flex-col items-center gap-1' : 'space-y-px'}>
-              {PINNED_TABS.map(renderTab)}
-            </section>
-          ) : null}
+          <NavRowLink
+            to={newConversationPath()}
+            onClick={() => onNavigate?.()}
+            icon={SquarePen}
+            label={t('tabs.newChat.title', { defaultValue: 'New conversation' })}
+            iconOnly={collapsed}
+            active={pathname === '/new' || pathname.startsWith('/communication/new')}
+            className="nav-row-accent"
+            data-tour="nav-newChat"
+          />
           {TAB_GROUPS.map((group) => {
             const open = !(collapsedGroups[group.label] ?? false)
-            const hasHeader = group.tabs.length > 1 && !collapsed
             return (
               <NavFolder
                 key={group.label}
-                label={t(`tabGroups.${group.label.toLowerCase()}`, { defaultValue: group.label })}
+                label={t(`tabGroups.${group.label}`, { defaultValue: group.label })}
                 open={open}
                 onToggle={() => toggleGroup(group.label)}
-                flat={!hasHeader}
+                flat={collapsed}
                 className={collapsed ? 'flex flex-col items-center gap-1' : undefined}
-                data-tour={group.label === 'AI' ? 'nav-group-ai' : undefined}
+                data-tour={`nav-group-${group.label}`}
               >
                 {group.tabs.map(renderTab)}
               </NavFolder>
@@ -160,8 +136,13 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
         </nav>
       </ScrollFade>
 
-      {/* Footer: account row */}
-      <div className={`shrink-0 border-t border-border/60 ${collapsed ? 'flex justify-center py-1.5' : 'px-1.5 py-1.5'}`}>
+      {/* Footer: Settings + account row */}
+      <div
+        className={`shrink-0 border-t border-border/60 ${
+          collapsed ? 'flex flex-col items-center gap-1 py-1.5' : 'space-y-px px-1.5 py-1.5'
+        }`}
+      >
+        {renderTab(FOOTER_TAB)}
         <SidebarUserMenu collapsed={collapsed} onNavigate={onNavigate} />
       </div>
     </div>

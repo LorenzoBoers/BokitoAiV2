@@ -5,8 +5,9 @@ export type PageCrumb = {
 }
 
 export function extraCrumbsForPath(pathname: string): PageCrumb[] {
-  if (pathname.startsWith('/cockpit/canvas')) return [{ labelKey: 'cockpitTabs.canvas' }]
-  if (pathname.startsWith('/cockpit/usage')) return [{ labelKey: 'cockpitTabs.usage' }]
+  if (pathname.startsWith('/communication/today')) return [{ labelKey: 'tabs.overview.title' }]
+  if (pathname.startsWith('/agents/knowledge')) return [{ labelKey: 'tabs.knowledge.title' }]
+  if (pathname.startsWith('/workforce/grid')) return [{ labelKey: 'tabs.grid.title' }]
   if (pathname.startsWith('/contacts/companies/')) return [{ labelKey: 'crumbs.company' }]
   if (/^\/contacts\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.person' }]
   if (/^\/agents\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.agent' }]

@@ -33,9 +33,7 @@ export type ChannelIconName =
   | 'sparkles-outline'
   | 'help-circle-outline'
 
-export function isCustomerChannel(channel: string): boolean {
-  return ['email', 'widget', 'whatsapp', 'slack'].includes(channelKind(channel))
-}
+export { isCustomerChannel } from '@bokito/shared'
 
 export function channelIcon(channel: string): ChannelIconName {
   switch (channelKind(channel)) {

@@ -12,7 +12,7 @@ import ImpersonationBanner from '../layout/ImpersonationBanner'
 import MockAiBanner from './MockAiBanner'
 import PushSoftPrompt from './PushSoftPrompt'
 import VerifyEmailBanner from './VerifyEmailBanner'
-import { tabFromPath, titleForTab } from '../../lib/navigation'
+import { GRID_PATH, tabFromPath, titleForTab } from '../../lib/navigation'
 import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
@@ -78,8 +78,7 @@ function isFullBleed(pathname: string): boolean {
     pathname.startsWith('/agenda') ||
     pathname.startsWith('/folders') ||
     pathname.startsWith('/projects') ||
-    pathname === '/grid' ||
-    pathname === '/team/canvas'
+    pathname === GRID_PATH
   )
 }
 
@@ -97,7 +96,7 @@ function contentEnterKey(pathname: string): string {
   if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'folders'
-  if (pathname === '/grid' || pathname === '/team/canvas') return 'grid'
+  if (pathname === GRID_PATH) return 'grid'
   // Document pages already animate via PageContent — avoid a second remount.
   return 'document'
 }

@@ -2,6 +2,7 @@ import { aiHandlingRoutes } from '../api/routes/aiHandling.routes'
 import { apiGet, apiPost, apiPut } from './api'
 import {
   normalizeAiHandling,
+  normalizeClamp,
   normalizeMode,
   type AiHandling,
   type AiHandlingMode,
@@ -149,7 +150,6 @@ export type AiHandlingOverview = {
   disclosurePreview: string | null
   exceptions: {
     channels: AiHandlingException[]
-    contacts: AiHandlingException[]
     conversations: AiHandlingException[]
   }
   canRaise: boolean
@@ -195,13 +195,10 @@ function toOverview(raw: Raw): AiHandlingOverview {
   const disclosure = (raw.disclosure ?? {}) as Raw
   const exceptions = (raw.exceptions ?? {}) as Raw
   const list = (value: unknown) => (Array.isArray(value) ? value.map((row) => toException(row as Raw)) : [])
-  const clamped = raw.clamped_by
   return {
     workspace: normalizeAiHandling(raw.workspace) as AiHandling,
     ceiling: normalizeMode(raw.ceiling) ?? 'autonomous',
-    clampedBy: clamped === 'govern' || clamped === 'privacy' || clamped === 'breaker' || clamped === 'agent'
-        ? clamped
-        : null,
+    clampedBy: normalizeClamp(raw.clamped_by),
     safeguards: {
       certaintyThreshold: num(safeguards.certainty_threshold, 7),
       newContacts: safeguards.new_contacts !== false,
@@ -219,7 +216,6 @@ function toOverview(raw: Raw): AiHandlingOverview {
     disclosurePreview: str(raw.disclosure_preview) || null,
     exceptions: {
       channels: list(exceptions.channels),
-      contacts: list(exceptions.contacts),
       conversations: list(exceptions.conversations),
     },
     canRaise: Boolean(raw.can_raise),
@@ -237,6 +233,7 @@ export async function saveAiHandlingSettings(
     breaker?: AiHandlingBreaker
     disclosure?: AiHandlingDisclosure
     routing?: AiHandlingRouting
+    ceiling?: 'autonomous' | 'assisted' | 'manual'
   },
 ): Promise<AiHandlingOverview> {
   const body: Raw = {}
@@ -265,6 +262,7 @@ export async function saveAiHandlingSettings(
     }
   }
   if (patch.disclosure) body.disclosure = patch.disclosure
+  if (patch.ceiling) body.ceiling = patch.ceiling
   return toOverview(await apiPut<Raw>(aiHandlingRoutes.settings, body, token))
 }
 

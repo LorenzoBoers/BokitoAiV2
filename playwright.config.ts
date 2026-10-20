@@ -27,7 +27,7 @@ export default defineConfig({
   projects: [
     {
       name: 'dashboard-bokito',
-      testMatch: 'dashboard-bokito.spec.ts',
+      testMatch: ['dashboard-bokito.spec.ts', 'grid.spec.ts'],
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.PLAYWRIGHT_DASHBOARD_URL || dashboardBase,

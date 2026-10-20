@@ -1,8 +1,10 @@
-"""One door for whose turn it is.
+"""What a saved message means for the next turn.
 
-A conversation is a group. ``active_turn`` is the stick: one agent holds it,
-or it is empty and the ball is with the people. Mentions and the previous
-holder decide the next holder. At most one agent job starts.
+A person's message queues turns for the agents it names (in order, one per
+agent; "allebei" names them all), or for the agent that spoke last when it
+names nobody. An agent's message never queues a turn: agents move the
+conversation with ``ask_agent`` and ``handoff_to``. Mentioned people get a
+ping either way.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.agent import Agent
 from app.models.signal import Signal, SignalMessage
 from app.models.signal_participant import SignalParticipant
-from app.services.participant_turns import MAX_CONSECUTIVE_TURNS, _parse_active
+from app.services.participant_turns import _parse_active
 from app.services.thread_dispatch import entity_mentions, plain_mentions
 
 logger = logging.getLogger(__name__)
@@ -73,119 +75,70 @@ def decide_stick(
     mentioned_human_ids: list[UUID],
     text: str,
     holder_id: UUID | None,
-    owed: list[str],
-    streak: int,
     wake_default: bool,
     channel_agent_id: UUID | None,
 ) -> dict[str, Any]:
-    """Pure next-stick choice. ``give`` names one agent. ``clear`` puts it down."""
-    owed_left = [item for item in owed if item]
+    """Which agents a message queues, in order. ``give`` names them in ``agent_ids``."""
     agents = list(mentioned_agent_ids)
     humans = list(mentioned_human_ids)
 
+    if author_kind == "agent":
+        return {"action": "none", "reason": "agent_message", "notify_user_ids": humans}
+
     if author_kind == "customer":
         if channel_agent_id is None:
-            return {"action": "none", "reason": "no_channel_agent"}
+            return {"action": "none", "reason": "no_channel_agent", "notify_user_ids": []}
         return {
             "action": "give",
-            "agent_id": channel_agent_id,
-            "owed": [],
+            "agent_ids": [channel_agent_id],
             "notify_user_ids": [],
             "reason": "customer",
         }
 
-    if author_kind == "agent" and streak >= MAX_CONSECUTIVE_TURNS:
-        return {
-            "action": "clear",
-            "reason": "cap",
-            "system_line": "The turn is back with you.",
-            "notify_user_ids": [],
-        }
-
-    if author_kind == "agent":
-        others = [agent_id for agent_id in agents if agent_id != holder_id]
-        if others:
-            nxt = others[0]
-            rest = [item for item in owed_left if item != str(nxt)]
-            return {
-                "action": "give",
-                "agent_id": nxt,
-                "owed": rest,
-                "notify_user_ids": humans,
-                "reason": "passed",
-            }
-        if humans and not others:
-            return {
-                "action": "clear",
-                "reason": "human_only",
-                "notify_user_ids": humans,
-                "system_line": None,
-            }
-        if owed_left:
-            nxt = UUID(owed_left[0])
-            return {
-                "action": "give",
-                "agent_id": nxt,
-                "owed": owed_left[1:],
-                "notify_user_ids": [],
-                "reason": "owed",
-            }
-        return {"action": "clear", "reason": "done", "notify_user_ids": []}
-
-    # A person wrote.
     if humans and not agents:
-        return {
-            "action": "clear",
-            "reason": "human_only",
-            "notify_user_ids": humans,
-        }
+        return {"action": "clear", "reason": "human_only", "notify_user_ids": humans}
     if len(agents) >= 2 and _plural(text):
-        return {
-            "action": "give",
-            "agent_id": agents[0],
-            "owed": [str(agent_id) for agent_id in agents[1:]],
-            "notify_user_ids": humans,
-            "reason": "plural",
-        }
+        return {"action": "give", "agent_ids": agents, "notify_user_ids": humans, "reason": "plural"}
     if agents:
-        return {
-            "action": "give",
-            "agent_id": agents[0],
-            "owed": [],
-            "notify_user_ids": humans,
-            "reason": "mention",
-        }
+        return {"action": "give", "agent_ids": agents[:1], "notify_user_ids": humans, "reason": "mention"}
     if holder_id is not None:
-        return {
-            "action": "give",
-            "agent_id": holder_id,
-            "owed": owed_left,
-            "notify_user_ids": [],
-            "reason": "follow_up",
-        }
+        return {"action": "give", "agent_ids": [holder_id], "notify_user_ids": [], "reason": "follow_up"}
     if wake_default and channel_agent_id is not None:
         return {
             "action": "give",
-            "agent_id": channel_agent_id,
-            "owed": [],
+            "agent_ids": [channel_agent_id],
             "notify_user_ids": [],
             "reason": "follow_up",
         }
     return {"action": "none", "reason": "idle", "notify_user_ids": humans}
 
 
-def _holder(signal: Signal) -> tuple[UUID | None, list[str], int]:
+def _holder(signal: Signal) -> UUID | None:
     active = _parse_active(signal)
     raw = str(active.get("ref_id") or "").strip()
-    holder: UUID | None = None
-    if raw and active.get("nonce"):
-        try:
-            holder = UUID(raw)
-        except ValueError:
-            holder = None
-    owed = [str(item) for item in (active.get("owed") or []) if item]
-    streak = int(active.get("streak") or 0)
-    return holder, owed, streak
+    if not raw or not active.get("nonce"):
+        return None
+    try:
+        return UUID(raw)
+    except ValueError:
+        return None
+
+
+async def _last_agent_speaker(session: AsyncSession, signal: Signal) -> UUID | None:
+    """The agent of the latest message when that message is an agent's."""
+    row = (
+        await session.execute(
+            select(SignalMessage.author_agent_id)
+            .where(
+                SignalMessage.signal_id == signal.id,
+                SignalMessage.kind.notin_(("system_event", "internal_note")),
+            )
+            .order_by(SignalMessage.seq.desc())
+            .offset(1)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return row
 
 
 async def _expand_teams(
@@ -265,14 +218,6 @@ async def _ensure_members(
             invited_by_id=author_id,
             joined_via="mention",
         )
-
-
-async def _store_owed(signal: Signal, owed: list[str]) -> None:
-    active = _parse_active(signal)
-    if not active.get("nonce"):
-        return
-    active["owed"] = owed
-    signal.active_turn_json = json.dumps(active)
 
 
 async def _system_line(session: AsyncSession, signal: Signal, text: str) -> None:
@@ -489,11 +434,13 @@ async def pass_stick(
     wake_default: bool = False,
     channel_agent_id: UUID | None = None,
     enqueue: bool = True,
+    message_id: UUID | None = None,
 ) -> dict[str, Any]:
-    """Move or clear the stick after a message that is already saved."""
+    """Queue the turns a saved message asks for and ping mentioned people."""
     from app.models.auth import Tenant
+    from app.services.agent_turns import cancel_turns, enqueue_turn, latest_human_message_id
+    from app.models.signal import is_internal_channel
     from app.services.language import resolve_workspace_language
-    from app.services.participant_turns import clear_active_turn, request_participant_turn
 
     tenant = await session.get(Tenant, signal.tenant_id)
     lang = resolve_workspace_language(tenant)
@@ -509,21 +456,17 @@ async def pass_stick(
         author_kind=author_kind,
         author_id=author_id,
     )
-    holder, owed, streak = _holder(signal)
-    # A streamed reply may have no floor chip. The author still just held the turn.
-    if holder is None and author_kind == "agent" and author_id is not None:
-        holder = author_id
-    default_id = channel_agent_id or signal.agent_id
+    holder = _holder(signal)
+    if holder is None and author_kind == "user" and is_internal_channel(signal.channel):
+        holder = await _last_agent_speaker(session, signal)
     choice = decide_stick(
         author_kind=author_kind,
         mentioned_agent_ids=agents,
         mentioned_human_ids=humans,
         text=body_text,
         holder_id=holder,
-        owed=owed,
-        streak=streak,
         wake_default=wake_default,
-        channel_agent_id=default_id,
+        channel_agent_id=channel_agent_id or signal.agent_id,
     )
     await bump_member_unread(
         session,
@@ -531,112 +474,60 @@ async def pass_stick(
         author_user_id=author_id if author_kind == "user" else None,
     )
 
-    action = choice.get("action")
-    if action == "give" and choice.get("agent_id") is not None:
-        agent_id = choice["agent_id"]
-        if isinstance(holder, UUID) and holder == agent_id and _parse_active(signal).get("nonce"):
-            await _store_owed(signal, list(choice.get("owed") or []))
-            return {**choice, "ok": True, "action": "give", "holder_id": str(agent_id)}
-        clear_active_turn(signal)
-        session.add(signal)
-        await session.flush()
-        turn = await request_participant_turn(
-            session,
-            signal,
-            member_kind="agent",
-            member_ref_id=agent_id,
-            prompt=plain_mentions(body_text)[:2000],
-            requested_by_kind=author_kind if author_kind in ("user", "agent", "system") else "system",
-            requested_by_id=author_id if author_kind in ("user", "agent") else None,
-            run=enqueue,
-            enqueue=enqueue,
-            defer_peer=False,
-        )
-        if not turn.get("ok"):
-            if turn.get("error") == "max_consecutive_turns":
-                await _system_line(session, signal, _stick_copy(lang, "back"))
-            return {**choice, "ok": False, "action": "clear", "reason": turn.get("error") or "give_failed"}
-        await _store_owed(signal, list(choice.get("owed") or []))
-        notify_ids = list(choice.get("notify_user_ids") or [])
-        if notify_ids:
-            await _ping(
-                session,
-                signal,
-                notify_ids,
-                title=_stick_copy(lang, "mentioned", name=author_name),
-                body=body_text,
-                author_user_id=author_id if author_kind == "user" else None,
-            )
-        return {
-            **choice,
-            "ok": True,
-            "action": "give",
-            "holder_id": str(agent_id),
-            "turn": turn,
-        }
-
-    if action == "clear":
-        clear_active_turn(signal, reset_streak=choice.get("reason") == "cap")
-        session.add(signal)
-        await session.flush()
-        line = choice.get("system_line")
-        if choice.get("reason") == "cap":
-            line = _stick_copy(lang, "back")
-        if choice.get("reason") == "human_only" and holder is not None:
-            agent = await session.get(Agent, holder)
-            if agent is not None and agent.name:
-                line = _stick_copy(lang, "not_addressed", name=agent.name)
-        if line:
-            await _system_line(session, signal, str(line))
-        notify_ids = list(choice.get("notify_user_ids") or [])
-        title = (
-            _stick_copy(lang, "back")
-            if choice.get("reason") in ("cap", "done")
-            else _stick_copy(lang, "mentioned", name=author_name)
-        )
-        ping_ids = notify_ids
-        if choice.get("reason") in ("cap", "done") and not ping_ids:
-            rows = (
-                await session.execute(
-                    select(SignalParticipant.ref_id).where(
-                        SignalParticipant.tenant_id == signal.tenant_id,
-                        SignalParticipant.signal_id == signal.id,
-                        SignalParticipant.kind == "user",
-                        SignalParticipant.left_at.is_(None),
-                    )
-                )
-            ).scalars().all()
-            ping_ids = list(rows)
-        if ping_ids and choice.get("reason") != "done":
-            await _ping(
-                session,
-                signal,
-                ping_ids,
-                title=title,
-                body=body_text,
-                author_user_id=author_id if author_kind == "user" else None,
-            )
-        elif choice.get("reason") == "done" and ping_ids:
-            await _ping(
-                session,
-                signal,
-                ping_ids,
-                title=_stick_copy(lang, "back"),
-                body=plain_mentions(body_text)[:300],
-                author_user_id=None,
-            )
-        return {**choice, "ok": True, "action": "clear", "holder_id": None}
-
-    if humans:
+    notify_ids = list(choice.get("notify_user_ids") or [])
+    if notify_ids:
         await _ping(
             session,
             signal,
-            humans,
+            notify_ids,
             title=_stick_copy(lang, "mentioned", name=author_name),
             body=body_text,
             author_user_id=author_id if author_kind == "user" else None,
         )
-    return {**choice, "ok": True, "holder_id": None}
+
+    if author_kind == "agent":
+        return {**choice, "ok": True, "holder_id": None}
+
+    episode = message_id or await latest_human_message_id(session, signal.id)
+    if author_kind in ("user", "customer"):
+        await cancel_turns(session, signal, keep_episode=episode, outcome="superseded")
+
+    action = choice.get("action")
+    if action == "clear" and choice.get("reason") == "human_only" and holder is not None:
+        agent = await session.get(Agent, holder)
+        if agent is not None and agent.name:
+            await _system_line(session, signal, _stick_copy(lang, "not_addressed", name=agent.name))
+    if action != "give" or not enqueue:
+        return {**choice, "ok": True, "holder_id": None}
+
+    turns: list[dict[str, Any]] = []
+    for agent_id in choice.get("agent_ids") or []:
+        key = f"msg:{message_id}:{agent_id}" if message_id else None
+        turn = await enqueue_turn(
+            session,
+            signal,
+            agent_id=agent_id,
+            cause_kind="human" if author_kind in ("user", "customer") else "system",
+            requested_by_kind=author_kind if author_kind in ("user", "customer") else "system",
+            requested_by_id=author_id if author_kind == "user" else None,
+            prompt=plain_mentions(body_text)[:2000],
+            cause_message_id=message_id,
+            episode_id=episode,
+            idempotency_key=key,
+        )
+        turns.append(turn)
+    first = next((t for t in turns if t.get("ok")), None)
+    if first is None:
+        reason = turns[0].get("error") if turns else "give_failed"
+        return {**choice, "ok": False, "action": "clear", "reason": reason or "give_failed"}
+    return {
+        **choice,
+        "ok": True,
+        "action": "give",
+        "holder_id": str(first.get("agent_id") or ""),
+        "turn": first,
+        "turns": turns,
+    }
 
 
 async def hold_customer_stick(session: AsyncSession, signal: Signal, agent: Agent) -> None:
@@ -690,9 +581,7 @@ async def release_customer_stick(session: AsyncSession, signal: Signal, agent_id
     from app.services.participant_turns import clear_active_turn
 
     active = _parse_active(signal)
-    if active.get("ref_id") != str(agent_id):
-        return
-    if active.get("enqueued") or active.get("claimed_at"):
+    if active.get("ref_id") != str(agent_id) or active.get("turn_id"):
         return
     clear_active_turn(signal)
     session.add(signal)

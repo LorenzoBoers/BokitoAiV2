@@ -2,9 +2,9 @@
 title: Connect MCP servers
 intro: Give agents extra tools by connecting external MCP servers.
 description: Connect MCP servers from the Tools category on Connections; custom servers appear under Custom MCP servers. Keep risky tools on Ask first in Govern.
-keywords: mcp, model context protocol, connected tools, integrations
+keywords: mcp, model context protocol, connected tools, connections
 sort: 20
-related: integrations,agents,mcp-endpoint
+related: connections,agents,mcp-endpoint
 ---
 
 # Connect MCP servers
@@ -34,4 +34,4 @@ External tools use the same policy as built-in tools. Keep a risky tool on **Ask
 
 ## What to do next
 
-Connect a catalog app first if you only need a common connector. See [Integrations](/docs/integrations/integrations).
+Connect a catalog app first if you only need a common connector. See [Connections](/docs/integrations/integrations).

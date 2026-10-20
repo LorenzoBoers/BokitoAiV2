@@ -144,12 +144,23 @@ class EventBus:
                 raise
             except Exception:
                 logger.warning("gateway: redis reader stopped; reconnecting", exc_info=True)
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.2)
 
     async def _reader_loop(self) -> None:
-        redis = await self._get_redis()
-        if redis is None:
+        if await self._get_redis() is None:
             return
+        from redis.asyncio import Redis
+
+        # Pub/sub keeps nothing for a reader that is away. A read timeout on an
+        # idle channel would drop the subscription and every event until the
+        # resubscribe, so this connection blocks and pings to stay healthy.
+        redis = Redis.from_url(
+            get_settings().redis_url,
+            socket_connect_timeout=2,
+            socket_timeout=None,
+            socket_keepalive=True,
+            health_check_interval=15,
+        )
         pubsub = redis.pubsub()
         await pubsub.subscribe(REDIS_CHANNEL)
         try:
@@ -171,6 +182,7 @@ class EventBus:
             try:
                 await pubsub.unsubscribe(REDIS_CHANNEL)
                 await pubsub.aclose()
+                await redis.aclose()
             except Exception:
                 pass
 

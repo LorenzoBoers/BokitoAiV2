@@ -7,6 +7,7 @@ import { CSS3DObject, CSS3DRenderer } from 'three/addons/renderers/CSS3DRenderer
 import { useTheme } from '../../context/ThemeContext'
 import type { OrgGraph, OrgGraphNode } from '../../lib/teams-api'
 import { OrgNodeFace } from './OrgNodeFace'
+import { makeSoftGrid, makeStageFloor, themePalette, type ScenePalette } from './org3d/stage'
 
 CameraControls.install({ THREE })
 
@@ -16,12 +17,11 @@ const STAND_HOVER_LIFT_PX = 10
 const FLAT_HOVER_LIFT_PX = 14
 const HOVER_SCALE = 1.1
 const LERP = 0.2
-/** Name chips appear once the camera is this zoomed in (also on hover). */
-const LABEL_ZOOM = 1.35
 /** Orthographic zoom: 1 = 100%. Wheel / buttons clamp to this range. */
 const ZOOM_DEFAULT = 1.2
 /** Opening frame and Reset: All disc centered, a step wider than 100%. */
 const HOME_ZOOM = 0.85
+/** Zoom-out floor when nothing is measured yet; the scene lowers it until the whole organization fits. */
 const ZOOM_MIN = 0.7
 const ZOOM_MAX = 2.4
 /**
@@ -47,116 +47,6 @@ const KIND_HEX: Record<string, number> = {
   doc: 0xcbd5e1,
   source: 0x86efac,
   webhook: 0xf87171,
-}
-
-type ScenePalette = {
-  wash: number
-  ground: number
-  /** Floor color at the far edge of the stage. A small step darker than `ground`. */
-  groundEdge: number
-  gridMajor: number
-  gridMinor: number
-  gridOpacity: number
-  floor: number
-  floorOpacity: number
-  areaTint: number
-  edge: number
-  ring: number
-  faceBg: string
-  labelBorder: string
-  labelBg: string
-  labelFg: string
-  ambient: number
-  ambientIntensity: number
-  keyIntensity: number
-  fill: number
-  fillIntensity: number
-  fogNear: number
-  fogFar: number
-  emissiveIntensity: number
-  sideScale: number
-  dimOpacity: number
-  edgeRest: number
-  edgeDim: number
-}
-
-function cssRgbTuple(token: string): [number, number, number] {
-  const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
-  const parts = raw.split(/\s+/).map((part) => Number(part))
-  if (parts.length >= 3 && parts.every((n) => Number.isFinite(n))) {
-    return [parts[0], parts[1], parts[2]]
-  }
-  return [18, 18, 19]
-}
-
-function cssRgbHex(token: string): number {
-  const [r, g, b] = cssRgbTuple(token)
-  return (r << 16) + (g << 8) + b
-}
-
-function themePalette(isDark: boolean): ScenePalette {
-  const accent = cssRgbHex('--color-accent')
-  if (isDark) {
-    return {
-      wash: 0x141418,
-      ground: 0x141418,
-      groundEdge: 0x0f0f13,
-      gridMajor: 0x3a3a42,
-      gridMinor: 0x2a2a32,
-      gridOpacity: 0.4,
-      floor: 0x222228,
-      floorOpacity: 1,
-      areaTint: 0x3b82f6,
-      edge: accent,
-      ring: accent,
-      faceBg: '#141418',
-      labelBorder: 'rgb(70 70 78 / 0.7)',
-      labelBg: 'rgb(36 36 40)',
-      labelFg: '#f4f4f2',
-      ambient: 0xd4d4d8,
-      ambientIntensity: 0.95,
-      keyIntensity: 1.0,
-      fill: 0x3f3f46,
-      fillIntensity: 0.2,
-      fogNear: 2600,
-      fogFar: 5200,
-      emissiveIntensity: 0.05,
-      sideScale: 0.48,
-      dimOpacity: 0.72,
-      edgeRest: 0.22,
-      edgeDim: 0.08,
-    }
-  }
-  // Paper-white stage: almost no fog, a readable grid, soft blue area wash.
-  return {
-    wash: 0xd4d0ca,
-    ground: 0xd4d0ca,
-    groundEdge: 0xbab6b0,
-    gridMajor: 0xb0aca6,
-    gridMinor: 0xbcb8b2,
-    gridOpacity: 0.55,
-    floor: 0xb7c8e2,
-    floorOpacity: 1,
-    areaTint: 0x93c5fd,
-    edge: accent,
-    ring: accent,
-    faceBg: '#ffffff',
-    labelBorder: 'rgb(226 232 240 / 0.95)',
-    labelBg: 'rgb(255 255 255)',
-    labelFg: '#0f172a',
-    ambient: 0xffffff,
-    ambientIntensity: 1.35,
-    keyIntensity: 0.35,
-    fill: 0xffffff,
-    fillIntensity: 0.35,
-    fogNear: 8000,
-    fogFar: 14000,
-    emissiveIntensity: 0.01,
-    sideScale: 0.78,
-    dimOpacity: 0.82,
-    edgeRest: 0.28,
-    edgeDim: 0.1,
-  }
 }
 
 type Props = {
@@ -202,99 +92,6 @@ function areaTintColor(palette: ScenePalette, tintIndex: number): THREE.Color {
   const tint = new THREE.Color(palette.areaTint)
   tint.offsetHSL((tintIndex % 6) * 0.08, 0.08, 0)
   return tint
-}
-
-const STAGE_VERTEX = `
-  varying vec2 vUv;
-  varying vec2 vWorld;
-  void main() {
-    vUv = uv;
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vWorld = world.xz;
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`
-
-/** Unlit stage. The middle stays `center`; the rim eases a step darker. */
-function makeStageFloor(size: number, center: number, edge: number): THREE.Mesh {
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      uCenter: { value: new THREE.Color(center) },
-      uEdge: { value: new THREE.Color(edge) },
-    },
-    vertexShader: STAGE_VERTEX,
-    fragmentShader: `
-      varying vec2 vWorld;
-      uniform vec3 uCenter;
-      uniform vec3 uEdge;
-      void main() {
-        float shade = smoothstep(180.0, 640.0, length(vWorld));
-        gl_FragColor = vec4(mix(uCenter, uEdge, shade), 1.0);
-        #include <colorspace_fragment>
-      }
-    `,
-  })
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material)
-  mesh.rotation.x = -Math.PI / 2
-  mesh.position.y = -0.5
-  return mesh
-}
-
-/** Dots at the crossings of a hairline square grid, fading toward the edge. */
-function makeSoftGrid(
-  size: number,
-  divisions: number,
-  color: number,
-  edgeColor: number,
-  opacity: number,
-): THREE.Mesh {
-  const material = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms: {
-      uColor: { value: new THREE.Color(color) },
-      uEdge: { value: new THREE.Color(edgeColor) },
-      uOpacity: { value: opacity },
-      uDivisions: { value: divisions },
-      uRadius: { value: 1.25 },
-      uFeather: { value: 0.7 },
-      uLine: { value: 0.65 },
-    },
-    vertexShader: STAGE_VERTEX,
-    fragmentShader: `
-      varying vec2 vUv;
-      varying vec2 vWorld;
-      uniform vec3 uColor;
-      uniform vec3 uEdge;
-      uniform float uOpacity;
-      uniform float uDivisions;
-      uniform float uRadius;
-      uniform float uFeather;
-      uniform float uLine;
-      void main() {
-        vec2 g = vUv * uDivisions;
-        vec2 fw = max(fwidth(g), vec2(1e-4));
-        vec2 fromNode = min(fract(g), 1.0 - fract(g));
-        float distPx = length(fromNode / fw);
-        float dotMask = 1.0 - smoothstep(uRadius - uFeather, uRadius + uFeather, distPx);
-        float linePx = min(fromNode.x / fw.x, fromNode.y / fw.y);
-        float lineMask = 1.0 - smoothstep(uLine - 0.25, uLine + 0.45, linePx);
-        float mark = max(dotMask, lineMask * 0.72);
-        float radial = length(vUv - 0.5) * 2.0;
-        float fade = 1.0 - smoothstep(0.28, 0.92, radial);
-        float alpha = mark * uOpacity * fade;
-        if (alpha < 0.01) discard;
-        float shade = smoothstep(180.0, 640.0, length(vWorld));
-        gl_FragColor = vec4(mix(uColor, uEdge, shade), alpha);
-        #include <colorspace_fragment>
-      }
-    `,
-  })
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size, size), material)
-  mesh.rotation.x = -Math.PI / 2
-  mesh.position.y = 0.05
-  mesh.renderOrder = 0
-  return mesh
 }
 
 /** Island fill. Resting color stays deep; hover lifts it toward the tint. */
@@ -1241,7 +1038,7 @@ export function OrgMakeScene({
         const sameIsland = Boolean(a.region) && a.region === b.region && a.region !== 'shared'
         const bridge = Boolean(a.region) && Boolean(b.region) && a.region !== b.region
         if (!sameIsland && !bridge) continue
-        const floor = floorByRegion.get(a.region)
+        const floor = floorByRegion.get(a.region ?? '')
         const filament = makeNeuralFilament(
           a.x,
           a.y,
@@ -1369,7 +1166,7 @@ export function OrgMakeScene({
         b.x,
         b.y,
         0.7,
-        islandInk(floorByRegion.get(a.region), palette, 0.55),
+        islandInk(floorByRegion.get(a.region ?? ''), palette, 0.55),
         a.id,
         b.id,
         420,
@@ -1629,6 +1426,8 @@ export function OrgMakeScene({
       const allZ = orgNode?.y ?? 0
       homeLookAt = [allX + 260, 300, allZ + 260, allX, 0, allZ]
       homeZoom = HOME_ZOOM
+      const fitAspect = (host.clientWidth || 800) / (host.clientHeight || 600)
+      controls.minZoom = Math.min(ZOOM_MIN, (frustum * Math.min(fitAspect, 1)) / (span * 1.25))
       homeFrameRef.current = { lookAt: homeLookAt, zoom: homeZoom }
       controls.setLookAt(...homeLookAt, false)
       controls.zoomTo(homeZoom, false)
@@ -1821,16 +1620,8 @@ export function OrgMakeScene({
         const floor = puck.userData.floor as THREE.Mesh | null | undefined
         if (floor?.material) {
           const floorMat = floor.material as THREE.MeshBasicMaterial
-          const base = floor.userData.baseColor as THREE.Color | undefined
-          if (base) {
-            const dim = 0.72 + 0.28 * dimFactor
-            const lighten = 0.46 * areaGlow
-            const target = base.clone().multiplyScalar(dim)
-            target.lerp(new THREE.Color(0xffffff), lighten)
-            floorMat.color.lerp(target, LERP)
-          }
           const restOpacity = Number(floor.userData.baseOpacity) || 0.38
-          const wantOpacity = (restOpacity + 0.4 * areaGlow) * dimFactor
+          const wantOpacity = restOpacity * (0.6 + 0.4 * dimFactor)
           floorMat.opacity += (wantOpacity - floorMat.opacity) * LERP
           const border = floor.userData.border as THREE.Mesh | undefined
           const borderBase = floor.userData.borderColor as THREE.Color | undefined
@@ -1855,8 +1646,7 @@ export function OrgMakeScene({
         const nameEl = puck.userData.nameEl as HTMLElement | undefined
         if (nameEl) {
           const expanded = hover > 0.12
-          const showName = expanded || camera.zoom >= LABEL_ZOOM
-          nameEl.style.opacity = showName ? String(dimFactor) : '0'
+          nameEl.style.opacity = String(Math.max(0.35, dimFactor))
           nameEl.style.maxWidth = expanded ? '220px' : '148px'
           const nameLine = nameEl.querySelector('[data-role="name"]') as HTMLElement | null
           const metaLine = nameEl.querySelector('[data-role="meta"]') as HTMLElement | null
@@ -2004,7 +1794,7 @@ export function OrgMakeScene({
             onClick={() =>
               controlsRef.current?.zoomTo(
                 Math.max(
-                  ZOOM_MIN,
+                  controlsRef.current.minZoom,
                   (controlsRef.current.camera as THREE.OrthographicCamera).zoom / 1.15,
                 ),
                 true,

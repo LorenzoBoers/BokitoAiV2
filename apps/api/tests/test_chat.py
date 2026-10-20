@@ -117,7 +117,7 @@ async def test_chat_message_accepts_page_context(client: AsyncClient):
         f"/api/signals/conversations/{conv.json()['id']}/messages",
         json={
             "content": "What am I looking at?",
-            "page_context": "Workstreams — /workstreams/abc, run 12",
+            "page_context": "Workstreams — /flows/abc, run 12",
         },
         headers=headers,
     )

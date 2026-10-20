@@ -44,7 +44,7 @@ Outcomes: **deny** → audited error; **ask** → inline `DecisionRequest` (plat
 
 ## Platform self-maintenance
 
-Agents propose structural changes through registry tools (`create_agent`, `update_agent`, `create_workstream`, `update_workstream`, `register_mcp_server`, `connect_integration`, `propose_integration`, `add_graph_node`, `connect_graph_nodes`, `write_doc`). Update tools snapshot the current entity into `before_json` so diffs and rollback work; `propose_integration` always routes to a human decision. PO agents are additionally restricted to workstreams within their own project (`agent_can_access_project`).
+Agents propose structural changes through registry tools (`create_agent`, `update_agent`, `create_flow`, `update_flow`, `register_mcp_server`, `connect_integration`, `propose_integration`, `add_graph_node`, `connect_graph_nodes`, `write_doc`). Update tools snapshot the current entity into `before_json` so diffs and rollback work; `propose_integration` always routes to a human decision. PO agents are additionally restricted to workstreams within their own project (`agent_can_access_project`).
 
 Platform mutations flow through `propose_platform_change(mode=...)` where the allowance engine already resolved the mode:
 

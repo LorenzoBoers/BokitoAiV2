@@ -15,13 +15,13 @@ Owners and admins manage retention, data region, and data subject requests under
 
 1. Open **Settings**.
 2. Under **Govern**, choose **Data & privacy**.
-3. Under **Legal documents**, open **Data processing agreement**, **Privacy notice**, **Subprocessors** or **Security overview** when you need the operator drafts. Then use the retention, data processing, and data subject sections below.
+3. Under **Legal documents**, open **Data processing agreement**, **Privacy notice**, **Subprocessors** or **Security today** when you need the operator drafts. Then use the retention, data processing, and data subject sections below.
 
 ## Set retention and AI body use
 
 1. Open **Retention and AI**. Set **Workspace retention (days)** (default 365). One period applies to messages, calendar events, and audit data across this workspace.
 2. The retention job deletes older messages, calendar events, and audit rows. Platform changes and decisions stay. Thread shells can remain.
-3. Toggle **Allow AI to use message bodies**. When off, AI handling shows Manual on every conversation and no drafts are written; metadata-only flows may still run.
+3. Toggle **Allow AI to use message bodies**. When off, Autonomy shows Manual on every conversation and no drafts are written; metadata-only flows may still run.
 4. Leave the field to save. Changes apply to this workspace only.
 
 ## Allow or block non-EU models
@@ -43,11 +43,11 @@ Owners and admins manage retention, data region, and data subject requests under
 
 ## Restore or permanently delete from the Bin
 
-Operator deletes (conversations, projects, canvases, knowledge, contacts, playbooks, triggers, teams, rules) move to the **Bin**, not straight to gone. Agent deactivate and mailbox archive stay outside the Bin.
+Operator deletes (conversations, folders, canvases, knowledge, contacts, flows, triggers, teams, rules) move to the **Bin**, not straight to gone. Agent deactivate and mailbox archive stay outside the Bin.
 
 1. Open **Settings**. At the bottom of the sidebar, above **Support**, choose **Bin**.
 2. Filter by type or search the title. Each row shows who deleted it and **Purge on** the date it will be removed.
-3. Choose **Restore** to bring the item and its children back. If a slug is taken, Bokito appends `-restored`. The toast offers **Open**, which jumps to the restored conversation, project, canvas, document, contact, company, flow, trigger or team. Most delete toasts carry **Open Bin**, so you can reach this page right after deleting something. Moving a conversation to the Bin offers **Undo** (Ctrl+Z) instead.
+3. Choose **Restore** to bring the item and its children back. If a slug is taken, Bokito appends `-restored`. The toast offers **Open**, which jumps to the restored conversation, folder, canvas, document, contact, company, flow, trigger or team. Most delete toasts carry **Open Bin**, so you can reach this page right after deleting something. Moving a conversation to the Bin offers **Undo** (Ctrl+Z) instead.
 4. When the Bin is empty, the page says so and links to this article; with a filter or search active, **Clear filters** shows everything again.
 5. Choose **Delete permanently** for one item, or **Empty Bin** (type `empty`) to purge all. The footer states how many days items are kept (platform default 60).
 6. New mail on a binned conversation restores that conversation instead of opening a duplicate.

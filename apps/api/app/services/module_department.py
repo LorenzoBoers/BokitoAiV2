@@ -188,7 +188,6 @@ async def _copy_flows_once(
     session: AsyncSession, tenant_id: UUID, slug: str, department_id: UUID
 ) -> None:
     from app.modules.catalog import module_workstream_templates
-    from app.services.setup_links import sync_flow_stages
 
     require_one_scope(department_id=department_id, agent_id=None)
     for template in module_workstream_templates(slug):
@@ -228,8 +227,88 @@ async def _copy_flows_once(
             stages_json=json.dumps(stages),
         )
         session.add(flow)
-        await session.flush()
-        await sync_flow_stages(session, flow)
+
+
+async def _create_folder_once(
+    session: AsyncSession, tenant_id: UUID, slug: str, department_id: UUID
+) -> None:
+    """The module's folder with one Works in item: its connection, else a canvas.
+
+    Create-once: a root folder with the same name is the operator's and stays.
+    """
+    from app.models.auth import Tenant
+    from app.models.integration import IntegrationConnection
+    from app.models.project import Project
+    from app.models.project_canvas import OWNER_PROJECT
+    from app.modules.catalog import MODULE_BY_SLUG, get_module_package
+    from app.services import works_in
+    from app.services.project_canvas import create_canvas
+    from app.services.project_work import create_resource
+    from app.services.projects import create_project
+
+    package = get_module_package(slug)
+    template = package.project if package else None
+    if template is None:
+        return
+    language = works_in.workspace_language(await session.get(Tenant, tenant_id))
+    name = template.folder_name(language)
+    existing = (
+        await session.execute(
+            select(Project.id).where(
+                Project.tenant_id == tenant_id,
+                Project.parent_id.is_(None),
+                Project.deleted_at.is_(None),
+                Project.name == name,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return
+    created = await create_project(session, tenant_id, name=name)
+    folder_id = UUID(str(created["id"]))
+    folder = await session.get(Project, folder_id)
+    if folder is not None:
+        folder.department_id = department_id
+        session.add(folder)
+
+    module = MODULE_BY_SLUG[slug]
+    connection = (
+        await session.execute(
+            select(IntegrationConnection)
+            .where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.status == "active",
+                IntegrationConnection.provider.in_(
+                    (*module.provider_slugs, *module.planned_provider_slugs)
+                ),
+            )
+            .order_by(IntegrationConnection.created_at)
+        )
+    ).scalars().first()
+    if connection is not None:
+        await create_resource(
+            session,
+            tenant_id,
+            folder_id,
+            resource_type="connection",
+            provider=connection.provider,
+            label=connection.display_name or "",
+            connection_id=connection.id,
+            created_by_type="system",
+            created_by_id="module_install",
+        )
+        return
+    await create_canvas(
+        session,
+        tenant_id,
+        owner_kind=OWNER_PROJECT,
+        owner_id=folder_id,
+        title=template.canvas_name(language),
+        updated_by_type="system",
+        updated_by_id="module_install",
+        kick=False,
+        force_new=True,
+    )
 
 
 async def bind_module_department(
@@ -284,6 +363,7 @@ async def bind_module_department(
             session.add(tag)
 
     await _copy_flows_once(session, tenant_id, slug, department.id)
+    await _create_folder_once(session, tenant_id, slug, department.id)
     await session.commit()
     await session.refresh(department)
     return department

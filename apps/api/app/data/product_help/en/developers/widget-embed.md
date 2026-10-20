@@ -4,7 +4,7 @@ intro: The technical contract of the embeddable chat widget script.
 description: Embed the Bokito chat widget with one script tag. Reference for the data attributes, anonymous and authenticated modes, and how widget traffic reaches your inbox.
 keywords: widget, embed, script, livechat, chat widget
 sort: 60
-related: widget,api-overview,channels
+related: widget,api-today,channels
 ---
 
 # Widget embed

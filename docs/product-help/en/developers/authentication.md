@@ -4,7 +4,7 @@ intro: API tokens, scopes and how to send credentials.
 description: Create Bokito API tokens in Settings, Developers, choose Workspace API and agent scopes, and rotate or revoke them.
 keywords: authentication, api token, bearer, scopes, developers, security
 sort: 20
-related: api-overview,api-signals,mcp-endpoint
+related: api-today,api-signals,mcp-endpoint
 ---
 
 # Authentication
@@ -33,7 +33,7 @@ Requests without a valid token get `401 Unauthorized`.
 The create form groups scopes:
 
 - **Workspace API:** `signals:read` reads conversations and messages. `signals:write` creates conversations.
-- **What agents and apps may do:** `messaging`, `workspace`, `projects`, `agents`, `delegation`, `channels`, `triggers`, `integrations`, `govern`. The token can only list and call tools in the groups you tick. `agents` is for configuring the workforce, `delegation` for handing work to it.
+- **What agents and apps may do:** `messaging`, `workspace`, `projects`, `agents`, `delegation`, `channels`, `triggers`, `connections`, `govern`. The token can only list and call tools in the groups you tick. `agents` is for configuring the workforce, `delegation` for handing work to it.
 
 An empty scope list is full access. Prefer one token per integration with only the scopes it needs. A request outside those scopes gets `403 Forbidden`.
 

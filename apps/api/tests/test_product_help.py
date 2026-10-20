@@ -64,7 +64,6 @@ REQUIRED_SETTINGS_ROUTES = {
     "/settings/members",
     "/settings/channels",
     "/ai/assistant/external/installation",
-    "/settings/communication",
     "/connections",
     "/connections/marketplace",
     "/settings/govern",

@@ -29,7 +29,7 @@ import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { useChatSessions } from '../../context/ChatSessionsContext'
-import { PINNED_TABS, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
+import { FOOTER_TAB, TAB_GROUPS, iconForTab, pathForTab, subtitleForTab, titleForTab } from '../../lib/navigation'
 import { activityTerminalPath, agentChatPath, inboxPath, newConversationPath, tagPath } from '../../lib/messages-paths'
 import { withNavReveal } from '../../lib/nav-reveal'
 import { lastInboxPath, looksLikeThreadQuery } from '../../lib/inbox-prefs'
@@ -48,7 +48,7 @@ import { humanizeKnowledgeTitle } from '../../lib/knowledge-title'
 import { listAgents } from '../../lib/agents-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
-import { listWorkstreams, startWorkstreamRun, type WorkstreamRow } from '../../lib/workstreams-api'
+import { listWorkstreams, startWorkstreamRun, type WorkstreamRow } from '../../lib/flows-api'
 import { parseComposerVerb } from '../../lib/composer-verbs'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
@@ -152,7 +152,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   }, [open, token])
 
   const catalog = useMemo(() => {
-    const navTabs = [...PINNED_TABS, ...TAB_GROUPS.flatMap((group) => group.tabs)]
+    const navTabs = [...TAB_GROUPS.flatMap((group) => group.tabs), FOOTER_TAB]
     const nav: PaletteItem[] = navTabs
       .map((tab) => ({
         id: `nav-${tab}`,
@@ -354,14 +354,14 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.newFlow'),
         group: t('palette.groupActions'),
         icon: Route,
-        run: () => navigate('/workstreams?new=1'),
+        run: () => navigate('/flows?new=1'),
       },
       {
         id: 'action-open-action-tags',
         label: t('palette.openActionTags'),
         group: t('palette.groupActions'),
         icon: Hash,
-        run: () => navigate('/settings/action-tags'),
+        run: () => navigate('/settings/labels'),
       },
       {
         id: 'action-open-agent',
@@ -375,7 +375,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         label: t('palette.openPlaybook'),
         group: t('palette.groupActions'),
         icon: Route,
-        run: () => navigate('/workstreams'),
+        run: () => navigate('/flows'),
       },
       {
         id: 'action-open-project',
@@ -612,7 +612,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         hint: item.description,
         group: t('palette.groupActions'),
         icon: Route,
-        run: () => navigate(`/workstreams/${item.id}`),
+        run: () => navigate(`/flows/${item.id}`),
       }))
     const docs: PaletteItem[] = docResults
       .filter((hit) => hit.doc_id)

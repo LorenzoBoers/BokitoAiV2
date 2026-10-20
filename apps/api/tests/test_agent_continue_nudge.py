@@ -30,7 +30,8 @@ def test_chat_style_requires_same_turn_tools():
 
     assert "same turn" in CHAT_STYLE.lower() or "in the same turn" in CHAT_STYLE
     assert "WhatsApp" in CHAT_STYLE
-    assert "Never stop after" in CHAT_STYLE
+    assert "Never end after only a plan" in CHAT_STYLE
+    assert "No announcement" in CHAT_STYLE
     assert "bullet or numbered catalogs" in CHAT_STYLE
 
 

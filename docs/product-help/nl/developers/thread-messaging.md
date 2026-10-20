@@ -1,40 +1,57 @@
 ---
 title: Thread-berichtprotocol
-intro: Eén conversatiemodel voor hub, agents en peers — deelnemers, beurten en gedeelde eventvormen.
-description: REST thread-detail bevat participants en active_turn; tools nodigen uit, verlaten, posten en vragen beurten aan.
-keywords: deelnemers, active turn, invite_to_thread, request_participant_turn, start_conversation, chat client
+intro: Eén conversatiemodel voor hub, agents en peers — deelnemers, geordende berichten en een beurtenwachtrij in de database.
+description: REST thread-detail bevat participants, bericht-seq en active_turn; tools nodigen uit, vragen, dragen over en posten.
+keywords: deelnemers, active turn, seq, agent turns, ask_agent, handoff_to, invite_to_thread, start_conversation, chat client
 sort: 45
 related: mcp-endpoint,widget-embed,agents
 ---
 
 # Thread-berichtprotocol
 
-Elk gesprek is een `Signal`. Multi-party werk voegt deelnemers en optioneel een vloer toe — geen apart room-type.
+Elk gesprek is een `Signal`. Multi-party werk voegt deelnemers en een beurtenwachtrij toe — geen apart room-type.
 
 ## Thread-detail
 
 `GET /api/signals/threads/{id}` bevat:
 
+- `messages[]` — elk bericht heeft `seq`, een geheel getal per gesprek. Sorteer op `seq`; dat is de volgorde waarin de server opsloeg.
 - `participants[]` — `kind`, `ref_id`, `role`, `name`, avatarvelden
-- `active_turn` — wie de vloer heeft (`ref_id`, `name`, `nonce`, `deadline`, `prompt`)
+- `active_turn` — wie spreekt of als volgende aan de beurt is (`kind`, `ref_id`, `name`, `nonce`, `turn_id`, `status` `running` of `queued`, `claimed_at`)
 
-Gateway-presence kan `active_turn` meenemen zodat de hub **Wacht op …** kan tonen.
+`active_turn` is een leesmodel van de wachtrij. Gateway-presence draagt dezelfde vorm, zodat de hub zonder pollen toont wie schrijft.
+
+## Beurten
+
+Elke agentbeurt is een rij in een wachtrij. De server pakt per gesprek één rij tegelijk, dus twee agents schrijven nooit tegelijk.
+
+- Een bericht van een mens zet één beurt klaar per genoemde agent, in de genoemde volgorde. Een bericht zonder naam gaat naar de agent die het gesprek vasthoudt.
+- Een nieuwer bericht van een mens annuleert beurten die nog wachten op een ouder bericht.
+- Een agentbericht start zelf geen andere agents. Agents gebruiken `ask_agent` of `handoff_to`.
+- Een reeks agentbeurten stopt bij een budget (aantal beurten, dezelfde twee agents heen en weer, tokens). De server plaatst dan één regel die de beurt teruggeeft aan de mensen in het gesprek.
+
+Live events op de gateway: `message.start`, `message.delta`, `message.part`, daarna het opgeslagen bericht met zijn `seq`.
 
 ## Agent-tools
 
 | Tool | Effect |
 |------|--------|
-| `invite_to_thread` | Gebruiker/agent/team toevoegen; `wake=true` start een agentbeurt |
+| `ask_agent` | Stel een andere agent een vraag; het antwoord komt terug als nieuwe beurt voor de vrager, met eventuele afbeeldingen |
+| `handoff_to` | Draag het gesprek met een korte brief over aan een andere agent |
+| `invite_to_thread` | Gebruiker/agent/team als deelnemer toevoegen |
 | `leave_thread` | Verlaten (niet de owner) |
 | `post_thread_message` | Bericht als deelnemer (nooit externe klant-send) |
-| `request_participant_turn` | Vloer aan een agent; uitkomsten sent / pass / timeout |
 | `start_conversation` | `mode=chat` peer-thread, of `mode=task` achtergrondjob |
 
-Composer-`@` is de beurt. Eén `active_turn` houdt de stok vast of is leeg. Na elk groepsbericht werkt de server de leden bij, verlegt of leegt die stok, en start hooguit één agent-job. Een antwoord zonder doorgeven maakt hem leeg. `signal_participants.unread_count` telt berichten voor mens-leden die het gesprek niet open hebben.
+`signal_participants.unread_count` telt berichten voor mens-leden die het gesprek niet open hebben.
+
+## Stoppen
+
+`POST /api/signals/conversations/{id}/cancel` stopt de lopende beurt en annuleert alle wachtende beurten op dat gesprek.
 
 ## Module aannemen
 
-`POST /api/integrations/modules/{slug}/agents/hire` maakt of hergebruikt een beheerde specialist (`managed_origin=module`), zet de roster en opent een setup-gesprek.
+`POST /api/connections/modules/{slug}/agents/hire` maakt of hergebruikt een beheerde specialist (`managed_origin=module`), zet de roster en opent een setup-gesprek.
 
 ## Clientpakket
 

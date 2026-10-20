@@ -60,4 +60,4 @@ A link works once and for seven days. A WhatsApp message without a valid link st
 
 ## What to do next
 
-Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [AI handling](/docs/inbox/inbox-ai) (website chat is often **Autonomous**). With **Disclose AI replies** on, autonomous answers show a short note under the bubble. A request recognized in chat becomes a [ticket](/docs/ai/categories) on the conversation, not a second inbox.
+Connect a [mailbox](/docs/inbox/channels) so chat and email share one hub. Set when the widget answers under [Autonomy](/docs/inbox/inbox-ai) (website chat is often **Autonomous**). With **Disclose AI replies** on, autonomous answers show a short note under the bubble. A request recognized in chat becomes a [ticket](/docs/ai/categories) on the conversation, not a second inbox.

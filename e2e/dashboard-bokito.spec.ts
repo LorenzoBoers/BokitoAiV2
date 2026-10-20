@@ -110,6 +110,17 @@ test.describe('Dashboard', () => {
     await expect(page.getByText(/facturatie|invoice|Vraag/i).first()).toBeVisible({ timeout: 60000 })
   })
 
+  test('why panel explains the open conversation', async ({ page }) => {
+    await loginDashboard(page)
+    await page.goto('/communication/inbox/all')
+    await page.getByText(/facturatie|invoice|Vraag/i).first().click()
+    await page.getByTestId('thread-why-toggle').click()
+    const panel = page.getByTestId('thread-why-panel')
+    await expect(panel).toBeVisible({ timeout: 20000 })
+    await expect(panel.getByRole('listitem').first()).toBeVisible({ timeout: 20000 })
+    await expect(panel.getByRole('link', { name: /Autonomy is/ }).first()).toBeVisible()
+  })
+
   test('contacts page renders contact list', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/contacts')

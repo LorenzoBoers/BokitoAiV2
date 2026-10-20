@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Grid — de organisatie als netwerk</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121213}
+a{color:#6EDCB4}a:hover{color:#8FE6C6}
+</style>
+</helmet>
+<div style="position: relative; width: 1440px; height: 900px; background: #121213; color: #E2E2E0; font-family: Inter, system-ui, sans-serif; overflow: hidden">
+
+<svg aria-hidden="true" width="1440" height="900" viewBox="0 0 1440 900" style="position: absolute; left: 0px; top: 0px; width: 1440px; height: 900px; pointer-events: none">
+<defs>
+<pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#26262A"></circle></pattern>
+<radialGradient id="glow-ai"><stop offset="0" stop-color="#C4B5FD" stop-opacity="1"></stop><stop offset="1" stop-color="#8B5CF6" stop-opacity="0"></stop></radialGradient>
+<radialGradient id="glow-auto"><stop offset="0" stop-color="#8FE6C6" stop-opacity="1"></stop><stop offset="1" stop-color="#32BF8E" stop-opacity="0"></stop></radialGradient>
+</defs>
+<rect x="24" y="112" width="1048" height="624" rx="16" fill="url(#dots)"></rect>
+<g fill="none" stroke-linecap="round">
+<path d="M220 230 L290 230" stroke="#8B5CF6" stroke-width="5" stroke-dasharray="7 6" opacity="0.55"></path>
+<path d="M220 230 C260 230 250 430 290 430" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" opacity="0.55"></path>
+<path d="M220 230 C260 230 250 530 290 530" stroke="#ECA530" stroke-width="1.5" stroke-dasharray="2 5" opacity="0.8"></path>
+<path d="M220 330 C255 330 255 326 290 326" stroke="#32BF8E" stroke-width="3" opacity="0.8"></path>
+<path d="M220 430 C260 430 250 338 290 338" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.55"></path>
+<path d="M470 230 C510 230 510 194 550 194" stroke="#8B5CF6" stroke-width="5" stroke-dasharray="7 6" opacity="1"></path>
+<path d="M470 230 C510 230 510 284 550 284" stroke="#6A6A70" stroke-width="3" opacity="0.7"></path>
+<path d="M470 330 C510 330 510 298 550 298" stroke="#6A6A70" stroke-width="1.5" opacity="0.7"></path>
+<path d="M470 330 C510 330 510 208 550 208" stroke="#32BF8E" stroke-width="3" opacity="1"></path>
+<path d="M470 430 C510 430 510 470 550 470" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" opacity="0.55"></path>
+<path d="M730 200 L830 200" stroke="#8B5CF6" stroke-width="5" stroke-dasharray="7 6" opacity="1"></path>
+<path d="M730 200 C780 200 780 274 830 274" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="1"></path>
+<path d="M730 290 C780 290 780 360 830 360" stroke="#6A6A70" stroke-width="1.5" opacity="0.7"></path>
+<path d="M730 290 C780 290 780 288 830 288" stroke="#6A6A70" stroke-width="1.5" opacity="0.7"></path>
+<path d="M730 470 C780 470 780 440 830 440" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" opacity="0.55"></path>
+<path d="M730 470 C780 470 780 520 830 520" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="7 6" opacity="0.55"></path>
+</g>
+<circle cx="511" cy="212" r="9" fill="url(#glow-ai)"></circle>
+<circle cx="781" cy="200" r="9" fill="url(#glow-ai)"></circle>
+<circle cx="510" cy="270" r="8" fill="url(#glow-auto)"></circle>
+<circle cx="255" cy="328" r="8" fill="url(#glow-auto)"></circle>
+</svg>
+
+<div style="position: absolute; left: 40px; top: 36px; display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 22px; line-height: 28px; font-weight: 600; color: #F5F5F3; letter-spacing: -0.01em">Grid</h1>
+<p style="margin: 0; font-size: 13px; line-height: 18px; color: #A8A8A6">Hoe werk door je organisatie stroomt, van binnenkomst tot resultaat. Afgelopen 7 dagen.</p>
+</div>
+
+<div style="position: absolute; left: 600px; top: 40px; width: 472px; display: flex; justify-content: flex-end; align-items: center; gap: 12px">
+<div role="group" aria-label="Lens" style="display: flex; gap: 2px; padding: 3px; background: #19191B; border: 1px solid #2C2C31; border-radius: 10px">
+<button type="button" aria-pressed="true" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #F5F5F3; background: #26262A; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Stroom</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Structuur</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Autonomie</button>
+<button type="button" aria-pressed="false" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #A8A8A6; background: transparent; border: 0; border-radius: 7px; padding: 7px 12px; cursor: pointer">Knelpunten</button>
+</div>
+<button type="button" style="font: 500 13px/18px Inter, system-ui, sans-serif; color: #E2E2E0; background: #19191B; border: 1px solid #2C2C31; border-radius: 10px; padding: 9px 12px; cursor: pointer">7 dagen</button>
+</div>
+
+<div style="position: absolute; left: 40px; top: 128px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">BINNENKOMST</div>
+<div style="position: absolute; left: 290px; top: 128px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">AFDELINGEN</div>
+<div style="position: absolute; left: 550px; top: 128px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">UITVOERDERS</div>
+<div style="position: absolute; left: 830px; top: 128px; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">WERK</div>
+
+<div style="position: absolute; left: 40px; top: 202px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#1E2A3D"></circle><path d="M8 10h12v8H8z M8 10l6 5 6-5" fill="none" stroke="#6096FF" stroke-width="1.4" stroke-linejoin="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">lorenzo@bokito.ai</b><br><span style="font-size: 11.5px; color: #A8A8A6">E-mail · geassisteerd</span></span></div>
+<div style="position: absolute; left: 40px; top: 302px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#1E2A3D"></circle><path d="M8 9h12v8h-7l-3 3v-3H8z" fill="none" stroke="#6096FF" stroke-width="1.4" stroke-linejoin="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Websitechat</b><br><span style="font-size: 11.5px; color: #6EDCB4">Autonoom</span></span></div>
+<div style="position: absolute; left: 40px; top: 402px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#1E2A3D"></circle><path d="M11 8l-2 12 M17 8l-2 12 M8 12h13 M7 16h13" fill="none" stroke="#6096FF" stroke-width="1.4" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Support</b><br><span style="font-size: 11.5px; color: #A8A8A6">Kanaal · geassisteerd</span></span></div>
+
+<div style="position: absolute; left: 290px; top: 202px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#26262A"></circle><circle cx="11" cy="12" r="2.5" fill="none" stroke="#E2E2E0" stroke-width="1.4"></circle><circle cx="17.5" cy="12" r="2.5" fill="none" stroke="#E2E2E0" stroke-width="1.4"></circle><path d="M7 19c1-3 7-3 8 0 M14 19c1-3 7-3 8 0" fill="none" stroke="#E2E2E0" stroke-width="1.4" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Development</b><br><span style="font-size: 11.5px; color: #A8A8A6">Agent eerst</span></span></div>
+<div style="position: absolute; left: 290px; top: 302px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#26262A"></circle><circle cx="11" cy="12" r="2.5" fill="none" stroke="#E2E2E0" stroke-width="1.4"></circle><circle cx="17.5" cy="12" r="2.5" fill="none" stroke="#E2E2E0" stroke-width="1.4"></circle><path d="M7 19c1-3 7-3 8 0 M14 19c1-3 7-3 8 0" fill="none" stroke="#E2E2E0" stroke-width="1.4" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Support</b><br><span style="font-size: 11.5px; color: #A8A8A6">Mensen pakken op</span></span></div>
+<div style="position: absolute; left: 290px; top: 402px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#26262A"></circle><circle cx="11" cy="12" r="2.5" fill="none" stroke="#E2E2E0" stroke-width="1.4"></circle><circle cx="17.5" cy="12" r="2.5" fill="none" stroke="#E2E2E0" stroke-width="1.4"></circle><path d="M7 19c1-3 7-3 8 0 M14 19c1-3 7-3 8 0" fill="none" stroke="#E2E2E0" stroke-width="1.4" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Accounting</b><br><span style="font-size: 11.5px; color: #A8A8A6">Mensen pakken op</span></span></div>
+<div style="position: absolute; left: 290px; top: 502px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #1F1A12; border: 1px dashed #ECA530; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A2C14"></circle><path d="M14 8v7 M14 19v.5" fill="none" stroke="#ECA530" stroke-width="1.8" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Niet toegewezen</b><br><span style="font-size: 11.5px; color: #ECA530">3 gesprekken</span></span></div>
+
+<div style="position: absolute; left: 550px; top: 172px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #1E1A2B; border: 2px solid #8B5CF6; border-radius: 12px; font-size: 13px; line-height: 17px; box-shadow: 0 0 0 6px rgba(139,92,246,0.12)"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#F59E0B"></circle><circle cx="11" cy="14" r="1.8" fill="#FFFFFF"></circle><circle cx="17" cy="14" r="1.8" fill="#FFFFFF"></circle><circle cx="14" cy="14" r="13" fill="none" stroke="#ECA530" stroke-width="2" stroke-dasharray="60 22"></circle></svg><span><b style="font-weight: 600; color: #F5F5F3">Orchestrator</b><br><span style="font-size: 11.5px; color: #ECA530">117 open</span><span style="font-size: 11.5px; color: #A8A8A6"> · agent</span></span></div>
+<div style="position: absolute; left: 550px; top: 262px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#1F6FD6"></circle><text x="14" y="18" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#FFFFFF">LB</text><circle cx="24" cy="5" r="4" fill="#E86064" stroke="#19191B" stroke-width="2"></circle></svg><span><b style="font-weight: 600; color: #F5F5F3">Lorenzo Boers</b><br><span style="font-size: 11.5px; color: #F08A8D">9 wachten op jou</span><span style="font-size: 11.5px; color: #A8A8A6"> · mens</span></span></div>
+<div style="position: absolute; left: 550px; top: 352px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px dashed #ECA530; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#E0457B"></circle><circle cx="11" cy="14" r="1.8" fill="#FFFFFF"></circle><circle cx="17" cy="14" r="1.8" fill="#FFFFFF"></circle></svg><span><b style="font-weight: 600; color: #F5F5F3">Extra test agent</b><br><span style="font-size: 11.5px; color: #ECA530">Geen afdeling</span></span></div>
+<div style="position: absolute; left: 550px; top: 442px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#14B8A6"></circle><circle cx="11" cy="14" r="1.8" fill="#FFFFFF"></circle><circle cx="17" cy="14" r="1.8" fill="#FFFFFF"></circle></svg><span><b style="font-weight: 600; color: #F5F5F3">Boekito</b><br><span style="font-size: 11.5px; color: #A8A8A6">Agent · Boekhouding</span></span></div>
+<div style="position: absolute; left: 550px; top: 532px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #161617; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A3A40"></circle><text x="14" y="18" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="600" fill="#C8C8C6">QT</text></svg><span><b style="font-weight: 600; color: #A8A8A6">QA Teammate</b><br><span style="font-size: 11.5px; color: #8A8A88">Mens · offline</span></span></div>
+
+<div style="position: absolute; left: 830px; top: 172px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A1C24"></circle><path d="M8 10h4v4h4v4h4" fill="none" stroke="#F472B6" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">bug</b><br><span style="font-size: 11.5px; color: #A8A8A6">Flow · 3 klaar</span></span></div>
+<div style="position: absolute; left: 830px; top: 252px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A1C24"></circle><path d="M8 10h4v4h4v4h4" fill="none" stroke="#F472B6" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">feature</b><br><span style="font-size: 11.5px; color: #A8A8A6">Flow · map bokito platform</span></span></div>
+<div style="position: absolute; left: 830px; top: 332px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A1C24"></circle><path d="M8 10h4v4h4v4h4" fill="none" stroke="#F472B6" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Support</b><br><span style="font-size: 11.5px; color: #A8A8A6">Flow</span></span></div>
+<div style="position: absolute; left: 830px; top: 412px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A1C24"></circle><path d="M8 10h4v4h4v4h4" fill="none" stroke="#F472B6" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">Monthly close review</b><br><span style="font-size: 11.5px; color: #A8A8A6">Flow · Boekhouding</span></span></div>
+<div style="position: absolute; left: 830px; top: 492px; width: 180px; height: 56px; box-sizing: border-box; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #19191B; border: 1px solid #2C2C31; border-radius: 12px; font-size: 13px; line-height: 17px"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" style="flex: none"><circle cx="14" cy="14" r="14" fill="#3A1C24"></circle><path d="M8 10h4v4h4v4h4" fill="none" stroke="#F472B6" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"></path></svg><span><b style="font-weight: 600; color: #F5F5F3">VAT filing preparation</b><br><span style="font-size: 11.5px; color: #A8A8A6">Flow · Boekhouding</span></span></div>
+
+<div style="position: absolute; left: 40px; top: 632px; width: 970px; height: 80px; box-sizing: border-box; padding: 14px 16px; display: flex; align-items: center; gap: 24px; background: #161617; border: 1px solid #2C2C31; border-radius: 12px">
+<div style="display: flex; flex-direction: column; gap: 2px; width: 150px; flex: none"><span style="font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">FUNDAMENT</span><span style="font-size: 12px; line-height: 16px; color: #A8A8A6">Wat elke uitvoerder leest en gebruikt</span></div>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span style="font-size: 12px; color: #7A7A78">Kennis</span><span style="font-size: 12px; line-height: 16px; padding: 5px 10px; border-radius: 999px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0">Geheugen</span><span style="font-size: 12px; line-height: 16px; padding: 5px 10px; border-radius: 999px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0">Over het bedrijf</span><span style="font-size: 12px; line-height: 16px; padding: 5px 10px; border-radius: 999px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0">accounting skill</span></div>
+<div style="width: 1px; height: 32px; background: #2C2C31; flex: none"></div>
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><span style="font-size: 12px; color: #7A7A78">Koppelingen</span><span style="font-size: 12px; line-height: 16px; padding: 5px 10px; border-radius: 999px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0">Boekhouding</span><span style="font-size: 12px; line-height: 16px; padding: 5px 10px; border-radius: 999px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0">Google Calendar</span><span style="font-size: 12px; line-height: 16px; padding: 5px 10px; border-radius: 999px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0">Custom MCP</span></div>
+</div>
+
+<div style="position: absolute; left: 40px; top: 756px; width: 970px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; font-size: 12px; line-height: 16px; color: #A8A8A6">
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="36" height="10" viewBox="0 0 36 10"><path d="M2 5h32" stroke="#32BF8E" stroke-width="3" stroke-linecap="round"></path></svg>Autonoom</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="36" height="10" viewBox="0 0 36 10"><path d="M2 5h32" stroke="#8B5CF6" stroke-width="3" stroke-dasharray="7 6" stroke-linecap="round"></path></svg>Geassisteerd</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="36" height="10" viewBox="0 0 36 10"><path d="M2 5h32" stroke="#6A6A70" stroke-width="3" stroke-linecap="round"></path></svg>Door een mens</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="36" height="10" viewBox="0 0 36 10"><path d="M2 5h32" stroke="#ECA530" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round"></path></svg>Niemand pakt het op</span>
+<span style="display: flex; align-items: center; gap: 8px"><svg aria-hidden="true" width="36" height="12" viewBox="0 0 36 12"><path d="M2 9h8" stroke="#6A6A70" stroke-width="1.5" stroke-linecap="round"></path><path d="M14 7h8" stroke="#6A6A70" stroke-width="3" stroke-linecap="round"></path><path d="M26 6h8" stroke="#6A6A70" stroke-width="5" stroke-linecap="round"></path></svg>Dikte = aantal gesprekken</span>
+</div>
+
+<aside aria-label="Details" style="position: absolute; left: 1096px; top: 112px; width: 312px; height: 756px; box-sizing: border-box; padding: 20px; display: flex; flex-direction: column; gap: 20px; background: #19191B; border: 1px solid #2C2C31; border-radius: 16px">
+
+<section style="display: flex; flex-direction: column; gap: 10px">
+<h2 style="margin: 0; font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.08em; color: #7A7A78">KNELPUNTEN</h2>
+<div style="display: flex; flex-direction: column; gap: 8px">
+<a href="#" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #1F1A12; border: 1px solid #3A2C14; text-decoration: none; color: #E2E2E0; font-size: 13px; line-height: 18px"><span style="flex: none; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: #ECA530"></span><span>Orchestrator draagt 117 open gesprekken alleen</span></a>
+<a href="#" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #1F1A12; border: 1px solid #3A2C14; text-decoration: none; color: #E2E2E0; font-size: 13px; line-height: 18px"><span style="flex: none; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: #ECA530"></span><span>3 gesprekken komen nergens aan</span></a>
+<a href="#" style="display: flex; gap: 10px; padding: 10px 12px; border-radius: 10px; background: #1F1A12; border: 1px solid #3A2C14; text-decoration: none; color: #E2E2E0; font-size: 13px; line-height: 18px"><span style="flex: none; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: #ECA530"></span><span>Extra test agent hoort bij geen afdeling</span></a>
+</div>
+</section>
+
+<div style="height: 1px; background: #2C2C31"></div>
+
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg aria-hidden="true" width="40" height="40" viewBox="0 0 40 40" style="flex: none"><rect width="40" height="40" rx="10" fill="#F59E0B"></rect><circle cx="15" cy="20" r="2.6" fill="#FFFFFF"></circle><circle cx="25" cy="20" r="2.6" fill="#FFFFFF"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; line-height: 20px; font-weight: 600; color: #F5F5F3">Orchestrator</span><span style="font-size: 12px; line-height: 16px; color: #A8A8A6">Coördinator · Development · standby</span></div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<div style="padding: 10px 12px; border-radius: 10px; background: #1E1E21; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11.5px; color: #8A8A88">Open</span><span style="font-size: 18px; line-height: 24px; font-weight: 600; color: #ECA530">117</span></div>
+<div style="padding: 10px 12px; border-radius: 10px; background: #1E1E21; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11.5px; color: #8A8A88">Laatst actief</span><span style="font-size: 18px; line-height: 24px; font-weight: 600; color: #F5F5F3">13u</span></div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px; font-weight: 600; color: #F5F5F3">Mag zelf</span><span style="font-size: 12px; line-height: 16px; padding: 3px 8px; border-radius: 999px; background: rgba(139,92,246,0.16); color: #C4B5FD">Geassisteerd</span></div>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #1E1E21; font-size: 12px; line-height: 16px">
+<span style="font-weight: 600; color: #A8A8A6">Waarom</span>
+<span style="display: flex; justify-content: space-between; gap: 8px; color: #A8A8A6"><span>Govern › Gesprekken</span><span style="color: #E2E2E0">Toestaan</span></span>
+<span style="display: flex; justify-content: space-between; gap: 8px; color: #A8A8A6"><span>Plafond van deze agent</span><span style="color: #C4B5FD; font-weight: 600">Geassisteerd · bepaalt</span></span>
+<span style="display: flex; justify-content: space-between; gap: 8px; color: #A8A8A6"><span>Websitechat</span><span style="color: #6EDCB4">Autonoom</span></span>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 18px">
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="color: #8A8A88">Ontvangt van</span><span style="color: #E2E2E0; text-align: right">Development, Support</span></span>
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="color: #8A8A88">Werkt aan</span><span style="color: #E2E2E0; text-align: right">bug, feature</span></span>
+<span style="display: flex; justify-content: space-between; gap: 8px"><span style="color: #8A8A88">Leest</span><span style="color: #E2E2E0; text-align: right">Geheugen, Over het bedrijf</span></span>
+</div>
+</section>
+
+<div style="margin-top: auto; display: flex; gap: 8px">
+<a href="#" style="flex: 1; text-align: center; font-size: 13px; line-height: 18px; font-weight: 500; padding: 11px 12px; border-radius: 10px; background: #32BF8E; color: #0B2A1F; text-decoration: none">Open gesprekken</a>
+<a href="#" style="flex: 1; text-align: center; font-size: 13px; line-height: 18px; font-weight: 500; padding: 11px 12px; border-radius: 10px; background: #1E1E21; border: 1px solid #2C2C31; color: #E2E2E0; text-decoration: none">Werk verdelen</a>
+</div>
+</aside>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -253,7 +253,7 @@ async def main() -> None:
         await _ensure_member(session, tid, hr_id, "user", user_id=person_id, duty="primary")
 
         orchestrator = agents.get("Orchestrator")
-        assistant = agents.get("Bokito assistant") or agents.get("Bokito")
+        assistant = agents.get("Bokito")
         if orchestrator and orchestrator.is_active:
             await _ensure_member(
                 session, tid, development.id, "agent", agent_id=orchestrator.id, duty="primary"
@@ -289,8 +289,8 @@ async def main() -> None:
         }
         docs = list((await one(WorkspaceDoc)).scalars())
         orchestrator = agents.get("Orchestrator")
-        assistant = agents.get("Bokito assistant") or agents.get("Bokito")
-        boekito = agents.get("Boekito")
+        assistant = agents.get("Bokito")
+        boekito = agents.get("Boekhouder") or agents.get("Boekito")
         accounting = (
             await session.execute(
                 select(Department).where(

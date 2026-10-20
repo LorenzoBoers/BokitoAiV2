@@ -170,7 +170,6 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
           icon: '',
           folders: created.folders ?? [],
           aiAutoTag: true,
-          sendMode: created.send_mode,
         },
       ])
       setBusy(false)

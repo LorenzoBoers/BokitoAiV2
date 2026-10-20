@@ -16,17 +16,17 @@ Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam,
 ![Agentbibliotheek](/api/docs/assets/agents/library.png)
 *Elke agent is een kaart. De standaardagent staat rustig als Standaard gemarkeerd.*
 
-1. Open **Agents**. Bedrijfsagents staan als kaarten. Op elke kaart zie je open gesprekken (de detaillaag, **Open gesprekken**) en threads die een beslissing nodig hebben (**Voor jou**, gefilterd op die agent). Zoeken en de pillen **Alles** en **Bezig** beperken het raster. Een agent die een project leidt, toont dat project als mapchip op de kaart; klik erop om de map te openen. Boven de kaarten staat **Activiteit**: een tijdlijn met **Nu** in het midden en even grote punten. Elk punt heeft een icoon voor het actietype (chat, geplande wake, heartbeat, enzovoort). Als meerdere acties dicht bij elkaar liggen, toont het punt een getal; hover om ze onder elkaar te zien. Sessies van twee minuten of korter tonen één tijdstip, geen van–tot. Klik om de run, het gesprek of het Agenda-item te openen. Dezelfde tijdlijn staat op elke agentpagina, dan alleen voor die agent.
+1. Open **Agents**. Bedrijfsagents staan als kaarten. Op elke kaart zie je open gesprekken (de detaillaag, **Open gesprekken**) en threads die een beslissing nodig hebben (**Voor jou**, gefilterd op die agent). Zoeken en de pillen **Alles** en **Bezig** beperken het raster. Een agent die een werkmap leidt, toont die werkmap als chip op de kaart; klik erop om de werkmap te openen. Boven de kaarten staat **Activiteit**: een tijdlijn met **Nu** in het midden en even grote punten. Elk punt heeft een icoon voor het actietype (chat, geplande wake, heartbeat, enzovoort). Als meerdere acties dicht bij elkaar liggen, toont het punt een getal; hover om ze onder elkaar te zien. Sessies van twee minuten of korter tonen één tijdstip, geen van–tot. Klik om de run, het gesprek of het Agenda-item te openen. Dezelfde tijdlijn staat op elke agentpagina, dan alleen voor die agent.
 2. Kies **Nieuwe agent**. Vul een **Naam** in, een verplichte **Functie** (max. 32 tekens), optioneel een **Omschrijving**, selecteer een **Model**, beschrijf de **Instructies** en kies **Agent aanmaken**. De functie staat onder de naam; de omschrijving is een langere optionele tekst. Instructies zijn de brief die de agent volgt.
-3. Open een kaart. Het tandwiel rechtsboven opent **Instellingen**: instructies, model, regels, handtekening, chattoegang en tools. Gebruik **Nieuwe chat** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links onder de gecentreerde profielheader. Gerelateerde instellingen (AI-afhandeling, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
+3. Open een kaart. Het tandwiel rechtsboven opent **Instellingen**: instructies, model, regels, handtekening, chattoegang en tools. Gebruik **Nieuw gesprek** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links onder de gecentreerde profielheader. Gerelateerde instellingen (Autonomie, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
 
-In een chat met een agent toont het zijpaneel de functie onder de naam, in de kleur van de agent. Het aanwezigheidsbolletje zit op de avatar (geen label Standby/Bezig). Kies de modelregel om **Models** te openen. Die live-status is dezelfde op Agents, de Communicatie-rail, Teams en de project-lead. Kies de agentnaam (of de werkregel) terwijl hij actief is om het gesprek of de run te openen; **Agent openen** blijft de agentpagina. De tellerregel (**2 modules | 3 koppelingen | 999+ tools**) heeft dezelfde gedempte stijl als de modelregel. Openklappen toont één rustige regel met modules en koppelingen (logo dan naam, zonder extra kopjes). Kijkmomenten en signalen van dat gesprek staan onder **Dit gesprek**. Als het gesprek een snapshot-canvas bezit, toont dat blok ook de canvasnaam, een compacte preview en een link ernaartoe.
+In een chat met een agent toont het zijpaneel de functie onder de naam, in de kleur van de agent. Het aanwezigheidsbolletje zit op de avatar (geen label Standby/Bezig). Kies de modelregel om **Models** te openen. Die live-status is dezelfde op Agents, de Communicatie-rail, Afdelingen en de lead van een werkmap. Kies de agentnaam (of de werkregel) terwijl hij actief is om het gesprek of de run te openen; **Agent openen** blijft de agentpagina. De tellerregel (**2 modules | 3 koppelingen | 999+ tools**) heeft dezelfde gedempte stijl als de modelregel. Openklappen toont één rustige regel met modules en koppelingen (logo dan naam, zonder extra kopjes). Kijkmomenten en signalen van dat gesprek staan onder **Dit gesprek**. Als het gesprek een snapshot-canvas bezit, toont dat blok ook de canvasnaam, een compacte preview en een link ernaartoe.
 
 Echte beslissingen leven in elk gesprek (en onder **Openstaande gesprekken** op de agent). Tipkaarten voor automatische mail tellen daar niet mee.
 
-Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschikbaar is voor jou, toont de composer **Geen agents beschikbaar**. Open **Agents** of de setupgids om er een toe te voegen.
+Nieuwe gesprekken in Communicatie vereisen een **bedrijfsagent**. Als er geen beschikbaar is voor jou, toont de composer **Geen agents beschikbaar**. Open **Agents** of de setupgids om er een toe te voegen.
 
 ## Brief een agent
 
@@ -41,7 +41,7 @@ Nieuwe chats in Communicatie vereisen een **bedrijfsagent**. Als er geen beschik
 
 ## Bepaal wanneer de agent zelf handelt
 
-1. Open de agent, kies het tandwiel en zoek **Wanneer deze agent zelf handelt**. Zet het **Plafond**: **Handmatig**, **Geassisteerd** of **Autonoom**. Het plafond begrenst alles wat de agent doet, ook de AI-afhandeling van gesprekken die hij bezit. Alleen een eigenaar of beheerder kan Autonoom kiezen.
+1. Open de agent, kies het tandwiel en zoek **Wanneer deze agent zelf handelt**. Zet het **Plafond**: **Handmatig**, **Geassisteerd** of **Autonoom**. Het plafond begrenst alles wat de agent doet, ook de Autonomie van gesprekken die hij bezit. Alleen een eigenaar of beheerder kan Autonoom kiezen.
 2. Voeg onder **Regels** een uitzondering toe. Schrijf de situatie op, bijvoorbeeld *Vraag eerst bij alles over terugbetalingen*, kies **Wat de agent doet** (**Nooit doen**, **Eerst vragen**, **Zonder vragen doen**) en de **Soort regel**: **De agent weegt het af** voor een situatie, of **Altijd voor een actie** voor een vaste actie of categorie.
 3. Kies **Regel toevoegen**. Regels uit **Regels voor alle agents** op [Govern](/docs/govern/govern) staan hier ook. Elke regel telt hoe vaak hij gebruikt, goedgekeurd en afgewezen is.
 4. Kies onder **Probeer uit** een actie en een zekerheid van 1 tot 10, en daarna **Probeer**. Het antwoord zegt of de agent het zelf doet, eerst vraagt of niet mag, en welke regel besliste. Onder zekerheid 7 vraagt de agent altijd.
@@ -57,8 +57,9 @@ Versturen naar klanten vraagt altijd, wat de regels ook zeggen. Agents kunnen ze
 ## Haal een andere agent in een gesprek
 
 1. Open in **Communicatie** een gesprek. Noem een agent met `@` in een notitie of bericht (zelfde chip als bij mensen), of gebruik **Haal een agent erbij** voor een stille Ask-sessie.
-2. `@` maakt ze deelnemer en geeft ze de vloer (zelfde model als de websitewidget en peer-chats). Avatars onder het onderwerp tonen wie meedoet; **Wacht op …** verschijnt tijdens een specialist-beurt.
-3. Leads nodigen modulespecialisten uit (Koppelingen → Aannemen / Installeren) in plaats van module- of hashtagwerk zelf te doen. Peer-chats via **start conversation** zien eruit als elk ander intern gesprek.
+2. `@` maakt ze deelnemer en geeft ze een beurt (zelfde model als de websitewidget en peer-chats). Noem twee agents, of schrijf "allebei", en ze antwoorden na elkaar in de volgorde waarin je ze noemde. Avatars onder het onderwerp tonen wie meedoet; **Wacht op …** toont wie de volgende is.
+3. Agents stellen elkaar zelf een vraag of dragen het gesprek over; de activiteitsregel toont **{naam} gevraagd** of **Overgedragen aan {naam}**, en het antwoord verschijnt in het gesprek. Na een paar agentbeurten zonder jou stoppen ze met één regel die de beurt aan jou teruggeeft. Een nieuw bericht van jou vervangt beurten die nog wachtten, en **Stop** beëindigt de lopende beurt en alles wat klaarstaat.
+4. Leads nodigen modulespecialisten uit (Koppelingen → Aannemen / Installeren) in plaats van module- of hashtagwerk zelf te doen. Peer-chats via **start conversation** zien eruit als elk ander intern gesprek.
 
 ## Neem een modulespecialist aan
 
@@ -78,7 +79,7 @@ Sommige agents horen bij een module (bijvoorbeeld een aangenomen Boekhouding-spe
 ## Beperk wie mag chatten
 
 1. Een stille agent toont **Klaar**. Open het tandwiel en kies **Communicatie** (chattoegang). Kies **Iedereen**, **Geselecteerde gebruikers** of **Niemand**.
-2. **Niemand** houdt achtergrondwerk (Agenda, AI-afhandeling) zonder directe chat vanuit Communicatie. Front desk-, project- en andere lead-agents starten op **Iedereen**, zodat het hele team ze direct kan aanspreken.
+2. **Niemand** houdt achtergrondwerk (Agenda, Autonomie) zonder directe chat vanuit Communicatie. Front desk-, folder- en andere lead-agents starten op **Iedereen**, zodat het hele team ze direct kan aanspreken.
 3. Om een agent uit de bibliotheek te halen, gebruik **Deactiveren** onder het ···-menu. Status wordt **Gedeactiveerd**. Op **Agents** open je het filter **Gedeactiveerd** om ze terug te vinden, of gebruik **Opnieuw activeren** op de agentpagina of op [Workforce](/docs/getting-started/team) onder **Gedeactiveerd**. Gedeactiveerde agents verdwijnen uit keuzelijsten en kanaaltoegang; achtergebleven toekenningen verdwijnen bij opslaan. Geschiedenis blijft. Elke kaart toont de functieomschrijving onder de naam.
 
 ## Voeg een agenthandtekening toe

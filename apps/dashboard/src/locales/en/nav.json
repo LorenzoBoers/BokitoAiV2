@@ -14,20 +14,16 @@
   },
   "tabs": {
     "newChat": {
-      "title": "New chat",
+      "title": "New conversation",
       "subtitle": "Start a conversation"
     },
     "overview": {
-      "title": "Overview",
-      "subtitle": "Daily scan, attention and usage"
-    },
-    "cockpit": {
-      "title": "Overview",
-      "subtitle": "Daily scan, attention and usage"
+      "title": "Today",
+      "subtitle": "Daily scan and what needs attention"
     },
     "communication": {
       "title": "Communication",
-      "subtitle": "Chats, customer and agent threads"
+      "subtitle": "Today, chats, customer and agent threads"
     },
     "contacts": {
       "title": "Contacts",
@@ -39,7 +35,7 @@
     },
     "agents": {
       "title": "Agents",
-      "subtitle": "People and agents you can chat with"
+      "subtitle": "AI teammates, their knowledge and what they may do"
     },
     "workstreams": {
       "title": "Flows",
@@ -47,11 +43,7 @@
     },
     "folders": {
       "title": "Folders",
-      "subtitle": "A tag with a place: conversations, boards and docs under one path"
-    },
-    "projects": {
-      "title": "Folders",
-      "subtitle": "A tag with a place: conversations, boards and docs under one path"
+      "subtitle": "A tag with a place: conversations, boards and documents under one path"
     },
     "knowledge": {
       "title": "Knowledge",
@@ -59,13 +51,11 @@
     },
     "grid": {
       "title": "Grid",
-      "subtitle": "Organization map: departments, people, agents and links",
-      "newBadge": "New"
+      "subtitle": "Organization map: departments, people, agents and links"
     },
     "modules": {
       "title": "Connections",
-      "subtitle": "Installed modules, partner logins and tools",
-      "newBadge": "New"
+      "subtitle": "Installed modules, partner logins and tools"
     },
     "govern": {
       "title": "Govern",
@@ -73,11 +63,11 @@
     },
     "settings": {
       "title": "Settings",
-      "subtitle": "Workspace configuration"
+      "subtitle": "Workspace settings"
     },
     "team": {
       "title": "Workforce",
-      "subtitle": "People, agents and teams of the company"
+      "subtitle": "People, agents, departments and the Grid"
     }
   },
   "workstreamsPage": {
@@ -88,7 +78,7 @@
       "kind": "Stage kind",
       "kinds": {
         "open": "Not started",
-        "waiting": "Active",
+        "waiting": "Waiting",
         "done": "Done",
         "closed": "Closed"
       },
@@ -321,7 +311,7 @@
       "noActionTag": "No label with a flow yet",
       "usedIn": "Used in",
       "noProjects": "No shared folders yet",
-      "openProject": "Open project {{name}}",
+      "openProject": "Open folder {{name}}",
       "checkupsOnAgenda": "Check-ups on Agenda"
     },
     "editBar": {
@@ -344,8 +334,8 @@
     },
     "board": {
       "loadError": "Could not load the ticket board.",
-      "noProject": "No project",
-      "openProject": "Open project",
+      "noProject": "No folder",
+      "openProject": "Open folder",
       "empty": "No tickets yet. File a conversation with #{{tag}} to start one.",
       "emptyTitle": "No tickets yet",
       "emptyBody": "Open a conversation in Communication and file it with #{{tag}} to put it on this board.",
@@ -365,14 +355,25 @@
       "stagesAria": "Tickets per stage",
       "tickets_one": "{{count}} ticket",
       "tickets_other": "{{count}} tickets"
+    },
+    "alwaysReview": {
+      "label": "Always review",
+      "hint": "A person confirms every reply on this flow's tickets before it goes out."
+    },
+    "deliverTo": {
+      "label": "Delivers to",
+      "none": "No destination yet",
+      "set": "Set destination",
+      "change": "Change",
+      "folder": "Pick a folder",
+      "item": "Place in Works in",
+      "folderItself": "The folder itself",
+      "save": "Save",
+      "clear": "Remove",
+      "cancel": "Cancel",
+      "saved": "Destination saved",
+      "saveError": "Could not save the destination"
     }
-  },
-  "cockpitTabs": {
-    "aria": "Overview sections",
-    "overview": "Overview",
-    "canvas": "Canvas",
-    "activity": "Activity",
-    "usage": "Usage"
   },
   "crumbs": {
     "company": "Company",
@@ -388,20 +389,19 @@
     "widgetVoice": "Voice and hours",
     "widgetLook": "Appearance",
     "channel": "Channel",
-    "marketplace": "Marketplace",
+    "marketplace": "Catalog",
     "modules": "Modules",
     "moduleSetup": "Module setup",
     "moduleWorkspace": "Module",
     "connectedTools": "Connected tools",
     "connected": "Connections",
-    "myAssistant": "My assistant",
+    "myAssistant": "Bokito memory",
     "forYou": "For you",
     "team": "Team",
     "bin": "Bin"
   },
   "pageHeaders": {
     "cockpitOverview": "Workspace health at a glance",
-    "cockpitCanvas": "Workspace snapshot dashboards",
     "cockpitActivity": "Live activity from agents and your team",
     "cockpitUsage": "Model spend and run volume",
     "setupGuide": "The living checklist for this workspace — channel, assistant, one decision, then check-in.",
@@ -409,7 +409,7 @@
   },
   "docs": {
     "title": "Bokito Docs",
-    "overview": "Overview",
+    "overview": "Today",
     "heroTitle": "How can we help?",
     "heroBody": "Guides for operating Bokito and building on its API - from your first mailbox to webhooks and MCP.",
     "searchPlaceholder": "Search the docs",
@@ -418,6 +418,7 @@
     "indexLoadError": "Could not load the docs index. Refresh and try again.",
     "noResults": "No results for that search.",
     "apiReference": "API reference",
+    "docsHome": "Docs",
     "apiReferenceIntro": "Interactive reference for the Bokito public API, generated from the live OpenAPI schema.",
     "apiReferenceFallback": "The interactive reference could not load. The raw schema is available at",
     "apiGuides": "Developer guides",
@@ -430,6 +431,7 @@
     "copyForLlmDone": "Copied for LLM",
     "viewAsMarkdown": "View as Markdown",
     "openApp": "Open Bokito",
+    "toApp": "Open app",
     "copied": "Copied",
     "backToDocs": "All docs",
     "popular": "Start here",
@@ -457,7 +459,7 @@
         "blurb": "Autonomy posture, approvals, audit and the models that power the workspace."
       },
       "integrations": {
-        "title": "Integrations",
+        "title": "Connections",
         "blurb": "Connect external tools and MCP servers so agents can act in your other systems."
       },
       "developers": {
@@ -502,17 +504,17 @@
       "agents": "Agents",
       "setup": "Setup guide",
       "channels": "Channel settings",
-      "inboxAi": "AI handling",
+      "inboxAi": "Autonomy",
       "contacts": "Contacts",
       "agenda": "Agenda",
-      "projects": "Projects",
+      "projects": "Folders",
       "govern": "Govern",
       "knowledge": "Knowledge",
       "developers": "Developer settings",
       "widget": "Website chat widget",
       "automations": "Automations",
       "models": "Models",
-      "integrations": "Integrations",
+      "integrations": "Connections",
       "autonomy": "Autonomy posture",
       "usage": "Usage",
       "workstreams": "Flows",
@@ -520,13 +522,13 @@
       "categories": "Labels"
     },
     "cockpit": {
-      "bannerTitle": "Overview is the pulse of the workspace",
+      "bannerTitle": "Today is the pulse of the workspace",
       "bannerBody": "See health, live activity and model spend in one place before you dive into threads or agents.",
-      "pageTitle": "How Overview works",
+      "pageTitle": "How Today works",
       "intro": "Start here when you want to know whether work is flowing and where attention is needed.",
       "sections": [
         {
-          "title": "Overview",
+          "title": "Today",
           "body": "Cards show open work, pending decisions, agent runs and custom KPIs. Use this tab to scan the day, then jump into Communication or Agenda from the attention items."
         },
         {
@@ -551,7 +553,7 @@
       "sections": [
         {
           "title": "Inbox queues",
-          "body": "Open is customer work that still needs you. Scheduled holds conversations with a date. Pin important threads, assign owners, and plan what can wait."
+          "body": "Open is customer work that is still waiting. Scheduled holds conversations with a date. Pin important threads, assign owners, and plan what can wait."
         },
         {
           "title": "Channels",
@@ -559,11 +561,11 @@
         },
         {
           "title": "Agents in threads",
-          "body": "Mention an agent or start a chat from New chat. Agent runs and decision cards appear inline — approve or edit before anything goes out."
+          "body": "Mention an agent or start a chat from New conversation. Agent runs and decision cards appear inline — approve or edit before anything goes out."
         },
         {
           "title": "Decisions",
-          "body": "Open DecisionRequests from any channel share the Needs decision filter on the inbox. Overview Needs attention and notification clicks open the same list."
+          "body": "Open DecisionRequests from any channel share the Needs decision filter on the inbox. Today For you and notification clicks open the same list."
         }
       ]
     },
@@ -599,11 +601,11 @@
         },
         {
           "title": "Show and who",
-          "body": "Under Show, turn on each connected calendar plus Tasks and Activity. Filter on one person, one agent or one project."
+          "body": "Under Show, turn on each connected calendar plus Tasks and Activity. Filter on one person, one agent or one folder."
         },
         {
           "title": "Tasks",
-          "body": "One-off wakes, recurring scans and stage follow-ups from flows are all Tasks. Due tasks show under Needs attention. Manage recurring scans under Manage tasks."
+          "body": "One-off wakes, recurring scans and stage follow-ups from flows are all Tasks. Due tasks show under For you. Manage recurring scans under Manage tasks."
         },
         {
           "title": "Calendar sync",
@@ -613,7 +615,7 @@
     },
     "agents": {
       "bannerTitle": "Agents are the team that does the work",
-      "bannerBody": "Create and configure the AI workers for this workspace. Chat with them, give them tools, and point them at projects.",
+      "bannerBody": "Create and configure the AI workers for this workspace. Chat with them, give them tools, and point them at folders.",
       "pageTitle": "How Agents works",
       "intro": "The library of people-shaped AI workers. Communication is where they talk; this page is where you hire and brief them.",
       "sections": [
@@ -632,22 +634,22 @@
       ]
     },
     "projects": {
-      "bannerTitle": "Projects hold a shared goal",
+      "bannerTitle": "Folders hold a shared goal",
       "bannerBody": "Group a product-owner agent, repository, threads and a token budget so work has a home instead of living only in chat.",
-      "pageTitle": "How Projects works",
-      "intro": "A project is the container for a goal: who leads it, which repo it uses, and how much it may spend.",
+      "pageTitle": "How Folders works",
+      "intro": "A folder is the container for a goal: who leads it, which repo it uses, and how much it may spend.",
       "sections": [
         {
           "title": "Cards",
-          "body": "Each project shows its lead agent, repo status and remaining budget. Open it for orchestration, repository and recent runs."
+          "body": "Each folder shows its lead agent, repo status and remaining budget. Open it for orchestration, repository and recent runs."
         },
         {
           "title": "Threads",
-          "body": "View threads deep-links into Communication filtered to that project. Agents and humans keep talking in Communication; the project is the spine."
+          "body": "View threads deep-links into Communication filtered to that folder. Agents and humans keep talking in Communication; the folder is the spine."
         },
         {
           "title": "Budget",
-          "body": "Daily and hourly token budgets sit on the project so a single goal cannot consume the whole workspace cap."
+          "body": "Daily and hourly token budgets sit on the folder so a single goal cannot consume the whole workspace cap."
         }
       ]
     },
@@ -698,14 +700,14 @@
       "intro": "Bring customer mail and other inboxes into Communication so work lands in one place."
     },
     "integrations": {
-      "bannerTitle": "Integrations are the tools agents may call",
-      "bannerBody": "Install marketplace apps and MCP servers, then set on Govern whether agents may use them automatically.",
-      "pageTitle": "Connect integrations",
-      "intro": "Give agents tools outside Bokito — accounting, GitHub, MCP servers and marketplace apps."
+      "bannerTitle": "Connections are the tools agents may call",
+      "bannerBody": "Install catalog apps and MCP servers, then set on Govern whether agents may use them automatically.",
+      "pageTitle": "Connections",
+      "intro": "Give agents tools outside Bokito — accounting, GitHub, MCP servers and catalog apps."
     },
     "models": {
       "bannerTitle": "Models decide what the workspace can call",
-      "bannerBody": "Enable chat and embedding models here. Spend still shows on Overview Usage; Govern still decides what agents may do.",
+      "bannerBody": "Enable chat and embedding models here. Spend still shows on Today Usage; Govern still decides what agents may do.",
       "pageTitle": "Choose models",
       "intro": "Pick which language and embedding models this workspace may use, and who pays for them."
     },
@@ -723,7 +725,7 @@
     },
     "categories": {
       "bannerTitle": "A label has a flow only while that flow is attached",
-      "bannerBody": "Each conversation can carry one label. Filing it makes the conversation a ticket that moves through the flow's stages, on one of its projects or on none.",
+      "bannerBody": "Each conversation can carry one label. Filing it makes the conversation a ticket that moves through the flow's stages, on one of its folders or on none.",
       "pageTitle": "How a label with a flow works",
       "intro": "A label with a flow turns a conversation into a ticket, like a complaint or a refund request. One list, read by people and agents alike.",
       "sections": [
@@ -736,8 +738,8 @@
           "body": "Bokito reads every inbound message against this list. A certain match files a ticket; an unsure match asks for a confirm on the thread."
         },
         {
-          "title": "Flow and project",
-          "body": "The linked Flow holds the stages, owners and check-ups. Filing settles a project: one of the flow's projects, or none."
+          "title": "Flow and folder",
+          "body": "The linked Flow holds the stages, owners and check-ups. Filing settles a folder: one of the flow's folders, or none."
         },
         {
           "title": "Backlog",
@@ -803,7 +805,7 @@
       "connectBody": "Meetings next to agent wakes.",
       "connectGoogle": "Google Calendar",
       "connectOutlook": "Outlook Calendar",
-      "openMarketplace": "Marketplace",
+      "openMarketplace": "Catalog",
       "connectError": "Could not start calendar connect.",
       "connectedLabel": "Calendars",
       "eventCount": "{{count}} events synced",
@@ -903,7 +905,7 @@
     },
     "layers": {
       "calendar": "Calendar",
-      "tasks": "Tasks",
+      "tasks": "Planned",
       "activity": "Activity",
       "reminders": "Tasks",
       "checkups": "Tasks",
@@ -920,7 +922,7 @@
       "when": "When",
       "what": "Folders",
       "who": "Who",
-      "allProjects": "All projects",
+      "allProjects": "All folders",
       "show": "Show",
       "addCalendar": "Connect a calendar",
       "layersHint": "Tasks cover one-off and recurring work for people and agents. Stage follow-ups from flows show here too.",
@@ -969,7 +971,7 @@
       "status": "Status",
       "checkupHint": "A check-up asks the owner of this ticket to look at it again. Change the rhythm per stage in the flow.",
       "openConversation": "Open conversation",
-      "openProject": "Open project",
+      "openProject": "Open folder",
       "openProjectNamed": "Open {{name}}",
       "openAgent": "Open agent",
       "openAgentNamed": "Open {{name}}",
@@ -999,7 +1001,7 @@
       "webhookBody": "An agent responds to a call from outside."
     },
     "attention": {
-      "title": "Needs attention",
+      "title": "For you",
       "tasks_one": "{{count}} task due",
       "tasks_other": "{{count}} tasks due",
       "tasksTitle": "Tasks due",
@@ -1186,7 +1188,7 @@
     "startAssistant": "Start with the assistant",
     "advancedHint": "Partner logins and extra tools live under",
     "advancedLink": "Connections",
-    "assistantPrompt": "Help me set up this workspace in four steps: connect a channel, fill company knowledge in this chat, approve one decision, then turn on the platform check-in. After that we can add branding, team, modules and projects.",
+    "assistantPrompt": "Help me set up this workspace in four steps: connect a channel, fill company knowledge in this chat, approve one decision, then turn on the platform check-in. After that we can add branding, team, modules and folders.",
     "core": {
       "channel": {
         "title": "Connect a channel",
@@ -1202,7 +1204,7 @@
       },
       "watch": {
         "title": "Turn on check-in",
-        "description": "The check-in starts paused. Turn it on so the assistant watches the workspace and tells you when something needs you."
+        "description": "The check-in starts paused. Turn it on so the assistant watches the workspace and tells you when something needs attention."
       }
     },
     "later": {
@@ -1210,8 +1212,8 @@
       "branding": "Branding",
       "team": "Invite the team",
       "modules": "Add a field of work",
-      "projects": "Projects",
-      "kpis": "Numbers on Overview",
+      "projects": "Folders",
+      "kpis": "Numbers on Today",
       "govern": "Govern"
     },
     "communication": {
@@ -1240,7 +1242,7 @@
       "setupAssistant": "Set up with the assistant",
       "openKnowledge": "Open Knowledge",
       "manageAgents": "Manage agents",
-      "organizeProjects": "Organize work by project",
+      "organizeProjects": "Organize work by folder",
       "modulesFit": "Modules that fit this work",
       "manageModules": "Manage modules",
       "modulesLine": "Turn on a business module when invoices, banking, or files come up",
@@ -1248,12 +1250,12 @@
       "modulesOn_other": "{{count}} modules on"
     },
     "projects": {
-      "title": "6. Projects",
+      "title": "6. Folders",
       "description": "Group conversations, agents and knowledge around one goal. Optional until you have more than one line of work.",
-      "done": "{{count}} project",
-      "done_other": "{{count}} projects",
-      "todo": "No projects yet",
-      "openProjects": "Open Projects"
+      "done": "{{count}} folder",
+      "done_other": "{{count}} folders",
+      "todo": "No folders yet",
+      "openProjects": "Open Folders"
     },
     "automations": {
       "title": "3. Automations",
@@ -1277,12 +1279,12 @@
       "installWidget": "Install widget"
     },
     "kpis": {
-      "title": "5. Numbers on Overview",
-      "description": "Put the numbers that matter on Overview. Agents keep them up to date.",
+      "title": "5. Numbers on Today",
+      "description": "Put the numbers that matter on Today. Agents keep them up to date.",
       "done": "{{count}} custom number",
       "done_other": "{{count}} custom numbers",
       "todo": "No custom numbers yet",
-      "openCockpit": "Open Overview",
+      "openCockpit": "Open Today",
       "openUsage": "Open Usage"
     }
   },
@@ -1554,12 +1556,12 @@
       "title": "Let an agent help you move forward",
       "body": "A standing thread where an agent writes to you regularly: what is open and which step moves your workspace forward.",
       "cta": "Set up task",
-      "promptDefault": "Take a short look at how the workspace stands: channels, integrations, flows and labels with a flow, projects, agents, and what keeps coming back in conversations. Name what is open and waiting on me. Then suggest at most three concrete steps that move the workspace forward, for example a flow for a question that comes back often, a project for work that now sits loose in conversations, or a marketplace integration that fits what we do. Say why for each step, and offer to set it up for me once I agree. Do not repeat a suggestion that is still open or that I turned down.",
+      "promptDefault": "Take a short look at how the workspace stands: channels, connections, flows and labels with a flow, folders, agents, and what keeps coming back in conversations. Name what is open and waiting on me. Then suggest at most three concrete steps that move the workspace forward, for example a flow for a question that comes back often, a folder for work that now sits loose in conversations, or a catalog integration that fits what we do. Say why for each step, and offer to set it up for me once I agree. Do not repeat a suggestion that is still open or that I turned down.",
       "taskName": "Move the workspace forward",
       "dismiss": "Hide"
     },
-    "loadError": "Could not load overview.",
-    "partialLoadError": "Some overview data failed to load: {{items}}.",
+    "loadError": "Could not load Today.",
+    "partialLoadError": "Some today data failed to load: {{items}}.",
     "conversations": "Conversations 7d",
     "conversationsHint": "New customer conversations this week",
     "conversationsEmptyHint": "None this week — older conversations are still in the inbox",
@@ -1590,7 +1592,7 @@
     "postureManual": "You decide",
     "postureAssisted": "Ask first",
     "postureAutonomous": "Act first",
-    "needsAttention": "Needs attention",
+    "needsAttention": "For you",
     "needsAttentionHint": "Things waiting for you: a reply, a yes/no, or a draft to approve",
     "nothingAttention": "Nothing needs your attention right now.",
     "openCommunication": "Open Communication",
@@ -1634,7 +1636,7 @@
     "loopGovernHint": "Decisions appear in the conversation. Govern sets how far they may go.",
     "loopDismiss": "Hide",
     "watchTitle": "Hourly inbox scan is off",
-    "watchHint": "Turn on the hourly check-in. When something needs you, it posts in Communication.",
+    "watchHint": "Turn on the hourly check-in. When something needs attention, it posts in Communication.",
     "watchEnable": "Turn on check-in",
     "watchEnabling": "Turning on...",
     "watchAsk": "Ask the assistant",
@@ -1747,7 +1749,7 @@
     "cta": "Open Models"
   },
   "pushSoftPrompt": {
-    "body": "Get a system notification when something needs you and you are away from Bokito.",
+    "body": "Get a system notification when something needs attention and you are away from Bokito.",
     "enable": "Enable push",
     "dismiss": "Not now",
     "failed": "Could not enable push notifications."
@@ -1791,7 +1793,7 @@
     "noChannels": "No channels yet. Nothing can reach you until you add one.",
     "search": "Search by name or address",
     "searchEmpty": "No channels match this search or filter.",
-    "attentionOnly": "Needs attention only",
+    "attentionOnly": "For you only",
     "paused": "Channel paused.",
     "resumed": "Channel turned on.",
     "retry": "Try again",
@@ -1852,7 +1854,7 @@
     "open": "Open",
     "name": "Name",
     "agent": "AI agent",
-    "agentHint": "The agent that handles new conversations with AI handling. Without one, the workspace default agent does.",
+    "agentHint": "The agent that handles new conversations with Autonomy. Without one, the workspace default agent does.",
     "foldersHint": "Inbox and Sent start on. Spam lands in Spam with no agent. Drafts and Trash are left out.",
     "signatureHint": "Shared template for replies from this address. Placeholders such as {{name}} fill from the sender.",
     "signatureHintSender": "This mailbox uses each person's own signature (Profile). The template below is unused until you switch back to mailbox signature.",
@@ -2039,9 +2041,9 @@
     "crossLinks": {
       "body": "Channels land conversations in Communication. AI behavior and the chat widget work with the same channels.",
       "communication": "Open Communication",
-      "inboxAi": "AI handling",
+      "inboxAi": "Autonomy",
       "widget": "Chat widget",
-      "integrations": "Browse integrations",
+      "integrations": "Browse connections",
       "setup": "Setup guide"
     },
     "setupNeededAlert": {
@@ -2071,7 +2073,7 @@
       "emptyHint": "Use Add route below to send a channel to an agent.",
       "openAgents": "Open Agents",
       "openCommunication": "Open Communication",
-      "openMarketplace": "Browse Marketplace",
+      "openMarketplace": "Browse Catalog",
       "removeConfirm": "Remove this route? New conversations on this channel go back to the default agent.",
       "allAccounts": "All accounts on this channel",
       "accountOptional": "Account (optional)",
@@ -2381,13 +2383,8 @@
     }
   },
   "tabGroups": {
-    "control": "Control",
     "work": "Work",
-    "agent": "Agent",
-    "ai": "AI",
-    "organization": "Organization",
-    "connections": "Connections",
-    "settings": "Settings"
+    "team": "Team"
   },
   "palette": {
     "placeholder": "Search pages, threads, contacts, knowledge, actions...",
@@ -2412,7 +2409,7 @@
     "newEmail": "New email",
     "newContact": "New contact",
     "newAgent": "New agent",
-    "newProject": "New project",
+    "newProject": "New folder",
     "connectMailbox": "Connect mailbox",
     "openSetupGuide": "Open setup guide",
     "openHelp": "Open support",
@@ -2433,7 +2430,7 @@
     "openAgenda": "Open Agenda",
     "openAgent": "Open agent",
     "openPlaybook": "Open flow",
-    "openProject": "Open project",
+    "openProject": "Open folder",
     "openKnowledge": "Open Knowledge",
     "openGovernDrafts": "Review Govern drafts",
     "activity": "Activity",
@@ -2478,7 +2475,7 @@
     "languageNl": "Nederlands",
     "languageEn": "English",
     "emailMessages": "Email & messages",
-    "inboxAi": "AI handling",
+    "inboxAi": "Autonomy",
     "presence": "Status",
     "presenceError": "Could not update your status.",
     "signOut": "Sign out"
@@ -2495,7 +2492,7 @@
   "repoStatus": {
     "notConnected": "Not connected",
     "ready": "Ready",
-    "indexing": "Reading project",
+    "indexing": "Reading repository",
     "pending": "Queued",
     "error": "Connection issue",
     "connected": "Connected"
@@ -2529,7 +2526,7 @@
     "homeTotal": "{{count}} items need attention",
     "railInbox": "Inbox ({{count}} unread)",
     "railAgents": "Agents ({{count}} open)",
-    "railProjects": "Project hub ({{count}} open)",
+    "railProjects": "Folder hub ({{count}} open)",
     "railHome": "Home ({{count}})",
     "railMessages": "Messages ({{count}} unread)",
     "ariaInbox": "{{count}} unread messages",
@@ -2562,13 +2559,13 @@
     "retry": "Retry",
     "loadError": "Could not load flows.",
     "emptyTitle": "No flows yet",
-    "emptyDescription": "Add a flow to define how agents execute work for this project.",
-    "newProject": "New project",
+    "emptyDescription": "Add a flow to define how agents execute work for this folder.",
+    "newProject": "New folder",
     "showMore": "Show {{count}} more",
     "showLess": "Show less",
     "status": {
       "loading": "Updating status…",
-      "blocked": "Blocked — needs you",
+      "blocked": "Blocked — For you",
       "attention": "Open questions",
       "running": "Working",
       "error": "Error",
@@ -2596,50 +2593,50 @@
     }
   },
   "projectHub": {
-    "description": "Workspace docs, ongoing projects, and agent communication in one place.",
-    "tabsAriaLabel": "Project hub navigation",
+    "description": "Workspace docs, ongoing folders, and agent communication in one place.",
+    "tabsAriaLabel": "Folder hub navigation",
     "tabs": {
-      "overview": "Overview",
+      "overview": "Today",
       "docs": "Workspace",
-      "projects": "Projects",
+      "projects": "Folders",
       "communication": "Messages",
       "decisions": "Decisions"
     },
     "quick": {
-      "newProject": "New project",
+      "newProject": "New folder",
       "openDocs": "Open workspace",
       "openCommunication": "Open communication"
     },
     "selector": {
-      "label": "Current project",
-      "placeholder": "Select project",
-      "none": "No projects available",
-      "create": "New project"
+      "label": "Current folder",
+      "placeholder": "Select folder",
+      "none": "No folders available",
+      "create": "New folder"
     },
-    "settingsLink": "Project settings",
+    "settingsLink": "Folder settings",
     "po": {
       "label": "Lead",
-      "none": "No lead agent on this project yet."
+      "none": "No lead agent on this folder yet."
     },
     "backgroundProjects": {
-      "label": "Background projects",
-      "loading": "Loading projects…",
-      "empty": "No projects yet.",
-      "newProject": "New project",
+      "label": "Background folders",
+      "loading": "Loading folders…",
+      "empty": "No folders yet.",
+      "newProject": "New folder",
       "showMore": "Show {{count}} more",
       "showLess": "Show less"
     },
     "overview": {
-      "activeProjectsTitle": "Active projects",
-      "viewAllProjects": "All projects",
-      "openFirstProject": "Open project",
-      "emptyProjects": "No projects yet.",
+      "activeProjectsTitle": "Active folders",
+      "viewAllProjects": "All folders",
+      "openFirstProject": "Open folder",
+      "emptyProjects": "No folders yet.",
       "pendingDecisionsTitle": "Awaiting your decision",
       "viewAllDecisions": "Open communication",
       "emptyDecisions": "No pending decisions.",
       "recentRunsTitle": "Recent agent runs",
       "loadErrors": {
-        "projects": "Could not load projects.",
+        "projects": "Could not load folders.",
         "runs": "Could not load runs.",
         "decisions": "Could not load decisions."
       }
@@ -2648,10 +2645,10 @@
       "menuLabel": "Workspace"
     },
     "projects": {
-      "description": "Continuous agent work tracks. Each project pairs a goal with the agents that keep working on it."
+      "description": "Continuous agent work tracks. Each folder pairs a goal with the agents that keep working on it."
     },
     "communication": {
-      "description": "Open agent messages waiting on your decision, grouped across all projects.",
+      "description": "Open agent messages waiting on your decision, grouped across all folders.",
       "pendingTitle": "Awaiting admin",
       "empty": "No pending agent messages.",
       "openInbox": "Open Communication",
@@ -2714,7 +2711,7 @@
       "settings": "Settings",
       "teams": "Departments",
       "hashtags": "Tags",
-      "projects": "Projects",
+      "projects": "Folders",
       "folders": "Folders",
       "flows": "Flows"
     },
@@ -2731,7 +2728,7 @@
       "channels": "Channels",
       "assistant": "AI reply settings",
       "widget": "Chat widget",
-      "integrations": "Integrations",
+      "integrations": "Connections",
       "setupGuide": "Setup guide",
       "allSettings": "All settings"
     },
@@ -2815,8 +2812,8 @@
       "settingsAria": "Manage tags"
     },
     "projects": {
-      "empty": "Create a project",
-      "settingsAria": "Manage projects"
+      "empty": "Create a folder",
+      "settingsAria": "Manage folders"
     },
     "folders": {
       "empty": "Create a folder under Folders",
@@ -2838,7 +2835,7 @@
   "users": {
     "group": {
       "customerData": "Customer data",
-      "integrations": "Integrations"
+      "integrations": "Connections"
     },
     "links": {
       "attributes": "Attributes",
@@ -2874,35 +2871,18 @@
       "saving": "Saving…",
       "saved": "Saved.",
       "saveError": "Save failed.",
-      "handlingDescription": "What the AI does with customer messages. A channel, a contact, or a single conversation can differ; the most specific setting wins.",
-      "workspaceDefaultTitle": "Workspace default",
-      "workspaceDefaultDescription": "Applies to every channel, contact, and conversation without its own setting.",
       "defaultAgentTitle": "Default agent",
-      "defaultAgentHint": "Channels left on Default use this agent for new conversations with AI handling.",
+      "defaultAgentHint": "Channels left on Default use this agent for new conversations with Autonomy.",
       "defaultAgentSaved": "Default agent updated.",
       "defaultAgentError": "Could not change the default agent.",
-      "governNote": "Govern sets the workspace ceiling for what agents may do. AI handling on this page stays at or below that ceiling.",
-      "ceiling": "Ceiling: {{mode}}",
-      "ceilingHint": "Comes from Govern messaging allowance. Pause caps every conversation at Assisted until you allow autonomous replies again.",
-      "pauseAutonomous": "Pause autonomous replies",
-      "resumeAutonomous": "Allow autonomous replies",
-      "pauseAutonomousSaved": "Autonomous replies paused.",
-      "resumeAutonomousSaved": "Autonomous replies allowed again.",
-      "exceptionsTitle": "Exceptions",
-      "exceptionsDescription": "Channels, contacts, and open conversations that do not follow the workspace default.",
-      "exceptionsEmpty": "Everything follows the workspace default.",
+      "exceptionsTitle": "Per channel",
+      "exceptionsDescription": "Channels and open conversations set below the dial. Everything else follows the dial.",
+      "exceptionsEmpty": "Every channel follows the dial.",
       "exceptionGroups": {
         "channel": "Channels",
-        "contact": "Contacts",
-        "conversation": "Open conversations",
-        "workspace": "Workspace"
+        "conversation": "Open conversations"
       },
       "exceptionClear": "Follow the default again",
-      "reviewedTypesTitle": "Labels with a flow that always need review",
-      "reviewedTypesHint": "Replies on a ticket with one of these labels with a flow become a draft, even when the conversation is autonomous.",
-      "noTypes": "No label with a flow yet.",
-      "alwaysReview": "Always review",
-      "mayAutoSend": "May send",
       "breakerTitle": "Circuit breaker",
       "breakerHint": "Pauses autonomous replies on a channel after unusual volume or several negative signals in one hour. The channel falls back to Assisted until someone resumes it.",
       "maxAutonomous": "Autonomous replies per hour per channel",
@@ -2993,26 +2973,13 @@
       "mailboxLanguageHint": "Reply language for drafts from this mailbox.",
       "customBadge": "Custom",
       "useDefault": "Workspace default",
-      "whoAnswersTitle": "Who answers",
-      "whoAnswersDescription": "Pick the default agent on each channel under Email and channels. Routing picks who works the conversation; AI handling on this page picks whether they act on their own, draft for review, or stay out.",
-      "whoAnswersOpenChannels": "Open Email and channels",
       "noMailboxTitle": "No mailbox connected",
       "noMailboxDescription": "Connect email under Email & messages before you can set a reply language per mailbox.",
       "unsavedLeave": "You have unsaved AI reply settings. Leave this page?",
       "unsavedBar": "You have unsaved AI reply settings.",
       "goToMailboxes": "Go to mailboxes",
-      "openSetup": "Open setup guide",
       "mailboxLabel": "Mailbox",
-      "mailboxPlaceholder": "Choose a mailbox",
-      "crossLinks": {
-        "body": "Workspace defaults apply until a mailbox sets an exception. Connect channels first, then fine-tune behavior here.",
-        "channels": "Email and channels",
-        "widget": "Chat widget appearance",
-        "installWidget": "Install widget on your site",
-        "agents": "Open Agents",
-        "govern": "Open Govern ceiling",
-        "communication": "Open Communication"
-      }
+      "mailboxPlaceholder": "Choose a mailbox"
     },
     "cloudAgent": {
       "title": "Cloud agents",
@@ -3040,11 +3007,11 @@
       "specialistMeta": "Specialist · {{name}}"
     },
     "group": {
-      "nav": "Integrations"
+      "nav": "Connections"
     },
     "links": {
       "connected": "Connected",
-      "marketplace": "Marketplace",
+      "marketplace": "Catalog",
       "sources": "Sources",
       "connections": "Connected",
       "mcp": "Connected tools",
@@ -3099,8 +3066,8 @@
     },
     "connections": {
       "noGithub": "No GitHub accounts linked.",
-      "goToCatalog": "Go to Marketplace",
-      "goToMarketplace": "Go to Marketplace",
+      "goToCatalog": "Go to Catalog",
+      "goToMarketplace": "Go to Catalog",
       "manageInbox": "Manage mailboxes",
       "notConnected": "Not connected",
       "mailboxCount": "{{count}} connected",
@@ -3116,7 +3083,7 @@
       "needsCreds": "Needs credentials",
       "restricted": "Restricted",
       "instanceKey": "Administration {{key}}",
-      "allProjects": "All projects",
+      "allProjects": "All folders",
       "default": "Default",
       "setDefault": "Set default",
       "finishSetup": "Finish setup",
@@ -3131,12 +3098,12 @@
       "disconnect": "Disconnect",
       "disconnectConfirm": "Disconnect this registration? Agents will lose access to it.",
       "manage": "Manage",
-      "projects": "Projects",
-      "projectsAllHint": "Not linked: every project and conversation can use this connection.",
-      "projectsExclusiveHint": "Linked: only work in these projects can use this connection.",
-      "projectsNone": "No projects yet.",
-      "projectsSave": "Save projects",
-      "projectsSaveError": "Could not update the projects for this connection.",
+      "projects": "Folders",
+      "projectsAllHint": "Not linked: every folder and conversation can use this connection.",
+      "projectsExclusiveHint": "Linked: only work in these folders can use this connection.",
+      "projectsNone": "No folders yet.",
+      "projectsSave": "Save folders",
+      "projectsSaveError": "Could not update the folders for this connection.",
       "access": "Access"
     },
     "hub": {
@@ -3209,7 +3176,7 @@
       },
       "linear": {
         "name": "Linear",
-        "description": "Issues, projects, and comments via sign-in."
+        "description": "Issues, folders, and comments via sign-in."
       },
       "atlassian": {
         "name": "Atlassian",
@@ -3221,7 +3188,7 @@
       },
       "asana": {
         "name": "Asana",
-        "description": "Tasks and projects in Asana."
+        "description": "Tasks and folders in Asana."
       },
       "clickup": {
         "name": "ClickUp",
@@ -3269,7 +3236,7 @@
       },
       "snelstart": {
         "name": "SnelStart",
-        "description": "Relations, invoices and general ledger via the SnelStart B2B API."
+        "description": "Relations, invoices and general log via the SnelStart B2B API."
       },
       "mollie": {
         "name": "Mollie",
@@ -3326,10 +3293,10 @@
       "verbsTitle": "What agents can do",
       "writesNote": "Writes always become a decision you approve.",
       "setupSteps": "Setup",
-      "connectors": "Uses integrations",
-      "usesIntegrations": "Uses integrations",
+      "connectors": "Uses connections",
+      "usesIntegrations": "Uses connections",
       "usesIntegrationsHint": "Connect these on the platform. The module uses them when they are available.",
-      "backToMarketplace": "Back to Marketplace",
+      "backToMarketplace": "Back to Catalog",
       "backToModules": "Back to Connections",
       "connectedBadge": "Connected",
       "installedBadge": "Installation incomplete",
@@ -3345,8 +3312,8 @@
       "uninstalled": "{{name}} was uninstalled.",
       "uninstallTitle": "Uninstall {{name}}?",
       "uninstallTitle2": "Really uninstall {{name}}?",
-      "uninstallConfirm": "Agents stop using {{name}}. Connected integrations on the platform stay in place.",
-      "uninstallConfirm2": "This removes {{name}} from your workspace and from the AI menu. Platform integrations stay connected.",
+      "uninstallConfirm": "Agents stop using {{name}}. Connected connections on the platform stay in place.",
+      "uninstallConfirm2": "This removes {{name}} from your workspace and from the AI menu. Platform connections stay connected.",
       "uninstallContinue": "Continue",
       "uninstallConfirmAction": "Yes, uninstall",
       "templates": {
@@ -3378,11 +3345,11 @@
       "turnOff": "Uninstall",
       "switchOn": "On",
       "switchOff": "Off",
-      "toggleHint": "Uninstalling hides the module from agents. Platform integrations stay in place.",
+      "toggleHint": "Uninstalling hides the module from agents. Platform connections stay in place.",
       "enableToUseHint": "Install this module so agents can use it.",
       "toggleError": "Could not update this module.",
       "turnOffTitle": "Uninstall {{name}}?",
-      "turnOffConfirm": "Agents stop using it. Connected integrations stay in place.",
+      "turnOffConfirm": "Agents stop using it. Connected connections stay in place.",
       "turnedOn": "{{name}} is installed.",
       "turnedOff": "{{name}} was uninstalled.",
       "nextConnect": "{{name}} is installed. Link an optional integration so agents can use live data.",
@@ -3422,9 +3389,9 @@
         "onYourTeam": "On your team",
         "personas": {
           "accounting": {
-            "name": "Boekito",
+            "name": "Accountant",
             "title": "Controller",
-            "blurb": "Keeps the books for this workspace: administrations, contacts, invoices, ledger lines and open balances. Bookings and payment matches wait for your approval.",
+            "blurb": "Keeps the books for this workspace: administrations, contacts, invoices, log lines and open balances. Bookings and payment matches wait for your approval.",
             "usps": [
               "Invoices and open items at a glance",
               "Bookings only after you approve",
@@ -3476,14 +3443,14 @@
         "labelsFlows": "Labels & flows",
         "labelsFlowsIntro": "Hashtags and flows the specialist can file work on. Installing may add the default hashtag for you.",
         "openLabels": "Open Labels",
-        "webchatNote": "{{count}} tools can also run in website chat when you enable them under the module Overview.",
+        "webchatNote": "{{count}} tools can also run in website chat when you enable them under the module Today.",
         "cardTools": "{{count}} agent tools"
       },
       "openCatalog": "Open Connections",
       "helpLink": "How modules work",
       "notFound": "This module is not in the catalog.",
       "tabs": {
-        "overview": "Overview",
+        "overview": "Today",
         "connections": "Connections",
         "sources": "Sources",
         "setup": "Setup"
@@ -3524,7 +3491,7 @@
         "verbCount": "{{count}} read actions",
         "domainsTitle": "What agents can work with",
         "manageIntegrations": "Manage connections",
-        "noIntegrations": "No integrations listed for this module yet.",
+        "noIntegrations": "No connections listed for this module yet.",
         "actionsTitle": "Quick actions",
         "sources": "Knowledge sources",
         "missing": "Module not found",
@@ -3555,7 +3522,7 @@
         "manageAgents": "Manage roster",
         "genericBody": "This module is installed. Open Manage for connections, sources, and setup.",
         "domainHints": {
-          "administrations": "Companies and ledgers agents can address.",
+          "administrations": "Companies and logs agents can address.",
           "contacts": "Customers and suppliers via the accounting contract.",
           "invoices_and_bills": "Sales and purchase documents; writes stay decisions.",
           "ledger": "Chart of accounts and journal lines.",
@@ -3594,7 +3561,7 @@
         "contacts": "Contacts",
         "invoices_and_bills": "Invoices and bills",
         "chart_of_accounts": "Chart of accounts",
-        "ledger": "Ledger",
+        "ledger": "Log",
         "outstanding_balances": "Outstanding balances",
         "bank_mutations": "Bank mutations",
         "summary": "Summary",
@@ -3610,8 +3577,8 @@
       },
       "accounting": {
         "name": "Accounting",
-        "description": "One accounting contract for agents: companies, parties, invoices, ledger, and outstanding balances across every connected package.",
-        "capability": "Agents can list administrations, contacts, invoices, ledger lines, and outstanding balances.",
+        "description": "One accounting contract for agents: companies, parties, invoices, log, and outstanding balances across every connected package.",
+        "capability": "Agents can list administrations, contacts, invoices, log lines, and outstanding balances.",
         "setup": [
           "Install Accounting under Settings > Connections.",
           "Optionally enable a platform integration this module can use (KING, Bjorn Lunden, or Moneybird).",
@@ -3684,15 +3651,15 @@
           },
           "list_accounts": {
             "label": "Chart of accounts",
-            "description": "List ledger accounts (GL codes) used for booking."
+            "description": "List log accounts (GL codes) used for booking."
           },
           "get_account": {
             "label": "Account detail",
-            "description": "Fetch one ledger account with type and balance when the package provides it."
+            "description": "Fetch one log account with type and balance when the package provides it."
           },
           "list_ledger": {
-            "label": "Ledger entries",
-            "description": "List journal or ledger lines for a period or account."
+            "label": "Log entries",
+            "description": "List journal or log lines for a period or account."
           },
           "list_outstanding": {
             "label": "Outstanding balances",
@@ -3746,7 +3713,7 @@
       }
     },
     "marketplace": {
-      "searchPlaceholder": "Search modules, integrations and tools",
+      "searchPlaceholder": "Search modules, connections and tools",
       "empty": "Nothing to connect yet.",
       "emptyFiltered": "No matches for this search or filter.",
       "clearFilters": "Clear filters",
@@ -3772,7 +3739,7 @@
       "yourList": "Connections",
       "mcpServersTitle": "Custom MCP servers",
       "emptyMcpDescription": "No custom MCP servers connected yet.",
-      "codeHint": "Only needed for code projects.",
+      "codeHint": "Only needed for code folders.",
       "mailboxProgram": "{{count}} mailboxes",
       "mailboxProgram_one": "{{count}} mailbox",
       "calendarOnlyNoMail": "Calendar synced — mail not send-ready yet",
@@ -3781,45 +3748,45 @@
       "browseCalendar": "Browse agenda apps",
       "openInbox": "Open inbox",
       "emptyInbox": "No mailboxes connected yet.",
-      "browseInbox": "Browse Communication in Marketplace",
-      "browseRepository": "Connect GitHub in Marketplace",
-      "browseMcp": "Browse tools in Marketplace",
-      "openProjects": "Open Projects",
+      "browseInbox": "Browse Communication in Catalog",
+      "browseRepository": "Connect GitHub in Catalog",
+      "browseMcp": "Browse tools in Catalog",
+      "openProjects": "Open Folders",
       "manageMcp": "Browse tools",
       "openAgents": "Open agents",
       "openCommunication": "Open Communication",
       "mcpHint": "MCP tool servers your agents can call.",
-      "emptyApps": "No app registrations yet. Connect a partner from Marketplace.",
+      "emptyApps": "No app registrations yet. Connect a partner from Catalog.",
       "browseApps": "Browse apps",
       "useInModule": "Use in {{name}}",
       "addRegistration": "Add another registration",
       "attached": "Added to {{name}}",
       "attachFailed": "Could not add this registration to the module.",
       "openGovern": "Open Govern policy",
-      "viewAll": "View connected integrations"
+      "viewAll": "View connected connections"
     },
     "pageMeta": {
       "connected": {
         "title": "Connections",
-        "description": "Modules, integrations and AI tools in one place. Connected items sit on top; open anything below to read what it does and connect it."
+        "description": "Modules, connections and AI tools in one place. Connected items sit on top; open anything below to read what it does and connect it."
       },
       "connections": {
         "title": "Connected",
-        "description": "Overview of active connections for this workspace."
+        "description": "Today of active connections for this workspace."
       },
       "mcp": {
         "title": "Connected tools",
         "description": "Connect apps and tools your agents can call."
       },
       "docs": {
-        "title": "Integrations documentation",
-        "description": "How marketplace connections work, including sign-in with Notion, Linear, Slack, and others."
+        "title": "Connections documentation",
+        "description": "How catalog connections work, including sign-in with Notion, Linear, Slack, and others."
       },
       "api": {
         "title": "API keys",
         "description": "Developer keys for programmatic access.",
         "comingSoon": "Coming soon",
-        "comingSoonBody": "Webhook triggers are configured on Agenda under Automations. See Integrations setup for the full checklist."
+        "comingSoonBody": "Webhook triggers are configured on Agenda under Automations. See Connections setup for the full checklist."
       },
       "sources": {
         "title": "Sources",
@@ -3827,17 +3794,17 @@
       }
     },
     "docs": {
-      "overviewTitle": "Integrations overview",
-      "overviewBody": "The marketplace lists email (Outlook, Gmail), repositories (GitHub), and other apps your agents can use. Connected apps appear under Connected and Connected tools.",
+      "overviewTitle": "Connections today",
+      "overviewBody": "The catalog lists email (Outlook, Gmail), repositories (GitHub), and other apps your agents can use. Connected apps appear under Connected and Connected tools.",
       "remoteMcpTitle": "Sign in with a provider",
       "remoteMcpBody": "Official providers (Notion, Linear, Slack, and others) connect in the browser. After you sign in, agents can use that app's tools.",
-      "remoteMcpStep1": "Open Marketplace, filter Tools, and choose a provider.",
+      "remoteMcpStep1": "Open Catalog, filter Tools, and choose a provider.",
       "remoteMcpStep2": "Select Set up connection and complete sign-in at the vendor.",
       "remoteMcpStep3": "Verify the connection under Connected or Connected tools.",
       "catalogTitle": "Available apps",
       "catalogHint": "Cards marked Coming soon need platform OAuth configuration before connect is available.",
       "wave1": "Wave 1",
-      "openInMarketplace": "Open in Marketplace",
+      "openInMarketplace": "Open in Catalog",
       "existingTitle": "Other connection types",
       "existingGithub": "GitHub repository indexing uses a separate sign-in flow (not the GitHub tools card).",
       "existingInbox": "Outlook and Gmail use inbox OAuth; mailboxes are managed under Settings.",
@@ -3851,7 +3818,7 @@
       "description": "Indexed documentation and knowledge sources for AI agents. Sources become searchable as soon as indexing is active.",
       "loading": "Loading sources…",
       "emptyTitle": "No indexed documentation yet",
-      "emptyDescription": "Tenant documentation from Knowledge appears here once sources are linked and indexed. Project code is indexed via connected repositories.",
+      "emptyDescription": "Tenant documentation from Knowledge appears here once sources are linked and indexed. Folder code is indexed via connected repositories.",
       "activeForAgents": "Active for agents"
     },
     "mcp": {
@@ -3872,7 +3839,7 @@
         "copiedEndpoint": "Endpoint copied",
         "disconnectConfirm": "Disconnect this tool? Agents lose access immediately.",
         "noMatches": "No connections match this filter.",
-        "emptyHint": "Pick an app in Marketplace, or connect a custom tool above. Agents use these tools in conversations.",
+        "emptyHint": "Pick an app in Catalog, or connect a custom tool above. Agents use these tools in conversations.",
         "addTitle": "Add tool server",
         "newConnection": "Connect a tool",
         "modalDescription": "Connect an app that your agents can use in this workspace.",
@@ -3944,27 +3911,27 @@
       "platform": "Platform agents",
       "operations": "Operations",
       "yourAgents": "Your agents",
-      "projects": "Projects",
+      "projects": "Folders",
       "library": "Agent library"
     },
     "scopes": {
       "platformRead": "View the platform",
-      "graphEdit": "Edit the project canvas",
+      "graphEdit": "Edit the folder canvas",
       "agentCreate": "Create agents",
       "agentUpdate": "Update agents",
       "workstreamCreate": "Create agenda schedules",
       "workstreamUpdate": "Update agenda schedules",
       "docWrite": "Write knowledge documents",
-      "integrationPropose": "Propose integrations",
-      "integrationCreate": "Add integrations",
+      "integrationPropose": "Propose connections",
+      "integrationCreate": "Add connections",
       "mcpRegister": "Connect external tools",
       "edgeConnect": "Connect canvas nodes"
     },
     "links": {
-      "overview": "Overview",
+      "overview": "Today",
       "agents": "Agent library",
       "assistant": "Assistant agent",
-      "communication": "AI handling",
+      "communication": "Autonomy",
       "po": "Lead",
       "backgroundWorkers": "Flows",
       "viewAllAgents": "View all agents",
@@ -3973,12 +3940,12 @@
     },
     "po": {
       "none": "No lead agent yet.",
-      "openProjects": "Open Projects"
+      "openProjects": "Open Folders"
     },
     "projects": {
-      "loading": "Loading projects…",
-      "loadError": "Could not load projects.",
-      "empty": "No projects yet.",
+      "loading": "Loading folders…",
+      "loadError": "Could not load folders.",
+      "empty": "No folders yet.",
       "poReady": "Lead configured",
       "poMissing": "Lead required",
       "showMore": "Show {{count}} more",
@@ -3987,7 +3954,7 @@
     "agents": {
       "title": "Agents",
       "newAgent": "New agent",
-      "listDescription": "Agents handle customer conversations, scheduled work, and tools. Chat with them from Communication or schedule them on the Agenda.",
+      "listDescription": "AI teammates, their knowledge and what they may do. Chat with them from Communication or schedule them on the Agenda.",
       "timelineTitle": "Activity",
       "timelineHint": "Sessions and wakes on one track. A number is a cluster — hover for detail. Now sits in the middle.",
       "timelineCombinedHint": "Every agent on one clock. Hover a mark for detail; a number is a cluster.",
@@ -4041,7 +4008,7 @@
       "modelCostMedium": "Medium cost",
       "modelCostHigh": "High cost",
       "routingTitle": "Who handles what",
-      "routingBody": "A mailbox, channel or project can have its own agent. Everything else goes to the default agent. You can also @mention an agent in a conversation.",
+      "routingBody": "A mailbox, channel or folder can have its own agent. Everything else goes to the default agent. You can also @mention an agent in a conversation.",
       "routingAsk": "Ask the assistant who should handle mail",
       "routingAskPrefill": "Explain who handles which conversations, and help me set the default agent and mailbox routes.",
       "loading": "Loading agents…",
@@ -4068,7 +4035,7 @@
       "chat": "Chat",
       "schedule": "Schedule",
       "runs": "Runs",
-      "projectsLink": "Projects",
+      "projectsLink": "Folders",
       "workersEmpty": "No more agents yet. Create one, or chat with your assistant from Communication.",
       "sections": {
         "po": "Leads",
@@ -4076,7 +4043,7 @@
       },
       "types": {
         "orchestrator": "Coordinator",
-        "po": "Project agent",
+        "po": "Folder agent",
         "assistant": "Assistant",
         "worker": "Agent"
       },
@@ -4090,9 +4057,9 @@
       "loadMoreRuns": "Load older runs",
       "loadingMoreRuns": "Loading older runs",
       "runsEmptyHint": "Chat with this agent or schedule work on the Agenda.",
-      "projectLink": "Project: {{name}}",
+      "projectLink": "Folder: {{name}}",
       "openProject": "Lead of {{name}}. Open the folder.",
-      "chatWith": "New chat",
+      "chatWith": "New conversation",
       "openGovern": "Govern",
       "openAgenda": "Agenda",
       "openThreads": "This agent's threads",
@@ -4253,21 +4220,21 @@
           "communication": "Answers customers in email, chat and other channels.",
           "assistant": "Helps your team inside Bokito — notes, research, and follow-ups.",
           "builder": "Changes workspace setup: agents, knowledge and flows.",
-          "orchestra": "Coordinates other agents and owns a project."
+          "orchestra": "Coordinates other agents and owns a folder."
         },
         "templates": {
           "support": "Customer support",
           "assistant": "Team assistant",
-          "lead": "Project lead",
+          "lead": "Folder lead",
           "supportName": "Support specialist",
           "assistantName": "Team assistant",
-          "leadName": "Project lead",
+          "leadName": "Folder lead",
           "supportPrompt": "You handle customer questions. Be clear and kind. Ask when something is missing. Do not invent order or account facts.",
           "assistantPrompt": "You help the team inside Bokito. Summarize, draft, and keep notes short. Ask before changing settings.",
-          "leadPrompt": "You coordinate work across agents for this project. Break work into steps, assign the right agent, and escalate when a human should decide."
+          "leadPrompt": "You coordinate work across agents for this folder. Break work into steps, assign the right agent, and escalate when a human should decide."
         },
-        "project": "Add to project (optional)",
-        "projectNone": "No project yet",
+        "project": "Add to folder (optional)",
+        "projectNone": "No folder yet",
         "modelsRetry": "Could not load models. Try again"
       },
       "visualTitle": "Visual identity",
@@ -4324,6 +4291,8 @@
         "clover": "Clover",
         "flower": "Flower",
         "heart": "Heart",
+        "claude": "Claude",
+        "cursor": "Cursor",
         "house": "House",
         "star": "Star"
       },
@@ -4357,27 +4326,27 @@
     },
     "pageMeta": {
       "overview": {
-        "title": "Agents overview",
+        "title": "Agents today",
         "description": "Who is covering work and what agents are doing."
       },
       "agents": {
         "title": "Agents",
-        "description": "Reusable agents you can chat with and assign to project flows."
+        "description": "Reusable agents you can chat with and assign to folder flows."
       },
       "po": {
         "title": "Leads",
-        "description": "Lead agents across projects."
+        "description": "Lead agents across folders."
       },
       "backgroundWorkers": {
         "title": "Flows",
-        "description": "Project flows with chained agent steps."
+        "description": "Folder flows with chained agent steps."
       }
     },
     "backgroundWorkers": {
-      "description": "Design and review flows per project. Steps pass work between agents from input to output.",
+      "description": "Design and review flows per folder. Steps pass work between agents from input to output.",
       "emptyTitle": "No flows yet",
-      "emptyDescription": "Create a project to set up your first flow.",
-      "openProject": "Open project",
+      "emptyDescription": "Create a folder to set up your first flow.",
+      "openProject": "Open folder",
       "summary": {
         "working": "{{count}} working",
         "attention": "{{count}} need attention",
@@ -4396,7 +4365,7 @@
       "idCopied": "Run id copied",
       "columns": {
         "subject": "Subject",
-        "project": "Project",
+        "project": "Folder",
         "status": "Status",
         "started": "Started",
         "tokens": "Tokens"
@@ -4426,23 +4395,23 @@
       "backToAgenda": "Back to Agenda"
     },
     "overview": {
-      "loading": "Loading workforce overview…",
-      "loadError": "Could not load workforce overview.",
+      "loading": "Loading workforce today…",
+      "loadError": "Could not load workforce today.",
       "cards": {
-        "projects": "Projects",
-        "projectsHint": "Total active projects in this workspace.",
+        "projects": "Folders",
+        "projectsHint": "Total active folders in this workspace.",
         "poCoverage": "Lead coverage",
-        "poMissingHint": "{{count}} projects still need a lead agent.",
-        "poCompleteHint": "All projects have a lead agent.",
+        "poMissingHint": "{{count}} folders still need a lead agent.",
+        "poCompleteHint": "All folders have a lead agent.",
         "running": "Running now",
-        "runningHint": "Active agent runs across all projects."
+        "runningHint": "Active agent runs across all folders."
       },
-      "projectsTitle": "Projects needing a lead",
-      "projectsEmpty": "No projects are missing a lead agent.",
-      "attentionTitle": "Needs attention",
+      "projectsTitle": "Folders needing a lead",
+      "projectsEmpty": "No folders are missing a lead agent.",
+      "attentionTitle": "For you",
       "attentionHint": "Conversations awaiting a human decision.",
       "openCommunication": "Open communication",
-      "openProjectHub": "Open project hub",
+      "openProjectHub": "Open folder hub",
       "manageAgents": "Manage agents"
     }
   },
@@ -4492,7 +4461,7 @@
       "slug": "Slug",
       "slugPlaceholder": "operations",
       "description": "Description (optional)",
-      "descriptionPlaceholder": "What is this project about?",
+      "descriptionPlaceholder": "What is this folder about?",
       "cancel": "Cancel",
       "create": "Create folder",
       "deleteTitle": "Delete folder",
@@ -4509,7 +4478,7 @@
       "docHealth": "{{done}}/{{total}} sections done",
       "openTickets_one": "{{count}} open ticket",
       "openTickets_other": "{{count}} open tickets",
-      "folderNav": "Project folders",
+      "folderNav": "Folder folders",
       "folders_one": "{{count}} folder",
       "folders_other": "{{count}} folders",
       "splitNav": "Resize folders sidebar",
@@ -4520,24 +4489,24 @@
       "labelPlaceholder": "Add or create a label"
     },
     "header": {
-      "new": "Create project",
+      "new": "Create folder",
       "connect": "Connect your code"
     },
     "create": {
-      "stepLabel": "Step 1 of 2 — describe what this project is about.",
-      "scopeLabel": "What is this project about?",
+      "stepLabel": "Step 1 of 2 — describe what this folder is about.",
+      "scopeLabel": "What is this folder about?",
       "scopeHint": "Describe it in a few sentences in your own words. Your AI team uses this as their north star.",
       "scopePlaceholder": "Example: A Dutch online shop that sells handmade ceramics and wants to grow through Instagram and a simple webshop.",
-      "nameLabel": "Project name",
+      "nameLabel": "Folder name",
       "slugLabel": "URL slug",
       "submit": "Continue",
       "submitting": "Creating…",
-      "error": "Could not create project",
-      "success": "Project created",
+      "error": "Could not create folder",
+      "success": "Folder created",
       "scopeCounter": "{{count}} / {{min}} characters (spaces ignored)"
     },
     "connect": {
-      "stepLabel": "Step 2 of 2 — optional. Link a GitHub repository so your AI team can read the project code.",
+      "stepLabel": "Step 2 of 2 — optional. Link a GitHub repository so your AI team can read the folder code.",
       "githubTitle": "I use GitHub",
       "githubDescription": "Connect a repository you already have on GitHub. You stay in control of your code.",
       "managedTitle": "Set it up for me",
@@ -4545,10 +4514,10 @@
       "comingSoon": "Coming soon",
       "back": "Back",
       "skip": "Skip for now",
-      "notFound": "Project not found."
+      "notFound": "Folder not found."
     },
     "detail": {
-      "tabHome": "Overview",
+      "tabHome": "Today",
       "tabConversations": "Conversations",
       "tabTickets": "Tickets",
       "tabQueue": "Queue",
@@ -4558,36 +4527,36 @@
       "openFolder": "Open folder {{name}}",
       "recentConversations": "Recent conversations",
       "conversationsTitle": "Conversations in this folder",
-      "conversationsHint": "Everything filed on this project and the folders inside it. Open one to continue it in Communication.",
+      "conversationsHint": "Everything filed on this folder and the folders inside it. Open one to continue it in Communication.",
       "conversationsFilter": "Conversation status",
       "filterOpen": "Open",
       "filterClosed": "Closed",
       "conversationsEmpty": "No open conversations in this folder yet. File one from Communication with File in folder.",
       "conversationsEmptyClosed": "No closed conversations in this folder.",
-      "conversationsLoadError": "Could not load the conversations for this project.",
+      "conversationsLoadError": "Could not load the conversations for this folder.",
       "allConversations": "All conversations ({{count}})",
       "loadMoreConversations": "Load more",
       "loadingMoreConversations": "Loading more",
       "inFolder": "in {{name}}",
       "noSubject": "No subject",
       "resources": "Resources",
-      "resourcesHint": "External surfaces this project works on. Linked by reference now; connectors attach later.",
+      "resourcesHint": "External surfaces this folder works on. Linked by reference now; connectors attach later.",
       "orchestration": "Who runs this",
       "workstreams": "Flows",
-      "noWorkstreams": "No flows on this project yet.",
+      "noWorkstreams": "No flows on this folder yet.",
       "openWorkstreams": "Open Flows",
       "stepCount": "{{count}} steps",
       "stepCount_one": "{{count}} step",
-      "agentBudgetOnHome": "The project agent and activity budget live on the Project tab.",
-      "openHome": "Open Project tab",
-      "back": "Back to projects",
-      "loading": "Loading project...",
-      "notFound": "Project not found.",
-      "loadError": "Could not load project.",
+      "agentBudgetOnHome": "The folder agent and activity budget live on the Folder tab.",
+      "openHome": "Open Folder tab",
+      "back": "Back to folders",
+      "loading": "Loading folder...",
+      "notFound": "Folder not found.",
+      "loadError": "Could not load folder.",
       "viewThreads": "View threads",
       "openInCommunication": "Open in Communication",
       "closedConversations": "Closed conversations",
-      "breadcrumb": "Project folders",
+      "breadcrumb": "Folder folders",
       "newFolder": "New folder",
       "newFolderTitle": "New folder",
       "newFolderBody": "Creates a folder under this one. Give it a name and optional labels — nesting does not copy labels from the parent.",
@@ -4622,24 +4591,24 @@
       "moved": "Folder nested",
       "openKnowledge": "Open Knowledge",
       "delete": "Delete",
-      "about": "About this project",
+      "about": "About this folder",
       "name": "Name",
       "description": "Description for your agents",
-      "descriptionPlaceholder": "What is this project about?",
-      "copyId": "Copy project ID",
-      "copyLeadId": "Copy project agent ID",
+      "descriptionPlaceholder": "What is this folder about?",
+      "copyId": "Copy folder ID",
+      "copyLeadId": "Copy folder agent ID",
       "copied": "{{label}} copied",
       "copyError": "Could not copy {{label}}",
       "save": "Save changes",
-      "saved": "Project saved",
-      "saveError": "Could not save project.",
+      "saved": "Folder saved",
+      "saveError": "Could not save folder.",
       "noBudget": "No budget data available.",
       "budgetTitle": "Budget",
       "repository": "Repository",
       "remainingToday": "Remaining today",
       "remainingHour": "Remaining this hour",
       "tokensUnit": "tokens",
-      "budgetCapHint": "Leave a field empty to inherit the workspace cap. A project cap cannot exceed Usage. Agents pause on this project when the cap is reached.",
+      "budgetCapHint": "Leave a field empty to inherit the workspace cap. A folder cap cannot exceed Usage. Agents pause on this folder when the cap is reached.",
       "budgetDaily": "Daily token cap",
       "budgetHourly": "Hourly token cap",
       "budgetHourlyPlaceholder": "Default 10,000",
@@ -4653,45 +4622,45 @@
       "agentNotActiveYet": "Not active yet",
       "copySlug": "Copy slug",
       "advanced": "Advanced",
-      "changeLead": "Change project agent",
-      "readonlyBanner": "You can view this project. Ask an admin to change settings.",
+      "changeLead": "Change folder agent",
+      "readonlyBanner": "You can view this folder. Ask an admin to change settings.",
       "addFirstStep": "Add the first step on Agenda",
       "budgetBar": {
         "tokensToday": "Tokens today",
         "capReached": "Cap reached"
       },
       "activity": "Recent activity",
-      "openThreads": "Open project threads",
-      "noRuns": "No agent runs for this project yet.",
+      "openThreads": "Open folder threads",
+      "noRuns": "No agent runs for this folder yet.",
       "loadMoreRuns": "Load older activity",
       "loadingMoreRuns": "Loading older activity",
       "scheduleRun": "Schedule a run",
-      "deleteTitle": "Delete project",
-      "deleteItem": "the project",
-      "deleteImpact": "Conversations stay. Folders inside this project go to the Bin with it. Agents are unlinked but not deleted.",
-      "deleted": "Project deleted",
-      "deleteError": "Could not delete project.",
-      "leadLabel": "Project agent",
+      "deleteTitle": "Delete folder",
+      "deleteItem": "the folder",
+      "deleteImpact": "Conversations stay. Folders inside this folder go to the Bin with it. Agents are unlinked but not deleted.",
+      "deleted": "Folder deleted",
+      "deleteError": "Could not delete folder.",
+      "leadLabel": "Folder agent",
       "leadLinked": "Agent linked",
       "leadLinkError": "Could not link agent.",
       "leadPlaceholder": "Link an agent",
       "leadCreate": "Create new agent",
-      "leadDefaultName": "Project agent",
+      "leadDefaultName": "Folder agent",
       "copyIdShort": "Copy ID",
       "agentsLabel": "Agents",
       "agentsLoading": "Loading agents…",
-      "agentsEmpty": "No agents on this project yet. Threads fall back to the project agent, then the default agent.",
+      "agentsEmpty": "No agents on this folder yet. Threads fall back to the folder agent, then the default agent.",
       "agentsAskAssistant": "Ask the assistant to pick agents",
-      "agentsAskPrefill": "Help me choose which agents should work on this project, and who should be the default.",
+      "agentsAskPrefill": "Help me choose which agents should work on this folder, and who should be the default.",
       "openAgents": "Browse agents",
       "agentAddPlaceholder": "Add an agent",
       "agentAddError": "Could not add agent.",
-      "agentRemove": "Remove from project",
+      "agentRemove": "Remove from folder",
       "agentRemoveError": "Could not remove agent.",
-      "agentMakeDefault": "Make default for project threads",
+      "agentMakeDefault": "Make default for folder threads",
       "agentDefaultError": "Could not update default agent.",
       "agentDefaultBadge": "Default",
-      "unsavedLeave": "You have unsaved project changes. Leave this page?",
+      "unsavedLeave": "You have unsaved folder changes. Leave this page?",
       "refresh": "Refresh",
       "tabCanvas": "Canvas",
       "stageCount": "{{count}} stages",
@@ -4716,24 +4685,24 @@
       "filtersetSaved": "Labels updated"
     },
     "home": {
-      "noAgent": "No project agent yet.",
+      "noAgent": "No folder agent yet.",
       "noRepo": "No repository linked.",
-      "resourcesHint": "Surfaces this project is attached to. Manage them under Settings.",
+      "resourcesHint": "Surfaces this folder is attached to. Manage them under Settings.",
       "boardsEmpty": "No tickets in this folder yet. When a conversation here gets a label with a flow, that flow appears.",
       "boardsOpenPlaybooks": "Open Flows",
       "ticketsBoard": "Tickets",
       "ticketsHint": "Each flow with a ticket in this folder is a board. A ticket moves left to right through the flow stages.",
-      "boardLoadError": "Could not load the boards for this project.",
+      "boardLoadError": "Could not load the boards for this folder.",
       "ticketMoveError": "Could not move that ticket.",
       "ticketUntitled": "Untitled conversation",
       "addFlow": "Add flow",
-      "noFlowsToAdd": "All flows are already on this project",
-      "flowLinkError": "Could not update the flows on this project.",
+      "noFlowsToAdd": "All flows are already on this folder",
+      "flowLinkError": "Could not update the flows on this folder.",
       "detachFlow": "Unlink",
       "agendaTitle": "Agenda",
       "agendaOpen": "Open in Agenda",
       "agendaPlan": "Plan something",
-      "agendaEmpty": "Nothing due or planned for this project in the next two weeks.",
+      "agendaEmpty": "Nothing due or planned for this folder in the next two weeks.",
       "agendaDue": "Due"
     },
     "work": {
@@ -4741,7 +4710,7 @@
       "queueCreated": "Added to the queue",
       "queueCreateError": "Could not add to the queue.",
       "queueEmptyTitle": "The queue is empty",
-      "queueEmptyBody": "Requests from conversations and teammates land here. Add the first item or link a thread to this project.",
+      "queueEmptyBody": "Requests from conversations and teammates land here. Add the first item or link a thread to this folder.",
       "openCommunication": "Open Communication",
       "addToQueue": "Add to queue",
       "titlePlaceholder": "What needs to happen?",
@@ -4752,10 +4721,10 @@
       "statusUpdateError": "Could not update the status.",
       "illegalMove": "Cannot move from {{from}} to {{to}}.",
       "analyze": "Analyze",
-      "analyzeStarted": "Analysis started — the project agent compares this against the documentation.",
+      "analyzeStarted": "Analysis started — the folder agent compares this against the documentation.",
       "analyzeError": "Could not start the analysis.",
       "verify": "Verify",
-      "verifyStarted": "Verification started — the project agent checks the documentation against reality.",
+      "verifyStarted": "Verification started — the folder agent checks the documentation against reality.",
       "verifyError": "Could not start the verification.",
       "impactSummary": "Impact analysis",
       "linkedSections": "{{count}} sections",
@@ -4826,56 +4795,22 @@
       "linkedItems": "{{count}} items",
       "linkedItems_one": "{{count}} item",
       "noLinkedItems": "No queue items linked to this section yet.",
-      "docsLoadError": "Could not load the project documentation.",
-      "docsEmpty": "No project documentation yet.",
+      "docsLoadError": "Could not load the folder documentation.",
+      "docsEmpty": "No folder documentation yet.",
       "docsEmptyTitle": "No documentation yet",
-      "docsEmptyBody": "Project docs live in Knowledge under this project. Linked queue requests appear on each document; request status stays on the queue.",
+      "docsEmptyBody": "Folder docs live in Knowledge under this folder. Linked queue requests appear on each document; request status stays on the queue.",
       "openKnowledge": "Open Knowledge",
       "openInKnowledge": "Open in Knowledge hub",
       "openAgents": "Open Agents",
       "newDoc": "New document",
-      "docPathPlaceholder": "e.g. overview",
+      "docPathPlaceholder": "e.g. today",
       "docCreated": "Document created",
       "docCreateError": "Could not create the document.",
       "docSaved": "Document saved",
       "docSaveError": "Could not save the document.",
       "editDoc": "Edit",
       "saveDoc": "Save",
-      "resourcesLoading": "Loading resources...",
-      "resourcesEmpty": "No resources linked yet.",
-      "openModules": "Open Modules",
-      "openIntegrations": "Open Connections",
-      "resourceAddLink": "Link a resource",
-      "resourceAdd": "Link",
-      "resourceLinked": "Resource linked",
-      "resourceLinkError": "Could not link the resource.",
-      "resourceRemove": "Remove resource",
-      "resourceRemoved": "Resource removed",
-      "resourceRemoveError": "Could not remove the resource.",
-      "resourceLabelPlaceholder": "Label (e.g. Product drive)",
-      "resourceRefPlaceholder": "Reference: URL, folder ID, page ID...",
-      "resourceHint": "Linked by reference for now. Connectors (sync, actions) attach to these slots later.",
-      "deleteWidensConnections": "These connections are linked only to this project and become usable workspace-wide: {{names}}.",
-      "connectionPick": "Choose a connection",
-      "connectionHint": "Once linked, only work in this project (and other linked projects) can use this connection.",
-      "connectionNone": "No connections left to link. Add one on Connections first.",
-      "resourceType": {
-        "repo": "Repository",
-        "connection": "Connection",
-        "drive": "Drive",
-        "notion": "Notion",
-        "sheet": "Spreadsheet",
-        "vibecode": "Coding tool",
-        "site": "Website",
-        "other": "Other"
-      },
-      "resourceStatus": {
-        "linked": "Linked",
-        "connected": "Connected",
-        "syncing": "Syncing",
-        "error": "Error",
-        "disconnected": "Disconnected"
-      }
+      "deleteWidensConnections": "These connections are linked only to this folder and become usable workspace-wide: {{names}}."
     },
     "canvas": {
       "loading": "Loading canvas…",
@@ -4895,7 +4830,6 @@
       "setupThreadTitle": "Canvas · {{place}}",
       "setupOpener": "I want a new snapshot canvas on {{place}}.\n{{ownerLine}}\nAsk me what should be on it. Then propose a short plan: title, what you show, and how often to refresh. After I agree, build it in this conversation, set the refresh from what we decided, and keep owning it here.",
       "ownerFolderFallback": "this folder",
-      "ownerWorkspaceFallback": "Overview",
       "cancel": "Cancel",
       "delete": "Delete",
       "deleteConfirm": "Delete this canvas? The Agenda refresh wake is removed too.",
@@ -4925,18 +4859,60 @@
       "lastUpdated": "Updated {{time}}",
       "showSource": "Show source",
       "hideSource": "Hide source"
+    },
+    "worksIn": {
+      "title": "Works in",
+      "add": "Add to Works in",
+      "empty": "Nowhere yet. Add a canvas, a connection or a file folder; work from this folder lands there.",
+      "added": "Added to Works in",
+      "addError": "Could not add to Works in.",
+      "remove": "Remove from Works in",
+      "removed": "Removed from Works in",
+      "removeError": "Could not remove from Works in.",
+      "origin": {
+        "bokito": "Bokito",
+        "connection": "Connection"
+      },
+      "kind": {
+        "board": "Board",
+        "files": "Files",
+        "canvas": "Canvas",
+        "connection": "Connection",
+        "drive": "File folder",
+        "repo": "Repository",
+        "notion": "Notion",
+        "sheet": "Spreadsheet",
+        "vibecode": "Coding tool",
+        "site": "Website",
+        "other": "Other"
+      },
+      "addKind": {
+        "canvas": "Canvas",
+        "connection": "Connection",
+        "drive": "File folder"
+      },
+      "addHint": {
+        "canvas": "A canvas is a workspace inside Bokito: an agent keeps it up to date, you read along.",
+        "drive": "A folder outside Bokito, such as a Drive folder, by URL or folder id."
+      },
+      "canvasPlaceholder": "Name (e.g. Figures)",
+      "labelPlaceholder": "Name (e.g. Contracts)",
+      "refPlaceholder": "URL or folder id",
+      "connectionPick": "Pick a connection",
+      "connectionHint": "After this, only work in this folder (and other folders with the same connection) uses this connection.",
+      "connectionNone": "No active connections. Add one under Connections first."
     }
   },
   "project": {
-    "tabsAriaLabel": "Project sections",
-    "loadError": "Could not load project.",
-    "notFound": "Project not found.",
+    "tabsAriaLabel": "Folder sections",
+    "loadError": "Could not load folder.",
+    "notFound": "Folder not found.",
     "group": {
-      "nav": "Project",
+      "nav": "Folder",
       "pages": "Pages"
     },
     "links": {
-      "overview": "Overview",
+      "overview": "Today",
       "po": "Lead",
       "knowledge": "Workspace",
       "orchestration": "Who runs this",
@@ -4952,27 +4928,27 @@
       "details": "Details",
       "request": "Request a change",
       "connect": "Connect code",
-      "notFound": "Project not found."
+      "notFound": "Folder not found."
     },
     "overview": {
       "title": "Flows",
-      "description": "Step-by-step runs the lead and agents execute for this project.",
+      "description": "Step-by-step runs the lead and agents execute for this folder.",
       "loading": "Loading…",
       "empty": "No updates yet. Submit a change request to get started.",
-      "viewAll": "View all project messages",
+      "viewAll": "View all folder messages",
       "streamsLabel": "Flows",
       "addStream": "Add flow",
       "openStreamCommunication": "Open stream communication",
-      "openProjectCommunication": "Open project communication",
+      "openProjectCommunication": "Open folder communication",
       "wireframeBadge": "Wireframe",
       "addStep": "Add step",
       "dragPreview": "Drag preview",
       "inputTitle": "Input",
-      "inputChip": "in: project context + lead trigger",
+      "inputChip": "in: folder context + lead trigger",
       "stepLabel": "Step",
       "agentLabel": "Agent",
       "instructionLabel": "Instruction",
-      "toolsLabel": "Tools (tenant integrations)",
+      "toolsLabel": "Tools (tenant connections)",
       "selectTool": "Select tool",
       "outputTitle": "Output",
       "outputChip": "out: stream report to the lead",
@@ -4985,8 +4961,8 @@
       }
     },
     "messages": {
-      "title": "Project messages",
-      "description": "Updates and decisions for this project only.",
+      "title": "Folder messages",
+      "description": "Updates and decisions for this folder only.",
       "tenantInbox": "Open tenant inbox",
       "loading": "Loading…",
       "loadError": "Could not load messages.",
@@ -4995,16 +4971,16 @@
         "decisions": "Decisions"
       },
       "empty": {
-        "updates": "No updates for this project yet.",
-        "decisions": "No open decisions for this project."
+        "updates": "No updates for this folder yet.",
+        "decisions": "No open decisions for this folder."
       }
     },
     "communication": {
       "title": "Messages",
-      "description": "Updates and decisions between you and the agents working on this project.",
+      "description": "Updates and decisions between you and the agents working on this folder.",
       "hubLink": "Open hub communication",
       "filter": {
-        "all": "All project messages",
+        "all": "All folder messages",
         "stream": "Stream: {{stream}}"
       },
       "tabs": {
@@ -5015,14 +4991,14 @@
     },
     "orchestration": {
       "title": "Orchestration",
-      "description": "Tune how the lead runs this project: cadence, autonomy, and when a human is asked.",
+      "description": "Tune how the lead runs this folder: cadence, autonomy, and when a human is asked.",
       "loading": "Loading run settings…",
       "saved": "Settings saved.",
       "loadError": "Could not load run settings.",
       "saveError": "Could not save run settings.",
       "wakeFrequency": {
         "label": "Wake-up frequency",
-        "hint": "How often the lead reviews and plans this project.",
+        "hint": "How often the lead reviews and plans this folder.",
         "options": {
           "hourly": "Hourly",
           "daily": "Daily",
@@ -5056,32 +5032,32 @@
     },
     "po": {
       "title": "Lead",
-      "description": "Configure the dedicated lead for this project. Plans work, routes agents, and keeps project knowledge current.",
+      "description": "Configure the dedicated lead for this folder. Plans work, routes agents, and keeps folder knowledge current.",
       "loading": "Loading lead settings…",
       "loadError": "Could not load lead settings.",
       "createError": "Could not create lead.",
       "linkError": "Could not link lead.",
-      "defaultName": "Project lead",
+      "defaultName": "Folder lead",
       "sidebarCta": "Set up lead",
       "advancedProfile": "Advanced agent profile",
       "required": {
         "title": "Set up a lead",
-        "description": "This project needs a dedicated lead before flows can run.",
+        "description": "This folder needs a dedicated lead before flows can run.",
         "cta": "Set up lead"
       },
       "gate": {
         "title": "Lead required",
-        "description": "Link or create a lead for this project to continue."
+        "description": "Link or create a lead for this folder to continue."
       },
       "identity": {
         "title": "Lead identity",
-        "empty": "No lead is linked to this project yet."
+        "empty": "No lead is linked to this folder yet."
       },
       "setup": {
         "title": "Link or create a lead",
-        "description": "Each project needs one dedicated lead. Create a new one or link an existing unassigned lead.",
+        "description": "Each folder needs one dedicated lead. Create a new one or link an existing unassigned lead.",
         "createLabel": "New lead name",
-        "createCta": "Create lead for this project",
+        "createCta": "Create lead for this folder",
         "creating": "Creating…",
         "showExisting": "Link existing lead",
         "hideExisting": "Hide existing leads",
@@ -5098,7 +5074,7 @@
     },
     "notifications": {
       "title": "Notifications",
-      "description": "Pick which project events you want to receive per channel.",
+      "description": "Pick which folder events you want to receive per channel.",
       "loading": "Loading notification preferences…",
       "loadError": "Could not load notification preferences.",
       "saveError": "Could not save notification preferences.",
@@ -5117,11 +5093,11 @@
     },
     "workforce": {
       "title": "Workforce history",
-      "description": "Every agent run for this project. Click through for live event logs."
+      "description": "Every agent run for this folder. Click through for live event logs."
     },
     "usage": {
       "title": "Token usage",
-      "description": "Headline numbers on agent activity and consumption for this project.",
+      "description": "Headline numbers on agent activity and consumption for this folder.",
       "loading": "Loading usage data…",
       "loadError": "Could not load usage data.",
       "budgetTitle": "Daily budget",
@@ -5140,8 +5116,8 @@
     },
     "settings": {
       "about": {
-        "title": "About this project",
-        "name": "Project name",
+        "title": "About this folder",
+        "name": "Folder name",
         "scope": "Description for your AI team",
         "save": "Save changes",
         "saving": "Saving…",
@@ -5153,7 +5129,7 @@
         "description": "Connect a GitHub repository so your AI team can read the codebase, or skip until you are ready."
       },
       "orchestrator": {
-        "description": "Configure the dedicated lead and how often this project is reviewed.",
+        "description": "Configure the dedicated lead and how often this folder is reviewed.",
         "open": "Open lead setup"
       },
       "repo": {
@@ -5170,11 +5146,11 @@
         "placeholder": "owner/repo",
         "branchPlaceholder": "main",
         "connect": "Connect",
-        "hint": "Link a GitHub repository so agents can read this project's codebase.",
+        "hint": "Link a GitHub repository so agents can read this folder's codebase.",
         "connected": "Repository connected",
         "reindexQueued": "Re-read queued",
         "disconnected": "Repository disconnected",
-        "reindex": "Re-read project",
+        "reindex": "Re-read repository",
         "disconnect": "Disconnect",
         "disconnectTitle": "Disconnect repository",
         "disconnectDescription": "Remove the link to {{repo}}. Your AI team will no longer read this codebase until you connect again.",
@@ -5186,21 +5162,21 @@
         "connectionLoadError": "Could not load GitHub connection.",
         "linkError": "Could not link repository",
         "disconnectError": "Could not disconnect",
-        "reindexError": "Could not re-read project",
+        "reindexError": "Could not re-read the repository",
         "connectGithubFirst": "Connect GitHub first so you can pick a repository.",
         "openIntegrations": "Open Connections"
       },
       "danger": {
         "title": "Danger zone",
-        "deleteTitle": "Delete this project",
-        "deleteDescription": "Permanently removes this project, its flows, and run settings. Agents are unlinked but not deleted. This cannot be undone.",
-        "deleteButton": "Delete project",
-        "dialogTitle": "Delete project",
+        "deleteTitle": "Delete this folder",
+        "deleteDescription": "Permanently removes this folder, its flows, and run settings. Agents are unlinked but not deleted. This cannot be undone.",
+        "deleteButton": "Delete folder",
+        "dialogTitle": "Delete folder",
         "dialogPrompt": "Type \"{{name}}\" to confirm deletion.",
-        "namePlaceholder": "Project name",
+        "namePlaceholder": "Folder name",
         "confirmButton": "Delete permanently",
         "deleting": "Deleting…",
-        "deleteError": "Could not delete project"
+        "deleteError": "Could not delete folder"
       }
     },
     "request": {
@@ -5219,13 +5195,13 @@
       "error": "Could not submit request"
     },
     "list": {
-      "title": "Projects",
-      "description": "Your active projects and their code connections.",
+      "title": "Folders",
+      "description": "Your active folders and their code connections.",
       "loading": "Loading…",
-      "loadError": "Could not load projects.",
-      "empty": "No projects yet. Create one to get started.",
-      "create": "Create your first project",
-      "newProject": "New project"
+      "loadError": "Could not load folders.",
+      "empty": "No folders yet. Create one to get started.",
+      "create": "Create your first folder",
+      "newProject": "New folder"
     },
     "doc": {
       "title": "Workspace"
@@ -5241,7 +5217,7 @@
       "products": "Products",
       "workspace": "Workspace",
       "communication": "Communication",
-      "integrations": "Integrations",
+      "integrations": "Connections",
       "govern": "AI and control",
       "advanced": "Advanced",
       "data": "Data",
@@ -5250,14 +5226,13 @@
     "links": {
       "profile": "Profile",
       "profileSecurity": "Profile & security",
-      "myAssistant": "My assistant",
+      "myAssistant": "Bokito memory",
       "notifications": "Notifications",
       "setupGuide": "Setup guide",
       "help": "Support",
       "inbox": "Email and channels",
       "emailMessages": "Channels",
       "chatWidget": "Chat widget",
-      "inboxAi": "AI handling",
       "mailboxes": "Mailboxes",
       "emailSettings": "Email settings",
       "messenger": "Assistant",
@@ -5266,12 +5241,12 @@
       "branding": "Branding",
       "members": "Members",
       "membersTeams": "Members and teams",
-      "integrations": "Integrations",
+      "integrations": "Connections",
       "modules": "Connections",
       "govern": "Govern",
       "trust": "Data & privacy",
       "bin": "Bin",
-      "reports": "Overview",
+      "reports": "Today",
       "developers": "Developers",
       "models": "Models",
       "billing": "Billing",
@@ -5293,11 +5268,11 @@
       "members": "Invite teammates",
       "emailMessages": "Channels, mailboxes and rules",
       "chatWidget": "Website chat for customers",
-      "inboxAi": "Autonomous, Assisted or Manual per channel and contact",
+      "inboxAi": "How much agents may send on their own",
       "helpCenters": "Public help articles",
       "integrations": "Connect other tools",
       "modules": "Installed modules, partner logins and tools",
-      "marketplace": "Browse marketplace apps and tools your agents can use",
+      "marketplace": "Browse catalog apps and tools your agents can use",
       "connectedTools": "Tools connected for agents",
       "govern": "Approvals and how much agents may do",
       "trust": "Retention, data region, data subject requests, and AI data use",
@@ -5329,7 +5304,7 @@
       },
       "api": {
         "title": "API reference",
-        "description": "REST endpoints and schemas for integrations."
+        "description": "REST endpoints and schemas for connections."
       },
       "learn": {
         "title": "In-app Learn",
@@ -5357,7 +5332,7 @@
     "linkDpa": "Data processing agreement",
     "linkPrivacy": "Privacy notice",
     "linkSubprocessors": "Subprocessors",
-    "linkSecurity": "Security overview",
+    "linkSecurity": "Security today",
     "retentionTitle": "Retention and AI",
     "retentionWorkspace": "Workspace retention (days)",
     "retentionWorkspaceHint": "One period applies to messages, calendar events, and audit data across this workspace.",
@@ -5421,7 +5396,7 @@
     "untitled": "Untitled",
     "types": {
       "conversation": "Conversation",
-      "project": "Project",
+      "project": "Folder",
       "canvas": "Canvas",
       "knowledge": "Knowledge",
       "contact": "Contact",
@@ -5627,7 +5602,7 @@
       "skill": "How-to notes agents follow for specific jobs.",
       "heartbeat": "What the daily check-in looks for.",
       "doc": "Reference documents and customer articles.",
-      "project_doc": "Documentation scoped to a project.",
+      "project_doc": "Documentation scoped to a folder.",
       "daily_log": "Running notes agents write after a day of work."
     },
     "clearSearch": "Clear search",
@@ -5683,13 +5658,13 @@
     "viewHelp": "View on help center: {{path}}",
     "scopeOrganization": "Organization",
     "scopePlatform": "Platform",
-    "scopeProject": "Project",
+    "scopeProject": "Folder",
     "scopeAgent": "Agent",
     "openProject": "Open folder",
     "openAgent": "Open agent",
-    "scopeProjects": "Projects",
+    "scopeProjects": "Folders",
     "scopeAgents": "Agents",
-    "pickProject": "Select a project",
+    "pickProject": "Select a folder",
     "pickAgent": "Select an agent",
     "linkedRequests": "Linked requests",
     "editorWrite": "Write",
@@ -5715,7 +5690,7 @@
       "skill": "Skills",
       "heartbeat": "Check-ins",
       "doc": "Docs",
-      "project_doc": "Project docs",
+      "project_doc": "Folder docs",
       "daily_log": "Daily notes"
     },
     "paths": {
@@ -5744,12 +5719,12 @@
     "scopeLabels": {
       "messaging": "Messaging & CRM",
       "workspace": "Knowledge",
-      "projects": "Projects",
+      "projects": "Folders",
       "agents": "Agents",
       "delegation": "Delegation",
       "triggers": "Agenda",
       "channels": "Channels",
-      "integrations": "Integrations",
+      "integrations": "Connections",
       "govern": "Govern",
       "tickets": "Tickets"
     }
@@ -5928,7 +5903,7 @@
           "name": "VS Code",
           "description": "Use Bokito in Copilot agent mode.",
           "body": "VS Code reads MCP servers from mcp.json and offers them to Copilot in agent mode. It signs in with OAuth, or asks for a token once.",
-          "oauth1": "Create .vscode/mcp.json in your project, or run MCP: Open User Configuration.",
+          "oauth1": "Create .vscode/mcp.json in your folder, or run MCP: Open User Configuration.",
           "oauth2": "Paste the JSON below and save.",
           "oauth3": "Choose Start above the server entry. VS Code opens the browser to sign in to Bokito.",
           "token1": "Create an app token under App tokens below.",
@@ -6107,7 +6082,7 @@
     }
   },
   "assistantSettings": {
-    "title": "My assistant",
+    "title": "Bokito memory",
     "body": "Bokito is your personal helper in this product. What it remembers about you follows you across workspaces. Company and customer facts stay in workspace knowledge.",
     "memoryTitle": "What Bokito remembers",
     "memoryHint": "These facts come from conversations with Bokito. Forget one entry or clear them all.",
@@ -6123,14 +6098,14 @@
     "instructions": "Instructions",
     "instructionsPlaceholder": "How should your assistant behave? What should it know about you and your work?",
     "defaultTarget": "Default chat",
-    "defaultTargetHint": "Who a new chat talks to unless you pick someone else.",
+    "defaultTargetHint": "Who a New conversation talks to unless you pick someone else.",
     "companyAgent": "company agent",
     "myAssistant": "my assistant",
     "save": "Save changes",
     "saved": "Saved",
     "loadError": "Could not load assistant settings.",
     "saveError": "Could not save settings.",
-    "openCommunication": "Open a new chat",
+    "openCommunication": "Open a New conversation",
     "openModels": "Open Models",
     "openKnowledge": "Open Knowledge",
     "openInboxAi": "Open AI replies",
@@ -6378,11 +6353,11 @@
     },
     "hireAgentsTitle": "Hire new agents",
     "hireAgentsSoon": "Coming soon",
-    "hireAgentsBody": "Pick specialists from the Marketplace and put them next to your team.",
-    "hireAgentsCta": "Marketplace",
-    "agentsSectionHint": "Company agents next to your people. Hire more from the Marketplace.",
+    "hireAgentsBody": "Pick specialists from the Catalog and put them next to your team.",
+    "hireAgentsCta": "Catalog",
+    "agentsSectionHint": "Company agents next to your people. Hire more from the Catalog.",
     "agentsEmpty": "No company agents yet.",
-    "agentsEmptyHint": "Use Hire new agents to pick specialists from the Marketplace.",
+    "agentsEmptyHint": "Use Hire new agents to pick specialists from the Catalog.",
     "emailPlaceholder": "name@company.com",
     "role": "Role",
     "invite": "Invite",
@@ -6518,7 +6493,7 @@
     "emptyLogs": "No support access logged yet.",
     "timeSaved": {
       "title": "Action weights (time saved)",
-      "hint": "Minutes credited per outcome on Overview. Manual replies count in the mix pie only. Stored in platform_settings for this API environment.",
+      "hint": "Minutes credited per outcome on Today. Manual replies count in the mix pie only. Stored in platform_settings for this API environment.",
       "minutes": "Minutes",
       "mode": "Mode",
       "saved": "Counts as time saved",
@@ -6562,8 +6537,8 @@
     "copyFailed": "Could not copy the link"
   },
   "orgCanvas": {
-    "title": "Organization",
-    "subtitle": "Company in the center, each department as an island. Drag to pan, right-drag to tilt, wheel to zoom. Hover a mark for details; use the legend to find one.",
+    "title": "Grid",
+    "subtitle": "From intake to result: who picks it up, how it runs and which folder it lands in.",
     "link": "Grid",
     "openInGrid": "Open in Grid",
     "teaserTitle": "Grid",
@@ -6591,7 +6566,134 @@
       "doc": "Docs",
       "source": "Sources",
       "webhook": "Webhooks"
-    }
+    },
+    "structureSubtitle": "Company in the center, each department as an island. Drag to pan, right-drag to tilt, wheel to zoom.",
+    "period_one": "Last day",
+    "period_other": "Last {{count}} days",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "lensGroup": "Lens",
+    "viewGroup": "View",
+    "periodGroup": "Period",
+    "lens": {
+      "flow": "Flow",
+      "labels": "Labels",
+      "structure": "Structure",
+      "autonomy": "Autonomy",
+      "issues": "Bottlenecks"
+    },
+    "view": {
+      "2d": "2D",
+      "3d": "3D"
+    },
+    "estimated": "Estimated: not every result is recorded as a delivery yet.",
+    "columns": {
+      "input": "Intake",
+      "executor": "Executors",
+      "executorSub": "by department",
+      "work": "Flow",
+      "workSub": "how",
+      "result": "Result",
+      "resultSub": "where it lands"
+    },
+    "zone": {
+      "none": "No department",
+      "hint": {
+        "agent_first": "agent first",
+        "people": "people pick up"
+      }
+    },
+    "node": {
+      "ghost": "also in {{name}}",
+      "open": "{{count}} open",
+      "waiting": "{{count}} waiting on you",
+      "offline": "offline",
+      "unassigned": "Unassigned",
+      "conversations_one": "{{count}} conversation",
+      "conversations_other": "{{count}} conversations",
+      "done": "{{count}} done",
+      "flow": "Flow",
+      "agent": "Agent",
+      "person": "Person",
+      "channel": "Channel"
+    },
+    "result": {
+      "reply": "Reply to the customer",
+      "via": "via {{channel}}",
+      "folder": "Folder",
+      "subfolders_one": "{{count}} subfolder",
+      "subfolders_other": "{{count}} subfolders",
+      "worksIn": "Works in",
+      "knowledge": "Knowledge",
+      "knowledgeSub": "What agents learn from corrections",
+      "corrections": "corrections",
+      "open": "Still open",
+      "closedWithout": "Closed without result"
+    },
+    "mode": {
+      "autonomous": "Autonomous",
+      "assisted": "Assisted",
+      "manual": "Manual",
+      "human": "By a person",
+      "none": "Nobody picks it up"
+    },
+    "legendFlow": {
+      "worksInBokito": "works in Bokito",
+      "worksInConnection": "works in via a connection",
+      "noLabel": "No label",
+      "labelsHint": "Click a label to follow it through the chain.",
+      "issuesHint": "Only cards and lines with a bottleneck stay lit.",
+      "autonomyHint": "Each executor in the color of what it may do itself."
+    },
+    "panel": {
+      "label": "Grid details",
+      "issues": "Bottlenecks",
+      "noIssues": "No bottlenecks in this period.",
+      "back": "Back to bottlenecks",
+      "mayAct": "May act",
+      "source": {
+        "workspace": "Set for the workspace",
+        "channel": "Set on the channel",
+        "conversation": "Set on the conversation",
+        "default": "Default"
+      },
+      "clamped": {
+        "govern": "Capped by the workspace ceiling in Govern",
+        "privacy": "Capped by the privacy settings",
+        "agent": "Capped by this agent's own setting",
+        "flow": "Capped: the flow is set to Always review",
+        "breaker": "Capped: the channel safety stop tripped"
+      },
+      "receivesFrom": "Receives from",
+      "worksOn": "Works on",
+      "comesInVia": "Comes in via",
+      "landsIn": "Lands in",
+      "byLabel": "By label",
+      "nothing": "Nothing in this period.",
+      "openThreads": "Open conversations",
+      "distribute": "Distribute work",
+      "openFolder": "Open folder",
+      "addWorksIn": "Add to Works in",
+      "openItem": "Open",
+      "origin": {
+        "bokito": "Bokito",
+        "connection": "Connection"
+      },
+      "unlabeled": "{{pct}}% of this work has no label.",
+      "suggestLabels": "Suggest labels",
+      "suggestError": "Could not open the suggestion.",
+      "close": "Close details"
+    },
+    "issue": {
+      "overloaded": "{{name}} has {{count}} open",
+      "no_department": "{{name}} is in no department",
+      "offline": "{{name}} is offline with {{count}} open",
+      "unassigned": "{{count}} open without anyone on it",
+      "connection_without_folder": "A connection wrote without a folder"
+    },
+    "labelChips": "Labels",
+    "reset": "Reset",
+    "structure3dOnly": "Structure is shown in 3D only."
   },
   "teamPage": {
     "openConversations": "Conversations",
@@ -6602,7 +6704,8 @@
     "away": "Away",
     "sections": {
       "teams": "Departments",
-      "teamsHint": "Group people and agents; set how they pick up conversations."
+      "teamsHint": "Group people and agents; set how they pick up conversations.",
+      "people": "People and agents"
     },
     "avatarLabel": "Team mark",
     "avatarHint": "Initials by default, or pick an icon.",
@@ -6679,7 +6782,7 @@
   },
   "connectionAccess": {
     "title": "Connection access",
-    "description": "Use the toggles to choose who may use this connection and who may manage it. Use means agents and people can run its tools; Manage means verify, rename, link projects and change access. Without access an agent cannot reach the connection.",
+    "description": "Use the toggles to choose who may use this connection and who may manage it. Use means agents and people can run its tools; Manage means verify, rename, link folders and change access. Without access an agent cannot reach the connection.",
     "hint": "Who uses and manages this connection",
     "adminsNote": "Owners and admins always manage every connection; their toggles stay on and cannot be changed."
   },
@@ -6710,12 +6813,12 @@
     "title": "When this agent acts on its own",
     "hint": "The ceiling caps everything this agent does. Rules make exceptions for specific actions or situations.",
     "workspaceTitle": "Rules for all agents",
-    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. AI handling, the label, and tools that always ask decide whether a reply stays a draft.",
+    "workspaceHint": "Exceptions every agent in this workspace follows, next to its own rules. Autonomy, the label, and tools that always ask decide whether a reply stays a draft.",
     "ceiling": "Ceiling",
     "ceilingHint": {
       "manual": "This agent waits for you before it sends or changes anything.",
       "assisted": "This agent prepares the work and asks before actions that need approval.",
-      "autonomous": "This agent acts on its own within AI handling, the label, and tools that always ask."
+      "autonomous": "This agent acts on its own within Autonomy, the label, and tools that always ask."
     },
     "rulesTitle": "Rules",
     "empty": "No rules yet. The agent follows its ceiling and the Govern settings.",
@@ -6820,7 +6923,7 @@
     "promoteHint": "Conversations with this label become tickets that move through the flow's stages.",
     "playbook": "Flow",
     "newPlaybook": "New flow {{name}}",
-    "promoteAfter": "Set filing rules and projects afterwards.",
+    "promoteAfter": "Set filing rules and folders afterwards.",
     "promoted": "{{name}} is now a label with a flow.",
     "promoteFailed": "Could not create a flow for this label.",
     "saveAsMap": "Save as map",
@@ -6837,10 +6940,10 @@
     "confirm": "Confirm",
     "confirmOn": "Confirm on",
     "dismiss": "Dismiss",
-    "project": "Project",
-    "noProject": "No project",
-    "chooseProject": "Which project does this belong to?",
-    "chooseProjectInPanel": "#{{name}} needs a project. Choose one in the Ticket panel.",
+    "project": "Folder",
+    "noProject": "No folder",
+    "chooseProject": "Which folder does this belong to?",
+    "chooseProjectInPanel": "#{{name}} needs a folder. Choose one in the Ticket panel.",
     "unknownCategory": "No label #{{name}}.",
     "stage": "Stage",
     "playbook": "Flow",
@@ -6851,7 +6954,7 @@
     "status": {
       "proposed": "Proposed",
       "open": "Not started",
-      "waiting": "Active",
+      "waiting": "Waiting",
       "done": "Done",
       "closed": "Closed"
     },
@@ -6874,7 +6977,7 @@
     "checkupNext": "Check-up {{when}}",
     "agentOwner": "An agent owns this ticket",
     "openContact": "Open contact {{name}}",
-    "openProject": "Open project"
+    "openProject": "Open folder"
   },
   "communicationTags": {
     "title": "Communication rail",
@@ -6903,7 +7006,7 @@
     "thresholdHint": "How often the same unknown pattern must arrive before Bokito offers it as a new label.",
     "thresholdOption": "{{count}} sightings",
     "catalogTitle": "Labels with a flow",
-    "catalogDescription": "What it is, which flow runs it, and which projects it can be filed on.",
+    "catalogDescription": "What it is, which flow runs it, and which folders it can be filed on.",
     "newCategory": "New label",
     "newCategoryHint": "Pick a tag and the flow that runs it. A new flow starts with Open, Waiting and Done.",
     "emptyTitle": "No label with a flow yet",
@@ -6912,14 +7015,14 @@
     "needsVerify": "needs confirmation",
     "showInNav": "Show in Communication",
     "playbook": "Flow",
-    "noProjects": "no project",
+    "noProjects": "no folder",
     "openCount": "{{open}} open, {{waiting}} waiting",
     "whatItIs": "What it is",
     "nameLabel": "Tag",
     "namePlaceholder": "refund-request",
     "descriptionPlaceholder": "When this applies, and when it does not. Agents read this to classify.",
     "openPlaybook": "Open flow",
-    "playbookHint": "The flow holds the stages, owners, check-ups and the projects a ticket can be filed on.",
+    "playbookHint": "The flow holds the stages, owners, check-ups and the folders a ticket can be filed on.",
     "gatesToggle": "How it gets filed",
     "createModeLabel": "When the AI recognizes it",
     "createModes": {
@@ -6928,7 +7031,7 @@
       "auto": "Auto",
       "manual_only": "Manual only"
     },
-    "projectRule": "Filing always asks for a project when the flow is on one or more projects, including No project. Agents choose too, or leave the ticket proposed.",
+    "projectRule": "Filing always asks for a folder when the flow is on one or more folders, including No folder. Agents choose too, or leave the ticket proposed.",
     "detach": "Make free tag",
     "detachHint": "Removes the flow. The tag becomes a free tag again, and conversations filed on it are no longer tickets.",
     "moduleNoDetach": "Installed by a module. Uninstall the module to remove it.",
@@ -6949,5 +7052,43 @@
       "communicationHub": "Communication",
       "playbooks": "Flows"
     }
+  },
+  "today": {
+    "needs": "For you",
+    "needsHint": "Open decisions and conversations assigned to you: your exception list.",
+    "signals": "Open tickets per flow",
+    "signalsHint": "Open and waiting work. Open a row to see the flow label in Communication.",
+    "running": "Running and next up",
+    "runningHint": "What runs now, and what is on the agenda in the next 24 hours.",
+    "agendaDue": "Due now on the agenda",
+    "agendaDueDetail": "Check-ups and overdue look-ats",
+    "openAgenda": "Open Agenda",
+    "trajectory": "Trajectory",
+    "trajectoryHint": "This week, with the change from last week.",
+    "emptyNeeds": "Nothing is waiting on you.",
+    "emptyNeedsHint": "Decisions, assigned conversations and your turn land here. Connect a channel or open For you.",
+    "emptyNeedsForYou": "Open For you",
+    "emptyNeedsChannels": "Connect a channel",
+    "allForYou": "All in For you ({{count}})",
+    "quiet": "Quiet for 14 days",
+    "quietHint": "Open conversations with no message. Close them when the work is done.",
+    "quietClose": "Close",
+    "emptySignals": "No open tickets.",
+    "emptyRunning": "Nothing is running or planned.",
+    "open": "Open",
+    "waiting": "Waiting",
+    "flow": "Flow",
+    "workbench": "Workbench",
+    "filedTickets": "Tickets filed (7 days)",
+    "proposedTickets": "Proposals waiting for a confirm",
+    "proposedDetail": "Confirm on the conversation",
+    "finishedRuns": "Runs finished without a decision",
+    "vsLastWeek": "vs last week {{delta}}",
+    "governWaiting": "Proposals waiting in Govern",
+    "governDetail": "Open proposals",
+    "cost": "Usage cost",
+    "costDetail": "Last 7 days, per agent, flow and Workbench",
+    "loadError": "Some of Today could not be loaded.",
+    "moreContext": "More workspace context"
   }
 }

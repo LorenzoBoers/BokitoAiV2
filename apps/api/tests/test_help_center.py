@@ -140,7 +140,7 @@ async def test_unknown_tenant_404(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_widget_reply_links_published_articles(client: AsyncClient):
+async def test_widget_reply_links_published_articles(client: AsyncClient, autonomous_workspace):
     """Deflection: a widget answer that drew on a published doc appends its link."""
     headers = await _headers(client)
     doc = await _create_doc(

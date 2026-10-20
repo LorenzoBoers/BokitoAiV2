@@ -45,7 +45,7 @@ def test_suggest_mode_tools_are_read_only_research():
         "write_doc",
         "create_agent",
         "update_agent",
-        "create_workstream",
+        "create_flow",
         "register_mcp_server",
         "connect_integration",
         "add_graph_node",

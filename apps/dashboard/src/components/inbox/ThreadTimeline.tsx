@@ -100,6 +100,8 @@ function isHiddenEvent(
   ) {
     return true
   }
+  // The reply bubble already shows the delivery on the channel.
+  if (eventType === 'delivered' && payload?.target_kind === 'reply') return true
   // The agent cloud (or the operator answer) already carries the choice.
   if (eventType.startsWith('decision_') && typeof payload?.decision_id === 'string') {
     if (answeredDecisionIds?.has(payload.decision_id)) return true
@@ -216,6 +218,36 @@ export function isHiddenDecisionResponse(
   return ids.some((id) => questionDecisionIds.has(id))
 }
 
+function entryMs(entry: TimelineEntry): number {
+  return new Date(entry.time).getTime()
+}
+
+/**
+ * Messages in ``seq`` order (the server's thread order). Events, sessions and
+ * rows without a seq join by time between them.
+ */
+function orderByThread(entries: TimelineEntry[]): TimelineEntry[] {
+  const numbered = entries
+    .filter((entry) => entry.kind === 'message' && typeof entry.data.seq === 'number')
+    .sort((a, b) => ((a.data as InboxMessage).seq ?? 0) - ((b.data as InboxMessage).seq ?? 0))
+  const timed = entries
+    .filter((entry) => !(entry.kind === 'message' && typeof entry.data.seq === 'number'))
+    .sort((a, b) => entryMs(a) - entryMs(b))
+  const out: TimelineEntry[] = []
+  let i = 0
+  let j = 0
+  while (i < numbered.length || j < timed.length) {
+    if (j >= timed.length || (i < numbered.length && entryMs(numbered[i]) <= entryMs(timed[j]))) {
+      out.push(numbered[i])
+      i += 1
+    } else {
+      out.push(timed[j])
+      j += 1
+    }
+  }
+  return out
+}
+
 export function buildTimelineRows(
   detail: ThreadDetailType | null,
   t: (key: string) => string,
@@ -272,9 +304,7 @@ export function buildTimelineRows(
       entry.time = new Date(earliest - (started.length - index)).toISOString()
     })
   }
-  const ordered = [...started, ...rest].sort(
-    (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime(),
-  )
+  const ordered = [...started, ...orderByThread(rest)]
 
   const rows: TimelineRow[] = []
   let dayKey: string | null = null
@@ -342,15 +372,21 @@ function messageStackKey(message: InboxMessage): string | null {
 }
 
 /**
- * True when a live agent turn would join the run of the last saved row: an
- * agent bubble within the stack gap. The live view then skips avatar and
- * author line and opens with a flattened corner, like the saved bubble will.
+ * True when a live agent turn would join the run of the last saved row: a
+ * bubble of the same agent within the stack gap. The live view then skips
+ * avatar and author line and opens with a flattened corner, like the saved
+ * bubble will. Another agent always opens its own run with its name.
  */
-export function liveRunContinues(rows: TimelineRow[], now: number = Date.now()): boolean {
+export function liveRunContinues(
+  rows: TimelineRow[],
+  agentId: string | number | null,
+  now: number = Date.now(),
+): boolean {
+  if (agentId == null) return false
   const last = rows[rows.length - 1]
   if (!last || last.kind !== 'message') return false
   const key = messageStackKey(last.data)
-  if (!key || !key.includes('agent:')) return false
+  if (!key || !key.endsWith(`agent:${String(agentId)}`)) return false
   return now - new Date(last.time).getTime() <= CHAT_STACK_GAP_MS
 }
 
@@ -657,6 +693,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const atBottomRef = useRef(true)
   /** Wheel-down shortly before a scroll means the operator returned to the end. */
   const userWheelDownUntilRef = useRef(0)
+  // Upward wheel/touch arms this. Follow stops only if the scroll that
+  // follows actually leaves the latest messages.
+  const wheelUpUntilRef = useRef(0)
   /** Programmatic land may keep snapping until this instant, unless the user scrolls. */
   const settleUntilRef = useRef(0)
   const bubbleStacks = useMemo(() => stacksForRows(rows), [rows])
@@ -725,8 +764,11 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
 
   const noteWheel = useCallback((deltaY: number) => {
     if (deltaY > 6) userWheelDownUntilRef.current = Date.now() + 500
-    if (deltaY < -6) releaseFollow()
-  }, [releaseFollow])
+    // Do not release here. A flick on a thread that already shows the latest
+    // row never moves the scroller, and releasing anyway raised "N new"
+    // while the operator was still reading the bottom.
+    if (deltaY < -6) wheelUpUntilRef.current = Date.now() + 400
+  }, [])
 
   const scrollApi = useMemo<TimelineScrollApi>(
     () => ({ scroller: scrollerNode, releaseFollow, noteWheel }),
@@ -855,8 +897,12 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   useEffect(() => {
     const el = scrollerNode.current
     if (!el) return
-    const releaseIfScrollingUp = (delta: number) => {
+    const releaseIfLeftLatest = (delta: number) => {
       if (delta >= -6) return
+      const gap = el.scrollHeight - el.scrollTop - el.clientHeight
+      // Still on the latest row (or the thread fits). Leaving follow here
+      // counted messages the operator was already looking at.
+      if (gap < 72) return
       releaseFollow()
     }
     const onWheel = (event: WheelEvent) => noteWheel(event.deltaY)
@@ -880,7 +926,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       const top = el.scrollTop
       const delta = top - lastTop
       lastTop = top
-      if (Date.now() < gestureUntil) releaseIfScrollingUp(delta)
+      const armedUp =
+        Date.now() < gestureUntil || Date.now() < wheelUpUntilRef.current
+      if (armedUp) releaseIfLeftLatest(delta)
       // A snap-to-end also increases scrollTop. Only a recent wheel-down
       // means the operator came back and wants new rows to follow again.
       const nearBottom = el.scrollHeight - top - el.clientHeight < 72

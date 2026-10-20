@@ -33,7 +33,7 @@ Unknown website visitors stay in the conversation as **Website visitor**. They h
 3. The visitor stays as an identity of the person: their earlier chats move along, and the contact page lists it under **Also reachable at**. Nothing is overwritten. An owner or admin can choose **Detach** there to make an identity a separate contact again.
 4. A thread linked from an unconfirmed address shows **Claimed**; after the visitor confirms an email link it shows **Verified**. Personal data such as invoices stays behind **Verified**.
 
-The AI links on its own when a visitor gives an address. **Assisted** links only verified addresses and asks you for the rest with a decision card; **Autonomous** also links claimed addresses and creates new contacts; **Manual** leaves it to you. Merging two known contacts always needs an owner or admin. See [AI handling](/docs/inbox/inbox-ai).
+The AI links on its own when a visitor gives an address. **Assisted** links only verified addresses and asks you for the rest with a decision card; **Autonomous** also links claimed addresses and creates new contacts; **Manual** leaves it to you. Merging two known contacts always needs an owner or admin. See [Autonomy](/docs/inbox/inbox-ai).
 
 ## Add a person or start mail
 
@@ -52,18 +52,6 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 1. Open the contact on **Contacts**. Status can be **Approved**, **Pending** or **Blocked**.
 2. Choose **Approve** for an address you want in the book.
 3. Choose **Block** for a sender that should drop out of Communication. New messages from them are dropped. From a conversation you can also open the thread menu (⋯) and choose **Block** with their name.
-
-## Set AI handling for one contact
-
-![AI handling on a contact](/api/docs/assets/contacts/contact-handling.png)
-*A contact can follow the channel or have its own mode.*
-
-1. Open the contact on Contacts.
-2. Find **AI handling** under the profile. It shows the current mode. Open the menu to see what it follows: the inherited mode carries a badge such as **Channel default**. The conversation side panel does not repeat this control; the thread header still sets the mode for that one conversation.
-3. Pick **Autonomous**, **Assisted** or **Manual** to apply it to every conversation with this person. Choose the mode marked **Channel default** to remove it.
-4. On Contacts, filter the list with the **Any AI handling** menu to find contacts with **Custom AI handling** or a specific mode. Rows with their own mode show its icon.
-
-A single conversation can still differ from the contact. See [AI handling](/docs/inbox/inbox-ai).
 
 ## Give a contact a fixed owner
 

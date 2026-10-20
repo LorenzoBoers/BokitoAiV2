@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { getAvatarColor } from '../../lib/avatar'
 import { buildControlPlaneUrl } from '../../lib/host-routing'
-import { REPORTS_PATH } from '../../lib/navigation'
+import { OVERVIEW_PATH } from '../../lib/navigation'
 import { DEFAULT_BRAND_MARK, resolveBrandIconUrl, workspaceBrandName } from '../../lib/tenant-branding'
 import type { Workspace } from '../../types/workspace'
 import {
@@ -156,7 +156,7 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
-            navigate(REPORTS_PATH)
+            navigate(OVERVIEW_PATH)
             onNavigate?.()
           }}
         >

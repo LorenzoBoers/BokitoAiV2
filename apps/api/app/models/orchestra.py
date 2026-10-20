@@ -53,7 +53,13 @@ class Workstream(SQLModel, table=True):
     # integration connected, agents available).
     module_slug: str = ""
     template_slug: str = ""
-    autonomy_level: str = Field(default="")  # empty follows the company; else a ceiling
+    # A person confirms before the flow sends. Caps this flow at Assisted.
+    always_review: bool = Field(default=False)
+    # "Delivers to": a folder plus optionally one of its Works in keys; an
+    # empty key means the folder itself. A ticket reaching a done stage
+    # records a delivery there.
+    deliver_folder_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
+    deliver_works_in_key: str = Field(default="", max_length=80)
     # Ticket pipeline: [{"key", "name", "kind": open|waiting|done}]; "[]" means
     # the default Open / Waiting / Done.
     stages_json: str = Field(default="[]")

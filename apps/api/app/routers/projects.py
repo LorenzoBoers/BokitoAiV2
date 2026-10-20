@@ -644,6 +644,82 @@ async def delete_project_resource(
     return {"ok": True}
 
 
+# ── Works in: board, files, canvases and connections of one folder
+
+
+class WorksInItem(BaseModel):
+    key: str
+    kind: str
+    origin: str
+    label: str
+    detail: str = ""
+    href: str | None = None
+    status: str = "active"
+    count: int | None = None
+
+
+class WorksInList(BaseModel):
+    items: list[WorksInItem]
+
+
+class WorksInAddBody(BaseModel):
+    kind: str  # canvas | connection | drive
+    title: str = ""
+    managing_agent_id: UUID | None = None
+    connection_id: UUID | None = None
+    provider: str = ""
+    external_ref: str = ""
+
+
+class WorksInAdded(BaseModel):
+    item: WorksInItem | None
+
+
+@router.get("/{project_id}/works-in", response_model=WorksInList)
+async def list_works_in(
+    project_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Every place in this folder where work lands.
+
+    ``origin`` is ``bokito`` (board, files, canvas) or ``connection`` (repo,
+    drive, administration). ``key`` is the stable reference that deliveries
+    and flow destinations use.
+    """
+    from app.services.works_in import works_in_items
+
+    return {"items": await works_in_items(session, auth.tenant.id, project_id)}
+
+
+@router.post("/{project_id}/works-in", response_model=WorksInAdded)
+async def add_works_in(
+    project_id: UUID,
+    body: WorksInAddBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Add a canvas, a connection or a file folder to this folder's Works in."""
+    from app.services.works_in import add_item
+
+    auth.require_role("owner", "admin")
+    if body.kind == "connection":
+        await _require_connection_manage(session, auth, body.connection_id)
+    result = await add_item(
+        session,
+        auth.tenant.id,
+        project_id,
+        kind=body.kind,
+        title=body.title,
+        managing_agent_id=body.managing_agent_id,
+        connection_id=body.connection_id,
+        provider=body.provider,
+        external_ref=body.external_ref,
+        user_id=auth.user.id if auth.user else None,
+    )
+    return {"item": result["item"]}
+
+
 # ── project canvases (snapshot nodes; source writes go through agents/Govern)
 
 

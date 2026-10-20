@@ -4,7 +4,7 @@ intro: Ontvang een HTTP POST wanneer signals of beslissingen in de workspace wij
 description: Maak webhookendpoints aan onder Instellingen, Developers, verifieer de HMAC-signature, test deliveries en ga goed om met retries.
 keywords: webhooks, events, hmac, signature, developers, callbacks
 sort: 40
-related: api-overview,api-signals,authentication
+related: api-today,api-signals,authentication
 ---
 
 # Webhooks

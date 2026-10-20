@@ -1,3 +1,4 @@
+import { GRID_PATH, AUTONOMY_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -305,9 +306,9 @@ export default function InboxSettings() {
       <PageRelatedLinks
         className="mt-2"
         links={[
-          { to: '/grid', label: t('orgCanvas.link') },
+          { to: GRID_PATH, label: t('orgCanvas.link') },
           { to: inboxPath('open'), label: t('channelsPage.crossLinks.communication') },
-          { to: '/settings/communication', label: t('channelsPage.crossLinks.inboxAi') },
+          { to: AUTONOMY_PATH, label: t('channelsPage.crossLinks.inboxAi') },
           { to: WEBSITE_WIDGET_PATH, label: t('channelsPage.crossLinks.widget') },
           { to: '/connections?kind=inbox', label: t('channelsPage.crossLinks.integrations') },
         ]}

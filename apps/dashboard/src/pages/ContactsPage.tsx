@@ -67,17 +67,12 @@ import {
   updateContact,
   type CompanyDetail as CompanyDetailData,
   type CompanyRow,
-  type ContactAiHandlingFilter,
   type ContactOwner,
   type ContactRow,
   type ContactStatus,
 } from '../lib/contacts-api'
-import { AI_HANDLING_MODES } from '../lib/ai-handling'
-import { parseContactsAiHandling, parseContactsStatus, withContactsParam } from '../lib/contacts-list-query'
-import { AiHandlingIcon } from '../components/ai/AiHandlingIcon'
-import AiHandlingPicker from '../components/ai/AiHandlingPicker'
+import { parseContactsStatus, withContactsParam } from '../lib/contacts-list-query'
 import ContactOwnerPicker from '../components/inbox/ContactOwnerPicker'
-import { useAiHandling } from '../hooks/useAiHandling'
 import { contactStatusLabel, threadStatusLabel } from '../lib/status-labels'
 import {
   humanizeContactName,
@@ -121,7 +116,6 @@ function ContactDetail({ contactId }: { contactId: string }) {
   const [draft, setDraft] = useState({ displayName: '', company: '', title: '', phone: '', notes: '' })
   const [dirty, setDirty] = useState(false)
   const { t: tc } = useTranslation('common')
-  const aiHandling = useAiHandling('contact', contactId)
   const confirm = useConfirm()
 
   const load = useCallback(async () => {
@@ -501,17 +495,6 @@ function ContactDetail({ contactId }: { contactId: string }) {
                 }}
               />
             </div>
-            <AiHandlingPicker
-              variant="row"
-              scope="contact"
-              handling={aiHandling.handling}
-              canRaise={aiHandling.canRaise}
-              saving={aiHandling.saving}
-              onChange={(mode) => void aiHandling.change(mode)}
-              label={tc('aiHandling.title')}
-              className="rounded-md border border-border/60 px-3 py-2.5"
-              testId="contact-ai-handling"
-            />
             <div className="rounded-md border border-border/60 px-3 py-2.5" data-testid="contact-owner">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-semibold text-text-muted">{t('contactsPage.owner')}</span>
@@ -983,11 +966,8 @@ export default function ContactsPage() {
   const [statusFilter, setStatusFilter] = useState<ContactStatus | 'all'>(() =>
     parseContactsStatus(searchParams.get('status')),
   )
-  const [aiFilter, setAiFilter] = useState<ContactAiHandlingFilter | 'all'>(() =>
-    parseContactsAiHandling(searchParams.get('ai_handling')),
-  )
   const { t: tc } = useTranslation('common')
-  const filtered = Boolean(search.trim()) || statusFilter !== 'all' || aiFilter !== 'all'
+  const filtered = Boolean(search.trim()) || statusFilter !== 'all'
   const [createOpen, setCreateOpen] = useState(() => searchParams.get('new') === '1')
   const [createDraft, setCreateDraft] = useState({
     channel: 'email',
@@ -1022,8 +1002,6 @@ export default function ContactsPage() {
     setSearch((current) => (current === query ? current : query))
     const status = parseContactsStatus(searchParams.get('status'))
     setStatusFilter((current) => (current === status ? current : status))
-    const ai = parseContactsAiHandling(searchParams.get('ai_handling'))
-    setAiFilter((current) => (current === ai ? current : ai))
   }, [searchParams, companyId])
 
   useEffect(() => {
@@ -1062,7 +1040,6 @@ export default function ContactsPage() {
           listContactsPage(token, {
             ...(search.trim() ? { search: search.trim() } : {}),
             ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
-            ...(aiFilter !== 'all' ? { aiHandling: aiFilter } : {}),
           }),
           listSignalThreads(token, { perPage: 80 }).catch(() => ({ items: [] as InboxThread[] })),
         ])
@@ -1079,7 +1056,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, search, statusFilter, aiFilter, view, t])
+  }, [token, search, statusFilter, view, t])
 
   useEffect(() => {
     if (contactId || companyId) return
@@ -1107,7 +1084,6 @@ export default function ContactsPage() {
         const page = await listContactsPage(token, {
           ...(search.trim() ? { search: search.trim() } : {}),
           ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
-          ...(aiFilter !== 'all' ? { aiHandling: aiFilter } : {}),
           offset,
         })
         const inbox = await listSignalThreads(token, { perPage: 80 }).catch(() => ({ items: [] as InboxThread[] }))
@@ -1200,7 +1176,6 @@ export default function ContactsPage() {
     try {
       const updated = await bulkUpdatePendingContacts(token, status, {
         search: search.trim() || undefined,
-        aiHandling: aiFilter,
       })
       toast.success(t('contactsPage.bulkUpdated', { count: updated }))
       await load()
@@ -1321,37 +1296,6 @@ export default function ContactsPage() {
               </FilterChip>
             ))
           : null}
-        {view === 'people' ? (
-          <div className="ml-auto inline-flex items-center gap-1.5 text-xs text-text-secondary">
-            {aiFilter !== 'all' && aiFilter !== 'custom' ? (
-              <AiHandlingIcon mode={aiFilter} size={12} />
-            ) : null}
-            <Select
-              value={aiFilter}
-              onValueChange={(value) => {
-                setAiFilter(value as ContactAiHandlingFilter | 'all')
-                setSearchParams((prev) => withContactsParam(prev, 'ai_handling', value), { replace: true })
-              }}
-            >
-              <SelectTrigger
-                aria-label={tc('aiHandling.title')}
-                data-testid="contacts-ai-handling-filter"
-                className="h-7 w-auto gap-2 rounded-md px-2 text-xs"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{tc('aiHandling.filter.all')}</SelectItem>
-                <SelectItem value="custom">{tc('aiHandling.filter.custom')}</SelectItem>
-                {AI_HANDLING_MODES.map((mode) => (
-                  <SelectItem key={mode} value={mode}>
-                    {tc(`aiHandling.modes.${mode}.label`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
       </div>
       {view === 'people' && statusFilter === 'pending' ? (
         <div className="-mt-2 mb-3 flex flex-wrap items-center gap-2">
@@ -1569,7 +1513,6 @@ export default function ContactsPage() {
               onClick={() => {
                 setSearch('')
                 setStatusFilter('all')
-                setAiFilter('all')
               }}
               className="mt-4 rounded-lg border border-border/60 px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
@@ -1741,15 +1684,6 @@ export default function ContactsPage() {
                       const awaiting = isAnonymousContact(contact.displayName, contact.address)
                       return (
                         <span className="inline-flex items-center gap-1.5">
-                          {contact.aiHandling ? (
-                            <span
-                              title={tc(`aiHandling.modes.${contact.aiHandling}.label`)}
-                              className="inline-flex"
-                              data-testid="contact-row-ai-handling"
-                            >
-                              <AiHandlingIcon mode={contact.aiHandling} size={12} />
-                            </span>
-                          ) : null}
                           <Badge
                             size="sm"
                             variant={STATUS_TONE[shown]}

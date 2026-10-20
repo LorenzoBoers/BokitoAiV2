@@ -59,10 +59,10 @@
   },
   "landing": {
     "title": "Start page",
-    "description": "Choose where Bokito opens after you sign in. Chat is the default.",
-    "chat": "Chat",
+    "description": "Choose where Bokito opens after you sign in. Messages is the default.",
+    "chat": "Messages",
     "communication": "Messages",
-    "overview": "Overview",
+    "overview": "Today",
     "saveError": "Could not save your start page."
   },
   "theme": {
@@ -174,7 +174,7 @@
   "links": {
     "openInboxSettings": "Open channel settings",
     "openMailboxSignatures": "Mailbox signatures",
-    "openAssistant": "My assistant",
+    "openAssistant": "Bokito memory",
     "openNotifications": "Notifications"
   }
 }

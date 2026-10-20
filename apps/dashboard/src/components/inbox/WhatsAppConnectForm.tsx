@@ -14,6 +14,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
 import { cn } from '../../lib/utils'
 import ConnectStepRail from './ConnectStepRail'
+import { AUTONOMY_PATH } from '../../lib/navigation'
 
 /** Meta developer console — WhatsApp product landing. */
 const META_WHATSAPP_DOCS =
@@ -259,7 +260,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
               {t('whatsappCard.openCommunication')}
             </Link>
             <Link
-              to="/settings/communication"
+              to={AUTONOMY_PATH}
               className="text-sm font-medium text-accent hover:underline"
             >
               {t('whatsappCard.openInboxAi')}

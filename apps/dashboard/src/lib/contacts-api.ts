@@ -24,8 +24,6 @@ export type ContactRow = {
   lastSeenAt: string | null
   createdAt: string
   threadCount: number
-  /** Own AI handling override; null follows the channel. */
-  aiHandling: AiHandlingMode | null
   /** Account manager: new conversations go here unless the agent answers autonomously. */
   owner: ContactOwner | null
   /** Other ways to reach this person (visitor key, email, WhatsApp number). Detail only. */
@@ -74,8 +72,6 @@ function normalizeIdentity(row: unknown): ContactIdentity | null {
   }
 }
 
-export type ContactAiHandlingFilter = AiHandlingMode | 'custom'
-
 export type ContactPatch = {
   status?: ContactStatus
   display_name?: string
@@ -114,7 +110,6 @@ function normalizeContact(row: unknown): ContactRow | null {
     lastSeenAt: asString(raw.last_seen_at) || null,
     createdAt: asString(raw.created_at),
     threadCount: typeof raw.thread_count === 'number' ? raw.thread_count : 0,
-    aiHandling: normalizeMode(raw.ai_handling),
     owner: normalizeContactOwner(raw.owner),
     identities: Array.isArray(raw.identities)
       ? raw.identities.map(normalizeIdentity).filter((i): i is ContactIdentity => i !== null)
@@ -145,7 +140,6 @@ export async function listContactsPage(
     search?: string
     status?: ContactStatus
     channel?: string
-    aiHandling?: ContactAiHandlingFilter
     offset?: number
   } = {},
 ): Promise<ContactListPage> {
@@ -153,7 +147,6 @@ export async function listContactsPage(
   if (options.search) params.set('search', options.search)
   if (options.status) params.set('status', options.status)
   if (options.channel) params.set('channel', options.channel)
-  if (options.aiHandling) params.set('ai_handling', options.aiHandling)
   if (options.offset) params.set('offset', String(options.offset))
   const payload = await apiGet<{ contacts?: unknown[]; next_offset?: number | null }>(
     appRoutes.contacts.listQuery(params),
@@ -172,7 +165,6 @@ export async function listContacts(
     search?: string
     status?: ContactStatus
     channel?: string
-    aiHandling?: ContactAiHandlingFilter
   } = {},
 ): Promise<ContactRow[]> {
   return (await listContactsPage(token, options)).contacts
@@ -376,14 +368,13 @@ export async function findThreadsForContact(token: string, contact: ContactRow):
 export async function bulkUpdatePendingContacts(
   token: string,
   status: 'approved' | 'blocked',
-  filters: { search?: string; aiHandling?: string } = {},
+  filters: { search?: string } = {},
 ): Promise<number> {
   const payload = await apiPost<{ updated?: number }>(
     appRoutes.contacts.bulkStatus,
     {
       status,
       ...(filters.search ? { search: filters.search } : {}),
-      ...(filters.aiHandling && filters.aiHandling !== 'all' ? { ai_handling: filters.aiHandling } : {}),
     },
     token,
   )

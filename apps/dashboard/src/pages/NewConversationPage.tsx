@@ -88,7 +88,7 @@ import {
 } from '../lib/outbound-channel-pref'
 import { cn } from '../lib/utils'
 
-type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket' | 'note' | 'transcript'
+type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket' | 'note' | 'transcript' | 'channel'
 
 const NO_PROJECT = '__none__'
 
@@ -107,6 +107,14 @@ function brandSlugFor(provider: string, channel: string): string {
   const ch = (channel || '').trim().toLowerCase()
   if (ch && ch !== 'email' && ch !== 'mail') return PROVIDER_TO_HOST_SLUG[ch] || ch
   return 'smtp'
+}
+
+function sameChannel(accountChannel: string, requested: string): boolean {
+  const left = accountChannel.trim().toLowerCase()
+  const right = requested.trim().toLowerCase()
+  if (!left || !right) return false
+  if (left === right) return true
+  return (left === 'widget' && right === 'webchat') || (left === 'webchat' && right === 'widget')
 }
 
 function parseIntent(raw: string | null): Intent | null {
@@ -422,6 +430,8 @@ export default function NewConversationPage() {
     if (toParam) setToAddress(toParam)
   }, [toParam])
 
+  const tagParam = searchParams.get('tag')?.trim().replace(/^#/, '') || ''
+
   useEffect(() => {
     if (!token) return
     let cancelled = false
@@ -435,12 +445,19 @@ export default function NewConversationPage() {
       const ready = enabled.filter((row) => row.channel === 'whatsapp')
       setWhatsappAccounts(ready)
       setWhatsappAccountId((prev) => prev || ready[0]?.id || '')
-      setCategories(tags.filter((row) => row.workstream_id))
+      const flows = tags.filter((row) => row.workstream_id)
+      setCategories(flows)
+      if (tagParam) {
+        const match = flows.find(
+          (row) => row.name.replace(/^#/, '').toLowerCase() === tagParam.toLowerCase(),
+        )
+        if (match) setTicketTagId(match.id)
+      }
     })
     return () => {
       cancelled = true
     }
-  }, [token])
+  }, [token, tagParam])
 
   useEffect(() => {
     if (!memberParam || !teammateOptions.length) return
@@ -567,6 +584,7 @@ export default function NewConversationPage() {
   }, [targets, teammateOptions, sendableMailboxes, channelAccounts])
 
   const accountParam = searchParams.get('account')?.trim() || ''
+  const channelParam = searchParams.get('channel')?.trim() || ''
   const activeCarousel =
     (intent === 'note'
       ? carouselItems.find((item) => item.kind === 'note')
@@ -583,7 +601,10 @@ export default function NewConversationPage() {
                 item.account.id === (accountParam || whatsappAccountId),
             ) ?? carouselItems.find((item) => item.kind === 'channel' && item.account.channel === 'whatsapp')
           : intent === 'channel'
-            ? carouselItems.find((item) => item.kind === 'channel' && item.account.id === accountParam)
+            ? carouselItems.find((item) => item.kind === 'channel' && accountParam && item.account.id === accountParam) ??
+              carouselItems.find(
+                (item) => item.kind === 'channel' && sameChannel(item.account.channel, channelParam),
+              )
             : intent === 'teammate'
               ? carouselItems.find((item) => item.kind === 'member' && String(item.member.id) === selectedMemberId)
               : carouselItems.find((item) => item.kind === 'agent' && item.agent.id === selectedAgent?.id)) ??
@@ -1531,7 +1552,7 @@ function TicketStart({
       <div className="panel px-5 py-8 text-center">
         <Hash size={28} className="mx-auto text-text-muted" />
         <p className="mt-3 text-sm text-text-primary">{t('newConversation.noActionTags')}</p>
-        <Link to="/workstreams" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
+        <Link to="/flows" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
           {t('newConversation.openFlows')}
         </Link>
       </div>

@@ -90,9 +90,7 @@ function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): 
       : [row.managing_agent?.name, cadence].filter(Boolean).join(' · '),
     path: empty
       ? null
-      : row.project_id
-        ? `/folders/${row.project_id}?tab=canvas&canvas=${row.id}`
-        : `/cockpit/canvas?canvas=${row.id}`,
+      : `/folders/${row.project_id || row.owner_id}?tab=canvas&canvas=${row.id}`,
     signalId: row.signal_id ?? null,
     empty,
   }

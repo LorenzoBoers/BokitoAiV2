@@ -1,7 +1,8 @@
 """Canvas — AI-written snapshot dashboard (bokito/canvas).
 
-A canvas is a child node of a Project or of the Tenant (Overview). Agents and
-operators create, fill and refresh the snapshot. Refresh uses the existing
+A canvas is a workspace inside a folder (Project); loose canvases live in the
+folder "Algemeen" / "General". Agents and operators create, fill and refresh
+the snapshot. Refresh uses the existing
 Agenda Trigger, not a second scheduler.
 """
 
@@ -16,8 +17,7 @@ from sqlmodel import Field, SQLModel
 
 CANVAS_SCHEMA_VERSION = 2
 OWNER_PROJECT = "project"
-OWNER_TENANT = "tenant"
-CANVAS_OWNERS = (OWNER_PROJECT, OWNER_TENANT)
+CANVAS_OWNERS = (OWNER_PROJECT,)
 
 
 class ProjectCanvas(SQLModel, table=True):

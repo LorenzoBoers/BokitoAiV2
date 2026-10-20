@@ -592,17 +592,16 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
-/** Who an invite / floor handoff is aimed at, when the payload says. */
+const PEER_TOOLS = new Set(['invite_to_thread', 'ask_agent', 'handoff_to'])
+
+/** Who an invite, question or handoff is aimed at, when the payload says. */
 export function inviteTarget(item: ActivityItem): { id: string; name: string; kind: string } | null {
-  if (item.tool !== 'invite_to_thread' && item.tool !== 'request_participant_turn') return null
+  if (!item.tool || !PEER_TOOLS.has(item.tool)) return null
   const input = asRecord(item.input)
   const result = asRecord(item.result)
-  const turn = asRecord(result?.turn)
-  const id = String(
-    result?.ref_id || input?.id || input?.agent_id || turn?.agent_id || '',
-  ).trim()
-  const name = String(result?.name || turn?.agent_name || input?.name || '').trim()
-  const kind = String(result?.kind || input?.kind || (item.tool === 'request_participant_turn' ? 'agent' : '')).trim()
+  const id = String(result?.ref_id || result?.agent_id || input?.id || input?.agent_id || '').trim()
+  const name = String(result?.name || result?.agent_name || input?.name || '').trim()
+  const kind = String(result?.kind || input?.kind || (item.tool === 'invite_to_thread' ? '' : 'agent')).trim()
   if (!id && !name) return null
   return { id, name, kind }
 }

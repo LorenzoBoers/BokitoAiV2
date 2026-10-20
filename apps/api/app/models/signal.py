@@ -129,6 +129,8 @@ class Signal(SQLModel, table=True):
     turn_reason: str = ""  # reply_needed | question | draft_ready
     # Multi-agent floor: {"active_turn": {...}, "handoff_session": {...}}.
     floor_json: str = Field(default="{}")
+    # Highest ``signal_messages.seq`` handed out on this thread.
+    last_seq: int = Field(default=0)
     has_unread: bool = Field(default=True, index=True)
     # Temporary AI handling override for this conversation (manual | assisted |
     # autonomous); null follows contact -> channel -> workspace. Cleared on
@@ -406,11 +408,15 @@ class SignalMessage(SQLModel, table=True):
     __tablename__ = "signal_messages"
     __table_args__ = (
         Index("ix_signal_messages_tenant_external", "tenant_id", "external_id"),
+        Index("ux_signal_messages_signal_seq", "signal_id", "seq", unique=True),
     )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     signal_id: uuid.UUID = Field(foreign_key="signals.id", index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    # Place in the thread, from ``signals.last_seq``. The timeline sorts on it.
+    # An agent bubble takes its number when its first token streams.
+    seq: Optional[int] = Field(default=None)
     kind: str = Field(default="user_message", index=True)
     direction: str = Field(default="inbound")
     role: str = Field(default="user")
@@ -489,11 +495,6 @@ class SignalTag(SQLModel, table=True):
     create_mode: str = "ask_customer"
     ask_threshold: int = 6
     auto_threshold: int = 9
-    # Outbound policy on a ticket of this category: send follows AI handling;
-    # draft and ask force a concept.
-    send_mode: str = "send"
-    # Empty follows the company. A mode is a ceiling under AI handling.
-    autonomy_level: str = ""
     requires_verification: bool = False
     module_slug: str = ""
     template_slug: str = ""

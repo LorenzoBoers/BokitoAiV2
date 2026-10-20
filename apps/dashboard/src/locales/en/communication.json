@@ -258,7 +258,7 @@
     "scopeAgent": "Conversations for {{name}}",
     "scopeProject": "Conversations in {{name}}",
     "scopeAgentFallback": "this agent",
-    "scopeProjectFallback": "this project",
+    "scopeProjectFallback": "this folder",
     "scopeFolder": "Folder: {{name}}",
     "scopeFiltered": "Filtered conversations",
     "clearScope": "Show all conversations",
@@ -341,8 +341,8 @@
     "decisionNeeded": "Decision needed",
     "source": {
       "prefix": "From",
-      "agent_task": "project queue",
-      "project": "project",
+      "agent_task": "folder queue",
+      "project": "folder",
       "agent_run": "agent run",
       "platform_change": "platform change"
     },
@@ -381,7 +381,7 @@
     "toastRejected": "Decision rejected",
     "toastClosed": "Thread closed",
     "toastTaskCreated": "Look-at planned",
-    "toastQueueAdded": "Added to the project queue",
+    "toastQueueAdded": "Added to the folder queue",
     "titleQueueProposal": "Queue proposal",
     "openAgenda": "Open Agenda",
     "toastSent": "Reply sent",
@@ -491,58 +491,254 @@
     "webSearch": "Searching for {{query}}",
     "inviting": "Inviting {{name}} to the conversation",
     "invitingSomeone": "Inviting to the conversation",
+    "asking": "Asked {{name}}",
+    "askingSomeone": "Asked an agent",
+    "handingOver": "Handed over to {{name}}",
+    "handingOverSomeone": "Handed over",
     "generatingImage": "Generating image",
     "generatedImage": "Generated an image",
     "imageFailed": "Image was not generated",
     "verb": {
-      "list": { "running": "Listing {{object}}", "done": "Listed {{object}}", "error": "Could not list {{object}}" },
-      "read": { "running": "Reading {{object}}", "done": "Read {{object}}", "error": "Could not read {{object}}" },
-      "search": { "running": "Searching {{object}}", "done": "Searched {{object}}", "error": "Could not search {{object}}" },
-      "fetch": { "running": "Fetching {{object}}", "done": "Fetched {{object}}", "error": "Could not fetch {{object}}" },
-      "write": { "running": "Writing {{object}}", "done": "Wrote {{object}}", "error": "Could not write {{object}}" },
-      "create": { "running": "Creating {{object}}", "done": "Created {{object}}", "error": "Could not create {{object}}" },
-      "update": { "running": "Updating {{object}}", "done": "Updated {{object}}", "error": "Could not update {{object}}" },
-      "delete": { "running": "Deleting {{object}}", "done": "Deleted {{object}}", "error": "Could not delete {{object}}" },
-      "set": { "running": "Setting {{object}}", "done": "Set {{object}}", "error": "Could not set {{object}}" },
-      "post": { "running": "Posting {{object}}", "done": "Posted {{object}}", "error": "Could not post {{object}}" },
-      "send": { "running": "Sending {{object}}", "done": "Sent {{object}}", "error": "Could not send {{object}}" },
-      "invite": { "running": "Inviting {{object}}", "done": "Invited {{object}}", "error": "Could not invite {{object}}" },
-      "close": { "running": "Closing {{object}}", "done": "Closed {{object}}", "error": "Could not close {{object}}" },
-      "suggest": { "running": "Suggesting {{object}}", "done": "Suggested {{object}}", "error": "Could not suggest {{object}}" },
-      "propose": { "running": "Proposing {{object}}", "done": "Proposed {{object}}", "error": "Could not propose {{object}}" },
-      "assign": { "running": "Assigning {{object}}", "done": "Assigned {{object}}", "error": "Could not assign {{object}}" },
-      "schedule": { "running": "Scheduling {{object}}", "done": "Scheduled {{object}}", "error": "Could not schedule {{object}}" },
-      "restore": { "running": "Restoring {{object}}", "done": "Restored {{object}}", "error": "Could not restore {{object}}" },
-      "start": { "running": "Starting {{object}}", "done": "Started {{object}}", "error": "Could not start {{object}}" },
-      "leave": { "running": "Leaving {{object}}", "done": "Left {{object}}", "error": "Could not leave {{object}}" },
-      "remember": { "running": "Remembering {{object}}", "done": "Remembered {{object}}", "error": "Could not remember {{object}}" },
-      "mark": { "running": "Marking {{object}}", "done": "Marked {{object}}", "error": "Could not mark {{object}}" },
-      "record": { "running": "Recording {{object}}", "done": "Recorded {{object}}", "error": "Could not record {{object}}" },
-      "request": { "running": "Requesting {{object}}", "done": "Requested {{object}}", "error": "Could not request {{object}}" },
-      "react": { "running": "Reacting to {{object}}", "done": "Reacted to {{object}}", "error": "Could not react" },
-      "resolve": { "running": "Resolving {{object}}", "done": "Resolved {{object}}", "error": "Could not resolve {{object}}" },
-      "recommend": { "running": "Recommending {{object}}", "done": "Recommended {{object}}", "error": "Could not recommend {{object}}" },
-      "register": { "running": "Registering {{object}}", "done": "Registered {{object}}", "error": "Could not register {{object}}" },
-      "upsert": { "running": "Saving {{object}}", "done": "Saved {{object}}", "error": "Could not save {{object}}" },
-      "clear": { "running": "Clearing {{object}}", "done": "Cleared {{object}}", "error": "Could not clear {{object}}" },
-      "file": { "running": "Filing {{object}}", "done": "Filed {{object}}", "error": "Could not file {{object}}" },
-      "dispatch": { "running": "Dispatching {{object}}", "done": "Dispatched {{object}}", "error": "Could not dispatch {{object}}" },
-      "report": { "running": "Reporting {{object}}", "done": "Reported {{object}}", "error": "Could not report {{object}}" },
-      "ask": { "running": "Asking {{object}}", "done": "Asked {{object}}", "error": "Could not ask {{object}}" },
-      "attach": { "running": "Attaching {{object}}", "done": "Attached {{object}}", "error": "Could not attach {{object}}" },
-      "connect": { "running": "Connecting {{object}}", "done": "Connected {{object}}", "error": "Could not connect {{object}}" },
-      "link": { "running": "Linking {{object}}", "done": "Linked {{object}}", "error": "Could not link {{object}}" },
-      "add": { "running": "Adding {{object}}", "done": "Added {{object}}", "error": "Could not add {{object}}" },
-      "cancel": { "running": "Cancelling {{object}}", "done": "Cancelled {{object}}", "error": "Could not cancel {{object}}" },
-      "split": { "running": "Splitting {{object}}", "done": "Split {{object}}", "error": "Could not split {{object}}" },
-      "call": { "running": "Calling {{object}}", "done": "Called {{object}}", "error": "Could not call {{object}}" },
-      "generate": { "running": "Generating {{object}}", "done": "Generated {{object}}", "error": "Could not generate {{object}}" },
-      "note": { "running": "Noting {{object}}", "done": "Noted {{object}}", "error": "Could not note {{object}}" },
-      "take": { "running": "Taking {{object}}", "done": "Took {{object}}", "error": "Could not take {{object}}" },
-      "handoff": { "running": "Handing off to {{object}}", "done": "Handed off to {{object}}", "error": "Could not hand off" },
-      "continue": { "running": "Continuing on {{object}}", "done": "Continued on {{object}}", "error": "Could not continue" },
-      "follow": { "running": "Following up {{object}}", "done": "Followed up {{object}}", "error": "Could not follow up" },
-      "work": { "running": "Working on {{object}}", "done": "Did {{object}}", "error": "Could not finish {{object}}" }
+      "list": {
+        "running": "Listing {{object}}",
+        "done": "Listed {{object}}",
+        "error": "Could not list {{object}}"
+      },
+      "read": {
+        "running": "Reading {{object}}",
+        "done": "Read {{object}}",
+        "error": "Could not read {{object}}"
+      },
+      "search": {
+        "running": "Searching {{object}}",
+        "done": "Searched {{object}}",
+        "error": "Could not search {{object}}"
+      },
+      "fetch": {
+        "running": "Fetching {{object}}",
+        "done": "Fetched {{object}}",
+        "error": "Could not fetch {{object}}"
+      },
+      "write": {
+        "running": "Writing {{object}}",
+        "done": "Wrote {{object}}",
+        "error": "Could not write {{object}}"
+      },
+      "create": {
+        "running": "Creating {{object}}",
+        "done": "Created {{object}}",
+        "error": "Could not create {{object}}"
+      },
+      "update": {
+        "running": "Updating {{object}}",
+        "done": "Updated {{object}}",
+        "error": "Could not update {{object}}"
+      },
+      "delete": {
+        "running": "Deleting {{object}}",
+        "done": "Deleted {{object}}",
+        "error": "Could not delete {{object}}"
+      },
+      "set": {
+        "running": "Setting {{object}}",
+        "done": "Set {{object}}",
+        "error": "Could not set {{object}}"
+      },
+      "post": {
+        "running": "Posting {{object}}",
+        "done": "Posted {{object}}",
+        "error": "Could not post {{object}}"
+      },
+      "send": {
+        "running": "Sending {{object}}",
+        "done": "Sent {{object}}",
+        "error": "Could not send {{object}}"
+      },
+      "invite": {
+        "running": "Inviting {{object}}",
+        "done": "Invited {{object}}",
+        "error": "Could not invite {{object}}"
+      },
+      "close": {
+        "running": "Closing {{object}}",
+        "done": "Closed {{object}}",
+        "error": "Could not close {{object}}"
+      },
+      "suggest": {
+        "running": "Suggesting {{object}}",
+        "done": "Suggested {{object}}",
+        "error": "Could not suggest {{object}}"
+      },
+      "propose": {
+        "running": "Proposing {{object}}",
+        "done": "Proposed {{object}}",
+        "error": "Could not propose {{object}}"
+      },
+      "assign": {
+        "running": "Assigning {{object}}",
+        "done": "Assigned {{object}}",
+        "error": "Could not assign {{object}}"
+      },
+      "schedule": {
+        "running": "Scheduling {{object}}",
+        "done": "Scheduled {{object}}",
+        "error": "Could not schedule {{object}}"
+      },
+      "restore": {
+        "running": "Restoring {{object}}",
+        "done": "Restored {{object}}",
+        "error": "Could not restore {{object}}"
+      },
+      "start": {
+        "running": "Starting {{object}}",
+        "done": "Started {{object}}",
+        "error": "Could not start {{object}}"
+      },
+      "leave": {
+        "running": "Leaving {{object}}",
+        "done": "Left {{object}}",
+        "error": "Could not leave {{object}}"
+      },
+      "remember": {
+        "running": "Remembering {{object}}",
+        "done": "Remembered {{object}}",
+        "error": "Could not remember {{object}}"
+      },
+      "mark": {
+        "running": "Marking {{object}}",
+        "done": "Marked {{object}}",
+        "error": "Could not mark {{object}}"
+      },
+      "record": {
+        "running": "Recording {{object}}",
+        "done": "Recorded {{object}}",
+        "error": "Could not record {{object}}"
+      },
+      "request": {
+        "running": "Requesting {{object}}",
+        "done": "Requested {{object}}",
+        "error": "Could not request {{object}}"
+      },
+      "react": {
+        "running": "Reacting to {{object}}",
+        "done": "Reacted to {{object}}",
+        "error": "Could not react"
+      },
+      "resolve": {
+        "running": "Resolving {{object}}",
+        "done": "Resolved {{object}}",
+        "error": "Could not resolve {{object}}"
+      },
+      "recommend": {
+        "running": "Recommending {{object}}",
+        "done": "Recommended {{object}}",
+        "error": "Could not recommend {{object}}"
+      },
+      "register": {
+        "running": "Registering {{object}}",
+        "done": "Registered {{object}}",
+        "error": "Could not register {{object}}"
+      },
+      "upsert": {
+        "running": "Saving {{object}}",
+        "done": "Saved {{object}}",
+        "error": "Could not save {{object}}"
+      },
+      "clear": {
+        "running": "Clearing {{object}}",
+        "done": "Cleared {{object}}",
+        "error": "Could not clear {{object}}"
+      },
+      "file": {
+        "running": "Filing {{object}}",
+        "done": "Filed {{object}}",
+        "error": "Could not file {{object}}"
+      },
+      "dispatch": {
+        "running": "Dispatching {{object}}",
+        "done": "Dispatched {{object}}",
+        "error": "Could not dispatch {{object}}"
+      },
+      "report": {
+        "running": "Reporting {{object}}",
+        "done": "Reported {{object}}",
+        "error": "Could not report {{object}}"
+      },
+      "ask": {
+        "running": "Asking {{object}}",
+        "done": "Asked {{object}}",
+        "error": "Could not ask {{object}}"
+      },
+      "attach": {
+        "running": "Attaching {{object}}",
+        "done": "Attached {{object}}",
+        "error": "Could not attach {{object}}"
+      },
+      "connect": {
+        "running": "Connecting {{object}}",
+        "done": "Connected {{object}}",
+        "error": "Could not connect {{object}}"
+      },
+      "link": {
+        "running": "Linking {{object}}",
+        "done": "Linked {{object}}",
+        "error": "Could not link {{object}}"
+      },
+      "add": {
+        "running": "Adding {{object}}",
+        "done": "Added {{object}}",
+        "error": "Could not add {{object}}"
+      },
+      "cancel": {
+        "running": "Cancelling {{object}}",
+        "done": "Cancelled {{object}}",
+        "error": "Could not cancel {{object}}"
+      },
+      "split": {
+        "running": "Splitting {{object}}",
+        "done": "Split {{object}}",
+        "error": "Could not split {{object}}"
+      },
+      "call": {
+        "running": "Calling {{object}}",
+        "done": "Called {{object}}",
+        "error": "Could not call {{object}}"
+      },
+      "generate": {
+        "running": "Generating {{object}}",
+        "done": "Generated {{object}}",
+        "error": "Could not generate {{object}}"
+      },
+      "note": {
+        "running": "Noting {{object}}",
+        "done": "Noted {{object}}",
+        "error": "Could not note {{object}}"
+      },
+      "take": {
+        "running": "Taking {{object}}",
+        "done": "Took {{object}}",
+        "error": "Could not take {{object}}"
+      },
+      "handoff": {
+        "running": "Handing off to {{object}}",
+        "done": "Handed off to {{object}}",
+        "error": "Could not hand off"
+      },
+      "continue": {
+        "running": "Continuing on {{object}}",
+        "done": "Continued on {{object}}",
+        "error": "Could not continue"
+      },
+      "follow": {
+        "running": "Following up {{object}}",
+        "done": "Followed up {{object}}",
+        "error": "Could not follow up"
+      },
+      "work": {
+        "running": "Working on {{object}}",
+        "done": "Did {{object}}",
+        "error": "Could not finish {{object}}"
+      }
     },
     "object": {
       "docs": "docs",
@@ -590,7 +786,7 @@
       "product_help": "help",
       "about_me": "about me",
       "operator_settings": "settings",
-      "tenant_overview": "overview",
+      "tenant_overview": "today",
       "recent_activity": "recent activity",
       "usage_summary": "usage",
       "platform_watch": "platform watch",
@@ -598,7 +794,7 @@
       "wake": "wake",
       "posture": "autonomy",
       "contact_tags": "contact labels",
-      "ai_handling": "AI handling",
+      "ai_handling": "Autonomy",
       "channel_ai_handling": "channel handling",
       "session_checkout": "session checkout",
       "over_conversation": "the conversation",
@@ -760,7 +956,7 @@
     "pickAgent": "Choose which agent",
     "reason": {
       "channel": "handles this channel",
-      "project": "project lead",
+      "project": "folder lead",
       "company": "company agent",
       "module": "module specialist"
     },
@@ -833,7 +1029,7 @@
       },
       "watching": {
         "title": "Let the assistant watch",
-        "description": "The hourly check-in wakes the assistant. It starts paused; turn it on so it only writes in Communication when something needs you.",
+        "description": "The hourly check-in wakes the assistant. It starts paused; turn it on so it only writes in Communication when something needs attention.",
         "cta": "Turn on check-in",
         "enabling": "Turning on…",
         "enabled": "Check-in is on. The assistant will watch in the background.",
@@ -863,7 +1059,7 @@
     "intentWhatsapp": "WhatsApp",
     "intentWhatsappHint": "Send a message from a connected WhatsApp number.",
     "intentTicket": "Ticket",
-    "intentTicketHint": "Start an internal conversation already filed on a label that has a flow, optionally in a project.",
+    "intentTicketHint": "Start an internal conversation already filed on a label that has a flow, optionally in a folder.",
     "whatsappTo": "Number",
     "whatsappToPlaceholder": "31612345678",
     "whatsappBodyPlaceholder": "Write the WhatsApp message...",
@@ -983,7 +1179,7 @@
     "creating": "Creating...",
     "saving": "Saving…",
     "cancel": "Cancel",
-    "addToProject": "Link to project",
+    "addToProject": "Link to folder",
     "emptyTitle": "No messages in this thread yet.",
     "emptyEmail": "New email will appear after the next mailbox sync.",
     "emptyChat": "Send a message or ask the assistant about this conversation.",
@@ -997,9 +1193,9 @@
     "openInboxAi": "Adjust AI replies",
     "selectThread": "Select a thread to view.",
     "selectThreadTitle": "Pick a conversation",
-    "selectThreadHint": "Choose a thread from the list, or start a new chat.",
+    "selectThreadHint": "Choose a thread from the list, or start a New conversation.",
     "openSetupGuide": "Open setup guide",
-    "startNewChat": "Start a new chat",
+    "startNewChat": "Start a New conversation",
     "backToConversations": "Back to conversations",
     "agentHandling": "Agent on this conversation",
     "threadActions": "Thread actions",
@@ -1018,7 +1214,7 @@
     "fileSearch": "Search folders",
     "fileLoading": "Loading folders...",
     "fileEmpty": "No folders match.",
-    "fileRoot": "Projects (top level)",
+    "fileRoot": "Folders (top level)",
     "fileCancel": "Cancel",
     "fileError": "Could not file this conversation.",
     "fileLoadError": "Could not load folders.",
@@ -1071,17 +1267,17 @@
     "unknownContact": "unknown contact",
     "agentWorking": "{{name}} is working on this thread...",
     "agentFailed": "{{name}} could not complete the request.",
-    "project": "Project",
-    "projectUpdated": "Project updated",
-    "projectUpdateError": "Could not update project.",
-    "loadingProjects": "Loading projects...",
-    "linkProject": "Link to project",
-    "noProject": "No project",
-    "noProjectsYet": "No projects yet. Create one as a home for this work.",
-    "openProjects": "Open Projects",
-    "projectAgent": "Project agent: {{name}}",
-    "noProjectAgent": "No project agent yet.",
-    "openProject": "Open project",
+    "project": "Folder",
+    "projectUpdated": "Folder updated",
+    "projectUpdateError": "Could not update folder.",
+    "loadingProjects": "Loading folders...",
+    "linkProject": "Link to folder",
+    "noProject": "No folder",
+    "noProjectsYet": "No folders yet. Create one as a home for this work.",
+    "openProjects": "Open Folders",
+    "projectAgent": "Folder agent: {{name}}",
+    "noProjectAgent": "No folder agent yet.",
+    "openProject": "Open folder",
     "queueOpen": "{{count}} open items",
     "queueOpen_one": "{{count}} open item",
     "moreActions": "More actions",
@@ -1116,16 +1312,16 @@
     "plan": "Plan"
   },
   "addToProject": {
-    "title": "Link to project",
-    "hint": "This conversation belongs to a project — no separate task.",
-    "loading": "Loading projects...",
-    "loadError": "Could not load projects.",
-    "empty": "No projects yet.",
-    "openProjects": "Open projects",
+    "title": "Link to folder",
+    "hint": "This conversation belongs to a folder — no separate task.",
+    "loading": "Loading folders...",
+    "loadError": "Could not load folders.",
+    "empty": "No folders yet.",
+    "openProjects": "Open folders",
     "untitledThread": "Thread follow-up",
     "taskBody": "From thread: {{subject}}",
     "success": "Linked to {{name}}",
-    "error": "Could not link to project"
+    "error": "Could not link to folder"
   },
   "shortcuts": {
     "title": "Inbox shortcuts",
@@ -1164,7 +1360,7 @@
     "relatedWork": "Related work",
     "linkAgents": "Agents",
     "linkPlaybooks": "Flows",
-    "linkProjects": "Projects",
+    "linkProjects": "Folders",
     "linkKnowledge": "Knowledge",
     "noContact": "No contact linked",
     "noContactHint": "We could not match this conversation to a saved person yet. Choose Contact to connect it by email or phone.",
@@ -1540,9 +1736,9 @@
       "escalated": "Escalated to the team",
       "aiPaused": "AI paused on this thread",
       "aiResumed": "AI resumed on this thread",
-      "handlingSet": "AI handling set to {{mode}}",
-      "handlingSetBy": "{{name}} set AI handling to {{mode}}",
-      "handlingCleared": "AI handling follows the channel again",
+      "handlingSet": "Autonomy set to {{mode}}",
+      "handlingSetBy": "{{name}} set Autonomy to {{mode}}",
+      "handlingCleared": "Autonomy follows the channel again",
       "handlingClearedBy": "{{name}} handed this back to AI",
       "handlingHeld": "Manual: {{reason}}",
       "handlingDowngraded": "Drafted instead of sent: {{reason}}",
@@ -1618,7 +1814,10 @@
       "participantTurnTimeoutGeneric": "Participant did not answer in time",
       "participantTurnMaxConsecutive": "Agents stopped: too many turns in a row — human help needed",
       "folderSet": "Filed in {{path}}",
-      "folderSetGeneric": "Filed in a folder"
+      "folderSetGeneric": "Filed in a folder",
+      "deliveredItem": "Delivered in {{folder}} › {{item}}",
+      "deliveredFolder": "Delivered in {{folder}}",
+      "deliveredKnowledge": "Correction kept as an example"
     }
   },
   "triage": {
@@ -1770,8 +1969,8 @@
     "makeActionTag": "Make label",
     "makeActionTagHint": "Creates a flow titled #{{name}} and files this conversation as a ticket.",
     "applyFreeHint": "Labels the conversation only. Does not start a ticket flow.",
-    "chooseProject": "Which project does this belong to?",
-    "noProject": "No project",
+    "chooseProject": "Which folder does this belong to?",
+    "noProject": "No folder",
     "intakeTitle": "Fill in details",
     "intakeHint": "Optional fields for this label. Required fields are marked.",
     "intakeContinue": "File ticket",
@@ -1803,12 +2002,12 @@
       "agent": "Agent",
       "tag": "Hashtag",
       "flow": "Flow",
-      "project": "Project",
+      "project": "Folder",
       "folder": "Folder",
       "canvas": "Canvas",
       "contact": "Contact",
       "integration": "Connection",
-      "marketplace": "Marketplace",
+      "marketplace": "Catalog",
       "module": "Module",
       "help_doc": "Help article",
       "knowledge": "Document",
@@ -1819,14 +2018,14 @@
       "conversation": "Conversation",
       "contact": "Contact",
       "company": "Organization",
-      "project": "Project",
+      "project": "Folder",
       "canvas": "Canvas",
       "knowledge": "Knowledge",
       "playbook": "Flow",
       "trigger": "Agenda item",
       "team": "Team",
       "inbox_rule": "Inbox rule",
-      "project_resource": "Project resource",
+      "project_resource": "Folder resource",
       "queue_item": "Queue item"
     },
     "itemMissing": "No longer available",
@@ -1995,5 +2194,41 @@
     "hangUp": "Hang up",
     "connecting": "Connecting",
     "voiceFailed": "Could not start the call. The decision is still in the thread."
+  },
+  "threadWhy": {
+    "button": "Why",
+    "title": "Why this conversation runs this way",
+    "loading": "Loading",
+    "failed": "Could not load the reason",
+    "modes": {
+      "autonomous": "Autonomous",
+      "assisted": "Assisted",
+      "manual": "Manual"
+    },
+    "lines": {
+      "agent_reply": "{{name}} wrote the last reply.",
+      "agent_owner": "{{name}} owns this conversation.",
+      "agent_addressed": "{{name}} is addressed in this conversation.",
+      "agent_none": "No agent answers here yet. Pick one on the channel.",
+      "handling_workspace": "Autonomy is {{mode}}, from the workspace dial.",
+      "handling_channel": "Autonomy is {{mode}}, set on channel {{source}}.",
+      "handling_conversation": "Autonomy is {{mode}}, set on this conversation until it closes.",
+      "cap_govern": "The workspace dial allows at most {{mode}}.",
+      "cap_privacy": "Privacy settings keep the AI at {{mode}}.",
+      "cap_breaker": "The breaker tripped on this channel, so at most {{mode}}.",
+      "cap_agent": "{{agent}} may work at most {{mode}}.",
+      "cap_flow": "Flow {{flow}} always reviews replies, so at most {{mode}}.",
+      "knowledge_doc": "Read for the last reply: {{title}}",
+      "knowledge_none": "The last reply used no knowledge documents, or it predates this record.",
+      "folder": "Filed in folder {{folder}}.",
+      "folder_conversation": "In folder {{folder}} through label #{{tag}} on this conversation.",
+      "folder_contact": "In folder {{folder}} through label #{{tag}} on the contact.",
+      "folder_company": "In folder {{folder}} through label #{{tag}} on the company.",
+      "flow": "Ticket in flow {{flow}} (#{{label}}), stage {{stage}}.",
+      "delivered_reply": "Delivered as a reply on {{channel}} ({{count}}).",
+      "delivered_works_in": "Delivered in {{folder}}, {{item}}.",
+      "delivered_folder": "Delivered in folder {{folder}}.",
+      "delivered_knowledge": "A correction here is kept as an example for later replies."
+    }
   }
 }

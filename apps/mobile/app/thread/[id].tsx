@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import EmptyState from '../../src/components/EmptyState'
 import { LiveBanner } from '../../src/components/StatusBanner'
 import { ChannelBadge } from '../../src/components/ChannelGlyph'
+import { assignBubbleStacks } from '@bokito/shared'
 import DaySeparator from '../../src/components/DaySeparator'
 import EventRow from '../../src/components/EventRow'
 import MessageBubble from '../../src/components/MessageBubble'
@@ -178,6 +179,26 @@ export default function ThreadScreen() {
     () => buildTimeline(messages, events, t('thread.today'), t('thread.yesterday'), locale),
     [messages, events, t, locale],
   )
+  const bubbleStacks = useMemo(() => {
+    return assignBubbleStacks(
+      timeline.map((item) => {
+        if (item.type !== 'message') {
+          return { id: item.id, key: null, timeMs: 0, breaksRun: true }
+        }
+        const message = item.data
+        const note = message.kind === 'note' || message.kind === 'internal_note' || message.kind === 'decision_request'
+        const time = Date.parse(message.received_at ?? message.created_at ?? '')
+        const key = note
+          ? null
+          : message.direction === 'inbound'
+            ? `in:${message.from_address ?? ''}`
+            : message.payload?.agent_id
+              ? `ai:${String(message.payload.agent_id)}`
+              : `user:${message.author_user_id ?? ''}`
+        return { id: item.id, key, timeMs: Number.isFinite(time) ? time : 0, breaksRun: note }
+      }),
+    )
+  }, [timeline])
 
   const showStreamBubble = gatewayStream.streaming || !!gatewayStream.streamText || gatewayStream.steps.length > 0
   const lastCompletedSteps = useLastAgentSteps(gatewayStream.streaming, gatewayStream.steps)
@@ -485,6 +506,7 @@ export default function ThreadScreen() {
             <View style={styles.messageBlock}>
               {showThought ? <ThinkingTrace steps={lastCompletedSteps} compact /> : null}
               <MessageBubble
+                stack={bubbleStacks.get(item.id)}
                 message={item.data}
                 events={events}
                 resolveBusy={mutations.resolveDecision.isPending}

@@ -1,7 +1,27 @@
 import { DarkTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native'
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  useFonts,
+} from '@expo-google-fonts/inter'
+import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { ActivityIndicator, Text, TextInput, View } from 'react-native'
+
+let defaultFontApplied = false
+
+function applyDefaultFont() {
+  if (defaultFontApplied) return
+  defaultFontApplied = true
+  const font = { fontFamily: 'Inter_400Regular' }
+  for (const Comp of [Text, TextInput]) {
+    const target = Comp as typeof Text & { defaultProps?: { style?: object } }
+    target.defaultProps = { ...target.defaultProps, style: [font, target.defaultProps?.style] }
+  }
+}
 import { KeyboardProvider } from 'react-native-keyboard-controller'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider } from '../src/context/AuthContext'
@@ -61,6 +81,20 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    JetBrainsMono_400Regular,
+  })
+  if (fontsLoaded) applyDefaultFont()
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#121213' }}>
+        <ActivityIndicator color="#32bf8e" />
+      </View>
+    )
+  }
   return (
     <SafeAreaProvider>
       <KeyboardProvider>

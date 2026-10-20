@@ -30,7 +30,6 @@ class TagRow(BaseModel):
     workstream_name: str | None = None
     show_in_nav: bool = False
     ai_auto_tag: bool = True
-    send_mode: str = "send"
     folders: list[TagFolderRef] = []
 
 

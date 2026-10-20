@@ -33,7 +33,7 @@ def test_module_catalog_omits_prompts_and_step_goals():
     agent = package["agent_template"]
     assert "system_prompt" not in agent
     assert "extra_tools" not in agent
-    assert agent["name"] == "Boekito"
+    assert agent["name"] == "Boekhouder"
     assert agent["job_title"] == "Controller"
     assert agent["avatar_shape"] == "shield"
     assert agent["role_blurb"]
@@ -118,7 +118,7 @@ async def test_close_asks_for_stage_fields_then_closes(client: AsyncClient, sess
         },
     ]
     patched = await client.patch(
-        f"/api/workstreams/{body['workstream_id']}", headers=headers, json={"stages": stages}
+        f"/api/flows/{body['workstream_id']}", headers=headers, json={"stages": stages}
     )
     assert patched.status_code == 200, patched.text
 

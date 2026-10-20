@@ -107,11 +107,13 @@ async def append_signal_chat_message(
     attachments: list[dict] | None = None,
     metadata: dict[str, Any] | None = None,
     decision_id: UUID | None = None,
+    seq: int | None = None,
 ) -> SignalMessage:
     now = datetime.utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,
+        seq=seq,
         kind="user_message" if role == "user" else "agent_message",
         direction="inbound" if role == "user" else "outbound",
         role=role,
@@ -263,7 +265,7 @@ async def context_thread_transcript(
     result = await session.execute(
         select(SignalMessage)
         .where(SignalMessage.signal_id == signal_id)
-        .order_by(SignalMessage.created_at)
+        .order_by(SignalMessage.seq, SignalMessage.id)
     )
     lines: list[str] = []
     from app.services.assistant_context import conversation_filing_brief
@@ -296,23 +298,53 @@ async def context_thread_transcript(
     return f"{header}\n---\n{transcript}"
 
 
+async def _speaker_names(session: AsyncSession, rows: list[SignalMessage]) -> dict[UUID, str]:
+    from app.models.agent import Agent
+    from app.models.auth import User
+
+    agent_ids = {m.author_agent_id for m in rows if m.author_agent_id}
+    user_ids = {m.author_user_id for m in rows if m.author_user_id and not m.author_agent_id}
+    names: dict[UUID, str] = {}
+    if agent_ids:
+        for agent_id, name in (
+            await session.execute(select(Agent.id, Agent.name).where(Agent.id.in_(agent_ids)))
+        ).all():
+            names[agent_id] = name or "Agent"
+    if user_ids:
+        for user_id, display, email in (
+            await session.execute(
+                select(User.id, User.display_name, User.email).where(User.id.in_(user_ids))
+            )
+        ).all():
+            names[user_id] = display or (email or "").split("@")[0] or "Colleague"
+    return names
+
+
 async def signal_chat_history(
     session: AsyncSession,
     signal_id: UUID,
     *,
     compact: bool = True,
+    for_agent_id: UUID | None = None,
 ) -> list[dict[str, Any]]:
     """Thread history in LLM message format, with old turns compacted to a summary.
 
     ``compact=False`` skips the LLM summarize step (operator chat drive). A hung
     compaction used to block the first token on long threads.
+
+    ``for_agent_id`` reads the thread as that agent: only its own messages are
+    ``assistant``; people and other agents are ``user`` lines that start with
+    their name, so the agent never takes a colleague's words for its own.
     """
     from app.services.signals import message_plain_text
 
     stmt = (
         select(SignalMessage)
         .where(SignalMessage.signal_id == signal_id)
-        .order_by(SignalMessage.created_at.desc() if not compact else SignalMessage.created_at)
+        .order_by(
+            SignalMessage.seq.desc() if not compact else SignalMessage.seq,
+            SignalMessage.id.desc() if not compact else SignalMessage.id,
+        )
     )
     if not compact:
         stmt = stmt.limit(KEEP_RECENT)
@@ -320,6 +352,7 @@ async def signal_chat_history(
     rows = list(result.scalars().all())
     if not compact:
         rows.reverse()
+    names = await _speaker_names(session, rows) if for_agent_id is not None else {}
 
     history: list[dict[str, Any]] = []
     for m in rows:
@@ -327,6 +360,14 @@ async def signal_chat_history(
             continue
         role = m.role if m.role in ("user", "assistant") else "user"
         body = message_plain_text(m)
+        if for_agent_id is not None and body:
+            if m.author_agent_id == for_agent_id:
+                role = "assistant"
+            else:
+                role = "user"
+                speaker = names.get(m.author_agent_id or m.author_user_id) if (m.author_agent_id or m.author_user_id) else None
+                if speaker:
+                    body = f"{speaker}: {body}"
         try:
             parsed_attachments = json.loads(m.attachments_json or "[]")
         except (TypeError, ValueError, json.JSONDecodeError):
@@ -342,6 +383,17 @@ async def signal_chat_history(
             meta = json.loads(m.metadata_json or "{}")
         except json.JSONDecodeError:
             meta = {}
+        if for_agent_id is not None and m.author_agent_id == for_agent_id and isinstance(meta, dict):
+            peer_tool = next(
+                (
+                    item.get("tool")
+                    for item in meta.get("activity") or []
+                    if isinstance(item, dict) and item.get("tool") in ("ask_agent", "handoff_to")
+                ),
+                None,
+            )
+            if peer_tool:
+                body = f"{body}\n[Sent with {peer_tool}.]"
         if isinstance(meta, dict) and meta.get("decision_outcome_hint"):
             # Already a full [System] hint written at resolve time.
             history.append({"role": "user", "content": body})

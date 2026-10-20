@@ -8,7 +8,7 @@ needed:
 - ``signals.backlog`` - patterns interpretation keeps seeing that no hashtag
   covers. Each entry holds a short name, one sentence, an example quote and a
   count. At ``BACKLOG_THRESHOLD`` sightings the entry is ready to become a
-  category; an owner/admin promotes or dismisses it on `/settings/action-tags`.
+  category; an owner/admin promotes or dismisses it on `/settings/labels`.
 
 Interpretation never invents hashtags on a thread - unknown patterns land here
 instead, so the vocabulary only grows through a human decision.

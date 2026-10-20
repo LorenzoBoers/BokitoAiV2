@@ -37,7 +37,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const pageTitle = tab
     ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
     : onModuleWorkspace
-      ? t('tabGroups.connections', { defaultValue: 'Connections' })
+      ? t('tabs.modules.title', { defaultValue: 'Connections' })
       : (currentWorkspace?.name ?? 'Bokito')
   const settingsLink = settingsLinkForPath(pathname)
   const extraCrumbs = extraCrumbsForPath(pathname)

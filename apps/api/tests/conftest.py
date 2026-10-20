@@ -76,6 +76,8 @@ def _fast_redis_enqueue(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(tasks, "enqueue_webhook_delivery", AsyncMock())
     if hasattr(tasks, "enqueue_module_source_index"):
         monkeypatch.setattr(tasks, "enqueue_module_source_index", AsyncMock())
+    # Queued agent turns stay queued; a test drives them explicitly.
+    monkeypatch.setattr("app.services.agent_turns.ring", AsyncMock())
     yield
     tasks._arq_pool = None
     tasks._arq_pool_unavailable = False
@@ -232,3 +234,28 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
     finally:
         signal_chat.async_session_factory = previous_chat_factory
         app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def autonomous_workspace(client: AsyncClient, session_override: AsyncSession) -> None:
+    """Autonomy dial and the seeded agents on Autonomous.
+
+    New workspaces and agents sit at Assisted, which turns live widget answers
+    into drafts. Tests that stream a widget answer ask for this fixture.
+    """
+    from sqlalchemy import select
+
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
+
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    settings = json.loads(tenant.settings_json or "{}")
+    block = settings.get("ai_handling") if isinstance(settings.get("ai_handling"), dict) else {}
+    block["ceiling"] = "autonomous"
+    settings["ai_handling"] = block
+    tenant.settings_json = json.dumps(settings)
+    session_override.add(tenant)
+    for agent in (await session_override.execute(select(Agent).where(Agent.tenant_id == tenant.id))).scalars():
+        agent.autonomy_level = "autonomous"
+        session_override.add(agent)
+    await session_override.commit()

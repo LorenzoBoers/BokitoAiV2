@@ -456,14 +456,17 @@ async def list_time_items(
         signals = await _session_signal_ids(session, runs, trigger_by_id)
         for run in runs:
             trigger = trigger_by_id.get(run.trigger_id or "")
+            if trigger is None and "activity" not in wanted:
+                continue
             if trigger is not None:
                 session_trigger_ids.add(str(trigger.id))
             ended = run.completed_at or (now if run.status == "running" else run.started_at)
             name = agent_names.get(run.agent_id)
+            unscheduled = trigger is None
             items.append(
                 _row(
                     id=f"session:{run.id}",
-                    kind="session",
+                    kind="activity" if unscheduled else "session",
                     trigger_kind=trigger.kind if trigger is not None else None,
                     start=run.started_at,
                     end=ended,
@@ -480,7 +483,7 @@ async def list_time_items(
                     trigger_id=str(trigger.id) if trigger is not None else None,
                     run_id=str(run.id),
                     signal_id=signals.get(run.id),
-                    source="session",
+                    source="activity" if unscheduled else "session",
                     run_type=run.trigger_type,
                 )
             )

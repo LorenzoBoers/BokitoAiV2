@@ -282,7 +282,7 @@ Operators noemen zeven dingen: Gesprek, Actietag, Flow, Map, Contact, Agent, Bes
 
 - **EN:** Playbooks (rail) / Flows (product)
 - **NL:** Playbooks (rail) / Flows (product)
-- **Toelichting:** Pad `/workstreams`. Het scherm van Flow. Leden zien het bord. Aanmaken, fasen en verwijderen: owner of admin. Een nieuwe flow kiest een vrije hashtag of maakt er een, met kleur en icoon. Een hashtag die al een flow heeft kan geen tweede starten. Relateert aan Actietag, Labels, Folder, Agenda en Department (een flow hoort bij een afdeling). Naamconflict: rail zegt Playbooks, subtitel “repeatable step-by-step playbooks”, terwijl de stapmachine is verwijderd en de intentie het woord Playbook afraadt.
+- **Toelichting:** Pad `/flows`. Het scherm van Flow. Leden zien het bord. Aanmaken, fasen en verwijderen: owner of admin. Een nieuwe flow kiest een vrije hashtag of maakt er een, met kleur en icoon. Een hashtag die al een flow heeft kan geen tweede starten. Relateert aan Actietag, Labels, Folder, Agenda en Department (een flow hoort bij een afdeling). Naamconflict: rail zegt Playbooks, subtitel “repeatable step-by-step playbooks”, terwijl de stapmachine is verwijderd en de intentie het woord Playbook afraadt.
 
 ### Stages
 
@@ -500,7 +500,7 @@ Settings groepeert Personal, Workspace, Communication, Govern, Advanced en Help.
 
 - **EN:** Labels
 - **NL:** Labels
-- **Toelichting:** Pad `/settings/action-tags`. Eén platte lijst van het hashtag-register. Flow-labels eerst, met kleur. Vrije labels blijven vlak. New label maakt een vrije hashtag. Create flow hangt er een flow aan. Save as map maakt een map. What we missed telt verzoeken die niets raakten. Who may confirm tickets bepaalt wie een AI-voorstel mag bevestigen. Leden mogen altijd zelf archiveren. Aanmaken en beleid wijzigen: owner of admin. Relateert aan Actietag, Flow, Folder, Communication en triage. Vijf deuren naar hetzelfde register: deze pagina, de flow, de map, het contact en de kiezer in het gesprek.
+- **Toelichting:** Pad `/settings/labels`. Eén platte lijst van het hashtag-register. Flow-labels eerst, met kleur. Vrije labels blijven vlak. New label maakt een vrije hashtag. Create flow hangt er een flow aan. Save as map maakt een map. What we missed telt verzoeken die niets raakten. Who may confirm tickets bepaalt wie een AI-voorstel mag bevestigen. Leden mogen altijd zelf archiveren. Aanmaken en beleid wijzigen: owner of admin. Relateert aan Actietag, Flow, Folder, Communication en triage. Vijf deuren naar hetzelfde register: deze pagina, de flow, de map, het contact en de kiezer in het gesprek.
 
 ### Triage
 

@@ -13,7 +13,7 @@ export type NotificationData = {
 }
 
 export type NotificationRoute =
-  | { type: 'app'; path: '/(tabs)/home' | '/(tabs)/conversations' | `/thread/${string}` }
+  | { type: 'app'; path: '/(tabs)/home' | '/(tabs)/conversations' | '/(tabs)/agenda' | `/thread/${string}` }
   | { type: 'web'; path: string }
 
 export function resolveNotificationRoute(data: NotificationData | undefined): NotificationRoute {
@@ -38,7 +38,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
   if (data.platform_change_id) return { type: 'web', path: '/settings/govern?tab=drafts' }
   if (data.agent_id) return { type: 'web', path: `/agents/${data.agent_id}` }
   if (data.contact_id) return { type: 'web', path: `/contacts/${data.contact_id}` }
-  if (data.trigger_id) return { type: 'web', path: '/agenda' }
+  if (data.trigger_id) return { type: 'app', path: '/(tabs)/agenda' }
 
   if (data.kind === 'ops_alert') {
     if (data.account_id) return { type: 'web', path: '/settings/channels' }
@@ -62,7 +62,7 @@ export function resolveNotificationRoute(data: NotificationData | undefined): No
 /** App-only path used by existing callers and tests. Web-only kinds land on Home. */
 export function pathFromNotificationData(
   data: NotificationData | undefined,
-): '/(tabs)/home' | '/(tabs)/conversations' | `/thread/${string}` {
+): '/(tabs)/home' | '/(tabs)/conversations' | '/(tabs)/agenda' | `/thread/${string}` {
   const route = resolveNotificationRoute(data)
   return route.type === 'app' ? route.path : '/(tabs)/home'
 }

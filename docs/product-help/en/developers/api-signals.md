@@ -4,7 +4,7 @@ intro: Read conversations and push external events into the inbox over REST.
 description: Reference guide for the Bokito Signals REST API: list signals, fetch a signal with messages, and create inbound signals from external systems.
 keywords: signals, rest api, endpoints, curl, inbox api
 sort: 30
-related: api-overview,authentication,webhooks
+related: api-today,authentication,webhooks
 ---
 
 # Signals API

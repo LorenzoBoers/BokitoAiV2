@@ -251,7 +251,7 @@ function detailText(value: unknown): string {
 }
 
 function inviteLine(item: ActivityItem, t: (key: string, opts?: Record<string, unknown>) => string, name: string): string | null {
-  if (!inviteTarget(item)) return null
+  if (!inviteTarget(item) || item.labelKey) return null
   if (!name) return t('activity.invitingSomeone')
   return t('activity.inviting', { name })
 }

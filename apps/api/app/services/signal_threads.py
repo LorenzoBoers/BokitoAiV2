@@ -288,19 +288,22 @@ def _active_turn_payload(signal: Signal) -> dict[str, Any] | None:
         return None
     if not isinstance(data, dict) or not data.get("ref_id"):
         return None
-    # A deferred peer waits until the caller finishes. Showing them now
-    # swaps the live face onto bubbles the caller is still writing.
-    if data.get("deferred"):
-        return None
-    deadline_raw = str(data.get("deadline") or "").strip()
-    if deadline_raw:
-        try:
-            deadline = datetime.fromisoformat(deadline_raw.replace("Z", ""))
-            if datetime.utcnow() >= deadline:
-                return None
-        except ValueError:
-            pass
     return data
+
+
+def addressed_agent_payload(signal: Signal, agent: Agent | None) -> dict[str, str] | None:
+    """Who the composer is talking to: the live turn, else the open handoff, else the owner."""
+    turn = _active_turn_payload(signal)
+    if turn and str(turn.get("kind") or "") == "agent" and turn.get("ref_id"):
+        return {"id": str(turn["ref_id"]), "name": str(turn.get("name") or "")}
+    from app.services.handoff_sessions import serialize_handoff_session
+
+    handoff = serialize_handoff_session(signal)
+    if handoff and handoff.get("opener_id"):
+        return {"id": str(handoff["opener_id"]), "name": str(handoff.get("opener_name") or "")}
+    if agent is not None:
+        return {"id": str(agent.id), "name": agent.name}
+    return None
 
 
 def serialize_thread(
@@ -377,6 +380,7 @@ def serialize_thread(
         "folder": folder,
         "agent_id": str(signal.agent_id) if signal.agent_id else None,
         "agent_name": agent.name if agent else None,
+        "addressed_agent": addressed_agent_payload(signal, agent),
         "agent_kind": agent.kind if agent else None,
         "folder_id": str(signal.project_id) if signal.project_id else None,
         "project_id": str(signal.project_id) if signal.project_id else None,
@@ -694,8 +698,6 @@ def serialize_message(
             payload["history"] = activity["history"]
     if meta.get("turn_id"):
         payload["turn_id"] = str(meta["turn_id"])
-    if meta.get("reveal_at"):
-        payload["reveal_at"] = str(meta["reveal_at"])
     if meta.get("in_progress"):
         payload["in_progress"] = True
     if include_trace and isinstance(meta.get("usage"), dict) and meta["usage"]:
@@ -755,6 +757,7 @@ def serialize_message(
         "id": str(message.id),
         "thread_id": str(message.signal_id),
         "signal_id": str(message.signal_id),
+        "seq": message.seq,
         "connection_id": None,
         "kind": message.kind,
         "direction": message.direction,
@@ -1657,7 +1660,7 @@ async def _present_thread_rows(
     )
 
     from app.models.auth import Tenant
-    from app.services.ai_handling import resolve_ai_handling, widget_account
+    from app.services.ai_handling import flow_always_review_for, resolve_ai_handling, widget_account
 
     tenant = await session.get(Tenant, tenant_id)
     account_ids = {t.channel_account_id for t in threads if t.channel_account_id}
@@ -1675,13 +1678,6 @@ async def _present_thread_rows(
         if any(t.channel == "widget" and not t.channel_account_id for t in threads)
         else None
     )
-    contact_ids = {t.contact_id for t in threads if t.contact_id}
-    contacts_by_id: dict[UUID, Contact] = {}
-    if contact_ids:
-        contact_rows = await session.execute(
-            select(Contact).where(Contact.tenant_id == tenant_id, Contact.id.in_(contact_ids))
-        )
-        contacts_by_id = {c.id: c for c in contact_rows.scalars().all()}
     from app.services.tickets import tickets_by_signal
 
     tickets = await tickets_by_signal(session, tenant_id, threads)
@@ -1696,6 +1692,7 @@ async def _present_thread_rows(
 
     rules = await rules_by_signal(session, tenant_id, [t.id for t in threads])
 
+    review_cache: dict[str, Any] = {}
     items = []
     for t in threads:
         agent = agents_by_id.get(t.agent_id) if t.agent_id else None
@@ -1703,8 +1700,13 @@ async def _present_thread_rows(
         account = accounts_by_id.get(t.channel_account_id) if t.channel_account_id else None
         if account is None and t.channel == "widget":
             account = widget_fallback
-        contact = contacts_by_id.get(t.contact_id) if t.contact_id else None
-        handling = resolve_ai_handling(tenant, account, contact, t, agent=agent).to_payload()
+        handling = resolve_ai_handling(
+            tenant,
+            account,
+            t,
+            agent=agent,
+            flow_always_review=await flow_always_review_for(session, t, cache=review_cache),
+        ).to_payload()
         items.append(
             serialize_thread(
                 t,
@@ -1820,22 +1822,14 @@ async def get_thread(
                 )
             )
         ).scalar_one_or_none()
-        if before_row is not None and before_row.created_at is not None:
-            msg_filters.append(
-                or_(
-                    SignalMessage.created_at < before_row.created_at,
-                    and_(
-                        SignalMessage.created_at == before_row.created_at,
-                        SignalMessage.id < before_row.id,
-                    ),
-                )
-            )
+        if before_row is not None and before_row.seq is not None:
+            msg_filters.append(SignalMessage.seq < before_row.seq)
 
-    # Newest-first +1 to detect has_older, then reverse for chronological UI.
+    # Newest-first +1 to detect has_older, then reverse for thread order.
     messages_result = await session.execute(
         select(SignalMessage)
         .where(*msg_filters)
-        .order_by(SignalMessage.created_at.desc(), SignalMessage.id.desc())
+        .order_by(SignalMessage.seq.desc(), SignalMessage.id.desc())
         .limit(page_size + 1)
     )
     newest_first = list(messages_result.scalars().all())
@@ -1875,9 +1869,14 @@ async def get_thread(
         SignalEvent.tenant_id == tenant_id,
     ]
     if messages:
-        oldest_at = messages[0].created_at
-        newest_at = messages[-1].created_at
-        if before is not None:
+        stamps = [
+            m.created_at.replace(tzinfo=None) if m.created_at.tzinfo else m.created_at
+            for m in messages
+            if m.created_at is not None
+        ]
+        oldest_at = min(stamps) if stamps else None
+        newest_at = max(stamps) if stamps else None
+        if before is not None and oldest_at is not None:
             # Older page: only events that fall inside this page's span.
             event_filters.append(SignalEvent.created_at >= oldest_at)
             if newest_at is not None:
@@ -2767,7 +2766,9 @@ async def delete_thread(
             commit=commit,
         )
     subject = signal.subject
-    for model in (SignalMessage, SignalEvent, SignalThreadPin):
+    from app.models.agent_turn import AgentAsk, AgentTurn
+
+    for model in (AgentTurn, AgentAsk, SignalMessage, SignalEvent, SignalThreadPin):
         rows = await session.execute(select(model).where(model.signal_id == signal_id))
         for row in rows.scalars().all():
             await session.delete(row)
@@ -3168,6 +3169,18 @@ async def reply_to_thread(
             ),
         )
     )
+    if direction == "outbound":
+        from app.services.deliveries import TARGET_REPLY, record_delivery
+
+        await record_delivery(
+            session,
+            tenant_id,
+            signal_id,
+            target_kind=TARGET_REPLY,
+            ref=str(message.id),
+            channel=signal.channel,
+            user_id=user_id,
+        )
     await session.commit()
     await session.refresh(message)
     await publish_signal_message(signal, message)
@@ -3686,7 +3699,7 @@ async def _generate_agent_reply(
             role="member",
             joined_via="thread_reply",
         )
-        history = await signal_chat_history(session, signal_id)
+        history = await signal_chat_history(session, signal_id, for_agent_id=agent.id)
         loop = build_agent_loop(
             session,
             tenant_id=tenant_id,
@@ -3924,6 +3937,16 @@ async def resolve_message_decision(
                         }
                     ),
                 )
+            )
+            from app.services.deliveries import TARGET_KNOWLEDGE, record_delivery
+
+            await record_delivery(
+                session,
+                tenant_id,
+                signal_id,
+                target_kind=TARGET_KNOWLEDGE,
+                ref=f"draft_edit:{message_id}",
+                user_id=user_id,
             )
 
     from app.models.notification import DecisionRequest

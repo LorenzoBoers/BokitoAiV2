@@ -64,11 +64,6 @@ export type AllowanceState = {
   presets: PosturePreset[]
   learning_history?: LearningAllowanceNote[]
   prerequisites?: AutonomyPrerequisites
-  /** GET /posture only: AI handling ceiling from the messaging allowance. */
-  conversation_ceiling?: {
-    mode: 'autonomous' | 'assisted' | 'manual'
-    clamped_by: 'govern' | 'privacy' | 'breaker' | 'agent' | null
-  }
   autonomous_overrides?: number
 }
 
@@ -92,33 +87,6 @@ export type GovernToolRow = {
 }
 
 export type AllowancesResponse = AllowanceState & { tools: GovernToolRow[] }
-
-export type AutonomyScopeLevel = 'inherit' | 'manual' | 'assisted' | 'autonomous'
-
-const LEGACY_SCOPE: Record<string, AutonomyScopeLevel> = {
-  approval: 'assisted',
-  auto: 'autonomous',
-}
-
-export function normalizeAutonomyScopeLevel(value: string | null | undefined): AutonomyScopeLevel {
-  const raw = String(value || '').trim().toLowerCase()
-  if (raw === 'inherit' || raw === 'manual' || raw === 'assisted' || raw === 'autonomous') return raw
-  if (!raw || raw === 'default') return 'inherit'
-  return LEGACY_SCOPE[raw] ?? 'inherit'
-}
-
-export type AutonomyScopeRow = {
-  id: string
-  name: string
-  autonomy_level: AutonomyScopeLevel
-  /** Categories only: draft/ask means replies are never sent autonomously. */
-  send_mode?: 'draft' | 'ask' | 'send'
-}
-
-export type AutonomyScopesResponse = {
-  categories: AutonomyScopeRow[]
-  workstreams: AutonomyScopeRow[]
-}
 
 export type ApiTokenRow = {
   id: string
@@ -193,19 +161,8 @@ export async function getAllowances() {
   return governFetch<AllowancesResponse>(governRoutes.allowances)
 }
 
-export async function getAutonomyScopes() {
-  return governFetch<AutonomyScopesResponse>(governRoutes.autonomyScopes)
-}
-
-export async function setAutonomyScope(
-  kind: 'category' | 'workstream',
-  id: string,
-  autonomyLevel: AutonomyScopeLevel,
-) {
-  return governFetch<AutonomyScopeRow>(governRoutes.autonomyScope(kind, id), {
-    method: 'PATCH',
-    body: JSON.stringify({ autonomy_level: autonomyLevel }),
-  })
+export async function getPosture() {
+  return governFetch<AllowanceState>(governRoutes.posture)
 }
 
 export async function updateAllowances(allowances: Record<string, AllowanceMode>) {

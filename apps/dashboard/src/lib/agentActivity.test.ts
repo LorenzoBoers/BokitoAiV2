@@ -16,7 +16,6 @@ import {
   liveProposalHold,
   liveTurnFromMessage,
   liveTurnOrbMotion,
-  liveTurnOrbMotion,
   mergeTurns,
   normalizeActivity,
   normalizeMessageActivity,

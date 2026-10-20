@@ -2,9 +2,9 @@
 title: MCP-servers koppelen
 intro: Geef agents extra tools door externe MCP-servers te koppelen.
 description: Koppel MCP-servers via de categorie Tools op Koppelingen; eigen servers verschijnen onder Custom MCP-servers. Houd risicovolle tools op Eerst vragen in Govern.
-keywords: mcp, model context protocol, gekoppelde tools, integraties
+keywords: mcp, model context protocol, gekoppelde tools, koppelingen
 sort: 20
-related: integrations,agents,mcp-endpoint
+related: koppelingen,agents,mcp-endpoint
 ---
 
 # MCP-servers koppelen
@@ -34,4 +34,4 @@ Externe tools gebruiken hetzelfde beleid als ingebouwde tools. Houd een risicovo
 
 ## Wat nu
 
-Koppel eerst een catalogus-app als je alleen een gewone connector nodig hebt. Zie [Integraties](/docs/integrations/integrations).
+Koppel eerst een catalogus-app als je alleen een gewone connector nodig hebt. Zie [Koppelingen](/docs/integrations/integrations).

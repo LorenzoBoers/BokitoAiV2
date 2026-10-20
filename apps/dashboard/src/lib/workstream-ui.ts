@@ -1,11 +1,11 @@
-import type { WorkstreamRunStatus } from './workstreams-api'
+import type { WorkstreamRunStatus } from './flows-api'
 
 export function workstreamPath(workstreamId: string): string {
-  return `/workstreams/${encodeURIComponent(workstreamId)}`
+  return `/flows/${encodeURIComponent(workstreamId)}`
 }
 
 export function workstreamRunPath(runId: string): string {
-  return `/workstreams/runs/${encodeURIComponent(runId)}`
+  return `/flows/runs/${encodeURIComponent(runId)}`
 }
 
 export function runStatusBadgeVariant(

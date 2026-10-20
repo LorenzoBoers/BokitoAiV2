@@ -27,7 +27,7 @@ async def test_create_agent_tool_draft_queue(client: AsyncClient, session_overri
     orch.permission_scopes_json = json.dumps(
         ["platform:agent:create", "platform:workstream:create", "platform:doc:write"]
     )
-    orch.tools_json = json.dumps(["create_agent", "create_workstream", "write_doc"])
+    orch.tools_json = json.dumps(["create_agent", "create_flow", "write_doc"])
     await session_override.commit()
     result = await execute_tool(
         session_override,

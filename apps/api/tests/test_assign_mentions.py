@@ -174,12 +174,7 @@ async def test_agent_without_channel_access_is_refused(client: AsyncClient, sess
 
 
 async def test_note_agent_mention_persists_turn_after_request(client: AsyncClient, session_override):
-    """@agent in a note must commit the floor so a worker (or mock run) can claim it.
-
-    Regression: reply_to_thread committed the note, then dispatch_mentions set
-    active_turn without a second commit — session close rolled the floor back
-    and run_participant_turn_job exited as stale_nonce (U08 live fail).
-    """
+    """@agent in a note must commit the queued turn so a worker can claim it."""
     from app.models.signal import Signal, SignalEvent
 
     headers = await _login(client)

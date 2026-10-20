@@ -1,54 +1,50 @@
 ---
-title: How Overview works
+title: How Today works
 intro: Start here when you want to know whether work is flowing and where attention is needed.
-description: Use Overview for the daily scan, Canvas for workspace dashboards and Usage for token budget caps and spend. Agent activity lives on Agents.
-keywords: overview, reports, cockpit, dashboard, usage, budget, activity
+description: Use Today in Communication for the daily scan. Token budget caps and spend live under Settings, Usage. Agent activity lives on Agents.
+keywords: today, cockpit, dashboard, usage, budget, activity
 sort: 50
 related: communication,categories,agent-runs,decisions,agenda,agents
 ---
 
-# How Overview works
+# How Today works
 
-Overview is the morning scan. Open it from the left rail to see what needs you, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. Under **Settings → Profile** you can set Overview as your start page after sign-in; Communication remains the default.
+Today is the morning scan inside Communication. Open **Communication**, then **Today**, to see what needs attention, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. The address is `/communication/today`. Under **Settings → Profile** you can set Today as your start page after sign-in; Communication remains the default.
 
-## Scan the day on Overview
+## Scan the day on Today
 
-![Overview](/api/docs/assets/cockpit/overview.png)
-*Overview shows open work, decisions and recent runs.*
+![Today](/api/docs/assets/cockpit/overview.png)
+*Today shows open work, decisions and recent runs.*
 
-1. Open **Overview** in the left rail. You land on the scan. The in-page heading is the workspace name; the help icon next to **Overview** in the top bar opens this guide. The subtitle greets you and shows today's date. The gray line `environment · tenant-slug · Live · 1.2.01` is for support (API environment, this tenant, websocket, release version). Click the slug to copy the whole line. The same line sits at the bottom of the account menu. The dev host shows the next patch, one step ahead of production.
-2. **Needs you** sits first and full width: open decisions and conversations assigned to you (the same list as **For you** in Communication). When it is empty, use **Open For you** or **Connect a channel**.
-3. Below that, **AI activity** shows a stacked area chart of weighted **AI** (purple) over **Manual** (gray) work, **Time saved** (estimated minutes from AI outcomes: autonomous sends, assisted drafts sent or continued by a person, quiet no-reply triage, confirmed no-reply closes, AI-filed tickets, completed flows) and **AI share** (the share of credited actions AI handled). Use the **7 days** / **30 days** / **90 days** switcher (same as Usage) to change the window; both figures show a green up or red down arrow with the percentage change versus the previous equal period when that data is available. A donut of weighted **Autonomous**, **Assisted** and **Manual** actions for the selected period sits to the right (with open conversation counts under the legend). **AI handling settings** opens the workspace dial.
+1. Open **Today** from Communication. You land on the scan. The in-page heading is the workspace name; the help icon next to **Today** in the top bar opens this guide. The subtitle greets you and shows today's date. The gray line `environment · tenant-slug · Live · 1.2.01` is for support (API environment, this tenant, websocket, release version). Click the slug to copy the whole line. The same line sits at the bottom of the account menu. The dev host shows the next patch, one step ahead of production.
+2. **For you** sits first and full width: open decisions and conversations assigned to you (the same list as **For you** in Communication). When it is empty, use **Open For you** or **Connect a channel**.
+3. Below that, **AI activity** shows a stacked area chart of weighted **AI** (purple) over **Manual** (gray) work, **Time saved** (estimated minutes from AI outcomes: autonomous sends, assisted drafts sent or continued by a person, quiet no-reply triage, confirmed no-reply closes, AI-filed tickets, completed flows) and **AI share** (the share of credited actions AI handled). Use the **7 days** / **30 days** / **90 days** switcher (same as **Settings → Usage**) to change the window; both figures show a green up or red down arrow with the percentage change versus the previous equal period when that data is available. A donut of weighted **Autonomous**, **Assisted** and **Manual** actions for the selected period sits to the right (with open conversation counts under the legend). **Autonomy settings** opens the workspace dial.
 4. Under **More workspace context**, scan the three secondary blocks: **Open tickets by category**, **Running and next up**, and **Trajectory**. **Running and next up** warns about due check-ups and overdue look-ats, lists the next few [Agenda](/docs/ai/agenda) items, then the runs in progress, and ends with **Open Agenda**. Trajectory compares this week with last week: **Tickets filed (7 days)** counts confirmed tickets only, and the block links to completed runs, Govern proposals, and Usage.
 5. Click any row to open its conversation, run, or filtered list. A row under **Open tickets by category** opens that category's row in Communication. When an open conversation has had no message for 14 days, **Quiet for 14 days** lists it with **Close**. With no recurring task yet, a one-time banner **Let an agent help you move forward** offers **Set up task**. That opens **Plan** already filled: every weekday at 09:00, the lead agent, and a task that names what is open and suggests next steps. After **Save** you land in that conversation, where the agent writes each time. **Hide** dismisses the banner for this workspace.
 
-On a new workspace, Overview may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
+On a new workspace, Today may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
 
-## Read workspace canvases
+## Find a canvas
 
-Workspace canvases are snapshot dashboards (not live tiles). On Overview the in-page tabs are **Overview**, **Usage**, then **Canvas** (layout-template icon). An agent creates, fills and refreshes them; you pick the owner agent when you add one. You can still delete a canvas or change its refresh later on the tab.
-
-1. Open **Overview**, then the **Canvas** tab (third tab). Canvas names sit left to right; the **+** after the last name adds a canvas. Choose an **Agent** and **Start conversation**.
-2. In that chat the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Refresh is that conversation's repeat in [Agenda](/docs/ai/agenda).
-3. A later change happens in the same conversation. The canvas toolbar shows the owner agent (avatar and name), the last-updated time, the refresh period and a refresh icon inline; on the right sit the conversation link and **Show source**. Delete sits in the **⋯** menu. Open the conversation to ask for a change. Folder canvases live on the folder [Canvas](/docs/ai/folders) tab.
+Today has no canvas tab. A canvas is a workspace inside a folder: open the folder and find it under **Works in**, or open `/cockpit/canvas`, which takes you to the last canvas you used or to the folder **General**. See [Folders](/docs/ai/folders).
 
 ## Open work that is waiting on you
 
-![Overview attention items](/api/docs/assets/cockpit/awaiting-decision.png)
-*Needs you opens the same thread as Decisions in Communication.*
+![Today attention items](/api/docs/assets/cockpit/awaiting-decision.png)
+*For you opens the same thread as Decisions in Communication.*
 
-1. Find the conversation under **Needs you**. The row uses the same avatar, subject and decision mark as Communication.
+1. Find the conversation under **For you**. The row uses the same avatar, subject and decision mark as Communication.
 2. Open it. You land on the matching thread in Communication.
-3. Handle the decision in the thread, then return to Overview.
+3. Handle the decision in the thread, then return to Today.
 
 ## Read agent activity
 
-1. Open **Agents** for the Activity swimlane. Overview itself keeps **Needs you** first, then the secondary context blocks.
+1. Open **Agents** for the Activity swimlane. Today itself keeps **For you** first, then the secondary context blocks.
 2. Scan outcomes, not every thinking step.
 3. Jump into a thread or agent when a row needs follow-up. See [Follow agent activity](/docs/inbox/agent-runs).
 
 ## Check Usage
 
-1. Open the **Usage** tab on Overview. At the top, **Token use** shows a per-day chart for **7 days**, **30 days** or **90 days**, with **Tokens** and **Cost** for that period beside it. Below that sit **Budget (platform keys)** (tokens today and billable spend this month), **Outcomes** (this week’s conversations, autonomy rate, time saved, average feedback, customer rating, and open decisions), and **Breakdown** (**By model**, **By agent**, **By user**, **By data region**). **Time saved** is a 7-day estimate: fixed minutes for autonomous replies, assisted drafts (including when a person answered after a draft), quiet no-reply triage, confirmed no-reply closes, AI-filed tickets and completed flows. Data-region mix is under **By data region**; change the policy under [Data & privacy](/docs/govern/privacy-security). Choose **Export CSV** in the header.
+1. Open **Settings**, then **Usage**. At the top, **Token use** shows a per-day chart for **7 days**, **30 days** or **90 days**, with **Tokens** and **Cost** for that period beside it. Below that sit **Budget (platform keys)** (tokens today and billable spend this month), **Outcomes** (this week’s conversations, autonomy rate, time saved, average feedback, customer rating, and open decisions), and **Breakdown** (**By model**, **By agent**, **By user**, **By data region**). **Time saved** is a 7-day estimate: fixed minutes for autonomous replies, assisted drafts (including when a person answered after a draft), quiet no-reply triage, confirmed no-reply closes, AI-filed tickets and completed flows. Data-region mix is under **By data region**; change the policy under [Data & privacy](/docs/govern/privacy-security). Choose **Export CSV** in the header.
 2. Owners and admins choose **Edit caps**. Set a **Daily token cap** and a **Monthly spend cap (USD)**, or leave a field empty for **No cap**. Alerts fire at 80% and 100%.
 3. When the budget is exhausted, AI calls on Bokito platform keys pause until you raise the cap or the period resets. Models on your own keys keep working (**Your own key (no charge)**).

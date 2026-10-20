@@ -89,11 +89,12 @@ export function AvatarStack({
   if (members.length === 0) return null
   const { shown, overflow } = splitAvatarStack(members)
   const overlap = Math.max(6, Math.min(STACK_OVERLAP_PX, Math.round(size * 0.4)))
+  const ringWidth = size <= 16 ? 'ring-1' : 'ring-2'
   const ring = 'ring-cutout'
 
   return (
     <span
-      className={cn('inline-flex items-center overflow-visible', cutout === 'bg' && 'cutout-bg', className)}
+      className={cn('isolate inline-flex items-center overflow-visible', cutout === 'bg' && 'cutout-bg', className)}
       data-testid="avatar-stack"
     >
       {shown.map((member, index) => {
@@ -151,7 +152,8 @@ export function AvatarStack({
             <span
               key={member.key}
               className={cn(
-                'relative inline-flex shrink-0 overflow-hidden rounded-full ring-2',
+                'relative inline-flex shrink-0 overflow-hidden rounded-full',
+                ringWidth,
                 active ? 'ring-accent' : ring,
               )}
               style={style}
@@ -169,7 +171,8 @@ export function AvatarStack({
           <span
             key={member.key}
             className={cn(
-              'relative inline-flex shrink-0 overflow-hidden rounded-full ring-2',
+              'relative inline-flex shrink-0 overflow-hidden rounded-full',
+              ringWidth,
               active ? 'ring-accent' : ring,
             )}
             style={style}
@@ -191,7 +194,8 @@ export function AvatarStack({
       {overflow > 0 ? (
         <span
           className={cn(
-            'relative inline-flex shrink-0 items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted ring-2',
+            'relative inline-flex shrink-0 items-center justify-center rounded-full bg-bg-elevated text-2xs font-medium tabular-nums text-text-muted',
+            ringWidth,
             ring,
           )}
           style={{

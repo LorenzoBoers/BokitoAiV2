@@ -10,6 +10,7 @@ import {
   forYouPath,
   inboxPath,
   newConversationPath,
+  newConversationPathForLeaf,
   leafFromPath,
   leafKey,
   leafPath,
@@ -1952,19 +1953,13 @@ export default function Communication() {
               ) : mode === 'customer' && threads.length === 0 && !threadsLoading ? (
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
-                    to="/settings/setup"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
-                  >
-                    {t('onboarding.openGuide')}
-                  </Link>
-                  <Link
                     to="/settings/channels"
                     className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
-                    {t('threadChrome.openEmailSettings')}
+                    {t('threadList.channelSettings')}
                   </Link>
                   <Link
-                    to="/communication/new"
+                    to={newConversationPathForLeaf(leaf)}
                     className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('onboarding.startConversation')}

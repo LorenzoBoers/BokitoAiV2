@@ -10,7 +10,7 @@
       },
       "ai": {
         "title": "AI-workforce",
-        "body": "Agents met duidelijke rechten doen het werk. Projects en Knowledge geven ze context die meegroeit."
+        "body": "Agents met duidelijke rechten doen het werk. Werkmappen en Kennis geven ze context die meegroeit."
       },
       "automations": {
         "title": "Automatiseringen",
@@ -35,19 +35,15 @@
     },
     "ai": {
       "title": "Je AI-workforce",
-      "body": "Agents zijn je digitale collega's. Projects bundelen hun werk en Knowledge is waar ze van leren. Een keer aanleren, overal gebruiken."
+      "body": "Agents zijn je digitale collega's. Kennis staat naast ze onder Agents, en Workforce toont mensen, afdelingen en de Grid."
     },
     "agenda": {
       "title": "Agenda",
       "body": "Geplande runs en achtergrondautomatiseringen. Een keer instellen en het werk gebeurt terwijl jij weg bent."
     },
-    "modules": {
-      "title": "Modules",
-      "body": "Zet bedrijfsfunctionaliteit aan en koppel de pakketten erachter — één plek voor elke koppeling."
-    },
     "settings": {
       "title": "Instellingen en setupgids",
-      "body": "Kanalen, branding, je team en de stapsgewijze setupgids vind je hier."
+      "body": "Kanalen, koppelingen, Govern, je team en de stapsgewijze setupgids staan hier."
     }
   },
   "finish": {

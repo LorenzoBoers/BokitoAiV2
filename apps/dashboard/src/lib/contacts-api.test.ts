@@ -20,7 +20,6 @@ function contact(partial: Partial<ContactRow> & Pick<ContactRow, 'id' | 'address
     lastSeenAt: null,
     createdAt: '2026-01-01T00:00:00Z',
     threadCount: 0,
-    aiHandling: null,
     owner: null,
     identities: [],
     ...partial,

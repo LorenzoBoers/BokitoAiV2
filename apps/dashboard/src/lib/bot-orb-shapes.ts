@@ -21,9 +21,14 @@ export const BOT_ORB_SHAPE_KEYS = [
   'arch',
   'teardrop',
   'heart',
+  'claude',
+  'cursor',
 ] as const
 
 export type BotOrbShapeKey = (typeof BOT_ORB_SHAPE_KEYS)[number]
+
+/** Coding-agent bodies. Shown only when the API env flag is on. */
+export const CODING_AGENT_SHAPE_KEYS = ['claude', 'cursor'] as const satisfies readonly BotOrbShapeKey[]
 
 /** Retired silhouettes still stored on agents → map to a live key. */
 const RETIRED_BOT_ORB_SHAPES: Record<string, BotOrbShapeKey> = {
@@ -170,6 +175,28 @@ export const BOT_ORB_SHAPES: Record<BotOrbShapeKey, BotOrbShapeDef> = {
       'M32 50C23 43 12 35 12 26C12 20 16.5 15.5 23 15.5C27 15.5 30 17.5 32 20.5C34 17.5 37 15.5 41 15.5C47.5 15.5 52 20 52 26C52 35 41 43 32 50Z',
     faceY: -2,
     faceScale: 0.85,
+  },
+  /**
+   * Claude body: torso, side bar, and four legs. Traced from the supplied
+   * SVG into this viewBox. The source eye slots are the live face.
+   */
+  claude: {
+    path:
+      'M13.731 12.509H50.147A3.666 3.666 0 0 1 53.813 16.175V41.104A3.666 3.666 0 0 1 50.147 44.77H13.731A3.666 3.666 0 0 1 10.065 41.104V16.175A3.666 3.666 0 0 1 13.731 12.509ZM5.666 28.64H58.334A3.666 3.666 0 0 1 62 32.305V33.405A3.666 3.666 0 0 1 58.334 37.071H5.666A3.666 3.666 0 0 1 2 33.405V32.305A3.666 3.666 0 0 1 5.666 28.64ZM15.686 32.183H15.686A1.955 1.955 0 0 1 17.642 34.138V49.536A1.955 1.955 0 0 1 15.686 51.491H15.686A1.955 1.955 0 0 1 13.731 49.536V34.138A1.955 1.955 0 0 1 15.686 32.183ZM23.018 32.183H23.018A1.955 1.955 0 0 1 24.974 34.138V49.536A1.955 1.955 0 0 1 23.018 51.491H23.018A1.955 1.955 0 0 1 21.063 49.536V34.138A1.955 1.955 0 0 1 23.018 32.183ZM41.165 32.183H41.165A1.894 1.894 0 0 1 43.059 34.077V49.597A1.894 1.894 0 0 1 41.165 51.491H41.165A1.894 1.894 0 0 1 39.271 49.597V34.077A1.894 1.894 0 0 1 41.165 32.183ZM48.558 32.183H48.558A1.955 1.955 0 0 1 50.513 34.138V49.536A1.955 1.955 0 0 1 48.558 51.491H48.558A1.955 1.955 0 0 1 46.603 49.536V34.138A1.955 1.955 0 0 1 48.558 32.183Z',
+    faceY: -2.276,
+    faceScale: 0.976,
+  },
+  /**
+   * Cursor body: hexagon plus the arrow mark as a darker detail.
+   * Live eyes sit where the source SVG drew them.
+   */
+  cursor: {
+    path:
+      'M28.155 3.032C30.534 1.656 33.466 1.656 35.845 3.032L55.124 14.181C57.504 15.557 58.97 18.1 58.97 20.852V43.148C58.97 45.9 57.504 48.443 55.124 49.82L35.845 60.968C33.466 62.344 30.534 62.344 28.155 60.968L8.876 49.82C6.496 48.443 5.03 45.9 5.03 43.148V20.852C5.03 18.1 6.496 15.557 8.876 14.181L28.155 3.032Z',
+    detailPath:
+      'M52.959 18.384H10.72C9.05 18.384 8.467 20.605 9.921 21.428L29.983 32.78C30.493 33.069 30.808 33.611 30.808 34.197V56.972C30.808 58.651 33.038 59.23 33.853 57.763L54.379 20.803C54.981 19.718 54.198 18.384 52.959 18.384Z',
+    faceY: -0.044,
+    faceScale: 1.21,
   },
 }
 

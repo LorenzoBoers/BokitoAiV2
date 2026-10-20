@@ -1,3 +1,4 @@
+import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -437,6 +438,7 @@ export default function ModuleSetupPage() {
                     <ModuleAgentsSection
                       moduleSlug={slug}
                       agents={companyAgents}
+                      defaultName={module.package?.agent_template?.name}
                       onChanged={() => void refreshCatalog()}
                     />
                   </section>
@@ -470,6 +472,7 @@ export default function ModuleSetupPage() {
               <ModuleAgentsSection
                 moduleSlug={slug}
                 agents={companyAgents}
+                defaultName={module.package?.agent_template?.name}
                 onChanged={() => void refreshCatalog()}
               />
               {visibleSteps.length > 0 ? (
@@ -535,7 +538,7 @@ export default function ModuleSetupPage() {
         }}
       />
 
-      <PageRelatedLinks links={[{ to: '/grid', label: t('orgCanvas.link') }]} />
+      <PageRelatedLinks links={[{ to: GRID_PATH, label: t('orgCanvas.link') }]} />
     </PageContent>
   )
 }

@@ -1205,6 +1205,9 @@ def _me_payload(auth: AuthContext, memberships: list[dict], *, impersonator: Use
         # and filter surfaces instead of shipping its own copy of the list.
         "parked_channels": sorted(get_settings().parked_channel_set()),
         "agent_calls_enabled": bool(get_settings().agent_calls_enabled),
+        "coding_agent_integrations_enabled": bool(
+            get_settings().feature_coding_agent_integrations
+        ),
         "environment": get_settings().environment,
         "user": _user_dict(
             auth.user, auth.tenant, auth.role, is_staff=auth.is_staff, impersonator=impersonator

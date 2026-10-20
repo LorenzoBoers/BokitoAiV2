@@ -35,9 +35,8 @@
     "lastModified": "Laatst gewijzigd {{time}}",
     "error": "Kon niet opslaan"
   },
-
   "aiHandling": {
-    "title": "AI-afhandeling",
+    "title": "Autonomie",
     "modes": {
       "autonomous": {
         "label": "Autonoom",
@@ -56,7 +55,6 @@
       "default": "de platformstandaard",
       "workspace": "de workspace-standaard",
       "channel": "het kanaal",
-      "contact": "het contact",
       "conversation": "dit gesprek"
     },
     "follows": "Volgt {{source}}",
@@ -66,15 +64,15 @@
       "default": "Platformstandaard",
       "workspace": "Bedrijfsstandaard",
       "channel": "Kanaalstandaard",
-      "contact": "Contactstandaard",
       "conversation": "Gespreksstandaard"
     },
     "untilClose": "Tot dit gesprek gesloten wordt",
     "clamped": {
-      "govern": "Govern begrenst gesprekken op {{mode}}.",
+      "govern": "De Autonomie-dial begrenst gesprekken op {{mode}}.",
       "privacy": "Privacy-instellingen houden AI weg van berichtinhoud.",
       "breaker": "Autonoom gepauzeerd na ongebruikelijke activiteit. Alleen concepten tot iemand het hervat.",
-      "agent": "Deze agent staat op {{mode}} en gaat daarom niet verder."
+      "agent": "Deze agent staat op {{mode}} en gaat daarom niet verder.",
+      "flow": "Deze flow staat op Altijd controle, dus een mens verstuurt."
     },
     "reasons": {
       "assigned": "Toegewezen aan een persoon",
@@ -86,10 +84,10 @@
     "needsAdmin": "Alleen een eigenaar of beheerder kan autonoom hier aanzetten.",
     "takeOver": "Overnemen",
     "handBack": "Teruggeven aan AI",
-    "openSettings": "Instellingen AI-afhandeling",
-    "changed": "AI-afhandeling ingesteld op {{mode}}",
-    "cleared": "AI-afhandeling volgt weer {{source}}",
-    "saveError": "AI-afhandeling kon niet worden gewijzigd",
+    "openSettings": "Instellingen Autonomie",
+    "changed": "Autonomie ingesteld op {{mode}}",
+    "cleared": "Autonomie volgt weer {{source}}",
+    "saveError": "Autonomie kon niet worden gewijzigd",
     "breakerBadge": "Gepauzeerd",
     "breakerResume": "Autonoom hervatten",
     "breakerKeepAssisted": "Geassisteerd houden",
@@ -99,10 +97,6 @@
       "followers_other": "{{count}} open gesprekken volgen dit.",
       "evidence": "{{rate}}% van {{count}} concepten is de afgelopen {{days}} dagen ongewijzigd verstuurd.",
       "noEvidence": "Nog geen concepten in de afgelopen {{days}} dagen."
-    },
-    "filter": {
-      "all": "Elke AI-afhandeling",
-      "custom": "Eigen AI-afhandeling"
     },
     "metrics": {
       "hint": "Open gesprekken per modus, en resultaten over de afgelopen {{days}} dagen.",

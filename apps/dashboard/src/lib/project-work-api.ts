@@ -257,3 +257,39 @@ export async function createProjectResource(
 export async function deleteProjectResource(projectId: string, resourceId: string): Promise<void> {
   await foldersDelete(foldersRoutes.resourceById(projectId, resourceId))
 }
+
+// ── works in ─────────────────────────────────────────────────────
+
+export type WorksInOrigin = 'bokito' | 'connection'
+export type WorksInAddKind = 'canvas' | 'connection' | 'drive'
+
+/** A place inside a folder where work lands; `key` is stable (board, files, canvas:{id}, resource:{id}). */
+export interface WorksInItem {
+  key: string
+  kind: string
+  origin: WorksInOrigin
+  label: string
+  detail: string
+  href: string | null
+  status: string
+  count: number | null
+}
+
+export async function listWorksIn(projectId: string): Promise<WorksInItem[]> {
+  const data = await foldersGet<{ items: WorksInItem[] }>(foldersRoutes.worksIn(projectId))
+  return data.items ?? []
+}
+
+export async function addWorksIn(
+  projectId: string,
+  input: {
+    kind: WorksInAddKind
+    title?: string
+    connection_id?: string
+    provider?: string
+    external_ref?: string
+  },
+): Promise<WorksInItem | null> {
+  const data = await foldersPost<{ item: WorksInItem | null }>(foldersRoutes.worksIn(projectId), input)
+  return data.item
+}

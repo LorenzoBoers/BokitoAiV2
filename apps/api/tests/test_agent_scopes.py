@@ -104,25 +104,23 @@ def _tenant_with(settings: dict) -> Tenant:
     return Tenant(slug="clamp", name="Clamp", settings_json=json.dumps(settings))
 
 
-def test_ai_handling_clamped_by_govern_allowance():
-    autonomous = {"ai_handling": {"default": {"mode": "autonomous"}}}
+def test_ai_handling_clamped_by_the_dial():
+    autonomous = {"default": {"mode": "autonomous"}}
 
-    # Messaging "ask" caps autonomous at assisted: Govern always wins.
-    asking = _tenant_with({**autonomous, "tool_allowances": {"messaging": "ask"}})
+    # The dial is the only cap; messaging allowances do not move it.
+    asking = _tenant_with({"ai_handling": {**autonomous, "ceiling": "assisted"}, "tool_allowances": {"messaging": "allow"}})
     handling = resolve_ai_handling(asking, scope="workspace")
     assert handling.effective == "assisted"
     assert handling.clamped_by == "govern"
 
-    # Messaging "deny" caps everything at manual.
-    denying = _tenant_with({**autonomous, "tool_allowances": {"messaging": "deny"}})
-    assert resolve_ai_handling(denying, scope="workspace").effective == "manual"
+    manual = _tenant_with({"ai_handling": {**autonomous, "ceiling": "manual"}})
+    assert resolve_ai_handling(manual, scope="workspace").effective == "manual"
 
-    # Messaging "allow" keeps the configured mode.
-    allowing = _tenant_with({**autonomous, "tool_allowances": {"messaging": "allow"}})
+    allowing = _tenant_with({"ai_handling": {**autonomous, "ceiling": "autonomous"}, "tool_allowances": {"messaging": "deny"}})
     handling = resolve_ai_handling(allowing, scope="workspace")
     assert handling.effective == "autonomous"
     assert handling.clamped_by is None
 
-    # Manual posture (all ask) also caps at assisted.
-    manual = _tenant_with({**autonomous, "autonomy_posture": "manual"})
-    assert resolve_ai_handling(manual, scope="workspace").effective == "assisted"
+    # Without a stored dial the workspace sits at Assisted.
+    unset = _tenant_with({"ai_handling": autonomous})
+    assert resolve_ai_handling(unset, scope="workspace").effective == "assisted"

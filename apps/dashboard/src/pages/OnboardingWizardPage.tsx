@@ -73,6 +73,8 @@ function postureAsHandling(posture: AutonomyPostureId): AiHandling {
     inheritedSource: 'default',
     inheritedSourceLabel: '',
     own: posture,
+    layers: [],
+    ceilings: [],
   }
 }
 const WORKSPACE_LANGS = ['nl', 'en', 'de', 'fr', 'es'] as const

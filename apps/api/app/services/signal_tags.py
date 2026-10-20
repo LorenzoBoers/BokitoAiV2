@@ -522,7 +522,6 @@ def serialize_tag(row: SignalTag, count: int = 0, *, flow_live: bool | None = No
         "workstream_id": str(row.workstream_id) if live else None,
         "show_in_nav": bool(row.show_in_nav),
         "ai_auto_tag": bool(row.ai_auto_tag),
-        "send_mode": row.send_mode or "send",
     }
 
 

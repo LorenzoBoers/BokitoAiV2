@@ -12,7 +12,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 _HOST_RE = re.compile(r"(?:^|\s)(?:site:)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?:/|\s|$)", re.IGNORECASE)
-_INVITE_TOOLS = frozenset({"invite_to_thread", "request_participant_turn"})
+_INVITE_TOOLS = frozenset({"invite_to_thread"})
+_PEER_TOOL_KEYS = {"ask_agent": "activity.asking", "handoff_to": "activity.handingOver"}
 _WEB_TOOLS = frozenset({"web_search", "fetch_url"})
 
 
@@ -113,6 +114,10 @@ def present_activity(item: dict[str, Any]) -> dict[str, Any]:
         return _present_web(item, tool)
     if tool in _INVITE_TOOLS:
         return _present_invite(item)
+    if tool in _PEER_TOOL_KEYS:
+        name = _invite_name(item)
+        key = _PEER_TOOL_KEYS[tool]
+        return {"label_key": key, "label_params": {"name": name}} if name else {"label_key": f"{key}Someone"}
     if item.get("label") == "note":
         return {"label_key": "activity.note"}
     phrase = _tool_phrase(item)
@@ -304,8 +309,7 @@ def _favicon(item: dict[str, Any], host: str) -> str:
 def _invite_name(item: dict[str, Any]) -> str:
     result = _record(item.get("result")) or {}
     raw = _record(item.get("input")) or {}
-    turn = _record(result.get("turn")) or {}
-    return str(result.get("name") or turn.get("agent_name") or raw.get("name") or "").strip()[:120]
+    return str(result.get("name") or result.get("agent_name") or raw.get("name") or "").strip()[:120]
 
 
 _HIDDEN_TOOLS = frozenset({"attach_items", "update_progress", "post_internal_note"})

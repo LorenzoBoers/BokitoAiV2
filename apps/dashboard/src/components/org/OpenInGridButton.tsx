@@ -19,7 +19,7 @@ type Props = {
 
 /**
  * Consistent "Open in Grid" entry: the rail Grid mark + optional focus.
- * Opens `/grid` and, when a node is given, finds it like the legend.
+ * Opens the Grid and, when a node is given, finds it like the legend.
  */
 export function OpenInGridButton({ kind, id, nodeId, className, iconOnly = false }: Props) {
   const { t } = useTranslation('nav')

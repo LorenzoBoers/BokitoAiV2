@@ -16,6 +16,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
 import { cn } from '../../lib/utils'
 import ConnectStepRail from './ConnectStepRail'
+import { AUTONOMY_PATH } from '../../lib/navigation'
 import MailboxSyncWindowField, {
   DEFAULT_INSTALL_SYNC_WINDOW_DAYS,
 } from './MailboxSyncWindowField'
@@ -543,7 +544,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               {t('channelsPage.email.smtp.openCommunication')}
             </Link>
             <Link
-              to="/settings/communication"
+              to={AUTONOMY_PATH}
               className="text-sm font-medium text-accent hover:underline"
             >
               {t('channelsPage.email.smtp.openChannels')}

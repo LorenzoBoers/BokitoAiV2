@@ -122,8 +122,8 @@ async def _recommend_module(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
                 "specialist_agent_name": specialist.name,
                 "setup_path": spec.setup_path,
                 "hint": (
-                    "Call invite_to_thread with kind=agent, id=specialist_agent_id, "
-                    "wake=true — or recommend_module again with invite=true."
+                    "Call handoff_to with agent_id=specialist_agent_id, "
+                    "or recommend_module again with invite=true."
                 ),
             }
 

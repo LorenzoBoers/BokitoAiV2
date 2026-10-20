@@ -301,48 +301,6 @@ def test_progress_allowed_waits_then_gaps():
     assert not is_progress_filler("I filed the invoice in Facturen.")
 
 
-def test_opening_line_only_for_a_silent_research_turn():
-    from app.services.agent.loop import clean_opening_line, should_preface_tools
-
-    common = {
-        "trust": "operator",
-        "canvas_refresh": False,
-        "surface": "operator_chat",
-        "user_text": "Wat staat er open?",
-        "already_prefaced": False,
-    }
-    assert should_preface_tools(
-        **common, tool_names=["list_threads"], has_speech=False
-    )
-    assert not should_preface_tools(
-        **common, tool_names=["list_threads"], has_speech=True
-    )
-    assert not should_preface_tools(
-        **common, tool_names=["react_to_message"], has_speech=False
-    )
-    assert not should_preface_tools(
-        **{**common, "surface": "compose"},
-        tool_names=["list_threads"],
-        has_speech=False,
-    )
-    assert not should_preface_tools(
-        **{**common, "trust": "external"},
-        tool_names=["list_threads"],
-        has_speech=False,
-    )
-    assert not should_preface_tools(
-        **{**common, "user_text": "Hoi"},
-        tool_names=["list_threads"],
-        has_speech=False,
-    )
-    assert (
-        clean_opening_line('  "Ik kijk even wat er open staat."')
-        == "Ik kijk even wat er open staat."
-    )
-    assert clean_opening_line("Zal ik kijken?") == ""
-    assert clean_opening_line("Working on this.") == ""
-
-
 def test_activity_from_segments_flattens_mail_turn_for_suggestion_card():
     """Assisted inbound often saves only a decision_request — keep the tool trail."""
     items = activity_from_segments(_segments())
@@ -792,7 +750,7 @@ async def test_mark_agent_activity_sets_last_active(client: AsyncClient, session
 
 
 @pytest.mark.asyncio
-async def test_widget_stream_breaks_bubbles_between_segments(client: AsyncClient):
+async def test_widget_stream_breaks_bubbles_between_segments(client: AsyncClient, autonomous_workspace):
     start = await client.post(
         "/api/livechat/session/start",
         json={"agent_slug": "assistant", "auth_mode": "optional", "tenant_subdomain": "test"},
@@ -940,9 +898,7 @@ async def test_wait_for_ok_card_sits_after_the_tool_bubble(client: AsyncClient, 
     await session_override.commit()
     await session_override.refresh(card)
     first, second = bubbles
-    assert first.received_at < second.received_at < card.received_at
-    assert (second.received_at - first.received_at).total_seconds() >= 0.4
-    assert (card.received_at - second.received_at).total_seconds() >= 0.4
+    assert first.seq < second.seq < card.seq
     # The proposal rides on the turn's last bubble; the card points back to it.
     assert json.loads(second.metadata_json)["proposal"]["decision_id"] == str(decision.id)
     assert "proposal" not in json.loads(first.metadata_json)
@@ -1132,3 +1088,86 @@ def test_assign_showcases_skips_contact_on_the_question_bubble():
     groups = assign_bubble_showcases(bubbles)
     assert groups == [[]]
 
+
+def test_question_to_a_peer_is_said_once():
+    """The model often repeats the ask_agent question; the second copy is dropped."""
+    import asyncio
+
+    from app.services.agent.turn import TurnRecorder
+
+    async def run():
+        turn = TurnRecorder()
+        await turn.say("@[Boekito](agent:1) Kun je een zelfportret maken?")
+        turn.note_said("@[Boekito](agent:1) Kun je een zelfportret maken?")
+        await turn.speech("Boekito, kun je een zelfportret maken?")
+        await turn.finish()
+        return [seg.get("text") for seg in turn.segments if seg.get("text")]
+
+    texts = asyncio.run(run())
+    assert texts == ["@[Boekito](agent:1) Kun je een zelfportret maken?"]
+
+
+@pytest.mark.asyncio
+async def test_agent_prompt_says_a_mention_wakes_nobody(session_override):
+    from app.models.agent import Agent
+    from app.models.auth import Tenant
+    from app.services.agent.loop import AgentLoop
+
+    tenant = Tenant(slug="mention-rule", name="Mention Rule")
+    session_override.add(tenant)
+    await session_override.flush()
+    agent = Agent(tenant_id=tenant.id, name="Extra", role="specialist")
+    session_override.add(agent)
+    await session_override.commit()
+
+    loop = AgentLoop(session_override, tenant.id, None, agent=agent)
+    loop.tools = [*loop.tools, {"name": "ask_agent"}]
+    prompt = await loop._build_system_prompt()
+    assert "only a link: it wakes nobody" in prompt
+
+
+def test_asking_a_peer_ends_the_turn():
+    """After ask_agent the model is not called again, so no 'I asked him' line follows."""
+    import asyncio
+    from unittest.mock import AsyncMock
+    from uuid import uuid4
+
+    from app.services.agent.loop import AgentLoop
+
+    loop = AgentLoop(AsyncMock(), uuid4(), None)
+    loop.max_loops = 4
+    calls = []
+    replies = [
+        {
+            "content": [
+                {"type": "tool_use", "id": "t1", "name": "ask_agent", "input": {"question": "Zelfportret?"}}
+            ],
+            "usage": {},
+        },
+        {"content": [{"type": "text", "text": "Ok, ik heb het gevraagd."}], "usage": {}},
+    ]
+
+    async def llm_chat(_messages, _max_tokens):
+        calls.append(1)
+        return replies[len(calls) - 1]
+
+    async def tools(_messages, tool_uses, stream_id=None):
+        await loop._speak_peer_request(
+            "ask_agent",
+            tool_uses[0]["input"],
+            {"ok": True, "said": "@[Boekito](agent:1) Zelfportret?"},
+        )
+        return [{"type": "tool_result", "tool_use_id": "t1", "content": "{}"}]
+
+    loop._prepare_chat = AsyncMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))
+    loop._llm_chat = llm_chat
+    loop._execute_tool_loop = tools
+    loop._is_cancelled = AsyncMock(return_value=False)
+    loop._log_event = AsyncMock()
+    loop._record_usage = AsyncMock()
+    loop.begin_inline_turn = AsyncMock()
+
+    text, _ = asyncio.run(loop.run_chat([{"role": "user", "content": "vraag Boekito"}]))
+
+    assert len(calls) == 1
+    assert text == "@[Boekito](agent:1) Zelfportret?"

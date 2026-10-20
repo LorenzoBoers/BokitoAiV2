@@ -1,4 +1,4 @@
-"""AI handling API: one setting, four layers (workspace, channel, contact, conversation).
+"""AI handling API: one setting, three layers (workspace, channel, conversation).
 
 Every response carries the resolved payload ``{effective, requested, source,
 ceiling, clamped_by, reason, until_close, ...}`` so a picker can explain where
@@ -16,14 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
-from app.models.channel import ChannelAccount, Contact
+from app.models.channel import ChannelAccount
 from app.models.signal import Signal
 from app.services import ai_handling as svc
 
 router = APIRouter(prefix="/ai-handling", tags=["ai-handling"])
 
 Mode = Literal["manual", "assisted", "autonomous"]
-Scope = Literal["workspace", "channel", "contact", "conversation"]
+Scope = Literal["workspace", "channel", "conversation"]
 
 
 class PromotionProgress(BaseModel):
@@ -31,6 +31,17 @@ class PromotionProgress(BaseModel):
     unedited: int = 0
     target_drafts: int = 50
     target_rate: float = 0.8
+
+
+class HandlingLayer(BaseModel):
+    source: str
+    label: str = ""
+    mode: Mode | None = None
+
+
+class HandlingCap(BaseModel):
+    cap: Mode
+    reason: str
 
 
 class AiHandlingPayload(BaseModel):
@@ -46,6 +57,8 @@ class AiHandlingPayload(BaseModel):
     inherited_source: str
     inherited_source_label: str = ""
     own: Mode | None = None
+    layers: list[HandlingLayer] = []
+    ceilings: list[HandlingCap] = []
     promotion: PromotionProgress | None = None
 
 
@@ -110,7 +123,6 @@ class ExceptionRow(BaseModel):
 
 class Exceptions(BaseModel):
     channels: list[ExceptionRow]
-    contacts: list[ExceptionRow]
     conversations: list[ExceptionRow]
 
 
@@ -146,6 +158,7 @@ class AiHandlingSettingsUpdate(BaseModel):
     breaker: BreakerSettings | None = None
     disclosure: DisclosureSettings | None = None
     routing: RoutingSettings | None = None
+    ceiling: Mode | None = None
 
 
 class Evidence(BaseModel):
@@ -233,11 +246,6 @@ async def _target_payload(
             "target_rate": PROMOTION_UNEDITED_RATE,
         }
         return payload
-    if scope == "contact":
-        contact = await session.get(Contact, target_uuid)
-        if contact is None or contact.tenant_id != tenant.id:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        return svc.resolve_ai_handling(tenant, None, contact, scope="contact").to_payload()
     signal = await session.get(Signal, target_uuid)
     if signal is None or signal.tenant_id != tenant.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -250,7 +258,7 @@ async def get_ai_handling(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Workspace default, Govern ceiling, safeguards, breaker, disclosure and
-    every channel, contact and open conversation with its own value."""
+    every channel and open conversation with its own value."""
     return await _overview(session, auth)
 
 
@@ -272,7 +280,9 @@ async def update_ai_handling_settings(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Safeguards, breaker limits, AI disclosure and the routing policy (owner/admin).
+    """The Autonomy ceiling, safeguards, breaker limits, AI disclosure and the routing policy (owner/admin).
+
+    `ceiling` is the one Autonomy dial: no agent in the workspace acts above it.
 
     Routing: what happens after a person replies on an agent-owned
     conversation, whether replies close the conversation, who owns a reopened
@@ -294,6 +304,11 @@ async def update_ai_handling_settings(
         patch["disclosure"] = disclosure
     if body.routing is not None:
         patch["routing"] = body.routing.model_dump()
+    if body.ceiling is not None:
+        # One dial: the workspace default moves with the ceiling, so the dial
+        # position is what conversations without an exception get.
+        patch["ceiling"] = body.ceiling
+        patch["default"] = body.ceiling
     after = svc.update_workspace_block(auth.tenant, patch)
     session.add(auth.tenant)
     await record_audit(
@@ -304,7 +319,7 @@ async def update_ai_handling_settings(
         actor_id=str(auth.user.id),
         resource_type="workspace",
         resource_id=str(auth.tenant.id),
-        summary="AI handling safeguards, breaker or disclosure changed",
+        summary="Autonomy dial, safeguards, breaker, disclosure or routing changed",
         before={k: before[k] for k in patch},
         after={k: after[k] for k in patch},
         commit=False,
@@ -373,7 +388,7 @@ async def get_target_handling(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Resolved AI handling for one workspace, channel, contact or conversation."""
+    """Resolved AI handling for one workspace, channel or conversation."""
     return await _target_payload(session, auth, scope, target_id)
 
 
@@ -387,7 +402,7 @@ async def set_target_handling(
 ):
     """Set (or clear with ``mode: null``) one layer.
 
-    Lowering is free. Raising to autonomous at channel, contact or workspace
+    Lowering is free. Raising to autonomous at channel or workspace
     scope needs owner/admin; a member may set autonomous on a conversation only
     when its channel already resolves to autonomous. Conversation values are
     temporary: closing the conversation clears them. Take over is
@@ -435,10 +450,8 @@ async def preview_target_handling(
         signal = await session.get(Signal, UUID(target_id))
         if signal is not None:
             account_id = signal.channel_account_id
-            account, contact = await svc.load_layers(session, tenant.id, signal)
-            inherited_effective = svc.resolve_ai_handling(
-                tenant, account, contact, None, scope="contact"
-            ).effective
+            account, _contact = await svc.load_layers(session, tenant.id, signal)
+            inherited_effective = svc.resolve_ai_handling(tenant, account, scope="channel").effective
     return {
         "scope": scope,
         "target_id": target_id,

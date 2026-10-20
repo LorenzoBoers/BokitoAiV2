@@ -4,7 +4,7 @@ intro: Koppel Cursor, Claude Managed Agents of Devin en geef codingwerk door van
 description: Koppel je eigen API-sleutels onder Instellingen → Developers, keur een Beslissing goed en volg de job in dezelfde thread tot de pull request er is.
 keywords: workbench, cursor, claude, devin, coding, pull request, dispatch_work, developers
 sort: 55
-related: mcp-endpoint,api-overview,decisions
+related: mcp-endpoint,api-today,decisions
 ---
 
 # Geef werk aan een codingtool
@@ -46,6 +46,6 @@ Koppel je eigen providersleutel onder Instellingen → Developers. Bokito draait
 1. Open het gesprek waarin de job is gestart.
 2. Lees de statusupdates terwijl de tool werkt. Bij een actieve job gebruik je **Vervolg** voor extra instructies of **Stoppen** om te annuleren.
 3. Als de tool een vraag stelt, beantwoord de Beslissingskaart; Bokito stuurt je antwoord als vervolg.
-4. Als er een pull request verschijnt, open die via de statusregel op het projectcanvas (tegel **Workbench-jobs** en **Resources**) of in de thread.
+4. Als er een pull request verschijnt, open die via de statusregel op het foldercanvas (tegel **Workbench-jobs** en **Resources**) of in de thread.
 
 Je kunt ook **Koppelingen** openen en **Koppelen** kiezen op de banner **AI (coding) tools** om bij dezelfde Developers-sectie te komen.

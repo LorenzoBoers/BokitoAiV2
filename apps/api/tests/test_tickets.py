@@ -83,7 +83,7 @@ async def _category(
     # `steps` is ignored — step engine retired.
     _ = steps
     if patch:
-        res = await client.patch(f"/api/workstreams/{ws_id}", headers=headers, json=patch)
+        res = await client.patch(f"/api/flows/{ws_id}", headers=headers, json=patch)
         assert res.status_code == 200, res.text
     if config:
         res = await client.patch(f"/api/categories/{body['id']}", headers=headers, json=config)
@@ -443,7 +443,7 @@ async def test_ticket_moves_through_playbook_stages(client: AsyncClient, session
     tenant = await _tenant(session_override)
     repair = await _category(client, headers, "reparatie", create_mode="auto")
     ws_id = repair["workstream_id"]
-    ws = (await client.get(f"/api/workstreams/{ws_id}", headers=headers)).json()
+    ws = (await client.get(f"/api/flows/{ws_id}", headers=headers)).json()
     assert [s["kind"] for s in ws["stages"]] == ["open", "waiting", "done"]
     stages = [
         {"name": "Intake", "kind": "open"},
@@ -451,13 +451,13 @@ async def test_ticket_moves_through_playbook_stages(client: AsyncClient, session
         {"name": "Fixed", "kind": "done"},
         {"name": "Not repairable", "kind": "done"},
     ]
-    patched = await client.patch(f"/api/workstreams/{ws_id}", headers=headers, json={"stages": stages})
+    patched = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"stages": stages})
     assert patched.status_code == 200
     assert [s["key"] for s in patched.json()["stages"]] == [
         "intake", "waiting-for-parts", "fixed", "not-repairable",
     ]
     no_done = await client.patch(
-        f"/api/workstreams/{ws_id}", headers=headers, json={"stages": [{"name": "Only", "kind": "open"}]}
+        f"/api/flows/{ws_id}", headers=headers, json={"stages": [{"name": "Only", "kind": "open"}]}
     )
     assert no_done.status_code == 400
 
@@ -607,7 +607,7 @@ async def test_stage_move_requires_target_fields(client: AsyncClient, session_ov
             "fields": [{"name": "Eindoordeel", "type": "text", "required": True}],
         },
     ]
-    patched = await client.patch(f"/api/workstreams/{ws_id}", headers=headers, json={"stages": stages})
+    patched = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"stages": stages})
     assert patched.status_code == 200, patched.text
     klaar_key = next(s["key"] for s in patched.json()["stages"] if s["kind"] == "done")
 

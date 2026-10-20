@@ -4,12 +4,12 @@ intro: Stel de workspace Bokito AI-standaard in (of Automatisch), kies daarna ee
 description: Gebruik Bokito AI-modellen als workspace-standaard, kies Automatisch zodat Bokito een niveau kiest, of koppel eigen providersleutels wanneer gerechtigd.
 keywords: modellen, llm, providers, byok, api-keys, Bokito, maki, kong, automatisch, workspace-standaard, verbruik
 sort: 30
-related: govern,agents,integrations
+related: govern,agents,koppelingen
 ---
 
 # Modellen
 
-Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **Bokito AI-modellen** (Automatisch plus Maki, Bokito en Kong) en, wanneer gerechtigd, modellen die je met eigen sleutels toevoegt. Annuleren bij **Model toevoegen** vraagt eerst of ingevulde gegevens weg mogen. **Sleutel vervangen** opent een veld op de pagina. Verbruik staat op Overview **Verbruik**.
+Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **Bokito AI-modellen** (Automatisch plus Maki, Bokito en Kong) en, wanneer gerechtigd, modellen die je met eigen sleutels toevoegt. Annuleren bij **Model toevoegen** vraagt eerst of ingevulde gegevens weg mogen. **Sleutel vervangen** opent een veld op de pagina. Verbruik staat op Vandaag **Verbruik**.
 
 ## Stel de workspace Bokito AI-standaard in
 
@@ -55,7 +55,7 @@ Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **
 
 ## Verbruik omzeilt geen goedkeuring
 
-Tokenbudgetten zitten op Overview **Verbruik** (dagelijks tokenplafond en maandelijks spendplafond). Als het workspacebudget op is, pauzeren calls op platformkeys; je eigen keys blijven werken. [Govern](/docs/govern/govern) bepaalt nog steeds of een agent mag handelen.
+Tokenbudgetten zitten op Vandaag **Verbruik** (dagelijks tokenplafond en maandelijks spendplafond). Als het workspacebudget op is, pauzeren calls op platformkeys; je eigen keys blijven werken. [Govern](/docs/govern/govern) bepaalt nog steeds of een agent mag handelen.
 
 ## Als de provider weigert
 
@@ -68,4 +68,4 @@ Wanneer een modelprovider calls voor de hele workspace weigert (geen tegoed, ong
 
 ## Wat nu
 
-Stel de workspace-standaard in op **Bokito AI-modellen**, kies een modus per [agent](/docs/ai/agents), en bekijk **Verbruik** op [Overview](/docs/getting-started/cockpit).
+Stel de workspace-standaard in op **Bokito AI-modellen**, kies een modus per [agent](/docs/ai/agents), en bekijk **Verbruik** op [Vandaag](/docs/getting-started/cockpit).

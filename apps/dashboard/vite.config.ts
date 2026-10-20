@@ -63,8 +63,15 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), chatWidgetDevPlugin()],
+    define: {
+      __DEV__: JSON.stringify(process.env.NODE_ENV !== 'production'),
+    },
     resolve: {
+      extensions: ['.web.tsx', '.web.ts', '.web.jsx', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
       alias: {
+        'react-native': 'react-native-web',
+        '@bokito/ui': path.resolve(__dirname, '../../packages/ui/src/index.ts'),
+        '@bokito/ui-tokens': path.resolve(__dirname, '../../packages/ui-tokens/src/index.ts'),
         '@bokito/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
       },
     },
@@ -78,7 +85,7 @@ export default defineConfig(({ mode }) => {
               // Keep React + Radix primitives in one chunk so Provider/Root
               // context never splits across lazy route bundles.
               if (
-                /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id) ||
+                /node_modules[\\/](react|react-dom|react-native-web|react-router|react-router-dom|scheduler)[\\/]/.test(id) ||
                 id.includes('@radix-ui/')
               ) {
                 return 'react-vendor'
@@ -108,7 +115,11 @@ export default defineConfig(({ mode }) => {
         : {}),
       proxy,
       fs: {
-        allow: [path.resolve(__dirname), path.resolve(__dirname, '../api/app/data')],
+        allow: [
+          path.resolve(__dirname),
+          path.resolve(__dirname, '../api/app/data'),
+          path.resolve(__dirname, '../../packages'),
+        ],
       },
     },
   }

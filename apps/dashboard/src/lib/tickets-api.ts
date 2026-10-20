@@ -134,7 +134,6 @@ export function checkupLabel(minutes: number, t: TFunction): string {
 
 export type CategoryCreateMode = 'ask_customer' | 'ask_operator' | 'auto' | 'manual_only'
 
-export type CategorySendMode = 'draft' | 'ask' | 'send'
 
 /** A hashtag with a playbook. */
 export type CategoryRow = {
@@ -149,9 +148,6 @@ export type CategoryRow = {
   create_mode: CategoryCreateMode
   ask_threshold: number
   auto_threshold: number
-  /** draft/ask: replies on conversations with this category are never sent autonomously. */
-  send_mode: CategorySendMode
-  autonomy_level: 'manual' | 'assisted' | 'autonomous'
   requires_verification: boolean
   module_slug: string
   template_slug: string
@@ -240,8 +236,6 @@ export async function patchCategory(
       | 'ask_threshold'
       | 'auto_threshold'
       | 'requires_verification'
-      | 'send_mode'
-      | 'autonomy_level'
       | 'show_in_nav'
       | 'sort_order'
     >

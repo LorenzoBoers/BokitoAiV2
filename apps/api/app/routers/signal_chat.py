@@ -194,7 +194,7 @@ async def _resolve_turn_content(
                     SignalMessage.signal_id == signal.id,
                     SignalMessage.role == "user",
                 )
-                .order_by(SignalMessage.received_at.desc(), SignalMessage.created_at.desc())
+                .order_by(SignalMessage.seq.desc())
                 .limit(1)
             )
         ).scalar_one_or_none()
@@ -501,7 +501,9 @@ async def send_message(
     await _set_chat_agent_live(
         session, agent, status="working", signal=signal, run=run, summary=turn_content
     )
-    history = await signal_chat_history(session, conversation_id)
+    history = await signal_chat_history(
+        session, conversation_id, for_agent_id=agent.id if agent else None
+    )
     from app.services.chat_runtime import build_agent_loop
 
     loop = build_agent_loop(
@@ -655,12 +657,9 @@ async def _persist_failed_chat_turn(
     from app.services.agent.turn_persist import seal_in_progress_checkpoints
 
     await _finalize_run(session, run, status="failed", error=error if isinstance(error, Exception) else None)
-    # Drop a stale Ask floor chip so Stop / Nadenken do not linger after failure.
     try:
-        from app.services.participant_turns import clear_active_turn, clear_ask_floor_chip
+        from app.services.participant_turns import clear_ask_floor_chip
 
-        clear_active_turn(signal, reset_streak=True)
-        session.add(signal)
         await clear_ask_floor_chip(
             session,
             signal,
@@ -720,6 +719,8 @@ async def _persist_failed_chat_turn(
         # persist_turn replaced the checkpoint; still seal any twin orphans.
         await seal_in_progress_checkpoints(session, signal)
 
+    if loop is not None:
+        await loop.end_inline_turn("error")
     await session.commit()
     if run:
         clear_cancel(run.id)
@@ -733,13 +734,13 @@ async def _persist_failed_chat_turn(
         and error_text
     ):
         try:
-            from app.services.participant_turns import request_participant_turn
+            from app.services.agent_turns import enqueue_turn
 
-            await request_participant_turn(
+            await enqueue_turn(
                 session,
                 signal,
-                member_kind="agent",
-                member_ref_id=agent.id,
+                agent_id=agent.id,
+                cause_kind="system",
                 prompt=(
                     "Your previous turn failed before you finished "
                     f"(error for the human: {error_text[:280]}). "
@@ -749,10 +750,7 @@ async def _persist_failed_chat_turn(
                     "Do not pass. Do not say you are still waiting."
                 ),
                 requested_by_kind="system",
-                requested_by_id=None,
-                run=True,
-                enqueue=True,
-                defer_peer=False,
+                idempotency_key=f"recover:{run.id}" if run else None,
             )
             await session.commit()
         except Exception:  # noqa: BLE001
@@ -805,7 +803,9 @@ async def _drive_operator_chat_turn(
             if not loaded_history:
                 try:
                     loaded_history = await asyncio.wait_for(
-                        signal_chat_history(session, signal_id, compact=False),
+                        signal_chat_history(
+                            session, signal_id, compact=False, for_agent_id=agent_id
+                        ),
                         timeout=12,
                     )
                 except Exception:
@@ -819,18 +819,8 @@ async def _drive_operator_chat_turn(
                         attachments=attachments,
                         skip_rag=True,
                     ):
-                        if event["type"] == "thinking":
-                            await _put_sse(queue, "thinking", {"text": event.get("text", "")})
-                        elif event["type"] == "delta":
-                            body: dict[str, Any] = {
-                                "text": event["text"],
-                                "segment_id": event.get("segment_id"),
-                            }
-                            parts = event.get("parts")
-                            if isinstance(parts, list):
-                                body["parts"] = parts
-                            await _put_sse(queue, "delta", body)
-                        elif event["type"] == "done":
+                        # The gateway carries the live turn; this SSE only says when it is saved.
+                        if event["type"] == "done":
                             cancelled = bool(event.get("cancelled"))
                             persist_text = _operator_stream_persist_text(
                                 stream_text=str(event.get("text") or ""),
@@ -867,6 +857,7 @@ async def _drive_operator_chat_turn(
                                     author_kind="agent",
                                     author_id=agent.id,
                                     author_name=agent.name or "",
+                                    enqueue=False,
                                 )
                             await session.commit()
                             if run:
@@ -976,9 +967,11 @@ async def stream_message(
 
         # Two or more people in the message: one stick, one agent job.
         # The worker streams over the gateway. This SSE only confirms the handoff.
+        from app.services.agent_turns import cancel_turns, latest_human_message_id
         from app.services.handoff_sessions import expand_invitees
         from app.services.pass_stick import pass_stick
 
+        message_id = await latest_human_message_id(session, signal.id)
         invitees = await expand_invitees(
             session,
             auth.tenant.id,
@@ -1008,6 +1001,7 @@ async def stream_message(
                 author_name=author_name or "",
                 wake_default=False,
                 channel_agent_id=signal.agent_id,
+                message_id=message_id,
             )
             await session.commit()
             opener_id = moved.get("holder_id")
@@ -1025,6 +1019,8 @@ async def stream_message(
 
             return EventSourceResponse(handoff_started_generator())
 
+        if await cancel_turns(session, signal, keep_episode=message_id, outcome="superseded"):
+            await session.commit()
         # Solo Ask (one focused agent): close any open handoff so the co-awake
         # strip and opener floor do not steal the live seat from the target.
         from app.services.handoff_sessions import get_handoff_session, interrupt_handoff_session
@@ -1175,12 +1171,23 @@ async def cancel_conversation_run(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Stop the in-flight chat AgentRun for this conversation (cooperative cancel)."""
-    await _get_thread(session, conversation_id, auth.tenant.id)
+    """Stop: cancel queued and running agent turns and the in-flight Ask run."""
+    from app.services.agent.run_cancel import request_cancel
+    from app.services.agent_turns import stop_conversation
+
+    signal = await _get_thread(session, conversation_id, auth.tenant.id)
+    turn_runs = await stop_conversation(session, signal)
+    for run_id in turn_runs:
+        request_cancel(run_id)
+        turn_run = await session.get(AgentRun, run_id)
+        if turn_run is not None and turn_run.status == "running":
+            turn_run.status = "cancelled"
+            turn_run.completed_at = datetime.utcnow()
+            session.add(turn_run)
+    await session.commit()
     run = await _running_chat_run(session, auth.tenant.id, conversation_id)
     if run is None:
-        return {"ok": True, "cancelled": False}
-    from app.services.agent.run_cancel import request_cancel
+        return {"ok": True, "cancelled": bool(turn_runs)}
 
     request_cancel(run.id)
     run.status = "cancelled"

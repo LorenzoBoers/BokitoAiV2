@@ -20,7 +20,7 @@ import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
 import { inboxPath } from '../../lib/messages-paths'
-import { AGENDA_AUTOMATIONS_PATH } from '../../lib/navigation'
+import { TAB_PATHS } from '../../lib/navigation'
 
 const ACTION_KEYS: Record<InboxRule['action'], string> = {
   auto_close: 'automationRules.actionClose',
@@ -194,7 +194,7 @@ export default function AutomationRulesManager() {
                 {t('automationRules.openCommunication')}
               </Link>
               <Link
-                to={AGENDA_AUTOMATIONS_PATH}
+                to={TAB_PATHS.agenda}
                 className="text-xs font-medium text-accent hover:underline"
               >
                 {t('automationRules.openAgendaAutomations')}

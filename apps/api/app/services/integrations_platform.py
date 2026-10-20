@@ -113,7 +113,9 @@ async def connection_counts(session: AsyncSession, tenant_id: UUID) -> dict[str,
     }
 
 
-async def list_providers(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+async def list_providers(
+    session: AsyncSession, tenant_id: UUID, *, include_coming_soon: bool = False
+) -> dict[str, Any]:
     from app.modules.catalog import serialize_modules_for_tenant
     from app.services.integration_catalog_store import ensure_catalog_fresh
     from app.services.integrations_catalog import PROVIDERS as LIVE_PROVIDERS
@@ -131,7 +133,9 @@ async def list_providers(session: AsyncSession, tenant_id: UUID) -> dict[str, An
         "providers": sorted(LIVE_PROVIDERS, key=lambda p: p.get("sort_order", 0)),
         "hosts": hosts,
         "connection_counts": counts,
-        "modules": await serialize_modules_for_tenant(session, tenant_id),
+        "modules": await serialize_modules_for_tenant(
+            session, tenant_id, include_coming_soon=include_coming_soon
+        ),
     }
 
 

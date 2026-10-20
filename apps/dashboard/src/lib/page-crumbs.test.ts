@@ -3,8 +3,9 @@ import { extraCrumbsForPath } from './page-crumbs'
 
 describe('extra crumbs', () => {
   it('adds a readable subsection on nested pages', () => {
-    expect(extraCrumbsForPath('/cockpit/usage')).toEqual([{ labelKey: 'cockpitTabs.usage' }])
-    expect(extraCrumbsForPath('/cockpit/canvas')).toEqual([{ labelKey: 'cockpitTabs.canvas' }])
+    expect(extraCrumbsForPath('/communication/today')).toEqual([{ labelKey: 'tabs.overview.title' }])
+    expect(extraCrumbsForPath('/agents/knowledge')).toEqual([{ labelKey: 'tabs.knowledge.title' }])
+    expect(extraCrumbsForPath('/workforce/grid')).toEqual([{ labelKey: 'tabs.grid.title' }])
     expect(extraCrumbsForPath('/contacts/abc')).toEqual([{ labelKey: 'crumbs.person' }])
     expect(extraCrumbsForPath('/contacts/companies/acme')).toEqual([{ labelKey: 'crumbs.company' }])
     expect(extraCrumbsForPath('/agents/lead-1')).toEqual([{ labelKey: 'crumbs.agent' }])

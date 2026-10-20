@@ -1,3 +1,5 @@
+@import './styles/tokens.generated.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,50 +17,8 @@
     /* Type: Inter for UI, JetBrains Mono for code and ids. Change here only. */
     --font-sans: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    /*
-     * Dashboard surfaces (design system v2, 2026-10): warm-neutral greys that sit
-     * within a few points of each other. Depth comes from hairline borders and
-     * faint light steps, not from shadows or tinted fills.
-     *
-     *   bg          chrome: rail, topbar, section navs, page canvas   #121213
-     *   bg-surface  cards, dialogs, main sheets                       #19191B
-     *   bg-elevated insets inside a surface, inputs, chips            #1E1E21
-     *   bg-hover    hover / selected rows                             #26262A
-     *
-     * bg-sidebar / bg-canvas / bg-root are aliases of bg (kept for existing
-     * class names). Use `.panel` / <Card> for cards and `.nav-row` for rails.
-     */
-    --color-bg: 18 18 19;
-    --color-bg-root: 18 18 19;
-    --color-bg-sidebar: 18 18 19;
-    --color-bg-canvas: 18 18 19;
-    --color-bg-surface: 25 25 27;
-    --color-bg-elevated: 30 30 33;
-    --color-bg-hover: 38 38 42;
-    --color-bg-input: 30 30 33;
-    /* Avatar and status-dot cutout. Follows the surface behind the mark. */
-    --color-cutout: var(--color-bg);
-    --color-border: 44 44 49;
-    --color-border-light: 62 62 68;
-    --color-border-focus: 50 191 142;
-    --color-text-primary: 226 226 224;
-    --color-text-secondary: 168 168 166;
-    --color-text-muted: 122 122 120;
-    --color-text-heading: 245 245 243;
-    --color-accent: 50 191 142;
-    --color-accent-hover: 62 205 156;
-    --color-accent-dark: 40 160 118;
-    --color-accent-fg: 255 255 255;
-    --color-accent-ink: 110 220 180;
-    --color-ai: 139 92 246;
-    --color-ai-ink: 196 181 253;
-    --color-ai-fg: 255 255 255;
+    /* Color triplets and --body-bg live in styles/tokens.generated.css. */
     --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
-    --color-status-success: 52 199 141;
-    --color-status-warning: 236 165 48;
-    --color-status-error: 232 96 100;
-    --color-status-info: 96 150 255;
-    --body-bg: #121213;
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
     /*
@@ -78,48 +38,9 @@
 
   :root[data-theme='light'] {
     color-scheme: light;
-    /*
-     * Light theme: near-white chrome so grey vs paper is a whisper, not a
-     * slab. Sheets stay pure white; hairlines carry most of the structure.
-     *
-     *   bg / sidebar / canvas   #F7F7F6  chrome, thread canvas
-     *   bg-surface              #FFFFFF  cards, lists, composer, bubbles
-     *   bg-elevated             #F3F3F2  insets inside a white sheet
-     *   bg-hover                #EEEEEC  hover / selected rows
-     *
-     * Accent is a deeper emerald than dark so white text on it stays legible.
-     */
-    --color-bg: 247 247 246;
-    --color-bg-root: 247 247 246;
-    --color-bg-sidebar: 247 247 246;
-    --color-bg-canvas: 247 247 246;
-    --color-bg-surface: 255 255 255;
-    --color-bg-elevated: 243 243 242;
-    --color-bg-hover: 238 238 236;
-    --color-bg-input: 255 255 255;
-    --color-border: 232 232 229;
-    --color-border-light: 220 220 216;
-    --color-border-focus: 20 166 116;
-    --color-text-primary: 30 30 28;
-    --color-text-secondary: 86 86 82;
-    --color-text-muted: 124 124 118;
-    --color-text-heading: 14 14 13;
-    --color-accent: 20 166 116;
-    --color-accent-hover: 15 148 103;
-    --color-accent-dark: 12 128 89;
-    --color-accent-fg: 255 255 255;
-    --color-accent-ink: 8 112 78;
-    --color-ai: 109 40 217;
-    --color-ai-ink: 76 29 149;
-    --color-ai-fg: 255 255 255;
     --shadow-btn:
       0 1px 0 rgba(255, 255, 255, 0.18) inset,
       0 1px 2px rgba(20, 20, 18, 0.12);
-    --color-status-success: 22 163 113;
-    --color-status-warning: 217 119 6;
-    --color-status-error: 220 38 38;
-    --color-status-info: 37 99 235;
-    --body-bg: #f7f7f6;
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
     --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
@@ -400,13 +321,22 @@
     @apply ml-[15px] space-y-px border-l border-border/70 pl-2;
   }
 
-  /* Folder header above a group of nav rows: sentence case, left chevron. */
+  /* Folder header above a group of nav rows: sentence case, left chevron.
+   * The hover wash sits on the whole line, including the trailing controls,
+   * the same way a channel row does. */
+  .nav-section-line {
+    @apply rounded-md;
+    transition: background-color 120ms ease;
+  }
+  .nav-section-line:hover {
+    @apply bg-bg-hover/50;
+  }
   .nav-folder {
     @apply flex h-6 w-full items-center gap-1 rounded-md px-1.5 text-xs text-text-muted;
-    transition: color 120ms ease, background-color 120ms ease;
+    transition: color 120ms ease;
   }
-  .nav-folder:hover {
-    @apply text-text-secondary bg-bg-hover/50;
+  .nav-section-line:hover .nav-folder {
+    @apply text-text-secondary;
   }
   .nav-folder > svg {
     @apply h-3 w-3 shrink-0 transition-transform duration-150;

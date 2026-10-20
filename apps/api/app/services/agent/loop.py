@@ -48,88 +48,8 @@ def is_progress_filler(text: str) -> bool:
     return bool(_PROGRESS_FILLER_RE.match((text or "").strip()))
 
 
-# Live chats where a person is waiting. Drafts and wakes stay quiet.
-_OPENING_SURFACES = frozenset({"operator_chat", "thread_reply", "participant_turn"})
-# A reaction or a card attach is not a research session.
-_QUIET_PREFACE_TOOLS = frozenset(
-    {
-        "react_to_message",
-        "note_no_reply",
-        "update_progress",
-        "attach_items",
-        "record_thread_read",
-    }
-)
-_OPENING_SYSTEM = (
-    "A colleague just wrote to you in chat. You are about to look through the "
-    "workspace before you answer. Write one short spoken sentence, in their "
-    "language, saying what you will check. Sound like a person texting. One "
-    "sentence. No list, no question, no tool names, no status label."
-)
-
-
-def should_draft_opening(
-    *,
-    trust: str,
-    canvas_refresh: bool,
-    surface: str,
-    user_text: str,
-) -> bool:
-    """Whether to prepare a one-line acknowledgement while the first call runs."""
-    from app.services.agent.reasoning_policy import turn_is_small_talk
-
-    if canvas_refresh or trust == "external":
-        return False
-    if surface not in _OPENING_SURFACES:
-        return False
-    body = user_text or ""
-    lowered = body.lower()
-    if "scheduled wake" in lowered or "HEARTBEAT" in body:
-        return False
-    if turn_is_small_talk(body):
-        return False
-    return bool(body.strip())
-
-
-def should_preface_tools(
-    *,
-    trust: str,
-    canvas_refresh: bool,
-    surface: str,
-    user_text: str,
-    tool_names: list[str],
-    has_speech: bool,
-    already_prefaced: bool,
-) -> bool:
-    """Show the acknowledgement only when this turn opens on real work."""
-    if already_prefaced or has_speech:
-        return False
-    if not should_draft_opening(
-        trust=trust,
-        canvas_refresh=canvas_refresh,
-        surface=surface,
-        user_text=user_text,
-    ):
-        return False
-    names = [name for name in tool_names if name]
-    if not names or all(name in _QUIET_PREFACE_TOOLS for name in names):
-        return False
-    return True
-
-
-def clean_opening_line(text: str) -> str:
-    """One spoken sentence, or nothing."""
-    from app.services.agent.style import strip_emoji
-
-    line = strip_emoji(text or "").strip().strip("\"'")
-    line = line.split("\n", 1)[0].strip()
-    if len(line) > 180:
-        line = line[:180].rsplit(" ", 1)[0].strip()
-    if len(line) < 8 or line.endswith("?") or "HEARTBEAT" in line:
-        return ""
-    if is_progress_filler(line):
-        return ""
-    return line
+# Live replies outside the queue that always end in ``persist_turn``.
+_INLINE_TURN_SURFACES = frozenset({"operator_chat", "thread_reply"})
 
 
 def _sniff_image_mime(data: bytes) -> str | None:
@@ -290,6 +210,8 @@ class AgentLoop:
         # RAG hits from the latest turn; the widget stream uses these to append
         # "related article" links when hits map to published help-center docs.
         self.last_rag_hits: list[dict[str, Any]] = []
+        # Docs read through read_doc / search_index this turn; saved as knowledge_refs.
+        self._knowledge_reads: list[dict[str, Any]] = []
         self.thinking_text = ""
         self.thinking_ms = 0
         self.thinking_budget = 0
@@ -298,8 +220,9 @@ class AgentLoop:
         self._started = 0.0
         self._last_progress = 0.0
         self._progress_count = 0
-        self._opening_usage = {"input_tokens": 0, "output_tokens": 0}
-        self._prefaced = False
+        # Queue row of this turn: the worker sets it, an Ask records an inline row.
+        self.agent_turn_id: UUID | None = None
+        self._inline_turn_id: UUID | None = None
 
     # Phrases that mean "I will do X next" without having called a tool yet.
     _WORK_ANNOUNCE_RE = re.compile(
@@ -364,108 +287,6 @@ class AgentLoop:
         self._progress_count += 1
         await self._checkpoint_turn()
         return True
-
-    def _start_opening_draft(self) -> asyncio.Task | None:
-        """One short sentence, in parallel with the first model call."""
-        if not should_draft_opening(
-            trust=self.trust,
-            canvas_refresh=self.canvas_refresh,
-            surface=self.surface,
-            user_text=str(getattr(self, "_turn_user_text", "") or ""),
-        ):
-            return None
-        if self.llm is None:
-            return None
-        return asyncio.create_task(self._draft_opening_line())
-
-    async def _draft_opening_line(self) -> str:
-        user = str(getattr(self, "_turn_user_text", "") or "").strip()[:400]
-        if not user or self.llm is None:
-            return ""
-        try:
-            response = await asyncio.wait_for(
-                self.llm.chat(
-                    [
-                        {"role": "system", "content": _OPENING_SYSTEM},
-                        {"role": "user", "content": user},
-                    ],
-                    tools=[],
-                    model=self.resolved_call.model_id if self.resolved_call else None,
-                    thinking_budget=0,
-                    max_tokens=60,
-                ),
-                timeout=3.5,
-            )
-        except Exception:
-            logger.info("opening line skipped")
-            return ""
-        usage = response.get("usage") or {}
-        bucket = getattr(self, "_opening_usage", None)
-        if isinstance(bucket, dict):
-            bucket["input_tokens"] = int(bucket.get("input_tokens") or 0) + int(
-                usage.get("input_tokens") or 0
-            )
-            bucket["output_tokens"] = int(bucket.get("output_tokens") or 0) + int(
-                usage.get("output_tokens") or 0
-            )
-        blocks = response.get("content") or []
-        text = "\n".join(
-            str(block.get("text") or "")
-            for block in blocks
-            if isinstance(block, dict) and block.get("type") == "text"
-        )
-        return clean_opening_line(text)
-
-    async def _take_opening(self, task: asyncio.Task | None) -> str:
-        if task is None:
-            return ""
-        try:
-            return str(await asyncio.wait_for(asyncio.shield(task), timeout=2.0) or "")
-        except Exception:
-            task.cancel()
-            return ""
-
-    async def _preface_if_needed(
-        self,
-        turn: TurnRecorder,
-        tool_names: list[str],
-        *,
-        has_speech: bool,
-        opening_task: asyncio.Task | None,
-    ) -> tuple[str, asyncio.Task | None]:
-        if not should_preface_tools(
-            trust=self.trust,
-            canvas_refresh=self.canvas_refresh,
-            surface=self.surface,
-            user_text=str(getattr(self, "_turn_user_text", "") or ""),
-            tool_names=tool_names,
-            has_speech=has_speech,
-            already_prefaced=bool(self._prefaced),
-        ):
-            if opening_task is not None and not opening_task.done():
-                opening_task.cancel()
-            return "", None
-        if opening_task is None:
-            opening_task = asyncio.create_task(self._draft_opening_line())
-        line = await self._take_opening(opening_task)
-        if line:
-            self._prefaced = True
-            await turn.say(line)
-            await self._checkpoint_turn()
-        return line, None
-
-    def _absorb_opening_usage(self, tokens: dict[str, int]) -> None:
-        bucket = getattr(self, "_opening_usage", None)
-        if not isinstance(bucket, dict):
-            return
-        tokens["input_tokens"] = int(tokens.get("input_tokens") or 0) + int(
-            bucket.get("input_tokens") or 0
-        )
-        tokens["output_tokens"] = int(tokens.get("output_tokens") or 0) + int(
-            bucket.get("output_tokens") or 0
-        )
-        bucket["input_tokens"] = 0
-        bucket["output_tokens"] = 0
 
     def _append_continue_nudge(
         self,
@@ -575,15 +396,23 @@ class AgentLoop:
 
     def _new_turn(self) -> TurnRecorder:
         publish = None
+        reserve = None
         if self.signal_id:
             from app.gateway.publish import publish_turn_event
+            from app.services.message_seq import reserve_seq
 
             tenant_id, signal_id = self.tenant_id, self.signal_id
+            bind = self.session.bind
 
             async def publish(event: str, data: dict[str, Any]) -> None:
                 await publish_turn_event(tenant_id, signal_id, event, data)
 
-        self.turn = TurnRecorder(publish)
+            async def reserve() -> int | None:
+                return await reserve_seq(bind, signal_id)
+
+        self.turn = TurnRecorder(publish, reserve_seq=reserve)
+        # Asking or handing over ends the turn: the peer speaks next.
+        self._passed_floor = False
         return self.turn
 
     async def persist_turn(
@@ -602,6 +431,7 @@ class AgentLoop:
         turn = self.turn
         showcase = list(self._showcase_items)
         self._showcase_items = []
+        reads, self._knowledge_reads = self._knowledge_reads, []
         saved = await persist_agent_turn(
             self.session,
             signal,
@@ -616,16 +446,8 @@ class AgentLoop:
             append_to_last=append_to_last,
             showcase_items=showcase,
             replace_message_id=self._checkpoint_message_id,
+            knowledge_hits=[*self.last_rag_hits, *reads],
         )
-        # Peer turns claimed mid-loop start only after this handoff is on the timeline.
-        try:
-            from app.services.participant_turns import flush_deferred_participant_turn
-
-            await flush_deferred_participant_turn(self.session, signal)
-        except Exception:  # noqa: BLE001
-            logger.debug("flush deferred participant turn failed", exc_info=True)
-        # Ask on internal threads sets a run=false floor chip; clear it once this
-        # agent has persisted so Stop / “Nadenken” do not linger under the bubble.
         try:
             from app.services.participant_turns import clear_ask_floor_chip
 
@@ -636,7 +458,43 @@ class AgentLoop:
             )
         except Exception:  # noqa: BLE001
             logger.debug("clear ask floor chip failed", exc_info=True)
+        await self.end_inline_turn()
         return saved
+
+    async def begin_inline_turn(self) -> None:
+        """An Ask or inbound reply runs outside the queue; record it so peers wait."""
+        if self.agent_turn_id or self._inline_turn_id or self.agent is None or not self.signal_id:
+            return
+        if self.canvas_refresh or self.surface not in _INLINE_TURN_SURFACES:
+            return
+        from app.services.agent_turns import begin_inline_turn
+
+        self._inline_turn_id = await begin_inline_turn(
+            self.session.bind,
+            tenant_id=self.tenant_id,
+            signal_id=self.signal_id,
+            agent_id=self.agent.id,
+            requested_by_id=self.user_id,
+        )
+
+    async def end_inline_turn(self, outcome: str = "spoke") -> None:
+        """Close the inline row once this turn's messages are committed; queued peers start."""
+        turn_id, self._inline_turn_id = self._inline_turn_id, None
+        if turn_id is None:
+            return
+        from sqlalchemy import event
+
+        from app.services.agent_turns import end_inline_turn
+
+        bind = self.session.bind
+        loop = asyncio.get_running_loop()
+
+        def _after_commit(_sync_session) -> None:
+            loop.call_soon_threadsafe(
+                lambda: asyncio.ensure_future(end_inline_turn(bind, turn_id, outcome=outcome))
+            )
+
+        event.listen(self.session.sync_session, "after_commit", _after_commit, once=True)
 
     async def _checkpoint_turn(self) -> None:
         """Write thinking and tools onto the thread while the turn is still open."""
@@ -658,6 +516,14 @@ class AgentLoop:
             segments=turn.live_segments(),
             fallback_text="Working on this.",
         )
+        from app.services.agent_turns import extend_lease
+
+        if self.agent_turn_id or self._inline_turn_id:
+            await extend_lease(
+                self.session,
+                self.agent_turn_id or self._inline_turn_id,
+                inline=self.agent_turn_id is None,
+            )
         await self.session.commit()
         self._checkpoint_message_id = message.id
 
@@ -815,6 +681,42 @@ class AgentLoop:
             "already in the tenant snapshot."
         )
 
+    async def _conversation_opened_by_agent(self) -> str:
+        """Who spoke first, taken from the first stored message.
+
+        Setup, wakes, and other agent-opened threads never store the kickoff
+        instruction. Without this line the model treats the human as the one
+        who started the chat.
+        """
+        if not self.signal_id:
+            return ""
+        from app.models.signal import SignalMessage
+
+        row = (
+            await self.session.execute(
+                select(SignalMessage)
+                .where(
+                    SignalMessage.signal_id == self.signal_id,
+                    SignalMessage.kind.notin_(("system_event", "internal_note")),
+                )
+                .order_by(SignalMessage.seq.asc(), SignalMessage.id.asc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if row is None or row.role != "assistant" or row.author_agent_id is None:
+            return ""
+        if self.agent is not None and row.author_agent_id == self.agent.id:
+            return (
+                "## Who opened this conversation\n"
+                "You opened this conversation. The first message in the thread is yours. "
+                "The human did not start it. When they say you started it, agree."
+            )
+        return (
+            "## Who opened this conversation\n"
+            "An agent opened this conversation. The first message is from an agent, "
+            "not from the human. Do not say the human started it."
+        )
+
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
         # Chat turns skip the full tenant snapshot. Scoring docs + snapshot
         # queries used to freeze the event loop so the first token never left.
@@ -885,19 +787,29 @@ class AgentLoop:
                     "Chip other agents only from the Tenant snapshot or a tool result, "
                     "copied exactly; never invent an id."
                 )
+                if any(t.get("name") == "ask_agent" for t in self.tools or []):
+                    parts.append(
+                        "## Other agents\n"
+                        "To get another agent to act here, call ask_agent (a "
+                        "question; their answer comes back to you) or handoff_to "
+                        "(they take over). An @mention in your reply is only a "
+                        "link: it wakes nobody."
+                    )
                 role_key = (self.agent.role or "").strip().lower()
                 if role_key in ("po", "orchestrator", "manager", "orchestra"):
                     parts.append(
                         "## Lead routing\n"
                         "Do not do module specialist work yourself. To ask another "
-                        "agent something in this same conversation, use "
-                        "request_participant_turn (or invite_to_thread with wake=true "
-                        "if they are not a participant yet) so their reply stays "
-                        "inline here. Use start_conversation only when you need a "
+                        "agent something in this same conversation, use ask_agent "
+                        "(their answer comes back to you) or handoff_to (they take "
+                        "over). Use start_conversation only when you need a "
                         "separate peer chat; use delegate_to_agent / "
                         "start_conversation mode=task for longer background jobs. "
                         "Keep your own tools to orchestration, messaging, and decisions."
                     )
+        opener = await self._conversation_opened_by_agent()
+        if opener:
+            parts.append(opener)
         if workspace:
             parts.append(workspace)
         # Always remind agents with custom prompts that live tenant tools exist.
@@ -1470,28 +1382,25 @@ class AgentLoop:
         return await is_run_cancelled(self.session, run_id)
 
     async def _speak_peer_request(self, tool: str, tool_input: Any, result: Any) -> None:
-        """The question to another agent is the next bubble in this turn.
+        """The question to another agent is a bubble of this turn, said once.
 
-        Posting it as its own row mid-tool put it above the ack that is only
-        saved when the turn ends, and the peer could answer before that ack.
+        The peer turn is queued and only starts after this turn is saved, so the
+        question is always above the answer.
         """
-        if self.turn is None or tool not in ("invite_to_thread", "request_participant_turn"):
+        if self.turn is None or tool not in ("ask_agent", "handoff_to"):
             return
-        if not isinstance(result, dict) or result.get("error"):
+        if not isinstance(result, dict) or result.get("error") or not result.get("ok"):
             return
-        turn = result.get("turn") if isinstance(result.get("turn"), dict) else result
-        if str(turn.get("outcome") or "") not in ("deferred", "queued", "requested"):
-            return
-        active = turn.get("active_turn") if isinstance(turn.get("active_turn"), dict) else {}
-        prompt = str(active.get("prompt") or "").strip()
-        if not prompt and isinstance(tool_input, dict):
-            prompt = str(tool_input.get("message") or tool_input.get("prompt") or "").strip()
-        if not prompt:
+        self._passed_floor = True
+        line = str(result.get("said") or "").strip()
+        if not line:
             return
         already = f"{self.turn.full_text}\n{self.turn.open_speech_text}"
-        if prompt in already:
-            return
-        await self.turn.say(prompt)
+        if line not in already:
+            await self.turn.say(line)
+        self.turn.note_said(line)
+        if isinstance(tool_input, dict):
+            self.turn.note_said(str(tool_input.get("question") or tool_input.get("brief") or ""))
 
     async def _execute_tool_loop(
         self,
@@ -1561,7 +1470,13 @@ class AgentLoop:
             # thread. tool_signal_id may be a context host (mail) for outbound
             # replies/tags; explicit ask/propose tools use the speech signal.
             _SPEECH_DECISION_TOOLS = frozenset(
-                {"create_decision_request", "propose_action", "suggest_integration"}
+                {
+                    "create_decision_request",
+                    "propose_action",
+                    "suggest_integration",
+                    "ask_agent",
+                    "handoff_to",
+                }
             )
             tool_target = (
                 self.signal_id
@@ -1591,6 +1506,12 @@ class AgentLoop:
                 for row in result["items"]:
                     if isinstance(row, dict):
                         self._showcase_items.append(row)
+            if tool_use["name"] in ("read_doc", "search_index") and isinstance(result, dict):
+                if tool_use["name"] == "read_doc" and not result.get("error"):
+                    self._knowledge_reads.append({"doc_id": result.get("id"), "title": result.get("title")})
+                for hit in result.get("results") or []:
+                    if isinstance(hit, dict):
+                        self._knowledge_reads.append(hit)
             self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
             if self.turn is not None and item is not None:
                 await self.turn.tool_end(item, result)
@@ -1630,6 +1551,7 @@ class AgentLoop:
         attachments: list[dict] | None = None,
     ) -> tuple[str, dict[str, int]]:
         """Non-streaming turn. Returns the last speech; ``self.turn`` has every segment."""
+        await self.begin_inline_turn()
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
         turn = self._new_turn()
         full_budget = self._resolve_thinking_budget()
@@ -1639,7 +1561,6 @@ class AgentLoop:
         started = time.monotonic()
         self._started = started
         ack_first = self._turn_pace() == "reply_then_think"
-        opening_task = self._start_opening_draft()
 
         for loop_idx in range(self.max_loops):
             if await self._is_cancelled():
@@ -1668,24 +1589,13 @@ class AgentLoop:
                     break
                 if text_blocks and all(is_progress_filler(t) for t in text_blocks):
                     turn.discard_open_speech()
-                has_speech = bool(turn.has_open_speech) or any(
-                    (block or "").strip() and not is_progress_filler(block) for block in text_blocks
-                )
-                await self._preface_if_needed(
-                    turn,
-                    [str(tool.get("name") or "") for tool in tool_uses],
-                    has_speech=has_speech,
-                    opening_task=opening_task,
-                )
-                opening_task = None
                 llm_messages.append({"role": "assistant", "content": content})
                 tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
                 llm_messages.append({"role": "user", "content": tool_results})
+                if self._passed_floor:
+                    break
                 continue
 
-            if opening_task is not None and not opening_task.done():
-                opening_task.cancel()
-            opening_task = None
             joined = "\n".join(text_blocks)
             if (
                 not self._continue_nudged
@@ -1702,9 +1612,6 @@ class AgentLoop:
                 continue
             break
 
-        if opening_task is not None and not opening_task.done():
-            opening_task.cancel()
-        self._absorb_opening_usage(tokens)
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)
@@ -1740,6 +1647,7 @@ class AgentLoop:
         # session used to freeze the turn before the first SSE frame.
         yield {"type": "thinking", "text": ""}
         await asyncio.sleep(0)
+        await self.begin_inline_turn()
         self._skip_rag = skip_rag
         try:
             await asyncio.wait_for(turn.start(), timeout=3)
@@ -1769,7 +1677,6 @@ class AgentLoop:
         max_tokens = self._resolve_max_tokens()
         ack_first = self._turn_pace() == "reply_then_think"
         await self._checkpoint_turn()
-        opening_task = self._start_opening_draft()
 
         cancelled = False
         for loop_idx in range(self.max_loops):
@@ -1796,9 +1703,6 @@ class AgentLoop:
                     delta = event.get("text", "")
                     if delta:
                         streamed_text = True
-                        if opening_task is not None and not opening_task.done():
-                            opening_task.cancel()
-                        opening_task = None
                         await turn.speech(delta)
                         yield {
                             "type": "delta",
@@ -1832,34 +1736,15 @@ class AgentLoop:
                     turn.has_open_speech and is_progress_filler(turn.open_speech_text)
                 ):
                     turn.discard_open_speech()
-                has_speech = bool(turn.has_open_speech) or any(
-                    (block or "").strip() and not is_progress_filler(block) for block in text_blocks
-                )
-                preface, _opening_done = await self._preface_if_needed(
-                    turn,
-                    [str(tool.get("name") or "") for tool in tool_uses],
-                    has_speech=has_speech,
-                    opening_task=opening_task,
-                )
-                opening_task = None
-                if preface:
-                    seg_id = turn.segments[-1]["id"] if turn.segments else None
-                    yield {
-                        "type": "delta",
-                        "text": preface,
-                        "segment_id": seg_id,
-                        "parts": [preface],
-                    }
                 llm_messages.append({"role": "assistant", "content": response_content})
                 tool_results = await self._execute_tool_loop(
                     llm_messages, tool_uses, stream_id=stream_id
                 )
                 llm_messages.append({"role": "user", "content": tool_results})
+                if self._passed_floor:
+                    break
                 continue
 
-            if opening_task is not None and not opening_task.done():
-                opening_task.cancel()
-            opening_task = None
             joined = "\n".join(text_blocks) if text_blocks else turn.final_text
             if (
                 not cancelled
@@ -1920,9 +1805,6 @@ class AgentLoop:
             finally:
                 self.tools = saved_tools
 
-        if opening_task is not None and not opening_task.done():
-            opening_task.cancel()
-        self._absorb_opening_usage(tokens)
         await turn.finish()
         self.thinking_ms = int((time.monotonic() - started) * 1000)
         await self._record_usage(tokens)

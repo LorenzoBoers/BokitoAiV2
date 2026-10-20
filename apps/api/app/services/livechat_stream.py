@@ -229,8 +229,8 @@ async def widget_stream_events(
         # conversation. Autonomous streams a live reply below; assisted drafts a
         # reply card for the team instead; manual leaves the thread to humans.
         if signal.channel == "widget":
-            account, contact = await ai_handling.load_layers(session, tenant.id, signal)
-            handling = ai_handling.resolve_ai_handling(tenant, account, contact, signal)
+            _account, contact = await ai_handling.load_layers(session, tenant.id, signal)
+            handling = await ai_handling.resolve_for_signal(session, tenant, signal)
             run_mode, _reason = await ai_handling.apply_safeguards(
                 session, tenant, signal, handling, contact=contact
             )

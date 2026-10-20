@@ -23,10 +23,7 @@ def _tenant(settings: dict | None = None) -> Tenant:
 
 
 def _allow(mode: str = "autonomous", **extra) -> dict:
-    return {
-        "ai_handling": {"default": {"mode": mode}, **extra},
-        "tool_allowances": {"messaging": "allow"},
-    }
+    return {"ai_handling": {"default": {"mode": mode}, "ceiling": "autonomous", **extra}}
 
 
 def _account(mode: str | None = None, **cfg) -> ChannelAccount:
@@ -49,27 +46,53 @@ def _account(mode: str | None = None, **cfg) -> ChannelAccount:
 
 def test_most_specific_layer_wins():
     tenant = _tenant(_allow("assisted"))
-    account = _account("autonomous")
-    contact = Contact(tenant_id=uuid4(), address="a@b.c", ai_handling=json.dumps({"mode": "manual"}))
+    account = _account("manual")
     signal = Signal(tenant_id=uuid4(), channel="email")
 
     assert svc.resolve_ai_handling(tenant).effective == "assisted"
-    assert svc.resolve_ai_handling(tenant, account).effective == "autonomous"
+    assert svc.resolve_ai_handling(tenant, account).effective == "manual"
 
-    handling = svc.resolve_ai_handling(tenant, account, contact, signal)
+    handling = svc.resolve_ai_handling(tenant, account, signal)
     assert handling.effective == "manual"
-    assert handling.source == "contact"
+    assert handling.source == "channel"
     assert handling.inherited == "manual"
     assert handling.own is None
     assert handling.until_close is False
+    assert [layer["source"] for layer in handling.layers] == ["workspace", "channel", "conversation"]
 
     signal.ai_handling = "assisted"
     signal.ai_handling_reason = "operator"
-    handling = svc.resolve_ai_handling(tenant, account, contact, signal)
+    handling = svc.resolve_ai_handling(tenant, account, signal)
     assert handling.effective == "assisted"
     assert handling.source == "conversation"
     assert handling.reason == "operator"
     assert handling.until_close is True
+
+
+def test_ceiling_comes_from_the_dial_only():
+    # A messaging allowance no longer moves the inbox cap.
+    tenant = _tenant({"ai_handling": {"default": {"mode": "autonomous"}}, "tool_allowances": {"messaging": "allow"}})
+    assert svc.governance_ceiling(tenant) == ("assisted", "govern")
+    assert svc.resolve_ai_handling(tenant).effective == "assisted"
+
+    tenant = _tenant(_allow("autonomous"))
+    assert svc.governance_ceiling(tenant) == ("autonomous", None)
+    assert svc.resolve_ai_handling(tenant).effective == "autonomous"
+
+
+def test_agent_and_flow_cap_the_conversation():
+    tenant = _tenant(_allow("autonomous"))
+    signal = Signal(tenant_id=uuid4(), channel="email")
+    agent = Agent(tenant_id=uuid4(), name="Desk", autonomy_level="manual")
+
+    handling = svc.resolve_ai_handling(tenant, None, signal, agent=agent)
+    assert handling.effective == "manual"
+    assert handling.clamped_by == "agent"
+
+    handling = svc.resolve_ai_handling(tenant, None, signal, flow_always_review=True)
+    assert handling.effective == "assisted"
+    assert handling.clamped_by == "flow"
+    assert {"cap": "assisted", "reason": "flow"} in handling.ceilings
 
 
 def test_scope_reports_own_and_inherited():
@@ -108,7 +131,7 @@ def test_breaker_caps_channel_at_assisted():
 
     # Manual still wins over the breaker cap.
     signal = Signal(tenant_id=uuid4(), channel="email", ai_handling="manual")
-    assert svc.resolve_ai_handling(tenant, account, None, signal).effective == "manual"
+    assert svc.resolve_ai_handling(tenant, account, signal).effective == "manual"
 
 
 def test_privacy_off_forces_manual():
@@ -128,10 +151,8 @@ def test_can_set_lowering_is_free_raising_is_guarded():
     assert svc.can_set("owner", "workspace", "autonomous")
     assert svc.can_set("admin", "channel", "autonomous")
     assert svc.can_set("member", "channel", "manual")
-    assert svc.can_set("member", "contact", None)
     assert not svc.can_set("member", "workspace", "manual")
     assert not svc.can_set("member", "channel", "autonomous")
-    assert not svc.can_set("member", "contact", "autonomous")
     assert not svc.can_set("member", "conversation", "autonomous", inherited_effective="assisted")
     assert svc.can_set("member", "conversation", "autonomous", inherited_effective="autonomous")
 
@@ -156,7 +177,7 @@ async def test_safeguards_downgrade_autonomous(session_override: AsyncSession):
     session_override.add(signal)
     await session_override.commit()
 
-    handling = svc.resolve_ai_handling(tenant, None, None, signal)
+    handling = svc.resolve_ai_handling(tenant, None, signal)
     assert handling.effective == "autonomous"
     run_mode, reason = await svc.apply_safeguards(session_override, tenant, signal, handling)
     assert (run_mode, reason) == ("assisted", "low_certainty")
@@ -183,7 +204,7 @@ async def test_safeguards_downgrade_autonomous(session_override: AsyncSession):
     session_override.add(widget)
     await session_override.commit()
     run_mode, _ = await svc.apply_safeguards(
-        session_override, tenant, widget, svc.resolve_ai_handling(tenant, None, None, widget),
+        session_override, tenant, widget, svc.resolve_ai_handling(tenant, None, widget),
         contact=pending,
     )
     assert run_mode == "autonomous"
@@ -195,7 +216,7 @@ async def test_safeguards_leave_assisted_alone(session_override: AsyncSession):
     signal = Signal(tenant_id=tenant.id, channel="email", certainty=1)
     session_override.add(signal)
     await session_override.commit()
-    handling = svc.resolve_ai_handling(tenant, None, None, signal)
+    handling = svc.resolve_ai_handling(tenant, None, signal)
     assert await svc.apply_safeguards(session_override, tenant, signal, handling) == ("assisted", None)
 
 
@@ -379,7 +400,7 @@ async def test_metrics_count_open_conversations_by_mode(client: AsyncClient, ses
 async def test_govern_ask_caps_autonomous_channel(client: AsyncClient, session_override: AsyncSession):
     headers = await _headers(client)
     tenant = await _seed_tenant(session_override)
-    tenant.settings_json = json.dumps({"tool_allowances": {"messaging": "ask"}})
+    tenant.settings_json = json.dumps({"ai_handling": {"ceiling": "assisted"}})
     session_override.add(tenant)
     await session_override.commit()
     account = await _email_account(session_override, tenant)
@@ -435,45 +456,23 @@ async def test_member_cannot_raise_channel(client: AsyncClient, session_override
 
 
 @pytest.mark.asyncio
-async def test_contact_override_logs_on_open_threads(client: AsyncClient, session_override: AsyncSession):
+async def test_contact_scope_is_gone(client: AsyncClient, session_override: AsyncSession):
     headers = await _headers(client)
     tenant = await _seed_tenant(session_override)
     contact = Contact(tenant_id=tenant.id, address="vip@client.test", display_name="VIP")
     session_override.add(contact)
-    await session_override.flush()
-    thread = Signal(tenant_id=tenant.id, channel="email", status="open", contact_id=contact.id)
-    session_override.add(thread)
     await session_override.commit()
 
     res = await client.put(
         f"/api/ai-handling/contact/{contact.id}", headers=headers, json={"mode": "manual"}
     )
-    assert res.status_code == 200, res.text
-    assert res.json()["source"] == "contact"
+    assert res.status_code == 422
 
-    detail = await client.get(f"/api/signals/{thread.id}", headers=headers)
-    assert detail.json()["thread"]["ai_handling"]["effective"] == "manual"
-    assert detail.json()["thread"]["ai_handling"]["source"] == "contact"
-
-    event = (
-        await session_override.execute(
-            select(SignalEvent).where(
-                SignalEvent.signal_id == thread.id,
-                SignalEvent.event_type == "ai_handling_changed",
-            )
-        )
-    ).scalars().first()
-    assert event is not None
-    assert json.loads(event.payload_json)["scope"] == "contact"
-
-    listing = await client.get(
-        "/api/channels/contacts", headers=headers, params={"ai_handling": "manual"}
-    )
+    listing = await client.get("/api/channels/contacts", headers=headers)
     assert listing.status_code == 200, listing.text
     rows = listing.json()
     rows = rows.get("contacts", rows) if isinstance(rows, dict) else rows
-    assert [row["id"] for row in rows] == [str(contact.id)]
-    assert rows[0]["ai_handling"] == "manual"
+    assert "ai_handling" not in rows[0]
 
 
 @pytest.mark.asyncio

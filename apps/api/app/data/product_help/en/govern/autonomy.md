@@ -1,51 +1,51 @@
 ---
-title: Set autonomy posture
-intro: Dial how much agents may do on their own, from full oversight to exception-only review.
-description: Dial how independently agents work with the autonomy posture: manual, assisted or autonomous.
-keywords: autonomy, posture, manual, assisted, autonomous, apply modes
+title: Set Autonomy
+intro: One dial for the whole workspace decides how far agents may go on their own. Channels, agents and flows stay at or below it.
+description: Set the one Autonomy dial on Govern (Manual, Assisted, Autonomous), see what may sit below it, and set tool permissions separately.
+keywords: autonomy, dial, ceiling, posture, manual, assisted, autonomous, always review, tool permissions, apply modes
 sort: 20
-related: govern,agents,inbox-ai
+related: govern,agents,inbox-ai,flows
 ---
 
-# Set autonomy posture
+# Set Autonomy
 
-Autonomy posture is the workspace trust dial. It lives on [Govern](/docs/govern/govern) and forms the ceiling for policies below it.
+Autonomy is one dial on [Govern](/docs/govern/govern): **Manual**, **Assisted** or **Autonomous**. Every channel, conversation, agent and flow stays at or below it, so the dial is the most any part of the workspace may do on its own.
 
-## Pick a preset
+## Turn the dial
 
-![Autonomy posture presets](/api/docs/assets/autonomy/presets.png)
-*The preset lives on Govern.*
+![The Autonomy dial on Govern](/api/docs/assets/autonomy/dial.png)
+*Three positions. The current one carries a badge.*
 
-1. Open **Settings**, then **Govern**, then **Policy**. The card is **Workspace ceiling for agents**.
-2. Choose **Manual** (agents draft, you apply), **Assisted** (low-risk actions go through, the rest asks), or **Autonomous** (agents act within allowances). Choosing **Autonomous** asks **Switch to Autonomous?** before it applies. **Autonomous** stays unavailable until the workspace has a live model under **Providers & models** and at least one send-ready channel — the UI shows **Connect a live model under Models before Autonomous.** or **Connect a send-ready channel before Autonomous.** when a gate is missing.
-3. The setting saves as you pick it. A per label or flow policy may be stricter, never broader. Without a live model, AI replies are placeholders and are never labeled as sent to the customer.
+1. Open **Settings**, then **Govern**, then **Policy**. The first card is **Autonomy**.
+2. Pick **Manual** (agents read and prepare, a person does the rest), **Assisted** (agents draft replies and propose actions, a person sends) or **Autonomous** (agents answer and act on their own within tool permissions).
+3. Choosing **Autonomous** first asks **Turn on Autonomous?** Only an owner or admin can change the dial; others see **Only an owner or admin can change the dial.**
+4. The dial saves as you pick it.
 
-## Set the three layers
+## What may sit below the dial
 
-1. Stay on Govern, then **Policy**.
-2. Set the workspace posture first, then a stricter policy on a category or playbook where needed. The scope name on each policy row is a link: a label with a flow opens its conversations in Communication, a flow opens the flow page. Agent names in the passport table open the agent.
-3. On each agent, set **Autonomy level** (**Manual — always ask**, **Approval — gated actions**, **Auto — act independently**, or **Workspace default**) and the tool allowlist. There are no per-tool autonomy overrides.
-4. **Ask first** creates a [decision](/docs/ai/decisions) card in the thread.
+1. A channel or a single open conversation can be set lower. These show under **Per channel** on the same page; choose **Follow the default again** to remove one. See [Autonomy](/docs/inbox/inbox-ai).
+2. Each agent has its own level (see [Agents](/docs/ai/agents)). A conversation that agent handles never goes higher.
+3. A flow with **Always review** keeps every reply on its tickets at Assisted. See [Flows](/docs/ai/flows).
+4. **Privacy** that keeps AI away from message bodies sets everything to Manual, and a tripped circuit breaker keeps a channel at Assisted until someone resumes it.
+
+Hover the mode in a conversation header to see which of these decided.
+
+## Set tool permissions
+
+Tool permissions are separate from the dial: they say what tools may change without waiting for you, not how far agents reply to customers.
+
+1. On the same page, open **Default tool permissions**.
+2. Pick a preset for workspace and structure tools, or set each category to **Deny**, **Ask first** or **Allow**.
+3. **Ask first** creates a [decision](/docs/ai/decisions) card in the thread. Messaging on **Ask first** or **Deny** also stops customer replies from going out on their own; no preset lets a conversation go further than the dial.
 
 ## Start conservative
 
-1. Use **Manual** or **Assisted** while you learn how the workspace behaves.
-2. Watch which decisions you always approve.
-3. Widen one tool category instead of jumping to **Autonomous**.
+1. Start the dial on **Assisted** while you learn how the workspace behaves.
+2. Watch which drafts go out unedited. Bokito suggests Autonomous once at least 80% of 50 or more drafts are sent unchanged.
+3. Put flows that must always be checked on **Always review** before you raise the dial.
 
-## External sessions stay safe
-
-Website visitors never auto-mutate the workspace, regardless of posture. [AI handling](/docs/inbox/inbox-ai) still decides when a customer draft appears.
-
-## One dial also bounds AI handling
-
-AI handling on conversations (Autonomous, Assisted, Manual) sits under the Messaging allowance, so a workspace, channel, contact or conversation can never do more than Govern allows.
-
-1. When Messaging is on **Ask first**, every conversation is capped at **Assisted**: replies wait for approval.
-2. When Messaging is on **Deny**, every conversation is **Manual**.
-3. When Messaging is on **Allow**, the most specific AI handling setting applies.
-4. Pause autonomous replies, the circuit breaker, and labels with a flow that always need review live under [AI handling](/docs/inbox/inbox-ai).
+Website visitors never change the workspace on their own, whatever the dial says.
 
 ## What to do next
 
-Lock tools on [Govern](/docs/govern/govern). Confirm each [agent](/docs/ai/agents) inherited the posture.
+Set safeguards and handovers under [Autonomy](/docs/inbox/inbox-ai). Lock tools on [Govern](/docs/govern/govern).

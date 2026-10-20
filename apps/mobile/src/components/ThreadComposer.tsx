@@ -3,14 +3,12 @@ import {
   Alert,
   Pressable,
   Text,
-  TextInput,
   View,
 } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
 import * as DocumentPicker from 'expo-document-picker'
 import * as ImagePicker from 'expo-image-picker'
+import { ComposerBar, ComposerMode, IconButton } from '@bokito/ui'
 import MessageAttachments from './MessageAttachments'
-import SendStopButton from './SendStopButton'
 import { useCopy } from '../context/LocaleContext'
 import { useTheme, useThemedStyles } from '../context/ThemeContext'
 import { uploadFile, type Attachment, type ReplyAction } from '../lib/api'
@@ -169,18 +167,8 @@ export default function ThreadComposer({
     <View style={styles.root}>
       {showNoteTab && !noteOnly ? (
         <View style={styles.tabs}>
-          <Pressable
-            style={[styles.tab, !isNote && styles.tabActive]}
-            onPress={() => setTab('reply')}
-          >
-            <Text style={[styles.tabText, !isNote && styles.tabTextActive]}>{t(surface.replyLabelKey)}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, isNote && styles.tabActiveNote]}
-            onPress={() => setTab('note')}
-          >
-            <Text style={[styles.tabText, isNote && styles.tabTextActiveNote]}>{t('thread.note')}</Text>
-          </Pressable>
+          <ComposerMode label={t(surface.replyLabelKey)} active={!isNote} onPress={() => setTab('reply')} />
+          <ComposerMode label={t('thread.note')} active={isNote} tone="note" onPress={() => setTab('note')} />
         </View>
       ) : null}
 
@@ -199,42 +187,25 @@ export default function ThreadComposer({
         </View>
       ) : null}
 
-      <View style={[styles.composer, isNote && styles.composerNote]}>
-        <View style={styles.attachButtons}>
-          <Pressable style={styles.iconButton} onPress={() => void pickImage()} disabled={busy}>
-            <Ionicons name="image-outline" size={20} color={colors.textSecondary} />
-          </Pressable>
-          <Pressable style={styles.iconButton} onPress={() => void pickDocument()} disabled={busy}>
-            <Ionicons name="attach-outline" size={20} color={colors.textSecondary} />
-          </Pressable>
-          {!isNote && onRequestDraft ? (
-            <Pressable
-              style={styles.iconButton}
-              onPress={() => void applyDraft()}
-              disabled={busy}
-              accessibilityLabel={t('thread.draftReply')}
-            >
-              <Ionicons name="sparkles-outline" size={20} color={colors.accentInk} />
-            </Pressable>
-          ) : null}
-        </View>
-        <TextInput
-          style={styles.input}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
-          value={body}
-          onChangeText={setBody}
-          multiline
-          editable={!busy}
-        />
-        <SendStopButton
-          streaming={streaming}
-          canSend={!!body.trim()}
-          busy={busy}
-          onSend={() => void submit('send')}
-          onStop={() => onStop?.()}
-        />
-      </View>
+      <ComposerBar
+        value={body}
+        onChangeText={setBody}
+        placeholder={placeholder}
+        note={isNote}
+        streaming={streaming}
+        canSend={!!body.trim() && !busy}
+        onSend={() => void submit('send')}
+        onStop={() => onStop?.()}
+        left={
+          <View style={styles.attachButtons}>
+            <IconButton name="plus" label={t('thread.attach')} onPress={() => void pickImage()} disabled={busy} />
+            <IconButton name="paperclip" label={t('thread.attach')} onPress={() => void pickDocument()} disabled={busy} />
+            {!isNote && onRequestDraft ? (
+              <IconButton name="sparkles" label={t('thread.draftReply')} onPress={() => void applyDraft()} disabled={busy} />
+            ) : null}
+          </View>
+        }
+      />
 
       {!isNote && surface.showCloseActions ? (
         <View style={styles.secondaryActions}>

@@ -4,7 +4,7 @@ intro: Alles wat er in de workspace gebeurt, door mensen en agents, in één age
 description: Zie wat er gebeurde, wat openstaat en wat gepland is, volg tickets op en plan taken voor mensen en agents.
 keywords: agenda, kalender, planning, taak, check-up, wake, google calendar, outlook calendar
 sort: 50
-related: agents,folders,workstreams,communication,agent-runs,integrations
+related: agents,folders,flows,communication,agent-runs,koppelingen
 ---
 
 # Zo werkt Agenda
@@ -19,12 +19,12 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 1. Open **Agenda**. Het hulp-icoon naast de titel in de bovenbalk opent deze gids. **Dag** is de standaard; wissel op dezelfde rij als **Nieuw** naar **Week**, **Maand** of **Lijst**, of druk op D, W, M of L.
 2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen. In **Lijst** begint de huidige dag bovenaan; scroll omhoog voor eerdere dagen, kies een datum op de minikalender onder **Wanneer**, of gebruik **Terug naar boven** na omlaag scrollen. De rail blijft zichtbaar terwijl de lijst scrollt.
 3. Links blijft de minikalender vast staan. Sleep daaronder de sectiekoppen (**Wat**, personen, agents, **Agenda's**) om de volgorde te wijzigen. **Wat** is dezelfde `#`-boom als Communicatie: één actieve tak filtert taken en activiteit die aan een gesprek hangen. Gekoppelde agenda's negeren die filter. Vink mensen en agents aan of uit zoals bij agenda's. Zet elke Google- of Outlook-agenda aan of uit onder **Agenda's**. Het plusje naast **Agenda's** opent Koppelingen gefilterd op agenda's.
-4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, map of de agent.
+4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, de werkmap of de agent.
 
 ## Handel wat aandacht vraagt
 
-1. Het getal naast **Agenda** in de linkerrail telt openstaande taken op open gesprekken die aan jou zijn toegewezen. **Overview** toont dezelfde items onder **Lopend en straks**.
-2. De balk **Vraagt aandacht** boven de agenda telt openstaande taken en mislukte runs. Kies een telling om die items samen te zien.
+1. Het getal naast **Agenda** in de linkerrail telt openstaande taken op open gesprekken die aan jou zijn toegewezen. **Vandaag** toont dezelfde items onder **Lopend en straks**.
+2. De balk **Voor jou** boven de agenda telt openstaande taken en mislukte runs. Kies een telling om die items samen te zien.
 3. Open een taak om het gesprek, de eigenaar en het moment te zien. Bij een terugkerende fase-opvolging kies je **Nu checken** om hem direct te starten, of **Pauzeren** om hem te stoppen.
 4. Druk overal op Ctrl+K (Cmd+K op Mac) en kies **Openstaande taken**.
 
@@ -32,7 +32,7 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 
 1. Open een Flow en kies **Bewerken**. Elke fase heeft een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme (**Uit**, uren, dagen of een week).
 2. Komt een ticket in die fase, dan maakt Agenda een terugkerende taak voor wie het gesprek bezit. Agents pakken hem op als wake; mensen zien hem in hun agenda en krijgen het gesprek ongelezen wanneer hij due is.
-3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Flow met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Flows](/docs/ai/workstreams).
+3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Flow met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Flows](/docs/ai/flows).
 4. Op een contactpagina toont elk gesprek zijn label, fase en volgende geplande taak.
 
 ## Plan een agenda-item of terugkerende taak
@@ -55,8 +55,8 @@ Vanuit een gesprek plan je op dezelfde manier: kies **Plannen** in het gespreksm
 4. Kies een afspraak om de agenda, het account en de details te zien. **Bewerken** en **Verwijderen** verschijnen alleen als je een schrijfbare agenda mag gebruiken.
 5. Toont een account **Opnieuw inloggen**, dan is de aanmelding verlopen. Kies het en rond de aanmelding af; afspraken blijven tot dan zichtbaar.
 
-De Google- of Outlook-koppeling houdt de aanmelding; elke workspace-agenda heeft een eigen toegangslijst. Zie [Integraties koppelen](/docs/integrations/integrations).
+De Google- of Outlook-koppeling houdt de aanmelding; elke workspace-agenda heeft een eigen toegangslijst. Zie [Koppelingen](/docs/integrations/integrations).
 
 ## Wat nu
 
-Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elke [map](/docs/ai/folders) (een bewaarde tag-filterset) filtert Agenda op dezelfde manier als Communicatie.
+Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elke [werkmap](/docs/ai/folders) (een bewaarde tag-filterset) filtert Agenda op dezelfde manier als Communicatie.

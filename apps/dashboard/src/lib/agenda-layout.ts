@@ -25,8 +25,6 @@ export const AGENDA_VIEWS: AgendaView[] = ['day', 'week', 'month', 'list']
 /** Who to show: everyone, the signed-in person, or one person or agent. */
 export type AgendaWho = 'all' | 'me' | `user:${string}` | `agent:${string}`
 
-const CONVERSATION_RUNS = new Set(['chat', 'email', 'widget', 'inbound', 'webchat', 'whatsapp', 'customer_widget'])
-
 /** Person, team or agent responsible for (or running) an item. Calendar blocks have none. */
 export type AgendaOwnerKind = 'user' | 'agent' | 'team'
 
@@ -75,9 +73,6 @@ export function itemOwner(item: TimeItem): AgendaOwner | null {
 export function layerOf(item: TimeItem): AgendaLayer | 'calendar' {
   if (item.kind === 'calendar') return 'calendar'
   if (item.kind === 'activity') return 'activity'
-  if (item.kind === 'session' && !item.trigger_id && CONVERSATION_RUNS.has((item.run_type ?? '').toLowerCase())) {
-    return 'activity'
-  }
   return 'tasks'
 }
 

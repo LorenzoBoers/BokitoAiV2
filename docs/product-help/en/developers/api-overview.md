@@ -1,13 +1,13 @@
 ---
-title: API overview
+title: API today
 intro: The developer surfaces Bokito exposes and which one to use for what.
-description: Overview of the Bokito developer platform: the public REST API, webhooks, the MCP endpoint and the embeddable chat widget, with links to each guide.
-keywords: api, rest, developers, overview, integration
+description: Today of the Bokito developer platform: the public REST API, webhooks, the MCP endpoint and the embeddable chat widget, with links to each guide.
+keywords: api, rest, developers, today, integration
 sort: 10
 related: authentication,api-signals,webhooks,mcp-endpoint
 ---
 
-# API overview
+# API today
 
 Bokito exposes four developer surfaces. All of them are governed by the same tenant isolation and token model.
 
@@ -41,7 +41,8 @@ Scopes restrict what a token may do. Details in [Authentication](/docs/developer
 ## Design notes
 
 - Bokito's seven public objects are Conversation, Signal, Flow, Folder, Contact, Agent and Decision. Conversation/Signal REST is the first stable v1 resource; existing authenticated routers cover Flows, Folders, Contacts, Agents and Decisions for the dashboard.
+- Two dashboard routes read the same model the Grid draws. `GET /api/folders/{id}/works-in` lists where a folder's work runs (board, files, canvases, connections, file folders) with an `origin` of `bokito` or `connection`; `POST` adds a canvas, connection or file folder. `GET /api/org/flow?days=7` returns the Grid: nodes per layer (input, executor, work, result), department zones, paths with count, mode and `by_label`, `estimated`, and issues. Counts, modes and colors are decided on the server.
 - Webhooks publish lifecycle events, and the MCP endpoint exposes governed actions around the same objects. It is the preferred integration surface for richer behavior instead of duplicating a large REST API.
-- LLM usage is metered by model, agent and initiating user. Run metadata also attributes usage to category and playbook run when that context is known. Workspace membership is the seat boundary.
+- LLM usage is metered by model, agent and initiating user. Run metadata also attributes usage to category and flow run when that context is known. Workspace membership is the seat boundary.
 - Everything is tenant-scoped by the token. There is no cross-tenant access.
 - Rate limits apply per client IP; see [Rate limits](/docs/developers/rate-limits).

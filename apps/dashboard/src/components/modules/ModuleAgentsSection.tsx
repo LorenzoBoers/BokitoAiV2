@@ -7,6 +7,7 @@ import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { AgentSelect } from '../ui/AgentSelect'
 import { AgentRosterSkeleton } from '../ui/skeleton'
 import { Button } from '../ui/button'
+import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -31,10 +32,12 @@ import { ModuleAgentBadges } from './ModuleAgentBadges'
 export function ModuleAgentsSection({
   moduleSlug,
   agents,
+  defaultName = '',
   onChanged,
 }: {
   moduleSlug: string
   agents: AgentVisualFields[]
+  defaultName?: string
   onChanged?: () => void
 }) {
   const { t } = useTranslation(['nav', 'common'])
@@ -44,6 +47,7 @@ export function ModuleAgentsSection({
   const [busyId, setBusyId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [hiring, setHiring] = useState(false)
+  const [hireName, setHireName] = useState(defaultName)
   const [accessOpenId, setAccessOpenId] = useState<string | null>(null)
   const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([])
 
@@ -129,7 +133,7 @@ export function ModuleAgentsSection({
     }
     setHiring(true)
     try {
-      const result = await hireModuleAgent(moduleSlug, true)
+      const result = await hireModuleAgent(moduleSlug, true, hireName)
       await load()
       notify()
       toast.success(
@@ -243,6 +247,15 @@ export function ModuleAgentsSection({
           })}
         </p>
       </div>
+      {!managedSpecialist ? (
+        <Input
+          value={hireName}
+          onChange={(event) => setHireName(event.target.value)}
+          aria-label={t('integrations.modules.agents.hireName', { defaultValue: 'Specialist name' })}
+          placeholder={defaultName || t('integrations.modules.agents.hireName', { defaultValue: 'Specialist name' })}
+          className="h-8 max-w-xs text-sm"
+        />
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"

@@ -16,6 +16,7 @@ RESOURCE_TYPES = (
     "canvas",
     "knowledge",
     "playbook",
+    "flow",
     "trigger",
     "team",
     "inbox_rule",

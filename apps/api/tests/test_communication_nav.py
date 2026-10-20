@@ -52,7 +52,7 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
 
     category = (await client.post("/api/categories", headers=headers, json={"name": "storing"})).json()
     await client.patch(
-        f"/api/workstreams/{category['workstream_id']}",
+        f"/api/flows/{category['workstream_id']}",
         headers=headers,
         json={"stages": STAGES},
     )

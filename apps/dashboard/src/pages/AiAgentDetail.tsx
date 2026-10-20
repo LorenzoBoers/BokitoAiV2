@@ -37,7 +37,7 @@ import { withNavReveal } from '../lib/nav-reveal'
 import { openEntityPath, runThreadPath } from '../lib/open-entity'
 import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeItem } from '../lib/time-items'
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
-import { AGENDA_AUTOMATIONS_PATH } from '../lib/navigation'
+import { TAB_PATHS, AUTONOMY_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
 import { archiveAgent, restoreAgent } from '../lib/workforce-api'
 import { listAgentPassports } from '../lib/govern-api'
@@ -677,7 +677,7 @@ export default function AiAgentDetail() {
                         </Link>
                       </Button>
                       <Button type="button" size="sm" variant="ghost" asChild>
-                        <Link to={AGENDA_AUTOMATIONS_PATH}>
+                        <Link to={TAB_PATHS.agenda}>
                           {t('workforce.agents.openAgendaAutomations')}
                         </Link>
                       </Button>
@@ -850,7 +850,7 @@ export default function AiAgentDetail() {
 
           <PageRelatedLinks
             links={[
-              { to: '/settings/communication', label: t('workforce.agents.relatedInboxAi') },
+              { to: AUTONOMY_PATH, label: t('workforce.agents.relatedInboxAi') },
               { to: '/knowledge', label: t('workforce.agents.relatedKnowledge') },
               { to: '/settings/govern?tab=policy', label: t('workforce.agents.relatedGovern') },
               { to: '/docs/ai/agents', label: t('pageGuides.learnMore') },

@@ -1,0 +1,226 @@
+"""Delivered: one event per result, deduped, shown in Why."""
+
+import json
+from uuid import uuid4
+
+import pytest
+from sqlalchemy import select
+
+from app.models.audit import AuditEvent
+from app.models.auth import Tenant
+from app.models.integration import IntegrationConnection
+from app.models.project import Project
+from app.models.signal import Signal, SignalEvent
+from app.services import deliveries, works_in
+from app.services.thread_why import explain_thread
+
+
+async def _setup(session):
+    tenant = Tenant(slug=f"dlv-{uuid4().hex[:6]}", name="Acme")
+    session.add(tenant)
+    await session.flush()
+    folder = Project(tenant_id=tenant.id, name="Klant A", slug=f"klant-{uuid4().hex[:6]}")
+    signal = Signal(tenant_id=tenant.id, channel="email", status="open")
+    session.add_all([folder, signal])
+    await session.commit()
+    return tenant, folder, signal
+
+
+async def _events(session, signal_id) -> list[dict]:
+    rows = (
+        await session.execute(
+            select(SignalEvent).where(SignalEvent.signal_id == signal_id, SignalEvent.event_type == "delivered")
+        )
+    ).scalars().all()
+    return [json.loads(row.payload_json) for row in rows]
+
+
+@pytest.mark.asyncio
+async def test_reply_is_recorded_once_per_message(session_override):
+    tenant, _folder, signal = await _setup(session_override)
+    for _ in range(2):
+        await deliveries.record_delivery(
+            session_override, tenant.id, signal.id, target_kind="reply", ref="m1", channel="email"
+        )
+    await deliveries.record_delivery(
+        session_override, tenant.id, signal.id, target_kind="reply", ref="m2", channel="email"
+    )
+    await session_override.commit()
+    events = await _events(session_override, signal.id)
+    assert sorted(e["ref"] for e in events) == ["m1", "m2"]
+
+    body = await explain_thread(session_override, tenant, signal.id)
+    reply = [line for line in body["lines"] if line["kind"] == "delivered_reply"]
+    assert reply == [{"kind": "delivered_reply", "params": {"channel": "email", "count": 2}, "href": None}]
+    assert len(body["deliveries"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_works_in_canvas_carries_labels_and_link(session_override):
+    tenant, folder, signal = await _setup(session_override)
+    item = (await works_in.add_item(session_override, tenant.id, folder.id, kind="canvas", title="Cijfers")).get("item") or {}
+    row = await deliveries.record_delivery(
+        session_override, tenant.id, signal.id, target_kind="works_in", folder_id=folder.id, works_in_key=item["key"]
+    )
+    assert row is not None
+    await session_override.commit()
+    (event,) = await _events(session_override, signal.id)
+    assert event["folder_name"] == "Klant A"
+    assert event["item_label"] == "Cijfers"
+    assert event["item_kind"] == "canvas"
+    assert event["href"] == item["href"]
+
+    body = await explain_thread(session_override, tenant, signal.id)
+    line = next(line for line in body["lines"] if line["kind"] == "delivered_works_in")
+    assert line["params"] == {"folder": "Klant A", "item": "Cijfers", "item_kind": "canvas"}
+
+    missing = await deliveries.record_delivery(
+        session_override, tenant.id, signal.id, target_kind="works_in", folder_id=folder.id, works_in_key="canvas:nope"
+    )
+    assert missing is None
+
+
+@pytest.mark.asyncio
+async def test_connection_write_lands_in_its_folder(session_override):
+    tenant, folder, signal = await _setup(session_override)
+    connection = IntegrationConnection(tenant_id=tenant.id, provider="moneybird", display_name="Moneybird", instance_key="1")
+    session_override.add(connection)
+    await session_override.commit()
+    item = (await works_in.add_item(
+        session_override, tenant.id, folder.id, kind="connection", connection_id=connection.id
+    )).get("item") or {}
+
+    await deliveries.record_connection_write(
+        session_override,
+        tenant.id,
+        signal.id,
+        tool_name="accounting_create_invoice",
+        tool_input={"connection_id": str(connection.id)},
+        result={"ok": True, "external_ref": "INV-7"},
+    )
+    await session_override.commit()
+    (event,) = await _events(session_override, signal.id)
+    assert event["target_kind"] == "works_in"
+    assert event["works_in_key"] == item["key"]
+    assert event["ref"] == "INV-7"
+
+
+@pytest.mark.asyncio
+async def test_connection_without_folder_raises_issue(session_override):
+    tenant, _folder, signal = await _setup(session_override)
+    connection = IntegrationConnection(tenant_id=tenant.id, provider="moneybird", display_name="Moneybird", instance_key="1")
+    session_override.add(connection)
+    await session_override.commit()
+
+    row = await deliveries.record_connection_write(
+        session_override,
+        tenant.id,
+        signal.id,
+        tool_name="accounting_create_invoice",
+        tool_input={"connection_id": str(connection.id)},
+        result={"ok": True},
+    )
+    await session_override.commit()
+    assert row is None
+    assert await _events(session_override, signal.id) == []
+    issues = (
+        await session_override.execute(
+            select(AuditEvent).where(
+                AuditEvent.tenant_id == tenant.id, AuditEvent.action == "delivery:connection_without_folder"
+            )
+        )
+    ).scalars().all()
+    assert len(issues) == 1
+
+
+@pytest.mark.asyncio
+async def test_unknown_target_or_signal_is_ignored(session_override):
+    tenant, _folder, signal = await _setup(session_override)
+    assert await deliveries.record_delivery(session_override, tenant.id, None, target_kind="reply") is None
+    assert await deliveries.record_delivery(session_override, tenant.id, signal.id, target_kind="nope") is None
+
+
+async def _flow_ticket(session, tenant, folder, *, key=""):
+    from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
+
+    flow = Workstream(tenant_id=tenant.id, name="VAT filing", deliver_folder_id=folder.id, deliver_works_in_key=key)
+    session.add(flow)
+    await session.flush()
+    action = SignalTag(tenant_id=tenant.id, name=f"vat-{uuid4().hex[:4]}", workstream_id=flow.id)
+    session.add(action)
+    await session.flush()
+    signal = Signal(tenant_id=tenant.id, channel="email", status="open", ticket_tag_id=action.id, stage_key="open")
+    session.add(signal)
+    await session.commit()
+    return flow, signal
+
+
+@pytest.mark.asyncio
+async def test_done_stage_delivers_to_flow_destination(session_override):
+    from app.services.tickets import move_ticket_stage
+
+    tenant, folder, _signal = await _setup(session_override)
+    item = (await works_in.add_item(session_override, tenant.id, folder.id, kind="canvas", title="Cijfers")).get("item") or {}
+    flow, signal = await _flow_ticket(session_override, tenant, folder, key=item["key"])
+    assert await move_ticket_stage(session_override, signal, status="done", ws=flow)
+    await session_override.commit()
+    (event,) = await _events(session_override, signal.id)
+    assert event["target_kind"] == "works_in"
+    assert event["flow_id"] == str(flow.id)
+    assert event["item_label"] == "Cijfers"
+
+    from app.services.workstreams import serialize_workstream_full
+
+    body = await serialize_workstream_full(session_override, flow)
+    assert body["deliver_to"]["folder_name"] == "Klant A"
+    assert body["deliver_to"]["item_label"] == "Cijfers"
+
+
+@pytest.mark.asyncio
+async def test_done_stage_skips_when_already_delivered(session_override):
+    from app.services.tickets import move_ticket_stage
+
+    tenant, folder, _signal = await _setup(session_override)
+    flow, signal = await _flow_ticket(session_override, tenant, folder)
+    await deliveries.record_delivery(session_override, tenant.id, signal.id, target_kind="reply", ref="m1")
+    await deliveries.record_delivery(
+        session_override, tenant.id, signal.id, target_kind="folder", folder_id=folder.id, ref="pr-1"
+    )
+    await session_override.commit()
+    assert await move_ticket_stage(session_override, signal, status="done", ws=flow)
+    await session_override.commit()
+    events = await _events(session_override, signal.id)
+    assert sorted(e["ref"] for e in events) == ["m1", "pr-1"]
+
+
+@pytest.mark.asyncio
+async def test_patch_flow_validates_destination(client, session_override):
+    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
+
+    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    folder = await client.post("/api/folders", headers=headers, json={"name": "Administratie", "slug": "adm", "tags": ["adm"]})
+    folder_id = folder.json()["id"]
+    created = await client.post("/api/categories", headers=headers, json={"name": "vat"})
+    ws_id = created.json()["workstream_id"]
+
+    bad_key = await client.patch(
+        f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": folder_id, "deliver_works_in_key": "canvas:nope"}
+    )
+    assert bad_key.status_code == 422
+    bad_folder = await client.patch(
+        f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": str(uuid4())}
+    )
+    assert bad_folder.status_code == 422
+
+    ok = await client.patch(
+        f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": folder_id, "deliver_works_in_key": "board"}
+    )
+    assert ok.status_code == 200, ok.text
+    assert ok.json()["deliver_to"]["folder_name"] == "Administratie"
+    assert ok.json()["deliver_to"]["works_in_key"] == "board"
+
+    cleared = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": None})
+    assert cleared.json()["deliver_to"] is None
+    assert cleared.json()["deliver_works_in_key"] == ""

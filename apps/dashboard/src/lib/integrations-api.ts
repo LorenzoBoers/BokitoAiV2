@@ -361,9 +361,11 @@ export type HireModuleAgentResult = {
 export async function hireModuleAgent(
   slug: string,
   openSetupChat = true,
+  name?: string,
 ): Promise<HireModuleAgentResult> {
   return apiPost<HireModuleAgentResult>(integrationsRoutes.platform.moduleAgentsHire(slug), {
     open_setup_chat: openSetupChat,
+    name: name?.trim() || undefined,
   })
 }
 

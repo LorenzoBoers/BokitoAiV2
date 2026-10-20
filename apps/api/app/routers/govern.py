@@ -17,8 +17,6 @@ from app.dependencies import AuthContext, get_current_auth, tenant_settings
 from app.models.agent import Agent
 from app.models.api_token import ApiToken
 from app.models.auth import Tenant
-from app.models.signal import SignalTag
-from app.models.orchestra import Workstream
 from app.services.agent_rules import (
     ADMIN_ROLES,
     AUTONOMY_MODES,
@@ -62,10 +60,6 @@ class ToolOverrideUpdate(BaseModel):
     tool_name: str
     # null/empty mode clears the override
     mode: str | None = None
-
-
-class AutonomyScopeUpdate(BaseModel):
-    autonomy_level: str
 
 
 class TokenCreate(BaseModel):
@@ -127,15 +121,12 @@ async def get_posture(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.services.ai_handling import autonomous_override_count, governance_ceiling
+    from app.services.ai_handling import autonomous_override_count
 
     prereq = await _autonomous_prerequisites(session, auth)
-    ceiling, clamped_by = governance_ceiling(auth.tenant)
     return {
         **_allowance_state(auth.tenant),
         "prerequisites": prereq,
-        # AI handling ceiling for conversations (same messaging allowance).
-        "conversation_ceiling": {"mode": ceiling, "clamped_by": clamped_by},
         "autonomous_overrides": await autonomous_override_count(session, auth.tenant),
     }
 
@@ -191,85 +182,10 @@ async def update_posture(
     )
     await session.commit()
     await session.refresh(tenant)
-    return {**_allowance_state(tenant), "prerequisites": prereq}
-
-
-@router.get("/autonomy-scopes")
-async def list_autonomy_scopes(
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services.tickets import list_categories
-
-    categories = await list_categories(session, auth.tenant.id)
-    workstreams = (
-        await session.execute(
-            select(Workstream)
-            .where(Workstream.tenant_id == auth.tenant.id, Workstream.deleted_at.is_(None))
-            .order_by(Workstream.name)
-        )
-    ).scalars().all()
     return {
-        "categories": [
-            {
-                "id": str(row.id),
-                "name": row.name,
-                "autonomy_level": row.autonomy_level or "",
-                # draft/ask: replies on tickets of this category never go out
-                # autonomously (AI handling safeguard).
-                "send_mode": row.send_mode,
-            }
-            for row in categories
-        ],
-        "workstreams": [
-            {"id": str(row.id), "name": row.name, "autonomy_level": row.autonomy_level or ""}
-            for row in workstreams
-        ],
+        **_allowance_state(tenant),
+        "prerequisites": prereq,
     }
-
-
-@router.patch("/autonomy-scopes/{scope_kind}/{scope_id}")
-async def update_autonomy_scope(
-    scope_kind: str,
-    scope_id: UUID,
-    body: AutonomyScopeUpdate,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    auth.require_role("owner", "admin")
-    from app.services.agent_rules import parse_scope_autonomy
-
-    level = parse_scope_autonomy(body.autonomy_level)
-    model = SignalTag if scope_kind == "category" else Workstream if scope_kind == "workstream" else None
-    if model is None:
-        raise HTTPException(status_code=400, detail="Invalid autonomy scope")
-    row = (
-        await session.execute(
-            select(model).where(model.id == scope_id, model.tenant_id == auth.tenant.id)
-        )
-    ).scalar_one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Autonomy scope not found")
-    previous = row.autonomy_level or ""
-    row.autonomy_level = level
-    row.updated_at = datetime.utcnow()
-    session.add(row)
-    await record_audit(
-        session,
-        auth.tenant.id,
-        action=f"govern:{scope_kind}_autonomy_update",
-        actor_type="user",
-        actor_id=str(auth.user.id),
-        resource_type=scope_kind,
-        resource_id=str(row.id),
-        outcome="applied",
-        summary=f"Autonomy for {row.name} changed from {previous} to {level}",
-        before={"autonomy_level": previous},
-        after={"autonomy_level": level},
-        commit=False,
-    )
-    await session.commit()
-    return {"id": str(row.id), "name": row.name, "autonomy_level": level}
 
 
 @router.get("/allowances")

@@ -38,36 +38,83 @@ from app.services.stage_checkups import checkup_payload, checkup_trigger
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
-DEFAULT_TICKET_STAGES: list[dict[str, Any]] = [
-    {
-        "key": "open",
-        "name": "Open",
-        "kind": "open",
-        "auto_close_conversation": False,
-        "fields": [],
-        "owner": None,
-        "checkup_minutes": 0,
-    },
-    {
-        "key": "waiting",
-        "name": "Waiting",
-        "kind": "waiting",
-        "auto_close_conversation": False,
-        "fields": [],
-        "owner": None,
-        "checkup_minutes": 0,
-    },
-    {
-        "key": "done",
-        "name": "Done",
-        "kind": "done",
-        "auto_close_conversation": False,
-        "fields": [],
-        "owner": None,
-        "checkup_minutes": 0,
-    },
-]
-SEND_MODES = ("draft", "ask", "send")
+STAGE_KIND_NAMES: dict[str, dict[str, str]] = {
+    "en": {"open": "Not started", "waiting": "Waiting", "done": "Done"},
+    "nl": {"open": "Niet gestart", "waiting": "Wachtend", "done": "Klaar"},
+}
+
+
+def stage_name_for_kind(stages: list[dict[str, Any]], kind: str, language: str = "en") -> str:
+    """Localized stage title, with a numeric suffix when the title is taken."""
+    names = STAGE_KIND_NAMES.get(language if language in STAGE_KIND_NAMES else "en", STAGE_KIND_NAMES["en"])
+    base = names.get(kind, kind)
+    taken = {str(stage.get("name") or "").strip().lower() for stage in stages}
+    name = base
+    n = 2
+    while name.lower() in taken:
+        name = f"{base} {n}"
+        n += 1
+    return name
+
+
+def insert_named_stage(stages_json: str, *, kind: str, index: int, language: str) -> str:
+    """Append or insert one stage. The server picks the title."""
+    if kind not in ("open", "waiting", "done"):
+        raise ValueError("Unknown stage kind")
+    try:
+        stages = json.loads(stages_json or "[]")
+    except json.JSONDecodeError:
+        stages = []
+    if not isinstance(stages, list):
+        stages = []
+    name = stage_name_for_kind(stages, kind, language)
+    index = max(0, min(int(index), len(stages)))
+    stages.insert(
+        index,
+        {
+            "key": "",
+            "name": name,
+            "kind": kind,
+            "auto_close_conversation": False,
+            "fields": [],
+            "owner": None,
+            "checkup_minutes": 0,
+        },
+    )
+    return validate_stages(stages)
+
+
+def workspace_language(tenant: Any) -> str:
+    raw = getattr(tenant, "settings_json", None) or "{}"
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except (json.JSONDecodeError, TypeError):
+        data = {}
+    if not isinstance(data, dict):
+        return "en"
+    lang = str(data.get("ai_workspace_language") or data.get("ui_language") or "en").lower()
+    return "nl" if lang.startswith("nl") else "en"
+
+
+def default_stages(language: str = "en") -> list[dict[str, Any]]:
+    """The default pipeline (open, waiting, done), named in the workspace language."""
+    stages: list[dict[str, Any]] = []
+    for kind in ("open", "waiting", "done"):
+        stages.append(
+            {
+                "key": kind,
+                "name": stage_name_for_kind(stages, kind, language),
+                "kind": kind,
+                "auto_close_conversation": False,
+                "fields": [],
+                "owner": None,
+                "checkup_minutes": 0,
+            }
+        )
+    return stages
+
+
+DEFAULT_TICKET_STAGES: list[dict[str, Any]] = default_stages("en")
 STAGE_FIELD_TYPES = ("text", "textarea", "number", "enum")
 MAX_FIELDS_PER_STAGE = 8
 MAX_ENUM_OPTIONS = 20
@@ -198,31 +245,9 @@ def workstream_stages(ws: Workstream | None) -> list[dict[str, Any]]:
     return parse_stages(ws.stages_json if ws else None)
 
 
-def default_stages_json() -> str:
+def default_stages_json(language: str = "en") -> str:
     """The default pipeline, stored explicitly so a flow never has empty stages."""
-    return json.dumps([dict(s) for s in DEFAULT_TICKET_STAGES])
-
-
-async def ensure_flow_stages(session: AsyncSession) -> int:
-    """Startup backfill: write the default pipeline into flows that have none.
-
-    Older flows were saved without stages and rendered as empty boards; the
-    implicit fallback in ``parse_stages`` hid that from the API but not from
-    the operator.
-    """
-    rows = (
-        await session.execute(select(Workstream).where(Workstream.deleted_at.is_(None)))
-    ).scalars().all()
-    fixed = 0
-    for ws in rows:
-        if has_explicit_stages(ws):
-            continue
-        ws.stages_json = default_stages_json()
-        session.add(ws)
-        fixed += 1
-    if fixed:
-        await session.commit()
-    return fixed
+    return json.dumps(default_stages(language))
 
 
 def has_explicit_stages(ws: Workstream | None) -> bool:
@@ -453,8 +478,6 @@ def serialize_category(row: SignalTag, *, workstream: Workstream | None = None) 
             "create_mode": row.create_mode,
             "ask_threshold": row.ask_threshold,
             "auto_threshold": row.auto_threshold,
-            "send_mode": row.send_mode or "send",
-            "autonomy_level": row.autonomy_level or "",
             "requires_verification": row.requires_verification,
             "module_slug": row.module_slug,
             "template_slug": row.template_slug,
@@ -568,15 +591,6 @@ def apply_category_config(row: SignalTag, patch: dict[str, Any]) -> None:
     for key in ("ask_threshold", "auto_threshold"):
         if key in patch and patch[key] is not None:
             setattr(row, key, max(0, min(11, int(patch[key]))))
-    if "send_mode" in patch and patch["send_mode"] is not None:
-        mode = str(patch["send_mode"])
-        if mode not in SEND_MODES:
-            raise HTTPException(status_code=400, detail="Invalid send_mode")
-        row.send_mode = mode
-    if "autonomy_level" in patch and patch["autonomy_level"] is not None:
-        from app.services.agent_rules import parse_scope_autonomy
-
-        row.autonomy_level = parse_scope_autonomy(patch["autonomy_level"])
     if "requires_verification" in patch and patch["requires_verification"] is not None:
         row.requires_verification = bool(patch["requires_verification"])
     if "sort_order" in patch and patch["sort_order"] is not None:
@@ -872,6 +886,10 @@ async def move_ticket_stage(
             actor_id=actor_id,
             stage_name=str(target.get("name") or target["key"]),
         )
+    if target.get("kind") == "done":
+        from app.services.deliveries import deliver_flow_ticket
+
+        await deliver_flow_ticket(session, signal, ws, actor_type=actor_type, actor_id=actor_id)
     from app.services.stage_checkups import on_stage_entered
 
     await on_stage_entered(session, signal, target, actor_type=actor_type, actor_id=actor_id)

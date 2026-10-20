@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, FlatList, Modal, Pressable, RefreshControl, Text, TextInput, View } from 'react-native'
 import { router } from 'expo-router'
-import { ChannelBadge } from '../../src/components/ChannelGlyph'
+import { useQuery } from '@tanstack/react-query'
 import EmptyState from '../../src/components/EmptyState'
+import { NavRow, NavSection } from '@bokito/ui'
+import { listCommunicationNav } from '../../src/lib/api'
 import { useCopy } from '../../src/context/LocaleContext'
 import { useTheme, useThemedStyles } from '../../src/context/ThemeContext'
 import { useThreadsInfinite } from '../../src/hooks/useMessagingQueries'
 import type { Thread } from '../../src/lib/api'
 import { displayThreadPreview, displayThreadTitle, relativeTime } from '../../src/lib/format'
+import { ThreadRow } from '@bokito/ui'
 import { radius, spacing, type ColorTokens } from '../../src/theme'
 
 export default function ConversationsScreen() {
@@ -16,10 +19,13 @@ export default function ConversationsScreen() {
   const styles = useThemedStyles(listStyles)
   const [searchDraft, setSearchDraft] = useState('')
   const [search, setSearch] = useState('')
+  const [view, setView] = useState('for_you')
+  const [queuesOpen, setQueuesOpen] = useState(false)
+  const navQuery = useQuery({ queryKey: ['communication-nav'], queryFn: listCommunicationNav })
 
   const filters = useMemo(
-    () => ({ view: 'for_you' as const, search: search || undefined, per_page: 30 }),
-    [search],
+    () => ({ view, search: search || undefined, per_page: 30 }),
+    [search, view],
   )
   const { data, isLoading, isError, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, isRefetching } =
     useThreadsInfinite(filters)
@@ -27,6 +33,43 @@ export default function ConversationsScreen() {
 
   return (
     <View style={styles.root}>
+      <Pressable onPress={() => setQueuesOpen(true)} style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <Text style={{ color: colors.accentInk }}>{t('inbox.queues')}</Text>
+      </Pressable>
+      <Modal visible={queuesOpen} animationType="slide" onRequestClose={() => setQueuesOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.bg, padding: 16, gap: 8 }}>
+          <NavSection title={t('inbox.queues')}>
+            {[
+              ['for_you', t('inbox.forYou')],
+              ['all', t('inbox.all')],
+              ['unassigned', t('inbox.unassigned')],
+            ].map(([id, label]) => (
+              <NavRow
+                key={id}
+                label={label}
+                active={view === id}
+                onPress={() => {
+                  setView(id)
+                  setQueuesOpen(false)
+                }}
+              />
+            ))}
+          </NavSection>
+          <NavSection title={t('inbox.folders')}>
+            {(navQuery.data?.projects ?? []).map((row) => (
+              <NavRow key={row.id} label={row.name} total={row.count} onPress={() => setQueuesOpen(false)} />
+            ))}
+          </NavSection>
+          <NavSection title={t('inbox.flows')}>
+            {(navQuery.data?.ticket_tags ?? []).map((row) => (
+              <NavRow key={row.id} label={row.name} total={row.count} onPress={() => setQueuesOpen(false)} />
+            ))}
+          </NavSection>
+          <Pressable onPress={() => setQueuesOpen(false)}>
+            <Text style={{ color: colors.textMuted }}>{t('common.cancel')}</Text>
+          </Pressable>
+        </View>
+      </Modal>
       <TextInput
         value={searchDraft}
         onChangeText={(value) => {
@@ -80,23 +123,15 @@ function Row({ thread }: { thread: Thread }) {
   })
   const preview = displayThreadPreview(thread, locale)
   return (
-    <Pressable style={styles.row} onPress={() => router.push(`/thread/${thread.id}`)}>
-      <View style={styles.rowHeader}>
-        <Text style={[styles.subject, thread.has_unread && styles.subjectUnread]} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.time}>{relativeTime(thread.last_message_at, locale)}</Text>
-      </View>
-      {preview ? (
-        <Text style={styles.preview} numberOfLines={1}>
-          {preview}
-        </Text>
-      ) : null}
-      <View style={styles.meta}>
-        <ChannelBadge channel={thread.channel} />
-        {thread.has_unread ? <View style={styles.dot} /> : null}
-      </View>
-    </Pressable>
+    <ThreadRow
+      title={title}
+      preview={preview || undefined}
+      time={relativeTime(thread.last_message_at, locale)}
+      channel={thread.channel}
+      unread={thread.has_unread ? 1 : 0}
+      pinned={thread.is_pinned}
+      onPress={() => router.push(`/thread/${thread.id}`)}
+    />
   )
 }
 

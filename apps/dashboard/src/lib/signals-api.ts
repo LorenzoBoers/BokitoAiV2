@@ -30,6 +30,7 @@ import type {
   ThreadParticipant,
   ThreadRoutingPolicy,
 } from './inbox-api'
+import { parseActiveTurn } from './inbox-api'
 import { rememberTagMarks } from './tag-marks'
 import { parsePresenceStatus, type PresenceStatus } from './teams-api'
 
@@ -476,25 +477,7 @@ export async function getSignalThread(
       }
     })
     .filter((p): p is ThreadParticipant => p !== null)
-  const activeRaw = payload.active_turn
-  const activeRow =
-    activeRaw && typeof activeRaw === 'object'
-      ? (activeRaw as Record<string, unknown>)
-      : null
-  // Empty `{}` must not become a truthy floor (would keep “Waiting on…” / Stop).
-  const activeTurn: ThreadActiveTurn =
-    activeRow && typeof activeRow.ref_id === 'string' && activeRow.ref_id
-      ? {
-          kind: typeof activeRow.kind === 'string' ? activeRow.kind : undefined,
-          ref_id: activeRow.ref_id,
-          name: typeof activeRow.name === 'string' ? activeRow.name : undefined,
-          nonce: typeof activeRow.nonce === 'string' ? activeRow.nonce : undefined,
-          deadline: typeof activeRow.deadline === 'string' ? activeRow.deadline : undefined,
-          prompt: typeof activeRow.prompt === 'string' ? activeRow.prompt : undefined,
-          streak: typeof activeRow.streak === 'number' ? activeRow.streak : undefined,
-          deferred: activeRow.deferred === true ? true : undefined,
-        }
-      : null
+  const activeTurn: ThreadActiveTurn = parseActiveTurn(payload.active_turn)
   const handoffRaw = payload.handoff_session
   const handoffRow =
     handoffRaw && typeof handoffRaw === 'object'
@@ -1019,8 +1002,6 @@ export type SignalTag = {
   folders: TagFolderRef[]
   /** When false, triage does not offer or apply this tag. */
   aiAutoTag: boolean
-  /** draft/ask force a concept; send follows AI handling. */
-  sendMode: 'draft' | 'ask' | 'send'
 }
 
 function normalizeLabelColor(raw: unknown): LabelColor {
@@ -1067,7 +1048,6 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     showInNav: row.show_in_nav === true,
     folders: normalizeTagFolders(row.folders),
     aiAutoTag: row.ai_auto_tag !== false,
-    sendMode: row.send_mode === 'draft' || row.send_mode === 'ask' ? row.send_mode : 'send',
   }
 }
 

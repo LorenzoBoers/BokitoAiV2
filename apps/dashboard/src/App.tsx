@@ -12,12 +12,12 @@ import { OnboardingWizardGate } from './components/onboarding/OnboardingWizardGa
 import { useWorkspace } from './context/WorkspaceContext'
 import { useAuth } from './context/AuthContext'
 import { resolveTenantSubdomainFromHost } from './lib/host-routing'
-import { ASSISTANT_DEFAULT_PATH, WEBSITE_WIDGET_PATH } from './lib/assistant-settings-path'
 import { useLanguagePreferenceSync, useOnboardingLanguageFromUrl } from './lib/language-preference'
 import { pathForDefaultLanding, useDefaultLandingSync } from './lib/landing-preference'
 import { lastInboxPath } from './lib/inbox-prefs'
 import { legacyModulesPath } from './lib/integration-kind-url'
 import { RouteShellSkeleton, WorkspaceCardsSkeleton } from './components/ui/skeleton'
+import { LEGACY_REDIRECTS } from './lib/legacy-redirects'
 import {
   agentChatPath,
   channelPath,
@@ -50,7 +50,7 @@ const ContactsPage = lazy(() => import('./pages/ContactsPage'))
 const Communication = lazy(() => import('./pages/MessagesHub').then((m) => ({ default: m.MessagesHub })))
 const AgendaPage = lazy(() => import('./pages/AgendaPage'))
 const UsagePage = lazy(() => import('./pages/UsagePage'))
-const CockpitCanvasPage = lazy(() => import('./pages/CockpitCanvasPage'))
+const CanvasRedirectPage = lazy(() => import('./pages/CanvasRedirectPage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
 const OnboardingWizardPage = lazy(() => import('./pages/OnboardingWizardPage'))
 
@@ -79,7 +79,6 @@ const TeamPage = lazy(() => import('./pages/TeamPage'))
 const OrgCanvasPage = lazy(() => import('./pages/OrgCanvasPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
-const AiCommunicationSettings = lazy(() => import('./pages/AiCommunicationSettings'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
 const ConnectionsHub = lazy(() => import('./pages/ConnectionsHub'))
@@ -100,6 +99,18 @@ function RouteFallback() {
       <RouteShellSkeleton />
     </div>
   )
+}
+
+function LegacyKnowledgeRedirect() {
+  const location = useLocation()
+  const rest = location.pathname.replace(/^\/knowledge/, '')
+  return <Navigate to={`/agents/knowledge${rest}${location.search}${location.hash}`} replace />
+}
+
+function LegacyFlowRedirect() {
+  const location = useLocation()
+  const rest = location.pathname.replace(/^\/workstreams/, '')
+  return <Navigate to={`/flows${rest}${location.search}${location.hash}`} replace />
 }
 
 function LastInboxRedirect() {
@@ -340,6 +351,7 @@ export default function App() {
           {/* Communication hub: chats + customers + agents */}
           <Route element={<MessagesHub />}>
             <Route path="/communication" element={<LastInboxRedirect />} />
+            <Route path="/communication/today" element={<CockpitPage />} />
             <Route path="/new" element={<NewConversationPage />} />
             <Route path="/communication/new" element={<NewConversationPage />} />
 
@@ -419,29 +431,24 @@ export default function App() {
 
           {/* Control */}
           <Route path="/ops" element={<OpsPage />} />
-          <Route path="/cockpit" element={<CockpitPage />} />
-          <Route path="/cockpit/canvas" element={<CockpitCanvasPage />} />
+          <Route path="/cockpit/canvas" element={<CanvasRedirectPage />} />
           <Route path="/cockpit/activity" element={<LegacyActivityRedirect />} />
-          <Route path="/cockpit/usage" element={<UsagePage />} />
           <Route path="/activity" element={<LegacyActivityRedirect />} />
           <Route path="/communication/activity" element={<LegacyActivityRedirect />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
-          <Route path="/grid" element={<OrgCanvasPage />} />
-          <Route path="/team/canvas" element={<Navigate to="/grid" replace />} />
-          <Route path="/team" element={<TeamPage />} />
+          <Route path="/workforce" element={<TeamPage />} />
+          <Route path="/workforce/grid" element={<OrgCanvasPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}
-          <Route path="/cases" element={<Navigate to="/settings/action-tags" replace />} />
-          <Route path="/cases/*" element={<Navigate to="/settings/action-tags" replace />} />
           <Route path="/learn" element={<LearnPage />} />
           <Route path="/learn/:slug" element={<LearnPage />} />
-          <Route path="/integrations/setup" element={<Navigate to="/settings/setup" replace />} />
-          <Route path="/triggers" element={<Navigate to="/agenda" replace />} />
 
           {/* AI */}
+          <Route path="/agents/knowledge" element={<WorkspaceDocs />} />
+          <Route path="/agents/knowledge/:docId" element={<WorkspaceDocs />} />
           <Route path="/agents" element={<AiAgents />} />
           <Route path="/agents/:agentId" element={<AiAgentDetail />} />
           <Route path="/agents/:agentId/runs/:workLogId" element={<AiAgentDetail />} />
@@ -451,14 +458,13 @@ export default function App() {
           </Route>
           <Route path="/projects" element={<LegacyProjectsRedirect />} />
           <Route path="/projects/:projectId" element={<LegacyProjectsRedirect />} />
-          <Route path="/knowledge" element={<WorkspaceDocs />} />
-          <Route path="/knowledge/:docId" element={<WorkspaceDocs />} />
-          <Route path="/workstreams" element={<WorkstreamsPage />} />
-          <Route path="/workstreams/runs/:runId" element={<WorkstreamRunDetail />} />
-          <Route path="/workstreams/:workstreamId" element={<WorkstreamDetail />} />
+          <Route path="/knowledge/*" element={<LegacyKnowledgeRedirect />} />
+          <Route path="/workstreams/*" element={<LegacyFlowRedirect />} />
+          <Route path="/flows" element={<WorkstreamsPage />} />
+          <Route path="/flows/runs/:runId" element={<WorkstreamRunDetail />} />
+          <Route path="/flows/:workstreamId" element={<WorkstreamDetail />} />
 
           {/* Modules hub (first-class product surface; one Connections story) */}
-          <Route path="/connections" element={<ConnectionsHub />} />
           <Route path="/connections/marketplace" element={<RedirectModulesLegacy />} />
           <Route path="/connections/connected" element={<RedirectModulesLegacy />} />
           <Route path="/connections/tools" element={<RedirectModulesLegacy />} />
@@ -479,76 +485,46 @@ export default function App() {
             <Route path="/settings/profile" element={<ProfileSettings />} />
             <Route path="/settings/assistant" element={<MyAssistantSettings />} />
             <Route path="/settings/notifications" element={<NotificationSettings />} />
-            <Route path="/settings/access-security" element={<Navigate to="/settings/profile" replace />} />
             <Route path="/settings/general" element={<WorkspaceSettings />} />
             <Route path="/settings/branding" element={<CompanyConfig />} />
-            <Route path="/settings/members" element={<Navigate to="/team" replace />} />
-            <Route path="/settings/teams" element={<Navigate to="/team#teams" replace />} />
             <Route path="/settings/channels" element={<InboxSettings />} />
             <Route path="/settings/channels/:channelId" element={<ChannelDetailPage />} />
-            <Route path="/settings/communication" element={<AiCommunicationSettings />} />
-            <Route path="/settings/action-tags" element={<CategoriesSettings />} />
-            <Route path="/settings/categories" element={<Navigate to="/settings/action-tags" replace />} />
-            <Route path="/settings/help-centers" element={<Navigate to="/knowledge" replace />} />
-            <Route path="/settings/integrations" element={<RedirectPreserveSearch to="/connections" />} />
-            <Route path="/settings/integrations/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
-            <Route path="/settings/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
-            <Route path="/settings/integrations/docs" element={<Navigate to="/connections" replace />} />
-            <Route path="/settings/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
+            <Route path="/settings/labels" element={<CategoriesSettings />} />
             <Route path="/settings/modules" element={<RedirectModulesLegacy />} />
             <Route path="/settings/modules/:slug" element={<RedirectModulesLegacy />} />
-            <Route path="/settings/mcp" element={<RedirectPreserveSearch to="/connections" />} />
             <Route path="/settings/developers" element={<DeveloperSettings />} />
             <Route path="/settings/govern" element={<GovernPage />} />
+            <Route path="/settings/usage" element={<UsagePage />} />
+            <Route path="/settings/connections" element={<ConnectionsHub />} />
+            <Route path="/settings/connections/:slug" element={<ModuleSetupPage />} />
             <Route path="/settings/trust" element={<TrustPrivacyPage />} />
             <Route path="/settings/bin" element={<BinPage />} />
-            <Route path="/settings/autonomy" element={<RedirectPreserveSearch to="/settings/govern" />} />
             <Route path="/settings/models" element={<ModelsSettings />} />
             <Route path="/settings/mcp-catalog" element={<StaffIntegrationCatalog />} />
-            <Route path="/settings/projects" element={<Navigate to="/folders" replace />} />
-            <Route path="/ai/assistant" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
             <Route path="/ai/assistant/:audience/:section" element={<MessengerSettings />} />
-            {/* Legacy Dutch route name */}
-            <Route path="/ai/assistent/*" element={<Navigate to={ASSISTANT_DEFAULT_PATH} replace />} />
           </Route>
 
-          {/* Legacy redirects */}
-          <Route path="/home" element={<Navigate to="/cockpit" replace />} />
-          <Route path="/overview" element={<Navigate to="/cockpit" replace />} />
-          <Route path="/usage" element={<Navigate to="/cockpit/usage" replace />} />
-          <Route path="/skills" element={<Navigate to="/knowledge" replace />} />
-          <Route path="/workspace" element={<Navigate to="/knowledge" replace />} />
+          {LEGACY_REDIRECTS.map((row) => (
+            <Route
+              key={row.from}
+              path={row.from}
+              element={
+                row.preserveSearch ? (
+                  <RedirectPreserveSearch to={row.to} />
+                ) : (
+                  <Navigate to={row.to} replace />
+                )
+              }
+            />
+          ))}
+
           <Route path="/workspace/:docId" element={<LegacyWorkspaceDocRedirect />} />
-          <Route path="/chat" element={<Navigate to={newConversationPath()} replace />} />
           <Route path="/c/:conversationId" element={<LegacyConversationRedirect />} />
-          <Route path="/sessions" element={<Navigate to={newConversationPath()} replace />} />
           <Route path="/messages/*" element={<LegacyMessagesRedirect />} />
           <Route path="/messages" element={<LegacyMessagesRedirect />} />
           <Route path="/threads/:threadId" element={<LegacyThreadShortcutRedirect />} />
           <Route path="/inbox/*" element={<LegacyInboxRedirect />} />
           <Route path="/inbox" element={<LegacyInboxRedirect />} />
-          <Route path="/govern" element={<RedirectPreserveSearch to="/settings/govern" />} />
-          <Route path="/automations" element={<Navigate to="/agenda" replace />} />
-          <Route path="/orchestra" element={<Navigate to="/agenda" replace />} />
-          <Route path="/integrations" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/integrations/connected" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/integrations/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/integrations/mcp" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/marketplace" element={<RedirectPreserveSearch to="/connections" />} />
-          <Route path="/settings/inbox" element={<Navigate to="/settings/channels" replace />} />
-          <Route path="/settings/company" element={<Navigate to="/settings/branding" replace />} />
-          <Route path="/settings/privacy" element={<Navigate to="/settings/trust" replace />} />
-          <Route path="/settings/providers" element={<Navigate to="/settings/models" replace />} />
-          <Route path="/settings/signal-types" element={<Navigate to="/settings/action-tags" replace />} />
-          <Route path="/settings/signals" element={<Navigate to="/settings/action-tags" replace />} />
-          <Route path="/settings/widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
-          <Route path="/settings/chat-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
-          <Route path="/settings/website-widget" element={<Navigate to={WEBSITE_WIDGET_PATH} replace />} />
-          <Route path="/ai/communicatie" element={<Navigate to="/settings/communication" replace />} />
-          <Route path="/os" element={<Navigate to="/agents" replace />} />
-          <Route path="/os/agents" element={<Navigate to="/agents" replace />} />
-          <Route path="/os/docs" element={<Navigate to="/knowledge" replace />} />
-          <Route path="/os/docs/:docId" element={<Navigate to="/knowledge" replace />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

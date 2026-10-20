@@ -662,3 +662,35 @@ export const markNotificationRead = (id: string) =>
 
 export const markAllNotificationsRead = () =>
   apiPost<{ updated: number }>('/api/notifications/read-all')
+
+export type CommunicationNavRow = {
+  id: string
+  name: string
+  count: number
+  tag_id?: string | null
+  project_id?: string | null
+  children?: CommunicationNavRow[]
+}
+
+export type CommunicationNav = {
+  ticket_tags: CommunicationNavRow[]
+  tags: CommunicationNavRow[]
+  projects: CommunicationNavRow[]
+}
+
+export const listCommunicationNav = () => apiGet<CommunicationNav>('/api/signals/nav')
+
+export type AgendaOccurrence = {
+  id: string
+  title: string
+  start: string
+  status: string
+  owner_name?: string | null
+  series_id?: string | null
+  signal_id?: string | null
+}
+
+export const listAgenda = (from: string, to: string) =>
+  apiGet<{ items?: AgendaOccurrence[] }>(
+    `/api/app/agenda?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  )

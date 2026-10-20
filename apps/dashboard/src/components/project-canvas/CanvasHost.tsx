@@ -51,16 +51,15 @@ function cronLooksValid(value: string): boolean {
 }
 
 type Props = {
-  ownerKind: 'project' | 'tenant'
+  /** The folder the canvases live in. */
   ownerId: string
-  /** Shown in the setup chat opener (folder or workspace name). */
+  /** Shown in the setup chat opener (folder name). */
   ownerLabel?: string | null
   fallbackAgentId?: string | null
   canEdit?: boolean
 }
 
 export function CanvasHost({
-  ownerKind,
   ownerId,
   ownerLabel,
   fallbackAgentId,
@@ -88,7 +87,7 @@ export function CanvasHost({
     setLoading(true)
     setError(null)
     try {
-      const rows = await listCanvases(ownerKind, ownerId)
+      const rows = await listCanvases(ownerId)
       setItems(rows)
       setActiveId((current) => {
         if (requestedCanvasId && rows.some((row) => row.id === requestedCanvasId)) return requestedCanvasId
@@ -101,7 +100,7 @@ export function CanvasHost({
     } finally {
       setLoading(false)
     }
-  }, [ownerKind, ownerId, requestedCanvasId, t])
+  }, [ownerId, requestedCanvasId, t])
 
   useEffect(() => {
     void load()
@@ -152,13 +151,8 @@ export function CanvasHost({
   }
 
   function setupOpener(): string {
-    const place =
-      ownerLabel?.trim() ||
-      (ownerKind === 'project' ? t('projects.canvas.ownerFolderFallback') : t('projects.canvas.ownerWorkspaceFallback'))
-    const ownerLine =
-      ownerKind === 'project'
-        ? `owner_kind=project project_id=${ownerId}`
-        : 'owner_kind=tenant'
+    const place = ownerLabel?.trim() || t('projects.canvas.ownerFolderFallback')
+    const ownerLine = `project_id=${ownerId}`
     return t('projects.canvas.setupOpener', { place, ownerLine })
   }
 
@@ -170,11 +164,7 @@ export function CanvasHost({
     try {
       const content = setupOpener()
       const title = t('projects.canvas.setupThreadTitle', {
-        place:
-          ownerLabel?.trim() ||
-          (ownerKind === 'project'
-            ? t('projects.canvas.ownerFolderFallback')
-            : t('projects.canvas.ownerWorkspaceFallback')),
+        place: ownerLabel?.trim() || t('projects.canvas.ownerFolderFallback'),
       })
       const created = await bokitoCreateConversation(token, title, agent, { message: content })
       const path = agentChatPath(agent, created.id)

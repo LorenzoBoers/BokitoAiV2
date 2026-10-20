@@ -1,3 +1,4 @@
+import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { asAgentStatus } from '../lib/presence'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
@@ -11,6 +12,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
+import { WorkforceSectionTabs } from '../components/shell/SectionTabs'
 import { TeamCardsSkeleton } from '../components/ui/skeleton'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -77,6 +79,7 @@ export default function TeamPage() {
   const [teamsLoading, setTeamsLoading] = useState(true)
   const [editing, setEditing] = useState<Team | null>(null)
   const [creating, setCreating] = useState(false)
+  const showDepartments = params.get('tab') === 'departments'
 
   const reload = useCallback(async () => {
     if (!token) return
@@ -98,8 +101,7 @@ export default function TeamPage() {
   useEffect(() => {
     const tab = params.get('tab')
     if (tab === 'teams') {
-      setParams({}, { replace: true })
-      scrollToId('teams')
+      setParams({ tab: 'departments' }, { replace: true })
       return
     }
     if (tab === 'agents' || tab === 'people') {
@@ -108,7 +110,11 @@ export default function TeamPage() {
       return
     }
     const target = hash.replace(/^#/, '')
-    if (target === 'teams' || target === 'directory' || target === 'member-invite') {
+    if (target === 'teams') {
+      setParams({ tab: 'departments' }, { replace: true })
+      return
+    }
+    if (target === 'directory' || target === 'member-invite') {
       scrollToId(target)
     }
   }, [hash, params, setParams])
@@ -144,6 +150,7 @@ export default function TeamPage() {
 
   return (
     <PageContent width="xl" className="space-y-6">
+      <WorkforceSectionTabs />
       <ContentHeader
         guide="team"
         title={t('tabs.team.title')}
@@ -151,13 +158,16 @@ export default function TeamPage() {
         meta={<OpenInGridButton />}
       />
 
-      <MemberManagement
-        metaByUuid={metaByUuid}
-        agents={overview?.agents ?? []}
-        teamNames={directoryTeamNames}
-        onChanged={() => void reload()}
-      />
+      {showDepartments ? null : (
+        <MemberManagement
+          metaByUuid={metaByUuid}
+          agents={overview?.agents ?? []}
+          teamNames={directoryTeamNames}
+          onChanged={() => void reload()}
+        />
+      )}
 
+      {showDepartments ? (
       <section id="teams" className="space-y-3 scroll-mt-24">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -255,6 +265,7 @@ export default function TeamPage() {
           })}
         </div>
       </section>
+      ) : null}
 
       {overview && (editing || creating) ? (
         <TeamDialog
@@ -274,7 +285,7 @@ export default function TeamPage() {
 
       <PageRelatedLinks
         links={[
-          { to: '/grid', label: t('orgCanvas.link') },
+          { to: GRID_PATH, label: t('orgCanvas.link') },
           { to: '/agents', label: t('teamPage.relatedAgents') },
           { to: '/settings/setup', label: t('membersPage.openSetup') },
         ]}

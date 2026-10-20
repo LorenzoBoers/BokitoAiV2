@@ -4,7 +4,7 @@ intro: Everything that happens in the workspace, by people and agents, on one ca
 description: See what happened, what is due and what is planned, follow up on tickets, and plan tasks for people and agents.
 keywords: agenda, calendar, schedule, task, check-up, wake, google calendar, outlook calendar
 sort: 50
-related: agents,folders,workstreams,communication,agent-runs,integrations
+related: agents,folders,flows,communication,agent-runs,connections
 ---
 
 # How Agenda works
@@ -23,8 +23,8 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 
 ## Act on what needs attention
 
-1. The number next to **Agenda** in the left rail counts due tasks on open conversations assigned to you. **Overview** shows the same items under **Running and next up**.
-2. The **Needs attention** strip above the calendar counts due tasks and failed runs. Choose a count to see those items together.
+1. The number next to **Agenda** in the left rail counts due tasks on open conversations assigned to you. **Today** shows the same items under **Running and next up**.
+2. The **For you** strip above the calendar counts due tasks and failed runs. Choose a count to see those items together.
 3. Open a task to see the conversation, owner and when it is due. For a recurring stage follow-up, choose **Check now** to run it right away, or **Pause** to stop it.
 4. From anywhere, press Ctrl+K (Cmd+K on Mac) and choose **Tasks due**.
 
@@ -32,7 +32,7 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 
 1. Open a Flow and choose **Edit**. Each stage has an **Owner** (a person, agent or team, or **Keep current owner**) and a **Check-up** rhythm (**Off**, hours, days or a week).
 2. When a ticket enters that stage, Agenda creates a recurring task for whoever owns the conversation. Agents pick it up as a wake; people see it in their agenda and get the conversation marked unread when it is due.
-3. The ticket panel in Communication shows when the next follow-up is due. A Flow with check-ups links to **Check-ups on Agenda** under its title. See [Flows](/docs/ai/workstreams).
+3. The ticket panel in Communication shows when the next follow-up is due. A Flow with check-ups links to **Check-ups on Agenda** under its title. See [Flows](/docs/ai/flows).
 4. On a contact page, each conversation shows its label, stage and next planned task.
 
 ## Plan an agenda item or a recurring task
@@ -55,7 +55,7 @@ You plan the same way from a conversation: choose **Plan** in the thread menu. S
 4. Choose a meeting to see its calendar, account and details. **Edit** and **Delete** appear only when you may use a writable calendar.
 5. If an account shows **Sign in again**, its sign-in expired. Choose it and finish the sign-in; meetings stay visible until then.
 
-The Google or Outlook connection holds the sign-in; each workspace calendar has its own access list. See [Connect integrations](/docs/integrations/integrations).
+The Google or Outlook connection holds the sign-in; each workspace calendar has its own access list. See [Connections](/docs/integrations/integrations).
 
 ## What to do next
 

@@ -1,17 +1,16 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { Eye, PenLine, SquarePen } from 'lucide-react'
+import { Outlet } from 'react-router-dom'
+import { Eye, PenLine } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessagesHubNav from '../inbox/MessagesHubNav'
 import SidebarCustomizeDialog from '../inbox/SidebarCustomizeDialog'
 import { SidebarEditorProvider, useSidebarEditor } from '../../context/SidebarEditorContext'
 import { SidebarPrefsProvider } from '../../context/SidebarPrefsContext'
-import { newConversationPath } from '../../lib/messages-paths'
 import { SplitPane, SplitRow } from '../ui/SplitRow'
 
 /**
- * Communication hub layout: customizable inner rail (New conversation, All
+ * Communication hub layout: customizable inner rail (Today, All
  * communication, pinned teams, Settings), thread list and conversation on
- * the right.
+ * the right. New conversation lives on the main rail only.
  */
 function MessagesHubFrame() {
   const { t } = useTranslation(['nav', 'communication'])
@@ -35,13 +34,9 @@ function MessagesHubFrame() {
         >
           <aside className="flex h-full min-h-0 w-full flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5">
             <div className="flex shrink-0 items-center gap-0.5 pb-1.5">
-              <NavLink
-                to={newConversationPath()}
-                className="nav-row h-7 min-w-0 flex-1 border border-border/70 bg-bg-surface text-text-heading hover:border-border-light"
-              >
-                <SquarePen size={14} aria-hidden />
-                <span className="truncate">{t('support.newConversation')}</span>
-              </NavLink>
+              <span className="min-w-0 flex-1 truncate px-2 text-sm font-medium text-text-heading">
+                {t('tabs.communication.title')}
+              </span>
               <button
                 type="button"
                 onClick={() => openEditor()}

@@ -381,7 +381,7 @@ export function appLinkKind(href: string): AppLinkKind {
   if (href.startsWith('/cockpit/canvas')) return 'canvas'
   if (/^\/(?:folders|projects)\/[^/?#]+/.test(href) && /(?:\?|&)tab=canvas(?:&|#|$)/.test(href)) return 'canvas'
   if (href.startsWith('/folders') || href.startsWith('/projects')) return 'folder'
-  if (href.startsWith('/workstreams') || href.startsWith('/flows')) return 'flow'
+  if (href.startsWith('/flows') || href.startsWith('/flows')) return 'flow'
   // Conversations: hub paths and the short /threads/{id} form agents sometimes emit.
   if (
     href.startsWith('/communication') ||

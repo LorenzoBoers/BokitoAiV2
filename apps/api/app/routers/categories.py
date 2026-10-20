@@ -31,8 +31,6 @@ class CategoryPatchBody(BaseModel):
     description: str | None = None
     workstream_id: UUID | None = None
     create_mode: str | None = None
-    send_mode: str | None = None
-    autonomy_level: str | None = None
     ask_threshold: int | None = None
     auto_threshold: int | None = None
     requires_verification: bool | None = None

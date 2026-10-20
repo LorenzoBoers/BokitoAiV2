@@ -16,7 +16,7 @@ import {
 } from '../../lib/signals-api'
 import { createProject } from '../../lib/projects-api'
 import { promoteTag } from '../../lib/tickets-api'
-import { listWorkstreams, type WorkstreamRow } from '../../lib/workstreams-api'
+import { listWorkstreams, type WorkstreamRow } from '../../lib/flows-api'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'

@@ -1,4 +1,4 @@
-import { TAB_PATHS } from './navigation'
+import { GRID_PATH } from './navigation'
 
 /** Org-map node kinds that appear on Grid (see `apps/api/app/services/org_graph.py`). */
 export type OrgGridKind =
@@ -30,7 +30,7 @@ export function orgGridNodeId(kind: OrgGridKind, id: string): string {
  * as clicking that row in the legend.
  */
 export function orgGridPath(focus?: string | { kind: OrgGridKind; id: string } | null): string {
-  const base = TAB_PATHS.grid
+  const base = GRID_PATH
   if (!focus) return base
   const nodeId = typeof focus === 'string' ? focus.trim() : orgGridNodeId(focus.kind, focus.id)
   if (!nodeId) return base

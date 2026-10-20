@@ -34,10 +34,6 @@ function TypingDots({ label }: { label: string }) {
 }
 
 /** Where a live bubble sits in the run it will be saved into. */
-/** Matches `.msg-bubble-enter` in index.css, plus a short beat after it lands. */
-const USER_BUBBLE_ENTER_MS = 480
-const AGENT_AFTER_USER_MS = USER_BUBBLE_ENTER_MS + 160
-
 function stackFor(lead: boolean, closes: boolean): BubbleStack {
   if (lead && closes) return 'single'
   if (lead) return 'start'
@@ -205,8 +201,6 @@ export default function AgentTurnLive({
   orbPulseId,
   orbBaseMotion,
   continuesRun = false,
-  /** Fresh user bubble is still entering: wait until it lands before this seat rises. */
-  waitForUserBubble = false,
   onPlaybackDone,
 }: {
   turn: LiveTurn
@@ -222,43 +216,11 @@ export default function AgentTurnLive({
   orbBaseMotion?: BotOrbMotion | null
   /** The last saved row is this agent's bubble: no avatar, no author line. */
   continuesRun?: boolean
-  /** Fresh user bubble is still entering: wait until it lands before this seat rises. */
-  waitForUserBubble?: boolean
   /** Saved bubbles may replace this overlay once the reveal has caught up. */
   onPlaybackDone?: (streamId: string) => void
 }) {
   const { t } = useTranslation('communication')
   const seat = useLiveAgentSeat()
-  const [entranceReady, setEntranceReady] = useState(() => !waitForUserBubble)
-  // Once the seat is on screen, a new stream id must not unmount it. That
-  // dropped the orb mid-rise and the next mount played the spawn again.
-  const riseStartedRef = useRef(!waitForUserBubble)
-  const waitTimerRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (riseStartedRef.current) return
-    if (!waitForUserBubble || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      if (waitTimerRef.current != null) {
-        window.clearTimeout(waitTimerRef.current)
-        waitTimerRef.current = null
-      }
-      riseStartedRef.current = true
-      setEntranceReady(true)
-      return
-    }
-    if (waitTimerRef.current != null) return
-    setEntranceReady(false)
-    waitTimerRef.current = window.setTimeout(() => {
-      waitTimerRef.current = null
-      riseStartedRef.current = true
-      setEntranceReady(true)
-    }, AGENT_AFTER_USER_MS)
-  }, [waitForUserBubble, turn.streamId])
-  useEffect(
-    () => () => {
-      if (waitTimerRef.current != null) window.clearTimeout(waitTimerRef.current)
-    },
-    [],
-  )
   const seated = Boolean(agentId && avatarMark)
   const [statusReady, setStatusReady] = useState(!seated)
   const sawEnterRef = useRef(false)
@@ -281,24 +243,11 @@ export default function AgentTurnLive({
     if (sawEnterRef.current) setStatusReady(true)
   }, [seated, enteringNow])
   const [revealed, setRevealed] = useState<Record<string, boolean>>({})
-  const [speechShown, setSpeechShown] = useState(1)
   const markRevealed = useCallback((key: string, done: boolean) => {
     setRevealed((prev) => (prev[key] === done ? prev : { ...prev, [key]: done }))
   }, [])
   const blocks = liveBlocks(turn)
   const speechKeys = blocks.filter((block) => block.type === 'speech').map((block) => block.key)
-  useEffect(() => {
-    setSpeechShown(1)
-  }, [turn.streamId])
-  useEffect(() => {
-    if (speechKeys.length <= speechShown) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setSpeechShown(speechKeys.length)
-      return
-    }
-    const timer = window.setTimeout(() => setSpeechShown((count) => count + 1), 500)
-    return () => window.clearTimeout(timer)
-  }, [speechKeys.length, speechShown, turn.streamId])
   const frames = turn.status
     ? turn.status.frames
     : blocks
@@ -311,18 +260,6 @@ export default function AgentTurnLive({
     if (playbackDone && turn.streamId) onPlaybackDone?.(turn.streamId)
   }, [onPlaybackDone, playbackDone, turn.streamId])
   if (!turn.active && blocks.length === 0) return null
-  // Keep the row in the footer while the user bubble lands. Unmounting and
-  // mounting again changes the footer height and restarts the bubble motion.
-  if (!entranceReady) {
-    return (
-      <div className="flex items-start gap-2" aria-hidden>
-        <span className={THREAD_GUTTER}>
-          <span className="inline-block size-7 shrink-0" />
-        </span>
-        <div className="min-h-7 min-w-0 flex-1" />
-      </div>
-    )
-  }
   const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
   const serverLine = statusLabel(turn.status, t)
   const lastActivityIndex = blocks.reduce(
@@ -398,12 +335,6 @@ export default function AgentTurnLive({
         ) : null}
         {showBlocks
           ? blocks.map((block, index) => {
-              if (block.type === 'speech') {
-                const speechIndex = blocks
-                  .slice(0, index + 1)
-                  .filter((item) => item.type === 'speech').length
-                if (speechIndex > speechShown) return null
-              }
               return block.type === 'activity' ? (
                 statusReady && !entering ? (
                   <ActivityTrail

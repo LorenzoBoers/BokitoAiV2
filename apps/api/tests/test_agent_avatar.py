@@ -142,6 +142,30 @@ def test_apply_avatar_orb_accepts_brand_hex_and_triangles():
     assert down["avatar_shape"] == "triangledown"
 
 
+def test_coding_agent_shapes_follow_feature_flag(monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "feature_coding_agent_integrations", False)
+    hidden = avatar_payload(
+        _agent(avatar_kind="orb", avatar_color="#d97757", avatar_shape="claude")
+    )
+    assert hidden["avatar_shape"] == "bokito"
+    try:
+        apply_avatar_settings({}, avatar_kind="orb", avatar_shape="cursor")
+    except ValueError as exc:
+        assert "avatar_shape" in str(exc)
+    else:
+        raise AssertionError("cursor shape should be rejected while the flag is off")
+
+    monkeypatch.setattr(get_settings(), "feature_coding_agent_integrations", True)
+    shown = avatar_payload(
+        _agent(avatar_kind="orb", avatar_color="#d97757", avatar_shape="claude")
+    )
+    assert shown["avatar_shape"] == "claude"
+    saved = apply_avatar_settings({}, avatar_kind="orb", avatar_shape="cursor")
+    assert saved["avatar_shape"] == "cursor"
+
+
 def test_theme_prefers_agent_image(monkeypatch):
     from app.models.auth import Tenant
     from app.services import livechat_compat

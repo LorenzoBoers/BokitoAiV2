@@ -231,6 +231,7 @@ export type InboxThread = {
   /** The agent this thread targets (chat threads), if any. */
   agentId?: string | null
   agentName?: string | null
+  addressedAgent?: { id: string; name: string } | null
   agentKind?: string | null
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
@@ -315,8 +316,8 @@ export type InboxMessage = {
   decisionResponseDecisionIds?: string[]
   /** On a decision card: the agent bubble that shows it inline. */
   attachedToMessageId?: string | null
-  /** When this bubble may appear. Past values show immediately. */
-  revealAt?: string | null
+  /** Place in the thread. The timeline sorts on it. */
+  seq?: number | null
   receivedAt: string | null
   createdAt: string
 }
@@ -676,12 +677,33 @@ export type ThreadActiveTurn = {
   ref_id?: string
   name?: string
   nonce?: string
-  deadline?: string
-  prompt?: string
-  streak?: number
-  /** Peer is queued behind the agent who is still speaking. */
-  deferred?: boolean
+  turn_id?: string
+  /** running: this agent is writing now. queued: next, after the current turn. */
+  status?: 'running' | 'queued'
+  claimed_at?: string
+  requested_by_kind?: string
+  requested_by_id?: string | null
 } | null
+
+/** The floor as the API sends it; `{}` and null mean nobody holds it. */
+export function parseActiveTurn(raw: unknown): ThreadActiveTurn {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as Record<string, unknown>
+  if (typeof row.ref_id !== 'string' || !row.ref_id) return null
+  const text = (key: string) => (typeof row[key] === 'string' ? (row[key] as string) : undefined)
+  const status = text('status')
+  return {
+    kind: text('kind'),
+    ref_id: row.ref_id,
+    name: text('name'),
+    nonce: text('nonce'),
+    turn_id: text('turn_id'),
+    status: status === 'running' || status === 'queued' ? status : undefined,
+    claimed_at: text('claimed_at'),
+    requested_by_kind: text('requested_by_kind'),
+    requested_by_id: text('requested_by_id') ?? null,
+  }
+}
 
 export type ThreadDetail = {
   thread: InboxThread
@@ -968,6 +990,13 @@ function normalizeThread(row: unknown): InboxThread | null {
     contactId: asNullableString(raw.contact_id),
     agentId: asNullableString(raw.agent_id),
     agentName: asNullableString(raw.agent_name),
+    addressedAgent: (() => {
+      const row = raw.addressed_agent
+      if (!row || typeof row !== 'object') return null
+      const id = asNullableString((row as { id?: unknown }).id)
+      const name = asNullableString((row as { name?: unknown }).name)
+      return id && name ? { id, name } : null
+    })(),
     agentKind: asNullableString(raw.agent_kind),
     agentAvatarKind: asNullableString(raw.agent_avatar_kind) ?? asNullableString(raw.avatar_kind),
     agentAvatarIcon: asNullableString(raw.agent_avatar_icon) ?? asNullableString(raw.avatar_icon),
@@ -1116,9 +1145,7 @@ function normalizeMessage(row: unknown): InboxMessage | null {
     reactions: normalizeReactionsField(raw),
     ...normalizeMessageActivity(raw),
     ...messageProposalFields(payload),
-    revealAt: asNullableTimestampString(
-      typeof payload.reveal_at === 'string' ? payload.reveal_at : null,
-    ),
+    seq: typeof raw.seq === 'number' ? raw.seq : null,
     receivedAt: asNullableTimestampString(raw.received_at),
     createdAt: asTimestampString(raw.created_at),
   }

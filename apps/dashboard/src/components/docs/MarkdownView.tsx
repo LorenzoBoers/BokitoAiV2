@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { docsIcon } from '../../lib/docs-icons'
 import { headingId } from '../../lib/docs-toc'
 import { isDocsAssetSrc, parseImageLine, parseItalicCaption } from '../../lib/docs-images'
 import { cn } from '../../lib/utils'
@@ -169,17 +170,24 @@ export default function MarkdownView({
       continue
     }
 
-    // Headings
+    // Headings. `{icon:name}` renders the same Lucide mark as the product.
     const headingMatch = line.match(/^(#{1,4})\s+(.*)$/)
     if (headingMatch) {
       const level = headingMatch[1].length
+      const iconMatch = headingMatch[2].match(/^\{icon:([a-z0-9-]+)\}\s*/)
+      const iconName = iconMatch?.[1] ?? null
+      const title = iconMatch ? headingMatch[2].slice(iconMatch[0].length) : headingMatch[2]
+      const Icon = docsIcon(iconName)
+      const iconClass =
+        level <= 2 ? 'size-6 shrink-0 text-text-secondary' : 'size-5 shrink-0 text-text-secondary'
       blocks.push(
         <div
           key={key++}
           id={level === 2 || level === 3 ? headingId(headingMatch[2]) : undefined}
-          className={`${HEADING_CLASS[level]} scroll-mt-24`}
+          className={`${HEADING_CLASS[level]} flex scroll-mt-24 items-center gap-2.5`}
         >
-          {renderInline(headingMatch[2])}
+          {Icon ? <Icon className={iconClass} aria-hidden /> : null}
+          <span>{renderInline(title)}</span>
         </div>,
       )
       i += 1

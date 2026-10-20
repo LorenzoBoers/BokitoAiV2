@@ -31,7 +31,9 @@ async def _tenant(session, mode: str | None = None) -> Tenant:
 
     tenant = (await session.execute(select(Tenant))).scalar_one()
     if mode:
-        tenant.settings_json = json.dumps({"ai_handling": {"default": {"mode": mode}}})
+        tenant.settings_json = json.dumps(
+            {"ai_handling": {"default": {"mode": mode}, "ceiling": "autonomous"}}
+        )
         session.add(tenant)
         # Widget threads without channel_account_id still resolve through the
         # website-chat channel layer — keep that layer on the mode under test.

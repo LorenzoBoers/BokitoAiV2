@@ -4,7 +4,7 @@ intro: Call workspace tools from Cursor, Claude, Codex, VS Code, Windsurf, ChatG
 description: Use the Bokito MCP endpoint to call governed workspace tools from external AI tools. Covers the Connect AI tools page, OAuth and app-token setup per tool, the JSON-RPC transport, token scopes, and the planned Workbench for handing work to coding tools.
 keywords: mcp, json-rpc, cursor, claude code, claude desktop, codex, vs code, copilot, windsurf, chatgpt, tools, model context protocol, oauth, workbench
 sort: 50
-related: api-overview,authentication,mcp
+related: api-today,authentication,mcp
 ---
 
 # MCP endpoint
@@ -141,12 +141,12 @@ Each tool comes back with a name, a description prefixed with its category, and 
 `tools/list` is the source of truth, but these families are always there:
 
 - `messaging` - read and summarize threads (`list_threads`, optional `older_than_days` + `matched`/`returned` paging up to 200), reply or close one (`close_thread`) or many (`close_threads` with `older_than_days` / `signal_ids`, optional `preview` to list matches without closing), and work the CRM with `list_contacts`, `get_contact` and `upsert_contact`
-- `agents` - inspect the workforce with `list_agents`, `get_agent`, `list_playbooks` and `get_playbook`; create or update agents and playbooks
+- `agents` - inspect the workforce with `list_agents`, `get_agent`, `list_flows` and `get_flow`; create or update agents and flows
 - `triggers` - `list_triggers` for the Agenda, plus scheduling new wakes
 - `tickets` - labels with a flow and tickets: `list_categories` (lists labels with a flow), `get_ticket`, `file_ticket` (same path as Add tags; the folder follows from the tags) and `update_ticket` to move a stage (include `fields` when the target stage has required values). Free hashtags use `set_thread_tags`, not `file_ticket`. Contact tags use `set_contact_tags`. Folders use `create_folder` with `tags` or `tag_ids` (AND filterset); optional `nest_under` from `list_folders` unions a broader map's tags into the new set. Remove obsolete maps with `delete_folder` (Bin); `delete_tag` refuses while a tag still sits in a folder filterset.
-- `govern` - `get_tenant_overview`, `get_usage_summary` and `resolve_decision` to answer a pending decision card
+- `govern` - `get_tenant_today`, `get_usage_summary` and `resolve_decision` to answer a pending decision card
 - `workspace` - knowledge: `search_index`, `list_docs`, `read_doc`, `write_doc`; Bin: `list_trash`, `restore_trash_item` (restore always asks; agents never purge)
-- `integrations` - `list_module_connections` (only the connections the caller may use in the current project), `set_module_default_connection`, and `set_connection_scope` to link a connection to projects or change who may use it (always asks)
+- `connections` - `list_module_connections` (only the connections the caller may use in the current folder), `set_module_default_connection`, and `set_connection_scope` to link a connection to folders or change who may use it (always asks)
 
 ## Example: call a tool
 
@@ -165,4 +165,4 @@ OAuth consent and app token scopes name tool categories: a scoped credential onl
 
 ## Hand work to a coding tool
 
-The **Hand work to a coding tool** section on the same page lets you connect Cursor Cloud Agents, Claude Managed Agents and Devin with your own API keys. An agent proposes the job as a Decision; after you approve, progress and questions stay in the same thread and the pull request comes back on the project. See [/docs/developers/workbench](/docs/developers/workbench).
+The **Hand work to a coding tool** section on the same page lets you connect Cursor Cloud Agents, Claude Managed Agents and Devin with your own API keys. An agent proposes the job as a Decision; after you approve, progress and questions stay in the same thread and the pull request comes back on the folder. See [/docs/developers/workbench](/docs/developers/workbench).

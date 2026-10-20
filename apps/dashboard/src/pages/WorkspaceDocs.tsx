@@ -57,6 +57,7 @@ import { cn } from '../lib/utils'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { formatAppTime } from '../lib/app-locale'
 import { workspaceBrandName } from '../lib/tenant-branding'
+import { AgentsSectionTabs } from '../components/shell/SectionTabs'
 
 const KIND_ORDER: WorkspaceDocKind[] = [
   'persona',
@@ -139,6 +140,7 @@ export default function WorkspaceDocs() {
   const [searchCapped, setSearchCapped] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [newKind, setNewKind] = useState<'doc' | 'memory'>('doc')
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
@@ -285,7 +287,7 @@ export default function WorkspaceDocs() {
       docs.find((doc) => doc.kind === 'persona') ??
       docs.find((doc) => doc.kind === 'memory') ??
       docs[0]
-    if (preferred) navigate(`/knowledge/${preferred.id}`, { replace: true })
+    if (preferred) navigate(`/agents/knowledge/${preferred.id}`, { replace: true })
   }, [docId, loading, error, docs, navigate])
 
   useEffect(() => {
@@ -419,7 +421,7 @@ export default function WorkspaceDocs() {
       const doc = await createWorkspaceDoc({
         path: scopedPath,
         content: `# ${title}\n`,
-        kind: scope === 'project' ? 'project_doc' : 'doc',
+        kind: scope === 'project' ? 'project_doc' : newKind,
         project_id: scope === 'project' ? scopeProjectId : undefined,
         agent_id: scope === 'agent' ? scopeAgentId : undefined,
       })
@@ -428,13 +430,13 @@ export default function WorkspaceDocs() {
       setError(null)
       toast.success(t('knowledgePage.created'))
       await refresh()
-      navigate(`/knowledge/${doc.id}`)
+      navigate(`/agents/knowledge/${doc.id}`)
     } catch (err) {
       const message = formatApiErrorMessage(err, t('knowledgePage.createError'))
       setError(message)
       toast.error(message)
     }
-  }, [navigate, newTitle, projects, refresh, scope, scopeAgentId, scopeProjectId, t])
+  }, [navigate, newKind, newTitle, projects, refresh, scope, scopeAgentId, scopeProjectId, t])
 
   const handleUpload = useCallback(
     async (file: File) => {
@@ -444,7 +446,7 @@ export default function WorkspaceDocs() {
         setError(null)
         toast.success(t('knowledgePage.uploaded', { name: file.name }))
         await refresh()
-        navigate(`/knowledge/${doc.id}`)
+        navigate(`/agents/knowledge/${doc.id}`)
       } catch (err) {
         const message = formatApiErrorMessage(err, t('knowledgePage.uploadError'))
         setError(message)
@@ -497,7 +499,7 @@ export default function WorkspaceDocs() {
       setError(null)
       toastMovedToBin(t('knowledgePage.deleted'), navigate)
       await refresh()
-      navigate('/knowledge')
+      navigate('/agents/knowledge')
     } catch (err) {
       const message = formatApiErrorMessage(err, t('knowledgePage.deleteError'))
       setError(message)
@@ -515,6 +517,7 @@ export default function WorkspaceDocs() {
 
   return (
     <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
+      <AgentsSectionTabs className="mb-2 shrink-0" />
       <div className="featurebase-shell-panel flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border/40">
           <div className="space-y-2.5 border-b border-border/40 px-3 pb-3 pt-3.5">
@@ -576,6 +579,15 @@ export default function WorkspaceDocs() {
             </div>
             {creating ? (
               <div className="flex items-center gap-1.5">
+                <select
+                  value={newKind}
+                  onChange={(event) => setNewKind(event.target.value === 'memory' ? 'memory' : 'doc')}
+                  aria-label={t('knowledgePage.kind', { defaultValue: 'Kind' })}
+                  className="h-8 rounded-md border border-border bg-bg px-2 text-xs"
+                >
+                  <option value="doc">{t('knowledgePage.kinds.doc', { defaultValue: 'Document' })}</option>
+                  <option value="memory">{t('knowledgePage.kinds.memory', { defaultValue: 'Memory' })}</option>
+                </select>
                 <Input
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
@@ -709,7 +721,7 @@ export default function WorkspaceDocs() {
                       key={idx}
                       className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-bg-hover/60"
                       onClick={() => {
-                        if (hit.doc_id) navigate(`/knowledge/${hit.doc_id}`)
+                        if (hit.doc_id) navigate(`/agents/knowledge/${hit.doc_id}`)
                       }}
                     >
                       <span className="block truncate-fade text-xs font-medium text-text-primary">
@@ -746,7 +758,7 @@ export default function WorkspaceDocs() {
                           active?.id === doc.id &&
                             'bg-ai/10 font-medium text-ai-ink',
                         )}
-                        onClick={() => navigate(`/knowledge/${doc.id}`)}
+                        onClick={() => navigate(`/agents/knowledge/${doc.id}`)}
                       >
                         {AI_MAINTAINED_KINDS.has(doc.kind) ? (
                           <KnowledgeMark size={13} />

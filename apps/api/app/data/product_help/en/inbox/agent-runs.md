@@ -19,7 +19,7 @@ The **Activity** swimlane on [Agents](/docs/ai/agents) is the live work timeline
 1. Open **Agents**. Above the cards, **Activity** shows a now-centered timeline of even-sized points.
 2. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time.
 3. Choose a point to open the run, conversation or Agenda item.
-4. For items waiting on a yes or no, open **Filters** → **Needs decision** on the Communication list — the same list Overview **Awaiting decision** uses.
+4. For items waiting on a yes or no, open **Filters** → **Needs decision** on the Communication list — the same list Today **Awaiting decision** uses.
 
 ## Check one agent's work log
 

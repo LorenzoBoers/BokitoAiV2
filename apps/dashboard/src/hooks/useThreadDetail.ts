@@ -385,19 +385,6 @@ export function useThreadDetail(
     }
   }, [token, threadId, fetchDetail, restoreUnread])
 
-  // Participant turns run on the worker. The open tab only gets the floor
-  // chip from the API; if the worker's message frames never arrive, keep
-  // pulling the thread so Nadenken is replaced by the real trail and bubble.
-  useEffect(() => {
-    if (!token || !threadId) return
-    const floor = rawDetail?.activeTurn
-    if (!floor || floor.kind !== 'agent' || !floor.ref_id) return
-    const timer = window.setInterval(() => {
-      void fetchDetail(true)
-    }, 2000)
-    return () => window.clearInterval(timer)
-  }, [token, threadId, fetchDetail, rawDetail?.activeTurn?.kind, rawDetail?.activeTurn?.ref_id])
-
   // Quiet reconcile after tab focus and gateway reconnect (same pattern as useThreads).
   useEffect(() => {
     if (!token || !threadId) return

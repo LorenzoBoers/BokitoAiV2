@@ -56,7 +56,7 @@ async def _setup(session: AsyncSession, monkeypatch, *, mode: str = "autonomous"
         )
     ).scalars().first()
 
-    block: dict = {"default": {"mode": mode}}
+    block: dict = {"default": {"mode": mode}, "ceiling": "autonomous"}
     if routing is not None:
         block["routing"] = routing
     tenant.settings_json = json.dumps({"ai_handling": block, "tool_allowances": {"messaging": "allow"}})

@@ -4,12 +4,12 @@ intro: De requestbudgetten op publieke endpoints en hoe je met 429-antwoorden om
 description: Bokito-API-rate-limits per endpointgroep, het 429-antwoordformaat met Retry-After, en patronen om onder de limieten te blijven.
 keywords: rate limits, 429, retry-after, throttling, quota
 sort: 70
-related: api-overview,api-signals,webhooks
+related: api-today,api-signals,webhooks
 ---
 
 # Rate limits
 
-Publieke endpoints zijn rate-limited per client-IP over een rollend venster van 60 seconden. Limieten houden het platform responsief; normale integraties raken ze zelden.
+Publieke endpoints zijn rate-limited per client-IP over een rollend venster van 60 seconden. Limieten houden het platform responsief; normale koppelingen raken ze zelden.
 
 ## Limieten per endpointgroep
 

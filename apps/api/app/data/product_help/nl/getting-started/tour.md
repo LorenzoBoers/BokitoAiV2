@@ -1,7 +1,7 @@
 ---
 title: Producttour
 intro: Een snelle kaart van de interface — waar elk gebied voor is en wanneer je het gebruikt.
-description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Mappen, Flows, Grid, Agents en Instellingen.
+description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Werkmappen, Flows, Grid, Agents en Instellingen.
 keywords: tour, interface, navigatie, commandopalet, zijbalk
 sort: 40
 related: welcome,cockpit,communication
@@ -22,19 +22,19 @@ Bokito heeft één zijbalk. Vastgezette items staan boven drie groepen: Werk, AI
 ## Dagelijkse loop bovenaan
 
 ![Zijbalk met de dagelijkse loop](/api/docs/assets/tour/sidebar.png)
-*New chat, Overview en Communicatie staan boven de gegroepeerde secties.*
+*Nieuw gesprek, Vandaag en Communicatie staan boven de gegroepeerde secties.*
 
-- **New chat** — opent `/new` om een gesprek te starten.
-- **Overview** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Overview](/docs/getting-started/cockpit). Onder Profiel kun je Overview als startpagina zetten; Communicatie is de standaard.
+- **Nieuw gesprek** — opent `/new` om een gesprek te starten.
+- **Vandaag** — de ochtendscan van open werk, beslissingen en verbruik. Zie [Vandaag](/docs/getting-started/cockpit). Onder Profiel kun je Vandaag als startpagina zetten; Communicatie is de standaard.
 - **Communicatie** — de gesprekken, en de contacten erachter. Staat los in de rail (niet onder een sectie). Zie [Communicatie](/docs/inbox/communication) en [Contacten](/docs/inbox/contacts).
 
 ## Werk en AI
 
-- **Mappen** — een tag met een plek: gesprekken, boards en docs onder één pad. Zie [Mappen](/docs/ai/folders).
-- **Flows** — ticketflows, elk met het label als titel. Zie [Flows](/docs/ai/workstreams).
+- **Werkmappen** — een werkmap in Bokito is de plek waar al het werk over één onderwerp samenkomt: gesprekken, borden, bestanden en koppelingen. Zie [Werkmappen](/docs/ai/folders).
+- **Flows** — ticketflows, elk met het label als titel. Zie [Flows](/docs/ai/flows).
 - **Agenda** — wanneer agents wakker worden; staat onder **Werk**. Zie [Agenda](/docs/ai/agenda).
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
-- **Kennis** — documenten, skills en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
+- **Kennis** — documenten, vaardigheden en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
 - **Grid** — de organisatiekaart: afdelingen, mensen, agents en koppelingen. Zie [Workforce](/docs/getting-started/team).
 
 ## Organisatie: mensen, tools en config
@@ -42,18 +42,18 @@ Bokito heeft één zijbalk. Vastgezette items staan boven drie groepen: Werk, AI
 Onderaan de rail groepeert **Organisatie** de workspace zelf:
 
 - **Workforce** — de mensen, de agents en de afdelingen die ze vormen, met wie nu beschikbaar is. Zie [Workforce](/docs/getting-started/team).
-- **Koppelingen** — modules, partnerlogins, tools en AI-tools op één pagina. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Integraties](/docs/integrations/integrations).
-- **Instellingen** — gegroepeerd als Persoonlijk (**Profiel en beveiliging**, **Notificaties**, **Mijn assistent**), Organisatie (**Algemeen**, **Branding**), Communicatie (**Kanalen**, **AI-afhandeling**, **Labels**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Prullenbak** en **Support** staan onderaan de instellingenzijbalk. **Support** opent setupgids, producttour, documentatie, API-reference en contactopties. Websitechat is een kanaalrij onder **Kanalen**, geen eigen instellingenitem. Zie [Labels en tickets](/docs/ai/categories).
+- **Koppelingen** — modules, partnerlogins, tools en AI-tools op één pagina. Geïnstalleerde modules (bijvoorbeeld **Boekhouding**) krijgen geen eigen rail-tab. Zie [Koppelingen](/docs/integrations/integrations).
+- **Instellingen** — gegroepeerd als Persoonlijk (**Profiel en beveiliging**, **Notificaties**, **Mijn assistent**), Organisatie (**Algemeen**, **Branding**), Communicatie (**Kanalen**, **Autonomie**, **Labels**), AI en controle (**Govern**, **Modellen**, **Data en privacy**) en Geavanceerd (**Voor ontwikkelaars**). **Prullenbak** en **Support** staan onderaan de instellingenzijbalk. **Support** opent setupgids, producttour, documentatie, API-reference en contactopties. Websitechat is een kanaalrij onder **Kanalen**, geen eigen instellingenitem. Zie [Labels en tickets](/docs/ai/categories).
 
 Eigenaren en admins gebruiken Organisatie het meest; leden openen vooral Workforce. Zie de [setupgids](/docs/getting-started/setup-guide).
 
-Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel vul je **Voornaam** en **Achternaam** in (gebruikt in begroetingen en e-mailhandtekeningen), kies je **Startpagina** als **Chat** (standaard), **Communicatie** of **Overview**, **Weergave** als **Licht**, **Donker** of **Systeem**, en optioneel een persoonlijke **E-mailhandtekening** als terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
+Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen workspacedocs. Op Profiel vul je **Voornaam** en **Achternaam** in (gebruikt in begroetingen en e-mailhandtekeningen), kies je **Startpagina** als **Chat** (standaard), **Communicatie** of **Vandaag**, **Weergave** als **Licht**, **Donker** of **Systeem**, en optioneel een persoonlijke **E-mailhandtekening** als terugval wanneer een mailbox ieders eigen handtekening gebruikt of geen gedeelde template heeft. Gedeelde mailbox-handtekeningen staan onder **Instellingen** → **Kanalen**.
 
 ## Gebruik het commandopalet
 
 1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
 2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Communicatie-wachtrijen**, **Kennis** en **Instellingen**.
-3. Met een lege zoekopdracht biedt **Acties** ook **Nieuw gesprek**, **Praat met een agent**, **Agent openen**, **Flow openen**, **Project openen**, **Kennis openen**, **Agenda openen**, **Nieuwe flow**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Nieuw project**, **Mailbox koppelen**, **Setupgids openen**, **Hulp openen (Bokito)** en **Support openen**. **Project openen** en **Nieuw project** openen een map.
+3. Met een lege zoekopdracht biedt **Acties** ook **Nieuw gesprek**, **Praat met een agent**, **Agent openen**, **Flow openen**, **Werkmap openen**, **Kennis openen**, **Agenda openen**, **Nieuwe flow**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Nieuwe werkmap**, **Mailbox koppelen**, **Setupgids openen**, **Hulp openen (Bokito)** en **Support openen**. **Werkmap openen** en **Nieuwe werkmap** openen een werkmap.
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
 Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.

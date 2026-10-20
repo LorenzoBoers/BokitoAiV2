@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { BookOpen, Check, ChevronDown, ChevronRight, Menu, Search } from 'lucide-react'
+import { ArrowUpRight, BookOpen, Check, ChevronDown, ChevronLeft, ChevronRight, Menu, Search } from 'lucide-react'
 import {
   helpLang,
   searchProductHelp,
@@ -24,17 +24,6 @@ import {
 } from '../ui/dropdown-menu'
 
 export const DOCS_LANG_KEY = 'bokito.docs.lang'
-
-/** FilterChip look for router links and anchors in the docs chrome (FilterChip itself is a button). */
-export function docsChipClass(active: boolean): string {
-  return cn(
-    'inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-medium transition-colors',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--docs-accent)]',
-    active
-      ? 'bg-[var(--docs-fg)] text-[var(--docs-bg)]'
-      : 'border border-[var(--docs-border)] text-[var(--docs-muted)] hover:border-[var(--docs-active-ring)] hover:text-[var(--docs-fg)]',
-  )
-}
 
 export function useDocsLang(): [string, (next: 'en' | 'nl') => void] {
   const { i18n } = useTranslation()
@@ -149,11 +138,12 @@ export function DocsHeader({
             {/* Desktop only — on smaller viewports API lives in the side/drawer nav
                 so the search field stays visible. */}
             {activePage === 'api' ? (
-              <span className={cn(docsChipClass(true), 'hidden lg:inline-flex')} aria-current="page">
-                {t('docs.apiReference')}
-              </span>
+              <Link to="/docs" className="docs-cta-outline inline-flex">
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+                {t('docs.docsHome')}
+              </Link>
             ) : (
-              <Link to="/docs/api" className="docs-cta hidden lg:inline-flex">
+              <Link to="/docs/api" className="docs-cta-outline hidden lg:inline-flex">
                 {t('docs.apiReference')}
                 <ChevronRight className="h-3.5 w-3.5" aria-hidden />
               </Link>
@@ -162,6 +152,10 @@ export function DocsHeader({
               <ThemeToggle className="h-8 w-8 !p-1.5 text-[var(--docs-muted)] hover:text-[var(--docs-fg)]" />
             )}
             <DocsLangPicker lang={lang} setLang={setLang} forcedDark={activePage === 'api'} />
+            <Link to="/" className="docs-cta inline-flex">
+              {t('docs.toApp')}
+              <ArrowUpRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            </Link>
           </nav>
         </div>
       </header>
@@ -222,11 +216,10 @@ function DocsLangPicker({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-[var(--docs-border)] bg-transparent px-2.5 text-sm text-[var(--docs-fg)] transition-colors hover:border-[var(--docs-active-ring)] hover:bg-[var(--docs-hover)]"
-          aria-label={t('docs.language')}
+          className="inline-flex h-9 items-center gap-1 rounded-full border border-[var(--docs-border)] bg-transparent px-2 text-sm text-[var(--docs-fg)] transition-colors hover:border-[var(--docs-active-ring)] hover:bg-[var(--docs-hover)]"
+          aria-label={`${t('docs.language')}: ${t(active.labelKey)}`}
         >
           <ActiveFlag className="h-4 w-4 shrink-0 rounded-full ring-1 ring-white/15" />
-          <span className="hidden font-medium sm:inline">{t(active.labelKey)}</span>
           <ChevronDown className="h-3.5 w-3.5 text-[var(--docs-muted)]" aria-hidden />
         </button>
       </DropdownMenuTrigger>

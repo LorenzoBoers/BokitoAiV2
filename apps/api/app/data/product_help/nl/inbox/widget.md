@@ -60,4 +60,4 @@ Een link werkt één keer en zeven dagen lang. Een WhatsApp-bericht zonder geldi
 
 ## Wat nu
 
-Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [AI-afhandeling](/docs/inbox/inbox-ai) (websitechat staat vaak op **Autonoom**). Met **AI-antwoorden vermelden** aan tonen autonome antwoorden een korte vermelding onder de bubbel. Een verzoek dat in de chat herkend wordt, wordt een [ticket](/docs/ai/categories) op het gesprek, geen tweede inbox.
+Koppel een [mailbox](/docs/inbox/channels) zodat chat en e-mail één hub delen. Stel in wanneer de widget antwoordt onder [Autonomie](/docs/inbox/inbox-ai) (websitechat staat vaak op **Autonoom**). Met **AI-antwoorden vermelden** aan tonen autonome antwoorden een korte vermelding onder de bubbel. Een verzoek dat in de chat herkend wordt, wordt een [ticket](/docs/ai/categories) op het gesprek, geen tweede inbox.

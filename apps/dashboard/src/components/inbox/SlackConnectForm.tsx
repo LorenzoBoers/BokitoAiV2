@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { createSlackAccount } from '../../lib/channel-accounts-api'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { inboxPath } from '../../lib/messages-paths'
+import { AUTONOMY_PATH } from '../../lib/navigation'
 
 /**
  * Connect a Slack workspace so decision cards arrive as DMs with
@@ -89,7 +90,7 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
           <Link to={inboxPath('open')} className="font-medium text-accent hover:underline">
             {t('slackCard.openCommunication')}
           </Link>
-          <Link to="/settings/communication" className="font-medium text-accent hover:underline">
+          <Link to={AUTONOMY_PATH} className="font-medium text-accent hover:underline">
             {t('slackCard.openInboxAi')}
           </Link>
           <Link to="/settings/govern?tab=policy" className="font-medium text-accent hover:underline">

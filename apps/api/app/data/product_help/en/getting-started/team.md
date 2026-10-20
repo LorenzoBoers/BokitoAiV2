@@ -1,15 +1,15 @@
 ---
 title: How Workforce works
 intro: People, agents and departments on one page, with who is available.
-description: Invite people, see people and agents in one directory, group them into departments, set how a department picks up conversations, mark yourself away and read department numbers.
-keywords: workforce, team, members, invite, roles, teams, availability, away, round robin, least open, pickup
+description: Invite people, see people and agents in one directory, group them into departments, set how a department picks up conversations, mark yourself away, and read the Grid from intake to result.
+keywords: workforce, team, members, invite, roles, teams, availability, away, round robin, least open, pickup, grid, lens, labels, bottlenecks
 sort: 60
 related: setup-guide,communication,agents,channels
 ---
 
 # How Workforce works
 
-Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the departments you group them into. Open **Workforce** in the rail under **Organization** to invite someone, scan the directory, or build a department. The organization map lives under **AI** as **Grid** (`/grid`). Communication, Calendar, Agents, Connections, Flows, Folders, and access lists link to the same map. The map is a full-page scene: the company in the center, each department as a solid colored island that lightens on hover, and people, company agents, channels, flows and other items as marks on those islands. Items that belong to the whole company sit on the center island with the company logo. Departments are areas with a name chip, not separate bases. People and agents sit side by side in the open band between the company ring and their departments. The same soft swipe, with a slight curve, runs from the company disc to each department, from each person or agent to a department edge, between nested departments, and between two directly linked items on one island. Linked items sit together on their island, so each swipe stays short. A swipe also runs between two islands when an item on one is tied to an item on the other. An item does not draw a line to its department. Filing labels (`#tags`) do not appear as marks. The personal Bokito helper is not on the map. Drag to pan; the wheel zooms. Hover a mark to expand its name with the type and details; hover anywhere on a department island to light the whole area and see its name. The legend on the right lists everything on the map; choose a row to find and highlight that mark. A mark opens that item.
+Workforce shows everyone who works conversations: the people in the workspace, the company agents, and the departments you group them into. Open **Workforce** in the rail under **Team** to invite someone, scan the directory, or build a department. The tabs at the top are **People and agents**, **Departments** and **Grid** (`/workforce/grid`). The Grid shows how work runs through the company: from the channel it arrives on, past the person or agent who picks it up and the flow it runs in, to the result it lands in.
 
 ## Invite someone
 
@@ -25,7 +25,7 @@ Members answer conversations. Owners and admins also connect channels, change au
 ## Hire new agents
 
 1. On **Workforce**, below **Invite people**, open the **Hire new agents** banner.
-2. Choose **Marketplace**. It opens Connections filtered to modules (`/connections?kind=modules`), where you install specialists next to the team.
+2. Choose **Catalog**. It opens Connections filtered to modules (`/connections?kind=modules`), where you install specialists next to the team.
 
 ## Mark yourself away
 
@@ -38,7 +38,7 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 ## Read the directory
 
 1. On **Workforce**, the directory lists people, pending invites and company agents together. An agent's function sits under the name in that agent's color. **Type** is plain text: **Person** for people and invites, **AI agent** for company agents (`ai_agent`). Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows. The **Last active** column shows when a person was last online and when an agent last ran. Open **Agents** from the related links for the agent library (same **Deactivated** filter there).
-2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). In **Role / ceiling**, an owner or admin changes a person's role, and changes an agent's ceiling with the same kind of menu: **Manual**, **Assisted** or **Autonomous**. Only an owner or admin can raise a ceiling to **Autonomous**. Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error**. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)). **Open in Grid** in the page header opens the organization map (same control on Agents, Flows, Folders and Connections).
+2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). In **Role / ceiling**, an owner or admin changes a person's role, and changes an agent's ceiling with the same kind of menu: **Manual**, **Assisted** or **Autonomous**. Only an owner or admin can raise a ceiling to **Autonomous**. Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error**. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)). **Open in Grid** in the page header opens the Grid (same control on Agents, Flows, Folders and Connections).
 3. People and agents use their own marks; teams use a facepile of members. Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are available, gray when everyone is offline.
 
 ## Deactivate a person or agent
@@ -60,6 +60,19 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 5. Back on **Workforce**, the name of a custom department and its **Conversations** button open the same folder. The mark on the left of each department row — and in the assign picker, mentions and Communication folders — is that facepile: three member marks when there are three people or agents; when there are more, the third circle shows **+N**. Agent marks on Workforce open the agent page and match the mark on the agent page. The system departments **All people** and **All agents** have no folder, so their names stay plain text.
 
 Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the team. Each hand-out appears in the timeline and in the audit log. Make a team the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
+
+## Read the Grid
+
+![The Grid in 2D with the Flow lens](/api/docs/assets/team/grid.png)
+*Intake on the left, executors per department, flows, and results on the right.*
+
+1. Open **Workforce** and choose **Grid**. Four columns read left to right: **Intake**, **Executors · per department**, **Flow · how** and **Result · where it lands**. Line width is the number of conversations in the chosen period (**7 days**, **30 days** or **90 days**).
+2. Pick a lens. **Flow** shows the stream. **Labels** colors every line by label; choose a label chip to follow only that label through the chain. **Autonomy** colors executors by what they may do alone (**Autonomous**, **Assisted**, **Manual**). **Bottlenecks** keeps only nodes that need attention, such as work nobody picks up or a person with many open conversations. **Structure** shows the organization map with departments as islands.
+3. Choose **2D** or **3D**. Both show the same nodes; in 3D the result column bends around the scene. Drag to pan, scroll to zoom, and choose **Reset** to return to the start view.
+4. Choose a node. The panel on the right shows what it may do alone and why, where its work comes from and where it goes, and in the Labels lens the split per label. **Open conversations** opens that work in Communication. On a folder, **Add to Works in** opens the folder with the add form ready.
+5. When much of a node's work has no label, choose **Suggest labels**. An agent chat opens with that unlabeled work and proposes labels; nothing changes until you agree.
+
+The Result column says **Estimated** while not every result is recorded as a delivery yet. The orange box **No department** holds people and agents who work conversations but sit in no department.
 
 ## Personal settings stay personal
 

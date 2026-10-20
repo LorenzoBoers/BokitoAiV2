@@ -1,4 +1,4 @@
-import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, PackageCheck, Pencil, Phone, Reply, ReplyAll, Trash2, User, Users, X as XIcon } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { EntityAvatarLink } from './EntityAvatarLink'
@@ -962,6 +962,19 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   priority_changed: (t, p) =>
     t('timeline.events.priority', { priority: localizedPriority(t, p.priority) }),
   replied: (t) => t('timeline.events.replySent'),
+  delivered: (t, p) => {
+    const folder = typeof p.folder_name === 'string' ? p.folder_name : ''
+    if (p.target_kind === 'knowledge') return t('timeline.events.deliveredKnowledge')
+    if (p.target_kind === 'works_in' && folder) {
+      const item =
+        (typeof p.item_label === 'string' && p.item_label) ||
+        t(`nav:projects.worksIn.kind.${String(p.item_kind ?? '')}`, { defaultValue: '' })
+      return item
+        ? t('timeline.events.deliveredItem', { folder, item })
+        : t('timeline.events.deliveredFolder', { folder })
+    }
+    return folder ? t('timeline.events.deliveredFolder', { folder }) : ''
+  },
   reply_sent: (t, p) =>
     p.reopened ? t('timeline.events.replyReopened') : t('timeline.events.replySent'),
   note_added: (t) => t('timeline.events.noteAdded'),
@@ -1339,6 +1352,9 @@ function eventPresentation(
   if (eventType === 'ticket_stage_changed') {
     return { ai: false, icon: <Layers size={THREAD_ICON} /> }
   }
+  if (eventType === 'delivered') {
+    return { ai: typeof payload.agent_id === 'string', icon: <PackageCheck size={THREAD_ICON} /> }
+  }
   if (
     eventType === 'tag_added' ||
     eventType === 'tag_removed' ||
@@ -1706,6 +1722,23 @@ function EventPill({
       tip={when}
     />
   )
+  const deliveredHref = event.eventType === 'delivered' ? event.payload?.href : null
+  if (typeof deliveredHref === 'string' && deliveredHref) {
+    return /^https?:\/\//.test(deliveredHref) ? (
+      <a
+        href={deliveredHref}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-md hover:text-text-primary"
+      >
+        {pill}
+      </a>
+    ) : (
+      <Link to={deliveredHref} className="rounded-md hover:text-text-primary">
+        {pill}
+      </Link>
+    )
+  }
   const linkedId = event.eventType === 'split' ? event.payload?.other_signal_id : null
   if (typeof linkedId === 'string' && linkedId) {
     return (

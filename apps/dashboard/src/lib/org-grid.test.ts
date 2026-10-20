@@ -9,8 +9,8 @@ describe('org-grid', () => {
   })
 
   it('builds Grid paths with optional legend focus', () => {
-    expect(orgGridPath()).toBe('/grid')
-    expect(orgGridPath('agent:abc')).toBe('/grid?focus=agent%3Aabc')
-    expect(orgGridPath({ kind: 'flow', id: 'ws-1' })).toBe('/grid?focus=flow%3Aws-1')
+    expect(orgGridPath()).toBe('/workforce/grid')
+    expect(orgGridPath('agent:abc')).toBe('/workforce/grid?focus=agent%3Aabc')
+    expect(orgGridPath({ kind: 'flow', id: 'ws-1' })).toBe('/workforce/grid?focus=flow%3Aws-1')
   })
 })

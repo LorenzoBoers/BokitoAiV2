@@ -89,7 +89,7 @@
     "tabHintAgent": "Alleen jij en de AI. De klant ziet niets.",
     "pickFocus": "Kies wie je bericht",
     "pickFocusAgents": "Agents",
-    "pickFocusPeople": "Teammates",
+    "pickFocusPeople": "Collega's",
     "pickFocusKeepOne": "Houd minstens één ontvanger.",
     "sendFrom": "Versturen vanaf",
     "sendFromHint": "Verstuur vanaf deze mailbox. Wisselen verplaatst het gesprek hiernaartoe.",
@@ -258,8 +258,8 @@
     "scopeAgent": "Gesprekken van {{name}}",
     "scopeProject": "Gesprekken in {{name}}",
     "scopeAgentFallback": "deze agent",
-    "scopeProjectFallback": "dit project",
-    "scopeFolder": "Map: {{name}}",
+    "scopeProjectFallback": "deze werkmap",
+    "scopeFolder": "Werkmap: {{name}}",
     "scopeFiltered": "Gefilterde gesprekken",
     "clearScope": "Alle gesprekken tonen",
     "emptyScoped": "Geen gesprekken in dit filter.",
@@ -341,8 +341,8 @@
     "decisionNeeded": "Beslissing nodig",
     "source": {
       "prefix": "Vanuit",
-      "agent_task": "projectqueue",
-      "project": "project",
+      "agent_task": "werkmapwachtrij",
+      "project": "werkmap",
       "agent_run": "agentrun",
       "platform_change": "platformwijziging"
     },
@@ -381,7 +381,7 @@
     "toastRejected": "Beslissing afgewezen",
     "toastClosed": "Gesprek gesloten",
     "toastTaskCreated": "Kijkmoment gepland",
-    "toastQueueAdded": "Toegevoegd aan de projectqueue",
+    "toastQueueAdded": "Toegevoegd aan de werkmapwachtrij",
     "titleQueueProposal": "Queue-voorstel",
     "openAgenda": "Agenda openen",
     "toastSent": "Antwoord verzonden",
@@ -491,58 +491,254 @@
     "webSearch": "Zoekt op {{query}}",
     "inviting": "{{name}} uitnodigen voor het gesprek",
     "invitingSomeone": "Iemand uitnodigen voor het gesprek",
+    "asking": "{{name}} gevraagd",
+    "askingSomeone": "Een agent gevraagd",
+    "handingOver": "Overgedragen aan {{name}}",
+    "handingOverSomeone": "Overgedragen",
     "generatingImage": "Afbeelding genereren",
     "generatedImage": "Afbeelding gegenereerd",
     "imageFailed": "De afbeelding is niet gegenereerd",
     "verb": {
-      "list": { "running": "{{object}} opzoeken", "done": "{{object}} opgezocht", "error": "{{object}} opzoeken mislukt" },
-      "read": { "running": "{{object}} lezen", "done": "{{object}} gelezen", "error": "{{object}} lezen mislukt" },
-      "search": { "running": "Zoeken in {{object}}", "done": "Gezocht in {{object}}", "error": "Zoeken in {{object}} mislukt" },
-      "fetch": { "running": "{{object}} ophalen", "done": "{{object}} opgehaald", "error": "{{object}} ophalen mislukt" },
-      "write": { "running": "{{object}} schrijven", "done": "{{object}} geschreven", "error": "{{object}} schrijven mislukt" },
-      "create": { "running": "{{object}} maken", "done": "{{object}} gemaakt", "error": "{{object}} maken mislukt" },
-      "update": { "running": "{{object}} bijwerken", "done": "{{object}} bijgewerkt", "error": "{{object}} bijwerken mislukt" },
-      "delete": { "running": "{{object}} verwijderen", "done": "{{object}} verwijderd", "error": "{{object}} verwijderen mislukt" },
-      "set": { "running": "{{object}} instellen", "done": "{{object}} ingesteld", "error": "{{object}} instellen mislukt" },
-      "post": { "running": "{{object}} plaatsen", "done": "{{object}} geplaatst", "error": "{{object}} plaatsen mislukt" },
-      "send": { "running": "{{object}} versturen", "done": "{{object}} verstuurd", "error": "{{object}} versturen mislukt" },
-      "invite": { "running": "{{object}} uitnodigen", "done": "{{object}} uitgenodigd", "error": "{{object}} uitnodigen mislukt" },
-      "close": { "running": "{{object}} sluiten", "done": "{{object}} gesloten", "error": "{{object}} sluiten mislukt" },
-      "suggest": { "running": "{{object}} voorstellen", "done": "{{object}} voorgesteld", "error": "{{object}} voorstellen mislukt" },
-      "propose": { "running": "{{object}} voorstellen", "done": "{{object}} voorgesteld", "error": "{{object}} voorstellen mislukt" },
-      "assign": { "running": "{{object}} toewijzen", "done": "{{object}} toegewezen", "error": "{{object}} toewijzen mislukt" },
-      "schedule": { "running": "{{object}} inplannen", "done": "{{object}} ingepland", "error": "{{object}} inplannen mislukt" },
-      "restore": { "running": "{{object}} terugzetten", "done": "{{object}} teruggezet", "error": "{{object}} terugzetten mislukt" },
-      "start": { "running": "{{object}} starten", "done": "{{object}} gestart", "error": "{{object}} starten mislukt" },
-      "leave": { "running": "{{object}} verlaten", "done": "{{object}} verlaten", "error": "{{object}} verlaten mislukt" },
-      "remember": { "running": "{{object}} onthouden", "done": "{{object}} onthouden", "error": "{{object}} onthouden mislukt" },
-      "mark": { "running": "{{object}} markeren", "done": "{{object}} gemarkeerd", "error": "{{object}} markeren mislukt" },
-      "record": { "running": "{{object}} vastleggen", "done": "{{object}} vastgelegd", "error": "{{object}} vastleggen mislukt" },
-      "request": { "running": "{{object}} vragen", "done": "{{object}} gevraagd", "error": "{{object}} vragen mislukt" },
-      "react": { "running": "Reageren op {{object}}", "done": "Gereageerd op {{object}}", "error": "Reageren mislukt" },
-      "resolve": { "running": "{{object}} afronden", "done": "{{object}} afgerond", "error": "{{object}} afronden mislukt" },
-      "recommend": { "running": "{{object}} aanraden", "done": "{{object}} aangeraden", "error": "{{object}} aanraden mislukt" },
-      "register": { "running": "{{object}} registreren", "done": "{{object}} geregistreerd", "error": "{{object}} registreren mislukt" },
-      "upsert": { "running": "{{object}} opslaan", "done": "{{object}} opgeslagen", "error": "{{object}} opslaan mislukt" },
-      "clear": { "running": "{{object}} wissen", "done": "{{object}} gewist", "error": "{{object}} wissen mislukt" },
-      "file": { "running": "{{object}} indienen", "done": "{{object}} ingediend", "error": "{{object}} indienen mislukt" },
-      "dispatch": { "running": "{{object}} uitzetten", "done": "{{object}} uitgezet", "error": "{{object}} uitzetten mislukt" },
-      "report": { "running": "{{object}} melden", "done": "{{object}} gemeld", "error": "{{object}} melden mislukt" },
-      "ask": { "running": "{{object}} vragen", "done": "{{object}} gevraagd", "error": "{{object}} vragen mislukt" },
-      "attach": { "running": "{{object}} toevoegen", "done": "{{object}} toegevoegd", "error": "{{object}} toevoegen mislukt" },
-      "connect": { "running": "{{object}} koppelen", "done": "{{object}} gekoppeld", "error": "{{object}} koppelen mislukt" },
-      "link": { "running": "{{object}} koppelen", "done": "{{object}} gekoppeld", "error": "{{object}} koppelen mislukt" },
-      "add": { "running": "{{object}} toevoegen", "done": "{{object}} toegevoegd", "error": "{{object}} toevoegen mislukt" },
-      "cancel": { "running": "{{object}} annuleren", "done": "{{object}} geannuleerd", "error": "{{object}} annuleren mislukt" },
-      "split": { "running": "{{object}} splitsen", "done": "{{object}} gesplitst", "error": "{{object}} splitsen mislukt" },
-      "call": { "running": "{{object}} aanroepen", "done": "{{object}} aangeroepen", "error": "{{object}} aanroepen mislukt" },
-      "generate": { "running": "{{object}} genereren", "done": "{{object}} gegenereerd", "error": "{{object}} genereren mislukt" },
-      "note": { "running": "{{object}} noteren", "done": "{{object}} genoteerd", "error": "{{object}} noteren mislukt" },
-      "take": { "running": "{{object}} overnemen", "done": "{{object}} overgenomen", "error": "{{object}} overnemen mislukt" },
-      "handoff": { "running": "Doorgeven aan {{object}}", "done": "Doorgegeven aan {{object}}", "error": "Doorgeven mislukt" },
-      "continue": { "running": "Verder via {{object}}", "done": "Verder gegaan via {{object}}", "error": "Verder gaan mislukt" },
-      "follow": { "running": "{{object}} opvolgen", "done": "{{object}} opgevolgd", "error": "{{object}} opvolgen mislukt" },
-      "work": { "running": "Bezig met {{object}}", "done": "{{object}} gedaan", "error": "{{object}} mislukt" }
+      "list": {
+        "running": "{{object}} opzoeken",
+        "done": "{{object}} opgezocht",
+        "error": "{{object}} opzoeken mislukt"
+      },
+      "read": {
+        "running": "{{object}} lezen",
+        "done": "{{object}} gelezen",
+        "error": "{{object}} lezen mislukt"
+      },
+      "search": {
+        "running": "Zoeken in {{object}}",
+        "done": "Gezocht in {{object}}",
+        "error": "Zoeken in {{object}} mislukt"
+      },
+      "fetch": {
+        "running": "{{object}} ophalen",
+        "done": "{{object}} opgehaald",
+        "error": "{{object}} ophalen mislukt"
+      },
+      "write": {
+        "running": "{{object}} schrijven",
+        "done": "{{object}} geschreven",
+        "error": "{{object}} schrijven mislukt"
+      },
+      "create": {
+        "running": "{{object}} maken",
+        "done": "{{object}} gemaakt",
+        "error": "{{object}} maken mislukt"
+      },
+      "update": {
+        "running": "{{object}} bijwerken",
+        "done": "{{object}} bijgewerkt",
+        "error": "{{object}} bijwerken mislukt"
+      },
+      "delete": {
+        "running": "{{object}} verwijderen",
+        "done": "{{object}} verwijderd",
+        "error": "{{object}} verwijderen mislukt"
+      },
+      "set": {
+        "running": "{{object}} instellen",
+        "done": "{{object}} ingesteld",
+        "error": "{{object}} instellen mislukt"
+      },
+      "post": {
+        "running": "{{object}} plaatsen",
+        "done": "{{object}} geplaatst",
+        "error": "{{object}} plaatsen mislukt"
+      },
+      "send": {
+        "running": "{{object}} versturen",
+        "done": "{{object}} verstuurd",
+        "error": "{{object}} versturen mislukt"
+      },
+      "invite": {
+        "running": "{{object}} uitnodigen",
+        "done": "{{object}} uitgenodigd",
+        "error": "{{object}} uitnodigen mislukt"
+      },
+      "close": {
+        "running": "{{object}} sluiten",
+        "done": "{{object}} gesloten",
+        "error": "{{object}} sluiten mislukt"
+      },
+      "suggest": {
+        "running": "{{object}} voorstellen",
+        "done": "{{object}} voorgesteld",
+        "error": "{{object}} voorstellen mislukt"
+      },
+      "propose": {
+        "running": "{{object}} voorstellen",
+        "done": "{{object}} voorgesteld",
+        "error": "{{object}} voorstellen mislukt"
+      },
+      "assign": {
+        "running": "{{object}} toewijzen",
+        "done": "{{object}} toegewezen",
+        "error": "{{object}} toewijzen mislukt"
+      },
+      "schedule": {
+        "running": "{{object}} inplannen",
+        "done": "{{object}} ingepland",
+        "error": "{{object}} inplannen mislukt"
+      },
+      "restore": {
+        "running": "{{object}} terugzetten",
+        "done": "{{object}} teruggezet",
+        "error": "{{object}} terugzetten mislukt"
+      },
+      "start": {
+        "running": "{{object}} starten",
+        "done": "{{object}} gestart",
+        "error": "{{object}} starten mislukt"
+      },
+      "leave": {
+        "running": "{{object}} verlaten",
+        "done": "{{object}} verlaten",
+        "error": "{{object}} verlaten mislukt"
+      },
+      "remember": {
+        "running": "{{object}} onthouden",
+        "done": "{{object}} onthouden",
+        "error": "{{object}} onthouden mislukt"
+      },
+      "mark": {
+        "running": "{{object}} markeren",
+        "done": "{{object}} gemarkeerd",
+        "error": "{{object}} markeren mislukt"
+      },
+      "record": {
+        "running": "{{object}} vastleggen",
+        "done": "{{object}} vastgelegd",
+        "error": "{{object}} vastleggen mislukt"
+      },
+      "request": {
+        "running": "{{object}} vragen",
+        "done": "{{object}} gevraagd",
+        "error": "{{object}} vragen mislukt"
+      },
+      "react": {
+        "running": "Reageren op {{object}}",
+        "done": "Gereageerd op {{object}}",
+        "error": "Reageren mislukt"
+      },
+      "resolve": {
+        "running": "{{object}} afronden",
+        "done": "{{object}} afgerond",
+        "error": "{{object}} afronden mislukt"
+      },
+      "recommend": {
+        "running": "{{object}} aanraden",
+        "done": "{{object}} aangeraden",
+        "error": "{{object}} aanraden mislukt"
+      },
+      "register": {
+        "running": "{{object}} registreren",
+        "done": "{{object}} geregistreerd",
+        "error": "{{object}} registreren mislukt"
+      },
+      "upsert": {
+        "running": "{{object}} opslaan",
+        "done": "{{object}} opgeslagen",
+        "error": "{{object}} opslaan mislukt"
+      },
+      "clear": {
+        "running": "{{object}} wissen",
+        "done": "{{object}} gewist",
+        "error": "{{object}} wissen mislukt"
+      },
+      "file": {
+        "running": "{{object}} indienen",
+        "done": "{{object}} ingediend",
+        "error": "{{object}} indienen mislukt"
+      },
+      "dispatch": {
+        "running": "{{object}} uitzetten",
+        "done": "{{object}} uitgezet",
+        "error": "{{object}} uitzetten mislukt"
+      },
+      "report": {
+        "running": "{{object}} melden",
+        "done": "{{object}} gemeld",
+        "error": "{{object}} melden mislukt"
+      },
+      "ask": {
+        "running": "{{object}} vragen",
+        "done": "{{object}} gevraagd",
+        "error": "{{object}} vragen mislukt"
+      },
+      "attach": {
+        "running": "{{object}} toevoegen",
+        "done": "{{object}} toegevoegd",
+        "error": "{{object}} toevoegen mislukt"
+      },
+      "connect": {
+        "running": "{{object}} koppelen",
+        "done": "{{object}} gekoppeld",
+        "error": "{{object}} koppelen mislukt"
+      },
+      "link": {
+        "running": "{{object}} koppelen",
+        "done": "{{object}} gekoppeld",
+        "error": "{{object}} koppelen mislukt"
+      },
+      "add": {
+        "running": "{{object}} toevoegen",
+        "done": "{{object}} toegevoegd",
+        "error": "{{object}} toevoegen mislukt"
+      },
+      "cancel": {
+        "running": "{{object}} annuleren",
+        "done": "{{object}} geannuleerd",
+        "error": "{{object}} annuleren mislukt"
+      },
+      "split": {
+        "running": "{{object}} splitsen",
+        "done": "{{object}} gesplitst",
+        "error": "{{object}} splitsen mislukt"
+      },
+      "call": {
+        "running": "{{object}} aanroepen",
+        "done": "{{object}} aangeroepen",
+        "error": "{{object}} aanroepen mislukt"
+      },
+      "generate": {
+        "running": "{{object}} genereren",
+        "done": "{{object}} gegenereerd",
+        "error": "{{object}} genereren mislukt"
+      },
+      "note": {
+        "running": "{{object}} noteren",
+        "done": "{{object}} genoteerd",
+        "error": "{{object}} noteren mislukt"
+      },
+      "take": {
+        "running": "{{object}} overnemen",
+        "done": "{{object}} overgenomen",
+        "error": "{{object}} overnemen mislukt"
+      },
+      "handoff": {
+        "running": "Doorgeven aan {{object}}",
+        "done": "Doorgegeven aan {{object}}",
+        "error": "Doorgeven mislukt"
+      },
+      "continue": {
+        "running": "Verder via {{object}}",
+        "done": "Verder gegaan via {{object}}",
+        "error": "Verder gaan mislukt"
+      },
+      "follow": {
+        "running": "{{object}} opvolgen",
+        "done": "{{object}} opgevolgd",
+        "error": "{{object}} opvolgen mislukt"
+      },
+      "work": {
+        "running": "Bezig met {{object}}",
+        "done": "{{object}} gedaan",
+        "error": "{{object}} mislukt"
+      }
     },
     "object": {
       "docs": "documenten",
@@ -553,11 +749,11 @@
       "thread": "gesprek",
       "agents": "agents",
       "agent": "agent",
-      "teams": "teams",
+      "teams": "afdelingen",
       "contacts": "contacten",
       "contact": "contact",
-      "folders": "mappen",
-      "folder": "map",
+      "folders": "werkmappen",
+      "folder": "werkmap",
       "canvases": "canvassen",
       "canvas": "canvas",
       "triggers": "agenda-items",
@@ -598,7 +794,7 @@
       "wake": "wekking",
       "posture": "autonomie",
       "contact_tags": "contactlabels",
-      "ai_handling": "AI-afhandeling",
+      "ai_handling": "Autonomie",
       "channel_ai_handling": "kanaalafhandeling",
       "session_checkout": "sessie-afronding",
       "over_conversation": "het gesprek",
@@ -760,7 +956,7 @@
     "pickAgent": "Kies welke agent",
     "reason": {
       "channel": "handelt dit kanaal",
-      "project": "projectlead",
+      "project": "folderlead",
       "company": "bedrijfsagent",
       "module": "modulespecialist"
     },
@@ -863,7 +1059,7 @@
     "intentWhatsapp": "WhatsApp",
     "intentWhatsappHint": "Stuur een bericht via een gekoppeld WhatsApp-nummer.",
     "intentTicket": "Ticket",
-    "intentTicketHint": "Start een intern gesprek dat al op een label met een flow is vastgelegd, optioneel in een project.",
+    "intentTicketHint": "Start een intern gesprek dat al op een label met een flow is vastgelegd, optioneel in een werkmap.",
     "whatsappTo": "Nummer",
     "whatsappToPlaceholder": "31612345678",
     "whatsappBodyPlaceholder": "Schrijf het WhatsApp-bericht...",
@@ -983,7 +1179,7 @@
     "creating": "Aanmaken...",
     "saving": "Opslaan…",
     "cancel": "Annuleren",
-    "addToProject": "Koppelen aan project",
+    "addToProject": "Koppelen aan werkmap",
     "emptyTitle": "Nog geen berichten in dit gesprek.",
     "emptyEmail": "Nieuwe e-mail verschijnt na de volgende mailbox-sync.",
     "emptyChat": "Stuur een bericht of vraag de assistent over dit gesprek.",
@@ -997,9 +1193,9 @@
     "openInboxAi": "AI-antwoorden aanpassen",
     "selectThread": "Selecteer een gesprek om te bekijken.",
     "selectThreadTitle": "Kies een gesprek",
-    "selectThreadHint": "Kies een gesprek in de lijst, of start een nieuwe chat.",
+    "selectThreadHint": "Kies een gesprek in de lijst, of start een Nieuw gesprek.",
     "openSetupGuide": "Setupgids openen",
-    "startNewChat": "Nieuwe chat starten",
+    "startNewChat": "Nieuw gesprek",
     "backToConversations": "Terug naar gesprekken",
     "agentHandling": "Agent op dit gesprek",
     "threadActions": "Gespreksacties",
@@ -1010,18 +1206,18 @@
     "pin": "Pinnen",
     "unpin": "Losmaken",
     "close": "Sluiten",
-    "fileInFolder": "Opbergen in map",
+    "fileInFolder": "Opbergen in werkmap",
     "filedIn": "Opgeborgen in",
     "closeAndFile": "Sluiten en opbergen",
     "fileConfirm": "Tags toepassen",
-    "fileApplyTags": "Voegt elk label in die map toe aan het gesprek.",
-    "fileSearch": "Mappen zoeken",
-    "fileLoading": "Mappen laden...",
-    "fileEmpty": "Geen mappen gevonden.",
-    "fileRoot": "Projecten (bovenste niveau)",
+    "fileApplyTags": "Voegt elk label van die werkmap toe aan het gesprek.",
+    "fileSearch": "Werkmappen zoeken",
+    "fileLoading": "Werkmappen laden...",
+    "fileEmpty": "Geen werkmappen gevonden.",
+    "fileRoot": "Werkmappen (bovenste niveau)",
     "fileCancel": "Annuleren",
     "fileError": "Kon dit gesprek niet opbergen.",
-    "fileLoadError": "Kon mappen niet laden.",
+    "fileLoadError": "Kon werkmappen niet laden.",
     "resumeNow": "Nu hervatten",
     "reopen": "Heropenen",
     "openBookkeeping": "Boekhouding openen",
@@ -1071,17 +1267,17 @@
     "unknownContact": "onbekend contact",
     "agentWorking": "{{name}} werkt aan dit gesprek...",
     "agentFailed": "{{name}} kon het verzoek niet afronden.",
-    "project": "Project",
-    "projectUpdated": "Project bijgewerkt",
-    "projectUpdateError": "Kon project niet bijwerken.",
-    "loadingProjects": "Projecten laden...",
-    "linkProject": "Koppelen aan project",
-    "noProject": "Geen project",
-    "noProjectsYet": "Nog geen projecten. Maak er een als thuis voor dit werk.",
-    "openProjects": "Projecten openen",
-    "projectAgent": "Projectagent: {{name}}",
-    "noProjectAgent": "Nog geen projectagent.",
-    "openProject": "Project openen",
+    "project": "Werkmap",
+    "projectUpdated": "Werkmap bijgewerkt",
+    "projectUpdateError": "Kon werkmap niet bijwerken.",
+    "loadingProjects": "Werkmappen laden...",
+    "linkProject": "Koppelen aan werkmap",
+    "noProject": "Geen werkmap",
+    "noProjectsYet": "Nog geen werkmappen. Maak er een als thuis voor dit werk.",
+    "openProjects": "Werkmappen openen",
+    "projectAgent": "Werkmapagent: {{name}}",
+    "noProjectAgent": "Nog geen folderagent.",
+    "openProject": "Werkmap openen",
     "queueOpen": "{{count}} open items",
     "queueOpen_one": "{{count}} open item",
     "moreActions": "Meer acties",
@@ -1096,7 +1292,7 @@
     "newMessages": "{{count}} nieuw",
     "assignPeople": "Mensen",
     "assignAgents": "Agents",
-    "assignTeams": "Teams",
+    "assignTeams": "Afdelingen",
     "noChannelAccess": "Geen toegang tot dit kanaal",
     "waitingOnParticipant": "Wacht op {{name}}",
     "assigneesLoadError": "Kon niet laden wie dit gesprek kan oppakken.",
@@ -1116,16 +1312,16 @@
     "plan": "Plannen"
   },
   "addToProject": {
-    "title": "Koppelen aan project",
-    "hint": "Dit gesprek hoort bij een project — zonder een aparte taak.",
-    "loading": "Projecten laden...",
-    "loadError": "Kan projecten niet laden.",
-    "empty": "Nog geen projecten.",
-    "openProjects": "Projecten openen",
+    "title": "Koppelen aan werkmap",
+    "hint": "Dit gesprek hoort bij een werkmap, zonder een aparte taak.",
+    "loading": "Werkmappen laden...",
+    "loadError": "Kan werkmappen niet laden.",
+    "empty": "Nog geen werkmappen.",
+    "openProjects": "Werkmappen openen",
     "untitledThread": "Opvolging van gesprek",
     "taskBody": "Vanuit gesprek: {{subject}}",
     "success": "Gekoppeld aan {{name}}",
-    "error": "Kan niet koppelen aan project"
+    "error": "Kan niet koppelen aan werkmap"
   },
   "shortcuts": {
     "title": "Inbox-sneltoetsen",
@@ -1164,7 +1360,7 @@
     "relatedWork": "Gerelateerd werk",
     "linkAgents": "Agents",
     "linkPlaybooks": "Flows",
-    "linkProjects": "Projecten",
+    "linkProjects": "Werkmappen",
     "linkKnowledge": "Kennis",
     "noContact": "Geen contact gekoppeld",
     "noContactHint": "We konden dit gesprek nog niet koppelen aan een opgeslagen persoon. Kies Contact om het via e-mail of telefoon te verbinden.",
@@ -1186,7 +1382,7 @@
     "viaCompany": "via bedrijf",
     "ownerNone": "Geen vaste eigenaar",
     "ownerPeople": "Mensen",
-    "ownerTeams": "Teams",
+    "ownerTeams": "Afdelingen",
     "ownerUnknown": "Onbekende eigenaar",
     "ownerHint": "De agent geeft gesprekken van dit contact aan deze persoon of dit team zodra er iemand nodig is (na de laatste behandelaar). Staat de AI op Handmatig, dan komen nieuwe gesprekken hier direct terecht.",
     "showMore": "Toon meer",
@@ -1249,7 +1445,7 @@
     "agent": "Agent",
     "kindAiAgent": "AI-agent",
     "workspaceAssistant": "Workspace-assistent",
-    "inboxAiSettings": "AI-antwoordinstellingen",
+    "inboxAiSettings": "Autonomie",
     "agentProfile": "Agentprofiel",
     "schedule": "Plannen",
     "govern": "Govern",
@@ -1366,7 +1562,7 @@
     "notSpam": "Geen spam",
     "markSpam": "Markeer als spam",
     "assign": "Toewijzen",
-    "file": "Opbergen in map",
+    "file": "Opbergen in werkmap",
     "assignToMe": "Aan mij toewijzen",
     "pin": "Vastzetten",
     "unpin": "Losmaken",
@@ -1540,9 +1736,9 @@
       "escalated": "Doorgestuurd naar het team",
       "aiPaused": "AI gepauzeerd op dit gesprek",
       "aiResumed": "AI hervat op dit gesprek",
-      "handlingSet": "AI-afhandeling op {{mode}} gezet",
-      "handlingSetBy": "{{name}} zette AI-afhandeling op {{mode}}",
-      "handlingCleared": "AI-afhandeling volgt het kanaal weer",
+      "handlingSet": "Autonomie op {{mode}} gezet",
+      "handlingSetBy": "{{name}} zette Autonomie op {{mode}}",
+      "handlingCleared": "Autonomie volgt het kanaal weer",
       "handlingClearedBy": "{{name}} gaf dit terug aan AI",
       "handlingHeld": "Handmatig: {{reason}}",
       "handlingDowngraded": "Concept in plaats van verzonden: {{reason}}",
@@ -1618,7 +1814,10 @@
       "participantTurnTimeoutGeneric": "Deelnemer reageerde niet op tijd",
       "participantTurnMaxConsecutive": "Agents stopten: te veel beurten achter elkaar — menselijke hulp nodig",
       "folderSet": "Opgeborgen in {{path}}",
-      "folderSetGeneric": "Opgeborgen in een map"
+      "folderSetGeneric": "Opgeborgen in een werkmap",
+      "deliveredItem": "Opgeleverd in {{folder}} › {{item}}",
+      "deliveredFolder": "Opgeleverd in {{folder}}",
+      "deliveredKnowledge": "Correctie bewaard als voorbeeld"
     }
   },
   "triage": {
@@ -1657,8 +1856,8 @@
     "update_agent": "Agent {{name}} aanpassen",
     "create_workstream": "Flow {{name}} aanmaken",
     "update_workstream": "Flow {{name}} aanpassen",
-    "create_project": "Map {{name}} aanmaken",
-    "create_folder": "Map {{name}} aanmaken",
+    "create_project": "Werkmap {{name}} aanmaken",
+    "create_folder": "Werkmap {{name}} aanmaken",
     "upsert_trigger": "Agenda-item {{name}} plannen",
     "create_inbox_rule": "Inboxregel {{name}} aanmaken",
     "call_mcp_tool": "{{tool_name}} uitvoeren op {{server_name}}",
@@ -1759,9 +1958,9 @@
     "viaContact": "Via contact",
     "modalTitle": "Labels aan dit gesprek",
     "modalHint": "Vrije labels markeren het gesprek. Een label met een flow start een ticket.",
-    "modalHintMulti": "Selecteer meerdere labels of mappen, bevestig daarna. Een label met een flow start direct een ticket.",
+    "modalHintMulti": "Selecteer meerdere labels of werkmappen, bevestig daarna. Een label met een flow start direct een ticket.",
     "applySelected": "Labels toevoegen",
-    "savedMap": "Opgeslagen map",
+    "savedMap": "Opgeslagen werkmap",
     "searchPlaceholder": "Zoek of typ een naam",
     "actionTag": "Label",
     "freeHashtag": "Tag",
@@ -1770,8 +1969,8 @@
     "makeActionTag": "Flow koppelen",
     "makeActionTagHint": "Maakt een flow met titel #{{name}} en legt dit gesprek vast als ticket.",
     "applyFreeHint": "Alleen een label op het gesprek. Start geen ticketflow.",
-    "chooseProject": "Bij welk project hoort dit?",
-    "noProject": "Geen project",
+    "chooseProject": "Bij welke werkmap hoort dit?",
+    "noProject": "Geen werkmap",
     "intakeTitle": "Gegevens invullen",
     "intakeHint": "Optionele velden voor dit label. Verplichte velden zijn gemarkeerd.",
     "intakeContinue": "Ticket vastleggen",
@@ -1783,13 +1982,13 @@
     "fileError": "Kon dit label niet vastleggen.",
     "createError": "Kon deze tag niet maken.",
     "busy": "Bezig…",
-    "fromBroaderMap": "Van bredere map",
-    "lockedFromParent": "Overgenomen van de bredere map — altijd verplicht",
-    "extraTags": "Extra tags (deze map)",
+    "fromBroaderMap": "Van bredere werkmap",
+    "lockedFromParent": "Overgenomen van de bredere werkmap, altijd verplicht",
+    "extraTags": "Extra labels (deze werkmap)",
     "filtersetPreview": "Filterset: {{set}}",
     "comesUnder": "Komt onder {{parent}}",
-    "comesUnderRoot": "Map op het hoogste niveau",
-    "savedMaps": "Opgeslagen mappen",
+    "comesUnderRoot": "Werkmap op het hoogste niveau",
+    "savedMaps": "Opgeslagen werkmappen",
     "tagsSection": "Tags"
   },
   "proposal": {
@@ -1803,12 +2002,12 @@
       "agent": "Agent",
       "tag": "Hashtag",
       "flow": "Flow",
-      "project": "Project",
-      "folder": "Map",
+      "project": "Werkmap",
+      "folder": "Werkmap",
       "canvas": "Canvas",
       "contact": "Contact",
       "integration": "Koppeling",
-      "marketplace": "Marketplace",
+      "marketplace": "Aanbod",
       "module": "Module",
       "help_doc": "Hulp-artikel",
       "knowledge": "Document",
@@ -1819,14 +2018,14 @@
       "conversation": "Gesprek",
       "contact": "Contact",
       "company": "Organisatie",
-      "project": "Project",
+      "project": "Werkmap",
       "canvas": "Canvas",
       "knowledge": "Kennis",
       "playbook": "Flow",
       "trigger": "Agenda-item",
       "team": "Team",
       "inbox_rule": "Inboxregel",
-      "project_resource": "Projectbron",
+      "project_resource": "Koppeling van een werkmap",
       "queue_item": "Wachtrij-item"
     },
     "itemMissing": "Niet meer beschikbaar",
@@ -1915,7 +2114,7 @@
     "forWhomPlaceholder": "Kies wie",
     "me": "Ik",
     "people": "Collega's",
-    "teams": "Teams",
+    "teams": "Afdelingen",
     "agent": "Agent",
     "noAgent": "Geen agent",
     "agentHint": "Op het moment zelf schrijft de agent in dit gesprek, aan wie je hierboven kiest.",
@@ -1969,8 +2168,8 @@
   "support": {
     "folders": {
       "under": "Onder",
-      "showEmpty": "{{count}} lege mappen tonen",
-      "showEmptyLabel": "Lege mappen"
+      "showEmpty": "{{count}} lege werkmappen tonen",
+      "showEmptyLabel": "Lege werkmappen"
     }
   },
   "reactions": {
@@ -1995,5 +2194,41 @@
     "hangUp": "Ophangen",
     "connecting": "Verbinden",
     "voiceFailed": "Het gesprek startte niet. De beslissing staat nog in het gesprek."
+  },
+  "threadWhy": {
+    "button": "Waarom",
+    "title": "Waarom dit gesprek zo loopt",
+    "loading": "Laden",
+    "failed": "De reden kon niet geladen worden",
+    "modes": {
+      "autonomous": "Autonoom",
+      "assisted": "Geassisteerd",
+      "manual": "Handmatig"
+    },
+    "lines": {
+      "agent_reply": "{{name}} schreef het laatste antwoord.",
+      "agent_owner": "{{name}} is eigenaar van dit gesprek.",
+      "agent_addressed": "{{name}} wordt in dit gesprek aangesproken.",
+      "agent_none": "Hier antwoordt nog geen agent. Kies er een op het kanaal.",
+      "handling_workspace": "Autonomie staat op {{mode}}, via de dial van de werkruimte.",
+      "handling_channel": "Autonomie staat op {{mode}}, ingesteld op kanaal {{source}}.",
+      "handling_conversation": "Autonomie staat op {{mode}}, ingesteld op dit gesprek tot het sluit.",
+      "cap_govern": "De dial van de werkruimte staat hoogstens {{mode}} toe.",
+      "cap_privacy": "De privacyinstellingen houden de AI op {{mode}}.",
+      "cap_breaker": "De noodrem op dit kanaal is aangesproken, dus hoogstens {{mode}}.",
+      "cap_agent": "{{agent}} mag hoogstens {{mode}} werken.",
+      "cap_flow": "Flow {{flow}} laat antwoorden altijd controleren, dus hoogstens {{mode}}.",
+      "knowledge_doc": "Gelezen voor het laatste antwoord: {{title}}",
+      "knowledge_none": "Het laatste antwoord gebruikte geen kennisdocumenten, of het is ouder dan deze registratie.",
+      "folder": "Gearchiveerd in werkmap {{folder}}.",
+      "folder_conversation": "In werkmap {{folder}} via label #{{tag}} op dit gesprek.",
+      "folder_contact": "In werkmap {{folder}} via label #{{tag}} op het contact.",
+      "folder_company": "In werkmap {{folder}} via label #{{tag}} op het bedrijf.",
+      "flow": "Ticket in flow {{flow}} (#{{label}}), fase {{stage}}.",
+      "delivered_reply": "Opgeleverd als antwoord via {{channel}} ({{count}}).",
+      "delivered_works_in": "Opgeleverd in {{folder}}, {{item}}.",
+      "delivered_folder": "Opgeleverd in werkmap {{folder}}.",
+      "delivered_knowledge": "Een correctie hier is bewaard als voorbeeld voor latere antwoorden."
+    }
   }
 }

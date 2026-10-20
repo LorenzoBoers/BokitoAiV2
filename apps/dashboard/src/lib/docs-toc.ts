@@ -9,9 +9,10 @@ export interface TocItem {
   level: 2 | 3
 }
 
-/** Strip inline markdown (bold, code, links) from a heading line. */
+/** Strip inline markdown (bold, code, links, icon marks) from a heading line. */
 export function headingText(raw: string): string {
   return raw
+    .replace(/\{icon:[a-z0-9-]+\}\s*/g, '')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
     .replace(/[*_`]/g, '')
     .trim()

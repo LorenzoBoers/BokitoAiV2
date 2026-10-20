@@ -29,10 +29,10 @@ Sections (fixed set, in nav order):
 | --- | --- |
 | `getting-started` | welcome, quickstart, setup-guide, tour, cockpit, team |
 | `inbox` | communication, agent-runs, channels, contacts, inbox-ai, widget |
-| `ai` | agents, decisions, knowledge, projects, workstreams, cases, agenda |
+| `ai` | agents, decisions, knowledge, folders, workstreams, cases, agenda |
 | `govern` | govern, autonomy, models |
-| `integrations` | integrations, mcp |
-| `developers` | api-overview, authentication, api-signals, webhooks, mcp-endpoint, widget-embed, rate-limits |
+| `connections` | connections, mcp |
+| `developers` | api-today, authentication, api-signals, webhooks, mcp-endpoint, widget-embed, rate-limits |
 
 Slugs are globally unique across sections (the filename is the slug; the folder
 is the section). URLs: `/docs/{section}/{slug}` public, `/learn/{slug}` in-app.

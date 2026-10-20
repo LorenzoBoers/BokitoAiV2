@@ -6,11 +6,13 @@ import { useAuth } from '../../context/AuthContext'
 import { CockpitPanelsSkeleton } from '../ui/skeleton'
 import { listGovernChanges, type PlatformChangeRow } from '../../lib/govern-api'
 import { listThreads, type InboxThread } from '../../lib/inbox-api'
+import { useOptionalNavBadges } from '../../context/NavBadgeContext'
+import { pairForInboxQueue } from '../../lib/nav-badge-counts'
 import { attentionThreadPath, forYouPath, tagPath } from '../../lib/messages-paths'
 import { withNavReveal } from '../../lib/nav-reveal'
 import { listCategories, type CategoryRow } from '../../lib/tickets-api'
 import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
-import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/workstreams-api'
+import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/flows-api'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { openEntityPath } from '../../lib/open-entity'
 import { bokitoGetCockpitSummary, bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
@@ -142,80 +144,9 @@ export default function OverviewFourBlocks() {
   const { token } = useAuth()
   const { i18n, t } = useTranslation('nav')
   const navigate = useNavigate()
-  const nl = i18n.language.toLowerCase().startsWith('nl')
-  const copy = nl
-    ? {
-        needs: 'Jij bent nodig',
-        needsHint: 'Open beslissingen en gesprekken die aan jou zijn toegewezen — jouw uitzonderingenlijst.',
-        signals: 'Open tickets per actietag',
-        signalsHint: 'Open en wachtend werk. Open een rij om de actietag in Communicatie te openen.',
-        running: 'Lopend en straks',
-        runningHint: 'Wat nu draait, en wat de komende 24 uur op de agenda staat.',
-        agendaDue: 'Nu aan de beurt op de agenda',
-        agendaDueDetail: 'Check-ups en verlopen kijkmomenten',
-        openAgenda: 'Agenda openen',
-        trajectory: 'Traject',
-        trajectoryHint: 'Deze week, met het verschil ten opzichte van vorige week.',
-        emptyNeeds: 'Niets wacht op jou.',
-        emptyNeedsHint: 'Beslissingen, toegewezen gesprekken en jouw beurt landen hier. Koppel een kanaal of open Voor jou.',
-        emptyNeedsForYou: 'Voor jou openen',
-        emptyNeedsChannels: 'Kanaal koppelen',
-        quiet: 'Al 14 dagen stil',
-        quietHint: 'Open gesprekken zonder bericht. Sluit ze als het werk klaar is.',
-        quietClose: 'Afsluiten',
-        emptySignals: 'Geen open tickets.',
-        emptyRunning: 'Er draait nu niets en er staat niets gepland.',
-        decisions: 'Beslissing nodig',
-        assigned: 'Aan jou toegewezen',
-        open: 'Open',
-        waiting: 'Wachtend',
-        playbook: 'Flow',
-        workbench: 'Workbench',
-        filedTickets: 'Tickets vastgelegd (7 dagen)',
-        proposedTickets: 'Voorstellen wachten op bevestiging',
-        finishedRuns: 'Runs afgerond zonder beslissing',
-        governWaiting: 'Voorstellen wachten in Govern',
-        cost: 'Kosten per categorie',
-        costUnavailable: 'Nog niet toewijsbaar; workbench-gebruik mist een categorie.',
-        loadError: 'Een deel van Overview kon niet worden geladen.',
-        moreContext: 'Verder in de workspace',
-      }
-    : {
-        needs: 'Needs you',
-        needsHint: 'Open decisions and conversations assigned to you — your exception list.',
-        signals: 'Open tickets by action tag',
-        signalsHint: 'Open and waiting work. Open a row to see the action tag in Communication.',
-        running: 'Running and next up',
-        runningHint: 'What runs now, and what is on the agenda in the next 24 hours.',
-        agendaDue: 'Due now on the agenda',
-        agendaDueDetail: 'Check-ups and overdue look-ats',
-        openAgenda: 'Open Agenda',
-        trajectory: 'Trajectory',
-        trajectoryHint: 'This week, with the change from last week.',
-        emptyNeeds: 'Nothing is waiting on you.',
-        emptyNeedsHint: 'Decisions, assigned conversations and your turn land here. Connect a channel or open For you.',
-        emptyNeedsForYou: 'Open For you',
-        emptyNeedsChannels: 'Connect a channel',
-        quiet: 'Quiet for 14 days',
-        quietHint: 'Open conversations with no message. Close them when the work is done.',
-        quietClose: 'Close',
-        emptySignals: 'No open tickets.',
-        emptyRunning: 'Nothing is running or planned.',
-        decisions: 'Decision needed',
-        assigned: 'Assigned to you',
-        open: 'Open',
-        waiting: 'Waiting',
-        playbook: 'Flow',
-        workbench: 'Workbench',
-        filedTickets: 'Tickets filed (7 days)',
-        proposedTickets: 'Proposals waiting for a confirm',
-        finishedRuns: 'Runs finished without a decision',
-        governWaiting: 'Proposals waiting in Govern',
-        cost: 'Cost per category',
-        costUnavailable: 'Not attributable yet; workbench usage has no category.',
-        loadError: 'Some Overview data could not be loaded.',
-        moreContext: 'More workspace context',
-      }
+  const { counts } = useOptionalNavBadges()
+  const forYouTotal = pairForInboxQueue(counts, 'for_you').total
+  const copy = (key: string, options?: Record<string, unknown>) => t(`today.${key}`, options)
   const [data, setData] = useState<OverviewData>(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -224,10 +155,7 @@ export default function OverviewFourBlocks() {
     setLoading(true)
     setError(false)
     const settled = await Promise.allSettled([
-      Promise.all([
-        listThreads(token, { view: 'awaiting_decision', perPage: 16 }),
-        listThreads(token, { view: 'for_you', perPage: 16 }),
-      ]),
+      listThreads(token, { view: 'for_you', perPage: 5 }),
       listCategories(),
       listWorkstreamRuns({ limit: 100 }),
       listWorkLogs({ status: 'running', limit: 100 }),
@@ -242,23 +170,8 @@ export default function OverviewFourBlocks() {
     ])
     const value = <T,>(index: number, fallback: T): T =>
       settled[index]?.status === 'fulfilled' ? (settled[index] as PromiseFulfilledResult<T>).value : fallback
-    const threadGroups = value(0, [] as Awaited<ReturnType<typeof listThreads>>[])
-    const uniqueThreads = new Map<string, InboxThread>()
-    for (const group of threadGroups) {
-      for (const thread of group.items) {
-        if (thread.channel !== 'assistant') uniqueThreads.set(String(thread.id), thread)
-      }
-    }
     setData({
-      needsYou: [...uniqueThreads.values()]
-        .sort((a, b) => {
-          const human = (thread: InboxThread) =>
-            thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? 0 : 1
-          const byHuman = human(a) - human(b)
-          if (byHuman !== 0) return byHuman
-          return new Date(b.lastMessageAt ?? b.createdAt).getTime() - new Date(a.lastMessageAt ?? a.createdAt).getTime()
-        })
-        .slice(0, 5),
+      needsYou: value(0, null as Awaited<ReturnType<typeof listThreads>> | null)?.items ?? [],
       categories: value(1, [] as CategoryRow[]),
       playbookRuns: value(2, [] as WorkstreamRunRow[]),
       jobs: value(3, [] as WorkLogRow[]),
@@ -295,22 +208,23 @@ export default function OverviewFourBlocks() {
       .filter((run) => run.status === 'running' || run.status === 'waiting' || run.status === 'awaiting_gate')
       .map((run) => ({
         id: `playbook-${run.id}`,
-        label: run.workstream_name || run.input_text || copy.playbook,
-        detail: `${copy.playbook} · ${run.status}`,
-        to: run.workstream_id ? workstreamPath(run.workstream_id) : '/workstreams',
+        label: run.workstream_name || run.input_text || copy('flow'),
+        detail: `${copy('flow')} · ${run.status}`,
+        to: run.workstream_id ? workstreamPath(run.workstream_id) : '/flows',
         at: run.updated_at || run.started_at || '',
       }))
     const jobs = data.jobs
       .filter((job) => job.status === 'running')
       .map((job) => ({
         id: `job-${job.id}`,
-        label: job.task_subject || copy.workbench,
-        detail: copy.workbench,
+        label: job.task_subject || copy('workbench'),
+        detail: copy('workbench'),
         to: openEntityPath({ type: 'run', id: job.id, agentId: job.agent_id }),
         at: typeof job.started_at === 'string' ? job.started_at : '',
       }))
     return [...playbooks, ...jobs].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 5)
-  }, [data.jobs, data.playbookRuns, copy.playbook, copy.workbench])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.jobs, data.playbookRuns, i18n.language])
 
   const agenda = useMemo(() => {
     const now = Date.now()
@@ -338,8 +252,8 @@ export default function OverviewFourBlocks() {
   const proposedCount = data.categories.reduce((total, row) => total + row.proposed, 0)
 
   const trajectoryRows = [
-    { label: copy.filedTickets, values: trajectory.filed, to: '/settings/action-tags' },
-    { label: copy.finishedRuns, values: trajectory.completed, to: '/workstreams?view=runs&status=completed' },
+    { label: copy('filedTickets'), values: trajectory.filed, to: '/settings/labels' },
+    { label: copy('finishedRuns'), values: trajectory.completed, to: '/flows?view=runs&status=completed' },
   ] as const
 
   const closeQuiet = async (id: string) => {
@@ -362,7 +276,7 @@ export default function OverviewFourBlocks() {
 
   return (
     <div className="space-y-4">
-      {error ? <p className="text-right text-xs text-status-warning">{copy.loadError}</p> : null}
+      {error ? <p className="text-right text-xs text-status-warning">{copy('loadError')}</p> : null}
 
       <RecurringWakeBanner />
 
@@ -373,23 +287,23 @@ export default function OverviewFourBlocks() {
             : 'min-w-0'
         }
       >
-        <Block title={copy.needs} hint={copy.needsHint} index={0}>
+        <Block title={copy('needs')} hint={copy('needsHint')} index={0}>
           {data.needsYou.length === 0 ? (
             <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-6 text-center">
-              <p className="text-sm font-medium text-text-heading">{copy.emptyNeeds}</p>
-              <p className="mt-1 text-xs text-text-muted">{copy.emptyNeedsHint}</p>
+              <p className="text-sm font-medium text-text-heading">{copy('emptyNeeds')}</p>
+              <p className="mt-1 text-xs text-text-muted">{copy('emptyNeedsHint')}</p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                 <Link
                   to={forYouPath()}
                   className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
                 >
-                  {copy.emptyNeedsForYou}
+                  {copy('emptyNeedsForYou')}
                 </Link>
                 <Link
                   to="/settings/channels"
                   className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                 >
-                  {copy.emptyNeedsChannels}
+                  {copy('emptyNeedsChannels')}
                 </Link>
               </div>
             </div>
@@ -406,12 +320,12 @@ export default function OverviewFourBlocks() {
             ))
           )}
           <Link to={forYouPath()} className="link-draw block pt-1 text-right text-xs font-medium text-accent">
-            {nl ? 'Alles in Voor jou' : 'All in For you'}
+            {copy('allForYou', { count: forYouTotal })}
           </Link>
         </Block>
 
         {data.quiet.length > 0 ? (
-          <Block title={copy.quiet} hint={copy.quietHint} index={1}>
+          <Block title={copy('quiet')} hint={copy('quietHint')} index={1}>
             {data.quiet.map((row) => (
               <div key={row.id} className="flex items-center justify-between gap-3 py-1.5">
                 <button
@@ -422,7 +336,7 @@ export default function OverviewFourBlocks() {
                   {row.contactName || row.subject || row.id}
                 </button>
                 <Button type="button" size="sm" variant="secondary" onClick={() => void closeQuiet(row.id)}>
-                  {copy.quietClose}
+                  {copy('quietClose')}
                 </Button>
               </div>
             ))}
@@ -432,29 +346,29 @@ export default function OverviewFourBlocks() {
 
       <AiHandlingMetricsBlock />
 
-      <p className="px-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">{copy.moreContext}</p>
+      <p className="px-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">{copy('moreContext')}</p>
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-        <Block title={copy.signals} hint={copy.signalsHint} index={1}>
-          {openCategories.length === 0 ? <EmptyRow>{copy.emptySignals}</EmptyRow> : openCategories.map((row) => (
+        <Block title={copy('signals')} hint={copy('signalsHint')} index={1}>
+          {openCategories.length === 0 ? <EmptyRow>{copy('emptySignals')}</EmptyRow> : openCategories.map((row) => (
             <Metric
               key={row.id}
               label={`#${row.name}`}
               value={String(row.open + row.waiting)}
-              detail={`${copy.open} ${row.open} · ${copy.waiting} ${row.waiting}`}
+              detail={`${copy('open')} ${row.open} · ${copy('waiting')} ${row.waiting}`}
               to={withNavReveal(tagPath(row.name, 'open'))}
             />
           ))}
           {proposedCount > 0 ? (
             <Metric
-              label={copy.proposedTickets}
+              label={copy('proposedTickets')}
               value={String(proposedCount)}
-              detail={nl ? 'Bevestig op het gesprek' : 'Confirm on the conversation'}
+              detail={copy('proposedDetail')}
               to={forYouPath()}
             />
           ) : null}
         </Block>
 
-        <Block title={copy.running} hint={copy.runningHint} index={2}>
+        <Block title={copy('running')} hint={copy('runningHint')} index={2}>
           {agenda.due > 0 ? (
             <Link
               to="/agenda?view=list"
@@ -462,14 +376,14 @@ export default function OverviewFourBlocks() {
             >
               <AlertTriangle size={13} className="shrink-0 text-status-warning" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate-fade text-sm font-medium text-text-primary">{copy.agendaDue}</span>
-                <span className="block truncate-fade text-xs text-text-muted">{copy.agendaDueDetail}</span>
+                <span className="block truncate-fade text-sm font-medium text-text-primary">{copy('agendaDue')}</span>
+                <span className="block truncate-fade text-xs text-text-muted">{copy('agendaDueDetail')}</span>
               </span>
               <span className="shrink-0 tabular-nums text-base font-semibold text-text-heading">{agenda.due}</span>
               <ArrowRight size={12} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
             </Link>
           ) : null}
-          {running.length === 0 && agenda.upcoming.length === 0 && agenda.due === 0 ? <EmptyRow>{copy.emptyRunning}</EmptyRow> : null}
+          {running.length === 0 && agenda.upcoming.length === 0 && agenda.due === 0 ? <EmptyRow>{copy('emptyRunning')}</EmptyRow> : null}
           {agenda.upcoming.map((item) => (
             <Link
               key={item.id}
@@ -507,34 +421,34 @@ export default function OverviewFourBlocks() {
             </Link>
           ))}
           <Link to="/agenda" className="link-draw block pt-1 text-right text-xs font-medium text-accent">
-            {copy.openAgenda}
+            {copy('openAgenda')}
           </Link>
         </Block>
 
-        <Block title={copy.trajectory} hint={copy.trajectoryHint} index={3}>
+        <Block title={copy('trajectory')} hint={copy('trajectoryHint')} index={3}>
           {trajectoryRows.map((row) => (
             <Metric
               key={row.label}
               label={row.label}
               value={String(row.values[0])}
-              detail={`${nl ? 't.o.v. vorige week' : 'vs last week'} ${delta(row.values[0], row.values[1])}`}
+              detail={copy('vsLastWeek', { delta: delta(row.values[0], row.values[1]) })}
               to={row.to}
             />
           ))}
           <Metric
-            label={copy.governWaiting}
+            label={copy('governWaiting')}
             value={String(data.govern.length)}
-            detail={nl ? 'Open voorstellen' : 'Open proposals'}
+            detail={copy('governDetail')}
             to="/settings/govern?tab=drafts"
           />
           <Link
-            to="/cockpit/usage"
+            to="/settings/usage"
             className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
           >
             <CircleDollarSign size={13} className="shrink-0 text-text-muted" />
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-text-primary">{copy.cost}</span>
-              <span className="block text-xs text-text-muted">{copy.costUnavailable}</span>
+              <span className="block text-sm font-medium text-text-primary">{copy('cost')}</span>
+              <span className="block text-xs text-text-muted">{copy('costDetail')}</span>
             </span>
             <span className="text-xs font-semibold text-text-heading">
               {data.usage ? formatAppUsdCents(data.usage.total_customer_cost_micros / 10_000, i18n.language) : '—'}

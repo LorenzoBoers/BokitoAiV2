@@ -24,6 +24,15 @@ welcome:
   screenshots:
     - rail
 
+features:
+  section: getting-started
+  routes:
+    - /docs/getting-started/features
+  code_globs:
+    - docs/platform-features.md
+    - docs/product-help/en/getting-started/features.md
+    - docs/product-help/nl/getting-started/features.md
+
 quickstart:
   section: getting-started
   routes:
@@ -109,13 +118,16 @@ team:
   section: getting-started
   routes:
     - /team
-    - /grid
+    - /workforce
+    - /workforce/grid
     - /settings/members
     - /settings/teams
   code_globs:
     - apps/dashboard/src/pages/TeamPage.tsx
     - apps/dashboard/src/pages/OrgCanvasPage.tsx
     - apps/dashboard/src/components/org/**
+    - apps/dashboard/src/lib/org-flow-api.ts
+    - apps/dashboard/src/lib/org-flow-layout.ts
     - apps/dashboard/src/pages/MemberManagement.tsx
     - apps/dashboard/src/lib/teams-api.ts
     - apps/dashboard/src/lib/navigation.ts
@@ -124,11 +136,13 @@ team:
     - apps/api/app/routers/org_graph.py
     - apps/api/app/services/teams.py
     - apps/api/app/services/org_graph.py
+    - apps/api/app/services/org_flow.py
     - apps/api/app/services/presence.py
     - apps/api/app/services/distribution.py
     - apps/api/app/services/team_metrics.py
   screenshots:
     - invite
+    - grid
 
 communication:
   section: inbox
@@ -218,15 +232,14 @@ contacts:
     - apps/api/app/tools/contacts.py
   screenshots:
     - contact-card
-    - contact-handling
     - link-conversation
 
 inbox-ai:
   section: inbox
   routes:
-    - /settings/communication
+    - /settings/govern
   code_globs:
-    - apps/dashboard/src/pages/AiCommunicationSettings.tsx
+    - apps/dashboard/src/components/govern/autonomy/**
     - apps/dashboard/src/components/ai/AiHandlingPicker.tsx
     - apps/dashboard/src/components/ai/AiHandlingIcon.tsx
     - apps/dashboard/src/hooks/useAiHandling.ts
@@ -341,6 +354,8 @@ folders:
     - apps/api/app/services/projects.py
     - apps/api/app/services/communication_nav.py
     - apps/api/app/services/project_work.py
+    - apps/api/app/services/works_in.py
+    - apps/api/app/services/module_department.py
     - apps/api/app/services/project_canvas.py
     - apps/api/app/services/project_canvas_compile.py
     - apps/api/app/routers/projects.py
@@ -353,12 +368,12 @@ folders:
     # - create
     # - nest
 
-workstreams:
+flows:
   section: ai
   routes:
-    - /workstreams
-    - /workstreams/{workstreamId}
-    - /workstreams/runs/{runId}
+    - /flows
+    - /flows/{workstreamId}
+    - /flows/runs/{runId}
   code_globs:
     - apps/dashboard/src/pages/WorkstreamsPage.tsx
     - apps/dashboard/src/pages/WorkstreamDetail.tsx
@@ -368,15 +383,17 @@ workstreams:
     - apps/api/app/services/workstreams.py
     - apps/api/app/services/workstream_integrity.py
     - apps/api/app/modules/catalog.py
-    - apps/dashboard/src/components/workstreams/**
+    - apps/dashboard/src/components/flows/**
     - apps/api/app/services/tickets.py
+    - apps/api/app/services/deliveries.py
   screenshots:
     - board
+    - always-review
 
 categories:
   section: ai
   routes:
-    - /settings/action-tags
+    - /settings/labels
     - /communication
   code_globs:
     - apps/dashboard/src/pages/CategoriesSettings.tsx
@@ -449,8 +466,11 @@ autonomy:
     - /settings/govern
   code_globs:
     - apps/dashboard/src/pages/GovernPage.tsx
+    - apps/dashboard/src/components/govern/autonomy/AutonomyDial.tsx
+    - apps/api/app/routers/ai_handling.py
+    - apps/api/app/tools/policy.py
   screenshots:
-    - presets
+    - dial
 
 models:
   section: govern

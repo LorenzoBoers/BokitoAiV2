@@ -839,20 +839,36 @@ def get_tag_template(module_slug: str, template_slug: str) -> TagTemplate | None
 
 @dataclass(frozen=True)
 class ProjectTemplate:
-    """Optional Project created with a module package."""
+    """Folder a module creates on install, with the Works in item its work lands on.
 
-    slug: str
+    The item is the module's connection when one is active; otherwise a canvas.
+    """
+
     module_slug: str
     name: str
-    description: str
+    name_nl: str
+    canvas_title: str
+    canvas_title_nl: str
+
+    def folder_name(self, language: str) -> str:
+        return self.name_nl if language == "nl" else self.name
+
+    def canvas_name(self, language: str) -> str:
+        return self.canvas_title_nl if language == "nl" else self.canvas_title
 
     def serialize(self) -> dict[str, Any]:
-        return {
-            "slug": self.slug,
-            "module_slug": self.module_slug,
-            "name": self.name,
-            "description": self.description,
-        }
+        return {"module_slug": self.module_slug, "name": self.name, "name_nl": self.name_nl}
+
+
+PROJECT_TEMPLATES: dict[str, ProjectTemplate] = {
+    "accounting": ProjectTemplate(
+        module_slug="accounting",
+        name="Administration",
+        name_nl="Administratie",
+        canvas_title="Figures",
+        canvas_title_nl="Cijfers",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -925,7 +941,7 @@ def _specialist_prompt(module: ModuleSpec, name: str, job_title: str) -> str:
         f"You can use every tool, hashtag and flow that shipped with this module. "
         f"Read tools you may call directly. Propose and apply tools only through a "
         f"decision the operator approves. Stay inside this module; hand other topics "
-        f"back to the lead with request_participant_turn or pass. "
+        f"back to the lead with handoff_to. "
         f"Do not send external customer replies unless asked. "
         f"When setup is incomplete, guide the operator through connecting the "
         f"package and finishing install."
@@ -936,7 +952,7 @@ def _specialist_prompt(module: ModuleSpec, name: str, job_title: str) -> str:
 # card are translated in the dashboard; hire stores these English fields.
 _MODULE_PERSONAS: dict[str, ModuleAgentTemplate] = {
     "accounting": ModuleAgentTemplate(
-        name="Boekito",
+        name="Boekhouder",
         job_title="Controller",
         role_blurb=(
             "Keeps the books for this workspace: administrations, contacts, "
@@ -1033,6 +1049,7 @@ MODULE_PACKAGES: dict[str, ModulePackage] = {
         module_slug=module.slug,
         tags=TAG_TEMPLATES.get(module.slug, ()),
         playbooks=WORKSTREAM_TEMPLATES.get(module.slug, ()),
+        project=PROJECT_TEMPLATES.get(module.slug),
         agent_template=_persona_with_prompt(module),
     )
     for module in MODULES
@@ -1057,8 +1074,8 @@ HEARTBEAT_MODULE_LINE = (
     "- If company.md or open threads mention work a business module covers "
     "(see list_modules) and that module is off, use recommend_module once so "
     "the operator can turn it on. When the module is on and list_modules shows "
-    "specialist_agent_id, invite that agent with invite_to_thread (wake=true) "
-    "or request_participant_turn — do not do module specialist work yourself. "
+    "specialist_agent_id, bring that agent in with ask_agent or handoff_to; "
+    "do not do module specialist work yourself. "
     "Never repeat a recommendation that is still open or was declined; "
     "otherwise HEARTBEAT_OK"
 )
@@ -1251,7 +1268,10 @@ async def user_can_access_module(
 
 
 async def serialize_modules_for_tenant(
-    session: AsyncSession, tenant_id: UUID
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    include_coming_soon: bool = False,
 ) -> list[dict[str, Any]]:
     enabled, connected = await tenant_module_sets(session, tenant_id)
     states = await tenant_module_install_states(session, tenant_id)
@@ -1286,11 +1306,20 @@ async def serialize_modules_for_tenant(
         row["specialist_avatar_image_url"] = summary.get("specialist_avatar_image_url")
         row["attached_connection_count"] = attach_counts.get(row["slug"], 0)
         row["attached_mcp_tools"] = attached_tools.get(row["slug"], [])
+    if not include_coming_soon:
+        rows = [
+            row
+            for row in rows
+            if row.get("status") != "coming_soon" or row.get("enabled")
+        ]
     return rows
 
 
 async def _serialize_module_row(session: AsyncSession, tenant_id: UUID, slug: str) -> dict[str, Any]:
-    rows = {m["slug"]: m for m in await serialize_modules_for_tenant(session, tenant_id)}
+    rows = {
+        m["slug"]: m
+        for m in await serialize_modules_for_tenant(session, tenant_id, include_coming_soon=True)
+    }
     if slug not in rows:
         raise ValueError(f"Unknown module '{slug}'")
     from app.services.module_origin import get_module_department, module_prefs_from_department
@@ -1409,6 +1438,7 @@ async def hire_module_agent(
     *,
     actor_id: Any = None,
     open_setup_chat: bool = True,
+    name: str | None = None,
 ) -> dict[str, Any]:
     """Create the module specialist once (no patch on existing active agents)."""
     from datetime import datetime
@@ -1434,21 +1464,17 @@ async def hire_module_agent(
 
     tools = default_tools_for_role("module_specialist")
     if template and template.extra_tools:
-        for name in template.extra_tools:
-            if name not in tools:
-                tools.append(name)
+        for tool in template.extra_tools:
+            if tool not in tools:
+                tools.append(tool)
     prefix = f"{slug}_"
-    for verb in module.verbs:
-        name = f"{prefix}{verb}"
-        if name not in tools:
-            tools.append(name)
-    for verb in module.propose_verbs:
-        name = f"{prefix}{verb}"
-        if name not in tools:
-            tools.append(name)
+    for verb in (*module.verbs, *module.propose_verbs):
+        tool = f"{prefix}{verb}"
+        if tool not in tools:
+            tools.append(tool)
 
     fields = {
-        "name": template.name,
+        "name": (name or template.name or "Agent").strip()[:80] or template.name,
         "slug": f"module-{slug}",
         "role": "assistant",
         "job_title": (template.job_title or template.name or "Agent").strip()[:20],
@@ -1732,8 +1758,8 @@ def module_setup_playbook(module: ModuleSpec) -> str:
         f"set_connection_scope, list_module_sources, propose_module_source.\n"
         f"If this work comes up, call recommend_module with slug `{module.slug}` "
         f"instead of guessing a vendor. Prefer the managed specialist "
-        f"(list_modules → specialist_agent_id): invite_to_thread with wake=true "
-        f"or request_participant_turn — do not run {module.slug}_* tools yourself "
+        f"(list_modules → specialist_agent_id): ask_agent or handoff_to; "
+        f"do not run {module.slug}_* tools yourself "
         f"unless you are that specialist.\n"
         f"{steps}"
     )

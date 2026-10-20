@@ -486,9 +486,8 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         }
 
     if item_type == "canvas":
-        from app.models.auth import Tenant
         from app.models.project import Project
-        from app.models.project_canvas import OWNER_PROJECT, OWNER_TENANT, ProjectCanvas
+        from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
 
         row = (
             await session.execute(
@@ -501,22 +500,16 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         ).scalar_one_or_none() if row_id else None
         if not row:
             return _missing(item_type, ref)
-        if row.owner_kind == OWNER_PROJECT:
-            project = (
-                await session.execute(
-                    select(Project).where(Project.id == row.owner_id, Project.tenant_id == tenant_id)
-                )
-            ).scalar_one_or_none()
-            subtitle = project.name if project else "Project"
-            path = f"/projects/{row.owner_id}?tab=canvas&canvas={row.id}"
-            project_id = str(row.project_id or row.owner_id)
-        else:
-            tenant = (
-                await session.execute(select(Tenant).where(Tenant.id == tenant_id))
-            ).scalar_one_or_none()
-            subtitle = tenant.name if tenant else "Workspace"
-            path = f"/cockpit/canvas?canvas={row.id}"
-            project_id = None
+        from app.services.works_in import folder_href
+
+        project = (
+            await session.execute(
+                select(Project).where(Project.id == row.owner_id, Project.tenant_id == tenant_id)
+            )
+        ).scalar_one_or_none()
+        subtitle = project.name if project else ""
+        path = folder_href(row.owner_id, "canvas", canvas=str(row.id))
+        project_id = str(row.project_id or row.owner_id)
         from app.services.project_canvas import serialize_canvas
 
         empty = bool(serialize_canvas(row).get("empty"))
@@ -526,7 +519,7 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
             "id": str(row.id),
             "title": _clip(row.title),
             "subtitle": _clip(subtitle),
-            "kind": row.owner_kind or OWNER_TENANT,
+            "kind": row.owner_kind or OWNER_PROJECT,
             "slug": row.slug,
             # Empty shells stay listed but are not openable until filled.
             "path": None if empty else path,

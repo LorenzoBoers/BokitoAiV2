@@ -56,7 +56,7 @@ import {
 import { listTriggers, type Trigger, type TriggerKind } from '../lib/orchestration-api'
 import { listProjects } from '../lib/projects-api'
 import { listTimeItems, type TimeItem, type TimeItemKind } from '../lib/time-items'
-import { listWorkstreams } from '../lib/workstreams-api'
+import { listWorkstreams } from '../lib/flows-api'
 import { formatAppDate, formatAppTime } from '../lib/app-locale'
 import {
   AGENDA_LAYERS,

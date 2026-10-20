@@ -7,10 +7,11 @@ One layered setting replaces the old channel-type modes, mailbox ``ai_config.mod
 - ``assisted`` drafts replies and proposes actions; read-only tools only.
 - ``manual`` does not act unprompted; on-demand AI stays available.
 
-Resolution: workspace default -> channel (ChannelAccount) -> contact -> conversation.
+Resolution: workspace default -> channel (ChannelAccount) -> conversation.
 The most specific non-null layer wins. The result is capped by a ceiling:
-privacy-off means manual, the Govern ``messaging`` allowance (deny/ask/allow ->
-manual/assisted/autonomous) and a tripped channel breaker (assisted).
+the Autonomy dial (``settings_json.ai_handling.ceiling``), privacy-off (manual),
+a tripped channel breaker (assisted), the handling agent's level and a flow on
+Always review (assisted).
 
 Conversation overrides are temporary: closing clears them, Take over sets
 manual (reason ``operator_takeover``), hand back clears them. Assigning a
@@ -26,7 +27,7 @@ conversation, and the bounce limit between agent and people.
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
@@ -40,13 +41,15 @@ from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent
 
 AiHandlingMode = Literal["manual", "assisted", "autonomous"]
-AiHandlingScope = Literal["workspace", "channel", "contact", "conversation"]
+AiHandlingScope = Literal["workspace", "channel", "conversation"]
 
 AI_HANDLING_MODES: tuple[str, ...] = ("manual", "assisted", "autonomous")
-AI_HANDLING_SCOPES: tuple[str, ...] = ("workspace", "channel", "contact", "conversation")
+AI_HANDLING_SCOPES: tuple[str, ...] = ("workspace", "channel", "conversation")
 _RANK = {mode: index for index, mode in enumerate(AI_HANDLING_MODES)}
 
 DEFAULT_WORKSPACE_MODE: AiHandlingMode = "assisted"
+# Ceiling for a workspace that never set the Autonomy dial.
+DEFAULT_CEILING: AiHandlingMode = "assisted"
 DEFAULT_CERTAINTY_THRESHOLD = 7
 DEFAULT_BREAKER = {"max_autonomous_per_hour": 30, "max_negative_per_hour": 3}
 
@@ -150,6 +153,7 @@ def workspace_settings(tenant: Tenant | None) -> dict[str, Any]:
 
     return {
         "default": {"mode": normalize_mode(data.get("default")) or DEFAULT_WORKSPACE_MODE},
+        "ceiling": normalize_mode(data.get("ceiling")),
         "safeguards": {
             "certainty_threshold": min(10, max(1, threshold)),
             "new_contacts": bool(safeguards.get("new_contacts", True)),
@@ -264,15 +268,6 @@ def breaker_tripped_at(account: ChannelAccount | None) -> str | None:
     return str(value) if value else None
 
 
-def contact_mode(contact: Contact | None) -> str | None:
-    if contact is None or not contact.ai_handling:
-        return None
-    try:
-        return normalize_mode(json.loads(contact.ai_handling))
-    except (json.JSONDecodeError, TypeError):
-        return normalize_mode(contact.ai_handling)
-
-
 def conversation_mode(signal: Signal | None) -> str | None:
     return normalize_mode(signal.ai_handling) if signal is not None else None
 
@@ -283,20 +278,19 @@ def is_held(signal: Signal | None) -> bool:
 
 
 def governance_ceiling(tenant: Tenant | None) -> tuple[str, str | None]:
-    """(ceiling, clamped_by) from privacy and the Govern messaging allowance."""
+    """(ceiling, clamped_by) from privacy and ``settings_json.ai_handling.ceiling``.
+
+    The ceiling is the one Autonomy dial on Govern. Tool allowances do not move
+    it. A workspace without a stored value sits at ``DEFAULT_CEILING``.
+    """
     if tenant is None:
         return "autonomous", None
     from app.services.privacy import tenant_allows_llm_message_bodies
-    from app.tools.policy import tenant_allowances
 
     if not tenant_allows_llm_message_bodies(tenant):
         return "manual", "privacy"
-    allowance = tenant_allowances(tenant).get("messaging", "ask")
-    if allowance == "deny":
-        return "manual", "govern"
-    if allowance == "ask":
-        return "assisted", "govern"
-    return "autonomous", None
+    ceiling = workspace_settings(tenant).get("ceiling") or DEFAULT_CEILING
+    return ceiling, "govern" if ceiling != "autonomous" else None
 
 
 # ---------------------------------------------------------------------------
@@ -318,6 +312,10 @@ class AiHandling:
     inherited_source: str
     inherited_source_label: str
     own: str | None
+    # Every layer that was read, most general first: {source, label, mode}.
+    layers: list[dict[str, Any]] = field(default_factory=list)
+    # Every cap that applies, in order: {cap, reason}. The lowest one wins.
+    ceilings: list[dict[str, Any]] = field(default_factory=list)
 
     def to_payload(self) -> dict[str, Any]:
         return asdict(self)
@@ -326,27 +324,27 @@ class AiHandling:
 def resolve_ai_handling(
     tenant: Tenant | None,
     account: ChannelAccount | None = None,
-    contact: Contact | None = None,
     signal: Signal | None = None,
     *,
     scope: str = "conversation",
     agent: Any = None,
-    tag_autonomy: str | None = None,
-    flow_autonomy: str | None = None,
+    flow_always_review: bool = False,
 ) -> AiHandling:
     """Effective AI handling for the most specific target given.
 
+    Layers: workspace default, channel, conversation. The most specific value
+    wins. Caps: privacy, the workspace ceiling, a tripped channel breaker, the
+    answering agent's ceiling and a flow set to Always review.
+
     ``scope`` names the layer the payload describes: ``own`` is that layer's
-    value and ``inherited`` is what it would follow without one. ``agent`` is
-    the agent that would answer; its autonomy is one more ceiling.
+    value and ``inherited`` is what it would follow without one.
     """
     layers: list[tuple[str, str | None, str]] = [
         ("workspace", workspace_mode(tenant), tenant.name if tenant else ""),
         ("channel", channel_mode(account), (account.display_name or account.address) if account else ""),
-        ("contact", contact_mode(contact), (contact.display_name or contact.address) if contact else ""),
         ("conversation", conversation_mode(signal), ""),
     ]
-    scope_index = AI_HANDLING_SCOPES.index(scope) if scope in AI_HANDLING_SCOPES else 3
+    scope_index = {"workspace": 0, "channel": 1, "conversation": 2}.get(scope, 2)
     relevant = layers[: scope_index + 1]
 
     requested, source, source_label = DEFAULT_WORKSPACE_MODE, "workspace", ""
@@ -362,21 +360,22 @@ def resolve_ai_handling(
         inherited, inherited_source, inherited_label = DEFAULT_WORKSPACE_MODE, "default", ""
     own = relevant[-1][1]
 
-    ceiling, clamped_by = governance_ceiling(tenant)
-    if account is not None and breaker_tripped_at(account) and mode_rank(ceiling) > mode_rank("assisted"):
-        ceiling, clamped_by = "assisted", "breaker"
+    caps: list[dict[str, Any]] = []
+    base, base_reason = governance_ceiling(tenant)
+    caps.append({"cap": base, "reason": base_reason or "govern"})
+    if account is not None and breaker_tripped_at(account):
+        caps.append({"cap": "assisted", "reason": "breaker"})
     if agent is not None:
         from app.services.agent_rules import normalize_autonomy
 
-        agent_level = normalize_autonomy(getattr(agent, "autonomy_level", None))
-        if mode_rank(agent_level) < mode_rank(ceiling):
-            ceiling, clamped_by = agent_level, "agent"
-    from app.services.agent_rules import scope_autonomy_ceiling
+        caps.append({"cap": normalize_autonomy(getattr(agent, "autonomy_level", None)), "reason": "agent"})
+    if flow_always_review:
+        caps.append({"cap": "assisted", "reason": "flow"})
 
-    for level, reason in ((tag_autonomy, "tag"), (flow_autonomy, "flow")):
-        cap = scope_autonomy_ceiling(level)
-        if cap and mode_rank(cap) < mode_rank(ceiling):
-            ceiling, clamped_by = cap, reason
+    ceiling, clamped_by = base, base_reason
+    for row in caps[1:]:
+        if mode_rank(row["cap"]) < mode_rank(ceiling):
+            ceiling, clamped_by = row["cap"], row["reason"]
     effective = min_mode(requested, ceiling)
     return AiHandling(
         effective=effective,
@@ -391,12 +390,15 @@ def resolve_ai_handling(
         inherited_source=inherited_source,
         inherited_source_label=inherited_label,
         own=own,
+        layers=[{"source": name, "label": label, "mode": mode} for name, mode, label in relevant],
+        ceilings=caps,
     )
 
 
 async def load_layers(
     session: AsyncSession, tenant_id: UUID, signal: Signal
 ) -> tuple[ChannelAccount | None, Contact | None]:
+    """Channel account and contact of a conversation (the contact feeds safeguards)."""
     account: ChannelAccount | None = None
     if signal.channel_account_id:
         account = await session.get(ChannelAccount, signal.channel_account_id)
@@ -425,34 +427,75 @@ async def widget_account(session: AsyncSession, tenant_id: UUID) -> ChannelAccou
     ).scalars().first()
 
 
+async def flow_always_review_for(
+    session: AsyncSession, signal: Signal, *, cache: dict[str, Any] | None = None
+) -> bool:
+    """True when the conversation's ticket label sits on a flow set to Always review."""
+    if not signal.ticket_tag_id:
+        return False
+    from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
+
+    store = cache if cache is not None else {}
+    tags = store.setdefault("tags", {})
+    flows = store.setdefault("flows", {})
+    if signal.ticket_tag_id not in tags:
+        tag = await session.get(SignalTag, signal.ticket_tag_id)
+        tags[signal.ticket_tag_id] = tag if tag is not None and tag.tenant_id == signal.tenant_id else None
+    tag = tags[signal.ticket_tag_id]
+    if tag is None or not tag.workstream_id:
+        return False
+    if tag.workstream_id not in flows:
+        flow = await session.get(Workstream, tag.workstream_id)
+        flows[tag.workstream_id] = flow if flow is not None and flow.tenant_id == signal.tenant_id else None
+    flow = flows[tag.workstream_id]
+    return bool(flow is not None and getattr(flow, "always_review", False))
+
+
 async def resolve_for_signal(
-    session: AsyncSession, tenant: Tenant | None, signal: Signal
+    session: AsyncSession,
+    tenant: Tenant | None,
+    signal: Signal,
+    *,
+    cache: dict[str, Any] | None = None,
+    agent: Any = None,
 ) -> AiHandling:
+    """Effective handling for one conversation.
+
+    ``agent`` is the agent that would answer; it defaults to ``Signal.agent_id``.
+    ``cache`` reuses channel, agent, label and flow rows when a caller resolves
+    many conversations (metrics, follower counts, the Grid).
+    """
     from app.models.agent import Agent
 
-    account, contact = await load_layers(session, signal.tenant_id, signal)
-    agent = await session.get(Agent, signal.agent_id) if signal.agent_id else None
-    tag_autonomy = None
-    flow_autonomy = None
-    if signal.ticket_tag_id:
-        from app.models.orchestra import Workstream
-        from app.models.signal import SignalTag
+    store = cache if cache is not None else {}
+    accounts = store.setdefault("accounts", {})
+    agents = store.setdefault("agents", {})
 
-        tag = await session.get(SignalTag, signal.ticket_tag_id)
-        if tag is not None and tag.tenant_id == signal.tenant_id:
-            tag_autonomy = tag.autonomy_level
-            if tag.workstream_id:
-                flow = await session.get(Workstream, tag.workstream_id)
-                if flow is not None and flow.tenant_id == signal.tenant_id:
-                    flow_autonomy = flow.autonomy_level
+    account: ChannelAccount | None = None
+    if signal.channel_account_id:
+        if signal.channel_account_id not in accounts:
+            loaded = await session.get(ChannelAccount, signal.channel_account_id)
+            accounts[signal.channel_account_id] = (
+                loaded if loaded is not None and loaded.tenant_id == signal.tenant_id else None
+            )
+        account = accounts[signal.channel_account_id]
+    elif signal.channel == "widget":
+        if "widget" not in store:
+            store["widget"] = await widget_account(session, signal.tenant_id)
+        account = store["widget"]
+
+    if agent is None and signal.agent_id:
+        if signal.agent_id not in agents:
+            agents[signal.agent_id] = await session.get(Agent, signal.agent_id)
+        agent = agents[signal.agent_id]
+
     return resolve_ai_handling(
         tenant,
         account,
-        contact,
         signal,
         agent=agent,
-        tag_autonomy=tag_autonomy,
-        flow_autonomy=flow_autonomy,
+        flow_always_review=await flow_always_review_for(session, signal, cache=store),
     )
 
 
@@ -486,15 +529,6 @@ async def apply_safeguards(
         and signal.channel not in _ANONYMOUS_CHANNELS
     ):
         reason = "new_contact"
-    else:
-        from app.models.signal import SignalTag
-
-        send_mode = None
-        if signal.ticket_tag_id and signal.ticket_status in ("open", "waiting"):
-            tag = await session.get(SignalTag, signal.ticket_tag_id)
-            send_mode = tag.send_mode if tag and tag.send_mode in ("draft", "ask") else None
-        if send_mode:
-            reason = "category"
     if reason is None:
         return "autonomous", None
     session.add(
@@ -681,17 +715,6 @@ def update_workspace_block(tenant: Tenant, patch: dict[str, Any]) -> dict[str, A
     return workspace_settings(tenant)
 
 
-async def _open_signals_for(
-    session: AsyncSession, tenant_id: UUID, *, contact_id: UUID | None = None
-) -> list[Signal]:
-    stmt = select(Signal).where(
-        Signal.tenant_id == tenant_id, Signal.status.in_(("open", "pending"))
-    )
-    if contact_id is not None:
-        stmt = stmt.where(Signal.contact_id == contact_id)
-    return list((await session.execute(stmt.limit(200))).scalars().all())
-
-
 async def set_ai_handling(
     session: AsyncSession,
     tenant: Tenant,
@@ -722,7 +745,6 @@ async def set_ai_handling(
 
     signal: Signal | None = None
     account: ChannelAccount | None = None
-    contact: Contact | None = None
     before: str | None
     affected: list[Signal] = []
 
@@ -741,21 +763,13 @@ async def set_ai_handling(
             raise HTTPException(status_code=404, detail="Channel not found")
         before = channel_mode(account)
         inherited_effective = None
-    elif scope == "contact":
-        contact = await session.get(Contact, _uuid(target_id))
-        if contact is None or contact.tenant_id != tenant.id:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        before = contact_mode(contact)
-        inherited_effective = None
     else:
         signal = await session.get(Signal, _uuid(target_id))
         if signal is None or signal.tenant_id != tenant.id:
             raise HTTPException(status_code=404, detail="Conversation not found")
-        account, contact = await load_layers(session, tenant.id, signal)
+        account, _contact = await load_layers(session, tenant.id, signal)
         before = conversation_mode(signal)
-        inherited_effective = resolve_ai_handling(
-            tenant, account, contact, None, scope="contact"
-        ).effective
+        inherited_effective = resolve_ai_handling(tenant, account, scope="channel").effective
 
     if not can_set(role, scope, mode, inherited_effective=inherited_effective):
         raise HTTPException(
@@ -769,10 +783,6 @@ async def set_ai_handling(
     elif scope == "channel" and account is not None:
         set_account_mode(account, mode)
         session.add(account)
-    elif scope == "contact" and contact is not None:
-        contact.ai_handling = json.dumps({"mode": mode}) if mode else None
-        session.add(contact)
-        affected = await _open_signals_for(session, tenant.id, contact_id=contact.id)
     elif signal is not None:
         signal.ai_handling = mode
         signal.ai_handling_reason = (reason or (REASON_TAKEOVER if mode == "manual" else "operator")) if mode else None
@@ -861,9 +871,8 @@ async def set_ai_handling(
         return resolve_ai_handling(tenant, scope="workspace")
     if scope == "channel":
         return resolve_ai_handling(tenant, account, scope="channel")
-    if scope == "contact":
-        return resolve_ai_handling(tenant, None, contact, scope="contact")
-    return resolve_ai_handling(tenant, account, contact, signal)
+    assert signal is not None
+    return await resolve_for_signal(session, tenant, signal)
 
 
 # ---------------------------------------------------------------------------
@@ -883,30 +892,15 @@ async def follower_count(
     )
     if scope == "channel":
         stmt = stmt.where(Signal.channel_account_id == UUID(str(target_id)))
-    elif scope == "contact":
-        stmt = stmt.where(Signal.contact_id == UUID(str(target_id)))
     elif scope == "conversation":
         return 1
     signals = list((await session.execute(stmt.limit(1000))).scalars().all())
-    if scope == "contact":
-        return len(signals)
     count = 0
-    contact_cache: dict[UUID, Contact | None] = {}
-    account_cache: dict[UUID, ChannelAccount | None] = {}
+    cache: dict[str, Any] = {}
     for sig in signals:
-        if sig.contact_id:
-            if sig.contact_id not in contact_cache:
-                contact_cache[sig.contact_id] = await session.get(Contact, sig.contact_id)
-            if contact_mode(contact_cache[sig.contact_id]):
-                continue
-        if scope == "workspace" and sig.channel_account_id:
-            if sig.channel_account_id not in account_cache:
-                account_cache[sig.channel_account_id] = await session.get(
-                    ChannelAccount, sig.channel_account_id
-                )
-            if channel_mode(account_cache[sig.channel_account_id]):
-                continue
-        count += 1
+        handling = await resolve_for_signal(session, tenant, sig, cache=cache)
+        if handling.source == scope:
+            count += 1
     return count
 
 
@@ -1248,24 +1242,6 @@ async def list_exceptions(session: AsyncSession, tenant: Tenant) -> dict[str, li
         for a in accounts
         if channel_mode(a) or breaker_tripped_at(a)
     ]
-    contact_rows = (
-        await session.execute(
-            select(Contact)
-            .where(Contact.tenant_id == tenant.id, Contact.ai_handling.is_not(None))
-            .limit(200)
-        )
-    ).scalars().all()
-    contacts = [
-        {
-            "id": str(c.id),
-            "label": c.display_name or c.address,
-            "address": c.address,
-            "channel": c.channel,
-            "mode": contact_mode(c),
-        }
-        for c in contact_rows
-        if contact_mode(c)
-    ]
     signal_rows = (
         await session.execute(
             select(Signal)
@@ -1290,7 +1266,7 @@ async def list_exceptions(session: AsyncSession, tenant: Tenant) -> dict[str, li
         for s in signal_rows
         if conversation_mode(s)
     ]
-    return {"channels": channels, "contacts": contacts, "conversations": conversations}
+    return {"channels": channels, "conversations": conversations}
 
 
 async def autonomous_override_count(session: AsyncSession, tenant: Tenant) -> int:
@@ -1319,27 +1295,11 @@ async def metrics(session: AsyncSession, tenant: Tenant, *, days: int = 30) -> d
             )
         ).scalars().all()
     )
-    accounts: dict[UUID, ChannelAccount | None] = {}
-    contacts: dict[UUID, Contact | None] = {}
-    widget: ChannelAccount | None = None
-    widget_loaded = False
     by_mode = {mode: 0 for mode in AI_HANDLING_MODES}
+    cache: dict[str, Any] = {}
     for sig in signals:
-        account: ChannelAccount | None = None
-        if sig.channel_account_id:
-            if sig.channel_account_id not in accounts:
-                accounts[sig.channel_account_id] = await session.get(ChannelAccount, sig.channel_account_id)
-            account = accounts[sig.channel_account_id]
-        elif sig.channel == "widget":
-            if not widget_loaded:
-                widget, widget_loaded = await widget_account(session, tenant.id), True
-            account = widget
-        contact: Contact | None = None
-        if sig.contact_id:
-            if sig.contact_id not in contacts:
-                contacts[sig.contact_id] = await session.get(Contact, sig.contact_id)
-            contact = contacts[sig.contact_id]
-        by_mode[resolve_ai_handling(tenant, account, contact, sig).effective] += 1
+        handling = await resolve_for_signal(session, tenant, sig, cache=cache)
+        by_mode[handling.effective] += 1
 
     since = datetime.utcnow() - timedelta(days=days)
     handoffs = int(

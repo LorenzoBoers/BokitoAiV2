@@ -16,7 +16,7 @@
   "loadOlder": "Load older",
   "loadingOlder": "Loading older",
   "sections": {
-    "ledger": "Ledger",
+    "ledger": "Log",
     "autonomy": "Autonomy"
   },
   "tabs": {
@@ -30,7 +30,7 @@
     "empty": "Nothing waiting for review. Customer decisions stay in Communication. Workspace edits show up here when you ask agents to wait.",
     "openCommunication": "Open Communication",
     "openAgents": "Open Agents",
-    "openInboxAi": "Open AI handling",
+    "openInboxAi": "Open Autonomy",
     "openInCommunication": "Open in Communication",
     "viewDiff": "View changes",
     "accept": "Accept",
@@ -55,7 +55,7 @@
     "openDrafts": "Open pending reviews",
     "rollback": "Undo",
     "rollbackTitle": "Undo this change?",
-    "rollbackConfirm": "This creates and applies a compensating change that restores the previous state. The original ledger entry remains.",
+    "rollbackConfirm": "This creates and applies a compensating change that restores the previous state. The original log entry remains.",
     "cancel": "Cancel",
     "rolledBack": "Change undone",
     "rollbackError": "Could not undo this change.",
@@ -86,8 +86,8 @@
     "copyFailed": "Could not copy"
   },
   "posture": {
-    "title": "Workspace ceiling for agents",
-    "intro": "This is the ceiling for what agents may do without waiting for you. Day-to-day customer replies live under AI handling and stay at or below this ceiling. Fine-tune tool categories below.",
+    "title": "Default tool permissions",
+    "intro": "What tools may do without waiting for you. This does not change how far agents reply to customers; the Autonomy dial above does that.",
     "perAgentHint": "Per-agent overrides live on the agent page under Tools and permissions.",
     "saved": "Autonomy setting updated",
     "current": "Current setting",
@@ -98,7 +98,6 @@
       "label": "Manual",
       "summary": "Humans approve every mutating agent action before it applies.",
       "effects": {
-        "inbox": "Caps AI handling so replies wait for you.",
         "tools": "Tools always ask.",
         "structure": "Govern drafts stay drafts."
       }
@@ -107,18 +106,16 @@
       "label": "Assisted",
       "summary": "Routine messaging and workspace edits run automatically; structural changes ask first.",
       "effects": {
-        "inbox": "Caps AI handling at Assisted for autonomous raises.",
         "tools": "Everyday tools run; risky ones ask.",
         "structure": "Structural changes wait for review."
       }
     },
     "autonomous": {
       "label": "Autonomous",
-      "summary": "AI runs operations; integrations and credentials still ask a human.",
+      "summary": "AI runs operations; connections and credentials still ask a human.",
       "effects": {
-        "inbox": "Allows AI handling up to Autonomous where you set it.",
         "tools": "Most tools run on their own.",
-        "structure": "Integrations and credentials still ask."
+        "structure": "Connections and credentials still ask."
       }
     }
   },
@@ -147,23 +144,6 @@
     "learningNote": "Learning tightened {{category}} from {{from}} to {{to}}.",
     "learningIntro": "Recent automatic tightenings (allow to ask first). Loosening stays a manual edit here."
   },
-  "scopes": {
-    "openTag": "Open the conversations with this label",
-    "openFlow": "Open the flow",
-    "title": "Autonomy per label and flow",
-    "intro": "Company default follows the conversation's AI handling. A chosen mode is a ceiling.",
-    "types": "Labels with a flow",
-    "playbooks": "Flows",
-    "empty": "No active items.",
-    "saved": "Autonomy level updated.",
-    "saveError": "Could not update this autonomy level.",
-    "levels": {
-      "inherit": "Company default",
-      "manual": "Manual",
-      "assisted": "Assisted",
-      "autonomous": "Autonomous"
-    }
-  },
   "toolCategories": {
     "messaging": {
       "label": "Messaging",
@@ -190,7 +170,7 @@
       "hint": "Schedules, check-ins, and incoming triggers."
     },
     "integrations": {
-      "label": "Integrations",
+      "label": "Connections",
       "hint": "External connections and connected tools."
     },
     "govern": {
@@ -198,8 +178,8 @@
       "hint": "Policy and governance changes."
     },
     "projects": {
-      "label": "Projects",
-      "hint": "Project docs, queue items, and repository work."
+      "label": "Folders",
+      "hint": "Folder docs, queue items, and repository work."
     },
     "tickets": {
       "label": "Tickets",
@@ -297,5 +277,10 @@
     "workstream_id": "Flow",
     "node_type": "Node type",
     "ref_id": "Reference"
+  },
+  "dial": {
+    "adminOnly": "Only an owner or admin can change the dial.",
+    "intro": "One setting for the whole workspace: how far agents may go on their own. Channels, agents and flows stay at or below it.",
+    "title": "Autonomy"
   }
 }

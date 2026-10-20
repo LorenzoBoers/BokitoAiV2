@@ -1,5 +1,5 @@
 /**
- * Labels (`/settings/action-tags`): one list of free labels and action tags,
+ * Labels (`/settings/labels`): one list of free labels and action tags,
  * backlog of unmatched patterns, and who may confirm tickets.
  *
  * Make an action tag by adding a label, then Create flow. Filing rules live on
@@ -32,7 +32,7 @@ import {
   type SignalBacklogEntry,
   type SignalPolicy,
 } from '../lib/tickets-api'
-import { listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
+import { listWorkstreams, type WorkstreamRow } from '../lib/flows-api'
 
 export default function CategoriesSettings() {
   const { t } = useTranslation('nav')
@@ -157,7 +157,7 @@ export default function CategoriesSettings() {
       <PageRelatedLinks
         links={[
           { to: inboxPath('all'), label: t('categoriesPage.crossLinks.communicationHub') },
-          { to: '/workstreams', label: t('categoriesPage.crossLinks.playbooks') },
+          { to: '/flows', label: t('categoriesPage.crossLinks.playbooks') },
         ]}
       />
     </PageContent>

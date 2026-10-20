@@ -3,9 +3,10 @@ import type { ComponentType } from 'react'
 import { AssistedModeIcon, AutonomousModeIcon } from './ai-handling-icons'
 
 /**
- * AI handling: one setting with three modes, resolved over four layers
- * (workspace, channel, contact, conversation). The most specific layer wins;
- * Govern, privacy and the channel breaker cap the result.
+ * AI handling: one setting with three modes, resolved over three layers
+ * (workspace, channel, conversation). The most specific layer wins; the
+ * Autonomy dial, privacy, the channel breaker, the agent and a flow set to
+ * Always review cap the result.
  *
  * Autonomous and assisted are AI work and render violet; manual uses the
  * paper surface (card fill), not a heavy grey slab.
@@ -13,7 +14,10 @@ import { AssistedModeIcon, AutonomousModeIcon } from './ai-handling-icons'
  * handshake; Manual = Hand on surface.
  */
 export type AiHandlingMode = 'autonomous' | 'assisted' | 'manual'
-export type AiHandlingScope = 'workspace' | 'channel' | 'contact' | 'conversation'
+export type AiHandlingScope = 'workspace' | 'channel' | 'conversation'
+export type AiHandlingClamp = 'govern' | 'privacy' | 'breaker' | 'agent' | 'flow'
+export type AiHandlingLayer = { source: AiHandlingScope; label: string; mode: AiHandlingMode | null }
+export type AiHandlingCap = { cap: AiHandlingMode; reason: AiHandlingClamp }
 
 export const AI_HANDLING_MODES: readonly AiHandlingMode[] = ['autonomous', 'assisted', 'manual']
 
@@ -69,8 +73,8 @@ export type AiHandling = {
   source: AiHandlingScope | 'default'
   sourceLabel: string
   ceiling: AiHandlingMode
-  /** Why effective is below requested: govern | privacy | breaker. */
-  clampedBy: 'govern' | 'privacy' | 'breaker' | 'agent' | null
+  /** Why effective is below requested. */
+  clampedBy: AiHandlingClamp | null
   /** Conversation reason: assigned | operator_takeover | handoff_requested | escalated | operator. */
   reason: string | null
   /** Conversation override; cleared when the conversation closes. */
@@ -81,6 +85,10 @@ export type AiHandling = {
   inheritedSourceLabel: string
   /** This layer's own value, or null when it follows the layer above. */
   own: AiHandlingMode | null
+  /** Every layer that was read, most general first. */
+  layers: AiHandlingLayer[]
+  /** Every cap that applies; the lowest one wins. */
+  ceilings: AiHandlingCap[]
   /** Channel scope only. */
   breakerTrippedAt?: string | null
   /** Assisted channels: how close unedited drafts are to an Autonomous proposal. */
@@ -99,7 +107,32 @@ export function normalizeMode(value: unknown): AiHandlingMode | null {
   return value === 'autonomous' || value === 'assisted' || value === 'manual' ? value : null
 }
 
-const SCOPES = new Set(['workspace', 'channel', 'contact', 'conversation', 'default'])
+const SCOPES = new Set(['workspace', 'channel', 'conversation', 'default'])
+const CLAMPS = new Set<AiHandlingClamp>(['govern', 'privacy', 'breaker', 'agent', 'flow'])
+
+export function normalizeClamp(value: unknown): AiHandlingClamp | null {
+  return typeof value === 'string' && CLAMPS.has(value as AiHandlingClamp) ? (value as AiHandlingClamp) : null
+}
+
+function normalizeLayers(raw: unknown): AiHandlingLayer[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    const row = (item ?? {}) as Record<string, unknown>
+    const source = row.source
+    if (source !== 'workspace' && source !== 'channel' && source !== 'conversation') return []
+    return [{ source, label: asText(row.label), mode: normalizeMode(row.mode) }]
+  })
+}
+
+function normalizeCaps(raw: unknown): AiHandlingCap[] {
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    const row = (item ?? {}) as Record<string, unknown>
+    const cap = normalizeMode(row.cap)
+    const reason = normalizeClamp(row.reason)
+    return cap && reason ? [{ cap, reason }] : []
+  })
+}
 
 function asScope(value: unknown, fallback: AiHandling['source']): AiHandling['source'] {
   return typeof value === 'string' && SCOPES.has(value) ? (value as AiHandling['source']) : fallback
@@ -114,22 +147,21 @@ export function normalizeAiHandling(raw: unknown): AiHandling | null {
   const row = raw as Record<string, unknown>
   const effective = normalizeMode(row.effective)
   if (!effective) return null
-  const clamped = row.clamped_by
   return {
     effective,
     requested: normalizeMode(row.requested) ?? effective,
     source: asScope(row.source, 'workspace'),
     sourceLabel: asText(row.source_label),
     ceiling: normalizeMode(row.ceiling) ?? 'autonomous',
-    clampedBy: clamped === 'govern' || clamped === 'privacy' || clamped === 'breaker' || clamped === 'agent'
-        ? clamped
-        : null,
+    clampedBy: normalizeClamp(row.clamped_by),
     reason: asText(row.reason) || null,
     untilClose: Boolean(row.until_close),
     inherited: normalizeMode(row.inherited) ?? effective,
     inheritedSource: asScope(row.inherited_source, 'workspace'),
     inheritedSourceLabel: asText(row.inherited_source_label),
     own: normalizeMode(row.own),
+    layers: normalizeLayers(row.layers),
+    ceilings: normalizeCaps(row.ceilings),
     breakerTrippedAt: asText(row.breaker_tripped_at) || null,
     promotion: normalizePromotion(row.promotion),
   }

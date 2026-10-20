@@ -1,3 +1,4 @@
+import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -30,7 +31,7 @@ import { LabelMarkFields } from '../components/ui/LabelMark'
 import { FLOW_LABEL_COLOR, FLOW_LABEL_ICON } from '../components/ui/label-marks'
 import { TagPill } from '../components/ui/TagPill'
 import { waitingStageFill } from '../lib/stage-order'
-import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
+import { StageProgressIcon } from '../components/flows/StageProgressIcon'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { flowActionTag, flowTitle } from '../lib/flow-title'
@@ -40,7 +41,7 @@ import { listSignalTags, type SignalTag } from '../lib/signals-api'
 import { stageLabel } from '../lib/tickets-api'
 import { timeAgo } from '../lib/time-ago'
 import { cn } from '../lib/utils'
-import { createWorkstream, listWorkstreams, type WorkstreamRow } from '../lib/workstreams-api'
+import { createWorkstream, listWorkstreams, type WorkstreamRow } from '../lib/flows-api'
 import { workstreamPath } from '../lib/workstream-ui'
 
 /** Flows: one row per action tag pipeline, with live ticket load per stage. */
@@ -124,7 +125,7 @@ export default function WorkstreamsPage() {
             ) : undefined
           }
           footer={
-            <Link to="/docs/ai/workstreams" className="text-xs font-medium text-accent hover:underline">
+            <Link to="/docs/ai/flows" className="text-xs font-medium text-accent hover:underline">
               {t('pageGuides.learnMore')}
             </Link>
           }
@@ -142,7 +143,7 @@ export default function WorkstreamsPage() {
       {isAdmin && !loading && workstreams.length > 0 ? (
         <p className="text-xs text-text-muted">
           {t('workstreamsPage.categoriesHint')}{' '}
-          <Link to="/settings/action-tags" className="font-medium text-accent hover:underline">
+          <Link to="/settings/labels" className="font-medium text-accent hover:underline">
             {t('workstreamsPage.openCategories')}
           </Link>
         </p>
@@ -156,9 +157,9 @@ export default function WorkstreamsPage() {
 
       <PageRelatedLinks
         links={[
-          { to: '/grid', label: t('orgCanvas.link') },
+          { to: GRID_PATH, label: t('orgCanvas.link') },
           { to: '/folders', label: t('pageGuides.related.projects') },
-          { to: '/settings/action-tags', label: t('pageGuides.related.categories') },
+          { to: '/settings/labels', label: t('pageGuides.related.categories') },
           { to: '/communication/inbox/open', label: t('pageGuides.related.communication') },
         ]}
       />

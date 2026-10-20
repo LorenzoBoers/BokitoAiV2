@@ -6,6 +6,8 @@ describe('docs toc', () => {
   it('strips inline markdown from heading text', () => {
     expect(headingText('Connect a **mailbox**')).toBe('Connect a mailbox')
     expect(headingText('Use `signals:read` and [links](/docs/x)')).toBe('Use signals:read and links')
+    expect(headingText('{icon:conversation} Gesprek')).toBe('Gesprek')
+    expect(headingId('{icon:conversation} Gesprek')).toBe('gesprek')
   })
 
   it('builds stable anchor ids', () => {

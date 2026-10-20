@@ -19,7 +19,7 @@ De **Activiteit**-swimlane op [Agents](/docs/ai/agents) is de live werktijdlijn 
 1. Open **Agents**. Boven de kaarten toont **Activiteit** een tijdlijn met even grote punten en **Nu** in het midden.
 2. Elk punt heeft een icoon voor het actietype (chat, geplande wake, heartbeat, enzovoort). Als meerdere acties dicht bij elkaar liggen, toont het punt een getal; hover om ze onder elkaar te zien. Sessies van twee minuten of korter tonen één tijdstip.
 3. Klik om de run, het gesprek of het Agenda-item te openen.
-4. Voor items die op een ja of nee wachten: open **Filters** → **Beslissing nodig** op de Communicatie-lijst — dezelfde lijst als Overview **Jij bent nodig**.
+4. Voor items die op een ja of nee wachten: open **Filters** → **Beslissing nodig** op de Communicatie-lijst — dezelfde lijst als Vandaag **Voor jou**.
 
 ## Controleer het werklog van één agent
 

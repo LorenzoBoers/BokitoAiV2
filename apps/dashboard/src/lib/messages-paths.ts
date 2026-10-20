@@ -168,9 +168,15 @@ export function channelPath(
 
 /** URL of the composer-first "New conversation" draft surface. */
 export type NewConversationOpts = {
-  intent?: 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket'
+  intent?: 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket' | 'channel'
   agentId?: string
   connectionId?: string | number
+  /** Channel-account id, for a specific WhatsApp or chat account. */
+  account?: string
+  /** Account channel (`widget`, `whatsapp`, `slack`) when the folder has no account id. */
+  channel?: string
+  /** Flow label, so a ticket starts on that flow. */
+  tag?: string
   to?: string
   subject?: string
   body?: string
@@ -186,6 +192,9 @@ export function newConversationPath(opts: NewConversationOpts = {}): string {
   if (opts.connectionId != null && String(opts.connectionId)) {
     params.set('connectionId', String(opts.connectionId))
   }
+  if (opts.account) params.set('account', opts.account)
+  if (opts.channel) params.set('channel', opts.channel)
+  if (opts.tag) params.set('tag', opts.tag.replace(/^#/, ''))
   if (opts.to) params.set('to', opts.to)
   if (opts.subject) params.set('subject', opts.subject)
   if (opts.body) params.set('body', opts.body)
@@ -194,6 +203,33 @@ export function newConversationPath(opts: NewConversationOpts = {}): string {
   if (opts.autosend) params.set('autosend', '1')
   const qs = params.toString()
   return qs ? `/communication/new?${qs}` : '/communication/new'
+}
+
+/**
+ * New conversation for the folder you are in.
+ * An agent, mailbox, WhatsApp, website chat, Slack or flow opens that type.
+ * Inbox, a department and a folder keep the chooser.
+ */
+export function newConversationPathForLeaf(leaf: HubLeaf): string {
+  if (leaf.type === 'agent') {
+    return newConversationPath({ intent: 'agent', agentId: leaf.agentId })
+  }
+  if (leaf.type === 'channel') {
+    if (leaf.channelKey === 'email') {
+      return newConversationPath({ intent: 'contact', connectionId: leaf.connectionId })
+    }
+    if (leaf.channelKey === 'whatsapp') {
+      return newConversationPath({ intent: 'whatsapp' })
+    }
+    const channel = leaf.channelKey === 'webchat' ? 'widget' : leaf.channelKey
+    if (channel === 'widget' || channel === 'slack') {
+      return newConversationPath({ intent: 'channel', channel })
+    }
+  }
+  if (leaf.type === 'tag') {
+    return newConversationPath({ intent: 'ticket', tag: leaf.tag })
+  }
+  return newConversationPath()
 }
 
 /** Canonical URL for a leaf (optionally with a selected thread). */

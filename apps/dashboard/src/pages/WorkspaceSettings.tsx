@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AUTONOMY_PATH } from '../lib/navigation'
 import { useTranslation } from 'react-i18next';
 import { Paintbrush, ArrowRight, Shield, ListChecks, Mail, Bot, Puzzle, MessageSquare } from 'lucide-react';
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard';
@@ -111,7 +112,7 @@ export default function WorkspaceSettings() {
             </span>
           </Link>
           <Link
-            to="/settings/communication"
+            to={AUTONOMY_PATH}
             className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
           >
             <Bot size={14} className="shrink-0 text-accent" />

@@ -10,7 +10,7 @@ from app.dependencies import AuthContext, get_current_auth
 from app.models.orchestra import Workstream
 from app.services import workstreams as svc
 
-router = APIRouter(prefix="/workstreams", tags=["workstreams"])
+router = APIRouter(prefix="/flows", tags=["flows"])
 
 
 class WorkstreamCreateBody(BaseModel):
@@ -28,6 +28,11 @@ class WorkstreamPatchBody(BaseModel):
     description: str | None = None
     tag_ids: list[UUID] | None = None
     stages: list[dict[str, Any]] | None = None
+    # A person confirms before this flow's tickets send. Caps them at Assisted.
+    always_review: bool | None = None
+    # "Delivers to": null clears it; the key must be one of that folder's Works in items.
+    deliver_folder_id: UUID | None = None
+    deliver_works_in_key: str | None = None
 
 
 class RunStartBody(BaseModel):
@@ -100,14 +105,11 @@ async def create_workstream(
     else:
         # A flow is its stages: without them tickets have nowhere to move and
         # the board renders empty. Seed the default pipeline; edit afterwards.
-        from app.services.tickets import default_stages_json
+        from app.services.tickets import default_stages_json, workspace_language
 
-        ws.stages_json = default_stages_json()
+        ws.stages_json = default_stages_json(workspace_language(auth.tenant))
     session.add(ws)
     await session.flush()
-    from app.services.setup_links import sync_flow_stages
-
-    await sync_flow_stages(session, ws)
     label_color = flow_label_color(body.color if body.color is not None else FLOW_LABEL_COLOR)
     label_icon = flow_label_icon(body.icon if body.icon is not None else FLOW_LABEL_ICON)
     if tag is None:
@@ -233,6 +235,40 @@ async def get_workstream_board(
     return await workstream_board(session, auth.tenant.id, workstream_id)
 
 
+class StageInsertBody(BaseModel):
+    kind: str
+    index: int = 0
+
+
+@router.post("/{workstream_id}/stages")
+async def insert_workstream_stage(
+    workstream_id: UUID,
+    body: StageInsertBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Add one stage. The name comes from the workspace language, not the client."""
+    from fastapi import HTTPException
+
+    from app.services.tickets import insert_named_stage, workspace_language
+
+    auth.require_role("owner", "admin")
+    ws = await svc.get_workstream(session, auth.tenant.id, workstream_id)
+    try:
+        ws.stages_json = insert_named_stage(
+            ws.stages_json, kind=body.kind, index=body.index, language=workspace_language(auth.tenant)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    from datetime import datetime
+
+    ws.updated_at = datetime.utcnow()
+    session.add(ws)
+    await session.commit()
+    await session.refresh(ws)
+    return await svc.serialize_workstream_full(session, ws)
+
+
 @router.patch("/{workstream_id}")
 async def patch_workstream(
     workstream_id: UUID,
@@ -247,6 +283,34 @@ async def patch_workstream(
         ws.name = str(patch["name"]).strip()
     if "description" in patch and patch["description"] is not None:
         ws.description = str(patch["description"])
+    if patch.get("always_review") is not None and bool(patch["always_review"]) != bool(ws.always_review):
+        from app.services.audit import record_audit
+
+        ws.always_review = bool(patch["always_review"])
+        await record_audit(
+            session,
+            auth.tenant.id,
+            action="govern:flow_always_review",
+            actor_type="user",
+            actor_id=str(auth.user.id),
+            resource_type="workstream",
+            resource_id=str(ws.id),
+            outcome="applied",
+            summary=f"Always review on {ws.name}: {'on' if ws.always_review else 'off'}",
+            before={"always_review": not ws.always_review},
+            after={"always_review": ws.always_review},
+            commit=False,
+        )
+    if "deliver_folder_id" in patch or "deliver_works_in_key" in patch:
+        from app.services.deliveries import validate_flow_destination
+
+        folder_id = patch["deliver_folder_id"] if "deliver_folder_id" in patch else ws.deliver_folder_id
+        key = str(patch.get("deliver_works_in_key") or "").strip() if "deliver_works_in_key" in patch else ""
+        if folder_id is None:
+            ws.deliver_folder_id, ws.deliver_works_in_key = None, ""
+        else:
+            await validate_flow_destination(session, auth.tenant.id, folder_id, key)
+            ws.deliver_folder_id, ws.deliver_works_in_key = folder_id, key
     stages_changed = False
     if patch.get("stages") is not None:
         from app.services.stage_checkups import validate_stage_owners
@@ -256,9 +320,6 @@ async def patch_workstream(
         await validate_stage_owners(session, auth.tenant.id, stages_json)
         stages_changed = stages_json != ws.stages_json
         ws.stages_json = stages_json
-        from app.services.setup_links import sync_flow_stages
-
-        await sync_flow_stages(session, ws)
     if patch.get("tag_ids") is not None:
         await _set_playbook_tags(session, auth.tenant.id, ws, patch["tag_ids"])
     from datetime import datetime

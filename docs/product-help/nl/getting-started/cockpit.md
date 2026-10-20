@@ -1,54 +1,50 @@
 ---
-title: Zo werkt Overview
+title: Zo werkt Vandaag
 intro: Begin hier als je wilt weten of werk doorloopt en waar aandacht nodig is.
-description: Gebruik Overview voor de dagelijkse scan, Canvas voor workspace-dashboards en Verbruik voor tokenbudget en kosten. Agentactiviteit staat op Agents.
-keywords: overview, rapportages, cockpit, dashboard, overzicht, verbruik, budget, activiteit
+description: Gebruik Vandaag in Communicatie voor de dagelijkse scan. Tokenbudget en kosten staan onder Instellingen, Verbruik. Agentactiviteit staat op Agents.
+keywords: vandaag, cockpit, dashboard, overzicht, verbruik, budget, activiteit
 sort: 50
 related: communication,categories,agent-runs,decisions,agenda,agents
 ---
 
-# Zo werkt Overview
+# Zo werkt Vandaag
 
-Overview is de ochtendscan. Open die in de linkerrail om te zien waar jij nodig bent, welke tickets openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Onder **Instellingen → Profiel** kun je Overview als startpagina na inloggen kiezen; Communicatie blijft de standaard.
+Vandaag is de ochtendscan binnen Communicatie. Open **Communicatie**, dan **Vandaag**, om te zien waar jij nodig bent, welke tickets openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Het adres is `/communication/today`. Onder **Instellingen → Profiel** kun je Vandaag als startpagina na inloggen kiezen; Communicatie blijft de standaard.
 
-## Scan de dag op Overview
+## Scan de dag op Vandaag
 
-![Overview](/api/docs/assets/cockpit/overview.png)
-*Overview toont open werk, beslissingen en recente runs.*
+![Vandaag](/api/docs/assets/cockpit/overview.png)
+*Vandaag toont open werk, beslissingen en recente runs.*
 
-1. Open **Overview** in de linkerrail. Je landt op de scan. De titel op de pagina is de workspacenaam; het hulp-icoon naast **Overview** in de bovenbalk opent deze gids. De ondertitel begroet je en toont de datum van vandaag. De grijze regel `environment · tenant-slug · Live · 1.2.01` is voor support (API-environment, deze tenant, websocket, releaseversie). Klik de slug om de hele regel te kopiëren. Dezelfde regel staat onderaan het accountmenu. De dev-host toont de volgende patch, één stap voor op productie.
-2. **Jij bent nodig** staat bovenaan over de volle breedte: open beslissingen en gesprekken die aan jou zijn toegewezen (dezelfde lijst als **Voor jou** in Communicatie). Is die leeg, gebruik **Voor jou openen** of **Kanaal koppelen**.
-3. Daaronder toont **AI-activiteit** een gestapelde area-grafiek van gewogen **AI**-werk (paars) over **handmatig** werk (grijs), **Tijd bespaard** (geschatte minuten uit AI-resultaten: autonome sends, geassisteerde concepten die verstuurd of door een persoon voortgezet zijn, stille no-reply-triage, bevestigde no-reply-sluitingen, door AI vastgelegde tickets, afgeronde flows) en **AI-aandeel** (het deel van de gewogen acties dat AI afhandelt). Met de switcher **7 dagen** / **30 dagen** / **90 dagen** (zelfde als bij Verbruik) kies je het venster; bij beide cijfers staat een groene pijl omhoog of een rode pijl omlaag met het procentuele verschil ten opzichte van de vorige even lange periode, als die data er is. Rechts staat een cirkeldiagram van gewogen **Autonoom**-, **Geassisteerd**- en **Handmatig**-acties voor de gekozen periode (met open-gesprekstellers onder de legenda). **Instellingen AI-afhandeling** opent de workspace-draaiknop. Zie [AI-afhandeling](/docs/inbox/inbox-ai).
+1. Open **Vandaag** vanuit Communicatie. Je landt op de scan. De titel op de pagina is de workspacenaam; het hulp-icoon naast **Vandaag** in de bovenbalk opent deze gids. De ondertitel begroet je en toont de datum van vandaag. De grijze regel `environment · tenant-slug · Live · 1.2.01` is voor support (API-environment, deze tenant, websocket, releaseversie). Klik de slug om de hele regel te kopiëren. Dezelfde regel staat onderaan het accountmenu. De dev-host toont de volgende patch, één stap voor op productie.
+2. **Voor jou** staat bovenaan over de volle breedte: open beslissingen en gesprekken die aan jou zijn toegewezen (dezelfde lijst als **Voor jou** in Communicatie). Is die leeg, gebruik **Voor jou openen** of **Kanaal koppelen**.
+3. Daaronder toont **AI-activiteit** een gestapelde area-grafiek van gewogen **AI**-werk (paars) over **handmatig** werk (grijs), **Tijd bespaard** (geschatte minuten uit AI-resultaten: autonome sends, geassisteerde concepten die verstuurd of door een persoon voortgezet zijn, stille no-reply-triage, bevestigde no-reply-sluitingen, door AI vastgelegde tickets, afgeronde flows) en **AI-aandeel** (het deel van de gewogen acties dat AI afhandelt). Met de switcher **7 dagen** / **30 dagen** / **90 dagen** (zelfde als bij **Instellingen → Verbruik**) kies je het venster; bij beide cijfers staat een groene pijl omhoog of een rode pijl omlaag met het procentuele verschil ten opzichte van de vorige even lange periode, als die data er is. Rechts staat een cirkeldiagram van gewogen **Autonoom**-, **Geassisteerd**- en **Handmatig**-acties voor de gekozen periode (met open-gesprekstellers onder de legenda). **Instellingen Autonomie** opent de workspace-draaiknop. Zie [Autonomie](/docs/inbox/inbox-ai).
 4. Onder **Verder in de workspace** staan drie secundaire blokken: **Open tickets per categorie**, **Lopend en straks** en **Traject**. **Lopend en straks** waarschuwt voor openstaande check-ups en verlopen kijkmomenten, toont de eerstvolgende items uit [Agenda](/docs/ai/agenda), daarna de lopende runs, en eindigt met **Agenda openen**. Traject vergelijkt deze week met vorige week: **Tickets vastgelegd (7 dagen)** telt alleen bevestigde tickets, en het blok linkt naar afgeronde runs, Govern-voorstellen en Verbruik.
 5. Klik een rij om het gesprek, de run of een gefilterde lijst te openen. Een rij onder **Open tickets per categorie** opent de rij van die categorie in Communicatie. Heeft een open gesprek 14 dagen geen bericht, dan staat het onder **Al 14 dagen stil** met **Afsluiten**. Zonder terugkerende taak staat bovenaan eenmalig de banner **Laat een agent je verder helpen** met **Taak instellen**. Die opent **Plannen** al ingevuld: elke werkdag om 09:00, de hoofdagent, en een opdracht die noemt wat openstaat en volgende stappen voorstelt. Na **Opslaan** land je in dat gesprek, waar de agent elke keer schrijft. **Verbergen** haalt de banner weg voor deze workspace.
 
-In een nieuwe workspace kan Overview nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).
+In een nieuwe workspace kan Vandaag nog setupvoortgang tonen. Rond die af via de [setupgids](/docs/getting-started/setup-guide).
 
-## Lees workspace-canvasses
+## Vind een canvas
 
-Workspace-canvasses zijn snapshot-dashboards (geen live tegels). Op Overview staan de tabs **Overzicht**, **Verbruik**, daarna **Canvas** (layout-template-icoon). Een agent maakt, vult en ververst ze; bij toevoegen kies jij de beheeragent. Je kunt een canvas later nog verwijderen of de verversperiode op het tabblad wijzigen.
-
-1. Open **Overview**, daarna het tabblad **Canvas** (derde tab). Canvasnamen staan van links naar rechts; de **+** ná de laatste naam voegt een canvas toe. Kies een **Agent** en **Start gesprek**.
-2. In die chat vraagt de agent wat je wilt zien, stelt een kort plan voor (titel, widgets, verversen), bouwt daarna de snapshot en zet de verversperiode. Verversen is de herhaling van dat gesprek in [Agenda](/docs/ai/agenda).
-3. Latere aanpassingen gebeuren in hetzelfde gesprek. De canvas-werkbalk toont de beheeragent (avatar en naam), bijgewerkt, de verversperiode en een vernieuw-icoon op één regel; rechts staan de gespreks-link en **Bron tonen**. Verwijderen zit in het **⋯**-menu. Open dat gesprek om een aanpassing te vragen. Mapcanvassen staan op het [Canvas](/docs/ai/folders)-tabblad van de map.
+Vandaag heeft geen canvastab. Een canvas is een werkplek in een werkmap: open de werkmap en vind het onder **Werkt in**, of open `/cockpit/canvas`, dat je naar het laatst gebruikte canvas brengt of naar de werkmap **Algemeen**. Zie [Werkmappen](/docs/ai/folders).
 
 ## Open werk dat op jou wacht
 
-![Overview-aandachtspunten](/api/docs/assets/cockpit/awaiting-decision.png)
-*Needs you opent hetzelfde gesprek als Beslissingen in Communicatie.*
+![Today-aandachtspunten](/api/docs/assets/cockpit/awaiting-decision.png)
+*Voor jou opent hetzelfde gesprek als Beslissingen in Communicatie.*
 
-1. Zoek het gesprek onder **Jij bent nodig**. De rij toont dezelfde avatar, hetzelfde onderwerp en dezelfde beslissingsmarkering als Communicatie.
+1. Zoek het gesprek onder **Voor jou**. De rij toont dezelfde avatar, hetzelfde onderwerp en dezelfde beslissingsmarkering als Communicatie.
 2. Open het. Je landt op het bijbehorende gesprek in Communicatie.
-3. Handel de beslissing af in het gesprek en keer terug naar Overview.
+3. Handel de beslissing af in het gesprek en keer terug naar Vandaag.
 
 ## Lees agentactiviteit
 
-1. Open **Agents** voor de Activiteit-swimlane. Overview zelf houdt **Jij bent nodig** vooraan, daarna de secundaire contextblokken.
+1. Open **Agents** voor de Activiteit-swimlane. Vandaag zelf houdt **Voor jou** vooraan, daarna de secundaire contextblokken.
 2. Scan resultaten, niet elke denkstap.
 3. Spring naar een gesprek of agent wanneer een rij follow-up vraagt. Zie [Agentactiviteit volgen](/docs/inbox/agent-runs).
 
 ## Check Verbruik
 
-1. Open het tabblad **Verbruik** op Overview. Bovenaan staat **Tokengebruik**: een grafiek per dag voor **7 dagen**, **30 dagen** of **90 dagen**, met **Tokens** en **Kosten** voor die periode ernaast. Daaronder staan **Budget (platformsleutels)** (tokens vandaag en factureerbare spend deze maand), **Resultaat** (gesprekken, autonomieratio, tijd bespaard, gemiddelde feedback, klantbeoordeling en open beslissingen van deze week) en **Uitsplitsing** (**Per model**, **Per agent**, **Per gebruiker**, **Per dataregio**). **Tijd bespaard** is een schatting over 7 dagen: vaste minuten per autonome antwoorden, geassisteerde concepten (ook als iemand daarna zelf antwoordde), stille no-reply-triage, bevestigde no-reply-sluitingen, door AI vastgelegde tickets en afgeronde flows. De dataregio-mix staat onder **Per dataregio**; wijzig het beleid onder [Data en privacy](/docs/govern/privacy-security). Kies **CSV exporteren** in de kop.
+1. Open **Instellingen**, daarna **Verbruik**. Bovenaan staat **Tokengebruik**: een grafiek per dag voor **7 dagen**, **30 dagen** of **90 dagen**, met **Tokens** en **Kosten** voor die periode ernaast. Daaronder staan **Budget (platformsleutels)** (tokens vandaag en factureerbare spend deze maand), **Resultaat** (gesprekken, autonomieratio, tijd bespaard, gemiddelde feedback, klantbeoordeling en open beslissingen van deze week) en **Uitsplitsing** (**Per model**, **Per agent**, **Per gebruiker**, **Per dataregio**). **Tijd bespaard** is een schatting over 7 dagen: vaste minuten per autonome antwoorden, geassisteerde concepten (ook als iemand daarna zelf antwoordde), stille no-reply-triage, bevestigde no-reply-sluitingen, door AI vastgelegde tickets en afgeronde flows. De dataregio-mix staat onder **Per dataregio**; wijzig het beleid onder [Data en privacy](/docs/govern/privacy-security). Kies **CSV exporteren** in de kop.
 2. Owners en admins kiezen **Plafonds bewerken**. Zet een **Dagelijks tokenplafond** en een **Maandelijks spendplafond (USD)**, of laat een veld leeg voor **Geen plafond**. Meldingen gaan af bij 80% en 100%.
 3. Als het budget op is, pauzeren AI-calls op Bokito-platformkeys tot je het plafond verhoogt of de periode reset. Modellen op je eigen keys blijven werken (**Eigen sleutel (geen kosten)**).

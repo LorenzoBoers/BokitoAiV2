@@ -94,13 +94,23 @@ async def test_agenda_excludes_on_demand_runs(session_override: AsyncSession):
     assert scheduled_item["actor_kind"] == "agent"
     assert scheduled_item["actor_id"] == str(agent.id)
 
-    everything = await list_time_items(
+    default = await list_time_items(
         session_override,
         tenant.id,
         start=now - timedelta(days=1),
         end=now + timedelta(days=1),
     )
+    assert str(email_run.id) not in {i["run_id"] for i in default if i["run_id"]}
+
+    everything = await list_time_items(
+        session_override,
+        tenant.id,
+        start=now - timedelta(days=1),
+        end=now + timedelta(days=1),
+        sources=["session", "activity"],
+    )
     email_item = next(i for i in everything if i.get("run_id") == str(email_run.id))
+    assert email_item["kind"] == "activity"
     assert email_item["signal_id"] == email_run.trigger_id
     assert email_item["trigger_kind"] is None
 
@@ -139,10 +149,11 @@ async def test_time_items_sessions_and_wakes_for_one_agent(session_override: Asy
         start=now - timedelta(hours=24),
         end=now + timedelta(hours=24),
         agent_id=agent.id,
+        sources=["session", "wake", "task", "activity"],
     )
     session_row = next(row for row in items if row["title"] == "Reply to visitor")
     wake_row = next(row for row in items if row["title"] == "Morning scan")
-    assert session_row["kind"] == "session"
+    assert session_row["kind"] == "activity"
     assert session_row["end"]
     assert wake_row["kind"] == "wake"
     assert wake_row["end"] is None

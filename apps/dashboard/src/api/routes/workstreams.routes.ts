@@ -1,17 +1,18 @@
 import { withQuery } from '../url'
 
-/** Workstream hub routes on the app API group base (`/api/workstreams`). */
+/** Workstream hub routes on the app API group base (`/api/flows`). */
 export const workstreamsRoutes = {
-  list: '/workstreams',
-  listQuery: (params: URLSearchParams) => withQuery('/workstreams', params),
-  byId: (workstreamId: string) => `/workstreams/${encodeURIComponent(workstreamId)}`,
-  runs: (workstreamId: string) => `/workstreams/${encodeURIComponent(workstreamId)}/runs`,
+  list: '/flows',
+  listQuery: (params: URLSearchParams) => withQuery('/flows', params),
+  byId: (workstreamId: string) => `/flows/${encodeURIComponent(workstreamId)}`,
+  runs: (workstreamId: string) => `/flows/${encodeURIComponent(workstreamId)}/runs`,
   /** Flow ticket board: stage columns, project lanes. */
-  board: (workstreamId: string) => `/workstreams/${encodeURIComponent(workstreamId)}/board`,
-  allRuns: '/workstreams/runs',
-  allRunsQuery: (params: URLSearchParams) => withQuery('/workstreams/runs', params),
-  run: (runId: string) => `/workstreams/runs/${encodeURIComponent(runId)}`,
-  runResume: (runId: string) => `/workstreams/runs/${encodeURIComponent(runId)}/resume`,
-  runCancel: (runId: string) => `/workstreams/runs/${encodeURIComponent(runId)}/cancel`,
-  runPromote: (runId: string) => `/workstreams/runs/${encodeURIComponent(runId)}/promote`,
+  board: (workstreamId: string) => `/flows/${encodeURIComponent(workstreamId)}/board`,
+  insertStage: (workstreamId: string) => `/flows/${encodeURIComponent(workstreamId)}/stages`,
+  allRuns: '/flows/runs',
+  allRunsQuery: (params: URLSearchParams) => withQuery('/flows/runs', params),
+  run: (runId: string) => `/flows/runs/${encodeURIComponent(runId)}`,
+  runResume: (runId: string) => `/flows/runs/${encodeURIComponent(runId)}/resume`,
+  runCancel: (runId: string) => `/flows/runs/${encodeURIComponent(runId)}/cancel`,
+  runPromote: (runId: string) => `/flows/runs/${encodeURIComponent(runId)}/promote`,
 } as const

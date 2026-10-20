@@ -16,9 +16,9 @@ import {
   type ProjectFlowBoard,
 } from '../../lib/tickets-api'
 import { workstreamPath } from '../../lib/workstream-ui'
-import { FlowTicketCard } from '../workstreams/FlowTicketCard'
+import { FlowTicketCard } from '../flows/FlowTicketCard'
 import { waitingStageFill } from '../../lib/stage-order'
-import { StageProgressIcon } from '../workstreams/StageProgressIcon'
+import { StageProgressIcon } from '../flows/StageProgressIcon'
 import { ProjectKanbanColumn } from './ProjectKanbanColumn'
 import { useCollectStageFields } from '../inbox/TicketStageGate'
 

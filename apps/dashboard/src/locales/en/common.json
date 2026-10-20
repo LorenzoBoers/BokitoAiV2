@@ -35,9 +35,8 @@
     "lastModified": "Last modified {{time}}",
     "error": "Could not save"
   },
-
   "aiHandling": {
-    "title": "AI handling",
+    "title": "Autonomy",
     "modes": {
       "autonomous": {
         "label": "Autonomous",
@@ -56,7 +55,6 @@
       "default": "the platform default",
       "workspace": "the workspace default",
       "channel": "the channel",
-      "contact": "the contact",
       "conversation": "this conversation"
     },
     "follows": "Follows {{source}}",
@@ -66,15 +64,15 @@
       "default": "Platform default",
       "workspace": "Company default",
       "channel": "Channel default",
-      "contact": "Contact default",
       "conversation": "Conversation default"
     },
     "untilClose": "Until this conversation closes",
     "clamped": {
-      "govern": "Govern caps conversations at {{mode}}.",
+      "govern": "The Autonomy dial caps conversations at {{mode}}.",
       "privacy": "Privacy settings keep AI away from message bodies.",
       "breaker": "Autonomous paused after unusual activity. Drafts only until someone resumes it.",
-      "agent": "This agent is set to {{mode}}, so it does not go further."
+      "agent": "This agent is set to {{mode}}, so it does not go further.",
+      "flow": "This flow is set to Always review, so a person sends."
     },
     "reasons": {
       "assigned": "Assigned to a person",
@@ -86,10 +84,10 @@
     "needsAdmin": "Only an owner or admin can turn on autonomous here.",
     "takeOver": "Take over",
     "handBack": "Hand back to AI",
-    "openSettings": "AI handling settings",
-    "changed": "AI handling set to {{mode}}",
-    "cleared": "AI handling follows {{source}} again",
-    "saveError": "Could not change AI handling",
+    "openSettings": "Autonomy settings",
+    "changed": "Autonomy set to {{mode}}",
+    "cleared": "Autonomy follows {{source}} again",
+    "saveError": "Could not change Autonomy",
     "breakerBadge": "Paused",
     "breakerResume": "Resume autonomous",
     "breakerKeepAssisted": "Keep assisted",
@@ -99,10 +97,6 @@
       "followers_other": "{{count}} open conversations follow this.",
       "evidence": "{{rate}}% of {{count}} drafts were sent unedited in the last {{days}} days.",
       "noEvidence": "No drafts yet in the last {{days}} days."
-    },
-    "filter": {
-      "all": "Any AI handling",
-      "custom": "Custom AI handling"
     },
     "metrics": {
       "hint": "Open conversations by mode, and outcomes over the last {{days}} days.",

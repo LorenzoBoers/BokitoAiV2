@@ -14,20 +14,16 @@
   },
   "tabs": {
     "newChat": {
-      "title": "New chat",
+      "title": "Nieuw gesprek",
       "subtitle": "Start een gesprek"
     },
     "overview": {
-      "title": "Overview",
-      "subtitle": "Dagelijkse scan, aandacht en verbruik"
-    },
-    "cockpit": {
-      "title": "Overview",
-      "subtitle": "Dagelijkse scan, aandacht en verbruik"
+      "title": "Vandaag",
+      "subtitle": "Dagelijkse scan en wat aandacht vraagt"
     },
     "communication": {
       "title": "Communicatie",
-      "subtitle": "Chats, klant- en agentgesprekken"
+      "subtitle": "Vandaag, chats, klant- en agentgesprekken"
     },
     "contacts": {
       "title": "Contacten",
@@ -39,33 +35,27 @@
     },
     "agents": {
       "title": "Agents",
-      "subtitle": "Mensen en agents waarmee je kunt chatten"
+      "subtitle": "AI-medewerkers, hun kennis en wat ze mogen"
     },
     "workstreams": {
       "title": "Flows",
       "subtitle": "Ticketflows met het label als titel"
     },
     "folders": {
-      "title": "Mappen",
-      "subtitle": "Een tag met een plek: gesprekken, boards en docs onder één pad"
-    },
-    "projects": {
-      "title": "Mappen",
-      "subtitle": "Een tag met een plek: gesprekken, boards en docs onder één pad"
+      "title": "Werkmappen",
+      "subtitle": "Een tag met een plek: gesprekken, borden en documenten onder één pad"
     },
     "knowledge": {
       "title": "Kennis",
-      "subtitle": "Documenten, skills en geheugen"
+      "subtitle": "Documenten, vaardigheden en geheugen"
     },
     "grid": {
       "title": "Grid",
-      "subtitle": "Organisatiekaart: afdelingen, mensen, agents en koppelingen",
-      "newBadge": "Nieuw"
+      "subtitle": "Organisatiekaart: afdelingen, mensen, agents en koppelingen"
     },
     "modules": {
       "title": "Koppelingen",
-      "subtitle": "Geïnstalleerde modules, partnerlogins en tools",
-      "newBadge": "Nieuw"
+      "subtitle": "Geïnstalleerde modules, partnerlogins en tools"
     },
     "govern": {
       "title": "Govern",
@@ -73,11 +63,11 @@
     },
     "settings": {
       "title": "Instellingen",
-      "subtitle": "Workspace-configuratie"
+      "subtitle": "Instellingen van de werkruimte"
     },
     "team": {
       "title": "Workforce",
-      "subtitle": "Mensen, agents en teams van het bedrijf"
+      "subtitle": "Mensen, agents, afdelingen en de Grid"
     }
   },
   "workstreamsPage": {
@@ -88,7 +78,7 @@
       "kind": "Soort fase",
       "kinds": {
         "open": "Niet gestart",
-        "waiting": "Actief",
+        "waiting": "Wachtend",
         "done": "Klaar",
         "closed": "Gesloten"
       },
@@ -136,7 +126,7 @@
       "ownerGroups": {
         "user": "Mensen",
         "agent": "Agents",
-        "team": "Teams"
+        "team": "Afdelingen"
       },
       "checkup": "Check-up",
       "checkupHint": "De eigenaar krijgt in dit ritme een herinnering zolang het ticket hier staat. Zichtbaar in Agenda.",
@@ -320,8 +310,8 @@
       "noFreeTags": "Geen vrije hashtags",
       "noActionTag": "Nog geen label met een flow",
       "usedIn": "Gebruikt in",
-      "noProjects": "Nog geen gedeelde mappen",
-      "openProject": "Project {{name}} openen",
+      "noProjects": "Nog geen gedeelde werkmappen",
+      "openProject": "Werkmap {{name}} openen",
       "checkupsOnAgenda": "Check-ups in Agenda"
     },
     "editBar": {
@@ -344,15 +334,15 @@
     },
     "board": {
       "loadError": "Kon het ticketbord niet laden.",
-      "noProject": "Geen project",
-      "openProject": "Project openen",
+      "noProject": "Geen werkmap",
+      "openProject": "Werkmap openen",
       "empty": "Nog geen tickets. Leg een gesprek vast met #{{tag}} om er een te starten.",
       "emptyTitle": "Nog geen tickets",
       "emptyBody": "Open een gesprek in Communicatie en leg het vast met #{{tag}} om het op dit bord te zetten.",
       "emptyBodyPlain": "Open een gesprek in Communicatie en leg het vast met het label van deze flow om het op dit bord te zetten.",
       "emptyAction": "Communicatie openen",
       "openCommunication": "Communicatie openen",
-      "showEmptyLanes": "Toon lege mappen",
+      "showEmptyLanes": "Toon lege werkmappen",
       "resizeColumn": "Sleep om {{name}} te herschalen",
       "filterLabel": "Filter",
       "filterAny": "Alle {{name}}",
@@ -365,21 +355,32 @@
       "stagesAria": "Tickets per fase",
       "tickets_one": "{{count}} ticket",
       "tickets_other": "{{count}} tickets"
+    },
+    "alwaysReview": {
+      "label": "Altijd controle",
+      "hint": "Een mens bevestigt elk antwoord op tickets van deze flow voordat het verstuurd wordt."
+    },
+    "deliverTo": {
+      "label": "Levert op in",
+      "none": "Nog geen bestemming",
+      "set": "Bestemming kiezen",
+      "change": "Wijzigen",
+      "folder": "Kies een werkmap",
+      "item": "Plek in Werkt in",
+      "folderItself": "De werkmap zelf",
+      "save": "Opslaan",
+      "clear": "Verwijderen",
+      "cancel": "Annuleren",
+      "saved": "Bestemming opgeslagen",
+      "saveError": "Bestemming opslaan mislukt"
     }
-  },
-  "cockpitTabs": {
-    "aria": "Overview-onderdelen",
-    "overview": "Overzicht",
-    "canvas": "Canvas",
-    "activity": "Activiteit",
-    "usage": "Verbruik"
   },
   "crumbs": {
     "company": "Bedrijf",
     "person": "Persoon",
     "agent": "Agent",
-    "folder": "Map",
-    "project": "Map",
+    "folder": "Werkmap",
+    "project": "Werkmap",
     "document": "Document",
     "learn": "Hulp",
     "docs": "Docs",
@@ -388,20 +389,19 @@
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
     "channel": "Kanaal",
-    "marketplace": "Marketplace",
+    "marketplace": "Aanbod",
     "modules": "Modules",
     "moduleSetup": "Module-setup",
     "moduleWorkspace": "Module",
     "connectedTools": "Gekoppelde tools",
     "connected": "Koppelingen",
-    "myAssistant": "Mijn assistent",
+    "myAssistant": "Geheugen van Bokito",
     "forYou": "Voor jou",
     "team": "Team",
     "bin": "Prullenbak"
   },
   "pageHeaders": {
     "cockpitOverview": "Werkruimtegezondheid in één oogopslag",
-    "cockpitCanvas": "Workspace-snapshotdashboards",
     "cockpitActivity": "Live activiteit van agents en je team",
     "cockpitUsage": "Modelkosten en runvolume",
     "setupGuide": "De levende checklist voor deze workspace — kanaal, assistent, één beslissing, daarna check-in.",
@@ -418,6 +418,7 @@
     "indexLoadError": "Kon de docs-index niet laden. Vernieuw en probeer opnieuw.",
     "noResults": "Geen resultaten voor die zoekopdracht.",
     "apiReference": "API-referentie",
+    "docsHome": "Docs",
     "apiReferenceIntro": "Interactieve referentie voor de publieke Bokito-API, gegenereerd uit het live OpenAPI-schema.",
     "apiReferenceFallback": "De interactieve referentie kon niet laden. Het rauwe schema staat op",
     "apiGuides": "Gidsen voor ontwikkelaars",
@@ -430,6 +431,7 @@
     "copyForLlmDone": "Gekopieerd voor LLM",
     "viewAsMarkdown": "Bekijk als Markdown",
     "openApp": "Open Bokito",
+    "toApp": "Naar app",
     "copied": "Gekopieerd",
     "backToDocs": "Alle docs",
     "popular": "Begin hier",
@@ -457,7 +459,7 @@
         "blurb": "Autonomiehouding, goedkeuringen, audit en de modellen die de workspace aandrijven."
       },
       "integrations": {
-        "title": "Integraties",
+        "title": "Koppelingen",
         "blurb": "Koppel externe tools en MCP-servers zodat agents in je andere systemen kunnen handelen."
       },
       "developers": {
@@ -502,17 +504,17 @@
       "agents": "Agents",
       "setup": "Setupgids",
       "channels": "Kanaalinstellingen",
-      "inboxAi": "AI-afhandeling",
+      "inboxAi": "Autonomie",
       "contacts": "Contacten",
       "agenda": "Agenda",
-      "projects": "Projecten",
+      "projects": "Werkmappen",
       "govern": "Govern",
       "knowledge": "Kennis",
       "developers": "Developer-instellingen",
       "widget": "Website-chatwidget",
       "automations": "Automatiseringen",
       "models": "Modellen",
-      "integrations": "Integraties",
+      "integrations": "Koppelingen",
       "autonomy": "Autonomiehouding",
       "usage": "Verbruik",
       "workstreams": "Flows",
@@ -520,9 +522,9 @@
       "categories": "Labels"
     },
     "cockpit": {
-      "bannerTitle": "Overview is de polsslag van de workspace",
+      "bannerTitle": "Vandaag is de polsslag van de workspace",
       "bannerBody": "Gezondheid, live activiteit en modelkosten op één plek, voordat je de gesprekken of agents induikt.",
-      "pageTitle": "Zo werkt Overview",
+      "pageTitle": "Zo werkt Vandaag",
       "intro": "Begin hier als je wilt weten of het werk loopt en waar aandacht nodig is.",
       "sections": [
         {
@@ -563,7 +565,7 @@
         },
         {
           "title": "Beslissingen",
-          "body": "Open DecisionRequests van elk kanaal delen het filter Wacht op beslissing in de inbox. Overview Vraagt aandacht en notificatieklikken openen dezelfde lijst."
+          "body": "Open DecisionRequests van elk kanaal delen het filter Wacht op beslissing in de inbox. Vandaag Voor jou en notificatieklikken openen dezelfde lijst."
         }
       ]
     },
@@ -599,11 +601,11 @@
         },
         {
           "title": "Tonen en wie",
-          "body": "Onder Tonen zet je elke gekoppelde agenda aan, plus Taken en Activiteit. Filter op één persoon, één agent of één project."
+          "body": "Onder Tonen zet je elke gekoppelde agenda aan, plus Taken en Activiteit. Filter op één persoon, één agent of één werkmap."
         },
         {
           "title": "Taken",
-          "body": "Eenmalige wakes, terugkerende scans en fase-follow-ups uit flows zijn allemaal Taken. Openstaande taken staan onder Vraagt aandacht. Beheer terugkerende scans onder Taken beheren."
+          "body": "Eenmalige wakes, terugkerende scans en fase-follow-ups uit flows zijn allemaal Taken. Openstaande taken staan onder Voor jou. Beheer terugkerende scans onder Taken beheren."
         },
         {
           "title": "Agendasync",
@@ -613,7 +615,7 @@
     },
     "agents": {
       "bannerTitle": "Agents zijn het team dat het werk doet",
-      "bannerBody": "Maak en configureer de AI-medewerkers van deze workspace. Chat met ze, geef ze tools en koppel ze aan projecten.",
+      "bannerBody": "Maak en configureer de AI-medewerkers van deze workspace. Chat met ze, geef ze tools en koppel ze aan werkmappen.",
       "pageTitle": "Zo werken Agents",
       "intro": "De bibliotheek van AI-medewerkers. Communicatie is waar ze praten; deze pagina is waar je ze aanneemt en briefed.",
       "sections": [
@@ -632,34 +634,34 @@
       ]
     },
     "projects": {
-      "bannerTitle": "Projecten houden een gedeeld doel vast",
+      "bannerTitle": "Een werkmap verzamelt het werk over één onderwerp",
       "bannerBody": "Groepeer een product-owner-agent, repository, gesprekken en een tokenbudget zodat werk een thuis heeft in plaats van alleen in chat te leven.",
-      "pageTitle": "Zo werken Projecten",
-      "intro": "Een project is de container voor een doel: wie het leidt, welke repo het gebruikt en hoeveel het mag uitgeven.",
+      "pageTitle": "Zo werken Werkmappen",
+      "intro": "Een werkmap in Bokito is de plek waar al het werk over één onderwerp samenkomt: een klant, een project of een afdelingstaak. Je ziet wie het leidt, waar het werk landt en hoeveel het mag uitgeven.",
       "sections": [
         {
           "title": "Kaarten",
-          "body": "Elk project toont de lead-agent, repostatus en resterend budget. Open het voor orchestratie, repository en recente runs."
+          "body": "Elke werkmap toont de lead-agent, repostatus en resterend budget. Open hem voor orchestratie, repository en recente runs."
         },
         {
           "title": "Gesprekken",
-          "body": "Bekijk gesprekken springt naar Communicatie, gefilterd op dat project. Agents en mensen praten in Communicatie; het project is de ruggengraat."
+          "body": "Bekijk gesprekken springt naar Communicatie, gefilterd op die werkmap. Agents en mensen praten in Communicatie; de werkmap is de ruggengraat."
         },
         {
           "title": "Budget",
-          "body": "Dag- en uurbudgetten zitten op het project zodat één doel niet het hele workspace-plafond opeet."
+          "body": "Dag- en uurbudgetten zitten op de werkmap, zodat één onderwerp niet het hele workspace-plafond opeet."
         }
       ]
     },
     "knowledge": {
       "bannerTitle": "Kennis is wat agents onthouden",
-      "bannerBody": "Persona, geheugen, skills en checklists leven als workspace-docs. Agents lezen ze bij elke run en kunnen terugschrijven wat ze leren.",
+      "bannerBody": "Persona, geheugen, vaardigheden en checklists leven als werkruimte-documenten. Agents lezen ze bij elke run en kunnen terugschrijven wat ze leren.",
       "pageTitle": "Zo werkt Kennis",
       "intro": "Markdownbestanden die de workspace bezit. Dit is de briefing die agents meenemen — geen aparte wiki alleen voor mensen.",
       "sections": [
         {
           "title": "Soorten",
-          "body": "Persona is toon en regels. Geheugen is langetermijnfeiten. Skills zijn procedures (SKILL.md-stijl). Heartbeat en daglog zijn door AI bijgehouden checklists."
+          "body": "Persona is toon en regels. Geheugen is langetermijnfeiten. Vaardigheden zijn procedures (SKILL.md-stijl). Heartbeat en daglog zijn door AI bijgehouden checklists."
         },
         {
           "title": "Publiceren",
@@ -698,14 +700,14 @@
       "intro": "Breng klantmail en andere inboxen naar Communicatie zodat werk op één plek landt."
     },
     "integrations": {
-      "bannerTitle": "Integraties zijn de tools die agents mogen aanroepen",
-      "bannerBody": "Installeer marketplace-apps en MCP-servers, en zet daarna op Govern of agents die automatisch mogen gebruiken.",
-      "pageTitle": "Integraties koppelen",
-      "intro": "Geef agents tools buiten Bokito — boekhouding, GitHub, MCP-servers en marketplace-apps."
+      "bannerTitle": "Koppelingen zijn de tools die agents mogen aanroepen",
+      "bannerBody": "Installeer catalog-apps en MCP-servers, en zet daarna op Govern of agents die automatisch mogen gebruiken.",
+      "pageTitle": "Koppelingen",
+      "intro": "Geef agents tools buiten Bokito — boekhouding, GitHub, MCP-servers en catalog-apps."
     },
     "models": {
       "bannerTitle": "Modellen bepalen wat de workspace kan aanroepen",
-      "bannerBody": "Zet hier chat- en embeddingmodellen aan. Kosten blijven op Overview Verbruik; Govern bepaalt nog steeds wat agents mogen doen.",
+      "bannerBody": "Zet hier chat- en embeddingmodellen aan. Kosten blijven op Vandaag Verbruik; Govern bepaalt nog steeds wat agents mogen doen.",
       "pageTitle": "Modellen kiezen",
       "intro": "Kies welke taal- en embeddingmodellen deze workspace mag gebruiken, en wie daarvoor betaalt."
     },
@@ -723,7 +725,7 @@
     },
     "categories": {
       "bannerTitle": "Labels zijn hashtags die een flow starten",
-      "bannerBody": "Elk gesprek kan één label hebben. Vastleggen maakt van het gesprek een ticket dat door de fasen van de flow gaat, op een van zijn projecten of op geen.",
+      "bannerBody": "Elk gesprek kan één label met een flow hebben. Vastleggen maakt van het gesprek een ticket dat door de fasen van de flow gaat, in een van zijn werkmappen of in geen.",
       "pageTitle": "Hoe een label met een flow werkt",
       "intro": "Een label met een flow maakt van een gesprek een ticket, zoals een klacht of een terugbetalingsverzoek. Eén lijst, gelezen door mensen en agents.",
       "sections": [
@@ -736,8 +738,8 @@
           "body": "Bokito leest elk inkomend bericht tegen deze lijst. Een zekere match legt een ticket vast; een onzekere match vraagt om bevestiging op het gesprek."
         },
         {
-          "title": "Flow en project",
-          "body": "De gekoppelde Flow bevat de fasen, eigenaren en check-ups. Vastleggen kiest een project: een van de projecten van de flow, of geen."
+          "title": "Flow en werkmap",
+          "body": "De gekoppelde Flow bevat de fasen, eigenaren en check-ups. Vastleggen kiest een werkmap: een van de werkmappen van de flow, of geen."
         },
         {
           "title": "Backlog",
@@ -803,7 +805,7 @@
       "connectBody": "Afspraken naast agent-wakes.",
       "connectGoogle": "Google Calendar",
       "connectOutlook": "Outlook Calendar",
-      "openMarketplace": "Marketplace",
+      "openMarketplace": "Aanbod",
       "connectError": "Kalender koppelen mislukt.",
       "connectedLabel": "Kalenders",
       "eventCount": "{{count}} afspraken gesynchroniseerd",
@@ -903,7 +905,7 @@
     },
     "layers": {
       "calendar": "Agenda",
-      "tasks": "Taken",
+      "tasks": "Gepland",
       "activity": "Activiteit",
       "reminders": "Taken",
       "checkups": "Taken",
@@ -918,9 +920,9 @@
     },
     "rail": {
       "when": "Wanneer",
-      "what": "Mappen",
+      "what": "Werkmappen",
       "who": "Wie",
-      "allProjects": "Alle projecten",
+      "allProjects": "Alle werkmappen",
       "show": "Tonen",
       "addCalendar": "Agenda koppelen",
       "layersHint": "Taken dekken eenmalig en terugkerend werk voor mensen en agents. Opvolging uit flowfases staat hier ook.",
@@ -969,7 +971,7 @@
       "status": "Status",
       "checkupHint": "Een check-up vraagt de eigenaar van dit ticket om er opnieuw naar te kijken. Stel het ritme per fase in de flow in.",
       "openConversation": "Gesprek openen",
-      "openProject": "Project openen",
+      "openProject": "Werkmap openen",
       "openProjectNamed": "{{name}} openen",
       "openAgent": "Agent openen",
       "openAgentNamed": "{{name}} openen",
@@ -999,7 +1001,7 @@
       "webhookBody": "Een agent reageert op een oproep van buiten."
     },
     "attention": {
-      "title": "Vraagt aandacht",
+      "title": "Voor jou",
       "tasks_one": "{{count}} taak open",
       "tasks_other": "{{count}} taken open",
       "tasksTitle": "Openstaande taken",
@@ -1129,7 +1131,7 @@
     "linkContactsHint": "Gebruik Contacten koppelen om bedrijven uit bestaande adressen aan te vullen.",
     "conversations": "Gesprekken",
     "threadCount": "{{count}} gesprekken met dit contact",
-    "inFolders": "In mappen",
+    "inFolders": "In werkmappen",
     "tags": "Tags",
     "viaCompany": "via bedrijf",
     "threadCountPartial": "De laatste {{shown}} van {{count}}",
@@ -1186,7 +1188,7 @@
     "startAssistant": "Start met de assistent",
     "advancedHint": "Partnerlogins en extra tools staan onder",
     "advancedLink": "Koppelingen",
-    "assistantPrompt": "Help me deze workspace in vier stappen in te richten: koppel een kanaal, vul bedrijfskennis in dit gesprek, keur één beslissing goed, en zet daarna de platform-check-in aan. Daarna kunnen we branding, team, modules en projecten toevoegen.",
+    "assistantPrompt": "Help me deze workspace in vier stappen in te richten: koppel een kanaal, vul bedrijfskennis in dit gesprek, keur één beslissing goed, en zet daarna de platform-check-in aan. Daarna kunnen we branding, team, modules en werkmappen in Bokito toevoegen.",
     "core": {
       "channel": {
         "title": "Koppel een kanaal",
@@ -1210,8 +1212,8 @@
       "branding": "Branding",
       "team": "Team uitnodigen",
       "modules": "Voeg een vakgebied toe",
-      "projects": "Projecten",
-      "kpis": "Cijfers op Overview",
+      "projects": "Werkmappen",
+      "kpis": "Cijfers op Vandaag",
       "govern": "Govern"
     },
     "communication": {
@@ -1227,7 +1229,7 @@
       "viewAddress": "Bokito-adres aanmaken",
       "connectMailbox": "Mailbox koppelen",
       "browseChannels": "Kanalen bekijken",
-      "aiReplySettings": "AI-antwoordinstellingen"
+      "aiReplySettings": "Autonomie"
     },
     "intelligence": {
       "title": "2. Intelligentie",
@@ -1240,7 +1242,7 @@
       "setupAssistant": "Inrichten met de assistent",
       "openKnowledge": "Kennis openen",
       "manageAgents": "Agents beheren",
-      "organizeProjects": "Werk organiseren per project",
+      "organizeProjects": "Werk organiseren per werkmap",
       "modulesFit": "Modules die bij dit werk passen",
       "manageModules": "Modules beheren",
       "modulesLine": "Zet een bedrijfsmodule aan wanneer facturen, bank of bestanden ter sprake komen",
@@ -1248,12 +1250,12 @@
       "modulesOn_other": "{{count}} modules aan"
     },
     "projects": {
-      "title": "6. Projecten",
+      "title": "6. Werkmappen",
       "description": "Groepeer gesprekken, agents en kennis rond één doel. Optioneel tot je meer dan één flow hebt.",
-      "done": "{{count}} project",
-      "done_other": "{{count}} projecten",
-      "todo": "Nog geen projecten",
-      "openProjects": "Projecten openen"
+      "done": "{{count}} werkmap",
+      "done_other": "{{count}} werkmappen",
+      "todo": "Nog geen werkmappen",
+      "openProjects": "Werkmappen openen"
     },
     "automations": {
       "title": "3. Automatiseringen",
@@ -1277,12 +1279,12 @@
       "installWidget": "Widget installeren"
     },
     "kpis": {
-      "title": "5. Cijfers op Overview",
-      "description": "Zet de getallen die ertoe doen op Overview. Agents houden ze bij.",
+      "title": "5. Cijfers op Vandaag",
+      "description": "Zet de getallen die ertoe doen op Vandaag. Agents houden ze bij.",
       "done": "{{count}} eigen cijfer",
       "done_other": "{{count}} eigen cijfers",
       "todo": "Nog geen eigen cijfers",
-      "openCockpit": "Overview openen",
+      "openCockpit": "Vandaag openen",
       "openUsage": "Gebruik openen"
     }
   },
@@ -1444,10 +1446,10 @@
     "loading": "Activiteit laden...",
     "headlines": "Kopregels",
     "headlinesHint": "Alleen afgerond werk en beslissingen — denkstappen blijven verborgen",
-    "fullLog": "Volledig log",
+    "fullLog": "Volledig logboek",
     "fullLogHint": "Elke stap, inclusief denken en opzoeken",
-    "emptyHeadlines": "Geen kopregels in deze weergave. Denkstappen en zoekacties staan in het volledige log.",
-    "showFullLog": "Volledig log tonen",
+    "emptyHeadlines": "Geen kopregels in deze weergave. Denkstappen en zoekacties staan in het volledige logboek.",
+    "showFullLog": "Volledig logboek tonen",
     "executedApprovedAction": "Goedgekeurde actie uitgevoerd: {{action}}",
     "approvedActions": {
       "approve": "goedkeuren"
@@ -1554,7 +1556,7 @@
       "title": "Laat een agent je verder helpen",
       "body": "Een vaste thread waarin een agent je geregeld schrijft: wat open staat en welke stap je workspace verder brengt.",
       "cta": "Taak instellen",
-      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, integraties, flows en labels, projecten, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een flow voor een vraag die vaak terugkomt, een project voor werk dat nu los in gesprekken zit, of een integratie uit de marketplace die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
+      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, koppelingen, flows en labels, werkmappen, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een flow voor een vraag die vaak terugkomt, een werkmap voor werk dat nu los in gesprekken zit, of een integratie uit het aanbod die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
       "taskName": "Workspace verder brengen",
       "dismiss": "Verbergen"
     },
@@ -1590,7 +1592,7 @@
     "postureManual": "Jij beslist",
     "postureAssisted": "Vraagt eerst",
     "postureAutonomous": "Doet het zelf",
-    "needsAttention": "Vraagt aandacht",
+    "needsAttention": "Voor jou",
     "needsAttentionHint": "Dingen die op jou wachten: een antwoord, een ja/nee, of een concept om goed te keuren",
     "nothingAttention": "Niets vraagt nu je aandacht.",
     "openCommunication": "Communicatie openen",
@@ -1785,7 +1787,7 @@
   },
   "channelsPage": {
     "listTitle": "Kanalen",
-    "listDescription": "Elk kanaal dat gesprekken binnenbrengt: mailboxen, Bokito-adressen, de websitechat, WhatsApp en Slack. Open een rij voor status, AI-afhandeling en wat alleen dit kanaal heeft.",
+    "listDescription": "Elk kanaal dat gesprekken binnenbrengt: mailboxen, Bokito-adressen, de websitechat, WhatsApp en Slack. Open een rij voor status, Autonomie en wat alleen dit kanaal heeft.",
     "addChannel": "Kanaal toevoegen",
     "addChannelDescription": "Kies wat je wilt koppelen. Een Bokito-adres maak je hier aan; de rest vraagt om inloggen of gegevens.",
     "noChannels": "Nog geen kanalen. Zonder kanaal kan niemand je bereiken.",
@@ -1852,7 +1854,7 @@
     "open": "Openen",
     "name": "Naam",
     "agent": "AI-agent",
-    "agentHint": "De agent die nieuwe gesprekken met AI-afhandeling oppakt. Zonder keuze doet de standaardagent van de werkruimte dat.",
+    "agentHint": "De agent die nieuwe gesprekken met Autonomie oppakt. Zonder keuze doet de standaardagent van de werkruimte dat.",
     "foldersHint": "Inbox en Verzonden staan aan. Spam komt in Spam zonder agent. Concepten en prullenbak niet.",
     "signatureHint": "Gedeelde template voor antwoorden vanaf dit adres. Placeholders zoals {{name}} worden per afzender ingevuld.",
     "signatureHintSender": "Deze mailbox gebruikt ieders eigen handtekening (Profiel). De template hieronder geldt pas weer als je terugschakelt naar mailbox-handtekening.",
@@ -2039,9 +2041,9 @@
     "crossLinks": {
       "body": "Kanalen laten gesprekken landen in Communicatie. AI-gedrag en de chatwidget horen bij dezelfde kanalen.",
       "communication": "Communicatie openen",
-      "inboxAi": "AI-afhandeling",
+      "inboxAi": "Autonomie",
       "widget": "Chatwidget",
-      "integrations": "Integraties bekijken",
+      "integrations": "Koppelingen bekijken",
       "setup": "Setupgids"
     },
     "setupNeededAlert": {
@@ -2071,7 +2073,7 @@
       "emptyHint": "Gebruik Route toevoegen hieronder om een kanaal naar een agent te sturen.",
       "openAgents": "Agents openen",
       "openCommunication": "Communicatie openen",
-      "openMarketplace": "Marketplace bekijken",
+      "openMarketplace": "Aanbod bekijken",
       "removeConfirm": "Deze route verwijderen? Nieuwe gesprekken op dit kanaal gaan terug naar de standaardagent.",
       "allAccounts": "Alle accounts op dit kanaal",
       "accountOptional": "Account (optioneel)",
@@ -2110,11 +2112,11 @@
     "oauthConnected": "{{provider}} gekoppeld en gesynchroniseerd.",
     "oauthFailedTitle": "Kon {{provider}} niet koppelen",
     "access": "Toegang",
-    "accessHint": "Welke mensen, agents en teams dit kanaal zien of afhandelen.",
+    "accessHint": "Welke mensen, agents en afdelingen dit kanaal zien of afhandelen.",
     "team": "Eigenaar",
     "teamHint": "Wie het gesprek krijgt als een mens het moet overnemen: een persoon, een team, of Alle mensen zodat iedereen het mag oppakken.",
     "ownerPeople": "Mensen",
-    "ownerTeams": "Teams",
+    "ownerTeams": "Afdelingen",
     "defaultBadge": "Standaard",
     "unknownTeam": "Onbekend team",
     "unknownPerson": "Onbekende persoon",
@@ -2268,7 +2270,7 @@
     "verifyTokenMissing": "Vraag je platformbeheerder om de verify token (WHATSAPP_VERIFY_TOKEN is niet geconfigureerd op deze server).",
     "subscribeHint": "Abonneer de webhook op het veld messages en stuur daarna een testbericht naar je nummer.",
     "openCommunication": "Communicatie openen",
-    "openInboxAi": "AI-antwoordinstellingen",
+    "openInboxAi": "Autonomie",
     "displayName": "Weergavenaam",
     "displayNamePlaceholder": "+31 6 12345678",
     "displayNameHint": "Alleen een label in Bokito — je team ziet dit onder Kanalen.",
@@ -2308,7 +2310,7 @@
     "eventsUrl": "Events-URL:",
     "interactivityUrl": "Interactivity-URL:",
     "openCommunication": "Communicatie openen",
-    "openInboxAi": "AI-antwoordinstellingen",
+    "openInboxAi": "Autonomie",
     "openGovern": "Govern-beleid openen",
     "workspaceName": "Workspacenaam",
     "workspaceNamePlaceholder": "Acme Inc",
@@ -2381,13 +2383,8 @@
     }
   },
   "tabGroups": {
-    "control": "Besturing",
     "work": "Werk",
-    "agent": "Agent",
-    "ai": "AI",
-    "organization": "Organisatie",
-    "connections": "Koppelingen",
-    "settings": "Instellingen"
+    "team": "Team"
   },
   "palette": {
     "placeholder": "Zoek pagina's, gesprekken, contacten, kennis, acties...",
@@ -2412,7 +2409,7 @@
     "newEmail": "Nieuwe e-mail",
     "newContact": "Nieuw contact",
     "newAgent": "Nieuwe agent",
-    "newProject": "Nieuw project",
+    "newProject": "Nieuwe werkmap",
     "connectMailbox": "Mailbox koppelen",
     "openSetupGuide": "Setupgids openen",
     "openHelp": "Support openen",
@@ -2433,7 +2430,7 @@
     "openAgenda": "Agenda openen",
     "openAgent": "Agent openen",
     "openPlaybook": "Flow openen",
-    "openProject": "Project openen",
+    "openProject": "Werkmap openen",
     "openKnowledge": "Kennis openen",
     "openGovernDrafts": "Govern-concepten bekijken",
     "activity": "Activiteit",
@@ -2478,7 +2475,7 @@
     "languageNl": "Nederlands",
     "languageEn": "English",
     "emailMessages": "E-mail en kanalen",
-    "inboxAi": "AI-afhandeling",
+    "inboxAi": "Autonomie",
     "presence": "Status",
     "presenceError": "Kon je status niet bijwerken.",
     "signOut": "Uitloggen"
@@ -2495,7 +2492,7 @@
   "repoStatus": {
     "notConnected": "Niet gekoppeld",
     "ready": "Gereed",
-    "indexing": "Project lezen",
+    "indexing": "Repository lezen",
     "pending": "In wachtrij",
     "error": "Verbindingsprobleem",
     "connected": "Gekoppeld"
@@ -2529,7 +2526,7 @@
     "homeTotal": "{{count}} items vragen aandacht",
     "railInbox": "Inbox ({{count}} ongelezen)",
     "railAgents": "Agenten ({{count}} open)",
-    "railProjects": "Project hub ({{count}} open)",
+    "railProjects": "Werkmappen ({{count}} open)",
     "railHome": "Home ({{count}})",
     "railMessages": "Communicatie ({{count}} ongelezen)",
     "ariaInbox": "{{count}} ongelezen berichten",
@@ -2562,8 +2559,8 @@
     "retry": "Opnieuw proberen",
     "loadError": "Kon stromen niet laden.",
     "emptyTitle": "Nog geen stromen",
-    "emptyDescription": "Voeg een stroom toe om te bepalen hoe agents werk uitvoeren voor dit project.",
-    "newProject": "Nieuw project",
+    "emptyDescription": "Voeg een stroom toe om te bepalen hoe agents werk uitvoeren voor deze werkmap.",
+    "newProject": "Nieuwe werkmap",
     "showMore": "Toon {{count}} meer",
     "showLess": "Toon minder",
     "status": {
@@ -2596,50 +2593,50 @@
     }
   },
   "projectHub": {
-    "description": "Workspace-documenten, doorlopende projecten en agent-communicatie op een plek.",
-    "tabsAriaLabel": "Project hub-navigatie",
+    "description": "Workspace-documenten, doorlopende werkmappen en agent-communicatie op één plek.",
+    "tabsAriaLabel": "Navigatie van de werkmap",
     "tabs": {
       "overview": "Overzicht",
       "docs": "Workspace",
-      "projects": "Projecten",
+      "projects": "Werkmappen",
       "communication": "Communicatie",
       "decisions": "Beslissingen"
     },
     "quick": {
-      "newProject": "Nieuw project",
+      "newProject": "Nieuwe werkmap",
       "openDocs": "Open workspace",
       "openCommunication": "Open communicatie"
     },
     "selector": {
-      "label": "Huidig project",
-      "placeholder": "Selecteer project",
-      "none": "Geen projecten beschikbaar",
-      "create": "Nieuw project"
+      "label": "Huidige werkmap",
+      "placeholder": "Selecteer werkmap",
+      "none": "Geen werkmappen beschikbaar",
+      "create": "Nieuwe werkmap"
     },
-    "settingsLink": "Projectinstellingen",
+    "settingsLink": "Instellingen van de werkmap",
     "po": {
       "label": "Lead",
-      "none": "Nog geen lead-agent op dit project."
+      "none": "Nog geen lead-agent op deze werkmap."
     },
     "backgroundProjects": {
-      "label": "Achtergrondprojecten",
-      "loading": "Projecten laden…",
-      "empty": "Nog geen projecten.",
-      "newProject": "Nieuw project",
+      "label": "Achtergrondwerkmappen",
+      "loading": "Werkmappen laden…",
+      "empty": "Nog geen werkmappen.",
+      "newProject": "Nieuwe werkmap",
       "showMore": "Toon {{count}} meer",
       "showLess": "Toon minder"
     },
     "overview": {
-      "activeProjectsTitle": "Actieve projecten",
-      "viewAllProjects": "Alle projecten",
-      "openFirstProject": "Open project",
-      "emptyProjects": "Nog geen projecten.",
+      "activeProjectsTitle": "Actieve werkmappen",
+      "viewAllProjects": "Alle werkmappen",
+      "openFirstProject": "Open werkmap",
+      "emptyProjects": "Nog geen werkmappen.",
       "pendingDecisionsTitle": "Wacht op goedkeuring",
       "viewAllDecisions": "Open communicatie",
       "emptyDecisions": "Geen openstaande beslissingen.",
       "recentRunsTitle": "Recente agent runs",
       "loadErrors": {
-        "projects": "Kon projecten niet laden.",
+        "projects": "Kon werkmappen niet laden.",
         "runs": "Kon runs niet laden.",
         "decisions": "Kon beslissingen niet laden."
       }
@@ -2648,10 +2645,10 @@
       "menuLabel": "Workspace"
     },
     "projects": {
-      "description": "Elk project bundelt een doel met de flows, tickets en agents die eraan werken."
+      "description": "Elke werkmap bundelt een onderwerp met de flows, tickets en agents die eraan werken."
     },
     "communication": {
-      "description": "Openstaande agent-berichten die om jouw beslissing vragen, gegroepeerd over alle projecten.",
+      "description": "Openstaande agent-berichten die om jouw beslissing vragen, gegroepeerd over alle werkmappen.",
       "pendingTitle": "Wacht op admin",
       "empty": "Geen openstaande agent-berichten.",
       "openInbox": "Communicatie openen",
@@ -2714,8 +2711,8 @@
       "settings": "Instellingen",
       "teams": "Afdelingen",
       "hashtags": "Tags",
-      "projects": "Projecten",
-      "folders": "Mappen",
+      "projects": "Werkmappen",
+      "folders": "Werkmappen",
       "flows": "Flows"
     },
     "composeFromChannel": "Nieuw bericht vanaf dit kanaal",
@@ -2729,9 +2726,9 @@
     },
     "settings": {
       "channels": "Kanalen",
-      "assistant": "AI-antwoordinstellingen",
+      "assistant": "Autonomie",
       "widget": "Chatwidget",
-      "integrations": "Integraties",
+      "integrations": "Koppelingen",
       "setupGuide": "Setupgids",
       "allSettings": "Alle instellingen"
     },
@@ -2754,8 +2751,8 @@
       "settingsAria": "Kanalen en koppelingen beheren"
     },
     "folder": {
-      "expand": "Submappen tonen",
-      "collapse": "Submappen verbergen"
+      "expand": "Werkmappen hierin tonen",
+      "collapse": "Werkmappen hierin verbergen"
     },
     "labels": {
       "urgent": "Urgent",
@@ -2815,19 +2812,19 @@
       "settingsAria": "Tags beheren"
     },
     "projects": {
-      "empty": "Maak een project",
-      "settingsAria": "Projecten beheren"
+      "empty": "Maak een werkmap",
+      "settingsAria": "Werkmappen beheren"
     },
     "folders": {
-      "empty": "Maak een map onder Mappen",
-      "settingsAria": "Mappen beheren",
+      "empty": "Maak een werkmap onder Werkmappen",
+      "settingsAria": "Werkmappen beheren",
       "pin": "Vastzetten in rail",
       "unpin": "Losmaken van rail",
-      "pinChild": "Vastzetten als map",
-      "pinnedChild": "Map vastgezet",
-      "pinChildFailed": "Kon deze map niet vastzetten.",
-      "showEmpty": "{{count}} lege mappen tonen",
-      "showEmptyLabel": "Lege mappen"
+      "pinChild": "Vastzetten als werkmap",
+      "pinnedChild": "Werkmap vastgezet",
+      "pinChildFailed": "Kon deze werkmap niet vastzetten.",
+      "showEmpty": "{{count}} lege werkmappen tonen",
+      "showEmptyLabel": "Lege werkmappen"
     },
     "flows": {
       "empty": "Maak een flow vanaf een label",
@@ -2838,7 +2835,7 @@
   "users": {
     "group": {
       "customerData": "Klantdata",
-      "integrations": "Integraties"
+      "integrations": "Koppelingen"
     },
     "links": {
       "attributes": "Attributen",
@@ -2858,11 +2855,11 @@
       "assistent": "Assistenten",
       "widget": "Chatwidget",
       "kennis": "AI-bronnen",
-      "communication": "AI-antwoordinstellingen"
+      "communication": "Autonomie"
     },
     "pageMeta": {
       "communication": {
-        "title": "AI-antwoordinstellingen",
+        "title": "Autonomie",
         "description": "Kies of agents een antwoord voor je opstellen, het zelf versturen, of uit klantberichten blijven."
       }
     },
@@ -2874,35 +2871,18 @@
       "saving": "Opslaan…",
       "saved": "Opgeslagen.",
       "saveError": "Opslaan mislukt.",
-      "handlingDescription": "Wat de AI met klantberichten doet. Een kanaal, een contact of een enkel gesprek kan afwijken; de meest specifieke instelling wint.",
-      "workspaceDefaultTitle": "Workspace-standaard",
-      "workspaceDefaultDescription": "Geldt voor elk kanaal, contact en gesprek zonder eigen instelling.",
       "defaultAgentTitle": "Standaardagent",
-      "defaultAgentHint": "Kanalen op Standaard gebruiken deze agent voor nieuwe gesprekken met AI-afhandeling.",
+      "defaultAgentHint": "Kanalen op Standaard gebruiken deze agent voor nieuwe gesprekken met Autonomie.",
       "defaultAgentSaved": "Standaardagent bijgewerkt.",
       "defaultAgentError": "Kon de standaardagent niet wijzigen.",
-      "governNote": "Govern bepaalt het workspace-plafond voor wat agents mogen doen. AI-afhandeling op deze pagina blijft op of onder dat plafond.",
-      "ceiling": "Plafond: {{mode}}",
-      "ceilingHint": "Volgt uit de berichtentoestemming in Govern. Pauzeren beperkt elk gesprek tot Geassisteerd tot je autonome antwoorden weer toestaat.",
-      "pauseAutonomous": "Autonome antwoorden pauzeren",
-      "resumeAutonomous": "Autonome antwoorden toestaan",
-      "pauseAutonomousSaved": "Autonome antwoorden gepauzeerd.",
-      "resumeAutonomousSaved": "Autonome antwoorden weer toegestaan.",
-      "exceptionsTitle": "Uitzonderingen",
-      "exceptionsDescription": "Kanalen, contacten en open gesprekken die de workspace-standaard niet volgen.",
-      "exceptionsEmpty": "Alles volgt de workspace-standaard.",
+      "exceptionsTitle": "Per kanaal",
+      "exceptionsDescription": "Kanalen en open gesprekken die onder de dial staan. De rest volgt de dial.",
+      "exceptionsEmpty": "Elk kanaal volgt de dial.",
       "exceptionGroups": {
         "channel": "Kanalen",
-        "contact": "Contacten",
-        "conversation": "Open gesprekken",
-        "workspace": "Workspace"
+        "conversation": "Open gesprekken"
       },
       "exceptionClear": "Weer de standaard volgen",
-      "reviewedTypesTitle": "Labels die altijd controle nodig hebben",
-      "reviewedTypesHint": "Antwoorden op een ticket met een van deze labels worden een concept, ook als het gesprek autonoom is.",
-      "noTypes": "Nog geen labels met een flow.",
-      "alwaysReview": "Altijd controleren",
-      "mayAutoSend": "Mag versturen",
       "breakerTitle": "Noodrem",
       "breakerHint": "Pauzeert autonome antwoorden op een kanaal na ongewoon volume of meerdere negatieve signalen binnen een uur. Het kanaal valt terug op Geassisteerd tot iemand het hervat.",
       "maxAutonomous": "Autonome antwoorden per uur per kanaal",
@@ -2993,26 +2973,13 @@
       "mailboxLanguageHint": "Antwoordtaal voor concepten vanuit deze mailbox.",
       "customBadge": "Afwijkend",
       "useDefault": "Workspace-standaard",
-      "whoAnswersTitle": "Wie antwoordt",
-      "whoAnswersDescription": "Kies de standaardagent per kanaal onder E-mail en kanalen. Routering kiest wie het gesprek oppakt; AI-afhandeling op deze pagina kiest of die zelf handelt, concepten ter controle maakt of erbuiten blijft.",
-      "whoAnswersOpenChannels": "Open E-mail en kanalen",
       "noMailboxTitle": "Geen mailbox gekoppeld",
       "noMailboxDescription": "Koppel e-mail onder E-mail en kanalen voordat je een antwoordtaal per mailbox kunt instellen.",
-      "unsavedLeave": "Je hebt niet-opgeslagen AI-antwoordinstellingen. Deze pagina verlaten?",
-      "unsavedBar": "Je hebt niet-opgeslagen AI-antwoordinstellingen.",
+      "unsavedLeave": "Je hebt niet-opgeslagen Autonomie. Deze pagina verlaten?",
+      "unsavedBar": "Je hebt niet-opgeslagen Autonomie.",
       "goToMailboxes": "Naar mailboxen",
-      "openSetup": "Setupgids openen",
       "mailboxLabel": "Mailbox",
-      "mailboxPlaceholder": "Kies een mailbox",
-      "crossLinks": {
-        "body": "Workspace-standaarden gelden tot een mailbox een uitzondering zet. Koppel eerst kanalen en stel hier het gedrag bij.",
-        "channels": "E-mail en kanalen",
-        "widget": "Chatwidget uiterlijk",
-        "installWidget": "Widget op je site installeren",
-        "agents": "Agents openen",
-        "govern": "Govern-plafond openen",
-        "communication": "Communicatie openen"
-      }
+      "mailboxPlaceholder": "Kies een mailbox"
     },
     "cloudAgent": {
       "title": "Cloud agents",
@@ -3040,11 +3007,11 @@
       "specialistMeta": "Specialist · {{name}}"
     },
     "group": {
-      "nav": "Integraties"
+      "nav": "Koppelingen"
     },
     "links": {
       "connected": "Verbonden",
-      "marketplace": "Marketplace",
+      "marketplace": "Aanbod",
       "sources": "Bronnen",
       "connections": "Verbonden",
       "mcp": "Gekoppelde tools",
@@ -3099,8 +3066,8 @@
     },
     "connections": {
       "noGithub": "Geen GitHub-accounts gekoppeld.",
-      "goToCatalog": "Naar Marketplace",
-      "goToMarketplace": "Naar Marketplace",
+      "goToCatalog": "Naar Aanbod",
+      "goToMarketplace": "Naar Aanbod",
       "manageInbox": "Mailboxen beheren",
       "notConnected": "Niet verbonden",
       "mailboxCount": "{{count}} verbonden",
@@ -3116,7 +3083,7 @@
       "needsCreds": "Credentials nodig",
       "restricted": "Beperkt",
       "instanceKey": "Administratie {{key}}",
-      "allProjects": "Alle projecten",
+      "allProjects": "Alle werkmappen",
       "default": "Standaard",
       "setDefault": "Als standaard",
       "finishSetup": "Instellen afronden",
@@ -3131,12 +3098,12 @@
       "disconnect": "Ontkoppelen",
       "disconnectConfirm": "Deze registratie ontkoppelen? Agents verliezen er de toegang toe.",
       "manage": "Beheren",
-      "projects": "Projecten",
-      "projectsAllHint": "Niet gekoppeld: elk project en gesprek kan deze koppeling gebruiken.",
-      "projectsExclusiveHint": "Gekoppeld: alleen werk in deze projecten kan deze koppeling gebruiken.",
-      "projectsNone": "Nog geen projecten.",
-      "projectsSave": "Projecten opslaan",
-      "projectsSaveError": "De projecten voor deze koppeling konden niet worden bijgewerkt.",
+      "projects": "Werkmappen",
+      "projectsAllHint": "Niet gekoppeld: elke werkmap en elk gesprek kan deze koppeling gebruiken.",
+      "projectsExclusiveHint": "Gekoppeld: alleen werk in deze werkmappen kan deze koppeling gebruiken.",
+      "projectsNone": "Nog geen werkmappen.",
+      "projectsSave": "Werkmappen opslaan",
+      "projectsSaveError": "De werkmappen voor deze koppeling konden niet worden bijgewerkt.",
       "access": "Toegang"
     },
     "hub": {
@@ -3209,7 +3176,7 @@
       },
       "linear": {
         "name": "Linear",
-        "description": "Issues, projecten en reacties via inloggen."
+        "description": "Issues, mappen en reacties via inloggen."
       },
       "atlassian": {
         "name": "Atlassian",
@@ -3221,7 +3188,7 @@
       },
       "asana": {
         "name": "Asana",
-        "description": "Taken en projecten in Asana."
+        "description": "Taken en mappen in Asana."
       },
       "clickup": {
         "name": "ClickUp",
@@ -3326,10 +3293,10 @@
       "verbsTitle": "Wat agents hierna kunnen",
       "writesNote": "Schrijven wordt altijd een beslissing die jij goedkeurt.",
       "setupSteps": "Inrichting",
-      "connectors": "Gebruikt integraties",
-      "usesIntegrations": "Gebruikt integraties",
+      "connectors": "Gebruikt koppelingen",
+      "usesIntegrations": "Gebruikt koppelingen",
       "usesIntegrationsHint": "Koppel deze op het platform. De module gebruikt ze wanneer ze beschikbaar zijn.",
-      "backToMarketplace": "Terug naar Marketplace",
+      "backToMarketplace": "Terug naar Aanbod",
       "backToModules": "Terug naar Koppelingen",
       "connectedBadge": "Gekoppeld",
       "installedBadge": "Installatie incompleet",
@@ -3345,8 +3312,8 @@
       "uninstalled": "{{name}} is gedeïnstalleerd.",
       "uninstallTitle": "{{name}} deïnstalleren?",
       "uninstallTitle2": "{{name}} echt deïnstalleren?",
-      "uninstallConfirm": "Agents stoppen met {{name}}. Gekoppelde platformintegraties blijven staan.",
-      "uninstallConfirm2": "Dit verwijdert {{name}} uit je workspace en uit het AI-menu. Platformintegraties blijven gekoppeld.",
+      "uninstallConfirm": "Agents stoppen met {{name}}. Gekoppelde platformkoppelingen blijven staan.",
+      "uninstallConfirm2": "Dit verwijdert {{name}} uit je workspace en uit het AI-menu. Platformkoppelingen blijven gekoppeld.",
       "uninstallContinue": "Doorgaan",
       "uninstallConfirmAction": "Ja, deïnstalleren",
       "templates": {
@@ -3378,11 +3345,11 @@
       "turnOff": "Deïnstalleren",
       "switchOn": "Aan",
       "switchOff": "Uit",
-      "toggleHint": "Deïnstalleren verbergt de module voor agents. Platformintegraties blijven staan.",
+      "toggleHint": "Deïnstalleren verbergt de module voor agents. Platformkoppelingen blijven staan.",
       "enableToUseHint": "Installeer deze module zodat agents die kunnen gebruiken.",
       "toggleError": "Deze module kon niet worden bijgewerkt.",
       "turnOffTitle": "{{name}} deïnstalleren?",
-      "turnOffConfirm": "Agents stoppen ermee. Gekoppelde integraties blijven staan.",
+      "turnOffConfirm": "Agents stoppen ermee. Gekoppelde koppelingen blijven staan.",
       "turnedOn": "{{name}} is geïnstalleerd.",
       "turnedOff": "{{name}} is gedeïnstalleerd.",
       "nextConnect": "{{name}} is geïnstalleerd. Koppel optioneel een integratie voor livedata.",
@@ -3422,7 +3389,7 @@
         "onYourTeam": "In je team",
         "personas": {
           "accounting": {
-            "name": "Boekito",
+            "name": "Boekhouder",
             "title": "Controller",
             "blurb": "Houdt de administratie bij: administraties, relaties, facturen, grootboek en openstaande posten. Boekingen en betaalmatches legt ze voor ter goedkeuring.",
             "usps": [
@@ -3524,7 +3491,7 @@
         "verbCount": "{{count}} leesacties",
         "domainsTitle": "Waar agents mee kunnen werken",
         "manageIntegrations": "Koppelingen beheren",
-        "noIntegrations": "Nog geen integraties voor deze module.",
+        "noIntegrations": "Nog geen koppelingen voor deze module.",
         "actionsTitle": "Snelle acties",
         "sources": "Kennisbronnen",
         "missing": "Module niet gevonden",
@@ -3746,7 +3713,7 @@
       }
     },
     "marketplace": {
-      "searchPlaceholder": "Zoek modules, integraties en tools",
+      "searchPlaceholder": "Zoek modules, koppelingen en tools",
       "empty": "Nog niets om te koppelen.",
       "emptyFiltered": "Geen treffers voor deze zoekopdracht of dit filter.",
       "clearFilters": "Filters wissen",
@@ -3772,7 +3739,7 @@
       "yourList": "Koppelingen",
       "mcpServersTitle": "Custom MCP-servers",
       "emptyMcpDescription": "Nog geen custom MCP-servers gekoppeld.",
-      "codeHint": "Alleen nodig voor code-projecten.",
+      "codeHint": "Alleen nodig voor werkmappen met code.",
       "mailboxProgram": "{{count}} mailboxen",
       "mailboxProgram_one": "{{count}} mailbox",
       "calendarOnlyNoMail": "Agenda gekoppeld — mail nog niet verzendklaar",
@@ -3781,27 +3748,27 @@
       "browseCalendar": "Agenda-apps bekijken",
       "openInbox": "Inbox openen",
       "emptyInbox": "Nog geen mailboxen gekoppeld.",
-      "browseInbox": "Communicatie bekijken in Marketplace",
-      "browseRepository": "GitHub koppelen in Marketplace",
-      "browseMcp": "Tools bekijken in Marketplace",
-      "openProjects": "Projecten openen",
+      "browseInbox": "Communicatie bekijken in Aanbod",
+      "browseRepository": "GitHub koppelen in Aanbod",
+      "browseMcp": "Tools bekijken in Aanbod",
+      "openProjects": "Werkmappen openen",
       "manageMcp": "Tools bekijken",
       "openAgents": "Agents openen",
       "openCommunication": "Communicatie openen",
       "mcpHint": "MCP-toolservers die je agents kunnen aanroepen.",
-      "emptyApps": "Nog geen appregistraties. Koppel een partner via Marketplace.",
+      "emptyApps": "Nog geen appregistraties. Koppel een partner via Aanbod.",
       "browseApps": "Apps bekijken",
       "useInModule": "Gebruik in {{name}}",
       "addRegistration": "Nog een registratie",
       "attached": "Toegevoegd aan {{name}}",
       "attachFailed": "Kon deze registratie niet aan de module toevoegen.",
       "openGovern": "Open Govern-beleid",
-      "viewAll": "Bekijk verbonden integraties"
+      "viewAll": "Bekijk verbonden koppelingen"
     },
     "pageMeta": {
       "connected": {
         "title": "Koppelingen",
-        "description": "Modules, integraties en AI-tools op één plek. Wat verbonden is staat bovenaan; open iets hieronder om te lezen wat het doet en het te koppelen."
+        "description": "Modules, koppelingen en AI-tools op één plek. Wat verbonden is staat bovenaan; open iets hieronder om te lezen wat het doet en het te koppelen."
       },
       "connections": {
         "title": "Verbonden",
@@ -3813,7 +3780,7 @@
       },
       "docs": {
         "title": "Integratiedocumentatie",
-        "description": "Uitleg over marketplace-koppelingen, inclusief inloggen bij Notion, Linear, Slack en anderen."
+        "description": "Uitleg over catalog-koppelingen, inclusief inloggen bij Notion, Linear, Slack en anderen."
       },
       "api": {
         "title": "API-sleutels",
@@ -3827,17 +3794,17 @@
       }
     },
     "docs": {
-      "overviewTitle": "Overzicht integraties",
-      "overviewBody": "De marketplace toont e-mail (Outlook, Gmail), repositories (GitHub) en andere apps die je agents kunnen gebruiken. Gekoppelde apps staan onder Verbonden en Gekoppelde tools.",
+      "overviewTitle": "Overzicht koppelingen",
+      "overviewBody": "De aanbod toont e-mail (Outlook, Gmail), repositories (GitHub) en andere apps die je agents kunnen gebruiken. Gekoppelde apps staan onder Verbonden en Gekoppelde tools.",
       "remoteMcpTitle": "Inloggen bij een provider",
       "remoteMcpBody": "Officiële providers (Notion, Linear, Slack en anderen) koppelen in de browser. Na het inloggen kunnen agents die app gebruiken.",
-      "remoteMcpStep1": "Open Marketplace, filter op Tools en kies een provider.",
+      "remoteMcpStep1": "Open Aanbod, filter op Tools en kies een provider.",
       "remoteMcpStep2": "Kies Nieuwe verbinding instellen en rond het inloggen af bij de vendor.",
       "remoteMcpStep3": "Controleer de koppeling onder Verbonden of Gekoppelde tools.",
       "catalogTitle": "Beschikbare apps",
       "catalogHint": "Kaarten met status Binnenkort vereisen eerst platform-OAuth voordat koppelen mogelijk is.",
       "wave1": "Wave 1",
-      "openInMarketplace": "Open in Marketplace",
+      "openInMarketplace": "Open in Aanbod",
       "existingTitle": "Andere koppelingstypen",
       "existingGithub": "GitHub repository-indexering gebruikt een aparte inlogflow (niet de GitHub-toolkaart).",
       "existingInbox": "Outlook en Gmail gebruiken inbox-OAuth; mailboxen beheer je onder Instellingen.",
@@ -3851,7 +3818,7 @@
       "description": "Geindexeerde documentatie en kennisbronnen voor AI-agents. Bronnen worden automatisch doorzoekbaar zodra indexering actief is.",
       "loading": "Bronnen laden…",
       "emptyTitle": "Nog geen geindexeerde documentatie",
-      "emptyDescription": "Tenant-documentatie uit Knowledge verschijnt hier zodra bronnen zijn gekoppeld en geindexeerd. Projectcode wordt via gekoppelde repositories geindexeerd.",
+      "emptyDescription": "Tenant-documentatie uit Kennis verschijnt hier zodra bronnen zijn gekoppeld en geïndexeerd. Code van werkmappen wordt via gekoppelde repositories geïndexeerd.",
       "activeForAgents": "Actief voor agents"
     },
     "mcp": {
@@ -3872,7 +3839,7 @@
         "copiedEndpoint": "Endpoint gekopieerd",
         "disconnectConfirm": "Deze tool ontkoppelen? Agents verliezen meteen toegang.",
         "noMatches": "Geen koppelingen matchen dit filter.",
-        "emptyHint": "Kies een app in Marketplace, of koppel hierboven een eigen tool. Agents gebruiken deze tools in gesprekken.",
+        "emptyHint": "Kies een app in Aanbod, of koppel hierboven een eigen tool. Agents gebruiken deze tools in gesprekken.",
         "addTitle": "Toolserver toevoegen",
         "newConnection": "Tool koppelen",
         "modalDescription": "Koppel een app die je agents in deze workspace kunnen gebruiken.",
@@ -3944,19 +3911,19 @@
       "platform": "Platform agents",
       "operations": "Operatie",
       "yourAgents": "Jouw agents",
-      "projects": "Projecten",
+      "projects": "Werkmappen",
       "library": "Agentbibliotheek"
     },
     "scopes": {
       "platformRead": "Platform bekijken",
-      "graphEdit": "Projectcanvas bewerken",
+      "graphEdit": "Canvas van de werkmap bewerken",
       "agentCreate": "Agents aanmaken",
       "agentUpdate": "Agents bijwerken",
       "workstreamCreate": "Agenda-schema's aanmaken",
       "workstreamUpdate": "Agenda-schema's bijwerken",
       "docWrite": "Kennisdocumenten schrijven",
-      "integrationPropose": "Integraties voorstellen",
-      "integrationCreate": "Integraties toevoegen",
+      "integrationPropose": "Koppelingen voorstellen",
+      "integrationCreate": "Koppelingen toevoegen",
       "mcpRegister": "Externe tools koppelen",
       "edgeConnect": "Canvasverbindingen maken"
     },
@@ -3964,7 +3931,7 @@
       "overview": "Overzicht",
       "agents": "Agentbibliotheek",
       "assistant": "Assistant agent",
-      "communication": "AI-afhandeling",
+      "communication": "Autonomie",
       "po": "Lead",
       "backgroundWorkers": "Stromen",
       "viewAllAgents": "Alle agents",
@@ -3973,12 +3940,12 @@
     },
     "po": {
       "none": "Nog geen lead-agent.",
-      "openProjects": "Projecten openen"
+      "openProjects": "Werkmappen openen"
     },
     "projects": {
-      "loading": "Projecten laden…",
-      "loadError": "Kon projecten niet laden.",
-      "empty": "Nog geen projecten.",
+      "loading": "Werkmappen laden…",
+      "loadError": "Kon werkmappen niet laden.",
+      "empty": "Nog geen werkmappen.",
       "poReady": "Lead geconfigureerd",
       "poMissing": "Lead verplicht",
       "showMore": "Toon {{count}} meer",
@@ -3987,7 +3954,7 @@
     "agents": {
       "title": "Agents",
       "newAgent": "Nieuwe agent",
-      "listDescription": "Agents behandelen klantgesprekken, gepland werk en tools. Chat met ze vanuit Communicatie of plan ze op de Agenda.",
+      "listDescription": "AI-medewerkers, hun kennis en wat ze mogen. Chat met ze vanuit Communicatie of plan ze op de Agenda.",
       "timelineTitle": "Activiteit",
       "timelineHint": "Sessies en wakes op één lijn. Een getal is een cluster — hover voor detail. Nu staat in het midden.",
       "timelineCombinedHint": "Alle agents op één klok. Hover een markering voor detail; een getal is een cluster.",
@@ -4041,7 +4008,7 @@
       "modelCostMedium": "Gemiddelde kosten",
       "modelCostHigh": "Hoge kosten",
       "routingTitle": "Wie behandelt wat",
-      "routingBody": "Een mailbox, kanaal of project kan een eigen agent hebben. De rest gaat naar de standaardagent. Je kunt een agent ook @vermelden in een gesprek.",
+      "routingBody": "Een mailbox, kanaal of werkmap kan een eigen agent hebben. De rest gaat naar de standaardagent. Je kunt een agent ook @vermelden in een gesprek.",
       "routingAsk": "Vraag de assistent wie de mail behandelt",
       "routingAskPrefill": "Leg uit wie welke gesprekken behandelt, en help me de standaardagent en mailboxroutes te zetten.",
       "loading": "Agents laden…",
@@ -4068,7 +4035,7 @@
       "chat": "Chat",
       "schedule": "Plannen",
       "runs": "Runs",
-      "projectsLink": "Projecten",
+      "projectsLink": "Werkmappen",
       "workersEmpty": "Nog geen extra agents. Maak er een, of chat met je assistant vanuit Communicatie.",
       "sections": {
         "po": "Leads",
@@ -4076,7 +4043,7 @@
       },
       "types": {
         "orchestrator": "Coördinator",
-        "po": "Projectagent",
+        "po": "Werkmapagent",
         "assistant": "Assistent",
         "worker": "Agent"
       },
@@ -4090,9 +4057,9 @@
       "loadMoreRuns": "Oudere runs laden",
       "loadingMoreRuns": "Oudere runs laden",
       "runsEmptyHint": "Chat met deze agent of plan werk in de Agenda.",
-      "projectLink": "Project: {{name}}",
-      "openProject": "Lead van {{name}}. Open de map.",
-      "chatWith": "Nieuwe chat",
+      "projectLink": "Werkmap: {{name}}",
+      "openProject": "Lead van {{name}}. Open de werkmap.",
+      "chatWith": "Nieuw gesprek",
       "openGovern": "Govern",
       "openAgenda": "Agenda",
       "openThreads": "Gesprekken van deze agent",
@@ -4203,7 +4170,7 @@
       "leadArchiveBlocked": "Dit is de standaardagent. Maak eerst een andere agent standaard, en deactiveer daarna.",
       "setAsDefault": "Gebruik als standaardagent",
       "isDefaultHint": "Standaard voor nieuwe kanalen en niet-toegewezen werk.",
-      "relatedInboxAi": "AI-antwoordinstellingen",
+      "relatedInboxAi": "Autonomie",
       "relatedKnowledge": "Kennis",
       "relatedGovern": "Autonomie en Govern",
       "relatedSetup": "Setupgids",
@@ -4253,21 +4220,21 @@
           "communication": "Beantwoordt klanten via e-mail, chat en andere kanalen.",
           "assistant": "Helpt je team in Bokito — notities, onderzoek en opvolging.",
           "builder": "Wijzigt de workspace: agents, kennis en stromen.",
-          "orchestra": "Stuurt andere agents aan en is eigenaar van een project."
+          "orchestra": "Stuurt andere agents aan en is eigenaar van een werkmap."
         },
         "templates": {
           "support": "Klantensupport",
           "assistant": "Teamassistent",
-          "lead": "Projectlead",
+          "lead": "Werkmaplead",
           "supportName": "Supportmedewerker",
           "assistantName": "Teamassistent",
-          "leadName": "Projectlead",
+          "leadName": "Werkmaplead",
           "supportPrompt": "Je behandelt klantvragen. Wees duidelijk en vriendelijk. Vraag door als iets ontbreekt. Verzin geen order- of accountfeiten.",
           "assistantPrompt": "Je helpt het team in Bokito. Vat samen, schrijf concepten en houd notities kort. Vraag eerst voordat je instellingen wijzigt.",
-          "leadPrompt": "Je coördineert werk van agents voor dit project. Verdeel werk in stappen, wijs de juiste agent toe en escaleren wanneer een mens moet beslissen."
+          "leadPrompt": "Je coördineert werk van agents voor deze werkmap. Verdeel werk in stappen, wijs de juiste agent toe en escaleer wanneer een mens moet beslissen."
         },
-        "project": "Toevoegen aan project (optioneel)",
-        "projectNone": "Nog geen project",
+        "project": "Toevoegen aan werkmap (optioneel)",
+        "projectNone": "Nog geen werkmap",
         "modelsRetry": "Kon modellen niet laden. Probeer opnieuw"
       },
       "visualTitle": "Visuele identiteit",
@@ -4324,6 +4291,8 @@
         "clover": "Klaver",
         "flower": "Bloem",
         "heart": "Hart",
+        "claude": "Claude",
+        "cursor": "Cursor",
         "house": "Huis",
         "star": "Ster"
       },
@@ -4362,22 +4331,22 @@
       },
       "agents": {
         "title": "Agents",
-        "description": "Herbruikbare agents waarmee je kunt chatten en die je aan projectstromen toewijst."
+        "description": "Herbruikbare agents waarmee je kunt chatten en die je aan folderstromen toewijst."
       },
       "po": {
         "title": "Leads",
-        "description": "Lead-agents over projecten."
+        "description": "Lead-agents over werkmappen."
       },
       "backgroundWorkers": {
         "title": "Stromen",
-        "description": "Projectstromen met gekoppelde agent-stappen."
+        "description": "Stromen van de werkmap met gekoppelde agent-stappen."
       }
     },
     "backgroundWorkers": {
-      "description": "Ontwerp en bekijk stromen per project. Stappen geven werk door van input naar output.",
+      "description": "Ontwerp en bekijk stromen per werkmap. Stappen geven werk door van input naar output.",
       "emptyTitle": "Nog geen stromen",
-      "emptyDescription": "Maak een project om je eerste stroom op te zetten.",
-      "openProject": "Project openen",
+      "emptyDescription": "Maak een werkmap om je eerste stroom op te zetten.",
+      "openProject": "Werkmap openen",
       "summary": {
         "working": "{{count}} actief",
         "attention": "{{count}} aandacht nodig",
@@ -4396,7 +4365,7 @@
       "idCopied": "Run-id gekopieerd",
       "columns": {
         "subject": "Onderwerp",
-        "project": "Project",
+        "project": "Werkmap",
         "status": "Status",
         "started": "Gestart",
         "tokens": "Tokens"
@@ -4429,39 +4398,39 @@
       "loading": "Workforce-overzicht laden…",
       "loadError": "Kon workforce-overzicht niet laden.",
       "cards": {
-        "projects": "Projecten",
-        "projectsHint": "Totaal actieve projecten in deze workspace.",
+        "projects": "Werkmappen",
+        "projectsHint": "Totaal actieve werkmappen in deze workspace.",
         "poCoverage": "Lead-dekking",
-        "poMissingHint": "{{count}} projecten hebben nog een lead-agent nodig.",
-        "poCompleteHint": "Alle projecten hebben een lead-agent.",
+        "poMissingHint": "{{count}} werkmappen hebben nog een lead-agent nodig.",
+        "poCompleteHint": "Alle werkmappen hebben een lead-agent.",
         "running": "Nu actief",
-        "runningHint": "Actieve agent-runs over alle projecten."
+        "runningHint": "Actieve agent-runs over alle werkmappen."
       },
-      "projectsTitle": "Projecten die een lead nodig hebben",
-      "projectsEmpty": "Geen projecten missen een lead-agent.",
+      "projectsTitle": "Werkmappen die een lead nodig hebben",
+      "projectsEmpty": "Geen werkmappen missen een lead-agent.",
       "attentionTitle": "Vereist aandacht",
-      "attentionHint": "Gesprekken die nog menselijke beslissing nodig hebben over alle projecten.",
+      "attentionHint": "Gesprekken die nog een menselijke beslissing nodig hebben, over alle werkmappen.",
       "openCommunication": "Open communicatie",
-      "openProjectHub": "Open project hub",
+      "openProjectHub": "Open werkmap",
       "manageAgents": "Beheer agents"
     }
   },
   "projects": {
     "group": {
-      "nav": "Mappen"
+      "nav": "Werkmappen"
     },
     "links": {
-      "all": "Alle mappen",
-      "new": "Nieuwe map"
+      "all": "Alle werkmappen",
+      "new": "Nieuwe werkmap"
     },
     "page": {
-      "title": "Mappen",
-      "tenantTitle": "{{name}} mappen",
-      "subtitle": "Benoemde mappen in een vrije boom. Optionele labels bepalen welke gesprekken matchen; archiveren zet de labels van die map.",
-      "new": "Nieuwe map",
-      "loading": "Mappen laden...",
-      "emptyTitle": "Nog geen mappen",
-      "emptyBody": "Maak een benoemde map en voeg optioneel labels toe zodat passende gesprekken hier landen.",
+      "title": "Werkmappen",
+      "tenantTitle": "Werkmappen van {{name}}",
+      "subtitle": "Elke werkmap verzamelt het werk over één onderwerp, in een vrije boom. Optionele labels bepalen welke gesprekken erin landen; opbergen zet de labels van die werkmap.",
+      "new": "Nieuwe werkmap",
+      "loading": "Werkmappen laden...",
+      "emptyTitle": "Nog geen werkmappen",
+      "emptyBody": "Maak een werkmap in Bokito voor een klant, project of afdelingstaak, en voeg optioneel labels toe zodat passende gesprekken hier landen.",
       "openAgents": "Agents openen",
       "openSetup": "Setupgids openen",
       "openKnowledge": "Kennis openen",
@@ -4475,69 +4444,69 @@
       "defaultAgent": "{{name}} (standaard voor gesprekken)",
       "noRepo": "Geen repository",
       "delete": "Verwijderen",
-      "deleted": "Project verwijderd",
-      "deleteError": "Kon project niet verwijderen.",
-      "loadError": "Kon projecten niet laden.",
-      "created": "Map aangemaakt",
-      "createError": "Kon map niet aanmaken.",
-      "dialogTitle": "Nieuwe map",
-      "dialogBody": "Geef de map een naam. Labels zijn optioneel — gesprekken matchen als ze elk gekozen label dragen.",
+      "deleted": "Werkmap verwijderd",
+      "deleteError": "Kon werkmap niet verwijderen.",
+      "loadError": "Kon werkmappen niet laden.",
+      "created": "Werkmap aangemaakt",
+      "createError": "Kon werkmap niet aanmaken.",
+      "dialogTitle": "Nieuwe werkmap",
+      "dialogBody": "Geef de werkmap een naam. Labels zijn optioneel: gesprekken matchen als ze elk gekozen label dragen.",
       "dialogEmptyTags": "Nog geen labels gekozen.",
       "tagPlaceholder": "Label toevoegen of aanmaken",
       "addTag": "Toevoegen",
       "removeTag": "{{name}} verwijderen",
-      "createTagHint": "#{{name}} bestaat nog niet en wordt met de map aangemaakt.",
+      "createTagHint": "#{{name}} bestaat nog niet en wordt met de werkmap aangemaakt.",
       "name": "Naam",
       "namePlaceholder": "Operatie",
       "slug": "Slug",
       "slugPlaceholder": "operatie",
       "description": "Beschrijving (optioneel)",
-      "descriptionPlaceholder": "Waar gaat dit project over?",
+      "descriptionPlaceholder": "Waar gaat deze werkmap over?",
       "cancel": "Annuleren",
-      "create": "Map aanmaken",
-      "deleteTitle": "Map verwijderen",
-      "deleteItem": "de map",
-      "deleteImpact": "Gesprekken blijven. De map verdwijnt uit Communicatie en Agenda.",
-      "searchPlaceholder": "Zoek mappen",
-      "allFolders": "Alle mappen",
+      "create": "Werkmap aanmaken",
+      "deleteTitle": "Werkmap verwijderen",
+      "deleteItem": "de werkmap",
+      "deleteImpact": "Gesprekken blijven. De werkmap verdwijnt uit Communicatie en Agenda.",
+      "searchPlaceholder": "Zoek werkmappen",
+      "allFolders": "Alle werkmappen",
       "advancedSlug": "Geavanceerd: URL-slug",
       "hideAdvanced": "Slug verbergen",
-      "readonlyBanner": "Je kunt mappen bekijken. Vraag een beheerder om ze aan te maken of te wijzigen.",
-      "emptyFiltered": "Geen mappen die bij deze zoekopdracht passen.",
-      "emptyFilteredHint": "Wis de zoekopdracht om alle mappen weer te zien.",
+      "readonlyBanner": "Je kunt werkmappen bekijken. Vraag een beheerder om ze aan te maken of te wijzigen.",
+      "emptyFiltered": "Geen werkmappen die bij deze zoekopdracht passen.",
+      "emptyFilteredHint": "Wis de zoekopdracht om alle werkmappen weer te zien.",
       "clearSearch": "Zoekopdracht wissen",
       "docHealth": "{{done}}/{{total}} secties klaar",
       "openTickets_one": "{{count}} open ticket",
-      "folderNav": "Projectmappen",
-      "folders_one": "{{count}} map",
-      "folders_other": "{{count}} mappen",
+      "folderNav": "Werkmappen",
+      "folders_one": "{{count}} werkmap",
+      "folders_other": "{{count}} werkmappen",
       "openTickets_other": "{{count}} open tickets",
-      "splitNav": "Mappenbalk verslepen",
+      "splitNav": "Balk met werkmappen verslepen",
       "splitResetHint": "Sleep om te verdelen. Dubbelklik of Enter zet terug.",
-      "dialogEmptyLabels": "Nog geen labels — deze map is alleen een plek tot je labels toevoegt.",
+      "dialogEmptyLabels": "Nog geen labels: deze werkmap is alleen een plek tot je labels toevoegt.",
       "labelsOptional": "Labels (optioneel)",
       "labelsHint": "Gesprekken matchen als ze elk gekozen label dragen. Laat leeg voor alleen een plek.",
       "labelPlaceholder": "Label toevoegen of aanmaken"
     },
     "header": {
-      "new": "Project aanmaken",
+      "new": "Werkmap aanmaken",
       "connect": "Code koppelen"
     },
     "create": {
-      "stepLabel": "Stap 1 van 2 — beschrijf waar dit project over gaat.",
-      "scopeLabel": "Waar gaat dit project over?",
+      "stepLabel": "Stap 1 van 2: beschrijf waar deze werkmap over gaat.",
+      "scopeLabel": "Waar gaat deze werkmap over?",
       "scopeHint": "Beschrijf het in een paar zinnen in je eigen woorden. Je AI-team gebruikt dit als hun noorderlicht.",
       "scopePlaceholder": "Voorbeeld: Een Nederlandse webshop die handgemaakte keramiek verkoopt en wil groeien via Instagram en een eenvoudige webshop.",
-      "nameLabel": "Projectnaam",
+      "nameLabel": "Naam van de werkmap",
       "slugLabel": "URL-slug",
       "submit": "Doorgaan",
       "submitting": "Aanmaken…",
-      "error": "Project aanmaken mislukt",
-      "success": "Project aangemaakt",
+      "error": "Werkmap aanmaken mislukt",
+      "success": "Werkmap aangemaakt",
       "scopeCounter": "{{count}} / {{min}} tekens (spaties niet meegeteld)"
     },
     "connect": {
-      "stepLabel": "Stap 2 van 2 — optioneel. Koppel een GitHub-repository zodat je AI-team de projectcode kan lezen.",
+      "stepLabel": "Stap 2 van 2 — optioneel. Koppel een GitHub-repository zodat je AI-team de foldercode kan lezen.",
       "githubTitle": "Ik gebruik GitHub",
       "githubDescription": "Koppel een repository die je al op GitHub hebt. Jij houdt controle over je code.",
       "managedTitle": "Doe het voor mij",
@@ -4545,7 +4514,7 @@
       "comingSoon": "Binnenkort",
       "back": "Terug",
       "skip": "Sla over",
-      "notFound": "Project niet gevonden."
+      "notFound": "Werkmap niet gevonden."
     },
     "detail": {
       "tabHome": "Overzicht",
@@ -4555,91 +4524,91 @@
       "tabDocs": "Documentatie",
       "tabSettings": "Instellingen",
       "moreActions": "Meer acties",
-      "openFolder": "Map {{name}} openen",
+      "openFolder": "Werkmap {{name}} openen",
       "recentConversations": "Recente gesprekken",
-      "conversationsTitle": "Gesprekken in deze map",
-      "conversationsHint": "Alles wat op dit project en de mappen erin staat. Open er een om verder te gaan in Communicatie.",
+      "conversationsTitle": "Gesprekken in deze werkmap",
+      "conversationsHint": "Alles wat in deze werkmap en de werkmappen hierin staat. Open er een om verder te gaan in Communicatie.",
       "conversationsFilter": "Gespreksstatus",
       "filterOpen": "Open",
       "filterClosed": "Gesloten",
-      "conversationsEmpty": "Nog geen open gesprekken in deze map. Berg er een op vanuit Communicatie met Opbergen in map.",
-      "conversationsEmptyClosed": "Geen gesloten gesprekken in deze map.",
-      "conversationsLoadError": "Kon de gesprekken van dit project niet laden.",
+      "conversationsEmpty": "Nog geen open gesprekken in deze werkmap. Berg er een op vanuit Communicatie met Opbergen in werkmap.",
+      "conversationsEmptyClosed": "Geen gesloten gesprekken in deze werkmap.",
+      "conversationsLoadError": "Kon de gesprekken van deze werkmap niet laden.",
       "allConversations": "Alle gesprekken ({{count}})",
       "loadMoreConversations": "Meer laden",
       "loadingMoreConversations": "Meer laden",
       "inFolder": "in {{name}}",
       "noSubject": "Geen onderwerp",
       "resources": "Resources",
-      "resourcesHint": "Externe omgevingen waar dit project op werkt. Nu gekoppeld op referentie; connectors volgen later.",
+      "resourcesHint": "Externe omgevingen waar deze werkmap in werkt. Nu gekoppeld op referentie; connectors volgen later.",
       "orchestration": "Wie dit uitvoert",
       "workstreams": "Flows",
-      "noWorkstreams": "Nog geen flows op dit project.",
+      "noWorkstreams": "Nog geen flows op deze werkmap.",
       "openWorkstreams": "Flows openen",
       "stepCount": "{{count}} stappen",
       "stepCount_one": "{{count}} stap",
-      "agentBudgetOnHome": "De projectagent en het activiteitenbudget staan op het tabblad Project.",
-      "openHome": "Tabblad Project openen",
-      "back": "Terug naar projecten",
-      "loading": "Project laden...",
-      "notFound": "Project niet gevonden.",
-      "loadError": "Kon project niet laden.",
+      "agentBudgetOnHome": "De werkmapagent en het activiteitenbudget staan op het tabblad Werkmap.",
+      "openHome": "Tabblad Werkmap openen",
+      "back": "Terug naar werkmappen",
+      "loading": "Werkmap laden...",
+      "notFound": "Werkmap niet gevonden.",
+      "loadError": "Kon werkmap niet laden.",
       "viewThreads": "Gesprekken bekijken",
       "openInCommunication": "Open in communicatie",
       "closedConversations": "Gesloten gesprekken",
-      "breadcrumb": "Projectmappen",
-      "newFolder": "Nieuwe map",
-      "newFolderTitle": "Nieuwe map",
-      "newFolderBody": "Maakt een map onder deze. Geef een naam en optionele labels — nesten kopieert geen labels van de ouder.",
-      "folders": "Mappen",
-      "foldersEmpty": "Nog geen geneste mappen — sleep een map hierheen, of maak hier een nieuwe map.",
-      "expandFolder": "Mappen in {{name}} tonen",
-      "collapseFolder": "Mappen in {{name}} verbergen",
-      "nested": "Map genest",
-      "reordered": "Volgorde van mappen bijgewerkt",
+      "breadcrumb": "Werkmappen",
+      "newFolder": "Nieuwe werkmap",
+      "newFolderTitle": "Nieuwe werkmap",
+      "newFolderBody": "Maakt een werkmap onder deze. Geef een naam en optionele labels; nesten kopieert geen labels van de bovenliggende werkmap.",
+      "folders": "Werkmappen hierin",
+      "foldersEmpty": "Nog geen werkmappen hierin. Sleep een werkmap hierheen, of maak hier een nieuwe.",
+      "expandFolder": "Werkmappen in {{name}} tonen",
+      "collapseFolder": "Werkmappen in {{name}} verbergen",
+      "nested": "Werkmap genest",
+      "reordered": "Volgorde van werkmappen bijgewerkt",
       "undoMove": "Ongedaan maken",
       "undoDone": "Verplaatsing ongedaan gemaakt",
-      "tagDragHint": "Sleep om #{{tag}} naar een andere map of naar de bovenste laag te verplaatsen",
-      "tagMoveHint": "Loslaten om #{{tag}} naar deze map te verplaatsen",
+      "tagDragHint": "Sleep om #{{tag}} naar een andere werkmap of naar de bovenste laag te verplaatsen",
+      "tagMoveHint": "Loslaten om #{{tag}} naar deze werkmap te verplaatsen",
       "tagMoveLabel": "Tag verplaatsen",
       "tagMoved": "Tag #{{tag}} verplaatst",
       "tagMovedToRoot": "Tag #{{tag}} naar de bovenste laag verplaatst",
-      "tagMoveLastBlocked": "Een map heeft minstens één label nodig",
-      "rootDropHint": "Loslaten om deze map naar de bovenste laag te verplaatsen",
-      "rootDropEndHint": "Loslaten om deze map onderaan op de bovenste laag te zetten",
+      "tagMoveLastBlocked": "Een werkmap heeft minstens één label nodig",
+      "rootDropHint": "Loslaten om deze werkmap naar de bovenste laag te verplaatsen",
+      "rootDropEndHint": "Loslaten om deze werkmap onderaan op de bovenste laag te zetten",
       "rootDropTagHint": "Loslaten om #{{tag}} op de bovenste laag te zetten",
       "rootDropLabel": "Bovenste laag",
       "rootDropTagLabel": "Bovenste laag",
-      "unnested": "Map naar de bovenste laag verplaatst",
-      "unnestBlocked": "Deze map staat al op de bovenste laag",
-      "nestDropHint": "Laat hier los om onder deze map te nesten",
+      "unnested": "Werkmap naar de bovenste laag verplaatst",
+      "unnestBlocked": "Deze werkmap staat al op de bovenste laag",
+      "nestDropHint": "Laat hier los om onder deze werkmap te nesten",
       "nestDropLabel": "Nesten",
       "folderCounts": "{{open}} open, {{closed}} gesloten",
-      "folderCreated": "Map aangemaakt",
+      "folderCreated": "Werkmap aangemaakt",
       "move": "Nesten",
-      "moveTitle": "Deze map nesten",
-      "moveBody": "Kies een map om onder te nesten. Labels blijven gelijk — alleen de plek in de boom verandert.",
-      "moved": "Map genest",
+      "moveTitle": "Deze werkmap nesten",
+      "moveBody": "Kies een werkmap om onder te nesten. Labels blijven gelijk, alleen de plek in de boom verandert.",
+      "moved": "Werkmap genest",
       "openKnowledge": "Kennis openen",
       "delete": "Verwijderen",
-      "about": "Over dit project",
+      "about": "Over deze werkmap",
       "name": "Naam",
       "description": "Beschrijving voor je agents",
-      "descriptionPlaceholder": "Waar gaat dit project over?",
-      "copyId": "Project-ID kopiëren",
-      "copyLeadId": "Projectagent-ID kopiëren",
+      "descriptionPlaceholder": "Waar gaat deze werkmap over?",
+      "copyId": "ID van de werkmap kopiëren",
+      "copyLeadId": "ID van de werkmapagent kopiëren",
       "copied": "{{label}} gekopieerd",
       "copyError": "Kon {{label}} niet kopiëren",
       "save": "Wijzigingen opslaan",
-      "saved": "Project opgeslagen",
-      "saveError": "Kon project niet opslaan.",
+      "saved": "Werkmap opgeslagen",
+      "saveError": "Kon werkmap niet opslaan.",
       "noBudget": "Geen budgetgegevens.",
       "budgetTitle": "Budget",
       "repository": "Repository",
       "remainingToday": "Vandaag resterend",
       "remainingHour": "Resterend dit uur",
       "tokensUnit": "tokens",
-      "budgetCapHint": "Laat een veld leeg om het workspace-plafond te gebruiken. Een projectplafond mag Verbruik niet overschrijden. Agents pauzeren op dit project als het plafond is bereikt.",
+      "budgetCapHint": "Laat een veld leeg om het workspace-plafond te gebruiken. Het plafond van een werkmap mag Verbruik niet overschrijden. Agents pauzeren op deze werkmap als het plafond is bereikt.",
       "budgetDaily": "Dagelijks tokenplafond",
       "budgetHourly": "Uurlijks tokenplafond",
       "budgetHourlyPlaceholder": "Standaard 10.000",
@@ -4653,45 +4622,45 @@
       "agentNotActiveYet": "Nog niet actief",
       "copySlug": "Slug kopiëren",
       "advanced": "Geavanceerd",
-      "changeLead": "Projectagent wijzigen",
-      "readonlyBanner": "Je kunt dit project bekijken. Vraag een beheerder om instellingen te wijzigen.",
+      "changeLead": "Werkmapagent wijzigen",
+      "readonlyBanner": "Je kunt deze werkmap bekijken. Vraag een beheerder om instellingen te wijzigen.",
       "addFirstStep": "Voeg de eerste stap toe op de Agenda",
       "budgetBar": {
         "tokensToday": "Tokens vandaag",
         "capReached": "Plafond bereikt"
       },
       "activity": "Recente activiteit",
-      "openThreads": "Projectgesprekken openen",
-      "noRuns": "Nog geen agent-runs voor dit project.",
+      "openThreads": "Gesprekken van de werkmap openen",
+      "noRuns": "Nog geen agent-runs voor deze werkmap.",
       "loadMoreRuns": "Oudere activiteit laden",
       "loadingMoreRuns": "Oudere activiteit laden",
       "scheduleRun": "Plan een run",
-      "deleteTitle": "Project verwijderen",
-      "deleteItem": "het project",
-      "deleteImpact": "Gesprekken blijven. Mappen in dit project gaan mee naar de prullenbak. Agents worden ontkoppeld maar niet verwijderd.",
-      "deleted": "Project verwijderd",
-      "deleteError": "Kon project niet verwijderen.",
-      "leadLabel": "Projectagent",
+      "deleteTitle": "Werkmap verwijderen",
+      "deleteItem": "de werkmap",
+      "deleteImpact": "Gesprekken blijven. Werkmappen hierin gaan mee naar de prullenbak. Agents worden ontkoppeld maar niet verwijderd.",
+      "deleted": "Werkmap verwijderd",
+      "deleteError": "Kon werkmap niet verwijderen.",
+      "leadLabel": "Werkmapagent",
       "leadLinked": "Agent gekoppeld",
       "leadLinkError": "Kon agent niet koppelen.",
       "leadPlaceholder": "Koppel een agent",
       "leadCreate": "Nieuwe agent maken",
-      "leadDefaultName": "Projectagent",
+      "leadDefaultName": "Werkmapagent",
       "copyIdShort": "ID kopiëren",
       "agentsLabel": "Agents",
       "agentsLoading": "Agents laden…",
-      "agentsEmpty": "Nog geen agents op dit project. Gesprekken vallen terug op de projectagent, daarna de standaardagent.",
+      "agentsEmpty": "Nog geen agents op deze werkmap. Gesprekken vallen terug op de werkmapagent, daarna op de standaardagent.",
       "agentsAskAssistant": "Vraag de assistent agents te kiezen",
-      "agentsAskPrefill": "Help me kiezen welke agents op dit project werken, en wie de standaard moet zijn.",
+      "agentsAskPrefill": "Help me kiezen welke agents in deze werkmap werken, en wie de standaard moet zijn.",
       "openAgents": "Agents bekijken",
       "agentAddPlaceholder": "Agent toevoegen",
       "agentAddError": "Kon agent niet toevoegen.",
-      "agentRemove": "Van project verwijderen",
+      "agentRemove": "Van werkmap verwijderen",
       "agentRemoveError": "Kon agent niet verwijderen.",
-      "agentMakeDefault": "Standaard maken voor projectgesprekken",
+      "agentMakeDefault": "Standaard maken voor foldergesprekken",
       "agentDefaultError": "Kon standaardagent niet bijwerken.",
       "agentDefaultBadge": "Standaard",
-      "unsavedLeave": "Je hebt niet-opgeslagen projectwijzigingen. Deze pagina verlaten?",
+      "unsavedLeave": "Je hebt niet-opgeslagen folderwijzigingen. Deze pagina verlaten?",
       "refresh": "Vernieuwen",
       "tabCanvas": "Canvas",
       "stageCount": "{{count}} fases",
@@ -4699,41 +4668,41 @@
       "nestDropLabelUnrelated": "Nesten (let op)",
       "nestDropPreview": "Nesten → {{merged}}",
       "nestDropPreviewUnrelated": "Nesten → {{merged}} (geen gedeelde tags)",
-      "nestConfirmTitle": "Nesten onder bredere map?",
-      "nestConfirmBody": "Wordt {{merged}} en komt onder {{parent}}. Nesten voegt de tags van de bredere map toe aan deze filterset.",
-      "nestConfirmUnrelated": "Deze mappen deelden geen tags. Na nesten moet elk gesprek ook {{parent}} dragen. Resultaat: {{merged}} — komt onder {{parent}}.",
+      "nestConfirmTitle": "Nesten onder bredere werkmap?",
+      "nestConfirmBody": "Wordt {{merged}} en komt onder {{parent}}. Nesten voegt de labels van de bredere werkmap toe aan deze filterset.",
+      "nestConfirmUnrelated": "Deze werkmappen deelden geen labels. Na nesten moet elk gesprek ook {{parent}} dragen. Resultaat: {{merged}}, onder {{parent}}.",
       "nestConfirm": "Nesten",
-      "nestTitle": "Nesten onder een andere map",
-      "nestBody": "Plaatst deze map onder de gekozen map. Labels blijven gelijk — alleen de plek in de boom verandert.",
+      "nestTitle": "Nesten onder een andere werkmap",
+      "nestBody": "Plaatst deze werkmap onder de gekozen werkmap. Labels blijven gelijk, alleen de plek in de boom verandert.",
       "folderRowTooltip": "{{set}} · Onder: {{under}}",
-      "noNarrowerMaps": "Nog geen geneste mappen — sleep een map hierheen, of maak hier een nieuwe map.",
-      "editFiltersetBodyNested": "Bewerk de labels van deze map. Nesten is los van lidmaatschap.",
-      "labelsField": "Maplabels",
+      "noNarrowerMaps": "Nog geen werkmappen hierin. Sleep een werkmap hierheen, of maak hier een nieuwe.",
+      "editFiltersetBodyNested": "Bewerk de labels van deze werkmap. Nesten staat los van lidmaatschap.",
+      "labelsField": "Labels van de werkmap",
       "addTags": "Labels toevoegen",
-      "editFiltersetTitle": "Maplabels bewerken",
-      "editFiltersetBody": "Kies elk label dat deze map vereist. Nesten is apart.",
+      "editFiltersetTitle": "Labels van de werkmap bewerken",
+      "editFiltersetBody": "Kies elk label dat deze werkmap vereist. Nesten staat hier los van.",
       "saveFilterset": "Labels opslaan",
       "filtersetSaved": "Labels bijgewerkt"
     },
     "home": {
-      "noAgent": "Nog geen projectagent.",
+      "noAgent": "Nog geen folderagent.",
       "noRepo": "Geen repository gekoppeld.",
-      "resourcesHint": "Omgevingen waar dit project aan hangt. Beheer ze onder Instellingen.",
-      "boardsEmpty": "Nog geen tickets in deze map. Zodra een gesprek hier een label met een flow krijgt, verschijnt die flow.",
+      "resourcesHint": "Omgevingen waar deze werkmap in werkt. Beheer ze onder Instellingen.",
+      "boardsEmpty": "Nog geen tickets in deze werkmap. Zodra een gesprek hier een label met een flow krijgt, verschijnt die flow.",
       "boardsOpenPlaybooks": "Flows openen",
       "ticketsBoard": "Tickets",
-      "ticketsHint": "Elke flow met een ticket in deze map is een bord. Een ticket schuift van links naar rechts door de fasen van de flow.",
-      "boardLoadError": "Kon de borden van dit project niet laden.",
+      "ticketsHint": "Elke flow met een ticket in deze werkmap is een bord. Een ticket schuift van links naar rechts door de fasen van de flow.",
+      "boardLoadError": "Kon de borden van deze werkmap niet laden.",
       "ticketMoveError": "Kon dat ticket niet verplaatsen.",
       "ticketUntitled": "Naamloos gesprek",
       "addFlow": "Flow toevoegen",
-      "noFlowsToAdd": "Alle flows staan al op dit project",
-      "flowLinkError": "Kon de flows van dit project niet bijwerken.",
+      "noFlowsToAdd": "Alle flows staan al op deze werkmap",
+      "flowLinkError": "Kon de flows van deze werkmap niet bijwerken.",
       "detachFlow": "Ontkoppelen",
       "agendaTitle": "Agenda",
       "agendaOpen": "Openen in Agenda",
       "agendaPlan": "Iets inplannen",
-      "agendaEmpty": "Niets open of gepland voor dit project in de komende twee weken.",
+      "agendaEmpty": "Niets open of gepland voor deze werkmap in de komende twee weken.",
       "agendaDue": "Open"
     },
     "work": {
@@ -4741,7 +4710,7 @@
       "queueCreated": "Toegevoegd aan de queue",
       "queueCreateError": "Kon niet toevoegen aan de queue.",
       "queueEmptyTitle": "De queue is leeg",
-      "queueEmptyBody": "Verzoeken uit gesprekken en van teamgenoten landen hier. Voeg het eerste item toe of koppel een gesprek aan dit project.",
+      "queueEmptyBody": "Verzoeken uit gesprekken en van collega's landen hier. Voeg het eerste item toe of koppel een gesprek aan deze werkmap.",
       "openCommunication": "Communicatie openen",
       "addToQueue": "Aan queue toevoegen",
       "titlePlaceholder": "Wat moet er gebeuren?",
@@ -4752,10 +4721,10 @@
       "statusUpdateError": "Kon de status niet bijwerken.",
       "illegalMove": "Kan niet van {{from}} naar {{to}}.",
       "analyze": "Analyseer",
-      "analyzeStarted": "Analyse gestart — de projectagent vergelijkt dit met de documentatie.",
+      "analyzeStarted": "Analyse gestart — de folderagent vergelijkt dit met de documentatie.",
       "analyzeError": "Kon de analyse niet starten.",
       "verify": "Verifieer",
-      "verifyStarted": "Verificatie gestart — de projectagent toetst de documentatie aan de realiteit.",
+      "verifyStarted": "Verificatie gestart — de folderagent toetst de documentatie aan de realiteit.",
       "verifyError": "Kon de verificatie niet starten.",
       "impactSummary": "Impactanalyse",
       "linkedSections": "{{count}} secties",
@@ -4826,10 +4795,10 @@
       "linkedItems": "{{count}} items",
       "linkedItems_one": "{{count}} item",
       "noLinkedItems": "Nog geen queue-items gekoppeld aan deze sectie.",
-      "docsLoadError": "Kon de projectdocumentatie niet laden.",
-      "docsEmpty": "Nog geen projectdocumentatie.",
+      "docsLoadError": "Kon de folderdocumentatie niet laden.",
+      "docsEmpty": "Nog geen folderdocumentatie.",
       "docsEmptyTitle": "Nog geen documentatie",
-      "docsEmptyBody": "Projectdocumenten staan in Kennis onder dit project. Gekoppelde queue-aanvragen verschijnen op elk document; de status blijft op de queue.",
+      "docsEmptyBody": "Documenten van de werkmap staan in Kennis onder deze werkmap. Gekoppelde queue-aanvragen verschijnen op elk document; de status blijft op de queue.",
       "openKnowledge": "Kennis openen",
       "openInKnowledge": "Openen in Kennishub",
       "openAgents": "Agents openen",
@@ -4841,41 +4810,7 @@
       "docSaveError": "Kon het document niet opslaan.",
       "editDoc": "Bewerken",
       "saveDoc": "Opslaan",
-      "resourcesLoading": "Resources laden...",
-      "resourcesEmpty": "Nog geen resources gekoppeld.",
-      "openModules": "Modules openen",
-      "openIntegrations": "Koppelingen openen",
-      "resourceAddLink": "Resource koppelen",
-      "resourceAdd": "Koppelen",
-      "resourceLinked": "Resource gekoppeld",
-      "resourceLinkError": "Kon de resource niet koppelen.",
-      "resourceRemove": "Resource verwijderen",
-      "resourceRemoved": "Resource verwijderd",
-      "resourceRemoveError": "Kon de resource niet verwijderen.",
-      "resourceLabelPlaceholder": "Label (bijv. Product-drive)",
-      "resourceRefPlaceholder": "Referentie: URL, map-ID, pagina-ID...",
-      "resourceHint": "Nu gekoppeld op referentie. Connectors (synchronisatie, acties) haken hier later op aan.",
-      "deleteWidensConnections": "Deze koppelingen zijn alleen aan dit project gekoppeld en worden daarna in de hele workspace bruikbaar: {{names}}.",
-      "connectionPick": "Kies een koppeling",
-      "connectionHint": "Na koppelen kan alleen werk in dit project (en andere gekoppelde projecten) deze koppeling gebruiken.",
-      "connectionNone": "Geen koppelingen meer om te koppelen. Voeg er eerst een toe bij Koppelingen.",
-      "resourceType": {
-        "repo": "Repository",
-        "connection": "Koppeling",
-        "drive": "Drive",
-        "notion": "Notion",
-        "sheet": "Spreadsheet",
-        "vibecode": "Codeertool",
-        "site": "Website",
-        "other": "Overig"
-      },
-      "resourceStatus": {
-        "linked": "Gekoppeld",
-        "connected": "Verbonden",
-        "syncing": "Synchroniseert",
-        "error": "Fout",
-        "disconnected": "Losgekoppeld"
-      }
+      "deleteWidensConnections": "Deze koppelingen hangen alleen aan deze werkmap en worden daarna in de hele workspace bruikbaar: {{names}}."
     },
     "canvas": {
       "loading": "Canvas laden…",
@@ -4894,8 +4829,7 @@
       "startChat": "Start gesprek",
       "setupThreadTitle": "Canvas · {{place}}",
       "setupOpener": "Ik wil een nieuw snapshot-canvas op {{place}}.\n{{ownerLine}}\nVraag me wat erop moet staan. Stel daarna een kort plan voor: titel, wat je toont, en hoe vaak verversen. Na mijn akkoord bouw je het in dit gesprek, zet je de verversperiode uit wat we afspraken, en blijf je het hier beheren.",
-      "ownerFolderFallback": "deze map",
-      "ownerWorkspaceFallback": "Overview",
+      "ownerFolderFallback": "deze werkmap",
       "cancel": "Annuleren",
       "delete": "Verwijderen",
       "deleteConfirm": "Dit canvas verwijderen? De Agenda-ververswake gaat mee.",
@@ -4925,14 +4859,56 @@
       "lastUpdated": "Bijgewerkt {{time}}",
       "showSource": "Bron tonen",
       "hideSource": "Bron verbergen"
+    },
+    "worksIn": {
+      "title": "Werkt in",
+      "add": "Toevoegen aan Werkt in",
+      "empty": "Nog nergens. Voeg een canvas, koppeling of bestandsmap toe; werk uit deze werkmap landt daar.",
+      "added": "Toegevoegd aan Werkt in",
+      "addError": "Kon niet toevoegen aan Werkt in.",
+      "remove": "Uit Werkt in halen",
+      "removed": "Uit Werkt in gehaald",
+      "removeError": "Kon niet uit Werkt in halen.",
+      "origin": {
+        "bokito": "Bokito",
+        "connection": "Koppeling"
+      },
+      "kind": {
+        "board": "Bord",
+        "files": "Bestanden",
+        "canvas": "Canvas",
+        "connection": "Koppeling",
+        "drive": "Bestandsmap",
+        "repo": "Repository",
+        "notion": "Notion",
+        "sheet": "Spreadsheet",
+        "vibecode": "Codeertool",
+        "site": "Website",
+        "other": "Overig"
+      },
+      "addKind": {
+        "canvas": "Canvas",
+        "connection": "Koppeling",
+        "drive": "Bestandsmap"
+      },
+      "addHint": {
+        "canvas": "Een canvas is een werkplek in Bokito: een agent houdt hem bij, jij leest mee.",
+        "drive": "Een map buiten Bokito, zoals een Drive-map, op URL of map-ID."
+      },
+      "canvasPlaceholder": "Naam (bijv. Cijfers)",
+      "labelPlaceholder": "Naam (bijv. Contracten)",
+      "refPlaceholder": "URL of map-ID",
+      "connectionPick": "Kies een koppeling",
+      "connectionHint": "Daarna gebruikt alleen werk in deze werkmap (en andere werkmappen met dezelfde koppeling) deze koppeling.",
+      "connectionNone": "Geen actieve koppelingen. Voeg er eerst een toe bij Koppelingen."
     }
   },
   "project": {
-    "tabsAriaLabel": "Projectonderdelen",
-    "loadError": "Kon project niet laden.",
-    "notFound": "Project niet gevonden.",
+    "tabsAriaLabel": "Onderdelen van de werkmap",
+    "loadError": "Kon werkmap niet laden.",
+    "notFound": "Werkmap niet gevonden.",
     "group": {
-      "nav": "Project",
+      "nav": "Werkmap",
       "pages": "Pagina's"
     },
     "links": {
@@ -4952,27 +4928,27 @@
       "details": "Details",
       "request": "Wijziging aanvragen",
       "connect": "Code koppelen",
-      "notFound": "Project niet gevonden."
+      "notFound": "Werkmap niet gevonden."
     },
     "overview": {
       "title": "Stromen",
-      "description": "Stapsgewijze runs die de lead en agents voor dit project uitvoeren.",
+      "description": "Stapsgewijze runs die de lead en agents voor deze werkmap uitvoeren.",
       "loading": "Laden…",
       "empty": "Nog geen updates. Dien een wijzigingsverzoek in om te starten.",
-      "viewAll": "Alle projectberichten bekijken",
+      "viewAll": "Alle folderberichten bekijken",
       "streamsLabel": "Stromen",
       "addStream": "Stroom toevoegen",
       "openStreamCommunication": "Open stream-communicatie",
-      "openProjectCommunication": "Open projectcommunicatie",
+      "openProjectCommunication": "Open foldercommunicatie",
       "wireframeBadge": "Wireframe",
       "addStep": "Stap toevoegen",
       "dragPreview": "Drag preview",
       "inputTitle": "Input",
-      "inputChip": "in: projectcontext + lead-trigger",
+      "inputChip": "in: foldercontext + lead-trigger",
       "stepLabel": "Stap",
       "agentLabel": "Agent",
       "instructionLabel": "Instructie",
-      "toolsLabel": "Tools (tenant-integraties)",
+      "toolsLabel": "Tools (tenant-koppelingen)",
       "selectTool": "Selecteer tool",
       "outputTitle": "Output",
       "outputChip": "uit: stroomrapport naar de lead",
@@ -4985,8 +4961,8 @@
       }
     },
     "messages": {
-      "title": "Projectberichten",
-      "description": "Updates en beslissingen, alleen voor dit project.",
+      "title": "Berichten van de werkmap",
+      "description": "Updates en beslissingen, alleen voor deze werkmap.",
       "tenantInbox": "Open tenant-inbox",
       "loading": "Laden…",
       "loadError": "Kon berichten niet laden.",
@@ -4995,16 +4971,16 @@
         "decisions": "Beslissingen"
       },
       "empty": {
-        "updates": "Nog geen updates voor dit project.",
-        "decisions": "Geen openstaande beslissingen voor dit project."
+        "updates": "Nog geen updates voor deze werkmap.",
+        "decisions": "Geen openstaande beslissingen voor deze werkmap."
       }
     },
     "communication": {
       "title": "Communicatie",
-      "description": "Updates en beslissingen voor dit project tussen jou en de agents.",
+      "description": "Updates en beslissingen voor deze werkmap tussen jou en de agents.",
       "hubLink": "Open hub-communicatie",
       "filter": {
-        "all": "Alle projectberichten",
+        "all": "Alle folderberichten",
         "stream": "Stream: {{stream}}"
       },
       "tabs": {
@@ -5015,14 +4991,14 @@
     },
     "orchestration": {
       "title": "Orchestratie",
-      "description": "Stel in hoe de orkestrator dit project aanstuurt: cadans, autonomie en wanneer een mens moet meebeslissen.",
+      "description": "Stel in hoe de orkestrator deze werkmap aanstuurt: cadans, autonomie en wanneer een mens moet meebeslissen.",
       "loading": "Orchestratie-instellingen laden…",
       "saved": "Instellingen opgeslagen.",
       "loadError": "Kon orchestratie-instellingen niet laden.",
       "saveError": "Kon orchestratie-instellingen niet opslaan.",
       "wakeFrequency": {
         "label": "Wake-frequentie",
-        "hint": "Hoe vaak de orkestrator dit project bekijkt en plant.",
+        "hint": "Hoe vaak de orkestrator deze werkmap bekijkt en plant.",
         "options": {
           "hourly": "Elk uur",
           "daily": "Dagelijks",
@@ -5056,32 +5032,32 @@
     },
     "po": {
       "title": "Lead",
-      "description": "Configureer de dedicated lead voor dit project. Plant werk, routeert agents en houdt projectkennis actueel.",
+      "description": "Configureer de vaste lead voor deze werkmap. Plant werk, routeert agents en houdt de kennis van de werkmap actueel.",
       "loading": "Lead-instellingen laden…",
       "loadError": "Kon lead-instellingen niet laden.",
       "createError": "Kon lead niet aanmaken.",
       "linkError": "Kon lead niet koppelen.",
-      "defaultName": "Projectlead",
+      "defaultName": "Werkmaplead",
       "sidebarCta": "Lead instellen",
       "advancedProfile": "Geavanceerd agentprofiel",
       "required": {
         "title": "Stel een lead in",
-        "description": "Dit project heeft een dedicated lead nodig voordat stromen kunnen draaien.",
+        "description": "Deze werkmap heeft een vaste lead nodig voordat stromen kunnen draaien.",
         "cta": "Lead instellen"
       },
       "gate": {
         "title": "Lead verplicht",
-        "description": "Koppel of maak een lead voor dit project om verder te gaan."
+        "description": "Koppel of maak een lead voor deze werkmap om verder te gaan."
       },
       "identity": {
         "title": "Lead-identiteit",
-        "empty": "Er is nog geen lead gekoppeld aan dit project."
+        "empty": "Er is nog geen lead gekoppeld aan deze werkmap."
       },
       "setup": {
         "title": "Lead koppelen of aanmaken",
-        "description": "Elk project heeft één dedicated lead nodig. Maak een nieuwe aan of koppel een bestaande niet-toegewezen lead.",
+        "description": "Elke werkmap heeft één vaste lead nodig. Maak een nieuwe aan of koppel een bestaande lead die nog vrij is.",
         "createLabel": "Naam nieuwe lead",
-        "createCta": "Lead voor project aanmaken",
+        "createCta": "Lead voor werkmap aanmaken",
         "creating": "Aanmaken…",
         "showExisting": "Bestaande lead koppelen",
         "hideExisting": "Bestaande leads verbergen",
@@ -5098,7 +5074,7 @@
     },
     "notifications": {
       "title": "Notificaties",
-      "description": "Bepaal per kanaal welke project-events je ontvangt.",
+      "description": "Bepaal per kanaal welke folder-events je ontvangt.",
       "loading": "Notificatievoorkeuren laden…",
       "loadError": "Kon notificatievoorkeuren niet laden.",
       "saveError": "Kon notificatievoorkeuren niet opslaan.",
@@ -5117,11 +5093,11 @@
     },
     "workforce": {
       "title": "Workforce-geschiedenis",
-      "description": "Alle agent runs voor dit project. Klik door voor live event-logs."
+      "description": "Alle agent-runs voor deze werkmap. Klik door voor live event-logs."
     },
     "usage": {
       "title": "Tokenverbruik",
-      "description": "Kerngetallen over agent-activiteit en gebruik voor dit project.",
+      "description": "Kerngetallen over agent-activiteit en gebruik voor deze werkmap.",
       "loading": "Usage-gegevens laden…",
       "loadError": "Kon usage-gegevens niet laden.",
       "budgetTitle": "Dagelijks budget",
@@ -5140,8 +5116,8 @@
     },
     "settings": {
       "about": {
-        "title": "Over dit project",
-        "name": "Projectnaam",
+        "title": "Over deze werkmap",
+        "name": "Naam van de werkmap",
         "scope": "Beschrijving voor je AI-team",
         "save": "Wijzigingen opslaan",
         "saving": "Opslaan…",
@@ -5153,7 +5129,7 @@
         "description": "Koppel een GitHub-repository zodat je AI-team de codebase kan lezen, of sla over tot je er klaar voor bent."
       },
       "orchestrator": {
-        "description": "Configureer de dedicated lead en hoe vaak dit project wordt beoordeeld.",
+        "description": "Configureer de vaste lead en hoe vaak deze werkmap wordt beoordeeld.",
         "open": "Lead-instellingen openen"
       },
       "repo": {
@@ -5170,11 +5146,11 @@
         "placeholder": "owner/repo",
         "branchPlaceholder": "main",
         "connect": "Koppelen",
-        "hint": "Koppel een GitHub-repository zodat agents de codebase van dit project kunnen lezen.",
+        "hint": "Koppel een GitHub-repository zodat agents de codebase van deze werkmap kunnen lezen.",
         "connected": "Repository gekoppeld",
         "reindexQueued": "Opnieuw inlezen ingepland",
         "disconnected": "Repository ontkoppeld",
-        "reindex": "Project opnieuw inlezen",
+        "reindex": "Repository opnieuw inlezen",
         "disconnect": "Ontkoppelen",
         "disconnectTitle": "Repository ontkoppelen",
         "disconnectDescription": "Verwijder de koppeling met {{repo}}. Je AI-team kan deze codebase niet meer lezen tot je opnieuw koppelt.",
@@ -5186,21 +5162,21 @@
         "connectionLoadError": "Kon GitHub-verbinding niet laden.",
         "linkError": "Kon repository niet koppelen",
         "disconnectError": "Kon niet ontkoppelen",
-        "reindexError": "Kon project niet opnieuw inlezen",
+        "reindexError": "Kon de repository niet opnieuw inlezen",
         "connectGithubFirst": "Koppel eerst GitHub zodat je een repository kunt kiezen.",
         "openIntegrations": "Koppelingen openen"
       },
       "danger": {
         "title": "Gevaarlijke acties",
-        "deleteTitle": "Dit project verwijderen",
-        "deleteDescription": "Verwijdert dit project, de stromen en uitvoerinstellingen permanent. Agenten worden ontkoppeld maar niet verwijderd. Dit kan niet ongedaan worden gemaakt.",
-        "deleteButton": "Project verwijderen",
-        "dialogTitle": "Project verwijderen",
+        "deleteTitle": "Deze werkmap verwijderen",
+        "deleteDescription": "Verwijdert deze werkmap, de stromen en uitvoerinstellingen permanent. Agents worden ontkoppeld maar niet verwijderd. Dit kan niet ongedaan worden gemaakt.",
+        "deleteButton": "Werkmap verwijderen",
+        "dialogTitle": "Werkmap verwijderen",
         "dialogPrompt": "Typ \"{{name}}\" om verwijdering te bevestigen.",
-        "namePlaceholder": "Projectnaam",
+        "namePlaceholder": "Naam van de werkmap",
         "confirmButton": "Definitief verwijderen",
         "deleting": "Verwijderen…",
-        "deleteError": "Kon project niet verwijderen"
+        "deleteError": "Kon werkmap niet verwijderen"
       }
     },
     "request": {
@@ -5219,13 +5195,13 @@
       "error": "Kon verzoek niet indienen"
     },
     "list": {
-      "title": "Projecten",
-      "description": "Je actieve projecten en hun code-koppelingen.",
+      "title": "Werkmappen",
+      "description": "Je actieve werkmappen en hun code-koppelingen.",
       "loading": "Laden…",
-      "loadError": "Kon projecten niet laden.",
-      "empty": "Nog geen projecten. Maak er een aan om te starten.",
-      "create": "Maak je eerste project",
-      "newProject": "Nieuw project"
+      "loadError": "Kon werkmappen niet laden.",
+      "empty": "Nog geen werkmappen. Maak er een aan om te starten.",
+      "create": "Maak je eerste werkmap",
+      "newProject": "Nieuwe werkmap"
     },
     "doc": {
       "title": "Workspace"
@@ -5241,7 +5217,7 @@
       "products": "Producten",
       "workspace": "Organisatie",
       "communication": "Communicatie",
-      "integrations": "Integraties",
+      "integrations": "Koppelingen",
       "govern": "AI en controle",
       "advanced": "Geavanceerd",
       "data": "Data",
@@ -5250,27 +5226,26 @@
     "links": {
       "profile": "Profiel",
       "profileSecurity": "Profiel en beveiliging",
-      "myAssistant": "Mijn assistent",
+      "myAssistant": "Geheugen van Bokito",
       "notifications": "Notificaties",
       "setupGuide": "Setupgids",
       "help": "Support",
       "inbox": "Mailboxen",
       "emailMessages": "Kanalen",
       "chatWidget": "Chatwidget",
-      "inboxAi": "AI-afhandeling",
       "emailSettings": "E-mailinstellingen",
       "messenger": "Assistent",
       "helpCenters": "Helpcentrum",
       "general": "Algemeen",
       "branding": "Branding",
       "members": "Leden",
-      "membersTeams": "Leden en teams",
-      "integrations": "Integraties",
+      "membersTeams": "Leden en afdelingen",
+      "integrations": "Koppelingen",
       "modules": "Koppelingen",
       "govern": "Govern",
       "trust": "Data en privacy",
       "bin": "Prullenbak",
-      "reports": "Overview",
+      "reports": "Vandaag",
       "developers": "Voor ontwikkelaars",
       "models": "Modellen",
       "billing": "Facturatie",
@@ -5293,11 +5268,11 @@
       "members": "Collega's uitnodigen",
       "emailMessages": "Kanalen, mailboxen en regels",
       "chatWidget": "Websitechat voor klanten",
-      "inboxAi": "Autonoom, Geassisteerd of Handmatig per kanaal en contact",
+      "inboxAi": "Hoeveel agents zelf mogen versturen",
       "helpCenters": "Openbare helpartikelen",
       "integrations": "Andere tools koppelen",
       "modules": "Geïnstalleerde modules, partnerlogins en tools",
-      "marketplace": "Marketplace-apps en tools die je agents kunnen gebruiken — zoek op markt",
+      "marketplace": "Aanbod-apps en tools die je agents kunnen gebruiken — zoek op markt",
       "connectedTools": "Tools die agents al mogen gebruiken",
       "govern": "Goedkeuringen en hoeveel agents mogen doen",
       "trust": "Bewaartermijnen, dataregio, inzageverzoeken en AI-datagebruik",
@@ -5329,7 +5304,7 @@
       },
       "api": {
         "title": "API-reference",
-        "description": "REST-endpoints en schemas voor integraties."
+        "description": "REST-endpoints en schemas voor koppelingen."
       },
       "learn": {
         "title": "In-app Learn",
@@ -5395,7 +5370,7 @@
     "loadMore": "Meer laden",
     "loadingMore": "Laden...",
     "empty": "Niets in de prullenbak.",
-    "emptyHint": "Verwijderde gesprekken, mappen, canvassen, kennis, contacten en flows komen hier terecht en zijn te herstellen.",
+    "emptyHint": "Verwijderde gesprekken, werkmappen, canvassen, kennis, contacten en flows komen hier terecht en zijn te herstellen.",
     "emptySearch": "Niets gevonden voor deze zoekopdracht of dit filter.",
     "clearFilters": "Filters wissen",
     "docsLink": "Zo werkt de prullenbak",
@@ -5421,7 +5396,7 @@
     "untitled": "Naamloos",
     "types": {
       "conversation": "Gesprek",
-      "project": "Project",
+      "project": "Werkmap",
       "canvas": "Canvas",
       "knowledge": "Kennis",
       "contact": "Contact",
@@ -5483,11 +5458,11 @@
       "description": "Lijn de portalervaring uit met je organisatiebranding."
     },
     "members": {
-      "title": "Leden en teams",
+      "title": "Leden en afdelingen",
       "description": "Nodig medewerkers uit en beheer samenwerking."
     },
     "teams": {
-      "title": "Leden en teams",
+      "title": "Leden en afdelingen",
       "description": "Nodig medewerkers uit en beheer samenwerking."
     },
     "billing": {
@@ -5627,7 +5602,7 @@
       "skill": "Handleidingen die agents volgen voor specifieke taken.",
       "heartbeat": "Waar de dagelijkse check-in naar kijkt.",
       "doc": "Naslagdocumenten en klantartikelen.",
-      "project_doc": "Documentatie die bij een project hoort.",
+      "project_doc": "Documentatie die bij een werkmap hoort.",
       "daily_log": "Lopende notities die agents na een werkdag schrijven."
     },
     "clearSearch": "Zoekopdracht wissen",
@@ -5660,7 +5635,7 @@
     "openRuns": "Agent-runs openen",
     "openHelpCenter": "Klant-helpcentrum",
     "emptyTitle": "Workspace-kennis",
-    "emptyBody": "Notities, skills en geheugen die je agents lezen tijdens het werk — en zelf bijhouden terwijl ze leren.",
+    "emptyBody": "Notities, vaardigheden en geheugen die je agents lezen tijdens het werk — en zelf bijhouden terwijl ze leren.",
     "createFirst": "Eerste document maken",
     "selectHint": "Selecteer een document, of maak er een met +.",
     "aiMaintained": "Door agents bijgehouden",
@@ -5683,13 +5658,13 @@
     "viewHelp": "Bekijk op helpcentrum: {{path}}",
     "scopeOrganization": "Organisatie",
     "scopePlatform": "Platform",
-    "scopeProject": "Project",
+    "scopeProject": "Werkmap",
     "scopeAgent": "Agent",
-    "openProject": "Map openen",
+    "openProject": "Werkmap openen",
     "openAgent": "Agent openen",
-    "scopeProjects": "Projecten",
+    "scopeProjects": "Werkmappen",
     "scopeAgents": "Agents",
-    "pickProject": "Selecteer een project",
+    "pickProject": "Selecteer een werkmap",
     "pickAgent": "Selecteer een agent",
     "linkedRequests": "Gekoppelde aanvragen",
     "editorWrite": "Schrijven",
@@ -5712,10 +5687,10 @@
     "kinds": {
       "persona": "Stem",
       "memory": "Geheugen",
-      "skill": "Skills",
+      "skill": "Vaardigheden",
       "heartbeat": "Check-ins",
       "doc": "Docs",
-      "project_doc": "Projectdocs",
+      "project_doc": "Documenten in een werkmap",
       "daily_log": "Dagnotities"
     },
     "paths": {
@@ -5744,12 +5719,12 @@
     "scopeLabels": {
       "messaging": "Berichten & CRM",
       "workspace": "Kennis",
-      "projects": "Projecten",
+      "projects": "Werkmappen",
       "agents": "Agents",
       "delegation": "Delegatie",
       "triggers": "Agenda",
       "channels": "Kanalen",
-      "integrations": "Integraties",
+      "integrations": "Koppelingen",
       "govern": "Govern",
       "tickets": "Tickets"
     }
@@ -5928,7 +5903,7 @@
           "name": "VS Code",
           "description": "Gebruik Bokito in de agentmodus van Copilot.",
           "body": "VS Code leest MCP-servers uit mcp.json en biedt ze aan Copilot in agentmodus. Het meldt zich aan met OAuth, of vraagt eenmalig om een token.",
-          "oauth1": "Maak .vscode/mcp.json in je project, of voer MCP: Open User Configuration uit.",
+          "oauth1": "Maak .vscode/mcp.json in je map, of voer MCP: Open User Configuration uit.",
           "oauth2": "Plak de JSON hieronder en sla op.",
           "oauth3": "Kies Start boven de serverregel. VS Code opent de browser om je aan te melden bij Bokito.",
           "token1": "Maak hieronder een app-token aan onder App-tokens.",
@@ -6107,7 +6082,7 @@
     }
   },
   "assistantSettings": {
-    "title": "Mijn assistent",
+    "title": "Geheugen van Bokito",
     "body": "Bokito is je persoonlijke helper in dit product. Wat hij over jou onthoudt, neemt hij mee naar elk workspace. Bedrijfs- en klantdata blijven in workspacekennis.",
     "memoryTitle": "Wat Bokito onthoudt",
     "memoryHint": "Deze feiten komen uit gesprekken met Bokito. Vergeet een item of wis alles.",
@@ -6123,14 +6098,14 @@
     "instructions": "Instructies",
     "instructionsPlaceholder": "Hoe moet je assistent zich gedragen? Wat moet hij over jou en je werk weten?",
     "defaultTarget": "Standaardchat",
-    "defaultTargetHint": "Met wie een nieuwe chat praat, tenzij je iemand anders kiest.",
+    "defaultTargetHint": "Met wie een Nieuw gesprek praat, tenzij je iemand anders kiest.",
     "companyAgent": "bedrijfsagent",
     "myAssistant": "mijn assistent",
     "save": "Wijzigingen opslaan",
     "saved": "Opgeslagen",
     "loadError": "Kon assistentinstellingen niet laden.",
     "saveError": "Kon instellingen niet opslaan.",
-    "openCommunication": "Nieuwe chat openen",
+    "openCommunication": "Nieuw gesprek openen",
     "openModels": "Modellen openen",
     "openKnowledge": "Kennis openen",
     "openInboxAi": "AI-antwoorden openen",
@@ -6378,11 +6353,11 @@
     },
     "hireAgentsTitle": "Neem nieuwe agents aan",
     "hireAgentsSoon": "binnenkort",
-    "hireAgentsBody": "Kies specialisten uit de Marketplace en zet ze naast je team.",
-    "hireAgentsCta": "Marketplace",
-    "agentsSectionHint": "Bedrijfsagents naast je mensen. Neem er meer aan via de Marketplace.",
+    "hireAgentsBody": "Kies specialisten uit het aanbod en zet ze naast je team.",
+    "hireAgentsCta": "Aanbod",
+    "agentsSectionHint": "Bedrijfsagents naast je mensen. Neem er meer aan via het aanbod.",
     "agentsEmpty": "Nog geen bedrijfsagents.",
-    "agentsEmptyHint": "Gebruik Neem nieuwe agents aan om specialisten uit de Marketplace te kiezen.",
+    "agentsEmptyHint": "Gebruik Neem nieuwe agents aan om specialisten uit het aanbod te kiezen.",
     "emailPlaceholder": "naam@bedrijf.com",
     "role": "Rol",
     "invite": "Uitnodigen",
@@ -6401,7 +6376,7 @@
     "colType": "Type",
     "colRole": "Rol",
     "colRoleOrCeiling": "Rol / plafond",
-    "colTeams": "Teams",
+    "colTeams": "Afdelingen",
     "colOpen": "Open",
     "colLastActive": "Laatst actief",
     "lastActiveNever": "Nooit",
@@ -6518,7 +6493,7 @@
     "emptyLogs": "Nog geen supporttoegang gelogd.",
     "timeSaved": {
       "title": "Actiegewichten (tijd bespaard)",
-      "hint": "Minuten per uitkomst op Overview. Handmatige antwoorden tellen alleen in het cirkeldiagram. Opgeslagen in platform_settings voor deze API-omgeving.",
+      "hint": "Minuten per uitkomst op Vandaag. Handmatige antwoorden tellen alleen in het cirkeldiagram. Opgeslagen in platform_settings voor deze API-omgeving.",
       "minutes": "Minuten",
       "mode": "Modus",
       "saved": "Telt als tijd bespaard",
@@ -6562,8 +6537,8 @@
     "copyFailed": "Kon de link niet kopiëren"
   },
   "orgCanvas": {
-    "title": "Organisatie",
-    "subtitle": "Bedrijf in het midden, elke afdeling als een eiland. Sleep om te verschuiven, rechtermuis om te kantelen, wiel om te zoomen. Hover een markering voor details; gebruik de legenda om iets te vinden.",
+    "title": "Grid",
+    "subtitle": "Van binnenkomst tot resultaat: wie het oppakt, hoe het loopt en in welke werkmap het landt.",
     "link": "Grid",
     "openInGrid": "Open in Grid",
     "teaserTitle": "Grid",
@@ -6584,25 +6559,153 @@
       "channel": "Kanalen",
       "flow": "Flows",
       "label": "Labels",
-      "folder": "Mappen",
+      "folder": "Werkmappen",
       "calendar": "Agenda’s",
       "connection": "Koppelingen",
       "module": "Modules",
       "doc": "Docs",
       "source": "Bronnen",
       "webhook": "Webhooks"
-    }
+    },
+    "structureSubtitle": "Het bedrijf in het midden, elke afdeling als eiland. Sleep om te schuiven, sleep met rechts om te kantelen, scroll om te zoomen.",
+    "period_one": "Afgelopen dag",
+    "period_other": "Afgelopen {{count}} dagen",
+    "days_one": "{{count}} dag",
+    "days_other": "{{count}} dagen",
+    "lensGroup": "Lens",
+    "viewGroup": "Weergave",
+    "periodGroup": "Periode",
+    "lens": {
+      "flow": "Stroom",
+      "labels": "Labels",
+      "structure": "Structuur",
+      "autonomy": "Autonomie",
+      "issues": "Knelpunten"
+    },
+    "view": {
+      "2d": "2D",
+      "3d": "3D"
+    },
+    "estimated": "Geschat: nog niet alles is als oplevering vastgelegd.",
+    "columns": {
+      "input": "Binnenkomst",
+      "executor": "Uitvoerders",
+      "executorSub": "per afdeling",
+      "work": "Flow",
+      "workSub": "hoe",
+      "result": "Resultaat",
+      "resultSub": "waar het landt"
+    },
+    "zone": {
+      "none": "Zonder afdeling",
+      "hint": {
+        "agent_first": "agent eerst",
+        "people": "mensen pakken op"
+      }
+    },
+    "node": {
+      "ghost": "ook in {{name}}",
+      "open": "{{count}} open",
+      "waiting": "{{count}} wachten op jou",
+      "offline": "offline",
+      "unassigned": "Niet toegewezen",
+      "conversations_one": "{{count}} gesprek",
+      "conversations_other": "{{count}} gesprekken",
+      "done": "{{count}} klaar",
+      "flow": "Flow",
+      "agent": "Agent",
+      "person": "Persoon",
+      "channel": "Kanaal"
+    },
+    "result": {
+      "reply": "Antwoord aan de klant",
+      "via": "via {{channel}}",
+      "folder": "Werkmap",
+      "subfolders_one": "{{count}} submap",
+      "subfolders_other": "{{count}} submappen",
+      "worksIn": "Werkt in",
+      "knowledge": "Kennis",
+      "knowledgeSub": "Wat agents leren uit correcties",
+      "corrections": "correcties",
+      "open": "Nog open",
+      "closedWithout": "Gesloten zonder resultaat"
+    },
+    "mode": {
+      "autonomous": "Autonoom",
+      "assisted": "Geassisteerd",
+      "manual": "Handmatig",
+      "human": "Door een mens",
+      "none": "Niemand pakt het op"
+    },
+    "legendFlow": {
+      "worksInBokito": "werkt in Bokito",
+      "worksInConnection": "werkt in via een koppeling",
+      "noLabel": "Geen label",
+      "labelsHint": "Klik op een label om het door de keten te volgen.",
+      "issuesHint": "Alleen kaarten en lijnen met een knelpunt blijven opgelicht.",
+      "autonomyHint": "Elke uitvoerder in de kleur van wat hij zelf mag."
+    },
+    "panel": {
+      "label": "Details in de Grid",
+      "issues": "Knelpunten",
+      "noIssues": "Geen knelpunten in deze periode.",
+      "back": "Terug naar knelpunten",
+      "mayAct": "Mag zelf",
+      "source": {
+        "workspace": "Ingesteld voor de werkruimte",
+        "channel": "Ingesteld op het kanaal",
+        "conversation": "Ingesteld op het gesprek",
+        "default": "Standaard"
+      },
+      "clamped": {
+        "govern": "Begrensd door het plafond van de werkruimte in Govern",
+        "privacy": "Begrensd door de privacy-instellingen",
+        "agent": "Begrensd door de eigen instelling van deze agent",
+        "flow": "Begrensd: de flow staat op Altijd controle",
+        "breaker": "Begrensd: de noodstop van het kanaal is geactiveerd"
+      },
+      "receivesFrom": "Ontvangt van",
+      "worksOn": "Werkt aan",
+      "comesInVia": "Komt binnen via",
+      "landsIn": "Landt in",
+      "byLabel": "Per label",
+      "nothing": "Niets in deze periode.",
+      "openThreads": "Open gesprekken",
+      "distribute": "Werk verdelen",
+      "openFolder": "Open werkmap",
+      "addWorksIn": "Toevoegen aan Werkt in",
+      "openItem": "Openen",
+      "origin": {
+        "bokito": "Bokito",
+        "connection": "Koppeling"
+      },
+      "unlabeled": "{{pct}}% van dit werk heeft geen label.",
+      "suggestLabels": "Labels voorstellen",
+      "suggestError": "De suggestie kon niet worden geopend.",
+      "close": "Details sluiten"
+    },
+    "issue": {
+      "overloaded": "{{name}} heeft {{count}} open",
+      "no_department": "{{name}} zit in geen afdeling",
+      "offline": "{{name}} is offline met {{count}} open",
+      "unassigned": "{{count}} open zonder dat iemand het oppakt",
+      "connection_without_folder": "Een koppeling schreef zonder werkmap"
+    },
+    "labelChips": "Labels",
+    "reset": "Beginbeeld",
+    "structure3dOnly": "Structuur staat alleen in 3D."
   },
   "teamPage": {
     "openConversations": "Gesprekken",
-    "openFolder": "Map {{name}} openen in Communicatie",
+    "openFolder": "Werkmap {{name}} openen in Communicatie",
     "loadError": "Het team kon niet worden geladen.",
     "saveError": "Opslaan is mislukt.",
     "relatedAgents": "Agents",
     "away": "Afwezig",
     "sections": {
       "teams": "Afdelingen",
-      "teamsHint": "Groepeer mensen en agents; stel in hoe ze gesprekken oppakken."
+      "teamsHint": "Groepeer mensen en agents; stel in hoe ze gesprekken oppakken.",
+      "people": "Mensen en agents"
     },
     "avatarLabel": "Teammarkering",
     "avatarHint": "Standaard initialen, of kies een icoon.",
@@ -6679,7 +6782,7 @@
   },
   "connectionAccess": {
     "title": "Toegang tot koppeling",
-    "description": "Zet met de schuifjes wie deze koppeling mag gebruiken en wie hem mag beheren. Gebruiken betekent dat agents en mensen de tools ervan kunnen draaien; Beheren betekent verifiëren, hernoemen, projecten koppelen en toegang wijzigen. Zonder toegang kan een agent de koppeling niet bereiken.",
+    "description": "Zet met de schuifjes wie deze koppeling mag gebruiken en wie hem mag beheren. Gebruiken betekent dat agents en mensen de tools ervan kunnen draaien; Beheren betekent verifiëren, hernoemen, werkmappen koppelen en toegang wijzigen. Zonder toegang kan een agent de koppeling niet bereiken.",
     "hint": "Wie deze koppeling gebruikt en beheert",
     "adminsNote": "Eigenaren en beheerders beheren altijd elke koppeling; hun schuifjes blijven aan en zijn niet te wijzigen."
   },
@@ -6699,7 +6802,7 @@
       "use": "Gebruiken",
       "manage": "Beheren"
     },
-    "inheritHint": "Teams dekken hun leden. Een persoon of agent zonder eigen toekenning volgt nog steeds Alle mensen of Alle agents.",
+    "inheritHint": "Afdelingen dekken hun leden. Een persoon of agent zonder eigen toekenning volgt nog steeds Alle mensen of Alle agents.",
     "deactivated": "Gedeactiveerd",
     "deactivatedHint": "Gedeactiveerde mensen en agents krijgen geen nieuwe toegang. Opslaan wist achtergebleven toekenningen.",
     "reset": "Terug naar standaard",
@@ -6710,12 +6813,12 @@
     "title": "Wanneer deze agent zelf handelt",
     "hint": "Het plafond begrenst alles wat deze agent doet. Regels maken uitzonderingen voor bepaalde acties of situaties.",
     "workspaceTitle": "Regels voor alle agents",
-    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. AI-afhandeling, het label en tools die altijd vragen bepalen of er een concept komt.",
+    "workspaceHint": "Uitzonderingen die elke agent in deze workspace volgt, naast zijn eigen regels. Autonomie, het label en tools die altijd vragen bepalen of er een concept komt.",
     "ceiling": "Plafond",
     "ceilingHint": {
       "manual": "Deze agent wacht op jou voordat hij iets verstuurt of wijzigt.",
       "assisted": "Deze agent bereidt het werk voor en vraagt voor acties die goedkeuring nodig hebben.",
-      "autonomous": "Deze agent handelt zelf binnen AI-afhandeling, het label en tools die altijd vragen."
+      "autonomous": "Deze agent handelt zelf binnen Autonomie, het label en tools die altijd vragen."
     },
     "rulesTitle": "Regels",
     "empty": "Nog geen regels. De agent volgt zijn plafond en de instellingen in Govern.",
@@ -6763,7 +6866,7 @@
   "tagRegistry": {
     "title": "Labels",
     "openConversations": "Gesprekken met {{name}} openen in Communicatie",
-    "description": "Flow-labels zijn gekleurd en openen hun flow. Andere labels blijven neutraal. Voeg een naam toe, maak daarna een flow of sla het op als map.",
+    "description": "Flow-labels zijn gekleurd en openen hun flow. Andere labels blijven neutraal. Voeg een naam toe, maak daarna een flow of sla het op als werkmap.",
     "newTag": "Nieuw label",
     "createHint": "Geef het label een naam. Agents lezen de beschrijving als ze labels kiezen.",
     "nameLabel": "Naam",
@@ -6791,7 +6894,7 @@
     "loadFailed": "De labels konden niet worden geladen.",
     "saveFailed": "Het label kon niet worden opgeslagen.",
     "pin": "Vastzetten in Communicatie",
-    "pinHint": "Toon dit label als rij onder Mappen in Communicatie.",
+    "pinHint": "Toon dit label als rij onder Werkmappen in Communicatie.",
     "unpin": "Losmaken uit Communicatie",
     "aiAutoOn": "AI mag hiermee automatisch labelen",
     "aiAutoOff": "AI labelt hier niet automatisch mee",
@@ -6820,13 +6923,13 @@
     "promoteHint": "Gesprekken met dit label worden tickets die door de fasen van de flow gaan.",
     "playbook": "Flow",
     "newPlaybook": "Nieuwe flow {{name}}",
-    "promoteAfter": "Stel daarna de regels en projecten in.",
+    "promoteAfter": "Stel daarna de regels en werkmappen in.",
     "promoted": "{{name}} heeft nu een flow.",
     "promoteFailed": "Kon geen flow aanmaken voor dit label.",
-    "saveAsMap": "Opslaan als map",
-    "saveAsMapTitle": "Opslaan als map",
-    "saveAsMapHint": "Maakt een opgeslagen map met dit label. Opbergen voegt elk label in de set toe.",
-    "mapSaved": "Map opgeslagen voor {{name}}"
+    "saveAsMap": "Opslaan als werkmap",
+    "saveAsMapTitle": "Opslaan als werkmap",
+    "saveAsMapHint": "Maakt een werkmap met dit label. Opbergen voegt elk label in de set toe.",
+    "mapSaved": "Werkmap opgeslagen voor {{name}}"
   },
   "tickets": {
     "title": "Ticket",
@@ -6837,10 +6940,10 @@
     "confirm": "Bevestigen",
     "confirmOn": "Bevestigen op",
     "dismiss": "Afwijzen",
-    "project": "Project",
-    "noProject": "Geen project",
-    "chooseProject": "Bij welk project hoort dit?",
-    "chooseProjectInPanel": "#{{name}} heeft een project nodig. Kies er een in het Ticket-paneel.",
+    "project": "Werkmap",
+    "noProject": "Geen werkmap",
+    "chooseProject": "Bij welke werkmap hoort dit?",
+    "chooseProjectInPanel": "#{{name}} heeft een werkmap nodig. Kies er een in het Ticket-paneel.",
     "unknownCategory": "Geen label met een flow #{{name}}.",
     "stage": "Fase",
     "playbook": "Flow",
@@ -6851,7 +6954,7 @@
     "status": {
       "proposed": "Voorgesteld",
       "open": "Niet gestart",
-      "waiting": "Actief",
+      "waiting": "Wachtend",
       "done": "Klaar",
       "closed": "Gesloten"
     },
@@ -6874,7 +6977,7 @@
     "checkupNext": "Check-up {{when}}",
     "agentOwner": "Een agent is eigenaar van dit ticket",
     "openContact": "Open contact {{name}}",
-    "openProject": "Project openen"
+    "openProject": "Werkmap openen"
   },
   "communicationTags": {
     "title": "Communicatie-menu",
@@ -6903,7 +7006,7 @@
     "thresholdHint": "Hoe vaak hetzelfde onbekende patroon moet binnenkomen voordat Bokito het als label met een flow voorstelt.",
     "thresholdOption": "{{count}} keer gezien",
     "catalogTitle": "Labels",
-    "catalogDescription": "Wat het is, welke flow het uitvoert en op welke projecten het kan worden vastgelegd.",
+    "catalogDescription": "Wat het is, welke flow het uitvoert en in welke werkmappen het kan worden vastgelegd.",
     "newCategory": "Nieuwe label",
     "newCategoryHint": "Kies een tag en de flow die hem uitvoert. Een nieuwe flow begint met Open, Wachtend en Klaar.",
     "emptyTitle": "Nog geen labels met een flow",
@@ -6912,14 +7015,14 @@
     "needsVerify": "bevestiging nodig",
     "showInNav": "Tonen in Communicatie",
     "playbook": "Flow",
-    "noProjects": "geen project",
+    "noProjects": "geen werkmap",
     "openCount": "{{open}} open, {{waiting}} wachtend",
     "whatItIs": "Wat het is",
     "nameLabel": "Tag",
     "namePlaceholder": "terugbetaling",
     "descriptionPlaceholder": "Wanneer dit geldt, en wanneer niet. Agents lezen dit om te classificeren.",
     "openPlaybook": "Open flow",
-    "playbookHint": "De flow bevat de fasen, eigenaren, check-ups en de projecten waarop een ticket kan worden vastgelegd.",
+    "playbookHint": "De flow bevat de fasen, eigenaren, check-ups en de werkmappen waarin een ticket kan worden vastgelegd.",
     "gatesToggle": "Hoe het wordt vastgelegd",
     "createModeLabel": "Als de AI het herkent",
     "createModes": {
@@ -6928,7 +7031,7 @@
       "auto": "Automatisch",
       "manual_only": "Alleen handmatig"
     },
-    "projectRule": "Vastleggen vraagt altijd om een project als de flow op een of meer projecten staat, inclusief Geen project. Agents kiezen ook, of laten het ticket voorgesteld.",
+    "projectRule": "Vastleggen vraagt altijd om een werkmap als de flow op een of meer werkmappen staat, inclusief Geen werkmap. Agents kiezen ook, of laten het ticket voorgesteld.",
     "detach": "Maak vrije tag",
     "detachHint": "Haalt de flow weg. De tag wordt weer een vrije tag, en gesprekken die erop zijn vastgelegd zijn geen tickets meer.",
     "moduleNoDetach": "Geïnstalleerd door een module. Verwijder de module om dit weg te halen.",
@@ -6949,5 +7052,43 @@
       "communicationHub": "Communicatie",
       "playbooks": "Flows"
     }
+  },
+  "today": {
+    "needs": "Voor jou",
+    "needsHint": "Open beslissingen en gesprekken die aan jou zijn toegewezen: jouw uitzonderingenlijst.",
+    "signals": "Open tickets per flow",
+    "signalsHint": "Open en wachtend werk. Open een rij om het flowlabel in Communicatie te zien.",
+    "running": "Lopend en straks",
+    "runningHint": "Wat nu draait, en wat de komende 24 uur op de agenda staat.",
+    "agendaDue": "Nu aan de beurt op de agenda",
+    "agendaDueDetail": "Check-ups en verlopen kijkmomenten",
+    "openAgenda": "Agenda openen",
+    "trajectory": "Traject",
+    "trajectoryHint": "Deze week, met het verschil ten opzichte van vorige week.",
+    "emptyNeeds": "Niets wacht op jou.",
+    "emptyNeedsHint": "Beslissingen, toegewezen gesprekken en jouw beurt landen hier. Koppel een kanaal of open Voor jou.",
+    "emptyNeedsForYou": "Voor jou openen",
+    "emptyNeedsChannels": "Kanaal koppelen",
+    "allForYou": "Alles in Voor jou ({{count}})",
+    "quiet": "Al 14 dagen stil",
+    "quietHint": "Open gesprekken zonder bericht. Sluit ze als het werk klaar is.",
+    "quietClose": "Afsluiten",
+    "emptySignals": "Geen open tickets.",
+    "emptyRunning": "Er draait nu niets en er staat niets gepland.",
+    "open": "Open",
+    "waiting": "Wachtend",
+    "flow": "Flow",
+    "workbench": "Werkbank",
+    "filedTickets": "Tickets vastgelegd (7 dagen)",
+    "proposedTickets": "Voorstellen wachten op bevestiging",
+    "proposedDetail": "Bevestig op het gesprek",
+    "finishedRuns": "Runs afgerond zonder beslissing",
+    "vsLastWeek": "t.o.v. vorige week {{delta}}",
+    "governWaiting": "Voorstellen wachten in Govern",
+    "governDetail": "Open voorstellen",
+    "cost": "Verbruikskosten",
+    "costDetail": "Laatste 7 dagen, per agent, flow en Werkbank",
+    "loadError": "Een deel van Vandaag kon niet worden geladen.",
+    "moreContext": "Verder in de werkruimte"
   }
 }

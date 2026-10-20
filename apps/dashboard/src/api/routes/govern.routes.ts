@@ -31,9 +31,6 @@ export const governRoutes = {
   allowances: '/govern/allowances',
   toolOverrides: '/govern/tool-overrides',
   posture: '/govern/posture',
-  autonomyScopes: '/govern/autonomy-scopes',
-  autonomyScope: (kind: string, id: string) =>
-    `/govern/autonomy-scopes/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`,
   rules: '/govern/rules',
   rulesTest: '/govern/rules/test',
   agentRules: '/govern/agent-rules',

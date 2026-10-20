@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     # In-app agent calls. Off unless AGENT_CALLS_ENABLED=true, so production
     # neither rings nor shows the call screen. Dev turns it on in its own env.
     agent_calls_enabled: bool = False
+    # Claude and Cursor agent bodies, reserved for later coding-agent
+    # integrations. Off in production; dev sets FEATURE_CODING_AGENT_INTEGRATIONS=true.
+    feature_coding_agent_integrations: bool = False
     agent_call_ring_seconds: int = 25
     openai_realtime_model: str = "gpt-realtime"
     openai_realtime_voice: str = "marin"

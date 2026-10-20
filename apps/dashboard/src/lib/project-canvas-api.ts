@@ -1,5 +1,5 @@
 import { canvasesRoutes } from '../api/routes'
-import { workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
+import { workforceDelete, workforceGet, workforcePatch } from './api'
 import type { CanvasNode } from './project-canvas/types'
 
 export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -7,7 +7,7 @@ export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly
 export type ProjectCanvas = {
   id: string
   project_id?: string | null
-  owner_kind: 'project' | 'tenant'
+  owner_kind: 'project'
   owner_id: string
   slug: string
   title: string
@@ -41,9 +41,16 @@ export type ProjectCanvas = {
   updated_at?: string | null
 }
 
-export async function listCanvases(ownerKind: 'project' | 'tenant', ownerId: string): Promise<ProjectCanvas[]> {
-  const data = await workforceGet<{ items: ProjectCanvas[] }>(canvasesRoutes.list(ownerKind, ownerId))
+export async function listCanvases(folderId: string): Promise<ProjectCanvas[]> {
+  const data = await workforceGet<{ items: ProjectCanvas[] }>(canvasesRoutes.list('project', folderId))
   return data.items ?? []
+}
+
+/** Where a canvas link without a folder lands (named canvas, last canvas, or the folder General). */
+export async function canvasDefaultLocation(
+  canvasId?: string | null,
+): Promise<{ folder_id: string; canvas_id: string | null; href: string }> {
+  return workforceGet(canvasesRoutes.defaultLocation(canvasId))
 }
 
 export async function getCanvasById(canvasId: string): Promise<ProjectCanvas> {
@@ -53,20 +60,6 @@ export async function getCanvasById(canvasId: string): Promise<ProjectCanvas> {
 export async function listCanvasesForThread(signalId: string): Promise<ProjectCanvas[]> {
   const data = await workforceGet<{ items: ProjectCanvas[] }>(canvasesRoutes.bySignal(signalId))
   return data.items ?? []
-}
-
-export async function createCanvas(body: {
-  owner_kind: 'project' | 'tenant'
-  owner_id: string
-  title: string
-  slug?: string
-  managing_agent_id?: string | null
-  refresh_minutes?: number | null
-  refresh_cadence?: RefreshCadence
-  refresh_cron?: string | null
-  notes?: string | null
-}): Promise<ProjectCanvas> {
-  return workforcePost<ProjectCanvas>(canvasesRoutes.create, body)
 }
 
 export async function patchCanvasMeta(

@@ -139,6 +139,7 @@ def serialize_agent(
     open_conversations: int = 0,
     awaiting_decision: int = 0,
     affiliation: dict[str, Any] | None = None,
+    effective_autonomy: str | None = None,
 ) -> dict[str, Any]:
     """The one agent DTO. Views only add fields on top of ``summary``.
 
@@ -188,6 +189,7 @@ def serialize_agent(
                 "is_lead": bool(agent.is_lead),
                 "acts_for_user": bool(agent.acts_for_user),
                 "autonomy_level": normalize_autonomy(agent.autonomy_level),
+                "effective_autonomy": effective_autonomy or normalize_autonomy(agent.autonomy_level),
                 "tools": _parse_json_list(agent.tools_json),
                 "permission_scopes": _parse_json_list(agent.permission_scopes_json),
                 "organisation_id": str(tenant_numeric_id(agent.tenant_id)),
@@ -275,7 +277,8 @@ _MULTI_AGENT_CORE: tuple[str, ...] = (
     "invite_to_thread",
     "leave_thread",
     "post_thread_message",
-    "request_participant_turn",
+    "ask_agent",
+    "handoff_to",
     "start_conversation",
     "delegate_to_agent",
     "create_decision_request",
@@ -307,7 +310,8 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "invite_to_thread",
         "leave_thread",
         "post_thread_message",
-        "request_participant_turn",
+        "ask_agent",
+        "handoff_to",
         "create_decision_request",
         "propose_action",
         "list_threads",
@@ -319,7 +323,7 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "react_to_message",
         "note_no_reply",
         "list_agents",
-        "list_teams",
+        "list_departments",
         "get_tenant_overview",
     ),
     "communication": (
@@ -335,7 +339,8 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "list_threads",
         "set_thread_tags",
         "invite_to_thread",
-        "request_participant_turn",
+        "ask_agent",
+        "handoff_to",
         "generate_image",
     ),
     "assistant": (
@@ -346,7 +351,8 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "delegate_to_agent",
         "start_conversation",
         "invite_to_thread",
-        "request_participant_turn",
+        "ask_agent",
+        "handoff_to",
         "list_threads",
         "list_agents",
         "list_tags",
@@ -381,6 +387,22 @@ def default_tools_for_role(role: str) -> list[str]:
     return list(ROLE_TOOL_TEMPLATES["assistant"])
 
 
+async def company_agents(
+    session: AsyncSession, tenant_id: UUID, *, include_inactive: bool = False
+) -> list[Agent]:
+    """Company agents as the agents list counts them; the Grid uses the same rows."""
+    kinds = ("company", "archived") if include_inactive else ("company",)
+    filters = [
+        Agent.tenant_id == tenant_id,
+        Agent.acts_for_user.is_(False),
+        Agent.kind.in_(kinds),
+    ]
+    if not include_inactive:
+        filters.append(Agent.is_active.is_(True))
+    result = await session.execute(select(Agent).where(*filters).order_by(Agent.updated_at.desc()))
+    return list(result.scalars().all())
+
+
 async def list_runtime_agents(
     session: AsyncSession,
     tenant_id: UUID,
@@ -393,18 +415,7 @@ async def list_runtime_agents(
     The list is the passport view: identity, model and tools, no system prompt.
     The edit screen loads one agent with ``get_runtime_agent``.
     """
-    kinds = ("company", "archived") if include_inactive else ("company",)
-    filters = [
-        Agent.tenant_id == tenant_id,
-        Agent.acts_for_user.is_(False),
-        Agent.kind.in_(kinds),
-    ]
-    if not include_inactive:
-        filters.append(Agent.is_active.is_(True))
-    result = await session.execute(
-        select(Agent).where(*filters).order_by(Agent.updated_at.desc())
-    )
-    agents = list(result.scalars().all())
+    agents = await company_agents(session, tenant_id, include_inactive=include_inactive)
     if not agents:
         return []
     # Latest run per agent in one query (avoids N+1 on the agents list).
@@ -426,6 +437,12 @@ async def list_runtime_agents(
     from app.services.managed_resources import affiliations_by_agent_id
 
     affiliations = await affiliations_by_agent_id(session, tenant_id, agents)
+    from app.models.auth import Tenant
+    from app.services.agent_rules import normalize_autonomy
+    from app.services.ai_handling import governance_ceiling, min_mode
+
+    tenant = await session.get(Tenant, tenant_id)
+    ceiling_mode = governance_ceiling(tenant)[0] if tenant is not None else "autonomous"
     return [
         serialize_agent(
             agent,
@@ -434,6 +451,7 @@ async def list_runtime_agents(
             open_conversations=open_by.get(agent.id, 0),
             awaiting_decision=decision_by.get(agent.id, 0),
             affiliation=affiliations.get(agent.id),
+            effective_autonomy=min_mode(normalize_autonomy(agent.autonomy_level), ceiling_mode),
         )
         for agent in agents
     ]

@@ -4,7 +4,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { SectionLabel } from '../ui/section-label'
 import { BotOrbAvatar } from '../ui/BotOrbAvatar'
 import { useWorkspace } from '../../context/WorkspaceContext'
-import { BOT_ORB_SHAPE_KEYS, botOrbMoreColors, DEFAULT_BOT_ORB_COLOR } from '../../lib/bot-orb-shapes'
+import { BOT_ORB_SHAPE_KEYS, CODING_AGENT_SHAPE_KEYS, botOrbMoreColors, DEFAULT_BOT_ORB_COLOR } from '../../lib/bot-orb-shapes'
+import { useAuth } from '../../context/AuthContext'
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import type { useLocalOrbPreview } from '../../hooks/useBotOrbPulse'
 import { resolveBrandSeed } from '../../lib/tenant-branding'
@@ -54,6 +55,7 @@ export function AgentVisualEditor({
   onShapeChange,
 }: Props) {
   const { t } = useTranslation('nav')
+  const { user } = useAuth()
   const { currentWorkspace } = useWorkspace()
   const [moreColorsOpen, setMoreColorsOpen] = useState(false)
   const [moreShapesOpen, setMoreShapesOpen] = useState(false)
@@ -77,7 +79,13 @@ export function AgentVisualEditor({
   useEffect(() => {
     if (compactShapes && !(QUICK_SHAPES as readonly string[]).includes(shape)) setMoreShapesOpen(true)
   }, [compactShapes, shape])
-  const shapeKeys = compactShapes ? BOT_ORB_SHAPE_KEYS.filter((key) => !(QUICK_SHAPES as readonly string[]).includes(key)) : BOT_ORB_SHAPE_KEYS
+  const shapeKeys = useMemo(() => {
+    const coding = new Set<string>(CODING_AGENT_SHAPE_KEYS)
+    const visible = user?.codingAgentIntegrationsEnabled
+      ? BOT_ORB_SHAPE_KEYS
+      : BOT_ORB_SHAPE_KEYS.filter((key) => !coding.has(key))
+    return compactShapes ? visible.filter((key) => !(QUICK_SHAPES as readonly string[]).includes(key)) : visible
+  }, [compactShapes, user?.codingAgentIntegrationsEnabled])
 
   return (
     <Tabs value={kind} onValueChange={(v) => onKindChange(v === 'initials' ? 'initials' : 'orb')}>

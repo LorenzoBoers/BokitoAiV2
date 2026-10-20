@@ -258,6 +258,8 @@ describe('upsertThreadRow', () => {
       inheritedSource: 'channel',
       inheritedSourceLabel: 'Support',
       own: 'manual',
+      layers: [],
+      ceilings: [],
     } as const
     const existing = thread({ aiHandling: handling })
     const next = upsertThreadRow([existing], thread({ aiHandling: null }))

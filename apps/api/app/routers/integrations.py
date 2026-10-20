@@ -121,7 +121,7 @@ async def get_providers(
 ):
     from app.modules.catalog import user_can_access_module
 
-    data = await list_providers(session, auth.tenant.id)
+    data = await list_providers(session, auth.tenant.id, include_coming_soon=auth.is_staff)
     for module in data.get("modules") or []:
         module["user_accessible"] = await user_can_access_module(
             session,
@@ -316,6 +316,7 @@ class ModuleAgentPatchBody(BaseModel):
 
 class ModuleAgentHireBody(BaseModel):
     open_setup_chat: bool = True
+    name: str | None = None
 
 
 @router.get("/modules/{slug}/agents")
@@ -349,6 +350,7 @@ async def hire_module_specialist(
             slug,
             actor_id=auth.user.id,
             open_setup_chat=body.open_setup_chat,
+            name=body.name,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

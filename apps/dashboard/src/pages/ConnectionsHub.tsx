@@ -1,3 +1,4 @@
+import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -638,7 +639,7 @@ export default function ConnectionsHub() {
         }}
       />
 
-      <PageRelatedLinks links={[{ to: '/grid', label: t('orgCanvas.link') }]} />
+      <PageRelatedLinks links={[{ to: GRID_PATH, label: t('orgCanvas.link') }]} />
     </PageContent>
   )
 }

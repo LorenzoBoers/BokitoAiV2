@@ -4,7 +4,7 @@ intro: API-tokens, scopes en hoe je inloggegevens meestuurt.
 description: Maak Bokito-API-tokens aan onder Instellingen, Developers, kies Workspace-API- en agentscopes, en roteer of trek ze in.
 keywords: authenticatie, api-token, bearer, scopes, developers, beveiliging
 sort: 20
-related: api-overview,api-signals,mcp-endpoint
+related: api-today,api-signals,mcp-endpoint
 ---
 
 # Authenticatie
@@ -33,7 +33,7 @@ Verzoeken zonder geldig token krijgen `401 Unauthorized`.
 Het aanmaakformulier groepeert scopes:
 
 - **Workspace-API:** `signals:read` leest gesprekken en berichten. `signals:write` maakt gesprekken aan.
-- **Wat agents en apps mogen doen:** `messaging`, `workspace`, `projects`, `agents`, `delegation`, `channels`, `triggers`, `integrations`, `govern`. Het token kan alleen tools in de aangevinkte groepen zien en aanroepen. `agents` gaat over het inrichten van de werkvloer, `delegation` over werk eraan overdragen.
+- **Wat agents en apps mogen doen:** `messaging`, `workspace`, `projects`, `agents`, `delegation`, `channels`, `triggers`, `koppelingen`, `govern`. Het token kan alleen tools in de aangevinkte groepen zien en aanroepen. `agents` gaat over het inrichten van de werkvloer, `delegation` over werk eraan overdragen.
 
 Een lege scopelijst is volledige toegang. Kies liever één token per integratie met alleen de scopes die het nodig heeft. Een verzoek buiten die scopes krijgt `403 Forbidden`.
 

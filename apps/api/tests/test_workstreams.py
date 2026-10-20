@@ -13,7 +13,7 @@ from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
 os.environ["BOKITO_MOCK_EXECUTION"] = "true"
 
-API = "/api/workstreams"
+API = "/api/flows"
 
 
 async def _login(client: AsyncClient) -> dict[str, str]:

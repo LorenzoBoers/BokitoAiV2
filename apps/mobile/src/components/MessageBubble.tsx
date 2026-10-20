@@ -21,6 +21,8 @@ import {
   translateMockAgentBody,
 } from '../lib/format'
 import { spacing, type ColorTokens } from '../theme'
+import { MessageBubble as SharedBubble, type MessageVariant } from '@bokito/ui'
+import type { BubbleStack } from '@bokito/shared'
 
 type Props = {
   message: ThreadMessage
@@ -37,6 +39,7 @@ type Props = {
   onEditNote?: (draft: { body: string; messageId: string }) => void
   onDeleteNote?: (messageId: string) => void
   currentUserId?: number | null
+  stack?: BubbleStack
 }
 
 function isNoteKind(kind: string): boolean {
@@ -69,6 +72,7 @@ export default function MessageBubble({
   onEditNote,
   onDeleteNote,
   currentUserId,
+  stack = 'single',
 }: Props) {
   const { t, locale } = useCopy()
   const { colors } = useTheme()
@@ -244,9 +248,23 @@ export default function MessageBubble({
     void submitMessageFeedback(message.id, value).catch(() => setFeedback(null))
   }
 
+  const variant: MessageVariant = isAgent
+    ? 'ai'
+    : inbound
+      ? 'customer'
+      : isTeammate
+        ? 'team'
+        : 'self'
+  const side = variant === 'self' ? 'right' : 'left'
+
   return (
-    <View style={[styles.bubble, bubbleStyle]}>
-      {authorLabel ? <Text style={styles.fromLabel}>{authorLabel}</Text> : null}
+    <SharedBubble
+      side={side}
+      variant={variant}
+      stack={stack}
+      header={authorLabel ? <Text style={styles.fromLabel}>{authorLabel}</Text> : null}
+      body={
+      <>
       {hasHtml ? (
         <View style={styles.webviewWrap}>
           <WebView
@@ -292,7 +310,9 @@ export default function MessageBubble({
           </Pressable>
         </View>
       ) : null}
-    </View>
+      </>
+      }
+    />
   )
 }
 

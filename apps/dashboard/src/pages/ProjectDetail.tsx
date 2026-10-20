@@ -37,6 +37,7 @@ import { ProjectCanvasBoard } from '../components/projects/ProjectCanvasBoard'
 import { ProjectFlowBoards } from '../components/projects/ProjectFlowBoards'
 import { ProjectFolderGrid } from '../components/projects/ProjectFolderCards'
 import { ProjectHome } from '../components/projects/ProjectHome'
+import { WorksInSection } from '../components/projects/WorksInSection'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { projectHubPath } from '../lib/messages-paths'
 import { withNavReveal } from '../lib/nav-reveal'
@@ -307,6 +308,8 @@ export default function ProjectDetail() {
             </TabsList>
 
             <TabsContent value="home" className="space-y-6">
+              <WorksInSection projectId={project.id} canEdit={isAdmin} />
+
               {folders.length > 0 || isAdmin ? (
                 <section className="space-y-2" aria-labelledby="project-folders">
                   <div className="flex items-center justify-between gap-2">

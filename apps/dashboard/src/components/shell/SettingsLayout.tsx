@@ -9,7 +9,6 @@ import { EmptyState } from '../ui/empty-state'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { MY_ASSISTANT_SETTINGS_PATH } from '../../lib/assistant-settings-path'
 import { cn } from '../../lib/utils'
-
 type SettingsLink = { labelKey: string; to: string; match?: string | string[]; hintKey?: string }
 type SettingsGroup = { labelKey: string; links: SettingsLink[]; accent?: boolean }
 
@@ -33,8 +32,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     labelKey: 'settings.groups.communication',
     links: [
       { labelKey: 'settings.links.emailMessages', to: '/settings/channels', match: '/settings/channels', hintKey: 'settings.hints.emailMessages' },
-      { labelKey: 'settings.links.inboxAi', to: '/settings/communication', match: '/settings/communication', hintKey: 'settings.hints.inboxAi' },
-      { labelKey: 'settings.links.categories', to: '/settings/action-tags', hintKey: 'settings.hints.categories' },
+      { labelKey: 'settings.links.categories', to: '/settings/labels', hintKey: 'settings.hints.categories' },
     ],
   },
   {

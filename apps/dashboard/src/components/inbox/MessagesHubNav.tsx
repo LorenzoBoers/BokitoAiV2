@@ -11,9 +11,9 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Activity, Clock, Inbox, Mail, Plus, Settings } from 'lucide-react'
+import { Activity, Clock, Inbox, Mail, Plus, Settings, Sunrise } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
-import { GRID_ICON } from '../../lib/navigation'
+import { GRID_ICON, GRID_PATH, OVERVIEW_PATH } from '../../lib/navigation'
 import { useTranslation } from 'react-i18next'
 import { AiAvatar } from '../ui/AiAvatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
@@ -140,7 +140,7 @@ const SECTION_GEAR: Partial<
     defaultLabel: 'Manage folders',
   },
   flows: {
-    to: '/workstreams',
+    to: '/flows',
     labelKey: 'support.flows.settingsAria',
     defaultLabel: 'Manage flows',
   },
@@ -804,7 +804,7 @@ export default function MessagesHubNav() {
     for (const team of teams) {
       icons.set(
         teamItemId(team.id),
-        <TeamFacepile team={team} size={14} linkAgents={false} presence={team.presence?.status} />,
+        <TeamFacepile team={team} size={14} faces={2} cutout="bg" linkAgents={false} presence={team.presence?.status} />,
       )
     }
     return paintCatalog(built, icons, marks)
@@ -880,7 +880,7 @@ export default function MessagesHubNav() {
               label={team.name}
               title={team.description || team.name}
               icon={
-                <TeamFacepile team={team} size={14} linkAgents={false} presence={team.presence?.status} />
+                <TeamFacepile team={team} size={14} faces={2} cutout="bg" linkAgents={false} presence={team.presence?.status} />
               }
               activeLeaf={activeLeaf}
               defaultQueue="open"
@@ -905,6 +905,10 @@ export default function MessagesHubNav() {
     <div className="flex h-full min-h-0 flex-col">
       <ScrollFade className="space-y-3 pb-1">
         <section className="space-y-px">
+          <NavLink to={OVERVIEW_PATH} className="nav-row" data-testid="hub-today">
+            <Sunrise aria-hidden />
+            <span className="min-w-0 flex-1 truncate-fade">{t('tabs.overview.title')}</span>
+          </NavLink>
           <SidebarFolder
             baseLeaf={inboxBaseLeaf}
             label={t('support.inbox.allCommunication')}
@@ -955,7 +959,7 @@ export default function MessagesHubNav() {
                       {section === 'teams' ? (
                         <Tip label={t('orgCanvas.link')}>
                           <Link
-                            to="/grid"
+                            to={GRID_PATH}
                             aria-label={t('orgCanvas.link')}
                             className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
                             onClick={(event) => event.stopPropagation()}

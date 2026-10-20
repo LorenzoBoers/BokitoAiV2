@@ -1,6 +1,6 @@
 # Bokito Mobile
 
-Native Expo app on the Bokito API. Home is a new conversation (the same shape as the workspace `/new` page): write to an agent, then open that thread. Conversations is the Assigned to me list. Decisions are answered inside the conversation. Account holds sign-out, the workspace name and push switches.
+Native Expo app on the Bokito API. Tabs: New conversation, Communication, Agenda, Account. Shared bubbles, rows and tokens come from `@bokito/ui` and `@bokito/ui-tokens`. Decisions are answered inside the conversation. A JS-only change ships with `eas update` on the preview channel; a native change (fonts, svg) needs a new EAS build because `runtimeVersion` uses the fingerprint policy.
 
 ## Development
 

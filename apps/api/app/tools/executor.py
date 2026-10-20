@@ -482,6 +482,22 @@ async def _execute_tool(
     result = await _invoke_handler(session, spec, ctx, tool_input)
     if spec.mutating and not (isinstance(result, dict) and result.get("change_id")):
         outcome = "error" if isinstance(result, dict) and result.get("error") else "executed"
+        if outcome == "executed" and isinstance(result, dict) and _writes_through_connection(tool_name):
+            try:
+                from app.services.deliveries import record_connection_write
+
+                await record_connection_write(
+                    session,
+                    tenant_id,
+                    signal_id,
+                    tool_name=tool_name,
+                    tool_input=tool_input,
+                    result=result,
+                    agent_id=getattr(agent, "id", None),
+                    user_id=user_id if agent is None else None,
+                )
+            except Exception:
+                logger.exception("delivery after %s failed", tool_name)
         try:
             await record_audit(
                 session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
@@ -498,6 +514,13 @@ async def _execute_tool(
             except Exception:
                 logger.exception("rollback after audit failure failed")
     return result
+
+
+def _writes_through_connection(tool_name: str) -> bool:
+    """Module verbs (``{slug}_{verb}``) act on an external package through a connection."""
+    from app.modules.catalog import MODULE_TOOL_PREFIXES
+
+    return any(tool_name.startswith(prefix) for prefix in MODULE_TOOL_PREFIXES.values())
 
 
 async def _invoke_handler(session: AsyncSession, spec: Any, ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:

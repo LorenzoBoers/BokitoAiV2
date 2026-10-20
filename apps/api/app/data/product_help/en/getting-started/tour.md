@@ -22,16 +22,16 @@ Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organi
 ## Daily loop at the top
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*New chat, Overview and Communication sit above the grouped sections.*
+*New conversation, Today and Communication sit above the grouped sections.*
 
-- **New chat** — opens `/new` to start a conversation.
-- **Overview** — the morning scan of open work, decisions and usage. See [Overview](/docs/getting-started/cockpit). You can set Overview as your start page under Profile; Communication is the default.
+- **New conversation** — opens `/new` to start a conversation.
+- **Today** — the morning scan of open work, decisions and usage. See [Today](/docs/getting-started/cockpit). You can set Today as your start page under Profile; Communication is the default.
 - **Communication** — the conversations, and the contacts behind them. Standalone in the rail (not under a section). See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
 
 ## Work and AI
 
 - **Folders** — a tag with a place: conversations, boards and docs under one path. See [Folders](/docs/ai/folders).
-- **Flows** — ticket pipelines, each titled with its label. See [Flows](/docs/ai/workstreams).
+- **Flows** — ticket pipelines, each titled with its label. See [Flows](/docs/ai/flows).
 - **Agenda** — when agents wake; lives under **Work**. See [Agenda](/docs/ai/agenda).
 - **Agents** — hire and brief. See [Agents](/docs/ai/agents).
 - **Knowledge** — docs, skills and memory; equal sibling next to Agents. See [Knowledge](/docs/ai/knowledge).
@@ -42,18 +42,18 @@ Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organi
 At the bottom of the rail, **Organization** groups the workspace itself:
 
 - **Workforce** — the people, the agents and the departments they form, with who is available now. See [Workforce](/docs/getting-started/team).
-- **Connections** — modules, partner logins, tools and AI tools on one page. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Integrations](/docs/integrations/integrations).
-- **Settings** — grouped as Personal (**Profile & security**, **Notifications**, **My assistant**), Workspace (**General**, **Branding**), Communication (**Channels**, **AI handling**, **Labels**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Bin** and **Support** sit at the bottom of the settings sidebar. **Support** opens the setup guide, product tour, docs, API reference and contact options. Website chat is a channel row under **Channels**, not its own settings item. See [Labels and tickets](/docs/ai/categories).
+- **Connections** — modules, partner logins, tools and AI tools on one page. Installed modules (for example **Accounting**) do not add their own rail tabs. See [Connections](/docs/integrations/integrations).
+- **Settings** — grouped as Personal (**Profile & security**, **Notifications**, **My assistant**), Workspace (**General**, **Branding**), Communication (**Channels**, **Autonomy**, **Labels**), AI and control (**Govern**, **Models**, **Data & privacy**) and Advanced (**Developers**). **Bin** and **Support** sit at the bottom of the settings sidebar. **Support** opens the setup guide, product tour, docs, API reference and contact options. Website chat is a channel row under **Channels**, not its own settings item. See [Labels and tickets](/docs/ai/categories).
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
-Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **Chat** (default), **Messages**, or **Overview**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **Chat** (default), **Messages**, or **Today**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
 
 ## Use the command palette
 
 1. Press `Ctrl+K` (Windows) or `Cmd+K` (Mac) from any signed-in page.
 2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Messages queues**, **Knowledge** and **Settings**.
-3. With an empty query, **Actions** also offers **New conversation**, **Talk to an agent**, **Open agent**, **Open flow**, **Open project**, **Open Knowledge**, **Open Agenda**, **New flow**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **New project**, **Connect mailbox**, **Open setup guide**, **Open help (Bokito)** and **Open support**. **Open project** and **New project** open a folder.
+3. With an empty query, **Actions** also offers **New conversation**, **Talk to an agent**, **Open agent**, **Open flow**, **Open folder**, **Open Knowledge**, **Open Agenda**, **New flow**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **New folder**, **Connect mailbox**, **Open setup guide**, **Open help (Bokito)** and **Open support**. **Open folder** and **New folder** open a folder.
 4. Settings pages appear after you type. You can **Switch to light mode** or **Switch to dark mode** from the palette too.
 
 Communication search in the thread list searches conversations. The palette is for jumping, not for inbox filters.

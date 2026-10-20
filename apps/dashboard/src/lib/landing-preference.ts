@@ -2,23 +2,22 @@ import { useEffect } from 'react'
 import { appRoutes } from '../api/routes'
 import { APP_API_BASE } from './api.config'
 import { lastInboxPath } from './inbox-prefs'
-import { newConversationPath } from './messages-paths'
 import { OVERVIEW_PATH } from './navigation'
 
-export type DefaultLanding = 'chat' | 'communication' | 'overview'
+export type DefaultLanding = 'communication' | 'overview'
 
 const LANDING_KEY = 'bokito-default-landing'
 
 export function parseDefaultLanding(raw: unknown): DefaultLanding {
-  if (raw === 'overview' || raw === 'communication' || raw === 'chat') return raw
-  return 'chat'
+  if (raw === 'overview') return 'overview'
+  return 'communication'
 }
 
 export function readCachedDefaultLanding(): DefaultLanding {
   try {
     return parseDefaultLanding(window.localStorage.getItem(LANDING_KEY))
   } catch {
-    return 'chat'
+    return 'communication'
   }
 }
 
@@ -33,8 +32,7 @@ export function writeCachedDefaultLanding(landing: DefaultLanding): void {
 /** Path to open after login / home when no explicit return_to is set. */
 export function pathForDefaultLanding(landing: DefaultLanding = readCachedDefaultLanding()): string {
   if (landing === 'overview') return OVERVIEW_PATH
-  if (landing === 'communication') return lastInboxPath()
-  return newConversationPath()
+  return lastInboxPath()
 }
 
 /** Keep localStorage in sync with `/me/preferences` so HomeRoute can redirect instantly. */

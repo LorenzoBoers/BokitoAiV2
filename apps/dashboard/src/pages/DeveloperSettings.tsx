@@ -29,6 +29,7 @@ import { ConnectAiToolsSection } from '../components/developers/ConnectAiToolsSe
 import { WorkbenchSection } from '../components/developers/WorkbenchSection'
 import { isHttpsUrl } from '../lib/https-url'
 import { useAuth } from '../context/AuthContext'
+import { AUTONOMY_PATH } from '../lib/navigation'
 import {
   listMcpOAuthGrants,
   revokeMcpOAuthGrant,
@@ -793,7 +794,7 @@ export default function DeveloperSettings() {
               }
               footer={
                 <Link
-                  to="/settings/communication"
+                  to={AUTONOMY_PATH}
                   className="text-xs font-medium text-accent hover:underline"
                 >
                   {t('developersPage.webhooks.emptyCommunicationLink')}

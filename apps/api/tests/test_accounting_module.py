@@ -99,7 +99,7 @@ def test_module_catalog_has_prepared_modules():
         "vat-filing-prep",
         "monthly-close-review",
     }
-    assert package["project"] is None
+    assert package["project"]["name_nl"] == "Administratie"
     assert modules["banking"]["status"] == "available"
     assert modules["banking"]["provider_slugs"] == ["gocardless_bank"]
     for slug in ("investing", "documents", "accountant"):
@@ -634,7 +634,7 @@ async def test_snapshot_lists_unconnected_modules(session_override: AsyncSession
     assert "Modules:" in prompt
     assert "accounting — not installed" in prompt
     assert "/connections/accounting" in prompt
-    assert "prepared, not connectable" in prompt
+    assert "investing" not in prompt  # coming soon stays hidden
 
 
 @pytest.mark.asyncio
@@ -644,7 +644,7 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     tenant = await _tenant(session_override)
     listed = await execute_tool(session_override, tenant.id, None, "list_modules", {})
     slugs = {row["slug"] for row in listed["modules"]}
-    assert slugs == {"accounting", "banking", "investing", "documents", "accountant"}
+    assert slugs == {"accounting", "banking"}
     assert module_for_provider("moneybird") == "accounting"
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
     assert accounting["setup_path"] == "/connections/accounting"

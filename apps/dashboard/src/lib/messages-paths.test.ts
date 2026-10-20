@@ -9,6 +9,7 @@ import {
   normalizeThreadHref,
   leafKey,
   leafPath,
+  newConversationPathForLeaf,
   legacyHubRedirect,
   sameLeafScope,
   SUB_QUEUES,
@@ -25,6 +26,29 @@ describe('normalizeThreadHref', () => {
     expect(normalizeThreadHref('/communication/inbox/open/t/sig-1')).toBe(
       '/communication/inbox/open/t/sig-1',
     )
+  })
+})
+
+describe('newConversationPathForLeaf', () => {
+  it('opens the conversation type of the folder you are in', () => {
+    expect(newConversationPathForLeaf({ type: 'inbox' })).toBe('/communication/new')
+    expect(newConversationPathForLeaf({ type: 'agent', agentId: 'a1' })).toBe(
+      '/communication/new?intent=agent&agent=a1',
+    )
+    expect(
+      newConversationPathForLeaf({ type: 'channel', channelKey: 'email', connectionId: '12' }),
+    ).toBe('/communication/new?intent=contact&connectionId=12')
+    expect(newConversationPathForLeaf({ type: 'channel', channelKey: 'whatsapp' })).toBe(
+      '/communication/new?intent=whatsapp',
+    )
+    expect(newConversationPathForLeaf({ type: 'channel', channelKey: 'webchat' })).toBe(
+      '/communication/new?intent=channel&channel=widget',
+    )
+    expect(newConversationPathForLeaf({ type: 'tag', tag: '#refund' })).toBe(
+      '/communication/new?intent=ticket&tag=refund',
+    )
+    expect(newConversationPathForLeaf({ type: 'team', teamId: 'tm-1' })).toBe('/communication/new')
+    expect(newConversationPathForLeaf({ type: 'project', projectId: 'p1' })).toBe('/communication/new')
   })
 })
 

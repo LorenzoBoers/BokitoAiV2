@@ -58,6 +58,7 @@ export const appRoutes = {
     conversationCancel: (conversationId: string) =>
       `/signals/conversations/${encodeURIComponent(conversationId)}/cancel`,
     thread: (threadId: string) => `/signals/${threadId}`,
+    threadWhy: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/why`,
     threadClose: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/close`,
     threadAsk: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/ask`,
     threadDelete: (threadId: string) => `/signals/${threadId}`,
@@ -182,6 +183,8 @@ export const appRoutes = {
     myAway: '/departments/me/away',
     room: (id: string) => `/departments/${id}/room`,
     graph: '/org/graph',
+    flow: (days: number) => `/org/flow?days=${days}`,
+    flowSuggestLabels: '/org/flow/suggest-labels',
   },
   agenda: {
     occurrencesQuery: (params: URLSearchParams) => withQuery('/agenda', params),

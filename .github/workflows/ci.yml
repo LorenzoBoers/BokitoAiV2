@@ -46,6 +46,22 @@ jobs:
         env:
           VITE_BOKITO_API_URL: http://127.0.0.1:8000
 
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Typecheck shared UI packages
+        run: npx tsc --noEmit -p packages/ui-tokens/tsconfig.json && npx tsc --noEmit -p packages/ui/tsconfig.json
+      - name: Token snapshot and UI tests
+        run: npm test -w @bokito/ui-tokens && npm test -w @bokito/ui
+      - name: UI boundary check
+        run: npm run boundaries -w @bokito/ui
+
   mobile:
     runs-on: ubuntu-latest
     steps:
@@ -58,6 +74,9 @@ jobs:
       - name: Typecheck mobile app
         working-directory: apps/mobile
         run: npx tsc --noEmit
+      - name: Bundle mobile workspace packages
+        working-directory: apps/mobile
+        run: npx expo export --platform android --output-dir /tmp/bokito-mobile-export
 
   e2e:
     runs-on: ubuntu-latest

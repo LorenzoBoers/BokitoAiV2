@@ -14,7 +14,6 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.agent import Agent
 from app.models.auth import Tenant, User
 from app.models.calendar import CalendarTagLink, TenantCalendar
 from app.models.channel import ChannelAccount
@@ -22,7 +21,6 @@ from app.models.integration import IntegrationConnection
 from app.models.module_agent import AgentScope
 from app.models.module_source import ModuleSource
 from app.models.team import Department
-from app.models.orchestra import Workstream
 from app.models.project import Project, ProjectTagLink
 from app.models.project_work import ProjectResource
 from app.models.signal import SignalTag
@@ -979,18 +977,9 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         user_rows = list((await session.execute(select(User).where(User.id.in_(user_ids)))).scalars().all())
     users = {str(row.id): (row.display_name or row.email or "").strip() for row in user_rows}
     # Bokito (acts_for_user) is the in-app helper, not a company org-map node.
-    agents = {
-        str(row.id): row
-        for row in (
-            await session.execute(
-                select(Agent).where(
-                    Agent.tenant_id == tenant_id,
-                    Agent.is_active.is_(True),
-                    Agent.acts_for_user.is_(False),
-                )
-            )
-        ).scalars().all()
-    }
+    from app.services.workforce_runtime import company_agents
+
+    agents = {str(row.id): row for row in await company_agents(session, tenant_id)}
     # Module specialists appear via department membership (or flow/stage owners),
     # not via managed_origin provenance — that was a parallel path into the map.
     for agent_id, agent in agents.items():
@@ -1005,13 +994,9 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     tags = list(
         (await session.execute(select(SignalTag).where(SignalTag.tenant_id == tenant_id))).scalars().all()
     )
-    flows = list(
-        (
-            await session.execute(
-                select(Workstream).where(Workstream.tenant_id == tenant_id, Workstream.deleted_at.is_(None))
-            )
-        ).scalars().all()
-    )
+    from app.services.workstreams import operator_flows
+
+    flows = await operator_flows(session, tenant_id)
     folders = list(
         (
             await session.execute(select(Project).where(Project.tenant_id == tenant_id, Project.deleted_at.is_(None)))
@@ -1020,7 +1005,7 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     for tag in tags:
         add(f"label:{tag.id}", "label", f"#{tag.name}", f"/communication/tag/{tag.name}")
     for flow in flows:
-        add(f"flow:{flow.id}", "flow", flow.name, f"/workstreams/{flow.id}")
+        add(f"flow:{flow.id}", "flow", flow.name, f"/flows/{flow.id}")
     for folder in folders:
         add(f"folder:{folder.id}", "folder", folder.name, f"/folders/{folder.id}")
 
@@ -1226,8 +1211,6 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         ResourceGrant,
         WorkstreamChannel,
         WorkstreamConnection,
-        WorkstreamStage,
-        WorkstreamStageOwner,
     )
     from app.models.webhook import WebhookEndpoint
 
@@ -1254,26 +1237,13 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         elif account.routing_department_id:
             link(f"channel:{account.id}", f"department:{account.routing_department_id}")
 
-    stage_rows = list(
-        (
-            await session.execute(select(WorkstreamStage).where(WorkstreamStage.tenant_id == tenant_id))
-        ).scalars().all()
-    )
-    stage_flow = {row.id: row.workstream_id for row in stage_rows}
-    for owner in (
-        await session.execute(
-            select(WorkstreamStageOwner).where(WorkstreamStageOwner.tenant_id == tenant_id)
-        )
-    ).scalars().all():
-        flow_id = stage_flow.get(owner.stage_id)
-        if flow_id is None:
-            continue
-        if owner.department_id:
-            link(f"flow:{flow_id}", f"department:{owner.department_id}")
-        elif owner.agent_id:
-            link(f"flow:{flow_id}", f"agent:{owner.agent_id}")
-        elif owner.user_id:
-            link(f"flow:{flow_id}", f"user:{owner.user_id}")
+    from app.services.tickets import parse_stages
+
+    for flow in flows:
+        for stage in parse_stages(flow.stages_json):
+            owner = stage.get("owner")
+            if owner:
+                link(f"flow:{flow.id}", f"{owner['kind']}:{owner['id']}")
 
     for row in (
         await session.execute(select(WorkstreamChannel).where(WorkstreamChannel.tenant_id == tenant_id))

@@ -224,8 +224,8 @@ CANVAS_WAKE_DENY = frozenset(
         "delete_folder",
         "create_agent",
         "update_agent",
-        "create_workstream",
-        "update_workstream",
+        "create_flow",
+        "update_flow",
         "propose_session_checkout",
     }
 )
@@ -235,7 +235,7 @@ OPERATOR_PROGRESS_TOOL = "update_progress"
 OPERATOR_REACTION_TOOL = "react_to_message"
 # Reads of who works here. A specialist passport may omit them; an operator
 # chat still needs one request to see agents and teams.
-OPERATOR_ORG_TOOLS = frozenset({"get_tenant_overview", "list_agents", "list_teams"})
+OPERATOR_ORG_TOOLS = frozenset({"get_tenant_overview", "list_agents", "list_departments"})
 IMAGE_TOOL = "generate_image"
 
 

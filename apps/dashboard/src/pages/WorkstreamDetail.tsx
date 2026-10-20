@@ -18,8 +18,9 @@ import { NameEdit } from '../components/ui/NameEdit'
 import { LabelMarkDialog } from '../components/ui/LabelMark'
 import { TagPill } from '../components/ui/TagPill'
 import { Tip } from '../components/ui/Tip'
-import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/workstreams/FlowTicketBoard'
-import { StageProgressIcon } from '../components/workstreams/StageProgressIcon'
+import { FlowDestination } from '../components/flows/FlowDestination'
+import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/flows/FlowTicketBoard'
+import { StageProgressIcon } from '../components/flows/StageProgressIcon'
 import { useAuth } from '../context/AuthContext'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { flowActionTag, flowTitle } from '../lib/flow-title'
@@ -33,7 +34,7 @@ import {
   getWorkstreamBoard,
   patchWorkstream,
   type WorkstreamDetail as WorkstreamDetailPayload,
-} from '../lib/workstreams-api'
+} from '../lib/flows-api'
 
 const CalendarClock = ENTITY_ICONS.agenda
 const FlowIcon = ENTITY_ICONS.flow
@@ -70,6 +71,7 @@ export default function WorkstreamDetail() {
   const [deleting, setDeleting] = useState(false)
   const [freeTags, setFreeTags] = useState<SignalTag[]>([])
   const [bindingTag, setBindingTag] = useState(false)
+  const [savingReview, setSavingReview] = useState(false)
 
   const loadBoard = useCallback(async () => {
     if (!workstreamId) return
@@ -183,6 +185,21 @@ export default function WorkstreamDetail() {
     }
   }
 
+  const saveAlwaysReview = async (next: boolean) => {
+    if (!workstream) return
+    setSavingReview(true)
+    setWorkstream((prev) => (prev ? { ...prev, always_review: next } : prev))
+    try {
+      const updated = await patchWorkstream(workstream.id, { always_review: next })
+      setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
+    } catch (err) {
+      setWorkstream((prev) => (prev ? { ...prev, always_review: !next } : prev))
+      toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
+    } finally {
+      setSavingReview(false)
+    }
+  }
+
   const bindTag = async (tagId: string) => {
     if (!workstream) return
     setBindingTag(true)
@@ -204,7 +221,7 @@ export default function WorkstreamDetail() {
     try {
       await deleteWorkstream(workstream.id)
       toastMovedToBin(t('workstreamsPage.deleted'), navigate)
-      navigate('/workstreams')
+      navigate('/flows')
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.deleteError')))
     } finally {
@@ -215,7 +232,7 @@ export default function WorkstreamDetail() {
   return (
     <PageContent width="full" className="space-y-4 py-1">
       <Link
-        to="/workstreams"
+        to="/flows"
         className="inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
       >
         <ArrowLeft size={14} />
@@ -301,6 +318,12 @@ export default function WorkstreamDetail() {
               </div>
             </div>
 
+            <FlowDestination
+              flow={workstream}
+              canEdit={isAdmin}
+              onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
+            />
+
             {isAdmin ? (
               <textarea
                 value={description}
@@ -318,8 +341,21 @@ export default function WorkstreamDetail() {
               </p>
             ) : null}
 
-            {!tag || workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+              <label
+                className="inline-flex items-center gap-2 text-text-secondary"
+                title={t('workstreamsPage.alwaysReview.hint')}
+              >
+                <Switch
+                  checked={Boolean(workstream.always_review)}
+                  disabled={!isAdmin || savingReview}
+                  onCheckedChange={(checked) => void saveAlwaysReview(checked)}
+                  aria-label={t('workstreamsPage.alwaysReview.label')}
+                  data-testid="flow-always-review"
+                />
+                <span className="font-medium">{t('workstreamsPage.alwaysReview.label')}</span>
+                <span className="text-text-muted">{t('workstreamsPage.alwaysReview.hint')}</span>
+              </label>
               {!tag && isAdmin ? (
                   <ChoiceSelect
                     aria-label={t('workstreamsPage.meta.bindTag')}
@@ -361,7 +397,6 @@ export default function WorkstreamDetail() {
                 </Link>
               ) : null}
             </div>
-            ) : null}
           </header>
 
           <FlowViewBody

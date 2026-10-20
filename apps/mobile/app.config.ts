@@ -28,15 +28,15 @@ const config: ExpoConfig = {
   android: {
     package: 'ai.bokito.mobile',
     adaptiveIcon: {
-      backgroundColor: '#101319',
+      backgroundColor: '#121213',
     },
     ...(hasGoogleServices ? { googleServicesFile: './google-services.json' } : {}),
   },
-  runtimeVersion: '0.1.0',
+  runtimeVersion: { policy: 'fingerprint' },
   updates: {
     url: `https://u.expo.dev/${easProjectId}`,
     enabled: process.env.EAS_BUILD === 'true',
-    checkAutomatically: 'NEVER',
+    checkAutomatically: 'ON_LOAD',
     fallbackToCacheTimeout: 0,
   },
   plugins: [

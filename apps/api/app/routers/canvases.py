@@ -1,4 +1,4 @@
-"""Canvas nodes: project and tenant snapshot dashboards."""
+"""Canvas nodes: snapshot workspaces inside a folder."""
 
 from typing import Annotated
 from uuid import UUID
@@ -15,8 +15,9 @@ router = APIRouter(prefix="/workforce/canvases", tags=["canvases"])
 
 
 class CanvasCreateBody(BaseModel):
-    owner_kind: str
-    owner_id: UUID
+    # Omit both for the folder General.
+    owner_kind: str | None = None
+    owner_id: UUID | None = None
     title: str
     slug: str | None = None
     managing_agent_id: UUID | None = None
@@ -81,6 +82,26 @@ async def create_canvas(
         updated_by_type="user",
         updated_by_id=str(auth.user.id),
     )
+
+
+class CanvasLocation(BaseModel):
+    folder_id: str
+    canvas_id: str | None
+    href: str
+
+
+@router.get("/default-location", response_model=CanvasLocation)
+async def canvas_default_location(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    canvas_id: UUID | None = Query(None),
+):
+    """Where a canvas link without a folder lands.
+
+    The canvas named by ``canvas_id`` when it is alive, else the canvas touched
+    last, else the folder General.
+    """
+    return await canvas_svc.default_location(session, auth.tenant.id, canvas_id)
 
 
 @router.get("/{canvas_id}")

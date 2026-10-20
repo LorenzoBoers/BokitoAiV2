@@ -70,6 +70,9 @@ def serialize_workstream(
         "description": ws.description,
         "module_slug": ws.module_slug,
         "template_slug": ws.template_slug,
+        "always_review": bool(ws.always_review),
+        "deliver_folder_id": str(ws.deliver_folder_id) if ws.deliver_folder_id else None,
+        "deliver_works_in_key": ws.deliver_works_in_key or "",
         "stages": stages,
         "stages_count": stages_count if stages_count is not None else len(stages),
         "tags": tag_rows,
@@ -198,14 +201,18 @@ async def flow_folder_map(
 async def serialize_workstream_full(
     session: AsyncSession, ws: Workstream, *, stages_count: int | None = None
 ) -> dict[str, Any]:
+    from app.services.deliveries import flow_destination
+
     projects = await flow_folder_map(session, ws.tenant_id, [ws.id])
     tags = await playbook_tags_map(session, ws.tenant_id, [ws.id])
-    return serialize_workstream(
+    out = serialize_workstream(
         ws,
         stages_count=stages_count,
         project_ids=projects.get(ws.id, []),
         tags=tags.get(ws.id, []),
     )
+    out["deliver_to"] = await flow_destination(session, ws)
+    return out
 
 
 async def get_workstream(
@@ -227,10 +234,8 @@ async def get_workstream(
     return ws
 
 
-async def list_workstreams(
-    session: AsyncSession, tenant_id: UUID, *, project_id: UUID | None = None
-) -> list[dict[str, Any]]:
-    """List operator Flows — workstreams that have an action tag."""
+def operator_flows_query(tenant_id: UUID):
+    """Operator Flows: living workstreams with an action tag. The flows list and the Grid share it."""
     from app.models.signal import SignalTag
     from app.services.trash import alive
 
@@ -238,11 +243,24 @@ async def list_workstreams(
         SignalTag.tenant_id == tenant_id,
         SignalTag.workstream_id.isnot(None),
     )
-    query = select(Workstream).where(
+    return select(Workstream).where(
         Workstream.tenant_id == tenant_id,
         alive(Workstream),
         Workstream.id.in_(tagged),
     )
+
+
+async def operator_flows(session: AsyncSession, tenant_id: UUID) -> list[Workstream]:
+    return list((await session.execute(operator_flows_query(tenant_id).order_by(Workstream.name))).scalars().all())
+
+
+async def list_workstreams(
+    session: AsyncSession, tenant_id: UUID, *, project_id: UUID | None = None
+) -> list[dict[str, Any]]:
+    """List operator Flows — workstreams that have an action tag."""
+    from app.models.signal import SignalTag
+
+    query = operator_flows_query(tenant_id)
     if project_id is not None:
         from app.models.project import ProjectTagLink
 

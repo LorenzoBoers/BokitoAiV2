@@ -4,17 +4,17 @@ intro: Bring customer mail and other inboxes into Communication.
 description: Add channels in one list, create a Bokito address, connect Gmail, Outlook, SMTP/IMAP or WhatsApp, read each channel's state and checks, and turn off, disconnect or delete a channel.
 keywords: channels, gmail, outlook, smtp, imap, mailbox, bokito address, relay, channel state, routing, handovers, signature, turn off channel, disconnect channel, restore channel, delete channel, archive automated mail, newsletters, sync errors
 sort: 20
-related: communication,inbox-ai,widget,integrations
+related: communication,inbox-ai,widget,connections
 ---
 
 # Connect channels
 
-Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and availability** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them. When the list has more than three rows, search by name or address and use **Needs attention only**. Pausing or turning a channel on confirms in a short message. A failed load offers **Try again**.
+Channels are how customers reach the workspace. Open **Settings**, then **Channels**. Every channel — mailbox, Bokito address, website chat, WhatsApp, Slack — is one row with its name, how AI handles it, and one state. Click a row to open its page: the same **Status**, **General** and **Manage** sections for every channel. Website chat adds **Look**, **Voice and availability** and **Install** on that page. A new workspace starts with no channels; add email or website chat via **Add channel** when you need them. When the list has more than three rows, search by name or address and use **For you only**. Pausing or turning a channel on confirms in a short message. A failed load offers **Try again**.
 
 ## Add a channel
 
 ![Channel settings with an opened channel](/api/docs/assets/channels/mailbox-status.png)
-*Each row shows the AI handling mode and state; click a row to open the channel page.*
+*Each row shows the Autonomy mode and state; click a row to open the channel page.*
 
 1. Open **Settings**, then **Channels**.
 2. Choose **Add channel**.
@@ -118,22 +118,22 @@ Newsletters, receipts and no-reply notifications do not need an answer, but they
 1. Click the mailbox row and scroll to **Mailbox**.
 2. Turn on **Archive automated mail**. Bokito closes each newsletter, receipt or no-reply message on arrival and tags it `#automated`; the thread stays searchable under **Closed**.
 3. Leave it off to keep the current behaviour: the AI notes that no reply is needed and the thread stays in **Open** until someone closes it.
-4. When the same bulk sender keeps arriving, the AI proposes an **Automation rule** for it as a card in the conversation. Choose **Activate** to auto-close that sender from then on, or **Later**. See [AI handling](/docs/inbox/inbox-ai).
+4. When the same bulk sender keeps arriving, the AI proposes an **Automation rule** for it as a card in the conversation. Choose **Activate** to auto-close that sender from then on, or **Later**. See [Autonomy](/docs/inbox/inbox-ai).
 
-## Set AI handling per channel
+## Set Autonomy per channel
 
-1. The row shows the channel's current mode (**Autonomous**, **Assisted** or **Manual**) with its icon. Click the row and open **AI handling** under **General**. The mode marked **Company default** is what the channel follows when it has no own setting; choose it to clear an override.
+1. The row shows the channel's current mode (**Autonomous**, **Assisted** or **Manual**) with its icon. Click the row and open **Autonomy** under **General**. The mode marked **Company default** is what the channel follows when it has no own setting; choose it to clear an override.
 2. Pick **Autonomous**, **Assisted** or **Manual** for every conversation on this channel. Choose **Follow the workspace default** to remove it. Only an owner or admin can turn on Autonomous.
 3. A **Paused** badge means the circuit breaker tripped after unusual activity and the channel runs Assisted. Choose **Resume autonomous** or **Keep assisted** from the same menu.
 
-Contacts and single conversations can still differ from the channel. See [AI handling](/docs/inbox/inbox-ai).
+Contacts and single conversations can still differ from the channel. See [Autonomy](/docs/inbox/inbox-ai).
 
 ## Set handovers per channel
 
 1. Click the channel row and open **Handovers**. Every rule shows the workspace value with the **Company default** badge until the channel sets its own.
 2. Under **After a person replies**, pick **Return to the agent**, **Stays with the person** or **Ask when sending** for conversations on this channel. Pick the value marked **Company default** to follow the workspace again.
 3. Set **Close after an autonomous reply** and **Close after a person replies** to **On** or **Off**, or leave them on the company default. Under **Owner on reopen**, choose **Same owner** or **Route again**.
-4. Only an owner or admin can change these rules. The bounce limit applies to the whole workspace and lives under [AI handling](/docs/inbox/inbox-ai).
+4. Only an owner or admin can change these rules. The bounce limit applies to the whole workspace and lives under [Autonomy](/docs/inbox/inbox-ai).
 
 ## Connect WhatsApp
 
@@ -147,11 +147,11 @@ Contacts and single conversations can still differ from the channel. See [AI han
 ![Tags and Communication on the Channels page](/api/docs/assets/channels/communication-tags.png)
 *Each Communication row with the sub-view it opens on.*
 
-1. Scroll to **Tags and Communication** on the same page. Every row in the Communication sidebar has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Pick the **Default sub-view**, and override it per team, channel, tag or project below.
+1. Scroll to **Tags and Communication** on the same page. Every row in the Communication sidebar has the same sub-views: **For you**, **Open**, **Unassigned** and **Closed**. Pick the **Default sub-view**, and override it per team, channel, tag or folder below.
 2. Manage tags and labels with a flow under **Settings** → **Labels with a flow**: one **Tags** list. Choose **New tag**, type a name, and add a description agents read.
 3. Pin a free tag for a row under **Tags** in Communication, or choose **Create flow** to attach a flow. On a label with a flow choose **Open flow**.
 4. See [Labels and tickets](/docs/ai/categories).
 
 ## What to do next
 
-Set whether the AI answers, drafts or stays quiet under [AI handling](/docs/inbox/inbox-ai). Open Communication and wait for the first thread.
+Set whether the AI answers, drafts or stays quiet under [Autonomy](/docs/inbox/inbox-ai). Open Communication and wait for the first thread.

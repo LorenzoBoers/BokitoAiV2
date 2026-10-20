@@ -1,4 +1,4 @@
-"""Project/tenant canvas nodes — compile, CRUD, Govern, refresh trigger."""
+"""Canvas nodes in folders: compile, CRUD, Govern, refresh trigger."""
 
 from __future__ import annotations
 
@@ -246,7 +246,7 @@ async def test_window_prose_applies_and_session_stays_usable(client: AsyncClient
     created = await client.post(
         "/api/workforce/canvases",
         headers=headers,
-        json={"owner_kind": "tenant", "owner_id": str(tenant.id), "title": "AM desk"},
+        json={"title": "AM desk"},
     )
     assert created.status_code == 200, created.text
     source = (
@@ -391,39 +391,67 @@ export default function Canvas() {
 
 
 @pytest.mark.asyncio
-async def test_tenant_canvas_and_forbidden_source(client: AsyncClient, session_override):
+async def test_canvas_without_folder_lands_in_general_and_forbidden_source(
+    client: AsyncClient, session_override
+):
     from sqlalchemy import select
 
     from app.models.auth import Tenant
     from app.services.project_canvas import apply_canvas_document
+    from app.services.works_in import general_folder
 
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     tenant_id = str(tenant.id)
 
+    empty = await client.get("/api/workforce/canvases/default-location", headers=headers)
+    assert empty.status_code == 200
+    general = await general_folder(session_override, tenant.id, create=False)
+    assert general is not None
+    assert empty.json() == {
+        "folder_id": str(general.id),
+        "canvas_id": None,
+        "href": f"/folders/{general.id}?tab=canvas",
+    }
+
     created = await client.post(
         "/api/workforce/canvases",
         headers=headers,
         json={
-            "owner_kind": "tenant",
-            "owner_id": tenant_id,
             "title": "Morning scan",
             "refresh_cadence": "weekly",
             "notes": "Open threads and running work",
         },
     )
     assert created.status_code == 200, created.text
-    assert created.json()["owner_kind"] == "tenant"
+    assert created.json()["owner_kind"] == "project"
+    assert created.json()["owner_id"] == str(general.id)
     assert created.json()["empty"] is True
     assert created.json()["refresh_cadence"] == "weekly"
     assert created.json()["notes"] == "Open threads and running work"
 
     listed = await client.get(
-        f"/api/workforce/canvases?owner_kind=tenant&owner_id={tenant_id}",
+        f"/api/workforce/canvases?owner_kind=project&owner_id={general.id}",
         headers=headers,
     )
     assert listed.status_code == 200
     assert any(item["slug"] == "morning-scan" for item in listed.json()["items"])
+
+    landed = await client.get("/api/workforce/canvases/default-location", headers=headers)
+    assert landed.json()["canvas_id"] == created.json()["id"]
+    assert landed.json()["href"] == f"/folders/{general.id}?tab=canvas&canvas={created.json()['id']}"
+    gone = await client.get(
+        "/api/workforce/canvases/default-location?canvas_id=00000000-0000-0000-0000-000000000000",
+        headers=headers,
+    )
+    assert gone.json()["canvas_id"] == created.json()["id"]
+
+    retired = await client.post(
+        "/api/workforce/canvases",
+        headers=headers,
+        json={"owner_kind": "tenant", "owner_id": tenant_id, "title": "Old style"},
+    )
+    assert retired.status_code == 400
 
     with pytest.raises(HTTPException) as bad:
         await apply_canvas_document(
@@ -431,8 +459,6 @@ async def test_tenant_canvas_and_forbidden_source(client: AsyncClient, session_o
             tenant.id,
             {
                 "canvas_id": created.json()["id"],
-                "owner_kind": "tenant",
-                "owner_id": tenant_id,
                 "source": "import { Stack } from 'fs'\nexport default function C(){return <Stack />}",
             },
         )
@@ -468,8 +494,6 @@ async def test_custom_refresh_cron_roundtrip(client: AsyncClient, session_overri
         "/api/workforce/canvases",
         headers=headers,
         json={
-            "owner_kind": "tenant",
-            "owner_id": tenant_id,
             "title": "Missing cron",
             "refresh_cadence": "custom",
             "notes": "Needs a cron",
@@ -481,8 +505,6 @@ async def test_custom_refresh_cron_roundtrip(client: AsyncClient, session_overri
         "/api/workforce/canvases",
         headers=headers,
         json={
-            "owner_kind": "tenant",
-            "owner_id": tenant_id,
             "title": "Weekday desk",
             "refresh_cadence": "custom",
             "refresh_cron": "15 9 * * 1-5",

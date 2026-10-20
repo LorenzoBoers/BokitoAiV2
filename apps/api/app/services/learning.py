@@ -569,90 +569,6 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
     return True
 
 
-async def propose_scoped_autonomy_growth(
-    session: AsyncSession, tenant_id: UUID
-) -> int:
-    """Strong outcomes propose, but never apply, per-category/playbook autonomy."""
-    from app.models.orchestra import Workstream
-    from app.models.platform_change import PlatformChange
-    from app.models.signal import SignalTag
-
-    latest = (
-        await session.execute(
-            select(EvalScore)
-            .where(
-                EvalScore.tenant_id == tenant_id,
-                EvalScore.metric == "autonomy_rate",
-            )
-            .order_by(EvalScore.created_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if latest is None or latest.value < 80 or latest.sample_size < 10:
-        return 0
-
-    proposals = 0
-    resources: list[tuple[str, Any]] = []
-    resources.extend(
-        ("category", row)
-        for row in (
-            await session.execute(
-                select(SignalTag).where(
-                    SignalTag.tenant_id == tenant_id,
-                    SignalTag.workstream_id.is_not(None),
-                    SignalTag.autonomy_level.in_(("assisted", "approval")),
-                )
-            )
-        ).scalars().all()
-    )
-    resources.extend(
-        ("workstream", row)
-        for row in (
-            await session.execute(
-                select(Workstream).where(
-                    Workstream.tenant_id == tenant_id,
-                    Workstream.deleted_at.is_(None),
-                    Workstream.autonomy_level.in_(("assisted", "approval")),
-                )
-            )
-        ).scalars().all()
-    )
-    for resource_type, row in resources:
-        exists = (
-            await session.execute(
-                select(PlatformChange.id).where(
-                    PlatformChange.tenant_id == tenant_id,
-                    PlatformChange.resource_type == resource_type,
-                    PlatformChange.resource_id == str(row.id),
-                    PlatformChange.status.in_(("draft", "pending_review")),
-                )
-            )
-        ).first()
-        if exists:
-            continue
-        key = "tag_id" if resource_type == "category" else "workstream_id"
-        session.add(
-            PlatformChange(
-                tenant_id=tenant_id,
-                resource_type=resource_type,
-                resource_id=str(row.id),
-                change_kind="update",
-                status="pending_review",
-                summary=(
-                    f"Propose auto autonomy for {row.name}: "
-                    f"{latest.value:.0f}% autonomy over {latest.sample_size} actions"
-                ),
-                before_json=json.dumps({key: str(row.id), "autonomy_level": "assisted"}),
-                after_json=json.dumps({key: str(row.id), "autonomy_level": "autonomous"}),
-                proposed_by_type="system",
-            )
-        )
-        proposals += 1
-    if proposals:
-        await session.commit()
-    return proposals
-
-
 async def suggest_rules_from_feedback(session: AsyncSession, tenant_id: UUID) -> int:
     """Cluster repeated thumbs-down per sender into a suggested mute_ai rule.
 
@@ -883,7 +799,6 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
     guardrails = await apply_heuristic_guardrails(session, tenant_id)
     allowances = await apply_heuristic_allowance_tighten(session, tenant_id)
     persona_proposed = await propose_persona_review(session, tenant_id)
-    autonomy_proposals = await propose_scoped_autonomy_growth(session, tenant_id)
 
     enqueue_strategy = await _eval_trend_worsened(session, tenant_id, "escalation_rate")
     if await _eval_trend_worsened(session, tenant_id, "resolution_quality"):
@@ -932,7 +847,6 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         "guardrails": guardrails,
         "allowances": allowances,
         "persona_review_proposed": persona_proposed,
-        "autonomy_proposals": autonomy_proposals,
         "strategy_review_recommended": enqueue_strategy,
         "strategy_workstream_enqueued": workstream_enqueued,
     }

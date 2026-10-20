@@ -1,5 +1,6 @@
 from app.models.agent import Agent, AgentChatUser, AgentRun, RunEvent
 from app.models.agent_call import AgentCall
+from app.models.agent_turn import AgentAsk, AgentTurn
 from app.models.audit import AuditEvent
 from app.models.auth import Invite, Membership, Session, Tenant, User, UserPreference
 from app.models.auth_token import AuthToken
@@ -60,8 +61,6 @@ from app.models.relations import (
     ResourceGrant,
     WorkstreamChannel,
     WorkstreamConnection,
-    WorkstreamStage,
-    WorkstreamStageOwner,
 )
 from app.models.trash import TrashEntry
 
@@ -78,6 +77,8 @@ __all__ = [
     "UserNotificationPreference",
     "DecisionRequest",
     "AgentCall",
+    "AgentTurn",
+    "AgentAsk",
     "WorkspaceDoc",
     "DocSection",
     "DocChunk",
@@ -152,11 +153,10 @@ __all__ = [
     "TeamMember",
     "TrashEntry",
     "ResourceGrant",
-    "WorkstreamStage",
-    "WorkstreamStageOwner",
     "WorkstreamConnection",
     "WorkstreamChannel",
 ]
 
 # Owner normalization and turn hooks attach to the mappers on import.
 import app.services.ownership  # noqa: E402, F401
+import app.services.message_seq  # noqa: E402, F401

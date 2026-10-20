@@ -85,20 +85,21 @@ async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
     try:
         from app.db.session import async_session_factory
         from app.models.auth import Tenant
-        from app.services.ai_handling import load_layers, resolve_ai_handling
+        from app.services.ai_handling import resolve_for_signal
 
         async with async_session_factory() as session:
             tenant = await session.get(Tenant, signal.tenant_id)
             from app.models.agent import Agent
 
-            account, contact = await load_layers(session, signal.tenant_id, signal)
             agent = await session.get(Agent, signal.agent_id) if signal.agent_id else None
-            return resolve_ai_handling(tenant, account, contact, signal, agent=agent).to_payload()
+            return (await resolve_for_signal(session, tenant, signal, agent=agent)).to_payload()
     except Exception:  # noqa: BLE001 — publishing never breaks business logic
         return None
 
 
-TURN_EVENTS = frozenset({"agent.turn", "agent.activity", "agent.thinking", "message.delta", "message.part"})
+TURN_EVENTS = frozenset(
+    {"agent.turn", "agent.activity", "agent.thinking", "message.start", "message.delta", "message.part"}
+)
 # Ephemeral "someone is doing something on this thread" — agent think/work
 # and later WhatsApp / teammate typing. Never a SignalMessage row.
 THREAD_PRESENCE_PHASES = frozenset({"thinking", "working", "writing", "typing", "idle"})
@@ -200,7 +201,7 @@ async def publish_turn_event(
     if event not in TURN_EVENTS:
         raise ValueError(f"Unknown turn event: {event}")
     payload = {"signal_id": str(signal_id), **data}
-    if event in ("message.delta", "message.part"):
+    if event in ("message.start", "message.delta", "message.part"):
         payload["audience"] = "all"
     else:
         # Thinking, tool activity and turn bookends stay on the operator socket.
