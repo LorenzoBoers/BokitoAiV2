@@ -120,7 +120,7 @@ async def test_paths_modes_and_results(session_override):
     body = await org_flow.build_org_flow(session_override, d["tenant"], None)
     assert body["layers"] == ["input", "executor", "work", "result"]
     email, chat = f"channel:{d['email'].id}", f"channel:{d['chat'].id}"
-    ava, bram, lisa = f"agent:{d['ava'].id}", f"agent:{d['bram'].id}", f"user:{d['person'].id}"
+    ava, lisa = f"agent:{d['ava'].id}", f"user:{d['person'].id}"
     billing, bugs = f"flow:{d['billing_flow'].id}", f"flow:{d['bug_flow'].id}"
     folder = f"folder:{d['folder'].id}"
 

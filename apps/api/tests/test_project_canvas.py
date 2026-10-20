@@ -481,14 +481,8 @@ def test_cadence_labels_presets_and_custom():
 
 
 @pytest.mark.asyncio
-async def test_custom_refresh_cron_roundtrip(client: AsyncClient, session_override):
-    from sqlalchemy import select
-
-    from app.models.auth import Tenant
-
+async def test_custom_refresh_cron_roundtrip(client: AsyncClient, _session_override):
     headers = await _auth_headers(client)
-    tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    tenant_id = str(tenant.id)
 
     missing = await client.post(
         "/api/workforce/canvases",

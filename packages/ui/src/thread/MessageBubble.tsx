@@ -65,7 +65,7 @@ export function MessageBubble({
     cloudStyle = {
       ...cloudStyle,
       backgroundColor: tokens.color.accent,
-      shadowColor: '#000',
+      shadowColor: tokens.color.textPrimary,
       shadowOpacity: 0.1,
       shadowRadius: 2,
       shadowOffset: { width: 0, height: 1 },
@@ -106,7 +106,7 @@ export function MessageBubble({
       backgroundColor: tokens.color.bgSurface,
       borderWidth: 1,
       borderColor: tokens.color.border,
-      shadowColor: '#000',
+      shadowColor: tokens.color.textPrimary,
       shadowOpacity: 0.04,
       shadowRadius: 2,
       shadowOffset: { width: 0, height: 1 },
