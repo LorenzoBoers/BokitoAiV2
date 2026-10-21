@@ -10,13 +10,20 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orchestra import Workstream
 from app.models.project import ProjectTagLink
 from app.models.signal import TICKET_STAGE_KINDS, Signal, SignalTag
-from app.services.folders import DerivedNode, FolderCatalog, derive_tree, load_catalog
+from app.services.counts import conversation_scope, open_count
+from app.services.folders import (
+    DerivedNode,
+    FolderCatalog,
+    derive_tree,
+    folder_display_name,
+    load_catalog,
+)
 
 
 def _uuid(value: Any) -> UUID | None:
@@ -149,22 +156,6 @@ async def list_predicates(
     return filter_predicates(tenant_id, resolved)
 
 
-def _hub_scope(tenant_id: UUID, user_id: UUID, visible_account_ids: set[UUID] | None) -> list[Any]:
-    from app.services.signal_threads import _hub_predicate, _visibility_predicate
-    from app.services.trash import alive
-
-    scope = [Signal.tenant_id == tenant_id, alive(Signal), _hub_predicate(user_id)]
-    acl = _visibility_predicate(visible_account_ids)
-    if acl is not None:
-        scope.append(acl)
-    return scope
-
-
-async def _open_count(session: AsyncSession, scope: list[Any], predicates: list[Any]) -> int:
-    stmt = select(func.count()).select_from(Signal).where(*scope, Signal.status == "open", *predicates)
-    return int((await session.execute(stmt)).scalar_one())
-
-
 def virtual_row_id(project_id: UUID, tag_id: UUID) -> str:
     return f"{project_id}:{tag_id}"
 
@@ -189,10 +180,12 @@ async def folder_rows(
             return 0
         if predicates is None:
             return 0
-        return await _open_count(session, scope, predicates)
+        return await open_count(session, scope, predicates)
 
-    async def _node(node: DerivedNode, parent_key: str | None) -> dict[str, Any]:
-        children = [await _node(child, node.key) for child in node.children]
+    async def _node(
+        node: DerivedNode, parent_key: str | None, parent_tag_names: tuple[str, ...] = ()
+    ) -> dict[str, Any]:
+        children = [await _node(child, node.key, node.tag_names) for child in node.children]
         parent_id = None
         if node.project_id and parent_key and not parent_key.startswith("cluster:"):
             parent_id = parent_key
@@ -202,6 +195,7 @@ async def folder_rows(
         return {
             "id": row_id,
             "name": node.name,
+            "display_name": folder_display_name(node.name, node.tag_names, parent_tag_names),
             "parent_id": parent_id,
             "project_id": str(node.project_id) if node.project_id else None,
             "tag_id": str(node.tag_ids[-1]) if node.tag_ids else None,
@@ -222,7 +216,7 @@ async def nav(
     *,
     visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
-    scope = _hub_scope(tenant_id, user_id, visible_account_ids)
+    scope = conversation_scope(tenant_id, user_id, visible_account_ids)
     catalog = await load_catalog(session, tenant_id)
     used_in_filtersets = set(
         (
@@ -261,7 +255,7 @@ async def nav(
             "id": str(tag.id),
             "name": tag.name,
             "tag_id": str(tag.id),
-            "count": await _open_count(
+            "count": await open_count(
                 session,
                 scope,
                 await list_predicates(session, tenant_id, {"tag": tag.name}) or [],

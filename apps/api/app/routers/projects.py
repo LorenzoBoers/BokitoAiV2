@@ -22,6 +22,19 @@ from app.services import projects as svc
 router = APIRouter(prefix="/folders", tags=["folders"])
 
 
+async def _count_scope(session: AsyncSession, auth: AuthContext) -> dict[str, Any]:
+    """Folder counts use the caller's Communication hub, like the rail."""
+    from app.services.channel_access import visible_channel_account_ids
+
+    user_id = auth.user.id if auth.user else None
+    visible = (
+        await visible_channel_account_ids(session, auth.tenant.id, user_id=user_id, role=auth.role)
+        if user_id
+        else None
+    )
+    return {"user_id": user_id, "visible_account_ids": visible}
+
+
 class ProjectCreateBody(BaseModel):
     name: str = ""
     slug: str = ""
@@ -58,7 +71,7 @@ async def list_projects(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    return await svc.list_projects(session, auth.tenant.id)
+    return await svc.list_projects(session, auth.tenant.id, **await _count_scope(session, auth))
 
 
 @router.post("")
@@ -177,7 +190,9 @@ async def get_project(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    return await svc.get_project_detail(session, auth.tenant.id, project_id)
+    return await svc.get_project_detail(
+        session, auth.tenant.id, project_id, **await _count_scope(session, auth)
+    )
 
 
 @router.patch("/{project_id}")

@@ -45,10 +45,9 @@ import {
   getProject,
   listFolderFiles,
   nestFolder,
-  type ProjectRow,
+  type CountedProject,
 } from '../lib/projects-api'
 import { useProjectDeleteConnectionImpact } from '../lib/use-project-delete-connection-impact'
-import { filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { notifyFoldersChanged } from '../lib/folders-bus'
 import { FiltersetHeading } from '../components/folders/FiltersetHeading'
 
@@ -78,7 +77,7 @@ export default function ProjectDetail() {
   const isAdmin = useIsAdmin()
   const confirm = useConfirm()
 
-  const [project, setProject] = useState<ProjectRow | null>(null)
+  const [project, setProject] = useState<CountedProject | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshCount, setRefreshCount] = useState(0)
@@ -142,11 +141,7 @@ export default function ProjectDetail() {
   const folders = project?.children ?? []
   const hubHref = project ? withNavReveal(projectHubPath(project.id, 'open')) : '/communication'
   const ancestors = project?.ancestors ?? []
-  const crumbLabel = project
-    ? project.name.replace(/^#/, '').trim() ||
-      filtersetPlainLabel(project.tag_names ?? []) ||
-      'Folder'
-    : ''
+  const crumbLabel = project ? project.display_name || t('projects.page.unnamed') : ''
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
@@ -162,10 +157,7 @@ export default function ProjectDetail() {
           {t('projects.detail.back')}
         </Link>
         {ancestors.map((ancestor, index) => {
-          const label =
-            (ancestor.name ?? '').replace(/^#/, '').trim() ||
-            filtersetPlainLabel(ancestor.tag_names ?? []) ||
-            'Folder'
+          const label = ancestor.display_name || t('projects.page.unnamed')
           return (
             <span key={ancestor.id} className="inline-flex min-w-0 items-center gap-1.5">
               <span aria-hidden>/</span>
@@ -202,8 +194,8 @@ export default function ProjectDetail() {
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
                 <span className="tabular-nums">
                   {t('projects.detail.folderCounts', {
-                    open: project.open_count ?? 0,
-                    closed: project.closed_count ?? 0,
+                    open: project.open_count,
+                    closed: project.closed_count,
                   })}
                 </span>
                 {folders.length > 0 ? (
@@ -287,7 +279,7 @@ export default function ProjectDetail() {
               <TabsTrigger value="home">{t('projects.detail.tabHome')}</TabsTrigger>
               <TabsTrigger value="conversations">
                 {t('projects.detail.tabConversations')}
-                {(project.open_count ?? 0) > 0 ? (
+                {project.open_count > 0 ? (
                   <span className="rounded-full bg-bg-muted/60 px-1.5 text-2xs tabular-nums text-text-muted">
                     {project.open_count}
                   </span>
@@ -326,7 +318,6 @@ export default function ProjectDetail() {
                   </div>
                   <ProjectFolderGrid
                     folders={folders}
-                    parentTagNames={project.tag_names}
                     onCreate={isAdmin ? () => setFolderOpen(true) : undefined}
                   />
                 </section>

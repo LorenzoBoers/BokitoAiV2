@@ -4,20 +4,23 @@ import { foldersDelete, foldersGet, foldersPatch, foldersPost } from './api'
 export interface ProjectRow {
   id: string
   name: string
+  /** Server-chosen label: the folder name, else its distinguishing labels. Empty means unnamed. */
+  display_name: string
   slug: string
   description?: string
   tag_ids: string[]
   tag_names: string[]
   sort_order?: number
-  open_tickets_count?: number
   doc_sections_total?: number
   doc_sections_done?: number
   parent_id?: string | null
   child_count?: number
-  ancestors?: { id: string; name: string; tag_ids?: string[]; tag_names?: string[] }[]
+  ancestors?: { id: string; name: string; display_name: string; tag_ids?: string[]; tag_names?: string[] }[]
   children?: ProjectChild[]
+  /** Present on list and detail reads; create and patch responses omit them. */
   open_count?: number
   closed_count?: number
+  open_tickets_count?: number
   /** Legacy fields — may be absent on folder filterset API responses. */
   autonomous_scope?: string
   po_agent_id?: string | null
@@ -27,6 +30,7 @@ export interface ProjectRow {
 export interface ProjectChild {
   id: string
   name: string
+  display_name: string
   slug: string
   tag_ids?: string[]
   tag_names?: string[]
@@ -35,13 +39,17 @@ export interface ProjectChild {
   closed_count: number
 }
 
-export async function listProjects(): Promise<ProjectRow[]> {
-  const data = await foldersGet<ProjectRow[] | { items: ProjectRow[] }>(foldersRoutes.list)
+/** Counts from the API's one count rule: folder plus subtree, within your Communication hub. */
+export type CountedProject = ProjectRow &
+  Required<Pick<ProjectRow, 'open_count' | 'closed_count' | 'open_tickets_count'>>
+
+export async function listProjects(): Promise<CountedProject[]> {
+  const data = await foldersGet<CountedProject[] | { items: CountedProject[] }>(foldersRoutes.list)
   return Array.isArray(data) ? data : data.items ?? []
 }
 
-export async function getProject(projectId: string): Promise<ProjectRow> {
-  return foldersGet<ProjectRow>(foldersRoutes.byId(projectId))
+export async function getProject(projectId: string): Promise<CountedProject> {
+  return foldersGet<CountedProject>(foldersRoutes.byId(projectId))
 }
 
 export async function createProject(input: {

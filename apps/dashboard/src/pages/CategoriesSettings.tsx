@@ -31,6 +31,7 @@ import {
   type SignalAcceptRoles,
   type SignalBacklogEntry,
   type SignalPolicy,
+  type StageEntryPolicy,
 } from '../lib/tickets-api'
 import { listWorkstreams, type WorkstreamRow } from '../lib/flows-api'
 
@@ -57,7 +58,7 @@ export default function CategoriesSettings() {
     void loadBacklog()
   }, [loadWorkstreams, loadBacklog, t])
 
-  const savePolicy = async (patch: { accept_roles?: SignalAcceptRoles; backlog_threshold?: number }) => {
+  const savePolicy = async (patch: Parameters<typeof saveSignalPolicy>[0]) => {
     setSavingPolicy(true)
     try {
       setPolicy(await saveSignalPolicy(patch))
@@ -147,6 +148,72 @@ export default function CategoriesSettings() {
                       {t('categoriesPage.thresholdOption', { count: n })}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-text-heading">{t('categoriesPage.stageEntryLabel')}</p>
+                <p className="mt-0.5 max-w-sm text-xs text-text-muted">{t('categoriesPage.stageEntryHint')}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={policy.stage_entry_policy}
+                  disabled={savingPolicy}
+                  onValueChange={(value) => void savePolicy({ stage_entry_policy: value as StageEntryPolicy })}
+                >
+                  <SelectTrigger className="h-8 w-56 text-xs" aria-label={t('categoriesPage.stageEntryLabel')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(['propose', 'auto_above', 'first_stage'] as const).map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(`workstreamsPage.stages.entryPolicies.${value}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {policy.stage_entry_policy === 'auto_above' ? (
+                  <Select
+                    value={String(policy.stage_entry_threshold)}
+                    disabled={savingPolicy}
+                    onValueChange={(value) => void savePolicy({ stage_entry_threshold: Number(value) })}
+                  >
+                    <SelectTrigger className="h-8 w-20 text-xs" aria-label={t('workstreamsPage.stages.entryThreshold')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[5, 6, 7, 8, 9, 10].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                          {n}/10
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-medium text-text-heading">{t('categoriesPage.dueSoonLabel')}</p>
+                <p className="mt-0.5 max-w-sm text-xs text-text-muted">{t('categoriesPage.dueSoonHint')}</p>
+              </div>
+              <Select
+                value={String(policy.due_soon_days)}
+                disabled={savingPolicy}
+                onValueChange={(value) => void savePolicy({ due_soon_days: Number(value) })}
+              >
+                <SelectTrigger className="h-8 w-56 text-xs" aria-label={t('categoriesPage.dueSoonLabel')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from(new Set([3, 7, 14, 30, policy.due_soon_days]))
+                    .sort((a, b) => a - b)
+                    .map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {t('categoriesPage.dueSoonOption', { count: n })}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

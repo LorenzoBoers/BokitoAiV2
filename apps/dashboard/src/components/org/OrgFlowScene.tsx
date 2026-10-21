@@ -305,7 +305,7 @@ export function OrgFlowScene({ data, lens, label, selectedId, hoverId, onHover, 
               ? (node.module?.name ?? (node.done ? t('orgCanvas.node.done', { count: node.done }) : ''))
               : node.kind === 'sink_open' || node.kind === 'sink_closed_without_result'
                 ? String(node.kind === 'sink_open' ? node.open || node.count : node.count)
-                : t('orgCanvas.node.conversations', { count: node.count })
+                : t('orgCanvas.node.conversations', { count: node.count, days: data.days })
       const face = mountFace(node)
       if (face) faces.push(face)
       const chip = makeNodeChip(
@@ -387,7 +387,7 @@ export function OrgFlowScene({ data, lens, label, selectedId, hoverId, onHover, 
           labelKey: strip.labelKey,
           points,
           title: strip.labelKey ? pillFor(strip.labelKey)?.name ?? '' : t(`orgCanvas.mode.${path.mode}`),
-          detail: `${route} · ${t('orgCanvas.node.conversations', { count })}`,
+          detail: `${route} · ${t('orgCanvas.node.conversations', { count, days: data.days })}`,
           pill: pillFor(strip.labelKey),
         })
       })

@@ -11,6 +11,10 @@ conversation at that moment:
 - team or nobody: the conversation turns unread.
 
 Because the check-up is a Trigger it shows on the Agenda like any other wake.
+
+A deadline (``Signal.due_at``) pulls the next moment earlier: at the start of
+the near window, the day before and on the day itself, and at least daily once
+it has passed (``ticket_work.checkup_next_at``).
 """
 
 from __future__ import annotations
@@ -86,16 +90,23 @@ async def sync_checkup(
             agent_role="",
         )
         restart = True
+    from app.services.ticket_work import checkup_next_at, soon_days_for
+
+    soon_days = await soon_days_for(session, signal.tenant_id)
     changed = row.interval_minutes != minutes or row.stage_key != stage["key"]
     row.name = name[:200]
     row.interval_minutes = minutes
     row.stage_key = stage["key"]
     row.enabled = True
     if restart or row.next_run_at is None:
-        row.next_run_at = now + timedelta(minutes=minutes)
-    elif changed:
-        anchor = row.last_run_at or now
-        row.next_run_at = max(now, anchor + timedelta(minutes=minutes))
+        row.next_run_at = checkup_next_at(now, minutes, signal.due_at, soon_days)
+    else:
+        if changed:
+            anchor = row.last_run_at or now
+            row.next_run_at = max(now, anchor + timedelta(minutes=minutes))
+        pulled = checkup_next_at(now, minutes, signal.due_at, soon_days)
+        if pulled < row.next_run_at:
+            row.next_run_at = pulled
     row.updated_at = now
     session.add(row)
     await session.flush()
@@ -148,6 +159,17 @@ async def on_stage_entered(
     tag = await session.get(SignalTag, signal.ticket_tag_id) if signal.ticket_tag_id else None
     apply_stage_owner(session, signal, stage, actor_type=actor_type, actor_id=actor_id)
     await sync_checkup(session, signal, tag=tag, stage=stage, restart=True)
+
+
+async def refresh_checkup(session: AsyncSession, signal: Signal) -> None:
+    """After a deadline change: let the check-up follow it. Flushes."""
+    from app.services.tickets import workstream_stages
+
+    tag = await session.get(SignalTag, signal.ticket_tag_id) if signal.ticket_tag_id else None
+    ws = await session.get(Workstream, tag.workstream_id) if tag and tag.workstream_id else None
+    if ws is None:
+        return
+    await sync_checkup(session, signal, tag=tag, stage=_stage(workstream_stages(ws), signal.stage_key), restart=False)
 
 
 async def resync_flow(session: AsyncSession, ws: Workstream) -> int:
@@ -230,6 +252,17 @@ def _brief(signal: Signal, tag: SignalTag, stage: dict[str, Any]) -> str:
     ]
     if fields:
         lines.append("Ticket fields: " + "; ".join(f"{k}={v}" for k, v in fields.items()))
+    if signal.due_at:
+        basis = f" ({signal.due_basis})" if signal.due_basis else ""
+        lines.append(f"Deadline: {signal.due_at.date().isoformat()}, {signal.due_source or 'manual'}{basis}.")
+    from app.services.ticket_work import checklist_state
+
+    state = checklist_state(signal)
+    open_items = [
+        item["label"] for item in stage.get("checklist") or [] if (state.get(item["key"]) or {}).get("status") != "done"
+    ]
+    if open_items:
+        lines.append("Open checklist items in this stage: " + "; ".join(open_items) + ".")
     return "\n".join(lines)
 
 
@@ -279,8 +312,12 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
         await session.commit()
         return {"status": "removed"}
 
+    from app.services.ticket_work import checkup_next_at, soon_days_for
+
     trigger.last_run_at = now
-    trigger.next_run_at = now + timedelta(minutes=max(1, trigger.interval_minutes))
+    trigger.next_run_at = checkup_next_at(
+        now, trigger.interval_minutes, signal.due_at, await soon_days_for(session, signal.tenant_id)
+    )
     trigger.updated_at = now
     if signal.status in _QUIET_STATUSES:
         trigger.last_status = "skipped"

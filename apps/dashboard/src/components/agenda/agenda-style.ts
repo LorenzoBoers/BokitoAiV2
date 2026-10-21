@@ -85,6 +85,10 @@ export function itemSubtitle(item: TimeItem, t: TFunction): string {
     const names = item.calendars?.length ? item.calendars : [item.calendar_name || item.provider_label || '']
     return names.filter(Boolean).join(' · ')
   }
+  if (item.kind === 'deadline') {
+    const source = item.due_source ? t(`tickets.dueSource.${item.due_source}`) : ''
+    return [t('tickets.deadline'), source, item.owner_name].filter(Boolean).join(' · ')
+  }
   if (item.owner_name) return t('agendaPage.ownedBy', { name: item.owner_name })
   if (item.agent_name || item.actor_name) return actor
   return ''

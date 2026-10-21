@@ -15,6 +15,7 @@ import { cn } from '../../lib/utils'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { Hashtag } from '../ui/HashtagMark'
 import { UserAvatar } from '../ui/UserAvatar'
+import { TicketDueBadge, TicketNextStepLine } from './TicketWork'
 
 const Bot = ENTITY_ICONS.agent
 
@@ -99,6 +100,7 @@ export function FlowTicketCard({
           ))}
         </ul>
       ) : null}
+      <TicketNextStepLine step={ticket.next_step} className="mt-1" />
       <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-text-muted">
         <ChannelGlyph channel={ticket.channel} size={11} />
         {showTag ? (
@@ -117,6 +119,7 @@ export function FlowTicketCard({
           </button>
         ) : null}
         <span className="tabular-nums">{timeAgo(ticket.last_message_at, t)}</span>
+        <TicketDueBadge step={ticket.next_step} />
         {ticket.checkup_at ? (
           <span
             className={cn(

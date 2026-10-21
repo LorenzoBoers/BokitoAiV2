@@ -55,6 +55,10 @@ class Workstream(SQLModel, table=True):
     template_slug: str = ""
     # A person confirms before the flow sends. Caps this flow at Assisted.
     always_review: bool = Field(default=False)
+    # How an agent may place a ticket in a stage: first_stage | propose |
+    # auto_above. Empty / null follow the workspace ticket policy.
+    stage_entry_policy: str = Field(default="")
+    stage_entry_threshold: Optional[int] = Field(default=None)
     # "Delivers to": a folder plus optionally one of its Works in keys; an
     # empty key means the folder itself. A ticket reaching a done stage
     # records a delivery there.

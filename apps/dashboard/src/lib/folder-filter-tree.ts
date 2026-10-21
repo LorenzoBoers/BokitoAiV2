@@ -3,6 +3,7 @@
 export type FolderFilterSource = {
   id: string
   name: string
+  display_name?: string
   tag_ids: string[]
   tag_names?: string[]
   sort_order?: number
@@ -12,6 +13,8 @@ export type FolderFilterSource = {
 export type FolderFilterNode = {
   id: string
   name: string
+  /** Server-computed label; empty means unnamed. Absent on optimistic rows. */
+  display_name?: string
   tag_ids: string[]
   tag_names: string[]
   sort_order: number
@@ -40,6 +43,7 @@ function toNode(source: FolderFilterSource): FolderFilterNode {
   return {
     id: source.id,
     name: source.name,
+    display_name: source.display_name,
     tag_ids: [...source.tag_ids],
     tag_names: source.tag_names?.length ? [...source.tag_names] : [],
     sort_order: source.sort_order ?? 0,

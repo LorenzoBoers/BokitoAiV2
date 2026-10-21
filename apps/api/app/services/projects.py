@@ -47,10 +47,14 @@ def serialize_project(
     *,
     tag_ids: list[UUID],
     tag_names: list[str],
+    parent_tag_names: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
+    from app.services.folders import folder_display_name
+
     return {
         "id": str(project.id),
         "name": project.name,
+        "display_name": folder_display_name(project.name, tag_names, parent_tag_names),
         "slug": project.slug,
         "description": project.description or "",
         "autonomous_scope": project.autonomous_scope or "",
@@ -173,15 +177,29 @@ def _ancestors(
         chain.append(row)
         current = parent_map.get(current)
     chain.reverse()
+    from app.services.folders import folder_display_name
+
     out: list[dict[str, Any]] = []
+    parent_tags: tuple[str, ...] = ()
     for row in chain:
         item: dict[str, Any] = {"id": str(row.id), "name": row.name}
         fs = catalog.by_id.get(row.id) if catalog is not None else None
+        own_tags = tuple(fs.tag_names) if fs is not None else ()
         if fs is not None:
             item["tag_ids"] = [str(t) for t in fs.tag_ids]
             item["tag_names"] = list(fs.tag_names)
+        item["display_name"] = folder_display_name(row.name, own_tags, parent_tags)
+        parent_tags = own_tags
         out.append(item)
     return out
+
+
+def _parent_tag_names(
+    project_id: UUID, parent_map: dict[UUID, UUID | None], catalog: Any
+) -> tuple[str, ...]:
+    parent = parent_map.get(project_id)
+    fs = catalog.by_id.get(parent) if parent else None
+    return tuple(fs.tag_names) if fs is not None else ()
 
 
 async def get_repo_resource(
@@ -276,39 +294,25 @@ async def resolve_folder_ref(
     return matches[0], None
 
 
-async def _path_status_count(
+async def get_project_detail(
     session: AsyncSession,
     tenant_id: UUID,
     project_id: UUID,
-    status: str,
-) -> int:
-    from app.services.communication_nav import list_predicates
-    from app.services.trash import alive
-
-    predicates = await list_predicates(session, tenant_id, {"project_id": project_id})
-    if predicates is None:
-        return 0
-    return int(
-        (
-            await session.execute(
-                select(func.count())
-                .select_from(Signal)
-                .where(Signal.tenant_id == tenant_id, alive(Signal), Signal.status == status, *predicates)
-            )
-        ).scalar_one()
-    )
-
-
-async def get_project_detail(
-    session: AsyncSession, tenant_id: UUID, project_id: UUID
+    *,
+    user_id: UUID | None = None,
+    visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any]:
-    from app.services.folders import derive_tree, load_catalog
+    from app.services.counts import conversation_scope, folder_counts
+    from app.services.folders import derive_tree, folder_display_name, load_catalog
 
     project, _ = await get_project_row(session, tenant_id, project_id)
     payload = await serialize_with_tag(session, project)
     catalog = await load_catalog(session, tenant_id)
     roots = derive_tree(catalog)
     parent_map = _parent_map_from_derived(roots)
+    payload["display_name"] = folder_display_name(
+        project.name, payload["tag_names"], _parent_tag_names(project_id, parent_map, catalog)
+    )
     projects_by_id = {p.id: p for p in await _alive_projects(session, tenant_id)}
 
     def find_node(nodes: list[Any], pid: UUID) -> Any | None:
@@ -325,8 +329,13 @@ async def get_project_detail(
     payload["parent_id"] = str(parent_map[project_id]) if project_id in parent_map and parent_map[project_id] else None
     payload["ancestors"] = _ancestors(project_id, parent_map, projects_by_id, catalog)
     payload["child_count"] = len(child_ids)
-    payload["open_count"] = await _path_status_count(session, tenant_id, project.id, "open")
-    payload["closed_count"] = await _path_status_count(session, tenant_id, project.id, "closed")
+    scope = conversation_scope(tenant_id, user_id, visible_account_ids)
+    counts = await folder_counts(session, tenant_id, [project.id, *child_ids], scope, catalog)
+    payload["open_count"] = counts[project.id]["open"]
+    payload["closed_count"] = counts[project.id]["closed"]
+    payload["open_tickets_count"] = counts[project.id]["open_tickets"]
+    payload["overdue_count"] = counts[project.id]["overdue"]
+    own_tags = tuple(payload["tag_names"])
     children: list[dict[str, Any]] = []
     for cid in child_ids:
         child = projects_by_id.get(cid)
@@ -337,6 +346,7 @@ async def get_project_detail(
             {
                 "id": str(child.id),
                 "name": child.name,
+                "display_name": folder_display_name(child.name, fs.tag_names, own_tags),
                 "slug": child.slug,
                 "tag_ids": [str(t) for t in fs.tag_ids],
                 "tag_names": list(fs.tag_names),
@@ -344,11 +354,11 @@ async def get_project_detail(
                 "child_count": len(
                     _children_project_ids(_find_derived_node(roots, cid) or _EmptyNode())
                 ),
-                "open_count": await _path_status_count(session, tenant_id, child.id, "open"),
-                "closed_count": await _path_status_count(session, tenant_id, child.id, "closed"),
+                "open_count": counts[cid]["open"],
+                "closed_count": counts[cid]["closed"],
             }
         )
-    children.sort(key=lambda row: row["name"].lower())
+    children.sort(key=lambda row: row["display_name"].lower())
     payload["children"] = children
     return payload
 
@@ -361,12 +371,19 @@ async def folder_digest(session: AsyncSession, tenant_id: UUID, project_id: UUID
     lines = ["Folders nested under this filterset (include these figures in the snapshot):"]
     for child in sorted(children, key=lambda row: row["name"].lower()):
         lines.append(
-            f"- {child['name']}: {child.get('open_count', 0)} open, {child.get('closed_count', 0)} closed."
+            f"- {child['display_name'] or child['name']}: {child['open_count']} open, {child['closed_count']} closed."
         )
     return "\n".join(lines)
 
 
-async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
+async def list_projects(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    user_id: UUID | None = None,
+    visible_account_ids: set[UUID] | None = None,
+) -> list[dict[str, Any]]:
+    from app.services.counts import conversation_scope, folder_counts
     from app.services.folders import derive_tree, load_catalog
     from app.services.trash import alive
 
@@ -380,21 +397,12 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
     roots = derive_tree(catalog)
     parent_map = _parent_map_from_derived(roots)
 
-    open_tickets_by_project: dict[UUID, int] = {}
+    counts: dict[UUID, dict[str, int]] = {}
     sections_by_project: dict[UUID, tuple[int, int]] = {}
     if projects:
         project_ids = [p.id for p in projects]
-        ticket_result = await session.execute(
-            select(Signal.project_id, func.count())
-            .where(
-                Signal.tenant_id == tenant_id,
-                Signal.project_id.in_(project_ids),
-                Signal.ticket_status.in_(("open", "waiting")),
-                Signal.deleted_at.is_(None),
-            )
-            .group_by(Signal.project_id)
-        )
-        open_tickets_by_project = {row[0]: row[1] for row in ticket_result.all()}
+        scope = conversation_scope(tenant_id, user_id, visible_account_ids)
+        counts = await folder_counts(session, tenant_id, project_ids, scope, catalog)
         from app.models.workspace import DocSection, WorkspaceDoc
 
         section_result = await session.execute(
@@ -425,8 +433,17 @@ async def list_projects(session: AsyncSession, tenant_id: UUID) -> list[dict[str
             tag_ids = await folder_tag_ids(session, p.id)
         names_map = await _tag_names(session, tenant_id, tag_ids)
         tag_names = [names_map[t] for t in tag_ids if t in names_map]
-        item = serialize_project(p, tag_ids=tag_ids, tag_names=tag_names)
-        item["open_tickets_count"] = open_tickets_by_project.get(p.id, 0)
+        item = serialize_project(
+            p,
+            tag_ids=tag_ids,
+            tag_names=tag_names,
+            parent_tag_names=_parent_tag_names(p.id, parent_map, catalog),
+        )
+        folder = counts.get(p.id, {})
+        item["open_count"] = folder.get("open", 0)
+        item["closed_count"] = folder.get("closed", 0)
+        item["open_tickets_count"] = folder.get("open_tickets", 0)
+        item["overdue_count"] = folder.get("overdue", 0)
         total, done = sections_by_project.get(p.id, (0, 0))
         item["doc_sections_total"] = total
         item["doc_sections_done"] = done

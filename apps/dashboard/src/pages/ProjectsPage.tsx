@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
-import { filtersetLocalNames, filtersetPlainLabel } from '../lib/folder-filter-tree'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import ContentHeader from '../components/shell/ContentHeader'
@@ -20,7 +19,7 @@ import { SearchField } from '../components/ui/search-field'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useWorkspace } from '../context/WorkspaceContext'
-import { listProjects, type ProjectRow } from '../lib/projects-api'
+import { listProjects, type CountedProject } from '../lib/projects-api'
 import { workspaceBrandName } from '../lib/tenant-branding'
 
 const FolderKanban = ENTITY_ICONS.project
@@ -29,23 +28,10 @@ function stopCard(event: { stopPropagation: () => void }) {
   event.stopPropagation()
 }
 
-function displayName(project: ProjectRow): string {
-  const named = project.name.replace(/^#/, '').trim()
-  if (named) return named
-  if (project.tag_names?.length) {
-    const parentNames = project.ancestors?.length
-      ? project.ancestors[project.ancestors.length - 1]?.tag_names
-      : null
-    return filtersetPlainLabel(filtersetLocalNames(project.tag_names, parentNames))
-  }
-  return 'Folder'
-}
-
-function ProjectCard({ project }: { project: ProjectRow }) {
+function ProjectCard({ project }: { project: CountedProject }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
-  const openCount = project.open_count ?? 0
-  const title = displayName(project)
+  const title = project.display_name || t('projects.page.unnamed')
 
   return (
     <Card
@@ -78,7 +64,7 @@ function ProjectCard({ project }: { project: ProjectRow }) {
                     onClick={stopCard}
                     onKeyDown={stopCard}
                   >
-                    {ancestor.name.replace(/^#/, '')}
+                    {ancestor.display_name || t('projects.page.unnamed')}
                   </Link>
                 </span>
               ))}
@@ -106,11 +92,11 @@ function ProjectCard({ project }: { project: ProjectRow }) {
         <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
           <span className="tabular-nums">
             {t('projects.detail.folderCounts', {
-              open: openCount,
-              closed: project.closed_count ?? 0,
+              open: project.open_count,
+              closed: project.closed_count,
             })}
           </span>
-          {(project.open_tickets_count ?? 0) > 0 ? (
+          {project.open_tickets_count > 0 ? (
             <Badge variant="info" className="px-1.5 py-0 text-2xs">
               {t('projects.page.openTickets', { count: project.open_tickets_count })}
             </Badge>
@@ -127,7 +113,7 @@ export default function ProjectsPage() {
   const { currentWorkspace } = useWorkspace()
   const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = useIsAdmin()
-  const [projects, setProjects] = useState<ProjectRow[]>([])
+  const [projects, setProjects] = useState<CountedProject[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -184,7 +170,7 @@ export default function ProjectsPage() {
     const roots = projects.filter((project) => !project.parent_id)
     if (!needle) return roots
     return projects.filter((project) => {
-      const hay = [project.name, ...(project.tag_names ?? []), project.description]
+      const hay = [project.display_name, project.name, ...(project.tag_names ?? []), project.description]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()

@@ -5,7 +5,6 @@ import { ChevronRight, Plus } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { Card } from '../ui/card'
 import type { ProjectChild } from '../../lib/projects-api'
-import { filtersetLocalNames, filtersetPlainLabel } from '../../lib/folder-filter-tree'
 const FolderIcon = ENTITY_ICONS.project
 
 /**
@@ -15,12 +14,9 @@ const FolderIcon = ENTITY_ICONS.project
  */
 export function ProjectFolderGrid({
   folders,
-  parentTagNames,
   onCreate,
 }: {
   folders: ProjectChild[]
-  /** When these cards are nested under a map, strip parent tags from the title. */
-  parentTagNames?: string[] | null
   /** Admins get a dashed "New folder" card at the end. */
   onCreate?: () => void
 }) {
@@ -30,7 +26,7 @@ export function ProjectFolderGrid({
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {folders.map((folder, index) => (
         <div key={folder.id} className="stagger-in" style={{ '--stagger': Math.min(index, 11) } as CSSProperties}>
-          <ProjectFolderCard folder={folder} parentTagNames={parentTagNames} />
+          <ProjectFolderCard folder={folder} />
         </div>
       ))}
       {onCreate ? (
@@ -47,19 +43,11 @@ export function ProjectFolderGrid({
   )
 }
 
-export function ProjectFolderCard({
-  folder,
-  parentTagNames,
-}: {
-  folder: ProjectChild
-  parentTagNames?: string[] | null
-}) {
+export function ProjectFolderCard({ folder }: { folder: ProjectChild }) {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const open = () => navigate(`/folders/${folder.id}`)
-  const title = folder.tag_names?.length
-    ? filtersetPlainLabel(filtersetLocalNames(folder.tag_names, parentTagNames))
-    : folder.name.replace(/^#/, '')
+  const title = folder.display_name || t('projects.page.unnamed')
   return (
     <Card
       role="link"

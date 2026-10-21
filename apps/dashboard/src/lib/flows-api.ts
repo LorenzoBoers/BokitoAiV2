@@ -26,6 +26,10 @@ export type WorkstreamRow = {
   stages_count?: number
   /** A person confirms before this flow's tickets send (caps them at Assisted). */
   always_review?: boolean
+  /** Agent stage moves: empty follows the workspace default. */
+  stage_entry_policy?: string
+  /** Certainty (0-10) for `auto_above`; null follows the workspace. */
+  stage_entry_threshold?: number | null
   deliver_folder_id?: string | null
   deliver_works_in_key?: string
   /** Detail only: the resolved "Delivers to" with labels. */
@@ -142,6 +146,10 @@ export async function patchWorkstream(
   patch: Partial<Pick<WorkstreamRow, 'name' | 'description' | 'stages' | 'always_review' | 'deliver_folder_id' | 'deliver_works_in_key'>> & {
     /** The flow's one action tag (at most one id); empty detaches it. */
     tag_ids?: string[]
+    /** Empty string follows the workspace default. */
+    stage_entry_policy?: string
+    /** -1 follows the workspace threshold. */
+    stage_entry_threshold?: number
   },
 ): Promise<WorkstreamRow> {
   return apiPatch<WorkstreamRow>(workstreamsRoutes.byId(workstreamId), patch)

@@ -17,6 +17,8 @@ plus calendar and check-up extras.
   Agenda folds it into Tasks — same concept as a recurring task.
 - ``task``: a thread with a date (``Signal.next_at``) and no rule of its
   own (``source="thread"``), or an agent ``AgentTask`` with ``scheduled_for``.
+- ``deadline``: a ticket's ``Signal.due_at`` (status ``overdue``, ``due`` or
+  ``planned``); done and closed tickets drop off.
 - ``calendar``: an external calendar event (merged across connections).
 - ``activity``: something that happened (ticket filed or moved, owner
   changed, conversation closed, decision asked or answered). Only returned
@@ -40,7 +42,7 @@ from app.models.agent import Agent, AgentRun
 from app.models.signal import Signal
 from app.models.trigger import Trigger
 
-TIME_KINDS = frozenset({"session", "wake", "checkup", "task", "calendar", "activity"})
+TIME_KINDS = frozenset({"session", "wake", "checkup", "task", "deadline", "calendar", "activity"})
 DEFAULT_KINDS = TIME_KINDS - {"activity"}
 
 MAX_SESSIONS = 400
@@ -624,8 +626,45 @@ async def list_time_items(
                 row[key] = event.get(key)
             items.append(row)
 
+    if "deadline" in wanted:
+        due_stmt = select(Signal).where(
+            Signal.tenant_id == tenant_id,
+            Signal.deleted_at.is_(None),
+            Signal.ticket_tag_id.is_not(None),
+            Signal.ticket_status.in_(("open", "waiting")),
+            Signal.due_at.is_not(None),
+            Signal.due_at >= start,
+            Signal.due_at <= end,
+        )
+        if project_id:
+            due_stmt = due_stmt.where(Signal.project_id == project_id)
+        for signal in (await session.execute(due_stmt)).scalars().all():
+            at = signal.due_at
+            assert at is not None
+            owner = names.owner(signal)
+            if agent_id and owner[1] != str(agent_id):
+                continue
+            if user_id and not (owner[0] == "user" and owner[1] == str(user_id)):
+                continue
+            row = _row(
+                id=f"deadline:{signal.id}",
+                kind="deadline",
+                start=at,
+                title=signal.subject or "Deadline",
+                status="overdue" if at < now else ("due" if at.date() == now.date() else "planned"),
+                actor_kind="agent" if owner[0] == "agent" else "person",
+                actor_name=owner[2],
+                owner=owner,
+                project_id=signal.project_id,
+                signal_id=str(signal.id),
+                instructions=signal.due_basis or "",
+                source="deadline",
+            )
+            row["due_source"] = signal.due_source or None
+            row["all_day"] = (at.hour, at.minute, at.second) == (23, 59, 59)
+            items.append(row)
+
     if "task" in wanted:
-        from app.models.signal import Signal
         from app.services.thread_schedule import thread_details
 
         ruled = {t.signal_id for t in triggers if t.signal_id and not t.purpose}

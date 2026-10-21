@@ -24,6 +24,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Button } from '../ui/button'
 import { waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from '../flows/StageProgressIcon'
+import { TicketWorkSection } from '../flows/TicketWork'
 import { TagPill } from '../ui/TagPill'
 import { TicketFieldControl } from './TicketFieldControl'
 
@@ -288,6 +289,14 @@ export function ThreadCategory({ signalId, version }: Props) {
                 </div>
               ) : null}
             </div>
+
+            {awaitingVerify ? null : (
+              <TicketWorkSection
+                ticket={ticket}
+                busy={busy}
+                onPatch={(body) => void patch(body, t('tickets.updateError'))}
+              />
+            )}
 
             {defs.length > 0 || orphans.length > 0 ? (
             <div className="border-t border-border/40 py-1.5">

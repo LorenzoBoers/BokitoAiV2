@@ -20,8 +20,9 @@ class NavRow(BaseModel):
 
 
 class FolderNavRow(NavRow):
-    """A folder row in the Communication rail."""
+    """A folder row in the Communication rail. Empty ``display_name`` means unnamed."""
 
+    display_name: str = ""
     parent_id: str | None = None
     project_id: str | None = None
     tag_ids: list[str] = []

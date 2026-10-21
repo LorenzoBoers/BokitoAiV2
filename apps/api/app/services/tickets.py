@@ -79,6 +79,9 @@ def insert_named_stage(stages_json: str, *, kind: str, index: int, language: str
             "fields": [],
             "owner": None,
             "checkup_minutes": 0,
+            "waiting_on": "",
+            "checklist": [],
+            "exit_requires_checklist": False,
         },
     )
     return validate_stages(stages)
@@ -109,6 +112,9 @@ def default_stages(language: str = "en") -> list[dict[str, Any]]:
                 "fields": [],
                 "owner": None,
                 "checkup_minutes": 0,
+                "waiting_on": "",
+                "checklist": [],
+                "exit_requires_checklist": False,
             }
         )
     return stages
@@ -236,9 +242,22 @@ def parse_stages(raw: str | None) -> list[dict[str, Any]]:
                         "fields": parse_stage_fields(item.get("fields")),
                         "owner": parse_stage_owner(item.get("owner")),
                         "checkup_minutes": parse_checkup_minutes(item.get("checkup_minutes"), kind),
+                        **_stage_work(item, kind),
                     }
                 )
     return stages or [dict(s) for s in DEFAULT_TICKET_STAGES]
+
+
+def _stage_work(item: dict[str, Any], kind: str) -> dict[str, Any]:
+    """Who a stage waits on and its checklist (``services.ticket_work``)."""
+    from app.services.ticket_work import parse_checklist, parse_waiting_on
+
+    checklist = parse_checklist(item.get("checklist"))
+    return {
+        "waiting_on": "" if kind == "done" else parse_waiting_on(item.get("waiting_on")),
+        "checklist": checklist,
+        "exit_requires_checklist": bool(item.get("exit_requires_checklist")) and bool(checklist),
+    }
 
 
 def workstream_stages(ws: Workstream | None) -> list[dict[str, Any]]:
@@ -397,8 +416,12 @@ def validate_stages(raw: Any) -> str:
                 "fields": fields,
                 "owner": parse_stage_owner(item.get("owner")),
                 "checkup_minutes": parse_checkup_minutes(item.get("checkup_minutes"), kind),
+                **_stage_work(item, kind),
             }
         )
+    from app.services.ticket_work import validate_checklist_keys
+
+    validate_checklist_keys(out)
     if not any(s["kind"] == "done" for s in out):
         raise HTTPException(status_code=400, detail="A pipeline needs at least one done stage")
     if out[0]["kind"] != "open":
@@ -742,8 +765,15 @@ async def ticket_payload(
     field_defs = all_stage_fields(stages)
     from app.services.signal_tags import label_mark
 
+    from app.models.auth import Tenant
+    from app.services.signal_catalog import signal_policy
+    from app.services.ticket_work import checklist_rows, entry_policy, next_step, proposals_payload
+
     live = ws is not None and ws.deleted_at is None
     color, icon = label_mark(tag, flow_live=live)
+    tenant = await session.get(Tenant, signal.tenant_id)
+    soon_days = signal_policy(tenant)["due_soon_days"]
+    policy, threshold = entry_policy(ws, tenant)
     return {
         "signal_id": str(signal.id),
         "tag_id": str(tag.id),
@@ -764,6 +794,15 @@ async def ticket_payload(
         "field_defs": field_defs,
         "fields": parse_ticket_fields(signal.ticket_fields_json),
         "checkup": checkup_payload(await checkup_trigger(session, signal)),
+        "due": {
+            "at": signal.due_at.isoformat() if signal.due_at else None,
+            "source": signal.due_source or None,
+            "basis": signal.due_basis or "",
+        },
+        "checklist": checklist_rows(stages, signal),
+        "next_step": next_step(signal, stages, now=datetime.utcnow(), soon_days=soon_days),
+        "proposals": await proposals_payload(session, signal),
+        "stage_entry": {"policy": policy, "threshold": threshold},
     }
 
 
@@ -791,6 +830,11 @@ async def tickets_by_signal(
                 await session.execute(select(Workstream).where(Workstream.id.in_(ws_ids)))
             ).scalars()
         }
+    from app.services.ticket_work import due_state, soon_days_for
+
+    soon_days = await soon_days_for(session, tenant_id)
+    now = datetime.utcnow()
+    done = ("done", "closed")
     out: dict[UUID, dict[str, Any]] = {}
     for signal in signals:
         tag = tags.get(signal.ticket_tag_id) if signal.ticket_tag_id else None
@@ -809,6 +853,8 @@ async def tickets_by_signal(
             "status": signal.ticket_status or "open",
             "stage": stage_payload(signal, workstream_stages(ws)),
             "project_id": str(signal.project_id) if signal.project_id else None,
+            "due_at": signal.due_at.isoformat() if signal.due_at else None,
+            "due_state": due_state(signal.due_at, now, soon_days) if signal.ticket_status not in done else "",
         }
     return out
 
@@ -856,6 +902,9 @@ async def move_ticket_stage(
         missing = missing_required_stage_fields(target, parse_ticket_fields(signal.ticket_fields_json))
         if missing:
             raise_stage_fields_required(target, missing)
+        from app.services.ticket_work import guard_checklist_exit
+
+        guard_checklist_exit(stages, signal, current, target)
     signal.stage_key = target["key"]
     signal.ticket_status = target["kind"]
     signal.updated_at = datetime.utcnow()
@@ -937,7 +986,7 @@ async def resolve_open_ticket_for_close(
         )
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
-        if detail.get("code") == "stage_fields_required":
+        if detail.get("code") in ("stage_fields_required", "checklist_required"):
             raise HTTPException(
                 status_code=409,
                 detail={
@@ -1165,13 +1214,17 @@ async def file_ticket(
     created_by_id: str = "",
     user_id: UUID | None = None,
     agent_id: UUID | None = None,
+    stage_key: str | None = None,
+    reason: str = "",
 ) -> dict[str, Any]:
     """File an action tag on a conversation.
 
     The folder follows from the conversation's tags (the action tag included);
     an explicit ``project_id`` files the conversation in that folder first,
     which adds that folder's tags. Optional intake ``fields`` come from the
-    first open stage.
+    first open stage. ``stage_key`` places the new ticket past the first
+    stage: directly for a person, per the flow's stage-entry policy for an
+    agent (under ``first_stage`` the suggestion is dropped).
     """
     from app.services.folders import file_in_folder, refile
 
@@ -1271,7 +1324,63 @@ async def file_ticket(
             session, signal, tag, summary=summary, actor_type=created_by_type, actor_id=created_by_id
         )
         await session.refresh(signal)
+        if stage_key and stage_key != signal.stage_key:
+            extra.update(
+                await _place_new_ticket(
+                    session,
+                    signal,
+                    tag,
+                    ws,
+                    stage_key=stage_key,
+                    agent=actor != "operator",
+                    certainty=score,
+                    reason=reason or summary,
+                    agent_id=agent_id,
+                    actor_type=created_by_type,
+                    actor_id=created_by_id,
+                )
+            )
+            await session.commit()
+            await session.refresh(signal)
     return {"ticket": await ticket_payload(session, signal, tag=tag), **extra}
+
+
+async def _place_new_ticket(
+    session: AsyncSession,
+    signal: Signal,
+    tag: SignalTag,
+    ws: Workstream | None,
+    *,
+    stage_key: str,
+    agent: bool,
+    certainty: int | None,
+    reason: str,
+    agent_id: UUID | None,
+    actor_type: str,
+    actor_id: str,
+) -> dict[str, Any]:
+    if not agent:
+        await move_ticket_stage(session, signal, stage_key=stage_key, actor_type=actor_type, actor_id=actor_id, ws=ws)
+        return {}
+    try:
+        made = await _agent_stage_request(
+            session,
+            signal,
+            tag,
+            ws,
+            stage_key=stage_key,
+            status=None,
+            certainty=certainty,
+            reason=reason,
+            agent_id=agent_id,
+            actor_id=actor_id,
+        )
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        if detail.get("code") != "stage_moves_by_people":
+            raise
+        return {"stage_note": detail["message"]}
+    return {"proposals_made": made} if made else {}
 
 
 async def update_ticket(
@@ -1288,8 +1397,16 @@ async def update_ticket(
     ``status``: ``open`` accepts a proposal, ``dismissed`` drops a proposal or
     removes the category, any other stage kind moves to the first stage of
     that kind. ``project_id`` files the conversation in that folder (adds its
-    tags); ``None`` takes it out of its folder.
+    tags); ``None`` takes it out of its folder. ``due_at`` (``None`` clears)
+    with ``due_source`` / ``due_basis`` sets the deadline; ``checklist`` maps
+    item keys to ``done`` / ``open``.
+
+    An agent's stage move follows the flow's stage-entry policy, its deadline
+    is always a proposal and its ticks stay proposed (``services.ticket_work``).
+    The payload carries ``proposals_made`` when something became a decision.
     """
+    from app.services import ticket_work as work
+
     signal = await _signal(session, tenant_id, signal_id)
     if signal.ticket_tag_id is None:
         raise HTTPException(status_code=404, detail="This conversation has no ticket")
@@ -1335,6 +1452,50 @@ async def update_ticket(
         except ValueError as exc:
             raise HTTPException(status_code=400, detail="project_id must be a folder id or null") from exc
 
+    agent = actor_type == "agent"
+    agent_id = _uuid_or_none(actor_id) if agent else None
+    user_id = _uuid_or_none(actor_id) if actor_type == "user" else None
+    ws = await session.get(Workstream, tag.workstream_id)
+    stages = workstream_stages(ws)
+    made: list[dict[str, Any]] = []
+
+    if patch.get("checklist"):
+        if not isinstance(patch["checklist"], dict):
+            raise HTTPException(status_code=400, detail="checklist maps item keys to 'done' or 'open'")
+        work.apply_checklist(
+            session,
+            signal,
+            stages,
+            patch["checklist"],
+            actor_type=actor_type,
+            actor_id=actor_id,
+            message_id=str(patch.get("message_id") or "") or None,
+        )
+
+    if "due_at" in patch:
+        due = work.parse_due_input(patch["due_at"])
+        source = str(patch.get("due_source") or "")
+        basis = str(patch.get("due_basis") or "")
+        if agent:
+            if due is not None and due != signal.due_at:
+                made.append(
+                    await work.propose_due(session, signal, tag, due, source=source, basis=basis, agent_id=agent_id)
+                )
+        elif await work.set_due(
+            session, signal, due, source=source or "manual", basis=basis, actor_type=actor_type, actor_id=actor_id
+        ):
+            await work.settle_after_person_due(session, signal, user_id=user_id)
+    elif not agent and signal.due_at and ("due_source" in patch or "due_basis" in patch):
+        await work.set_due(
+            session,
+            signal,
+            signal.due_at,
+            source=str(patch.get("due_source") or signal.due_source),
+            basis=str(patch["due_basis"] if "due_basis" in patch else signal.due_basis),
+            actor_type=actor_type,
+            actor_id=actor_id,
+        )
+
     if pending and status == "open":
         signal.ticket_status = "open"
         session.add(signal)
@@ -1343,21 +1504,92 @@ async def update_ticket(
         await session.refresh(signal)
         return await ticket_payload(session, signal, tag=tag)
 
-    if patch.get("stage_key"):
+    stage_key = str(patch.get("stage_key") or "") or None
+    if status and not stage_key and status not in TICKET_STAGE_KINDS:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    if stage_key or status:
         if pending:
             raise HTTPException(status_code=400, detail="Accept the ticket before moving it")
-        await move_ticket_stage(
-            session, signal, stage_key=str(patch["stage_key"]), actor_type=actor_type, actor_id=actor_id
-        )
-    elif status:
-        if status not in TICKET_STAGE_KINDS:
-            raise HTTPException(status_code=400, detail="Invalid status")
-        if pending:
-            raise HTTPException(status_code=400, detail="Accept the ticket before moving it")
-        await move_ticket_stage(session, signal, status=status, actor_type=actor_type, actor_id=actor_id)
+        move_status = None if stage_key else status
+        if agent:
+            made.extend(
+                await _agent_stage_request(
+                    session,
+                    signal,
+                    tag,
+                    ws,
+                    stage_key=stage_key,
+                    status=move_status,
+                    certainty=patch.get("certainty"),
+                    reason=str(patch.get("reason") or ""),
+                    agent_id=agent_id,
+                    actor_id=actor_id,
+                )
+            )
+        else:
+            moved = await move_ticket_stage(
+                session, signal, stage_key=stage_key, status=move_status, actor_type=actor_type, actor_id=actor_id, ws=ws
+            )
+            if moved:
+                await work.settle_after_person_move(session, signal, user_id=user_id)
     await session.commit()
     await session.refresh(signal)
-    return await ticket_payload(session, signal, tag=tag)
+    payload = await ticket_payload(session, signal, tag=tag)
+    if payload is not None and made:
+        payload["proposals_made"] = made
+    return payload
+
+
+def _uuid_or_none(raw: Any) -> UUID | None:
+    try:
+        return UUID(str(raw)) if raw else None
+    except ValueError:
+        return None
+
+
+async def _agent_stage_request(
+    session: AsyncSession,
+    signal: Signal,
+    tag: SignalTag,
+    ws: Workstream | None,
+    *,
+    stage_key: str | None,
+    status: str | None,
+    certainty: Any,
+    reason: str,
+    agent_id: UUID | None,
+    actor_id: str,
+) -> list[dict[str, Any]]:
+    """An agent asks to place the ticket: move, propose or refuse per the flow's policy."""
+    from app.models.auth import Tenant
+    from app.services import ticket_work as work
+
+    stages = workstream_stages(ws)
+    current = next((s for s in stages if s["key"] == signal.stage_key), None)
+    target = work.resolve_target(stages, signal.stage_key, stage_key=stage_key, status=status)
+    if target is None or (current is not None and current["key"] == target["key"]):
+        return []
+    try:
+        score = max(0, min(10, int(certainty))) if certainty is not None else None
+    except (TypeError, ValueError):
+        score = None
+    policy, threshold = work.entry_policy(ws, await session.get(Tenant, signal.tenant_id))
+    if policy == "first_stage":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "stage_moves_by_people",
+                "message": "People move the stages of this flow. Say in the conversation which stage fits.",
+            },
+        )
+    if work.agent_places_directly(policy, threshold, score):
+        await move_ticket_stage(session, signal, stage_key=target["key"], actor_type="agent", actor_id=actor_id, ws=ws)
+        return []
+    return [
+        await work.propose_stage(
+            session, signal, tag, target, current=current, certainty=score, reason=reason, agent_id=agent_id
+        )
+    ]
 
 
 async def set_ticket_status_for_run(
@@ -1449,6 +1681,9 @@ async def project_board(
         tag = tag_by_id[signal.ticket_tag_id]
         by_ws.setdefault(tag.workstream_id, []).append(signal)
     checkups = await _checkups_by_signal(session, signals)
+    from app.services.ticket_work import soon_days_for
+
+    soon_days = await soon_days_for(session, tenant_id)
     out: list[dict[str, Any]] = []
     for ws in flows:
         stages = workstream_stages(ws)
@@ -1467,7 +1702,7 @@ async def project_board(
                     for t in tags
                     if t.workstream_id == ws.id
                 ],
-                "tickets": _board_cards(stages, by_ws.get(ws.id, []), tag_by_id, checkups),
+                "tickets": _board_cards(stages, by_ws.get(ws.id, []), tag_by_id, checkups, soon_days=soon_days),
             }
         )
     return out
@@ -1496,8 +1731,13 @@ def _board_cards(
     signals: list[Signal],
     tag_by_id: dict[UUID, SignalTag],
     checkups: dict[UUID, datetime] | None = None,
+    *,
+    soon_days: int,
 ) -> list[dict[str, Any]]:
     """Board cards; a ticket on an unknown stage lands on the first stage of its kind."""
+    from app.services.ticket_work import next_step
+
+    now = datetime.utcnow()
     keys = {s["key"] for s in stages}
     first_by_kind: dict[str, str] = {}
     for s in stages:
@@ -1530,6 +1770,8 @@ def _board_cards(
                     if checkups and signal.id in checkups
                     else None
                 ),
+                "due_at": signal.due_at.isoformat() if signal.due_at else None,
+                "next_step": next_step(signal, stages, now=now, soon_days=soon_days),
             }
         )
     return cards
@@ -1607,7 +1849,15 @@ async def workstream_board(
         else []
     )
     lane_ids = {p.id for p in projects}
-    cards = _board_cards(stages, signals, tag_by_id, await _checkups_by_signal(session, signals))
+    from app.services.ticket_work import soon_days_for
+
+    cards = _board_cards(
+        stages,
+        signals,
+        tag_by_id,
+        await _checkups_by_signal(session, signals),
+        soon_days=await soon_days_for(session, tenant_id),
+    )
     lanes: list[dict[str, Any]] = [{"id": str(p.id), "name": p.name} for p in projects]
     # A ticket filed on a folder that does not share the flow label still shows.
     extra_ids = {s.project_id for s in signals if s.project_id and s.project_id not in lane_ids}

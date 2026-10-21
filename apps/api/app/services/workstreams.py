@@ -71,6 +71,9 @@ def serialize_workstream(
         "module_slug": ws.module_slug,
         "template_slug": ws.template_slug,
         "always_review": bool(ws.always_review),
+        # Own setting only; "" / null follow the workspace ticket policy.
+        "stage_entry_policy": ws.stage_entry_policy or "",
+        "stage_entry_threshold": ws.stage_entry_threshold,
         "deliver_folder_id": str(ws.deliver_folder_id) if ws.deliver_folder_id else None,
         "deliver_works_in_key": ws.deliver_works_in_key or "",
         "stages": stages,
@@ -80,6 +83,46 @@ def serialize_workstream(
         "updated_at": _iso(ws.updated_at),
     }
     return out
+
+
+async def apply_stage_entry(
+    session: AsyncSession,
+    ws: Workstream,
+    *,
+    policy: str | None,
+    threshold: int | None,
+    actor_id: str,
+) -> None:
+    """Set the flow's stage-entry dial and record it in the audit log."""
+    from app.services.audit import record_audit
+    from app.services.ticket_work import ENTRY_POLICIES
+
+    before = {"stage_entry_policy": ws.stage_entry_policy or "", "stage_entry_threshold": ws.stage_entry_threshold}
+    if policy is not None:
+        if policy and policy not in ENTRY_POLICIES:
+            raise HTTPException(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
+        ws.stage_entry_policy = policy
+    if threshold is not None:
+        if threshold != -1 and not 0 <= threshold <= 10:
+            raise HTTPException(status_code=400, detail="stage_entry_threshold must be 0-10, or -1 to follow the workspace")
+        ws.stage_entry_threshold = None if threshold == -1 else threshold
+    after = {"stage_entry_policy": ws.stage_entry_policy or "", "stage_entry_threshold": ws.stage_entry_threshold}
+    if before == after:
+        return
+    await record_audit(
+        session,
+        ws.tenant_id,
+        action="govern:flow_stage_entry",
+        actor_type="user",
+        actor_id=actor_id,
+        resource_type="workstream",
+        resource_id=str(ws.id),
+        outcome="applied",
+        summary=f"Stage entry on {ws.name}: {after['stage_entry_policy'] or 'workspace default'}",
+        before=before,
+        after=after,
+        commit=False,
+    )
 
 
 async def playbook_tags_map(

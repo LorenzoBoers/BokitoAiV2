@@ -192,6 +192,7 @@ function blockedNestTargets(tree: FolderFilterNode[], activeId: string | null): 
 }
 
 function labelFor(node: FolderFilterNode, _parentTagNames?: string[] | null): string {
+  if (node.display_name) return node.display_name
   const named = node.name.replace(/^#/, '').trim()
   if (named) return named
   if (node.tag_names.length) {
@@ -956,7 +957,7 @@ function FolderRowChrome({
   node: FolderFilterNode
   trailing?: ReactNode
 }) {
-  const name = node.name.replace(/^#/, '').trim() || labelFor(node)
+  const name = labelFor(node)
   return (
     <>
       <span className="flex h-4 w-4 shrink-0 items-center justify-center text-text-muted" aria-hidden>

@@ -5,7 +5,7 @@ import { inboxPath } from './messages-paths'
 import { openEntityPath, pickClosestThreadBySubject } from './open-entity'
 
 /** One shape for everything over time: Agenda, the agent timeline and agent detail. */
-export type TimeItemKind = 'session' | 'wake' | 'checkup' | 'task' | 'calendar' | 'activity'
+export type TimeItemKind = 'session' | 'wake' | 'checkup' | 'task' | 'deadline' | 'calendar' | 'activity'
 
 export type OwnerKind = 'user' | 'agent' | 'team'
 
@@ -55,6 +55,8 @@ export type TimeItem = {
   location?: string | null
   html_link?: string | null
   all_day?: boolean
+  /** Deadline items: statutory, requested, agreed or manual. */
+  due_source?: string | null
   connection_id?: string | null
   external_id?: string | null
   /** False for read-only calendars. */

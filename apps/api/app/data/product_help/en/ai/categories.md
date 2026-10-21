@@ -37,7 +37,7 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 ## Confirm what the AI proposed
 
 1. An unsure read shows on the conversation as "Looks like #complaint" with **Confirm** and **Dismiss**.
-2. Nothing routes and no flow starts before someone confirms. Members can always file a ticket themselves; **Who may confirm tickets** on **Settings** → **Labels** decides who may confirm a proposal.
+2. Nothing routes and no flow starts before someone confirms. Members can always file a ticket themselves; **Who may confirm tickets** on **Settings** → **Labels** decides who may confirm a proposal. On the same card, **Stage moves by agents** sets the default for flows without their own setting, and **Deadline is near** sets how many days before a deadline a ticket counts as near.
 3. Proposals do not count as filed tickets on Today until they are confirmed.
 4. Set the **Tickets** posture on [Govern](/docs/govern/govern) if agents should stop filing tickets.
 
@@ -48,6 +48,17 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 3. Every move shows in the timeline, for example **Ticket moved to Waiting**. The ticket's status always follows the kind of its stage: open, waiting or done.
 4. Under the folder, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.
 5. Admins without fields see **Add custom fields to this flow**, which opens the flow in edit mode. Change the stages and fields there; see [Flows](/docs/ai/flows).
+6. When an agent moves the ticket, the flow's **Stage moves by agents** setting applies. Under **Propose, a person confirms**, the ticket panel shows **1 proposal waits for a decision in the conversation** until someone answers the card.
+
+## Set a deadline and follow the next step
+
+A ticket can carry a deadline with where it comes from. The panel and the board card say what the ticket waits on and how much time is left.
+
+1. In the **Ticket** panel, pick a date under **Deadline**. Choose the source: **Statutory**, **Requested**, **Agreed** or **Manual**, and type the **Basis**, for example the article or the customer's request.
+2. A deadline an agent finds is always a proposal: a decision card in the conversation with **Set deadline** and **No deadline**. Setting a date yourself answers that card.
+3. The line above the deadline shows the next step, for example **Waiting on customer · 1 item missing · 1 to confirm**. Hover it to see which items are missing.
+4. Within the near window the card shows **Due in 3 days**; after the date it shows **2 days overdue** and the folder counts it as overdue. The stage check-up comes earlier near the deadline and daily once it has passed. Deadlines also show on [Agenda](/docs/ai/agenda).
+5. **Clear deadline** removes the date.
 
 ## Split off a new request
 

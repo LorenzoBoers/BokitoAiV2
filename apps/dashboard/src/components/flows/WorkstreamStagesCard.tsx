@@ -37,8 +37,11 @@ import {
   type TicketStage,
   type TicketStageField,
   type TicketStageFieldType,
+  type TicketChecklistEvidence,
+  type TicketChecklistItemDef,
   type TicketStageKind,
   type TicketStageOwner,
+  type TicketWaitingOn,
 } from '../../lib/tickets-api'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
@@ -76,7 +79,148 @@ function normalizeStage(stage: TicketStage): TicketStage {
     fields: normalizeFields(stage.fields),
     owner: stage.owner?.id ? { kind: stage.owner.kind, id: stage.owner.id } : null,
     checkup_minutes: stage.kind === 'done' ? 0 : Math.max(0, stage.checkup_minutes ?? 0),
+    waiting_on: stage.kind === 'done' ? '' : (stage.waiting_on ?? ''),
+    checklist: (stage.checklist ?? []).map((item) => ({
+      key: item.key || '',
+      label: item.label || '',
+      required: Boolean(item.required),
+      evidence: item.evidence ?? 'manual',
+    })),
+    exit_requires_checklist: Boolean(stage.exit_requires_checklist),
   }
+}
+
+const WAITING_ON: Array<TicketWaitingOn | ''> = ['', 'customer', 'us', 'third_party']
+const EVIDENCE: TicketChecklistEvidence[] = ['manual', 'attachment', 'answer']
+const MAX_CHECKLIST = 12
+
+/** Who the stage waits on, its checklist, and whether the checklist gates the next stage. */
+function StageWorkBlock({
+  stage,
+  canEdit,
+  onUpdate,
+}: {
+  stage: TicketStage
+  canEdit: boolean
+  onUpdate: (patch: Partial<TicketStage>) => void
+}) {
+  const { t } = useTranslation('nav')
+  const items = stage.checklist ?? []
+  const setItem = (index: number, patch: Partial<TicketChecklistItemDef>) => {
+    const next = [...items]
+    next[index] = { ...next[index], ...patch }
+    onUpdate({ checklist: next })
+  }
+  return (
+    <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
+      {stage.kind !== 'done' ? (
+        <div className="space-y-1">
+          <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.waitingOn')}</Label>
+          <Select
+            value={stage.waiting_on || 'turn'}
+            disabled={!canEdit}
+            onValueChange={(value) => onUpdate({ waiting_on: value === 'turn' ? '' : (value as TicketWaitingOn) })}
+          >
+            <SelectTrigger className="h-8 text-xs" aria-label={t('workstreamsPage.stages.waitingOn')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {WAITING_ON.map((value) => (
+                <SelectItem key={value || 'turn'} value={value || 'turn'}>
+                  {value ? t(`tickets.waitingOn.${value}`) : t('workstreamsPage.stages.waitingOnTurn')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-2xs leading-snug text-text-muted">{t('workstreamsPage.stages.waitingOnHint')}</p>
+        </div>
+      ) : null}
+
+      <div className="space-y-1">
+        <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.checklist')}</Label>
+        <p className="text-2xs leading-snug text-text-muted">{t('workstreamsPage.stages.checklistHint')}</p>
+        {items.map((item, index) => (
+          <div key={item.key || `new-${index}`} className="flex items-center gap-1.5">
+            <Input
+              value={item.label}
+              disabled={!canEdit}
+              placeholder={t('workstreamsPage.stages.checklistItem')}
+              aria-label={t('workstreamsPage.stages.checklistItem')}
+              onChange={(event) => setItem(index, { label: event.target.value })}
+              className="h-7 min-w-0 flex-1 text-xs"
+            />
+            <Select
+              value={item.evidence ?? 'manual'}
+              disabled={!canEdit}
+              onValueChange={(value) => setItem(index, { evidence: value as TicketChecklistEvidence })}
+            >
+              <SelectTrigger className="h-7 w-28 text-2xs" aria-label={t('workstreamsPage.stages.checklistEvidence')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {EVIDENCE.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`tickets.checklistEvidence.${value}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Switch
+              checked={Boolean(item.required)}
+              disabled={!canEdit}
+              onCheckedChange={(checked) => setItem(index, { required: checked })}
+              aria-label={t('workstreamsPage.stages.checklistRequired')}
+              title={t('workstreamsPage.stages.checklistRequired')}
+            />
+            {canEdit ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="iconSm"
+                onClick={() => onUpdate({ checklist: items.filter((_, i) => i !== index) })}
+                className="text-text-muted hover:text-status-error"
+                aria-label={t('workstreamsPage.stages.checklistRemove')}
+              >
+                <Trash2 size={12} aria-hidden />
+              </Button>
+            ) : null}
+          </div>
+        ))}
+        {canEdit && items.length < MAX_CHECKLIST ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            onClick={() => onUpdate({ checklist: [...items, { key: '', label: '', required: false, evidence: 'manual' }] })}
+          >
+            <Plus size={12} aria-hidden />
+            {t('workstreamsPage.stages.checklistAdd')}
+          </Button>
+        ) : null}
+      </div>
+
+      {items.length > 0 && stage.kind !== 'done' ? (
+        <label className="flex items-start gap-2.5">
+          <Switch
+            checked={Boolean(stage.exit_requires_checklist)}
+            disabled={!canEdit}
+            onCheckedChange={(checked) => onUpdate({ exit_requires_checklist: checked })}
+            aria-label={t('workstreamsPage.stages.exitRequiresChecklist')}
+            className="mt-0.5"
+          />
+          <span className="min-w-0">
+            <span className="block text-xs font-medium text-text-primary">
+              {t('workstreamsPage.stages.exitRequiresChecklist')}
+            </span>
+            <span className="mt-0.5 block text-xs leading-snug text-text-muted">
+              {t('workstreamsPage.stages.exitRequiresChecklistHint')}
+            </span>
+          </span>
+        </label>
+      ) : null}
+    </div>
+  )
 }
 
 export type StageOwnerOption = {
@@ -339,6 +483,8 @@ function SortablePhaseCard({
             </span>
           </label>
         ) : null}
+
+        <StageWorkBlock stage={stage} canEdit={canEdit} onUpdate={onUpdate} />
 
         <StageFieldsBlock stage={stage} canEdit={canEdit} onUpdate={onUpdate} />
       </div>
@@ -681,6 +827,9 @@ export function StageEditorDialog({
               ? (field.options ?? []).map((opt) => opt.trim()).filter(Boolean)
               : undefined,
         })),
+      checklist: (draft.checklist ?? [])
+        .filter((item) => item.label.trim())
+        .map((item) => ({ ...item, label: item.label.trim(), key: item.key || item.label.trim() })),
     })
   }
 
@@ -749,6 +898,7 @@ export function StageEditorDialog({
                 </span>
               </label>
             ) : null}
+            <StageWorkBlock stage={draft} canEdit onUpdate={update} />
             <StageFieldsBlock stage={draft} canEdit onUpdate={update} />
           </div>
         ) : null}
