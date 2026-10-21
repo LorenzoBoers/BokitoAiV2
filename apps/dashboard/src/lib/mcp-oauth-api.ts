@@ -18,6 +18,13 @@ export type McpOAuthConsentContext = {
   scopes_supported: string[]
   memberships: McpOAuthMembership[]
   user: { id: string; email: string; name: string }
+  /** Set when the client connected to a workspace URL (/api/mcp/w/{slug}). */
+  pinned_workspace: {
+    slug: string
+    tenant_id: string | null
+    tenant_name: string
+    member: boolean
+  } | null
 }
 
 function resolveBaseUrl(): string {

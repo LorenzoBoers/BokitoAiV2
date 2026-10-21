@@ -58,8 +58,30 @@ def hash_opaque(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def mcp_resource_url() -> str:
-    return f"{get_settings().public_api_url.rstrip('/')}/api/mcp"
+def mcp_resource_url(workspace: str | None = None) -> str:
+    base = f"{get_settings().public_api_url.rstrip('/')}/api/mcp"
+    return f"{base}/w/{workspace}" if workspace else base
+
+
+def workspace_from_resource(url: str | None) -> str | None:
+    """Workspace slug of a pinned MCP URL (``/api/mcp/w/{slug}``), else None."""
+    raw = normalize_resource(url)
+    prefix = f"{mcp_resource_url()}/w/"
+    if not raw.startswith(prefix):
+        return None
+    slug = raw[len(prefix):].split("/", 1)[0].strip()
+    return slug or None
+
+
+def is_mcp_resource(url: str | None) -> bool:
+    raw = normalize_resource(url)
+    return raw == mcp_resource_url() or workspace_from_resource(raw) is not None
+
+
+async def tenant_by_slug(session: AsyncSession, slug: str) -> Tenant | None:
+    return (
+        await session.execute(select(Tenant).where(Tenant.slug == slug))
+    ).scalar_one_or_none()
 
 
 def public_origin() -> str:
@@ -79,8 +101,9 @@ def oauth_issuer() -> str:
     return f"{public_origin()}/api/oauth"
 
 
-def prm_metadata_url() -> str:
-    return f"{oauth_issuer()}/.well-known/oauth-protected-resource"
+def prm_metadata_url(workspace: str | None = None) -> str:
+    base = f"{oauth_issuer()}/.well-known/oauth-protected-resource"
+    return f"{base}/api/mcp/w/{workspace}" if workspace else base
 
 
 def scopes_supported() -> list[str]:
@@ -104,10 +127,14 @@ def scopes_to_json(scopes: list[str]) -> str:
     return json.dumps(scopes)
 
 
+# Grants issued before a tool category was renamed keep the old name.
+LEGACY_SCOPES = {"cases": "tickets"}
+
+
 def scopes_from_json(raw: str | None) -> set[str]:
     try:
         data = json.loads(raw or "[]")
-        return {str(s) for s in data} if isinstance(data, list) else set()
+        return {LEGACY_SCOPES.get(str(s), str(s)) for s in data} if isinstance(data, list) else set()
     except (json.JSONDecodeError, TypeError):
         return set()
 
@@ -164,9 +191,9 @@ def verify_pkce(verifier: str, challenge: str, method: str = "S256") -> bool:
     return secrets.compare_digest(computed, challenge)
 
 
-def protected_resource_metadata() -> dict[str, Any]:
+def protected_resource_metadata(workspace: str | None = None) -> dict[str, Any]:
     return {
-        "resource": mcp_resource_url(),
+        "resource": mcp_resource_url(workspace),
         # Path issuer so OIDC discovery lands under /api (Caddy proxies /api/*).
         "authorization_servers": [oauth_issuer()],
         "scopes_supported": scopes_supported(),
@@ -207,9 +234,9 @@ def authorization_server_metadata() -> dict[str, Any]:
     }
 
 
-def www_authenticate_challenge() -> str:
+def www_authenticate_challenge(workspace: str | None = None) -> str:
     # Absolute PRM URL under /api — never the SPA catch-all at /.well-known.
-    meta = prm_metadata_url()
+    meta = prm_metadata_url(workspace)
     scope = " ".join(DEFAULT_CONSENT_SCOPES)
     return (
         f'Bearer realm="bokito", '
@@ -574,8 +601,8 @@ async def lookup_access_token(
         or row.expires_at < datetime.utcnow()
     ):
         return None
-    # Audience bind: token must be for this MCP resource.
-    if not resource_matches(row.resource, mcp_resource_url()):
+    # Audience bind: token must be for this MCP resource (base or a workspace URL).
+    if not is_mcp_resource(row.resource):
         return None
     return row
 

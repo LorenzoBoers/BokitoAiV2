@@ -4841,39 +4841,16 @@ register_tool(
 register_tool(
     ToolSpec(
         name="create_flow",
-        description="Propose a playbook with an ordered list of canonical steps.",
+        description=(
+            "Propose a new flow with a title and description. Set its stages "
+            "afterwards with update_flow."
+        ),
         category="agents",
         input_schema={
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
                 "description": {"type": "string"},
-                "steps": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {"type": "string"},
-                            "kind": {
-                                "type": "string",
-                                "enum": [
-                                    "send_message",
-                                    "agent_task",
-                                    "wait_for_reply",
-                                    "ask_decision",
-                                    "call_tool",
-                                    "schedule",
-                                ],
-                            },
-                            "goal": {"type": "string"},
-                            "agent_id": {"type": "string"},
-                            "deadline_hours": {"type": "integer"},
-                            "on_deadline": {"type": "string"},
-                            "config": {"type": "object"},
-                        },
-                        "required": ["name", "kind"],
-                    },
-                },
             },
             "required": ["name"],
         },
@@ -4887,39 +4864,69 @@ register_tool(
 register_tool(
     ToolSpec(
         name="update_flow",
-        description="Propose updating a playbook, including replacing its ordered steps.",
+        description=(
+            "Propose a change to a flow (the stage pipeline behind a label): title, "
+            "description, who may move tickets between stages, always review, or its "
+            "stages. stages replaces the whole list: start from get_flow, edit, and "
+            "send every stage back (a stage you leave out is removed). Per stage you "
+            "can set waiting_on, a checklist and exit_requires_checklist."
+        ),
         category="agents",
         input_schema={
             "type": "object",
             "properties": {
-                "workstream_id": {"type": "string"},
+                "workstream_id": {"type": "string", "description": "Flow id from list_flows"},
                 "name": {"type": "string"},
                 "description": {"type": "string"},
-                "steps": {
+                "always_review": {
+                    "type": "boolean",
+                    "description": "A person confirms before this flow's tickets send",
+                },
+                "stage_entry_policy": {
+                    "type": "string",
+                    "enum": ["", "propose", "auto_above", "first_stage"],
+                    "description": (
+                        "How an agent places a ticket in a stage: propose (a person confirms), "
+                        "auto_above (moves when certainty >= threshold, else proposes), "
+                        "first_stage (only people move stages). Empty follows the workspace."
+                    ),
+                },
+                "stage_entry_threshold": {
+                    "type": "integer",
+                    "description": "With auto_above: certainty 0-10; -1 follows the workspace",
+                },
+                "stages": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "id": {"type": "string"},
+                            "key": {"type": "string"},
                             "name": {"type": "string"},
-                            "kind": {
-                                "type": "string",
-                                "enum": [
-                                    "send_message",
-                                    "agent_task",
-                                    "wait_for_reply",
-                                    "ask_decision",
-                                    "call_tool",
-                                    "schedule",
-                                ],
+                            "kind": {"type": "string", "enum": ["open", "waiting", "done", "closed"]},
+                            "waiting_on": {"type": "string", "enum": ["", "customer", "us", "third_party"]},
+                            "checklist": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "key": {"type": "string"},
+                                        "label": {"type": "string"},
+                                        "required": {"type": "boolean"},
+                                        "evidence": {
+                                            "type": "string",
+                                            "enum": ["attachment", "answer", "manual"],
+                                        },
+                                    },
+                                    "required": ["label"],
+                                },
                             },
-                            "goal": {"type": "string"},
-                            "agent_id": {"type": "string"},
-                            "deadline_hours": {"type": "integer"},
-                            "on_deadline": {"type": "string"},
-                            "config": {"type": "object"},
+                            "exit_requires_checklist": {
+                                "type": "boolean",
+                                "description": "Required items must be done before the ticket moves on",
+                            },
                         },
                         "required": ["name", "kind"],
+                        "additionalProperties": True,
                     },
                 },
             },
@@ -6558,7 +6565,7 @@ async def _list_flows(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
             return {"error": "project_id must be a valid id"}
     elif ctx.project_id:
         project_id = ctx.project_id
-    return {"playbooks": await list_workstreams(ctx.session, ctx.tenant_id, project_id=project_id)}
+    return {"flows": await list_workstreams(ctx.session, ctx.tenant_id, project_id=project_id)}
 
 
 async def _get_flow(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -6791,8 +6798,9 @@ register_tool(
     ToolSpec(
         name="list_flows",
         description=(
-            "List playbooks (workstreams) with their step counts. Scoped to a "
-            "project when project_id is given or the run is project-scoped."
+            "List flows: the label that files a ticket in each, their stages, "
+            "stage-entry policy and open tickets per stage. Scoped to a folder "
+            "when project_id is given or the run is folder-scoped."
         ),
         category="agents",
         input_schema={
@@ -6808,7 +6816,7 @@ register_tool(
 register_tool(
     ToolSpec(
         name="get_flow",
-        description="Read one playbook (workstream) with its ordered steps.",
+        description="Read one flow with its stages, checklists and stage-entry policy.",
         category="agents",
         input_schema={
             "type": "object",

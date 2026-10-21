@@ -219,7 +219,7 @@ async def test_mcp_workforce_reads_are_tenant_scoped(client: AsyncClient):
     assert detail["purpose"] == "Test assistant"
 
     playbooks = await _call_tool(client, headers, "list_flows", {})
-    assert isinstance(playbooks["playbooks"], list)
+    assert isinstance(playbooks["flows"], list)
 
     triggers = await _call_tool(client, headers, "list_triggers", {})
     assert isinstance(triggers["triggers"], list)

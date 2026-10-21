@@ -5,6 +5,7 @@ Every mechanism is a flow or workspace setting; nothing here is tenant data.
 
 import os
 from datetime import datetime, timedelta
+from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
@@ -17,7 +18,7 @@ from app.models.notification import DecisionRequest
 from app.models.signal import Signal
 from app.services import ticket_work as work
 from app.services.counts import status_counts
-from app.services.tickets import update_ticket
+from app.services.tickets import update_ticket, workstream_stages
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 
 os.environ["BOKITO_MOCK_EXECUTION"] = "true"
@@ -235,6 +236,35 @@ async def test_checklist_keys_are_unique_in_a_flow(client: AsyncClient, session_
     ]
     res = await client.patch(f"{FLOWS}/{flow['id']}", headers=headers, json={"stages": stages})
     assert res.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_governed_flow_change_sets_stages_and_entry(client: AsyncClient, session_override):
+    from app.models.orchestra import Workstream
+    from app.services.platform_apply import apply_workstream_change
+
+    headers = await _login(client)
+    flow = (await client.post(FLOWS, headers=headers, json={"name": "governed"})).json()
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    result = await apply_workstream_change(
+        session_override,
+        tenant.id,
+        "update",
+        {"workstream_id": flow["id"], "stages": STAGES, "stage_entry_policy": "first_stage"},
+        {},
+    )
+    assert result["stages_count"] == 3
+    await session_override.commit()
+    ws = await session_override.get(Workstream, UUID(flow["id"]))
+    assert ws.stage_entry_policy == "first_stage"
+    work_stage = next(s for s in workstream_stages(ws) if s["key"] == "work")
+    assert work_stage["exit_requires_checklist"] is True
+    assert [i["key"] for i in work_stage["checklist"]] == ["id-doc", "note"]
+
+    with pytest.raises(HTTPException):
+        await apply_workstream_change(
+            session_override, tenant.id, "update", {"workstream_id": flow["id"], "stage_entry_policy": "nope"}, {}
+        )
 
 
 def test_due_normalizes_and_checkup_marks():

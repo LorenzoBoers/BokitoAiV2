@@ -12,6 +12,7 @@ import {
   submitMcpOAuthConsent,
   type McpOAuthConsentContext,
 } from '../lib/mcp-oauth-api'
+import { useAuth } from '../context/AuthContext'
 
 const SCOPE_LABEL_KEYS: Record<string, string> = {
   messaging: 'oauthMcp.scopeLabels.messaging',
@@ -30,6 +31,7 @@ export default function OAuthMcpConsent() {
   const { t } = useTranslation('nav')
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const { logout } = useAuth()
   const requestId = searchParams.get('request_id') || ''
 
   const [ctx, setCtx] = useState<McpOAuthConsentContext | null>(null)
@@ -51,8 +53,9 @@ export default function OAuthMcpConsent() {
         const data = await fetchMcpOAuthConsentContext(requestId)
         if (cancelled) return
         setCtx(data)
-        const first = data.memberships[0]?.tenant_id || ''
-        setTenantId(first)
+        const pinned = data.pinned_workspace
+        const only = data.memberships.length === 1 ? data.memberships[0].tenant_id : ''
+        setTenantId(pinned ? (pinned.member ? pinned.tenant_id || '' : '') : only)
         setSelectedScopes(
           data.scopes.length ? [...data.scopes] : [...data.scopes_supported],
         )
@@ -96,6 +99,13 @@ export default function OAuthMcpConsent() {
       setError((err as Error).message || t('oauthMcp.authorizeFailed'))
       setSubmitting(false)
     }
+  }
+
+  async function onSwitchAccount() {
+    setSubmitting(true)
+    await logout()
+    const returnTo = `/oauth/mcp?request_id=${encodeURIComponent(requestId)}`
+    navigate(`/login?return_to=${encodeURIComponent(returnTo)}`, { replace: true })
   }
 
   async function onDeny() {
@@ -156,7 +166,27 @@ export default function OAuthMcpConsent() {
               <label className="mb-1.5 block text-xs font-medium text-text-heading">
                 {t('oauthMcp.pickWorkspace')}
               </label>
-              {ctx.memberships.length === 0 ? (
+              {ctx.pinned_workspace ? (
+                ctx.pinned_workspace.member ? (
+                  <OptionCardGrid className="grid-cols-1 gap-1.5 sm:grid-cols-1" aria-label={t('oauthMcp.pickWorkspace')}>
+                    <OptionCard
+                      selected
+                      onClick={() => setTenantId(ctx.pinned_workspace?.tenant_id || '')}
+                      icon={<Building2 size={14} className="text-text-muted" aria-hidden />}
+                      title={ctx.pinned_workspace.tenant_name}
+                      badge={<span className="text-xs text-text-muted">{t('oauthMcp.pinned')}</span>}
+                      className="py-2"
+                    />
+                  </OptionCardGrid>
+                ) : (
+                  <p className="text-sm text-destructive">
+                    {t('oauthMcp.notMember', {
+                      email: ctx.user.email,
+                      workspace: ctx.pinned_workspace.tenant_name,
+                    })}
+                  </p>
+                )
+              ) : ctx.memberships.length === 0 ? (
                 <p className="text-sm text-destructive">{t('oauthMcp.noWorkspaces')}</p>
               ) : (
                 <OptionCardGrid className="grid-cols-1 gap-1.5 sm:grid-cols-1" aria-label={t('oauthMcp.pickWorkspace')}>
@@ -204,6 +234,16 @@ export default function OAuthMcpConsent() {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
             <div className="flex items-center justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mr-auto"
+                disabled={submitting}
+                onClick={() => void onSwitchAccount()}
+              >
+                {t('oauthMcp.switchAccount')}
+              </Button>
               <Button
                 type="button"
                 variant="secondary"

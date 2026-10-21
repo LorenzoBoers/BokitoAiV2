@@ -38,6 +38,23 @@ Bokito biedt zijn tool-registry aan als MCP-server op `https://your-bokito-host/
 
 Voor een token voeg je `"headers": { "Authorization": "Bearer bok_..." }` toe aan de regel `bokito`.
 
+## Eén regel per workspace
+
+Zet `/w/{workspace-slug}` achter de URL om een regel aan één workspace te binden. Het toestemmingsscherm toont dan alleen die workspace, en het endpoint weigert een token van een andere workspace, zodat de client opnieuw aanmeldt in plaats van op de verkeerde plek te werken.
+
+1. Zoek de slug: het toestemmingsscherm toont hem tussen haakjes naast elke workspacenaam.
+2. Voeg per workspace een regel toe, elk met een eigen URL.
+3. Meld je aan. Is de browser aangemeld met een account dat geen lid is, kies dan **Ander account gebruiken** op het toestemmingsscherm.
+
+```json
+{
+  "mcpServers": {
+    "bokito-acme": { "url": "https://your-bokito-host/api/mcp/w/acme" },
+    "bokito-globex": { "url": "https://your-bokito-host/api/mcp/w/globex" }
+  }
+}
+```
+
 ## Koppelen vanuit Claude Code
 
 1. Voer het commando hieronder uit, start Claude Code en typ `/mcp`.
@@ -141,9 +158,9 @@ Elke tool komt terug met een naam, een beschrijving met categorieprefix, en een 
 `tools/list` is de bron van waarheid, maar deze families staan er altijd:
 
 - `messaging` - threads lezen en samenvatten (`list_threads`, optioneel `older_than_days` + `matched`/`returned` paging tot 200), één sluiten (`close_thread`) of meerdere (`close_threads` met `older_than_days` / `signal_ids`, optioneel `preview` om matches te tonen zonder te sluiten), en CRM met `list_contacts`, `get_contact` en `upsert_contact`
-- `agents` - agents bekijken met `list_agents`, `get_agent`, `list_flows` en `get_flow`; agents en draaiboeken aanmaken of bijwerken
+- `agents` - agents bekijken met `list_agents`, `get_agent`, `list_flows` (fasen, fase-instroom en open tickets per fase) en `get_flow`; agents en flows aanmaken of bijwerken. `update_flow` stelt een flowwijziging voor aan Govern: titel, `always_review`, `stage_entry_policy` (`propose`, `auto_above` met `stage_entry_threshold`, `first_stage`) of de volledige lijst `stages` met per fase `waiting_on`, `checklist` en `exit_requires_checklist`
 - `triggers` - `list_triggers` voor de Agenda, plus nieuwe wakes plannen
-- `tickets` - labels en tickets: `list_categories` (lijst labels), `get_ticket`, `file_ticket` (zelfde pad als Tags toevoegen; de werkmap volgt uit de labels) en `update_ticket` om een fase te verplaatsen (geef `fields` mee als de doelfase verplichte velden heeft). Vrije hashtags gaan via `set_thread_tags`, niet via `file_ticket`. Contacttags via `set_contact_tags`. Werkmappen via `create_folder` met `tags` of `tag_ids` (AND-filterset); optioneel `nest_under` uit `list_folders` verenigt de labels van een bredere werkmap in de nieuwe set. Verwijder verouderde werkmappen met `delete_folder` (Prullenbak); `delete_tag` weigert zolang een tag nog in de filterset van een werkmap zit.
+- `tickets` - labels en tickets: `list_categories` (lijst labels), `get_ticket`, `file_ticket` (zelfde pad als Tags toevoegen; de werkmap volgt uit de labels) en `update_ticket` om een fase te verplaatsen (geef `fields` mee als de doelfase verplichte velden heeft), een deadline voor te stellen (`due_at`, `due_source`, `due_basis`) of checklistpunten af te vinken; de fase-instroom van de flow bepaalt of een verplaatsing doorgaat of een voorstel wordt. Vrije hashtags gaan via `set_thread_tags`, niet via `file_ticket`. Contacttags via `set_contact_tags`. Werkmappen via `create_folder` met `tags` of `tag_ids` (AND-filterset); optioneel `nest_under` uit `list_folders` verenigt de labels van een bredere werkmap in de nieuwe set. Verwijder verouderde werkmappen met `delete_folder` (Prullenbak); `delete_tag` weigert zolang een tag nog in de filterset van een werkmap zit.
 - `govern` - `get_tenant_today`, `get_usage_summary` en `resolve_decision` voor een openstaande beslissingskaart
 - `workspace` - kennis: `search_index`, `list_docs`, `read_doc`, `write_doc`; Prullenbak: `list_trash`, `restore_trash_item` (herstellen vraagt altijd; agents purgen niet)
 - `koppelingen` - `list_module_connections` (alleen de koppelingen die de aanroeper in de huidige werkmap mag gebruiken), `set_module_default_connection`, en `set_connection_scope` om een koppeling aan werkmappen te koppelen of te wijzigen wie hem mag gebruiken (vraagt altijd)

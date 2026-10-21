@@ -72,6 +72,12 @@ async def protected_resource_meta_under_api():
     return asvc.protected_resource_metadata()
 
 
+@well_known.get("/.well-known/oauth-protected-resource/api/mcp/w/{workspace}")
+@router.get("/oauth/.well-known/oauth-protected-resource/api/mcp/w/{workspace}")
+async def protected_resource_meta_for_workspace(workspace: str):
+    return asvc.protected_resource_metadata(workspace)
+
+
 @router.get("/oauth/.well-known/oauth-authorization-server")
 @router.get("/oauth/.well-known/openid-configuration")
 async def authorization_server_meta_under_api():
@@ -82,6 +88,19 @@ async def authorization_server_meta_under_api():
 async def protected_resource_at_mcp_path():
     """RFC 9728 path insert after the MCP resource URL."""
     return asvc.protected_resource_metadata()
+
+
+@mcp_well_known.get("/w/{workspace}/.well-known/oauth-protected-resource")
+async def protected_resource_at_workspace_path(workspace: str):
+    return asvc.protected_resource_metadata(workspace)
+
+
+async def _pinned_tenant(session: AsyncSession, resource: str | None):
+    """(slug, tenant) when the client connected to a workspace MCP URL."""
+    slug = asvc.workspace_from_resource(resource)
+    if not slug:
+        return None, None
+    return slug, await asvc.tenant_by_slug(session, slug)
 
 
 @router.post("/oauth/register")
@@ -183,7 +202,23 @@ async def consent_context(
 
     memberships = await _build_memberships(session, user)
     scopes = asvc.parse_scopes(auth_req.scope)
+    slug, tenant = await _pinned_tenant(session, auth_req.resource)
+    pinned = None
+    if slug:
+        member = tenant is not None and await asvc.user_can_access_tenant(session, user, tenant.id)
+        pinned = {
+            "slug": slug,
+            "tenant_id": str(tenant.id) if tenant else None,
+            "tenant_name": tenant.name if tenant else slug,
+            "member": bool(member),
+        }
+        if member and not any(m.get("tenant_id") == str(tenant.id) for m in memberships):
+            memberships = [
+                *memberships,
+                {"tenant_id": str(tenant.id), "tenant_name": tenant.name, "tenant_slug": tenant.slug},
+            ]
     return {
+        "pinned_workspace": pinned,
         "request_id": str(auth_req.id),
         "client_id": auth_req.client_id,
         "client_name": client.client_name if client else auth_req.client_id,
@@ -217,6 +252,9 @@ async def consent(
         raise HTTPException(status_code=400, detail="tenant_id required")
     if not await asvc.user_can_access_tenant(session, user, body.tenant_id):
         raise HTTPException(status_code=403, detail="Not a member of that workspace")
+    slug, tenant = await _pinned_tenant(session, auth_req.resource)
+    if slug and (tenant is None or tenant.id != body.tenant_id):
+        raise HTTPException(status_code=400, detail=f"This connection is for the workspace '{slug}'")
 
     _code, redirect_url = await asvc.issue_authorization_code(
         session,
