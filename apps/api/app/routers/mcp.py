@@ -40,7 +40,7 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 _MCP_HIDDEN_TOOLS = frozenset({"take_over_conversation"})
 
 PROTOCOL_VERSION = "2025-03-26"
-SERVER_VERSION = "1.4.0"
+SERVER_VERSION = "1.5.0"
 
 
 def _server_info() -> dict[str, Any]:
@@ -63,9 +63,12 @@ def _server_info() -> dict[str, Any]:
 def _instructions() -> str:
     return (
         "Bokito workspace MCP. Paste only this URL in Cursor — authorize in the "
-        "browser and pick a workspace. Tools share Govern allowances with in-app "
+        "browser and pick a workspace; /api/mcp/w/{workspace-slug} pins one "
+        "workspace per entry. Tools share Govern allowances with in-app "
         "agents (trust=api). Prefer get_tenant_overview, list_threads, and "
-        "search_index before inventing state. Consequential tools raise a "
+        "search_index before inventing state. A conversation with a label that "
+        "has a flow is a ticket: list_flows for stages, get_ticket / update_ticket "
+        "to move it, set a deadline or tick a checklist. Consequential tools raise a "
         "Decision instead of executing — resolve in Communication or via "
         "resolve_decision. Docs: /docs/developers/mcp-endpoint. Revoke clients "
         "under Settings → Developers → Connected MCP clients."
@@ -315,11 +318,35 @@ async def get_api_token(
 
 
 def _api_token_scopes(token: ApiToken) -> set[str]:
+    return asvc.scopes_from_json(token.scopes_json)
+
+
+async def get_workspace_mcp_auth(
+    workspace: str,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    authorization: Annotated[str | None, Header()] = None,
+) -> McpPrincipal:
+    """Auth for ``/mcp/w/{workspace}``: the token must belong to that workspace.
+
+    A token for another workspace gets a 401 with this URL's challenge, so the
+    client signs in again and the consent screen is pinned to the workspace.
+    """
+    challenge = {"WWW-Authenticate": asvc.www_authenticate_challenge(workspace)}
     try:
-        scopes = json.loads(token.scopes_json or "[]")
-        return {str(s) for s in scopes} if isinstance(scopes, list) else set()
-    except (json.JSONDecodeError, TypeError):
-        return set()
+        principal = await get_mcp_auth(request, session, authorization)
+    except HTTPException as exc:
+        raise HTTPException(status_code=401, detail=exc.detail, headers=challenge) from exc
+    tenant = await asvc.tenant_by_slug(session, workspace)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail=f"Unknown workspace '{workspace}'")
+    if principal.tenant_id != tenant.id:
+        raise HTTPException(
+            status_code=401,
+            detail=f"This token is for another workspace; sign in to '{workspace}' again",
+            headers=challenge,
+        )
+    return principal
 
 
 def _api_token_allowlist(token: ApiToken) -> set[str] | None:
@@ -361,27 +388,25 @@ def _rpc_error(req_id: int | str | None, code: int, message: str) -> dict[str, A
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
 
 
-@router.get("")
-async def mcp_get(
-    request: Request,
-    authorization: Annotated[str | None, Header()] = None,
-):
+def _sse_probe(request: Request, authorization: str | None, workspace: str | None = None):
     """Streamable HTTP GET probe / idle SSE stream.
 
     Auth is optional for Accept negotiation; authenticated clients get a short
     keep-alive stream. Unauthenticated probes still learn the resource is here.
     """
+    challenge = asvc.www_authenticate_challenge(workspace)
     accept = (request.headers.get("accept") or "").lower()
     if "text/event-stream" not in accept and "*/*" not in accept:
         return JSONResponse(
             status_code=406,
             content={"error": {"code": "not_acceptable", "message": "Accept text/event-stream"}},
-            headers={"WWW-Authenticate": asvc.www_authenticate_challenge()},
+            headers={"WWW-Authenticate": challenge},
         )
+    endpoint = f"/api/mcp/w/{workspace}" if workspace else "/api/mcp"
 
     async def _events():
         # Minimal idle stream; JSON-RPC traffic is POST.
-        yield "event: endpoint\ndata: /api/mcp\n\n"
+        yield f"event: endpoint\ndata: {endpoint}\n\n"
         yield ": keepalive\n\n"
 
     headers = {
@@ -389,11 +414,29 @@ async def mcp_get(
         "X-Accel-Buffering": "no",
     }
     if not authorization:
-        headers["WWW-Authenticate"] = asvc.www_authenticate_challenge()
+        headers["WWW-Authenticate"] = challenge
     return StreamingResponse(_events(), media_type="text/event-stream", headers=headers)
 
 
+@router.get("")
+async def mcp_get(
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    return _sse_probe(request, authorization)
+
+
+@router.get("/w/{workspace}")
+async def mcp_workspace_get(
+    workspace: str,
+    request: Request,
+    authorization: Annotated[str | None, Header()] = None,
+):
+    return _sse_probe(request, authorization, workspace)
+
+
 @router.delete("")
+@router.delete("/w/{workspace}")
 async def mcp_delete_session(
     mcp_session_id: Annotated[str | None, Header(alias="Mcp-Session-Id")] = None,
 ):
@@ -408,6 +451,26 @@ async def mcp_endpoint(
     principal: Annotated[McpPrincipal, Depends(get_mcp_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     mcp_session_id: Annotated[str | None, Header(alias="Mcp-Session-Id")] = None,
+):
+    return await _handle_rpc(body, principal, session, mcp_session_id)
+
+
+@router.post("/w/{workspace}")
+async def mcp_workspace_endpoint(
+    body: JsonRpcRequest,
+    principal: Annotated[McpPrincipal, Depends(get_workspace_mcp_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    mcp_session_id: Annotated[str | None, Header(alias="Mcp-Session-Id")] = None,
+):
+    """Same server, pinned to one workspace: one Cursor entry per workspace."""
+    return await _handle_rpc(body, principal, session, mcp_session_id)
+
+
+async def _handle_rpc(
+    body: JsonRpcRequest,
+    principal: McpPrincipal,
+    session: AsyncSession,
+    mcp_session_id: str | None,
 ):
     scopes = principal.scopes
     session_id = (mcp_session_id or "").strip() or str(uuid.uuid4())

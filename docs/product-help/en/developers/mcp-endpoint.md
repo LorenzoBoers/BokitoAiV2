@@ -38,6 +38,23 @@ Bokito exposes its tool registry as an MCP server at `https://your-bokito-host/a
 
 For a token, add `"headers": { "Authorization": "Bearer bok_..." }` to the `bokito` entry.
 
+## Connect one entry per workspace
+
+Add `/w/{workspace-slug}` to the URL to tie an entry to one workspace. The consent screen then shows only that workspace, and the endpoint refuses a token from any other workspace, so the client signs in again instead of acting in the wrong place.
+
+1. Find the slug: the consent screen shows it in brackets next to each workspace name.
+2. Add one entry per workspace, each with its own URL.
+3. Sign in. If the browser is signed in to an account that is not a member, choose **Use another account** on the consent screen.
+
+```json
+{
+  "mcpServers": {
+    "bokito-acme": { "url": "https://your-bokito-host/api/mcp/w/acme" },
+    "bokito-globex": { "url": "https://your-bokito-host/api/mcp/w/globex" }
+  }
+}
+```
+
 ## Connect from Claude Code
 
 1. Run the command below, then start Claude Code and type `/mcp`.
@@ -141,9 +158,9 @@ Each tool comes back with a name, a description prefixed with its category, and 
 `tools/list` is the source of truth, but these families are always there:
 
 - `messaging` - read and summarize threads (`list_threads`, optional `older_than_days` + `matched`/`returned` paging up to 200), reply or close one (`close_thread`) or many (`close_threads` with `older_than_days` / `signal_ids`, optional `preview` to list matches without closing), and work the CRM with `list_contacts`, `get_contact` and `upsert_contact`
-- `agents` - inspect the workforce with `list_agents`, `get_agent`, `list_flows` and `get_flow`; create or update agents and flows
+- `agents` - inspect the workforce with `list_agents`, `get_agent`, `list_flows` (stages, stage-entry policy and open tickets per stage) and `get_flow`; create or update agents and flows. `update_flow` proposes a flow change for Govern: title, `always_review`, `stage_entry_policy` (`propose`, `auto_above` with `stage_entry_threshold`, `first_stage`) or the full `stages` list with each stage's `waiting_on`, `checklist` and `exit_requires_checklist`
 - `triggers` - `list_triggers` for the Agenda, plus scheduling new wakes
-- `tickets` - labels with a flow and tickets: `list_categories` (lists labels with a flow), `get_ticket`, `file_ticket` (same path as Add tags; the folder follows from the tags) and `update_ticket` to move a stage (include `fields` when the target stage has required values). Free hashtags use `set_thread_tags`, not `file_ticket`. Contact tags use `set_contact_tags`. Folders use `create_folder` with `tags` or `tag_ids` (AND filterset); optional `nest_under` from `list_folders` unions a broader map's tags into the new set. Remove obsolete maps with `delete_folder` (Bin); `delete_tag` refuses while a tag still sits in a folder filterset.
+- `tickets` - labels with a flow and tickets: `list_categories` (lists labels with a flow), `get_ticket`, `file_ticket` (same path as Add tags; the folder follows from the tags) and `update_ticket` to move a stage (include `fields` when the target stage has required values), propose a deadline (`due_at`, `due_source`, `due_basis`) or tick checklist items; the flow's stage-entry policy decides whether a move applies or becomes a proposal. Free hashtags use `set_thread_tags`, not `file_ticket`. Contact tags use `set_contact_tags`. Folders use `create_folder` with `tags` or `tag_ids` (AND filterset); optional `nest_under` from `list_folders` unions a broader map's tags into the new set. Remove obsolete maps with `delete_folder` (Bin); `delete_tag` refuses while a tag still sits in a folder filterset.
 - `govern` - `get_tenant_today`, `get_usage_summary` and `resolve_decision` to answer a pending decision card
 - `workspace` - knowledge: `search_index`, `list_docs`, `read_doc`, `write_doc`; Bin: `list_trash`, `restore_trash_item` (restore always asks; agents never purge)
 - `connections` - `list_module_connections` (only the connections the caller may use in the current folder), `set_module_default_connection`, and `set_connection_scope` to link a connection to folders or change who may use it (always asks)

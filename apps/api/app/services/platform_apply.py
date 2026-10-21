@@ -179,12 +179,38 @@ async def apply_workstream_change(
             ws.name = after["name"]
         if "description" in after:
             ws.description = after["description"]
-        # steps retired — stages-only playbooks
+        if after.get("always_review") is not None:
+            ws.always_review = bool(after["always_review"])
+        if after.get("stage_entry_policy") is not None or after.get("stage_entry_threshold") is not None:
+            from app.services.workstreams import apply_stage_entry
+
+            await apply_stage_entry(
+                session,
+                ws,
+                policy=after.get("stage_entry_policy"),
+                threshold=after.get("stage_entry_threshold"),
+                actor_id="platform_apply",
+            )
+        stages_changed = False
+        if after.get("stages") is not None:
+            from app.services.stage_checkups import validate_stage_owners
+            from app.services.tickets import validate_stages
+
+            stages_json = validate_stages(after["stages"])
+            await validate_stage_owners(session, tenant_id, stages_json)
+            stages_changed = stages_json != ws.stages_json
+            ws.stages_json = stages_json
+        ws.updated_at = datetime.utcnow()
+        session.add(ws)
         await session.flush()
+        if stages_changed:
+            from app.services.stage_checkups import resync_flow
+
+            await resync_flow(session, ws)
         return {
             "workstream_id": str(ws.id),
             "status": "updated",
-            "stages_count": None,
+            "stages_count": len(json.loads(ws.stages_json or "[]")),
         }
 
     name = after.get("name", "Workstream")
