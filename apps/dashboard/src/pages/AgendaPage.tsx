@@ -88,7 +88,7 @@ import {
 } from '../lib/agenda-hidden-owners'
 import { cn } from '../lib/utils'
 
-const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'calendar', 'activity']
+const ALL_SOURCES: TimeItemKind[] = ['session', 'wake', 'checkup', 'task', 'deadline', 'calendar', 'activity']
 const VIEW_KEYS: Record<string, AgendaView> = { d: 'day', w: 'week', m: 'month', l: 'list' }
 
 export default function AgendaPage() {

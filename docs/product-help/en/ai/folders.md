@@ -17,7 +17,7 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 *Each card is a folder with open work.*
 
 1. Open **Folders**. The left menu shows the tree. Choose **New folder**, give it a name, and optionally pick labels that define membership.
-2. Confirm. The folder appears in the tree at the root (or under a parent if you chose one).
+2. Confirm. The folder appears in the tree at the root (or under a parent if you chose one). Its card counts open and closed conversations in the folder and the folders under it, the same number as on the Communication rail. A folder without a name shows the labels that set it apart from its parent, or **Unnamed folder**.
 3. Open a card. You land on **Today**. Admins hover the folder name: it becomes a pill with a pencil, and a click renames the folder. Labels sit in one field beside the name; **+** adds labels, and the cross on a pill removes it. Members can read; they cannot delete.
 
 ## Nest a folder under another

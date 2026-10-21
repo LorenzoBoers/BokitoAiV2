@@ -19,7 +19,7 @@ Een werkmap in Bokito is iets anders dan een Excel-werkmap.
 *Elke kaart is een werkmap met open werk.*
 
 1. Open **Werkmappen**. Het linkermenu toont de boom. Kies **Nieuwe werkmap**, geef een naam en kies optioneel labels voor lidmaatschap.
-2. Bevestig. De werkmap verschijnt in de boom op het hoogste niveau, of onder de werkmap die je koos.
+2. Bevestig. De werkmap verschijnt in de boom op het hoogste niveau, of onder de werkmap die je koos. De kaart telt open en gesloten gesprekken in de werkmap en de werkmappen eronder, hetzelfde getal als in de Communicatie-zijbalk. Een werkmap zonder naam toont de labels die hem onderscheiden van de bovenliggende werkmap, of **Naamloze werkmap**.
 3. Open een kaart. Je landt op **Overzicht**. Beheerders hoveren de naam: die wordt een pil met een pennetje, en een klik hernoemt de werkmap. Labels staan in één veld naast de naam; **+** voegt labels toe, het kruisje op een pil haalt die weg. Leden kunnen lezen, niet verwijderen.
 
 ## Nest een werkmap onder een andere

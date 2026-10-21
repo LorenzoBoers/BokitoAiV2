@@ -19,6 +19,7 @@ import { LabelMarkDialog } from '../components/ui/LabelMark'
 import { TagPill } from '../components/ui/TagPill'
 import { Tip } from '../components/ui/Tip'
 import { FlowDestination } from '../components/flows/FlowDestination'
+import { FlowStageEntryControl } from '../components/flows/FlowStageEntryControl'
 import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/flows/FlowTicketBoard'
 import { StageProgressIcon } from '../components/flows/StageProgressIcon'
 import { useAuth } from '../context/AuthContext'
@@ -356,6 +357,11 @@ export default function WorkstreamDetail() {
                 <span className="font-medium">{t('workstreamsPage.alwaysReview.label')}</span>
                 <span className="text-text-muted">{t('workstreamsPage.alwaysReview.hint')}</span>
               </label>
+              <FlowStageEntryControl
+                flow={workstream}
+                canEdit={isAdmin}
+                onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
+              />
               {!tag && isAdmin ? (
                   <ChoiceSelect
                     aria-label={t('workstreamsPage.meta.bindTag')}

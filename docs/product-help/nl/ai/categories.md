@@ -37,7 +37,7 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 ## Bevestigen wat de AI voorstelde
 
 1. Een onzekere lezing toont op het gesprek als "Lijkt op #klacht" met **Bevestigen** en **Afwijzen**.
-2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **Labels** bepaalt wie een voorstel mag bevestigen.
+2. Niets routeert en geen flow start voordat iemand bevestigt. Leden mogen zelf altijd een ticket vastleggen; **Wie mag tickets bevestigen** op **Instellingen** → **Labels** bepaalt wie een voorstel mag bevestigen. Op dezelfde kaart zet **Fasewissels door agents** de standaard voor flows zonder eigen instelling, en **Deadline nadert** hoeveel dagen voor een deadline een ticket als dichtbij telt.
 3. Voorstellen tellen niet mee als vastgelegde tickets op Vandaag tot ze bevestigd zijn.
 4. Stel de **Tickets**-houding in op [Govern](/docs/govern/govern) als agents moeten stoppen met tickets vastleggen.
 
@@ -48,6 +48,17 @@ Als een kanaal een **AI-agent** heeft gekoppeld, leest die agent elk inkomend be
 3. Elke verplaatsing verschijnt in de tijdlijn, bijvoorbeeld **Ticket verplaatst naar Waiting**. De status van het ticket volgt altijd het soort van de fase: open, waiting of done.
 4. Onder de werkmap heeft elk eigen veld van de flow een eigen rij. Klik op een waarde om die te wijzigen; die wordt opgeslagen als je op Enter drukt, het veld verlaat of een optie kiest. Een `*` markeert een verplicht veld en kleurt oranje zolang het leeg is.
 5. Beheerders zonder velden zien **Eigen velden toevoegen aan deze flow**; dat opent de flow in de bewerkmodus. Pas daar de fasen en velden aan; zie [Flows](/docs/ai/flows).
+6. Verplaatst een agent het ticket, dan geldt de instelling **Fasewissels door agents** van de flow. Bij **Voorstellen, een mens bevestigt** toont het ticketpaneel **1 voorstel wacht op een beslissing in het gesprek** tot iemand de kaart beantwoordt.
+
+## Een deadline zetten en de volgende stap volgen
+
+Een ticket kan een deadline hebben met waar die vandaan komt. Het paneel en de bordkaart zeggen waar het ticket op wacht en hoeveel tijd er nog is.
+
+1. Kies in het **Ticket**-paneel een datum bij **Deadline**. Kies de bron: **Wettelijk**, **Gevraagd**, **Afgesproken** of **Handmatig**, en typ de **Grondslag**, bijvoorbeeld het artikel of het verzoek van de klant.
+2. Een deadline die een agent vindt, is altijd een voorstel: een beslissingskaart in het gesprek met **Deadline zetten** en **Geen deadline**. Zelf een datum kiezen beantwoordt die kaart.
+3. De regel boven de deadline toont de volgende stap, bijvoorbeeld **Wacht op klant · 1 punt ontbreekt · 1 te bevestigen**. Ga er met de muis over om te zien welke punten ontbreken.
+4. Binnen de periode waarin de deadline nadert toont de kaart **Deadline over 3 dagen**; na de datum **2 dagen te laat**, en de werkmap telt het ticket als te laat. De check-up van de fase komt eerder bij de deadline en dagelijks als die voorbij is. Deadlines staan ook op [Agenda](/docs/ai/agenda).
+5. **Deadline wissen** haalt de datum weg.
 
 ## Een nieuw verzoek afsplitsen
 

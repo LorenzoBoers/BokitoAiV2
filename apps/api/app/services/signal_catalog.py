@@ -5,6 +5,10 @@ needed:
 
 - ``signals.accept_roles`` - who may accept a proposed ticket on a thread
   (``admins`` = owner/admin only, ``members`` = anyone in the workspace).
+- ``signals.stage_entry_policy`` / ``stage_entry_threshold`` - how an agent
+  may place a ticket in a stage when its flow does not say (see
+  ``services.ticket_work``), and ``due_soon_days`` - when a deadline counts
+  as near.
 - ``signals.backlog`` - patterns interpretation keeps seeing that no hashtag
   covers. Each entry holds a short name, one sentence, an example quote and a
   count. At ``BACKLOG_THRESHOLD`` sightings the entry is ready to become a
@@ -56,13 +60,27 @@ def signal_policy(tenant: Tenant | None) -> dict[str, Any]:
     accept_roles = str(section.get("accept_roles") or DEFAULT_ACCEPT_ROLES)
     if accept_roles not in ACCEPT_ROLES:
         accept_roles = DEFAULT_ACCEPT_ROLES
-    try:
-        threshold = int(section.get("backlog_threshold", BACKLOG_THRESHOLD))
-    except (TypeError, ValueError):
-        threshold = BACKLOG_THRESHOLD
+    from app.services.ticket_work import (
+        DEFAULT_DUE_SOON_DAYS,
+        DEFAULT_ENTRY_POLICY,
+        DEFAULT_ENTRY_THRESHOLD,
+        ENTRY_POLICIES,
+    )
+
+    def _int(key: str, default: int, low: int, high: int) -> int:
+        try:
+            value = int(section.get(key, default))
+        except (TypeError, ValueError):
+            value = default
+        return min(high, max(low, value))
+
+    entry = str(section.get("stage_entry_policy") or DEFAULT_ENTRY_POLICY)
     return {
         "accept_roles": accept_roles,
-        "backlog_threshold": min(10, max(1, threshold)),
+        "backlog_threshold": _int("backlog_threshold", BACKLOG_THRESHOLD, 1, 10),
+        "stage_entry_policy": entry if entry in ENTRY_POLICIES else DEFAULT_ENTRY_POLICY,
+        "stage_entry_threshold": _int("stage_entry_threshold", DEFAULT_ENTRY_THRESHOLD, 0, 10),
+        "due_soon_days": _int("due_soon_days", DEFAULT_DUE_SOON_DAYS, 1, 60),
     }
 
 
@@ -78,13 +96,24 @@ async def update_signal_policy(
     *,
     accept_roles: str | None = None,
     backlog_threshold: int | None = None,
+    stage_entry_policy: str | None = None,
+    stage_entry_threshold: int | None = None,
+    due_soon_days: int | None = None,
 ) -> dict[str, Any]:
     from fastapi import HTTPException
+
+    from app.services.ticket_work import ENTRY_POLICIES
 
     if accept_roles is not None and accept_roles not in ACCEPT_ROLES:
         raise HTTPException(status_code=400, detail="accept_roles must be 'admins' or 'members'")
     if backlog_threshold is not None and not 1 <= int(backlog_threshold) <= 10:
         raise HTTPException(status_code=400, detail="backlog_threshold must be 1-10")
+    if stage_entry_policy is not None and stage_entry_policy not in ENTRY_POLICIES:
+        raise HTTPException(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
+    if stage_entry_threshold is not None and not 0 <= int(stage_entry_threshold) <= 10:
+        raise HTTPException(status_code=400, detail="stage_entry_threshold must be 0-10")
+    if due_soon_days is not None and not 1 <= int(due_soon_days) <= 60:
+        raise HTTPException(status_code=400, detail="due_soon_days must be 1-60")
 
     settings = _tenant_settings(tenant)
     section = dict(_signals_section(settings))
@@ -92,6 +121,12 @@ async def update_signal_policy(
         section["accept_roles"] = accept_roles
     if backlog_threshold is not None:
         section["backlog_threshold"] = int(backlog_threshold)
+    if stage_entry_policy is not None:
+        section["stage_entry_policy"] = stage_entry_policy
+    if stage_entry_threshold is not None:
+        section["stage_entry_threshold"] = int(stage_entry_threshold)
+    if due_soon_days is not None:
+        section["due_soon_days"] = int(due_soon_days)
     settings["signals"] = section
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)

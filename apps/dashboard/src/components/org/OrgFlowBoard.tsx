@@ -147,7 +147,7 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
       return <span className="text-text-muted">{names.channel(node.channel)}</span>
     }
     if (node.kind === 'unassigned') {
-      return <span className="text-status-warning">{t('orgCanvas.node.conversations', { count: node.count })}</span>
+      return <span className="text-status-warning">{t('orgCanvas.node.conversations', { count: node.count, days: data.days })}</span>
     }
     if (node.kind === 'agent' || node.kind === 'user') {
       if (node.issues.includes('offline')) return <span className="text-text-muted">{t('orgCanvas.node.offline')}</span>

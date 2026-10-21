@@ -107,6 +107,8 @@ async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
             created_by_id=actor_id,
             user_id=ctx.user_id,
             agent_id=ctx.agent.id if ctx.agent else None,
+            stage_key=str(tool_input.get("stage_key") or "") or None,
+            reason=str(tool_input.get("reason") or ""),
         )
     except HTTPException as exc:
         return {"error": exc.detail}
@@ -120,7 +122,19 @@ async def _update_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         return {"error": "signal_id is required"}
     patch = {
         k: tool_input[k]
-        for k in ("status", "stage_key", "project_id", "fields")
+        for k in (
+            "status",
+            "stage_key",
+            "project_id",
+            "fields",
+            "due_at",
+            "due_source",
+            "due_basis",
+            "checklist",
+            "certainty",
+            "reason",
+            "message_id",
+        )
         if k in tool_input
     }
     if "folder_id" in tool_input:
@@ -185,7 +199,9 @@ register_tool(
             "follows from the conversation's labels (its own, the one with a flow, and "
             "its contact's); add the missing label with set_thread_tags rather than "
             "guessing a folder. Pass optional "
-            "intake fields from list_categories (first open stage). Same path as the Hashtags picker."
+            "intake fields from list_categories (first open stage). Same path as the Hashtags picker. "
+            "stage_key suggests a later stage; the flow decides whether that moves the ticket, "
+            "becomes a proposal for a person, or is dropped."
         ),
         category="tickets",
         input_schema={
@@ -210,6 +226,11 @@ register_tool(
                     "type": "integer",
                     "description": "0-10 how sure you are of the label",
                 },
+                "stage_key": {
+                    "type": "string",
+                    "description": "Optional: the stage the work is already in, when it is past the first stage",
+                },
+                "reason": {"type": "string", "description": "Why that stage, in one sentence"},
             },
             "required": ["category"],
         },
@@ -228,7 +249,12 @@ register_tool(
             "Move a ticket to a stage (stage_key from its flow), accept a proposed "
             "ticket (status open), dismiss it (status dismissed), or file it in a folder "
             "(folder_id; null takes it out of its folder). When the target stage has "
-            "required fields, pass them in fields in the same call or the move is rejected."
+            "required fields, pass them in fields in the same call or the move is rejected. "
+            "A stage move follows the flow's stage-entry policy: it may move, become a "
+            "proposal a person confirms (pass certainty and reason), or be refused. "
+            "A deadline you set (due_at) is always a proposal. Checklist items you tick "
+            "(checklist: {item_key: done}) stay proposed until a person confirms them; "
+            "pass message_id when a message or attachment is the evidence."
         ),
         category="tickets",
         input_schema={
@@ -243,6 +269,20 @@ register_tool(
                     "description": "Field values for the target stage, keyed by field key",
                     "additionalProperties": {"type": "string"},
                 },
+                "certainty": {"type": "integer", "description": "0-10 how sure you are of the stage"},
+                "reason": {"type": "string", "description": "Why this stage or deadline, in one sentence"},
+                "due_at": {"type": ["string", "null"], "description": "Deadline, ISO date (YYYY-MM-DD) or date-time"},
+                "due_source": {"type": "string", "enum": ["statutory", "requested", "agreed", "manual"]},
+                "due_basis": {
+                    "type": "string",
+                    "description": "Where the date comes from, e.g. 'reminder letter of 12 Oct'",
+                },
+                "checklist": {
+                    "type": "object",
+                    "description": "Checklist item keys (from get_ticket) mapped to done or open",
+                    "additionalProperties": {"type": "string", "enum": ["done", "open"]},
+                },
+                "message_id": {"type": "string", "description": "Message that is the evidence for ticked items"},
             },
         },
         handler=_update_ticket,

@@ -251,7 +251,7 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
     if (node.kind === 'channel') return names.channel(node.channel)
     if (node.kind === 'flow') return node.module?.name ?? t('orgCanvas.node.flow')
     if (isFolder) return node.subtitle ? `${t('orgCanvas.result.folder')} · ${node.subtitle}` : t('orgCanvas.result.folder')
-    return t('orgCanvas.node.conversations', { count: node.count })
+    return t('orgCanvas.node.conversations', { count: node.count, days: data.days })
   })()
 
   const suggest = async () => {

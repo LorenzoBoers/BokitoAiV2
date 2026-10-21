@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -41,6 +42,12 @@ class CategoryPatchBody(BaseModel):
 class SignalPolicyBody(BaseModel):
     accept_roles: str | None = None
     backlog_threshold: int | None = None
+    # Workspace default for flows that leave it empty: first_stage | propose | auto_above.
+    stage_entry_policy: str | None = None
+    # With auto_above: certainty (0-10) at which an agent places a ticket itself.
+    stage_entry_threshold: int | None = None
+    # A deadline within this many days counts as near (board, check-ups, counts).
+    due_soon_days: int | None = None
 
 
 class BacklogPromoteBody(BaseModel):
@@ -61,12 +68,18 @@ class TicketFileBody(BaseModel):
 class TicketPatchBody(BaseModel):
     """``status``: ``open`` accepts a proposal, ``dismissed`` removes the action tag,
     ``waiting`` / ``done`` move to the first stage of that kind.
-    Required fields of the target stage must be in ``fields`` or already stored."""
+    Required fields of the target stage must be in ``fields`` or already stored.
+    ``due_at`` null clears the deadline; ``checklist`` maps item keys to
+    ``done`` / ``open`` (``done`` on a proposed item confirms it)."""
 
     status: str | None = None
     stage_key: str | None = None
     project_id: UUID | None = None
     fields: dict[str, str] | None = None
+    due_at: datetime | None = None
+    due_source: str | None = None
+    due_basis: str | None = None
+    checklist: dict[str, str] | None = None
 
 
 async def _workstream_names(session: AsyncSession, tenant_id: UUID) -> dict[UUID, Workstream]:
@@ -157,6 +170,9 @@ async def put_signal_policy(
         auth.tenant,
         accept_roles=body.accept_roles,
         backlog_threshold=body.backlog_threshold,
+        stage_entry_policy=body.stage_entry_policy,
+        stage_entry_threshold=body.stage_entry_threshold,
+        due_soon_days=body.due_soon_days,
     )
     return {**policy, "may_accept": True}
 

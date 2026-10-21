@@ -166,6 +166,9 @@ async def resolve_decision(
     from app.services.auto_review import record_agreement
 
     await record_agreement(session, decision, action, user_id=user_id)
+    from app.services.ticket_work import record_proposal_outcome
+
+    await record_proposal_outcome(session, decision, action, user_id=user_id)
 
     if decision.notification_id:
         notif_result = await session.execute(

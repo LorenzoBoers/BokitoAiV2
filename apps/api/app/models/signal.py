@@ -190,6 +190,14 @@ class Signal(SQLModel, table=True):
     ticket_filed_at: Optional[datetime] = None
     # Values for optional intake fields defined on the flow's stages (JSON object).
     ticket_fields_json: str = Field(default="{}")
+    # Deadline of the work: statutory | requested | agreed | manual, plus a
+    # short basis ("one month after the quarter ends"). Agents only propose it.
+    due_at: Optional[datetime] = Field(default=None, index=True)
+    due_source: str = ""
+    due_basis: str = ""
+    # Checklist state keyed by item key: {"status": done | proposed, "by_type",
+    # "by_id", "at", "message_id"}. Items are defined on the flow's stages.
+    ticket_checklist_json: str = Field(default="{}")
 
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

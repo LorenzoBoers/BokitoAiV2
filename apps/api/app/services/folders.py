@@ -84,6 +84,26 @@ def _local_tag_names(
     return local or list(mine)
 
 
+def folder_display_name(
+    name: str,
+    tag_names: tuple[str, ...] | list[str] = (),
+    parent_tag_names: tuple[str, ...] | list[str] | None = None,
+) -> str:
+    """The one name a folder shows everywhere: its own name, else its distinguishing labels.
+
+    A name that only lists the folder's own labels (the auto name ``#a · #b``)
+    counts as unnamed. Empty when the folder has neither; the client renders
+    its localized fallback.
+    """
+    raw = [p.strip() for p in (name or "").split("·") if p.strip().lstrip("#")]
+    parts = [p.lstrip("#").strip() for p in raw]
+    own = {n.lower() for n in tag_names if n}
+    auto = bool(own) and all(p.startswith("#") for p in raw) and {p.lower() for p in parts} <= own
+    if parts and not auto:
+        return " · ".join(parts)
+    return " · ".join(_local_tag_names(tag_names, parent_tag_names))
+
+
 @dataclass
 class DerivedNode:
     """A row in the derived tree: a real folder or a virtual cluster."""

@@ -41,11 +41,63 @@ export type TicketStage = {
   owner?: TicketStageOwner | null
   /** Recurring check-up for the owner while the ticket sits here; 0 is off. */
   checkup_minutes?: number
+  /** Who the work waits on in this stage; empty follows the conversation turn. */
+  waiting_on?: TicketWaitingOn | ''
+  /** Items to tick in this stage. Keys are unique across the flow. */
+  checklist?: TicketChecklistItemDef[]
+  /** Required items must be ticked before the ticket moves to a later stage. */
+  exit_requires_checklist?: boolean
   /** Active-stage pie fill from the API (0–1). Boards recompute this from the column list. */
   progress?: number
 }
 
 export type TicketStageOwner = { kind: 'user' | 'agent' | 'team'; id: string }
+
+export type TicketWaitingOn = 'customer' | 'us' | 'third_party'
+
+export type TicketChecklistEvidence = 'attachment' | 'answer' | 'manual'
+
+export type TicketChecklistItemDef = {
+  key: string
+  label: string
+  required?: boolean
+  evidence?: TicketChecklistEvidence
+}
+
+/** A checklist item with its state on one ticket. `proposed` is an agent's tick. */
+export type TicketChecklistItem = TicketChecklistItemDef & {
+  stage_key: string
+  status: 'open' | 'proposed' | 'done'
+  by_type?: string | null
+  by_id?: string | null
+  at?: string | null
+}
+
+export type TicketDueSource = 'statutory' | 'requested' | 'agreed' | 'manual'
+
+export type TicketDueState = 'overdue' | 'soon' | 'later' | ''
+
+/** Server-computed next step for a card or ticket panel. Clients only render it. */
+export type TicketNextStep = {
+  waiting_on: TicketWaitingOn | ''
+  missing: string[]
+  to_confirm: number
+  due_at: string | null
+  due_source: TicketDueSource | null
+  due_state: TicketDueState
+  days_left: number | null
+}
+
+export type StageEntryPolicy = 'first_stage' | 'propose' | 'auto_above'
+
+/** An open agent proposal on this ticket (a decision card in the thread). */
+export type TicketProposal = {
+  decision_id: string
+  kind: 'stage' | 'due'
+  stage_key: string | null
+  due_at: string | null
+  summary: string
+}
 
 export type TicketCheckup = {
   trigger_id: string
@@ -193,6 +245,12 @@ export type Ticket = {
   field_defs?: TicketStageField[]
   fields?: Record<string, string>
   checkup?: TicketCheckup | null
+  due?: { at: string | null; source: TicketDueSource | null; basis: string }
+  checklist?: TicketChecklistItem[]
+  next_step?: TicketNextStep | null
+  proposals?: TicketProposal[]
+  /** The policy in force for this flow (own setting or the workspace default). */
+  stage_entry?: { policy: StageEntryPolicy; threshold: number }
 }
 
 /** Compact ticket chip on conversation list rows. */
@@ -204,6 +262,8 @@ export type TicketSummary = {
   status: TicketStatus
   stage: TicketStage | null
   project_id: string | null
+  due_at?: string | null
+  due_state?: TicketDueState
 }
 
 export function isTicketPending(ticket: Pick<Ticket, 'status' | 'stage_key'> | null | undefined): boolean {
@@ -282,6 +342,11 @@ export async function patchTicket(
     stage_key?: string
     project_id?: string | null
     fields?: Record<string, string>
+    /** Date (YYYY-MM-DD) or date-time; null clears the deadline. */
+    due_at?: string | null
+    due_source?: TicketDueSource
+    due_basis?: string
+    checklist?: Record<string, 'done' | 'open'>
   },
 ): Promise<Ticket | null> {
   const res = await apiPatch<{ ticket: Ticket | null }>(categoriesRoutes.ticket(signalId), body)
@@ -312,6 +377,8 @@ export type BoardTicket = {
   fields?: Record<string, string>
   /** Next stage check-up for the owner; null when the stage has none. */
   checkup_at?: string | null
+  due_at?: string | null
+  next_step?: TicketNextStep | null
 }
 
 /** A lane on a flow board: one project, or `id: null` for No project. */
@@ -339,6 +406,11 @@ export type SignalAcceptRoles = 'admins' | 'members'
 export type SignalPolicy = {
   accept_roles: SignalAcceptRoles
   backlog_threshold: number
+  /** Workspace default for flows that do not set their own. */
+  stage_entry_policy: StageEntryPolicy
+  stage_entry_threshold: number
+  /** A deadline within this many days counts as near. */
+  due_soon_days: number
   may_accept: boolean
 }
 
@@ -362,6 +434,9 @@ export async function getSignalPolicy(): Promise<SignalPolicy> {
 export async function saveSignalPolicy(body: {
   accept_roles?: SignalAcceptRoles
   backlog_threshold?: number
+  stage_entry_policy?: StageEntryPolicy
+  stage_entry_threshold?: number
+  due_soon_days?: number
 }): Promise<SignalPolicy> {
   return apiPut<SignalPolicy>(categoriesRoutes.policy, body)
 }

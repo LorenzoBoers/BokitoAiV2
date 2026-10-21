@@ -30,6 +30,11 @@ class WorkstreamPatchBody(BaseModel):
     stages: list[dict[str, Any]] | None = None
     # A person confirms before this flow's tickets send. Caps them at Assisted.
     always_review: bool | None = None
+    # How an agent may place a ticket in a stage: first_stage | propose |
+    # auto_above; "" follows the workspace ticket policy.
+    stage_entry_policy: str | None = None
+    # With auto_above: certainty 0-10; -1 follows the workspace.
+    stage_entry_threshold: int | None = None
     # "Delivers to": null clears it; the key must be one of that folder's Works in items.
     deliver_folder_id: UUID | None = None
     deliver_works_in_key: str | None = None
@@ -300,6 +305,16 @@ async def patch_workstream(
             before={"always_review": not ws.always_review},
             after={"always_review": ws.always_review},
             commit=False,
+        )
+    if patch.get("stage_entry_policy") is not None or patch.get("stage_entry_threshold") is not None:
+        from app.services.workstreams import apply_stage_entry
+
+        await apply_stage_entry(
+            session,
+            ws,
+            policy=patch.get("stage_entry_policy"),
+            threshold=patch.get("stage_entry_threshold"),
+            actor_id=str(auth.user.id),
         )
     if "deliver_folder_id" in patch or "deliver_works_in_key" in patch:
         from app.services.deliveries import validate_flow_destination
