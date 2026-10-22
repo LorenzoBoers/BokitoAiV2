@@ -740,8 +740,8 @@ function threadStyles(colors: ColorTokens) {
   triageText: { color: colors.textMuted, fontSize: 12, lineHeight: 17 },
   contactSheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.xl,
-    borderTopRightRadius: radius.xl,
+    borderTopLeftRadius: radius['2xl'],
+    borderTopRightRadius: radius['2xl'],
     padding: spacing.xl,
     gap: spacing.sm,
   },
@@ -758,7 +758,7 @@ function threadStyles(colors: ColorTokens) {
   notesInput: {
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     color: colors.textPrimary,

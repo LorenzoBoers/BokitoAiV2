@@ -11,7 +11,7 @@ export function Surface({ style, ...rest }: ViewProps) {
           backgroundColor: tokens.color.bgSurface,
           borderColor: tokens.color.border,
           borderWidth: 1,
-          borderRadius: tokens.radius.md,
+          borderRadius: tokens.radius.lg,
         },
         style,
       ]}

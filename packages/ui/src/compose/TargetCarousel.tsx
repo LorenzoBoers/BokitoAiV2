@@ -53,7 +53,7 @@ export function TargetCarousel({
               height: 44,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: tokens.radius.md,
+              borderRadius: tokens.radius.lg,
             }}
           >
             <Icon name="chevron-left" size={22} color={tokens.color.textMuted} />
@@ -86,7 +86,7 @@ export function TargetCarousel({
               height: 44,
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: tokens.radius.md,
+              borderRadius: tokens.radius.lg,
             }}
           >
             <Icon name="chevron-right" size={22} color={tokens.color.textMuted} />

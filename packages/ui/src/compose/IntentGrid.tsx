@@ -26,7 +26,7 @@ export function IntentGrid({ items }: { items: IntentItem[] }) {
             gap: 6,
             paddingHorizontal: 10,
             paddingVertical: 7,
-            borderRadius: tokens.radius.pill,
+            borderRadius: tokens.radius.full,
           }}
         >
           <Icon name={item.icon} size={15} color={tokens.color.textMuted} />

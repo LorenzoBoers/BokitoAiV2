@@ -231,7 +231,7 @@ function loginStyles(colors: ColorTokens) {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     color: colors.textPrimary,
@@ -243,7 +243,7 @@ function loginStyles(colors: ColorTokens) {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
   },
   passwordInput: {
     flex: 1,
@@ -258,7 +258,7 @@ function loginStyles(colors: ColorTokens) {
   devFill: { color: colors.textMuted, textAlign: 'center', fontSize: 12 },
   button: {
     backgroundColor: colors.accent,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingVertical: 13,
     alignItems: 'center',
     marginTop: spacing.sm,

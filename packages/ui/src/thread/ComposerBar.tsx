@@ -129,7 +129,7 @@ export function ComposerMode({
         borderWidth: 1,
         borderColor: active ? activeBorder : 'transparent',
         backgroundColor: active ? tokens.color.bgHover : 'transparent',
-        borderRadius: tokens.radius.pill,
+        borderRadius: tokens.radius.full,
         paddingHorizontal: 10,
         paddingVertical: 6,
       }}

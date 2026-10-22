@@ -240,7 +240,7 @@ function composerStyles(colors: ColorTokens) {
     },
     tabs: { flexDirection: 'row', gap: spacing.sm },
     tab: {
-      borderRadius: radius.pill,
+      borderRadius: radius.full,
       borderColor: colors.border,
       borderWidth: 1,
       paddingHorizontal: spacing.md,
@@ -260,7 +260,7 @@ function composerStyles(colors: ColorTokens) {
       gap: spacing.sm,
       borderColor: colors.border,
       borderWidth: 1,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       padding: spacing.sm,
       backgroundColor: colors.bg,
     },

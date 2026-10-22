@@ -105,7 +105,7 @@ function notificationStyles(colors: ColorTokens) {
     backgroundColor: colors.surface,
     borderColor: colors.border,
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
   },
   rowBody: { flex: 1, gap: 4 },

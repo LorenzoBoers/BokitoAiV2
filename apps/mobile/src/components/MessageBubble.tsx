@@ -320,7 +320,7 @@ function bubbleStyles(colors: ColorTokens) {
   return {
     bubble: {
       maxWidth: '88%' as const,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       paddingHorizontal: spacing.lg,
       paddingVertical: 10,
     },
@@ -355,7 +355,7 @@ function bubbleStyles(colors: ColorTokens) {
       backgroundColor: colors.surface,
       borderColor: colors.warning,
       borderWidth: 1,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       padding: spacing.lg,
       gap: spacing.sm,
     },
@@ -370,7 +370,7 @@ function bubbleStyles(colors: ColorTokens) {
     decisionBody: { color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
     decisionActions: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.sm, marginTop: spacing.xs },
     decisionButton: {
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       paddingHorizontal: spacing.md,
       paddingVertical: 9,
       backgroundColor: colors.accent,
@@ -385,7 +385,7 @@ function bubbleStyles(colors: ColorTokens) {
     resolvedLabel: { color: colors.textMuted, fontSize: 12 },
     noteCard: {
       backgroundColor: colors.accentMuted,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       padding: spacing.md,
       gap: 2,
     },

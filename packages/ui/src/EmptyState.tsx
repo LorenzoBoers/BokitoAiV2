@@ -32,7 +32,7 @@ export function EmptyState({
             borderWidth: 1,
             borderColor: tokens.color.accent,
             backgroundColor: tokens.color.bgHover,
-            borderRadius: tokens.radius.md,
+            borderRadius: tokens.radius.lg,
             paddingHorizontal: tokens.spacing.lg,
             paddingVertical: tokens.spacing.sm,
           }}

@@ -57,7 +57,7 @@ function attachmentStyles(colors: ColorTokens) {
     thumbnail: {
       width: 120,
       height: 90,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       backgroundColor: colors.elevated,
       borderColor: colors.border,
       borderWidth: 1,
@@ -71,7 +71,7 @@ function attachmentStyles(colors: ColorTokens) {
       backgroundColor: colors.elevated,
       borderColor: colors.border,
       borderWidth: 1,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       paddingHorizontal: spacing.sm,
       paddingVertical: 6,
     },

@@ -22,7 +22,7 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: Badge
       style={{
         alignSelf: 'flex-start',
         backgroundColor: tokens.color[colors.bg],
-        borderRadius: tokens.radius.pill,
+        borderRadius: tokens.radius.full,
         paddingHorizontal: tokens.spacing.sm,
         paddingVertical: 2,
       }}

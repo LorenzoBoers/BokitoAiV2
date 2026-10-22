@@ -165,7 +165,7 @@ function homeStyles(colors: ColorTokens) {
     sheet: {
       width: '100%' as const,
       maxWidth: 360,
-      borderRadius: radius.lg,
+      borderRadius: radius.xl,
       backgroundColor: colors.surface,
       padding: spacing.lg,
       gap: spacing.sm,

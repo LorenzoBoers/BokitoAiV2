@@ -36,7 +36,7 @@ export function NavRow({
         gap: tokens.spacing.sm,
         paddingHorizontal: tokens.spacing.sm,
         paddingVertical: 6,
-        borderRadius: tokens.radius.sm,
+        borderRadius: tokens.radius.md,
         backgroundColor: active ? tokens.color.bgHover : 'transparent',
       }}
     >

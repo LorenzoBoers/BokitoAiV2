@@ -1,9 +1,13 @@
-/** Tailwind radius steps the dashboard design system uses. */
+/** Tailwind's default radius scale, in px. */
 
 export const radius = {
-  sm: 6,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  pill: 999,
+  none: 0,
+  sm: 2,
+  DEFAULT: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  '2xl': 16,
+  '3xl': 24,
+  full: 9999,
 } as const

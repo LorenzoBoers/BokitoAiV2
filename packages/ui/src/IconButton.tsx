@@ -23,7 +23,7 @@ export function IconButton({
         const base: ViewStyle = {
           width: 32,
           height: 32,
-          borderRadius: tokens.radius.md,
+          borderRadius: tokens.radius.lg,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: state.pressed ? tokens.color.bgHover : 'transparent',
