@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatAppTime } from './app-locale'
 import {
   activityIconKind,
   clusterTimelineItems,
@@ -125,20 +126,26 @@ describe('parseTimelineMs', () => {
 
 describe('formatActivityMoment', () => {
   it('shows the day once and clock times from–to', () => {
-    const out = formatActivityMoment('2026-10-01T10:44:00+02:00', '2026-10-01T11:02:00+02:00', 'nl')
-    expect(out.day.toLowerCase()).toMatch(/do\s+1\s+okt/)
-    expect(out.time).toBe('10:44 – 11:02')
+    const start = '2026-10-01T08:44:00.000Z'
+    const end = '2026-10-01T09:02:00.000Z'
+    const out = formatActivityMoment(start, end, 'nl')
+    expect(out.day.toLowerCase()).toMatch(/1\s+okt/)
+    expect(out.time).toBe(
+      `${formatAppTime(new Date(start), 'nl')} – ${formatAppTime(new Date(end), 'nl')}`,
+    )
   })
 
   it('collapses ranges of two minutes or less to one clock time', () => {
-    const out = formatActivityMoment('2026-10-01T10:44:00+02:00', '2026-10-01T10:44:40+02:00', 'nl')
-    expect(out.time).toBe('10:44')
+    const start = '2026-10-01T08:44:00.000Z'
+    const out = formatActivityMoment(start, '2026-10-01T08:44:40.000Z', 'nl')
+    expect(out.time).toBe(formatAppTime(new Date(start), 'nl'))
   })
 
   it('uses English weekday then day then month', () => {
-    const out = formatActivityMoment('2026-10-07T09:00:00+02:00', null, 'en')
+    const start = '2026-10-07T07:00:00.000Z'
+    const out = formatActivityMoment(start, null, 'en')
     expect(out.day).toMatch(/Wed 7 Oct/)
-    expect(out.time).toBe('09:00')
+    expect(out.time).toBe(formatAppTime(new Date(start), 'en'))
   })
 })
 

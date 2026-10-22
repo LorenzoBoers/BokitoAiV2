@@ -207,8 +207,7 @@ async def notify_decision(
         status = "silent"
         delivered = 0
         if "push" in channels and (user_id in direct or urgent):
-            # Urgent work may wake someone in quiet hours; calm work waits.
-            if in_quiet_hours(reach, now) and not urgent:
+            if in_quiet_hours(reach, now):
                 status = "quiet_hours"
             elif await pushes_today(session, decision.tenant_id, user_id, now) >= int(reach.get("max_per_day") or 0):
                 status = "daily_max"

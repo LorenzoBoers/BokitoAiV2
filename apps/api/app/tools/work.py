@@ -217,7 +217,7 @@ async def _create_project(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
         tags = [name.lower().replace(" ", "-")]
     return await _platform_change(
         ctx,
-        resource_type="folder",
+        resource_type="project",
         change_kind="create",
         summary=f"Create folder {name}",
         after={
@@ -310,7 +310,7 @@ async def _delete_folder(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         }
     return await _platform_change(
         ctx,
-        resource_type="folder",
+        resource_type="project",
         change_kind="delete",
         summary=f"Delete folder {folder.name}",
         after={

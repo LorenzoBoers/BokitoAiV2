@@ -91,7 +91,7 @@ async def _list_projects(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         }
         for fs in catalog.folders
     ]
-    return {"folders": projects}
+    return {"projects": projects}
 
 
 def _queue_folder_missing(

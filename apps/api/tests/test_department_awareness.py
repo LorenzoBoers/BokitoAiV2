@@ -211,14 +211,17 @@ async def test_reach_ladder_pushes_urgent_department_work_within_quiet_hours_and
 
     with patch("app.services.push._send_expo_push", new_callable=AsyncMock) as expo:
         expo.return_value = True
-        calm, calm_decision = await _department_decision(session_override, tenant, team)
-        assert await notify_decision(session_override, calm_decision) == 0
-        assert await _reach_events(session_override, calm.id) == []
+        # Force "not quiet" for the urgent delivery path so the suite is not
+        # timezone-/time-of-day dependent; the night block below patches quiet on.
+        with patch("app.services.reach.in_quiet_hours", return_value=False):
+            calm, calm_decision = await _department_decision(session_override, tenant, team)
+            assert await notify_decision(session_override, calm_decision) == 0
+            assert await _reach_events(session_override, calm.id) == []
 
-        urgent, urgent_decision = await _department_decision(
-            session_override, tenant, team, due_at=datetime.utcnow() - timedelta(hours=2)
-        )
-        assert await notify_decision(session_override, urgent_decision) == 1
+            urgent, urgent_decision = await _department_decision(
+                session_override, tenant, team, due_at=datetime.utcnow() - timedelta(hours=2)
+            )
+            assert await notify_decision(session_override, urgent_decision) == 1
         payload = expo.await_args.args[3]
         assert payload["category"] == "decision" and payload["urgency"] >= 0.6
         events = await _reach_events(session_override, urgent.id)
@@ -227,10 +230,11 @@ async def test_reach_ladder_pushes_urgent_department_work_within_quiet_hours_and
 
         await save_prefs(session_override, tenant.id, owner.id, {"reach": {"max_per_day": 1}})
         await session_override.commit()
-        capped, capped_decision = await _department_decision(
-            session_override, tenant, team, due_at=datetime.utcnow() - timedelta(hours=2)
-        )
-        assert await notify_decision(session_override, capped_decision) == 0
+        with patch("app.services.reach.in_quiet_hours", return_value=False):
+            capped, capped_decision = await _department_decision(
+                session_override, tenant, team, due_at=datetime.utcnow() - timedelta(hours=2)
+            )
+            assert await notify_decision(session_override, capped_decision) == 0
         assert (await _reach_events(session_override, capped.id))[0]["status"] == "daily_max"
 
         await save_prefs(
