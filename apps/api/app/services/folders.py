@@ -13,7 +13,6 @@ from app.core.time import utcnow
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Iterable
 from uuid import UUID
 

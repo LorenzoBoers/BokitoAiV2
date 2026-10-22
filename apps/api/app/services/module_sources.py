@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import timedelta
 from html.parser import HTMLParser
 from io import BytesIO
 from typing import Any

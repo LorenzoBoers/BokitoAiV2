@@ -150,7 +150,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
             ctx.user_id,
             "create_decision_request",
             {
-                "title": f"Add to queue of {folder.name}?",
+                "title": f"Add to queue of {project.name}?",
                 "summary": f"{kind}: {title}" + (f" — {body[:200]}" if body else ""),
                 "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
                 # Provenance for the card: the queue this item would join.
@@ -423,7 +423,7 @@ async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]
             ctx.user_id,
             "create_decision_request",
             {
-                "title": f"Link {resource_type} resource to {folder.name}?",
+                "title": f"Link {resource_type} resource to {project.name}?",
                 "summary": f"{provider or resource_type}: {label or external_ref}",
                 "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
                 "options": [

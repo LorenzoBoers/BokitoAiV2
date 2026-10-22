@@ -1,4 +1,3 @@
-from app.core.time import utcnow
 """Hashtags: the workspace vocabulary for finding and grouping conversations.
 
 A free tag is a label linked per conversation (`SignalTagLink`). A tag with a
@@ -11,9 +10,10 @@ inbox rules only apply names the registry already has. Tags in an exclusive
 group replace each other on a conversation.
 """
 
+from app.core.time import utcnow
+
 import re
 from collections.abc import Iterable
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 

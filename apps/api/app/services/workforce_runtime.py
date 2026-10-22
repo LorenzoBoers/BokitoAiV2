@@ -1,5 +1,6 @@
-from app.core.time import utcnow
 """Workforce runtime service (agents, work logs, messages, graph controls)."""
+
+from app.core.time import utcnow
 
 import json
 import logging

@@ -24,7 +24,7 @@ from __future__ import annotations
 from app.core.time import utcnow
 
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Iterable
 from uuid import UUID
 

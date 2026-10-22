@@ -9,7 +9,6 @@ from __future__ import annotations
 from app.core.time import utcnow
 
 import time
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException

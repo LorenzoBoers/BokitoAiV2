@@ -6,7 +6,7 @@ from app.core.time import utcnow
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 

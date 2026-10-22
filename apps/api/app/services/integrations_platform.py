@@ -14,7 +14,6 @@ from app.config import get_settings
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug, provider_id
-from app.services.mcp_auth import mcp_auth_headers as _mcp_auth_headers
 from app.services.crypto import (
     encrypt_credentials_blob,
     get_connection_credentials,
@@ -780,7 +779,6 @@ async def _persist_discovered_tools(
 async def test_mcp_server(
     session: AsyncSession, tenant_id: UUID, server_id: UUID
 ) -> dict[str, Any]:
-    import httpx
 
     result = await session.execute(
         select(McpServer).where(McpServer.id == server_id, McpServer.tenant_id == tenant_id)
