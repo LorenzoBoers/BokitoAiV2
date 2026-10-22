@@ -1,54 +1,13 @@
 import type { Config } from 'tailwindcss'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  presets: [require('@bokito/ui-tokens/tailwind-preset.generated.cjs')],
   theme: {
     extend: {
-      colors: {
-        cutout: 'rgb(var(--color-cutout) / <alpha-value>)',
-        bg: {
-          DEFAULT: 'rgb(var(--color-bg) / <alpha-value>)',
-          root: 'rgb(var(--color-bg-root) / <alpha-value>)',
-          sidebar: 'rgb(var(--color-bg-sidebar) / <alpha-value>)',
-          canvas: 'rgb(var(--color-bg-canvas) / <alpha-value>)',
-          surface: 'rgb(var(--color-bg-surface) / <alpha-value>)',
-          elevated: 'rgb(var(--color-bg-elevated) / <alpha-value>)',
-          muted: 'rgb(var(--color-bg-hover) / <alpha-value>)',
-          hover: 'rgb(var(--color-bg-hover) / <alpha-value>)',
-          input: 'rgb(var(--color-bg-input) / <alpha-value>)',
-        },
-        border: {
-          DEFAULT: 'rgb(var(--color-border) / <alpha-value>)',
-          light: 'rgb(var(--color-border-light) / <alpha-value>)',
-          focus: 'rgb(var(--color-border-focus) / <alpha-value>)',
-        },
-        text: {
-          primary: 'rgb(var(--color-text-primary) / <alpha-value>)',
-          secondary: 'rgb(var(--color-text-secondary) / <alpha-value>)',
-          muted: 'rgb(var(--color-text-muted) / <alpha-value>)',
-          heading: 'rgb(var(--color-text-heading) / <alpha-value>)',
-        },
-        accent: {
-          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
-          hover: 'rgb(var(--color-accent-hover) / <alpha-value>)',
-          dark: 'rgb(var(--color-accent-dark) / <alpha-value>)',
-          fg: 'rgb(var(--color-accent-fg) / <alpha-value>)',
-          ink: 'rgb(var(--color-accent-ink) / <alpha-value>)',
-          muted: 'rgb(var(--color-accent) / 0.14)',
-          subtle: 'rgb(var(--color-accent) / 0.08)',
-        },
-        ai: {
-          DEFAULT: 'rgb(var(--color-ai) / <alpha-value>)',
-          ink: 'rgb(var(--color-ai-ink) / <alpha-value>)',
-          fg: 'rgb(var(--color-ai-fg) / <alpha-value>)',
-        },
-        status: {
-          success: 'rgb(var(--color-status-success) / <alpha-value>)',
-          warning: 'rgb(var(--color-status-warning) / <alpha-value>)',
-          error: 'rgb(var(--color-status-error) / <alpha-value>)',
-          info: 'rgb(var(--color-status-info) / <alpha-value>)',
-        },
-      },
       textColor: {
         accent: {
           DEFAULT: 'rgb(var(--color-accent-ink) / <alpha-value>)',
@@ -61,26 +20,6 @@ export default {
       // Soft pill fills (Badge, FilterChip) use /12; not in Tailwind's default scale.
       opacity: {
         12: '0.12',
-      },
-      fontFamily: {
-        sans: 'var(--font-sans)',
-        mono: 'var(--font-mono)',
-      },
-      // Compact UI scale: 13px body, 11.5px secondary. Headings stay editorial
-      // via tracking, not size. Keep 3xl+ at Tailwind defaults.
-      fontSize: {
-        '2xs': ['0.656rem', { lineHeight: '0.875rem' }], // 10.5 / 14
-        xs: ['0.719rem', { lineHeight: '1rem' }], // 11.5 / 16
-        sm: ['0.781rem', { lineHeight: '1.125rem' }], // 12.5 / 18
-        base: ['0.844rem', { lineHeight: '1.25rem' }], // 13.5 / 20
-        lg: ['0.938rem', { lineHeight: '1.375rem' }], // 15 / 22
-        xl: ['1.063rem', { lineHeight: '1.5rem', letterSpacing: '-0.01em' }], // 17 / 24
-        '2xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.015em' }], // 20 / 28
-        // Editorial steps for /docs and marketing heroes only; app UI stays on the ladder above.
-        'docs-nav': ['0.8125rem', { lineHeight: '1.25rem' }], // 13 / 20
-        'docs-body': ['1.0625rem', { lineHeight: '1.75rem' }], // 17 / 28
-        'docs-h2': ['1.65rem', { lineHeight: '2.125rem', letterSpacing: '-0.015em' }],
-        display: ['2.75rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
       },
       // Content widths: PageContent sm/md/lg/xl plus the shell caps.
       maxWidth: {

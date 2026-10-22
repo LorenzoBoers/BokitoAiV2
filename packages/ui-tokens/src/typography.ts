@@ -29,3 +29,28 @@ export const fontFamily = {
   cssSans: "'Inter', system-ui, sans-serif",
   cssMono: "'JetBrains Mono', ui-monospace, monospace",
 } as const
+
+/**
+ * Tailwind `fontSize` tuples. Native keeps `fontSize` in px.
+ * `xl` is rounded to 1.063rem; `docs-body` stays the exact 1.0625rem for the same 17px.
+ * Editorial steps are web-only.
+ */
+export const webFontSize = {
+  '2xs': ['0.656rem', { lineHeight: '0.875rem' }],
+  xs: ['0.719rem', { lineHeight: '1rem' }],
+  sm: ['0.781rem', { lineHeight: '1.125rem' }],
+  base: ['0.844rem', { lineHeight: '1.25rem' }],
+  lg: ['0.938rem', { lineHeight: '1.375rem' }],
+  xl: ['1.063rem', { lineHeight: '1.5rem', letterSpacing: '-0.01em' }],
+  '2xl': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.015em' }],
+  'docs-nav': ['0.8125rem', { lineHeight: '1.25rem' }],
+  'docs-body': ['1.0625rem', { lineHeight: '1.75rem' }],
+  'docs-h2': ['1.65rem', { lineHeight: '2.125rem', letterSpacing: '-0.015em' }],
+  display: ['2.75rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
+} as const
+
+/** Utilities reference the CSS variables, not the raw family stack. */
+export const tailwindFontFamily = {
+  sans: 'var(--font-sans)',
+  mono: 'var(--font-mono)',
+} as const

@@ -9,7 +9,7 @@ import {
   rgbCss,
   type ColorScheme,
   type FontSizeToken,
-} from '@bokito/ui-tokens'
+} from '@bokito/ui-tokens/theme'
 
 export type ColorName = keyof ColorScheme
 

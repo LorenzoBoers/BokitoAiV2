@@ -11,10 +11,17 @@
       "react-native": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
-    }
+    },
+    "./theme": {
+      "types": "./src/theme.generated.ts",
+      "react-native": "./src/theme.generated.ts",
+      "import": "./src/theme.generated.ts",
+      "default": "./src/theme.generated.ts"
+    },
+    "./tailwind-preset.generated.cjs": "./tailwind-preset.generated.cjs"
   },
   "scripts": {
-    "emit": "node scripts/emit-css.mjs",
+    "emit": "node --experimental-strip-types scripts/emit.mjs",
     "test": "vitest run"
   },
   "devDependencies": {
