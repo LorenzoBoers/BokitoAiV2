@@ -239,7 +239,7 @@ export function ChatBubbleShell({
             : undefined
         }
         className={cn(
-          'relative w-full px-3.5 py-2 text-[15.5px] leading-relaxed',
+          'relative w-full px-3.5 py-2 text-lg leading-relaxed',
           variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
           shapeFor(side, stack),
           TONE[variant],

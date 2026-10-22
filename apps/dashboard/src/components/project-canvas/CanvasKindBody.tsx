@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { marked } from 'marked'
 import { Button } from '../ui/button'
+import { Card } from '../ui/card'
 import { Callout } from '../ui/callout'
 import type { ProjectCanvas } from '../../lib/project-canvas-api'
 import { canvasKindOf } from '../../lib/project-canvas/types'
@@ -89,7 +90,7 @@ function EmailBody({ canvas }: { canvas: ProjectCanvas }) {
   const preheader = typeof data.preheader === 'string' ? data.preheader : ''
   const body = typeof data.body_html === 'string' ? data.body_html : ''
   return (
-    <div className="mx-auto max-w-xl rounded-lg border border-border/60 bg-bg-surface">
+    <Card className="mx-auto max-w-xl">
       <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-text-primary">{subject}</p>
@@ -97,7 +98,7 @@ function EmailBody({ canvas }: { canvas: ProjectCanvas }) {
         </div>
       </div>
       <div className="px-4 py-4 text-sm leading-relaxed text-text-primary" dangerouslySetInnerHTML={{ __html: body }} />
-    </div>
+    </Card>
   )
 }
 

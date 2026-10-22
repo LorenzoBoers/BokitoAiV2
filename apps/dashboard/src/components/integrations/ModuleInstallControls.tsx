@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
   Dialog,
   DialogContent,
@@ -292,28 +293,38 @@ function AddDepartmentDialog({
             </ul>
             <label className="block space-y-1 text-xs text-text-muted">
               <span>{t('integrations.modules.addDepartmentWhere', { defaultValue: 'Department' })}</span>
-              <select value={target} onChange={(event) => setTarget(event.target.value)} className={select}>
-                <option value={NEW_DEPARTMENT}>
-                  {t('integrations.modules.addDepartmentNew', { defaultValue: 'New department: {{name}}', name })}
-                </option>
-                {plan.candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.score > 0
-                      ? t('integrations.modules.addDepartmentOverlap', { defaultValue: '{{name}} (already does similar work)', name: c.name })
-                      : c.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={target} onValueChange={setTarget}>
+                <SelectTrigger className={select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NEW_DEPARTMENT}>
+                    {t('integrations.modules.addDepartmentNew', { defaultValue: 'New department: {{name}}', name })}
+                  </SelectItem>
+                  {plan.candidates.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.score > 0
+                        ? t('integrations.modules.addDepartmentOverlap', { defaultValue: '{{name}} (already does similar work)', name: c.name })
+                        : c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label className="block space-y-1 text-xs text-text-muted">
               <span>{t('integrations.modules.addDepartmentAccountable', { defaultValue: 'Accountable person' })}</span>
-              <select value={accountable} onChange={(event) => setAccountable(event.target.value)} className={select}>
-                {plan.people.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <Select value={accountable} onValueChange={setAccountable}>
+                <SelectTrigger className={select}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {plan.people.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             {existing?.lead_name ? (
               <label className="flex items-start gap-2 text-xs text-text-secondary">

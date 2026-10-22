@@ -23,6 +23,7 @@ import { downloadSheet, exportSheetToGoogle, type ProjectCanvas } from '../../li
 import { canvasKindOf, type CanvasKind } from '../../lib/project-canvas/types'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
+import { Card } from '../ui/card'
 import { Callout } from '../ui/callout'
 import {
   DropdownMenu,
@@ -240,9 +241,9 @@ export function CanvasWindow({
   )
 
   return (
-    <section
+    <Card
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-bg-surface text-left',
+        'flex min-h-0 flex-col overflow-hidden rounded-xl text-left',
         muted && 'opacity-60',
         className,
       )}
@@ -386,6 +387,6 @@ export function CanvasWindow({
           <div className={cn(READING_KINDS.has(kind) ? 'mx-auto w-full max-w-3xl px-6 py-5' : 'p-4')}>{children}</div>
         )}
       </div>
-    </section>
+    </Card>
   )
 }

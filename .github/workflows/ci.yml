@@ -43,6 +43,8 @@ jobs:
       - run: npm ci
       - name: Typecheck dashboard
         run: npx tsc --noEmit -p apps/dashboard
+      - name: Lint dashboard
+        run: npm run lint -w bokito-dashboard
       - name: Test dashboard
         run: npm test -w bokito-dashboard
       - name: Build dashboard
