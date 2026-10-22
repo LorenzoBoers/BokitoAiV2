@@ -59,8 +59,8 @@
   },
   "landing": {
     "title": "Startpagina",
-    "description": "Kies waar Bokito opent na het inloggen. Nieuwe chat is de standaard.",
-    "new": "Nieuwe chat",
+    "description": "Kies waar Bokito opent na het inloggen. Nieuw gesprek is de standaard.",
+    "new": "Nieuw gesprek",
     "inbox": "Inbox",
     "agenda": "Agenda",
     "today": "Vandaag",

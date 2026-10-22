@@ -46,4 +46,4 @@ Dit is de kortste weg van een verse workspace naar echt werk. Na signup ronden o
 
 ## Wat je nu hebt
 
-Mail komt binnen, de assistent maakt onderbouwde concepten, en jij keurt ze goed. Na de wizard opent Nieuwe chat met de agent die je net maakte, en die agent start de setupchat. Een dagelijkse check-in start alleen als je daar ja zegt, of later via de [setupgids](/docs/getting-started/setup-guide). Ga verder met die gids voor branding, team en modules.
+Mail komt binnen, de assistent maakt onderbouwde concepten, en jij keurt ze goed. Na de wizard opent Nieuw gesprek met de agent die je net maakte, en die agent start de setupchat. Een dagelijkse check-in start alleen als je daar ja zegt, of later via de [setupgids](/docs/getting-started/setup-guide). Ga verder met die gids voor branding, team en modules.

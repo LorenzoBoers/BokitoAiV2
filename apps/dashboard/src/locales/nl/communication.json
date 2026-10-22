@@ -1083,10 +1083,10 @@
         "cta": "Leden uitnodigen"
       }
     },
-    "startConversation": "Nieuwe chat"
+    "startConversation": "Nieuw gesprek"
   },
   "newConversation": {
-    "title": "Nieuwe chat",
+    "title": "Nieuw gesprek",
     "back": "Terug naar Communicatie",
     "changeType": "Ander type",
     "draftBadge": "Concept",
@@ -1235,9 +1235,9 @@
     "openInboxAi": "AI-antwoorden aanpassen",
     "selectThread": "Selecteer een gesprek om te bekijken.",
     "selectThreadTitle": "Kies een gesprek",
-    "selectThreadHint": "Kies een gesprek in de lijst, of start een Nieuwe chat.",
+    "selectThreadHint": "Kies een gesprek in de lijst, of start een Nieuw gesprek.",
     "openSetupGuide": "Setupgids openen",
-    "startNewChat": "Nieuwe chat",
+    "startNewChat": "Nieuw gesprek",
     "backToConversations": "Terug naar gesprekken",
     "agentHandling": "Agent op dit gesprek",
     "threadActions": "Gespreksacties",
@@ -1375,7 +1375,7 @@
     "assign": "Aan mij toewijzen",
     "reply": "Antwoord focussen",
     "compose": "Nieuwe e-mail",
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "search": "Zoeken focussen",
     "thisHelp": "Deze lijst tonen",
     "escape": "Terug naar de lijst, of zoeken verlaten",
@@ -1535,7 +1535,7 @@
     "send": "Versturen",
     "emptyPick": "Start een chat met je assistent, of kies een gesprek uit de lijst.",
     "aiDisclosure": "Je chat met AI. Een medewerker kan overnemen wanneer nodig.",
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "openAgents": "Agents openen",
     "openKnowledge": "Kennis openen",
     "openSetup": "Setupgids openen",

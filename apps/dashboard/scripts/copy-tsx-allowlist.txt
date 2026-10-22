@@ -1,4 +1,5 @@
 apps/dashboard/src/components/agenda/AgendaRail.tsx
+apps/dashboard/src/components/auth/AuthShell.tsx
 apps/dashboard/src/components/auth/ProtectedRoute.tsx
 apps/dashboard/src/components/docs/DocsChrome.tsx
 apps/dashboard/src/components/email/OauthRedirectAlert.tsx

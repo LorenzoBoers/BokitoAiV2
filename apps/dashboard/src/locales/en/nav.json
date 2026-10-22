@@ -61,7 +61,7 @@
   },
   "tabs": {
     "newChat": {
-      "title": "New chat",
+      "title": "New conversation",
       "subtitle": "Start a conversation"
     },
     "overview": {
@@ -480,7 +480,7 @@
     "document": "Document",
     "learn": "Help",
     "docs": "Docs",
-    "newConversation": "New chat",
+    "newConversation": "New conversation",
     "widgetInstall": "Install",
     "widgetVoice": "Voice and hours",
     "widgetLook": "Appearance",
@@ -657,7 +657,7 @@
         },
         {
           "title": "Agents in threads",
-          "body": "Mention an agent or start a chat from New chat. Agent runs and decision cards appear inline — approve or edit before anything goes out."
+          "body": "Mention an agent or start a chat from New conversation. Agent runs and decision cards appear inline — approve or edit before anything goes out."
         },
         {
           "title": "Decisions",
@@ -2158,18 +2158,18 @@
     "bindings": {
       "title": "Channel routing",
       "body": "Send incoming conversations on a channel to a specific agent. Without a route, the default agent handles new threads. Set a route only when a channel should use someone else.",
-      "pinnedHint": "A conversation keeps its pinned agent. New chats use the default agent for this channel.",
+      "pinnedHint": "A conversation keeps its pinned agent. New conversations use the default agent for this channel.",
       "noDefaultAgent": "No default agent",
       "leadHint": "Leave the Agent column on the default agent unless this item needs someone else.",
       "loading": "Loading routes...",
-      "empty": "No routes yet. New chats go to the default agent until you add one.",
+      "empty": "No routes yet. New conversations go to the default agent until you add one.",
       "accountScope": "Mailbox / account {{address}}",
       "contactScope": "Specific contact",
       "emptyHint": "Use Add route below to send a channel to an agent.",
       "openAgents": "Open Agents",
       "openCommunication": "Open Communication",
       "openMarketplace": "Browse Catalog",
-      "removeConfirm": "Remove this route? New chats on this channel go back to the default agent.",
+      "removeConfirm": "Remove this route? New conversations on this channel go back to the default agent.",
       "allAccounts": "All accounts on this channel",
       "accountOptional": "Account (optional)",
       "priorityLabel": "Priority",
@@ -2502,7 +2502,7 @@
     "groupKnowledge": "Knowledge",
     "unnamedContact": "Unnamed contact",
     "untitledConversation": "Untitled conversation",
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "newEmail": "New email",
     "newContact": "New contact",
     "newAgent": "New agent",
@@ -2537,7 +2537,7 @@
     "checkupsDue": "Tasks due",
     "newFlow": "New flow",
     "openActionTags": "Open tags",
-    "newConversation": "New chat"
+    "newConversation": "New conversation"
   },
   "gateway": {
     "connected": "Live",
@@ -2774,7 +2774,7 @@
       "inbox": "Queues",
       "agentOps": "Agent ops"
     },
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "activity": {
       "label": "Activity",
       "hint": "Live timeline of agent and team work"
@@ -2927,7 +2927,7 @@
       "empty": "Create a flow from a label",
       "settingsAria": "Manage flows"
     },
-    "newConversation": "New chat"
+    "newConversation": "New conversation"
   },
   "users": {
     "group": {
@@ -4191,7 +4191,7 @@
       "runsEmptyHint": "Chat with this agent or schedule work on the Agenda.",
       "projectLink": "Folder: {{name}}",
       "openProject": "Lead of {{name}}. Open the folder.",
-      "chatWith": "New chat",
+      "chatWith": "New conversation",
       "openGovern": "Govern",
       "openAgenda": "Agenda",
       "openThreads": "This agent's threads",
@@ -6300,14 +6300,14 @@
     "instructions": "Instructions",
     "instructionsPlaceholder": "How should your assistant behave? What should it know about you and your work?",
     "defaultTarget": "Default chat",
-    "defaultTargetHint": "Who a New chat talks to unless you pick someone else.",
+    "defaultTargetHint": "Who a New conversation talks to unless you pick someone else.",
     "companyAgent": "company agent",
     "myAssistant": "my assistant",
     "save": "Save changes",
     "saved": "Saved",
     "loadError": "Could not load assistant settings.",
     "saveError": "Could not save settings.",
-    "openCommunication": "Open a New chat",
+    "openCommunication": "Open a New conversation",
     "openModels": "Open Models",
     "openKnowledge": "Open Knowledge",
     "openInboxAi": "Open AI replies",
@@ -6956,8 +6956,8 @@
     "pickupHint": {
       "people": "The conversation stays with the team until someone reacts; the first reaction takes it.",
       "agent_first": "An agent in the team answers first; people step in when it asks.",
-      "round_robin": "New chats go to the next available member in turn.",
-      "least_open": "New chats go to the available member with the fewest open conversations."
+      "round_robin": "New conversations go to the next available member in turn.",
+      "least_open": "New conversations go to the available member with the fewest open conversations."
     },
     "system": {
       "all": "All"

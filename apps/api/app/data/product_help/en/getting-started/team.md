@@ -74,7 +74,7 @@ A freelancer works in one or two departments and only sees that work.
 
 A department page shows who leads it, who works in it, and how each of its flows runs.
 
-1. Choose the department under **Departments** in the left menu, between **Work** and **Team**. Each department you work in sits there in blue, like **New chat**, with its count of open tickets. Owners and admins see every department; a member sees the departments they are in and those below them.
+1. Choose the department under **Departments** in the left menu, between **Work** and **Team**. Each department you work in sits there in blue, like **New conversation**, with its count of open tickets. Owners and admins see every department; a member sees the departments they are in and those below them.
 2. The icon sits next to the title. Owners and admins click it to pick the icon the department carries in the menu.
 3. At the top right sit the lead agent and the person accountable (with whether they are available now), **Department conversation**, **Open in Grid** and the gear. Under the title are the department's autonomy and the module it came from.
 4. The **All** tab holds the whole department: **Open**, **Waiting**, **Overdue** and **Decisions**, then **Today** with what needs attention now (unassigned work, work past its deadline or due this week, and the lead's latest orientation).

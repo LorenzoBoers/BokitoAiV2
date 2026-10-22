@@ -53,11 +53,11 @@ Everything in Bokito hangs on these five. Label, department, channel and contact
 
 ## Rail
 
-At the top the **New chat** button, then **Inbox** on its own, above the **Work** group. Group **Work**: Agenda, Folders, Flows. Group **Team**: Agents, Workforce. Above your account: **Connections**, then **Settings**. Today lives in Inbox, Knowledge under Agents, the Grid under Workforce, and Govern and Usage under Settings.
+At the top the **New conversation** button, then **Inbox** on its own, above the **Work** group. Group **Work**: Agenda, Folders, Flows. Group **Team**: Agents, Workforce. Above your account: **Connections**, then **Settings**. Today lives in Inbox, Knowledge under Agents, the Grid under Workforce, and Govern and Usage under Settings.
 
-### {icon:new-chat} New chat
+### {icon:new-chat} New conversation
 
-**NL:** Nieuwe chat. Start a conversation with a company agent open to you, or an outbound client message. Without a reachable agent the composer says there are no agents. The helper in the corner is a different chat and is hidden on this screen. Connects to [Agents](/docs/ai/agents) and [Communication](/docs/inbox/communication).
+**NL:** Nieuw gesprek. Start a conversation with a company agent open to you, or an outbound client message. Without a reachable agent the composer says there are no agents. The helper in the corner is a different chat and is hidden on this screen. Connects to [Agents](/docs/ai/agents) and [Communication](/docs/inbox/communication).
 
 ### {icon:communication} Inbox
 

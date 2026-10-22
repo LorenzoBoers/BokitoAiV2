@@ -14,12 +14,12 @@ Bokito is je eigen assistent binnen het platform. Hij is geen agent van de works
 ## Start vanaf het beginscherm
 
 1. Open Bokito via **Hulp** in de topbalk, of de knop rechtsonder.
-2. Kies **Nieuwe chat starten** en stel je vraag. Werk doorgeven of iets inrichten doe je in dat gesprek.
+2. Kies **Nieuw gesprek starten** en stel je vraag. Werk doorgeven of iets inrichten doe je in dat gesprek.
 3. Kies **Eerdere gesprekken** voor je privé-gesprekslijst, of **Hulpartikelen** voor de producthelp.
 
 ## Vraag iets over de pagina waar je bent
 
-1. Kies **Hulp** in de topbalk, of de Bokito-knop rechtsonder op pagina's waar de launcher zichtbaar is — ook op de Workspaces-hub en Account in het Bokito-portal. Op Communicatie met een open gesprek, en op Nieuwe chat, blijft de hoek-launcher verborgen; gebruik dan topbalk **Hulp**. Bokito draagt altijd zijn eigen merkteken; je profielfoto staat rechtsboven in de chat, zodat je ziet vanuit welk account je chat.
+1. Kies **Hulp** in de topbalk, of de Bokito-knop rechtsonder op pagina's waar de launcher zichtbaar is — ook op de Workspaces-hub en Account in het Bokito-portal. Op Communicatie met een open gesprek, en op Nieuw gesprek, blijft de hoek-launcher verborgen; gebruik dan topbalk **Hulp**. Bokito draagt altijd zijn eigen merkteken; je profielfoto staat rechtsboven in de chat, zodat je ziet vanuit welk account je chat.
 2. Stel je vraag. Bokito krijgt het scherm mee waar je naar kijkt (bijvoorbeeld de Workspaces-hub wanneer je een workspace kiest), dus "wat betekent deze status?" werkt zonder dat je uitlegt waar je bent.
 3. Antwoorden komen uit de producthelp. Bokito linkt naar het artikel dat hij gebruikte, zodat je de hele pagina kunt lezen.
 

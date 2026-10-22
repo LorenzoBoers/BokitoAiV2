@@ -53,11 +53,11 @@ Alles in Bokito hangt aan deze vijf. Label, afdeling, kanaal en contact zijn eig
 
 ## Rail
 
-Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. Groep **Werk**: Agenda, Mappen, Werken. Groep **Team**: Agents, Workforce. Boven je account: **Koppelingen**, daarna **Instellingen**. Vandaag zit in Inbox, Kennis onder Agents, de Grid onder Workforce, en Govern en Verbruik onder Instellingen.
+Bovenaan de knop **Nieuw gesprek**, daarna **Inbox** los boven de groep **Werk**. Groep **Werk**: Agenda, Mappen, Werken. Groep **Team**: Agents, Workforce. Boven je account: **Koppelingen**, daarna **Instellingen**. Vandaag zit in Inbox, Kennis onder Agents, de Grid onder Workforce, en Govern en Verbruik onder Instellingen.
 
-### {icon:new-chat} Nieuwe chat
+### {icon:new-chat} Nieuw gesprek
 
-**EN:** New chat. Start een gesprek met een bedrijfsagent die voor jou openstaat, of een uitgaand klantbericht. Zonder bereikbare agent zegt de opsteller dat er geen agents zijn. De hulp in de hoek is een ander gesprek en is op dit scherm verborgen. Hangt aan [Agents](/docs/ai/agents) en [Communicatie](/docs/inbox/communication).
+**EN:** New conversation. Start een gesprek met een bedrijfsagent die voor jou openstaat, of een uitgaand klantbericht. Zonder bereikbare agent zegt de opsteller dat er geen agents zijn. De hulp in de hoek is een ander gesprek en is op dit scherm verborgen. Hangt aan [Agents](/docs/ai/agents) en [Communicatie](/docs/inbox/communication).
 
 ### {icon:communication} Inbox
 

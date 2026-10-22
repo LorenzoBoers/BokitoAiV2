@@ -46,4 +46,4 @@ This is the shortest path from a fresh workspace to real work happening. After s
 
 ## What you have now
 
-Mail flows in, the assistant drafts grounded replies, and you approve them. Finishing the wizard opens New chat with the agent you just created, and that agent starts the setup chat. A daily check-in starts only if you say yes there, or later from the [setup guide](/docs/getting-started/setup-guide). Continue with that guide for branding, team and modules.
+Mail flows in, the assistant drafts grounded replies, and you approve them. Finishing the wizard opens New conversation with the agent you just created, and that agent starts the setup chat. A daily check-in starts only if you say yes there, or later from the [setup guide](/docs/getting-started/setup-guide). Continue with that guide for branding, team and modules.

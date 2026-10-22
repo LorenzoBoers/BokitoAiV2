@@ -165,7 +165,7 @@
   },
   "tabs": {
     "newChat": {
-      "title": "Nieuwe chat",
+      "title": "Nieuw gesprek",
       "subtitle": "Start een gesprek"
     },
     "overview": {
@@ -584,7 +584,7 @@
     "document": "Document",
     "learn": "Hulp",
     "docs": "Docs",
-    "newConversation": "Nieuwe chat",
+    "newConversation": "Nieuw gesprek",
     "widgetInstall": "Installeren",
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
@@ -761,7 +761,7 @@
         },
         {
           "title": "Agents in gesprekken",
-          "body": "Noem een agent of start een chat via Nieuwe chat. Agentruns en keuzekaarten verschijnen inline — keur goed of pas aan voordat iets wordt verstuurd."
+          "body": "Noem een agent of start een chat via Nieuw gesprek. Agentruns en keuzekaarten verschijnen inline — keur goed of pas aan voordat iets wordt verstuurd."
         },
         {
           "title": "Beslissingen",
@@ -2614,7 +2614,7 @@
     "groupKnowledge": "Kennis",
     "unnamedContact": "Naamloos contact",
     "untitledConversation": "Naamloos gesprek",
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "newEmail": "Nieuwe e-mail",
     "newContact": "Nieuw contact",
     "newAgent": "Nieuwe agent",
@@ -2649,7 +2649,7 @@
     "checkupsDue": "Openstaande taken",
     "newFlow": "Nieuw werk",
     "openActionTags": "Tags openen",
-    "newConversation": "Nieuwe chat"
+    "newConversation": "Nieuw gesprek"
   },
   "gateway": {
     "connected": "Live",
@@ -2886,7 +2886,7 @@
       "inbox": "Inbox",
       "agentOps": "Agent-ops"
     },
-    "newChat": "Nieuwe chat",
+    "newChat": "Nieuw gesprek",
     "activity": {
       "label": "Activiteit",
       "hint": "Live tijdlijn van agent- en teamwerk"
@@ -3039,7 +3039,7 @@
       "empty": "Maak een werk vanaf een label",
       "settingsAria": "Werken beheren"
     },
-    "newConversation": "Nieuwe chat"
+    "newConversation": "Nieuw gesprek"
   },
   "users": {
     "group": {
@@ -4303,7 +4303,7 @@
       "runsEmptyHint": "Chat met deze agent of plan werk in de Agenda.",
       "projectLink": "Map: {{name}}",
       "openProject": "Lead van {{name}}. Open de map.",
-      "chatWith": "Nieuwe chat",
+      "chatWith": "Nieuw gesprek",
       "openGovern": "Govern",
       "openAgenda": "Agenda",
       "openThreads": "Gesprekken van deze agent",
@@ -6412,14 +6412,14 @@
     "instructions": "Instructies",
     "instructionsPlaceholder": "Hoe moet je assistent zich gedragen? Wat moet hij over jou en je werk weten?",
     "defaultTarget": "Standaardchat",
-    "defaultTargetHint": "Met wie een Nieuwe chat praat, tenzij je iemand anders kiest.",
+    "defaultTargetHint": "Met wie een Nieuw gesprek praat, tenzij je iemand anders kiest.",
     "companyAgent": "bedrijfsagent",
     "myAssistant": "mijn assistent",
     "save": "Wijzigingen opslaan",
     "saved": "Opgeslagen",
     "loadError": "Kon assistentinstellingen niet laden.",
     "saveError": "Kon instellingen niet opslaan.",
-    "openCommunication": "Nieuwe chat openen",
+    "openCommunication": "Nieuw gesprek openen",
     "openModels": "Modellen openen",
     "openKnowledge": "Kennis openen",
     "openInboxAi": "AI-antwoorden openen",

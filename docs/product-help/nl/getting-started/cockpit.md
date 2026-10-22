@@ -9,7 +9,7 @@ related: communication,categories,agent-runs,decisions,agenda,agents
 
 # Zo werkt Vandaag
 
-Vandaag is de ochtendscan binnen Communicatie. Open **Communicatie**, dan **Vandaag**, om te zien waar jij nodig bent, welke tickets openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Het adres is `/communication/today`. Onder **Instellingen → Profiel** kies je als startpagina na inloggen **Nieuwe chat** (standaard), **Inbox**, **Agenda** of **Vandaag**.
+Vandaag is de ochtendscan binnen Communicatie. Open **Communicatie**, dan **Vandaag**, om te zien waar jij nodig bent, welke tickets openstaan, wat loopt en hoe het traject zich ontwikkelt, en spring daarna in het onderliggende gesprek of de run. Het adres is `/communication/today`. Onder **Instellingen → Profiel** kies je als startpagina na inloggen **Nieuw gesprek** (standaard), **Inbox**, **Agenda** of **Vandaag**.
 
 ## Scan de dag op Vandaag
 

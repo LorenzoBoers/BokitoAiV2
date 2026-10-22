@@ -18,7 +18,7 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, d
 
 1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. An agent that leads a folder shows that folder as a folder chip on its card; click it to open the folder. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
 2. Choose **New agent**. Enter a **Name**, a required **Job title** (max 32 characters), an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The job title sits under the name; the description is a longer optional blurb. Instructions are the brief the agent follows.
-3. Open a card. The gear at the top right opens **Settings**: instructions, model, rules, signature, chat access and tools. Use **New chat** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (Autonomy, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
+3. Open a card. The gear at the top right opens **Settings**: instructions, model, rules, signature, chat access and tools. Use **New conversation** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (Autonomy, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
@@ -26,7 +26,7 @@ In a chat with an agent, the side panel shows the function under the name, in th
 
 Real decisions live in each conversation (and under **Open conversations** on the agent). Tip cards for automated mail do not inflate those counts.
 
-New chats in Communication require a **company agent**. If none are available for you, the composer shows **No agents available**. Open **Agents** or the setup guide to add one.
+New conversations in Communication require a **company agent**. If none are available for you, the composer shows **No agents available**. Open **Agents** or the setup guide to add one.
 
 ## Brief an agent
 

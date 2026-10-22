@@ -1083,10 +1083,10 @@
         "cta": "Invite members"
       }
     },
-    "startConversation": "New chat"
+    "startConversation": "New conversation"
   },
   "newConversation": {
-    "title": "New chat",
+    "title": "New conversation",
     "back": "Back to Communication",
     "changeType": "Change type",
     "draftBadge": "Draft",
@@ -1235,9 +1235,9 @@
     "openInboxAi": "Adjust AI replies",
     "selectThread": "Select a thread to view.",
     "selectThreadTitle": "Pick a conversation",
-    "selectThreadHint": "Choose a thread from the list, or start a New chat.",
+    "selectThreadHint": "Choose a thread from the list, or start a New conversation.",
     "openSetupGuide": "Open setup guide",
-    "startNewChat": "Start a New chat",
+    "startNewChat": "Start a New conversation",
     "backToConversations": "Back to conversations",
     "agentHandling": "Agent on this conversation",
     "threadActions": "Thread actions",
@@ -1375,7 +1375,7 @@
     "assign": "Assign to me",
     "reply": "Focus reply",
     "compose": "New email",
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "search": "Focus search",
     "thisHelp": "Show this list",
     "escape": "Back to the list, or leave search",
@@ -1535,7 +1535,7 @@
     "send": "Send",
     "emptyPick": "Start a chat with your assistant, or pick a conversation from the list.",
     "aiDisclosure": "You are chatting with AI. A teammate can take over when needed.",
-    "newChat": "New chat",
+    "newChat": "New conversation",
     "openAgents": "Open Agents",
     "openKnowledge": "Open Knowledge",
     "openSetup": "Open setup guide",

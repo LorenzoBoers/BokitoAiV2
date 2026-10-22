@@ -74,7 +74,7 @@ Een freelancer werkt in een of twee afdelingen en ziet alleen dat werk.
 
 Een afdelingspagina toont wie leidt, wie erin werkt, en hoe elk werk van de afdeling loopt.
 
-1. Kies de afdeling onder **Afdelingen** in het menu links, tussen **Werk** en **Team**. Elke afdeling waarin je werkt staat daar in het blauw, net als **Nieuwe chat**, met het aantal open tickets. Eigenaren en beheerders zien alle afdelingen; een lid ziet de afdelingen waarin die zit en de afdelingen daaronder.
+1. Kies de afdeling onder **Afdelingen** in het menu links, tussen **Werk** en **Team**. Elke afdeling waarin je werkt staat daar in het blauw, net als **Nieuw gesprek**, met het aantal open tickets. Eigenaren en beheerders zien alle afdelingen; een lid ziet de afdelingen waarin die zit en de afdelingen daaronder.
 2. Het icoon staat naast de titel. Eigenaren en beheerders klikken erop om het icoon te kiezen dat de afdeling in het menu draagt.
 3. Rechtsboven staan de leidende agent en de eindverantwoordelijke (met of die nu beschikbaar is), **Afdelingsgesprek**, **Open in Grid** en het tandwiel. Onder de titel staan de autonomie van de afdeling en de module waar die uit komt.
 4. Het tabblad **Alles** bevat de hele afdeling: **Open**, **Wacht**, **Over tijd** en **Beslissingen**, daarna **Vandaag** met wat nu aandacht vraagt (werk zonder eigenaar, werk over tijd of deze week af, en de laatste oriëntatie van de leider).

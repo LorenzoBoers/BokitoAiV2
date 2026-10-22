@@ -218,13 +218,23 @@ const allow = new Set(
     : [],
 )
 const tsxRoot = path.join(repo, 'apps/dashboard/src')
-const hardcoded = /(?:title|aria-label|placeholder)="[A-Za-z][^"]{2,}"|(?<![=-])>\s*[A-Za-z][^<{}();=:]{2,}\s*</
+const hardcoded = /(?:title|aria-label|placeholder)="([A-Za-z][^"]{2,})"|(?<![=-])>\s*([A-Za-z][^<{}();=:]{2,}?)\s*</g
+function isHardcodedCopy(raw) {
+  const text = raw.replace(/\s+/g, ' ').trim()
+  // `return <Component>` and a lone glyph (the sleeping orb's "z") are not sentences.
+  if (text === 'return' || /^[A-Za-z]$/.test(text)) return false
+  return true
+}
 for (const file of filesUnder(tsxRoot, '.tsx')) {
   const rel = path.relative(repo, file).replaceAll('\\', '/')
   if (allow.has(rel)) continue
   const text = fs.readFileSync(file, 'utf8')
-  const hit = text.match(hardcoded)
-  if (hit) errors.push(`${rel}: hardcoded UI string ${JSON.stringify(hit[0].trim().slice(0, 60))} (move it to i18n)`)
+  for (const hit of text.matchAll(hardcoded)) {
+    const raw = hit[1] ?? hit[2] ?? ''
+    if (!isHardcodedCopy(raw)) continue
+    errors.push(`${rel}: hardcoded UI string ${JSON.stringify(raw.trim().slice(0, 60))} (move it to i18n)`)
+    break
+  }
 }
 
 if (errors.length) {

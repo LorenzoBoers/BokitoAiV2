@@ -59,8 +59,8 @@
   },
   "landing": {
     "title": "Start page",
-    "description": "Choose where Bokito opens after you sign in. New chat is the default.",
-    "new": "New chat",
+    "description": "Choose where Bokito opens after you sign in. New conversation is the default.",
+    "new": "New conversation",
     "inbox": "Inbox",
     "agenda": "Agenda",
     "today": "Today",

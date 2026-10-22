@@ -9,7 +9,7 @@ related: communication,categories,agent-runs,decisions,agenda,agents
 
 # How Today works
 
-Today is the morning scan inside Communication. Open **Communication**, then **Today**, to see what needs attention, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. The address is `/communication/today`. Under **Settings → Profile** you can set your start page after sign-in to **New chat** (default), **Inbox**, **Agenda** or **Today**.
+Today is the morning scan inside Communication. Open **Communication**, then **Today**, to see what needs attention, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. The address is `/communication/today`. Under **Settings → Profile** you can set your start page after sign-in to **New conversation** (default), **Inbox**, **Agenda** or **Today**.
 
 ## Scan the day on Today
 
