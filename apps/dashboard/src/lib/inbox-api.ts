@@ -156,6 +156,18 @@ export type AssigneeInput = {
   message?: string
 }
 
+/** The agent a conversation currently shows. Not the owner. */
+export type ThreadSpeaker = {
+  id: string
+  name: string
+  kind: string | null
+  avatarKind: string | null
+  avatarIcon: string | null
+  avatarColor: string | null
+  avatarShape: string | null
+  avatarImageUrl: string | null
+}
+
 export type InboxThread = {
   id: ThreadId
   organisationId: string
@@ -208,8 +220,7 @@ export type InboxThread = {
   aiHandling?: AiHandling | null
   /** Next-action chips set by AI inbound processing (close / assign / look_at). */
   suggestedActions?: string[]
-  /** AI triage (category / urgency 0-100 / certainty 0-100), null until triaged. */
-  category?: string | null
+  /** AI read (urgency 0-100 / certainty 0-100), null until read. */
   urgency?: number | null
   certainty?: number | null
   aiSummary?: string | null
@@ -224,10 +235,15 @@ export type InboxThread = {
   source?: string
   folder?: MessageFolder | string
   projectId?: string | null
-  /** The agent this thread targets (chat threads), if any. */
+  /** The agent this thread targets (chat threads), if any. Stays the pinned agent. */
   agentId?: string | null
   agentName?: string | null
   agentKind?: string | null
+  /**
+   * Who the conversation shows: the agent speaking now, else whoever sent the
+   * last agent message, else the pinned agent. Absent on a thin live row.
+   */
+  speaker?: ThreadSpeaker | null
   agentAvatarKind?: string | null
   agentAvatarIcon?: string | null
   agentAvatarColor?: string | null
@@ -246,6 +262,8 @@ export type InboxMessage = {
   threadId: ThreadId
   connectionId: number | null
   kind?: string
+  /** Chat role when the row came from an assistant transcript (`user` | `assistant`). */
+  role?: string | null
   direction: MessageDirection
   fromAddress: string
   toAddresses: string
@@ -364,6 +382,8 @@ export type ProposalItem = {
   planned?: boolean
   /** Canvas shell created but not yet filled — listed, not openable. */
   empty?: boolean
+  /** Content kind of a canvas (dashboard, document, …). `kind` stays the owner. */
+  canvasKind?: string | null
   /** Compact canvas tree for the chat preview card. */
   preview?: CanvasNode | null
   /** Marketplace module card: specialist job, partner slugs, install state. */
@@ -518,6 +538,7 @@ export function normalizeProposalItem(row: unknown): ProposalItem | null {
     missing: raw.missing === true,
     planned: raw.planned === true,
     empty: raw.empty === true,
+    canvasKind: asNullableString(raw.canvas_kind),
     preview: asCanvasPreview(raw.preview),
     jobTitle: asNullableString(raw.job_title),
     roleBlurb: asNullableString(raw.role_blurb),
@@ -970,6 +991,23 @@ export function normalizeThreadRow(row: unknown): InboxThread | null {
   return normalizeThread(row)
 }
 
+function normalizeSpeaker(value: unknown): ThreadSpeaker | null {
+  if (!value || typeof value !== 'object') return null
+  const raw = value as Record<string, unknown>
+  const id = asNullableString(raw.id)
+  if (!id) return null
+  return {
+    id,
+    name: asString(raw.name),
+    kind: asNullableString(raw.kind),
+    avatarKind: asNullableString(raw.avatar_kind),
+    avatarIcon: asNullableString(raw.avatar_icon),
+    avatarColor: asNullableString(raw.avatar_color),
+    avatarShape: asNullableString(raw.avatar_shape),
+    avatarImageUrl: asNullableString(raw.avatar_image_url),
+  }
+}
+
 function normalizeThread(row: unknown): InboxThread | null {
   if (!row || typeof row !== 'object') return null
   const raw = row as Record<string, unknown>
@@ -1008,6 +1046,7 @@ function normalizeThread(row: unknown): InboxThread | null {
     agentAvatarShape: asNullableString(raw.agent_avatar_shape) ?? asNullableString(raw.avatar_shape),
     agentAvatarImageUrl:
       asNullableString(raw.agent_avatar_image_url) ?? asNullableString(raw.avatar_image_url),
+    speaker: raw.speaker === undefined ? undefined : normalizeSpeaker(raw.speaker),
     contactEmail: asString(raw.contact_email),
     contactName: asString(raw.contact_name),
     contactPhone: asString(raw.contact_phone),
@@ -1053,7 +1092,6 @@ function normalizeThread(row: unknown): InboxThread | null {
     suggestedActions: Array.isArray(raw.suggested_actions)
       ? raw.suggested_actions.filter((a): a is string => typeof a === 'string')
       : [],
-    category: asNullableString(raw.category),
     urgency: typeof raw.urgency === 'number' ? raw.urgency : null,
     certainty: typeof raw.certainty === 'number' ? raw.certainty : null,
     aiSummary: asNullableString(raw.ai_summary),
@@ -1471,39 +1509,6 @@ export async function draftComposerText(token: string, instruction: string): Pro
     token,
   )
   return typeof payload.draft === 'string' ? payload.draft : ''
-}
-
-export type HandledExternallyChannel = 'phone' | 'whatsapp' | 'email' | 'other'
-
-export type HandledExternallyInput = {
-  channel: HandledExternallyChannel
-  note?: string
-  close?: boolean
-  /** UI language for the timeline line. */
-  language?: string
-}
-
-/**
- * The conversation was settled outside Bokito (call, personal WhatsApp,
- * another mailbox). Logs a timeline line, parks open AI proposals and counts
- * as the team's reply; optionally closes the thread.
- */
-export async function markThreadHandledExternally(
-  token: string,
-  threadId: ThreadId,
-  input: HandledExternallyInput,
-): Promise<void> {
-  await apiPost(
-    appRoutes.signals.threadHandledExternally(String(threadId)),
-    {
-      channel: input.channel,
-      note: input.note ?? '',
-      close: Boolean(input.close),
-      language: input.language ?? '',
-    },
-    token,
-  )
-  clearStoredComposerDraft(String(threadId))
 }
 
 export async function resolveThreadDecision(

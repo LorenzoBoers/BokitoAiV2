@@ -1,9 +1,10 @@
+from app.core.time import utcnow
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from jose import jwt
-from passlib.context import CryptContext
+import bcrypt
+import jwt
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,14 +12,22 @@ from app.config import get_settings
 from app.exceptions import AppError
 from app.models.auth import Membership, Session, Tenant, User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 settings = get_settings()
 
 ROLES = ("owner", "admin", "member")
 
 
+# bcrypt only reads the first 72 bytes. passlib truncated silently; bcrypt>=5
+# raises instead. Truncate explicitly so existing hashes keep verifying.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _bcrypt_secret(password: str) -> bytes:
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_bcrypt_secret(password), bcrypt.gensalt()).decode("ascii")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -26,8 +35,8 @@ def verify_password(plain: str, hashed: str) -> bool:
     if not hashed:
         return False
     try:
-        return pwd_context.verify(plain, hashed)
-    except ValueError:
+        return bcrypt.checkpw(_bcrypt_secret(plain), hashed.encode("ascii"))
+    except (ValueError, UnicodeEncodeError):
         return False
 
 
@@ -39,7 +48,7 @@ def create_access_token(
     staff: bool = False,
     impersonator_id: UUID | None = None,
 ) -> str:
-    expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     # Impersonation is always a normal member session of the target user; the
     # staff claim must stay false so UI and permissions match what they see.
     if impersonator_id is not None:
@@ -67,7 +76,7 @@ def create_totp_challenge_token(user_id: UUID) -> str:
     It proves the password was already verified but grants no API access."""
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(minutes=5),
+        "exp": utcnow() + timedelta(minutes=5),
         "type": "totp_challenge",
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
@@ -94,7 +103,7 @@ def create_workspace_setup_token(user_id: UUID) -> str:
     (accept a pending invite / create a new workspace), no other API access."""
     payload = {
         "sub": str(user_id),
-        "exp": datetime.utcnow() + timedelta(minutes=30),
+        "exp": utcnow() + timedelta(minutes=30),
         "type": "workspace_setup",
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
@@ -199,7 +208,7 @@ async def create_refresh_session(session: AsyncSession, user_id: UUID) -> tuple[
     db_session = Session(
         user_id=user_id,
         refresh_token_hash=_refresh_token_digest(raw),
-        expires_at=datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days),
+        expires_at=utcnow() + timedelta(days=settings.refresh_token_expire_days),
     )
     session.add(db_session)
     await session.commit()
@@ -211,7 +220,7 @@ async def verify_refresh_token(session: AsyncSession, raw_token: str) -> User | 
     result = await session.execute(
         select(Session).where(
             Session.refresh_token_hash == _refresh_token_digest(raw_token),
-            Session.expires_at > datetime.utcnow(),
+            Session.expires_at > utcnow(),
         )
     )
     db_session = result.scalars().first()

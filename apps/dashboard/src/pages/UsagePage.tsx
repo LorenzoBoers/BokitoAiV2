@@ -630,7 +630,7 @@ export default function UsagePage() {
                               },
                               row.agent_name,
                             )}
-                            size={28}
+                            size={32}
                             decorative
                             mode="static"
                           />

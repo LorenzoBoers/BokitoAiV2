@@ -7,6 +7,7 @@ integration, with which arguments — never a JSON blob.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 
@@ -113,6 +114,8 @@ _LABEL_ARGS = (
     "where",
 )
 
+_SCHEDULE_TOOLS = frozenset({"set_thread_schedule", "schedule_wake", "clear_thread_schedule"})
+
 _CONNECT_TOOLS = frozenset(
     {"connect_integration", "suggest_integration", "propose_integration", "setup_integration"}
 )
@@ -216,6 +219,56 @@ def describe_action(tool_name: str, tool_input: dict[str, Any] | None) -> dict[s
     return {"tool": tool_name, "key": tool_name, "args": args, "fallback": fallback}
 
 
+def schedule_intent_key(tool_name: str, payload: dict[str, Any] | None) -> str | None:
+    """Same plan, ignoring owner retries. None when this is not a schedule tool."""
+    if tool_name not in _SCHEDULE_TOOLS:
+        return None
+    data = payload if isinstance(payload, dict) else {}
+    every = data.get("every_minutes")
+    try:
+        every_n = int(every) if every not in (None, "") else None
+    except (TypeError, ValueError):
+        every_n = None
+    return json.dumps(
+        {
+            "tool": tool_name,
+            "title": str(data.get("title") or data.get("name") or "").strip().lower(),
+            "every": every_n,
+            "cron": str(data.get("cron") or "").strip(),
+            "at": str(data.get("at") or "").strip(),
+            "new_thread": bool(data.get("new_thread")),
+            "signal_id": str(data.get("signal_id") or "").strip(),
+        },
+        sort_keys=True,
+    )
+
+
+def schedule_phrase(payload: dict[str, Any] | None) -> str:
+    """One line an operator can tell apart: the cadence and the subject."""
+    data = payload if isinstance(payload, dict) else {}
+    subject = str(data.get("title") or data.get("name") or "").strip()
+    every = data.get("every_minutes")
+    cron = str(data.get("cron") or "").strip()
+    at = str(data.get("at") or "").strip()
+    try:
+        every_n = int(every) if every not in (None, "") else None
+    except (TypeError, ValueError):
+        every_n = None
+    if every_n:
+        when = f"Every {every_n} minutes"
+    elif cron:
+        when = f"Repeat {cron}"
+    elif at:
+        when = f"At {at}"
+    elif subject:
+        when = "Clear the schedule"
+    else:
+        when = "Schedule"
+    if subject and not when.startswith("Clear"):
+        return f"{when}: {subject}"[:180]
+    return when[:180]
+
+
 def format_policy_decision(tool_name: str, tool_input: dict[str, Any] | None) -> tuple[str, str]:
     """Return ``(title, summary)`` for a gated tool DecisionRequest."""
     payload = tool_input if isinstance(tool_input, dict) else {}
@@ -236,6 +289,13 @@ def format_policy_decision(tool_name: str, tool_input: dict[str, Any] | None) ->
         else:
             lines.append("No arguments.")
         return title, "\n".join(lines)[:500]
+
+    if tool_name in _SCHEDULE_TOOLS:
+        phrase = schedule_phrase(payload)
+        title = f"Approve: {phrase}"
+        arg_lines = _format_args(payload)
+        summary = phrase if not arg_lines else phrase + "\n" + "\n".join(arg_lines)
+        return title, summary[:500]
 
     verb = _TOOL_VERBS.get(tool_name) or _humanize_token(tool_name)
     named = _named_target(tool_name, payload)

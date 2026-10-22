@@ -19,6 +19,7 @@ os.environ.setdefault("LLM_MODE", "mock")
 os.environ.setdefault("JWT_SECRET", "e2e-jwt-secret")
 # Every Playwright test performs a fresh login; the auth limiter would 429.
 os.environ.setdefault("RATE_LIMIT_DISABLED", "1")
+os.environ.setdefault("EXPOSE_DEV_AUTH_TOKENS", "true")
 os.environ.setdefault(
     "CORS_ORIGINS",
     "http://127.0.0.1:5174,http://127.0.0.1:5175,http://127.0.0.1:5184,http://127.0.0.1:5185,"

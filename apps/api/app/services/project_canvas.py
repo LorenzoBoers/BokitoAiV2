@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -19,9 +22,17 @@ from app.models.agent import Agent
 from app.models.project import Project
 from app.models.project_canvas import (
     CANVAS_SCHEMA_VERSION,
-    CANVAS_OWNERS,
-    OWNER_PROJECT,
+    KIND_DASHBOARD,
+    KIND_IMAGE,
     ProjectCanvas,
+)
+from app.models.signal import Signal
+from app.services.canvas_content import (
+    CanvasContentError,
+    content_is_empty,
+    materialize_image,
+    normalize_kind,
+    prepare_content,
 )
 from app.models.trigger import Trigger
 from app.services.project_canvas_compile import (
@@ -33,6 +44,11 @@ from app.services.project_canvas_compile import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Set for the whole turn when Agenda woke the agent only to refresh a dashboard.
+canvas_refresh_wake: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "canvas_refresh_wake", default=False
+)
 
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
 MIN_REFRESH_MINUTES = 5
@@ -65,23 +81,30 @@ def slugify_title(title: str) -> str:
 
 def refresh_instructions(
     *,
-    owner_kind: str,
-    owner_id: UUID,
-    slug: str,
     canvas_id: UUID,
+    signal_id: UUID,
+    slug: str,
     title: str = "",
     brief: str = "",
+    folder_id: UUID | None = None,
     folder_lines: str = "",
 ) -> str:
-    lookup = (
-        f"This canvas belongs to folder {owner_id}. Use list_queue_items, "
-        "list_project_docs and list_project_resources, then embed those numbers."
-    )
+    if folder_id:
+        lookup = (
+            f"This canvas lives in conversation {signal_id}, filed in folder {folder_id}. "
+            "Use list_queue_items, list_project_docs and list_project_resources, "
+            "then embed those numbers."
+        )
+    else:
+        lookup = (
+            f"This canvas lives in conversation {signal_id}. Fetch the figures it "
+            "needs with your tools, then embed those numbers."
+        )
     brief_line = f"What it must show: {brief.strip()}\n" if (brief or "").strip() else ""
     folder_block = f"{folder_lines.strip()}\n" if (folder_lines or "").strip() else ""
     return (
         f"Write or refresh snapshot canvas '{title or slug}' "
-        f"(canvas_id={canvas_id}, owner_kind={owner_kind}, slug={slug}).\n"
+        f"(canvas_id={canvas_id}, signal_id={signal_id}, slug={slug}).\n"
         f"{brief_line}"
         f"{lookup}\n"
         f"{folder_block}"
@@ -171,29 +194,23 @@ async def _require_project(session: AsyncSession, tenant_id: UUID, project_id: U
     return project
 
 
-async def resolve_owner(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    owner_kind: str | None = None,
-    owner_id: UUID | None = None,
-    project_id: UUID | None = None,
-) -> tuple[str, UUID]:
-    kind = (owner_kind or "").strip().lower()
-    if project_id and not kind:
-        kind = OWNER_PROJECT
-        owner_id = project_id
-    if not kind and owner_id is None:
-        from app.services.works_in import general_folder
+async def _require_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> Signal:
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != tenant_id or signal.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return signal
 
-        folder = await general_folder(session, tenant_id)
-        kind, owner_id = OWNER_PROJECT, folder.id
-    if kind not in CANVAS_OWNERS:
-        raise HTTPException(status_code=400, detail="A canvas lives in a folder: owner_kind must be project")
-    if owner_id is None:
-        raise HTTPException(status_code=400, detail="owner_id is required")
-    await _require_project(session, tenant_id, owner_id)
-    return kind, owner_id
+
+async def _live_folder_id(
+    session: AsyncSession, tenant_id: UUID, signal: Signal | None
+) -> UUID | None:
+    """The folder a canvas shows under: its home conversation's folder, when alive."""
+    if signal is None or not signal.project_id:
+        return None
+    project = await session.get(Project, signal.project_id)
+    if project is None or project.tenant_id != tenant_id or project.deleted_at is not None:
+        return None
+    return project.id
 
 
 async def default_location(
@@ -202,34 +219,47 @@ async def default_location(
     """Where a canvas link without a folder lands.
 
     The named canvas when it is alive, else the canvas touched last, else the
-    folder General.
+    folder General. A canvas whose conversation sits in no folder opens in
+    that conversation.
     """
     from app.services.works_in import folder_href, general_folder
 
     row = None
+    signal = None
     for named in ([ProjectCanvas.id == canvas_id] if canvas_id else [], []):
-        row = (
+        found = (
             await session.execute(
-                select(ProjectCanvas)
-                .join(Project, Project.id == ProjectCanvas.owner_id)
+                select(ProjectCanvas, Signal)
+                .join(Signal, Signal.id == ProjectCanvas.signal_id)
                 .where(
                     *named,
                     ProjectCanvas.tenant_id == tenant_id,
-                    ProjectCanvas.owner_kind == OWNER_PROJECT,
                     ProjectCanvas.deleted_at.is_(None),
-                    Project.deleted_at.is_(None),
+                    Signal.tenant_id == tenant_id,
+                    Signal.deleted_at.is_(None),
                 )
                 .order_by(ProjectCanvas.updated_at.desc())
                 .limit(1)
             )
-        ).scalars().first()
-        if row is not None:
+        ).first()
+        if found is not None:
+            row, signal = found
             break
     if row is not None:
+        folder_id = await _live_folder_id(session, tenant_id, signal)
+        if folder_id:
+            return {
+                "folder_id": str(folder_id),
+                "canvas_id": str(row.id),
+                "href": folder_href(folder_id, "canvas", canvas=str(row.id)),
+            }
         return {
-            "folder_id": str(row.owner_id),
+            "folder_id": None,
             "canvas_id": str(row.id),
-            "href": folder_href(row.owner_id, "canvas", canvas=str(row.id)),
+            "href": canvas_on_thread(
+                _thread_path(row.managing_agent_id or signal.agent_id, signal.id),
+                row.id,
+            ),
         }
     folder = await general_folder(session, tenant_id)
     await session.commit()
@@ -240,8 +270,6 @@ async def resolve_managing_agent(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    owner_kind: str,
-    owner_id: UUID,
     agent_id: UUID | None = None,
 ) -> UUID | None:
     if agent_id:
@@ -257,19 +285,28 @@ async def resolve_managing_agent(
         if row is None:
             raise HTTPException(status_code=400, detail="Managing agent not found")
         return row.id
-    if owner_kind == OWNER_PROJECT:
-        await _require_project(session, tenant_id, owner_id)
     from app.services.lead_agent import get_lead_agent
 
     lead = await get_lead_agent(session, tenant_id)
     return lead.id if lead else None
 
 
-def serialize_canvas(canvas: ProjectCanvas, *, trigger: Trigger | None = None) -> dict[str, Any]:
+def serialize_canvas(
+    canvas: ProjectCanvas,
+    *,
+    trigger: Trigger | None = None,
+    folder_id: UUID | None = None,
+) -> dict[str, Any]:
     tree = _parse_json(canvas.tree_json, EMPTY_TREE)
     if not isinstance(tree, dict) or not tree.get("type"):
         tree = dict(EMPTY_TREE)
-    source = canvas.source or EMPTY_SOURCE
+    kind = (getattr(canvas, "kind", None) or KIND_DASHBOARD).strip() or KIND_DASHBOARD
+    if kind == KIND_DASHBOARD:
+        source = canvas.source or EMPTY_SOURCE
+        empty = is_empty_tree(tree)
+    else:
+        source = canvas.source or ""
+        empty = content_is_empty(kind, source)
     refresh_minutes = 0
     next_run_at = None
     cadence = cadence_from_trigger(trigger)
@@ -287,16 +324,16 @@ def serialize_canvas(canvas: ProjectCanvas, *, trigger: Trigger | None = None) -
         next_run_at = trigger.next_run_at.isoformat() + "Z" if trigger.next_run_at else None
     return {
         "id": str(canvas.id),
-        "project_id": str(canvas.project_id) if canvas.project_id else None,
-        "owner_kind": canvas.owner_kind,
-        "owner_id": str(canvas.owner_id),
+        "folder_id": str(folder_id) if folder_id else None,
         "slug": canvas.slug,
         "title": canvas.title,
+        "kind": kind,
+        "language": canvas.language if kind == "code" else None,
         "schema_version": canvas.schema_version,
         "revision": canvas.revision,
         "source": source,
         "tree": tree,
-        "empty": is_empty_tree(tree),
+        "empty": empty,
         "managing_agent_id": str(canvas.managing_agent_id) if canvas.managing_agent_id else None,
         "signal_id": str(canvas.signal_id) if canvas.signal_id else None,
         "refresh_trigger_id": str(canvas.refresh_trigger_id) if canvas.refresh_trigger_id else None,
@@ -332,15 +369,22 @@ def _thread_path(agent_id: UUID | None, signal_id: UUID) -> str:
     return f"/communication/inbox/open/t/{signal_id}"
 
 
+def canvas_on_thread(path: str, canvas_id: UUID | str) -> str:
+    """Open a canvas beside its conversation. ``/cockpit/canvas`` is gone."""
+    from urllib.parse import parse_qsl, urlencode
+
+    base, _, query = (path or "").partition("?")
+    pairs = [(key, value) for key, value in parse_qsl(query, keep_blank_values=True) if key != "canvas"]
+    pairs.append(("canvas", str(canvas_id)))
+    return f"{base}?{urlencode(pairs)}"
+
+
 async def _home_payloads(
     session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
 ) -> dict[str, Any]:
-    from app.models.agent import Agent
-    from app.models.signal import Signal
-
     from app.services.agent_avatar import avatar_payload
 
-    extra: dict[str, Any] = {"thread": None, "managing_agent": None}
+    extra: dict[str, Any] = {"thread": None, "managing_agent": None, "folder_id": None}
     agent = None
     if canvas.managing_agent_id:
         agent = await session.get(Agent, canvas.managing_agent_id)
@@ -359,10 +403,14 @@ async def _home_payloads(
                 "title": (signal.subject or canvas.title or "Conversation").strip()[:120],
                 "path": _thread_path(canvas.managing_agent_id or signal.agent_id, signal.id),
             }
+            folder_id = await _live_folder_id(session, tenant_id, signal)
+            extra["folder_id"] = str(folder_id) if folder_id else None
     return extra
 
 
-async def _serialize(session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas) -> dict[str, Any]:
+async def _serialize(
+    session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
+) -> dict[str, Any]:
     trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
     payload = serialize_canvas(canvas, trigger=trigger)
     payload.update(await _home_payloads(session, tenant_id, canvas))
@@ -377,40 +425,42 @@ async def ensure_canvas_thread(
     prefer_signal_id: UUID | None = None,
     new_thread: bool = False,
 ) -> Any:
-    """The conversation this canvas lives in. Creates one when missing."""
-    from app.models.agent import Agent
-    from app.models.signal import Signal
+    """The conversation this canvas lives in. Opens a new one when the home is gone.
+
+    A replacement thread keeps the folder of the thread it replaces, so a
+    canvas does not drop out of its folder when its conversation is binned.
+    """
     from app.services.thread_schedule import create_schedule_thread
 
+    def _live(signal: Signal | None) -> bool:
+        return signal is not None and signal.tenant_id == tenant_id and signal.deleted_at is None
+
+    prefer = await session.get(Signal, prefer_signal_id) if prefer_signal_id else None
+    current = await session.get(Signal, canvas.signal_id) if canvas.signal_id else None
     if not new_thread:
-        if prefer_signal_id:
-            signal = await session.get(Signal, prefer_signal_id)
-            if (
-                signal is not None
-                and signal.tenant_id == tenant_id
-                and signal.deleted_at is None
-            ):
-                canvas.signal_id = signal.id
-                return signal
-        if canvas.signal_id:
-            signal = await session.get(Signal, canvas.signal_id)
-            if signal is not None and signal.deleted_at is None:
-                return signal
+        if _live(prefer):
+            canvas.signal_id = prefer.id
+            return prefer
+        if _live(current):
+            return current
         trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
         if trigger and trigger.signal_id:
             signal = await session.get(Signal, trigger.signal_id)
-            if signal is not None and signal.deleted_at is None:
+            if _live(signal):
                 canvas.signal_id = signal.id
                 return signal
     agent = (
         await session.get(Agent, canvas.managing_agent_id) if canvas.managing_agent_id else None
     )
+    folder_source = prefer if prefer is not None and prefer.tenant_id == tenant_id else current
+    if folder_source is not None and folder_source.tenant_id != tenant_id:
+        folder_source = None
     signal = await create_schedule_thread(
         session,
         tenant_id,
         subject=canvas.title or "Canvas",
         agent=agent,
-        project_id=canvas.project_id,
+        project_id=await _live_folder_id(session, tenant_id, folder_source),
     )
     canvas.signal_id = signal.id
     return signal
@@ -419,29 +469,39 @@ async def ensure_canvas_thread(
 async def _bind_home(
     session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
 ) -> bool:
-    """Heal a canvas that predates signal_id so the tab always has a thread.
+    """Keep the canvas on a live thread and its refresh rule on the same one.
 
-    A binned home must be dropped before the refresh rule is pointed at it.
+    A binned home is replaced before the refresh rule is pointed at it.
     Otherwise every read sets the rule back onto that binned thread, and
     ``ensure_trigger_thread`` mints a new Agenda row.
     """
-    from app.models.signal import Signal
-
     changed = False
     home = await session.get(Signal, canvas.signal_id) if canvas.signal_id else None
     if home is None or home.tenant_id != tenant_id or home.deleted_at is not None:
-        canvas.signal_id = None
         await ensure_canvas_thread(session, tenant_id, canvas)
         changed = True
     trigger = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
     if trigger and canvas.signal_id and trigger.signal_id != canvas.signal_id:
-        trigger.signal_id = canvas.signal_id
-        session.add(trigger)
-        from app.services.thread_schedule import ensure_trigger_thread
+        trigger_home = await session.get(Signal, trigger.signal_id) if trigger.signal_id else None
+        canvas_home = await session.get(Signal, canvas.signal_id)
+        trigger_live = (
+            trigger_home is not None
+            and trigger_home.tenant_id == tenant_id
+            and trigger_home.deleted_at is None
+        )
+        # The canvas still names the assistant chat it was asked in. Pointing
+        # the rule back there makes ensure_trigger_thread mint a new thread
+        # on every read. The thread the rule already has is the home.
+        if trigger_live and canvas_home is not None and canvas_home.channel == "assistant":
+            canvas.signal_id = trigger_home.id
+        else:
+            trigger.signal_id = canvas.signal_id
+            session.add(trigger)
+            from app.services.thread_schedule import ensure_trigger_thread
 
-        await ensure_trigger_thread(session, trigger)
-        if trigger.signal_id and trigger.signal_id != canvas.signal_id:
-            canvas.signal_id = trigger.signal_id
+            await ensure_trigger_thread(session, trigger)
+            if trigger.signal_id and trigger.signal_id != canvas.signal_id:
+                canvas.signal_id = trigger.signal_id
         changed = True
     if changed:
         session.add(canvas)
@@ -484,17 +544,6 @@ def _document_from_legacy(canvas: ProjectCanvas) -> tuple[str, dict[str, Any]] |
     return source, tree
 
 
-async def _hydrate_owner_fields(canvas: ProjectCanvas, tenant_id: UUID) -> bool:
-    changed = False
-    if not canvas.owner_kind:
-        canvas.owner_kind = OWNER_PROJECT
-        changed = True
-    if canvas.owner_id is None and canvas.project_id:
-        canvas.owner_id = canvas.project_id
-        changed = True
-    return changed
-
-
 async def get_canvas_row(
     session: AsyncSession,
     tenant_id: UUID,
@@ -521,8 +570,7 @@ async def find_canvas(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    owner_kind: str,
-    owner_id: UUID,
+    signal_id: UUID,
     slug: str,
 ) -> ProjectCanvas | None:
     slug_key = (slug or "main").strip().lower()
@@ -532,8 +580,7 @@ async def find_canvas(
         await session.execute(
             select(ProjectCanvas).where(
                 ProjectCanvas.tenant_id == tenant_id,
-                ProjectCanvas.owner_kind == owner_kind,
-                ProjectCanvas.owner_id == owner_id,
+                ProjectCanvas.signal_id == signal_id,
                 ProjectCanvas.slug == slug_key,
                 alive(ProjectCanvas),
             )
@@ -549,11 +596,10 @@ async def find_canvas_by_title(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    owner_kind: str,
-    owner_id: UUID,
+    signal_id: UUID,
     title: str,
 ) -> ProjectCanvas | None:
-    """The living canvas on this owner whose title matches, ignoring case and spacing."""
+    """The living canvas in this conversation whose title matches, ignoring case and spacing."""
     key = _title_key(title)
     if not key:
         return None
@@ -563,8 +609,7 @@ async def find_canvas_by_title(
         await session.execute(
             select(ProjectCanvas).where(
                 ProjectCanvas.tenant_id == tenant_id,
-                ProjectCanvas.owner_kind == owner_kind,
-                ProjectCanvas.owner_id == owner_id,
+                ProjectCanvas.signal_id == signal_id,
                 alive(ProjectCanvas),
             )
         )
@@ -575,24 +620,23 @@ async def find_canvas_by_title(
     return None
 
 
-async def list_canvases(
-    session: AsyncSession,
-    tenant_id: UUID,
-    *,
-    owner_kind: str,
-    owner_id: UUID,
+async def list_canvases_for_folder(
+    session: AsyncSession, tenant_id: UUID, folder_id: UUID
 ) -> list[dict[str, Any]]:
-    kind, oid = await resolve_owner(
-        session, tenant_id, owner_kind=owner_kind, owner_id=owner_id
-    )
+    """Canvases whose home conversation is filed in this folder or below it."""
+    from app.services import folders
     from app.services.trash import alive
 
+    await _require_project(session, tenant_id, folder_id)
+    catalog = await folders.load_catalog(session, tenant_id)
+    folder_ids = folders.folder_subtree_ids(catalog, folder_id)
     result = await session.execute(
         select(ProjectCanvas)
+        .join(Signal, Signal.id == ProjectCanvas.signal_id)
         .where(
             ProjectCanvas.tenant_id == tenant_id,
-            ProjectCanvas.owner_kind == kind,
-            ProjectCanvas.owner_id == oid,
+            Signal.tenant_id == tenant_id,
+            Signal.project_id.in_(folder_ids),
             alive(ProjectCanvas),
         )
         .order_by(ProjectCanvas.created_at)
@@ -601,9 +645,7 @@ async def list_canvases(
     dirty = False
     for canvas in result.scalars().all():
         changed = False
-        if await _hydrate_owner_fields(canvas, tenant_id):
-            changed = True
-        legacy = _document_from_legacy(canvas)
+        legacy = _document_from_legacy(canvas) if (canvas.kind or KIND_DASHBOARD) == KIND_DASHBOARD else None
         if legacy is not None and (
             not (canvas.source or "").strip()
             or canvas.schema_version < CANVAS_SCHEMA_VERSION
@@ -653,9 +695,7 @@ async def list_canvases_for_signal(
 async def list_project_canvases(
     session: AsyncSession, tenant_id: UUID, project_id: UUID
 ) -> list[dict[str, Any]]:
-    return await list_canvases(
-        session, tenant_id, owner_kind=OWNER_PROJECT, owner_id=project_id
-    )
+    return await list_canvases_for_folder(session, tenant_id, project_id)
 
 
 async def get_canvas(
@@ -663,18 +703,15 @@ async def get_canvas(
     tenant_id: UUID,
     *,
     canvas_id: UUID | None = None,
-    owner_kind: str | None = None,
-    owner_id: UUID | None = None,
-    project_id: UUID | None = None,
+    signal_id: UUID | None = None,
     slug: str = "main",
 ) -> dict[str, Any]:
     if canvas_id:
         canvas = await get_canvas_row(session, tenant_id, canvas_id)
     else:
-        kind, oid = await resolve_owner(
-            session, tenant_id, owner_kind=owner_kind, owner_id=owner_id, project_id=project_id
-        )
-        canvas = await find_canvas(session, tenant_id, owner_kind=kind, owner_id=oid, slug=slug)
+        if signal_id is None:
+            raise HTTPException(status_code=400, detail="canvas_id or signal_id required")
+        canvas = await find_canvas(session, tenant_id, signal_id=signal_id, slug=slug)
         if canvas is None:
             raise HTTPException(status_code=404, detail="Canvas not found")
     if await _bind_home(session, tenant_id, canvas):
@@ -686,8 +723,7 @@ async def get_canvas(
 async def _unique_slug(
     session: AsyncSession,
     tenant_id: UUID,
-    owner_kind: str,
-    owner_id: UUID,
+    signal_id: UUID,
     slug: str,
     *,
     exclude_id: UUID | None = None,
@@ -696,21 +732,76 @@ async def _unique_slug(
     candidate = base
     n = 2
     while True:
-        existing = await find_canvas(
-            session, tenant_id, owner_kind=owner_kind, owner_id=owner_id, slug=candidate
-        )
+        existing = await find_canvas(session, tenant_id, signal_id=signal_id, slug=candidate)
         if existing is None or existing.id == exclude_id:
             return candidate
         candidate = f"{base[:58]}-{n}"
         n += 1
 
 
-async def _folder_lines(session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas) -> str:
-    if canvas.owner_kind != OWNER_PROJECT:
+async def _canvas_folder_id(
+    session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
+) -> UUID | None:
+    home = await session.get(Signal, canvas.signal_id) if canvas.signal_id else None
+    return await _live_folder_id(session, tenant_id, home)
+
+
+async def _folder_lines(session: AsyncSession, tenant_id: UUID, folder_id: UUID | None) -> str:
+    if not folder_id:
         return ""
     from app.services.projects import folder_digest
 
-    return await folder_digest(session, tenant_id, canvas.owner_id)
+    return await folder_digest(session, tenant_id, folder_id)
+
+
+async def _refresh_instructions_for(
+    session: AsyncSession, tenant_id: UUID, canvas: ProjectCanvas
+) -> str:
+    folder_id = await _canvas_folder_id(session, tenant_id, canvas)
+    return refresh_instructions(
+        canvas_id=canvas.id,
+        signal_id=canvas.signal_id,
+        slug=canvas.slug,
+        title=canvas.title,
+        brief=canvas.notes or "",
+        folder_id=folder_id,
+        folder_lines=await _folder_lines(session, tenant_id, folder_id),
+    )
+
+
+async def _keep_refresh_thread(
+    session: AsyncSession,
+    tenant_id: UUID,
+    canvas: ProjectCanvas,
+    trigger: Trigger,
+) -> None:
+    """Reuse the wake's thread. Do not point the rule back at an assistant chat.
+
+    ``ensure_trigger_thread`` leaves an assistant chat and opens a new one.
+    Saving the canvas used to do that on every update, so one weekly canvas
+    became several identical conversations.
+    """
+    from app.models.signal import Signal
+    from app.services.thread_schedule import ensure_trigger_thread
+
+    held = await session.get(Signal, trigger.signal_id) if trigger.signal_id else None
+    held_live = (
+        held is not None and held.tenant_id == tenant_id and held.deleted_at is None
+    )
+    canvas_home = await session.get(Signal, canvas.signal_id) if canvas.signal_id else None
+    if not held_live:
+        trigger.signal_id = canvas.signal_id
+    elif (
+        canvas_home is not None
+        and canvas_home.deleted_at is None
+        and canvas_home.channel != "assistant"
+    ):
+        trigger.signal_id = canvas.signal_id
+    session.add(trigger)
+    if trigger.signal_id or not held_live:
+        await ensure_trigger_thread(session, trigger)
+    if trigger.signal_id and trigger.signal_id != canvas.signal_id:
+        canvas.signal_id = trigger.signal_id
 
 
 async def sync_refresh_trigger(
@@ -725,6 +816,11 @@ async def sync_refresh_trigger(
     from app.services import triggers as trigger_svc
 
     existing = await _load_trigger(session, tenant_id, canvas.refresh_trigger_id)
+    if (canvas.kind or KIND_DASHBOARD) != KIND_DASHBOARD:
+        if existing:
+            await session.delete(existing)
+            canvas.refresh_trigger_id = None
+        return None
     key = (refresh_cadence or "").strip().lower()
     cron = " ".join((refresh_cron or "").split())
     if key == "custom" and not cron and existing and existing.kind == "cron":
@@ -734,7 +830,7 @@ async def sync_refresh_trigger(
             status_code=400,
             detail="Custom refresh needs a five-field cron expression",
         )
-    if key == "custom" and trigger_svc.next_cron_run(cron, datetime.utcnow()) is None:
+    if key == "custom" and trigger_svc.next_cron_run(cron, utcnow()) is None:
         raise HTTPException(status_code=400, detail="Invalid cron expression")
     schedule = cadence_schedule(key, cron)
     if key == "custom" and schedule is None:
@@ -749,15 +845,7 @@ async def sync_refresh_trigger(
         return None
     kind, minutes, cron_expr = schedule
     name = f"Refresh canvas · {canvas.title}"[:120]
-    instructions = refresh_instructions(
-        owner_kind=canvas.owner_kind,
-        owner_id=canvas.owner_id,
-        slug=canvas.slug,
-        canvas_id=canvas.id,
-        title=canvas.title,
-        brief=canvas.notes or "",
-        folder_lines=await _folder_lines(session, tenant_id, canvas),
-    )
+    instructions = await _refresh_instructions_for(session, tenant_id, canvas)
     if existing:
         existing.name = name
         existing.kind = kind
@@ -769,15 +857,12 @@ async def sync_refresh_trigger(
         existing.enabled = True
         # A kick fires once below. Leaving next_run_at in the past lets the
         # scheduler start a second copy of the same wake.
-        if kick and (existing.next_run_at is None or existing.next_run_at <= datetime.utcnow()):
-            existing.next_run_at = trigger_svc.compute_next_run(existing, datetime.utcnow())
+        if kick and (existing.next_run_at is None or existing.next_run_at <= utcnow()):
+            existing.next_run_at = trigger_svc.compute_next_run(existing, utcnow())
         elif not kick:
             existing.next_run_at = trigger_svc.compute_next_run(existing)
         session.add(existing)
-        if existing.signal_id:
-            from app.services.thread_schedule import ensure_trigger_thread
-
-            await ensure_trigger_thread(session, existing)
+        await _keep_refresh_thread(session, tenant_id, canvas, existing)
         return existing.id if kick else None
     trigger = await trigger_svc.create_trigger(
         session,
@@ -793,6 +878,8 @@ async def sync_refresh_trigger(
         defer_thread=canvas.signal_id is None and not kick,
     )
     canvas.refresh_trigger_id = trigger.id
+    if trigger.signal_id and trigger.signal_id != canvas.signal_id:
+        canvas.signal_id = trigger.signal_id
     return trigger.id if kick else None
 
 
@@ -808,17 +895,9 @@ async def _schedule_once_write(
         kind="once",
         agent_id=canvas.managing_agent_id,
         signal_id=canvas.signal_id,
-        instructions=refresh_instructions(
-            owner_kind=canvas.owner_kind,
-            owner_id=canvas.owner_id,
-            slug=canvas.slug,
-            canvas_id=canvas.id,
-            title=canvas.title,
-            brief=canvas.notes or "",
-            folder_lines=await _folder_lines(session, tenant_id, canvas),
-        ),
+        instructions=await _refresh_instructions_for(session, tenant_id, canvas),
         enabled=True,
-        run_at=datetime.utcnow(),
+        run_at=utcnow(),
         hold=True,
     )
 
@@ -848,12 +927,79 @@ def _schedule_kick(tenant_id: UUID, trigger_id: UUID | None) -> None:
     loop.create_task(_fire_canvas_trigger(tenant_id, trigger_id))
 
 
+async def _fresh_content(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    content_kind: str,
+    source: str | None,
+    language: str | None,
+    image_prompt: str | None,
+    image_url: str | None,
+) -> tuple[str, dict[str, Any], str | None]:
+    """Initial source for a new canvas. A dashboard stays an empty bokito/canvas document."""
+    if content_kind == KIND_DASHBOARD:
+        if (source or "").strip():
+            try:
+                text, tree = compile_canvas(source=str(source))
+            except CanvasCompileError as exc:
+                raise CanvasContentError(str(exc)) from exc
+            return text, tree, None
+        text, tree = _empty_document()
+        return text, tree, None
+    if content_kind == KIND_IMAGE and ((image_prompt or "").strip() or (image_url or "").strip()):
+        stored = await materialize_image(
+            session,
+            tenant_id,
+            prompt=image_prompt,
+            image_url=image_url,
+            alt=(image_prompt or "")[:200],
+        )
+        return stored, dict(EMPTY_TREE), None
+    raw = source
+    if raw is None and content_kind in (KIND_IMAGE, "email"):
+        raw = "{}"
+    stored, lang = prepare_content(content_kind, raw or "", language=language, tenant_id=tenant_id)
+    return stored, dict(EMPTY_TREE), lang
+
+
+async def _open_canvas_thread(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    subject: str,
+    agent_id: UUID | None,
+    folder_id: UUID | None,
+    actor_type: str = "user",
+    actor_id: str = "",
+) -> Signal:
+    """A new conversation for a canvas, filed in ``folder_id`` when given."""
+    from app.services import folders
+    from app.services.thread_schedule import create_schedule_thread
+
+    agent = await session.get(Agent, agent_id) if agent_id else None
+    signal = await create_schedule_thread(
+        session, tenant_id, subject=subject or "Canvas", agent=agent
+    )
+    if folder_id is not None:
+        try:
+            await folders.file_in_folder(
+                session,
+                signal,
+                folder_id,
+                actor_type=(actor_type or "user")[:32],
+                actor_id=actor_id or "",
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Folder not found") from exc
+    return signal
+
+
 async def create_canvas(
     session: AsyncSession,
     tenant_id: UUID,
     *,
-    owner_kind: str,
-    owner_id: UUID,
+    signal_id: UUID | None = None,
     title: str,
     slug: str | None = None,
     managing_agent_id: UUID | None = None,
@@ -865,16 +1011,28 @@ async def create_canvas(
     updated_by_id: str = "",
     kick: bool = True,
     force_new: bool = False,
-    signal_id: UUID | None = None,
     new_thread: bool = False,
+    folder_id: UUID | None = None,
+    canvas_kind: str | None = None,
+    language: str | None = None,
+    source: str | None = None,
+    image_prompt: str | None = None,
+    image_url: str | None = None,
 ) -> dict[str, Any]:
-    kind, oid = await resolve_owner(
-        session, tenant_id, owner_kind=owner_kind, owner_id=owner_id
-    )
+    """Add a canvas to a conversation.
+
+    ``signal_id`` names the home conversation. ``new_thread`` opens a fresh
+    one instead, filed in ``folder_id`` when given.
+    """
+    if signal_id is None and not new_thread:
+        raise HTTPException(status_code=400, detail="signal_id or new_thread required")
+    if folder_id is not None:
+        await _require_project(session, tenant_id, folder_id)
+    home = None if new_thread else await _require_signal(session, tenant_id, signal_id)
     name = (title or "").strip() or "Canvas"
-    if not force_new:
+    if home is not None and not force_new:
         existing = await find_canvas_by_title(
-            session, tenant_id, owner_kind=kind, owner_id=oid, title=name
+            session, tenant_id, signal_id=home.id, title=name
         )
         if existing is not None:
             brief = (notes or "").strip() or None
@@ -898,33 +1056,54 @@ async def create_canvas(
                     refresh_cron=refresh_cron,
                 )
             else:
-                if not existing.signal_id:
-                    await ensure_canvas_thread(session, tenant_id, existing)
-                    session.add(existing)
-                    await session.commit()
                 payload = await _serialize(session, tenant_id, existing)
             payload["reused"] = True
             return payload
-    slug_key = await _unique_slug(
-        session, tenant_id, kind, oid, (slug or slugify_title(name)).strip().lower()
-    )
     agent_id = await resolve_managing_agent(
-        session, tenant_id, owner_kind=kind, owner_id=oid, agent_id=managing_agent_id
+        session, tenant_id, agent_id=managing_agent_id
     )
-    source, tree = _empty_document()
+    try:
+        content_kind = normalize_kind(canvas_kind)
+    except CanvasContentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        source_text, tree, language_text = await _fresh_content(
+            session,
+            tenant_id,
+            content_kind=content_kind,
+            source=source,
+            language=language,
+            image_prompt=image_prompt,
+            image_url=image_url,
+        )
+    except CanvasContentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     brief = (notes or "").strip() or None
     if brief and len(brief) > 2000:
         brief = brief[:2000]
+    if home is None:
+        home = await _open_canvas_thread(
+            session,
+            tenant_id,
+            subject=name,
+            agent_id=agent_id,
+            folder_id=folder_id,
+            actor_type=updated_by_type,
+            actor_id=updated_by_id,
+        )
+    slug_key = await _unique_slug(
+        session, tenant_id, home.id, (slug or slugify_title(name)).strip().lower()
+    )
     canvas = ProjectCanvas(
         tenant_id=tenant_id,
-        owner_kind=kind,
-        owner_id=oid,
-        project_id=oid if kind == OWNER_PROJECT else None,
+        signal_id=home.id,
         slug=slug_key,
         title=name[:160],
+        kind=content_kind,
+        language=language_text,
         schema_version=CANVAS_SCHEMA_VERSION,
         revision=1,
-        source=source,
+        source=source_text,
         tree_json=json.dumps(tree),
         managing_agent_id=agent_id,
         notes=brief,
@@ -934,15 +1113,6 @@ async def create_canvas(
     session.add(canvas)
     await session.commit()
     await session.refresh(canvas)
-    await ensure_canvas_thread(
-        session,
-        tenant_id,
-        canvas,
-        prefer_signal_id=signal_id,
-        new_thread=new_thread,
-    )
-    session.add(canvas)
-    await session.commit()
     if (refresh_cron or "").strip() and not (refresh_cadence or "").strip():
         refresh_cadence = "custom"
     cadence = resolve_refresh_cadence(
@@ -979,16 +1149,14 @@ async def patch_canvas_meta(
     notes: str | None = None,
 ) -> dict[str, Any]:
     canvas = await get_canvas_row(session, tenant_id, canvas_id)
-    if not canvas.signal_id:
-        await ensure_canvas_thread(session, tenant_id, canvas)
+    await ensure_canvas_thread(session, tenant_id, canvas)
     if title is not None:
         canvas.title = (title.strip() or canvas.title)[:160]
     if slug is not None:
         canvas.slug = await _unique_slug(
             session,
             tenant_id,
-            canvas.owner_kind,
-            canvas.owner_id,
+            canvas.signal_id,
             slug.strip().lower(),
             exclude_id=canvas.id,
         )
@@ -996,8 +1164,6 @@ async def patch_canvas_meta(
         canvas.managing_agent_id = await resolve_managing_agent(
             session,
             tenant_id,
-            owner_kind=canvas.owner_kind,
-            owner_id=canvas.owner_id,
             agent_id=managing_agent_id or None,
         )
     if notes is not None:
@@ -1027,7 +1193,7 @@ async def patch_canvas_meta(
             refresh_cron=refresh_cron,
             kick=False,
         )
-    canvas.updated_at = datetime.utcnow()
+    canvas.updated_at = utcnow()
     session.add(canvas)
     await session.commit()
     await session.refresh(canvas)
@@ -1162,9 +1328,7 @@ async def put_canvas_source(
     *,
     canvas: ProjectCanvas | None = None,
     canvas_id: UUID | None = None,
-    owner_kind: str | None = None,
-    owner_id: UUID | None = None,
-    project_id: UUID | None = None,
+    signal_id: UUID | None = None,
     slug: str = "main",
     title: str | None = None,
     source: Any = None,
@@ -1175,22 +1339,25 @@ async def put_canvas_source(
     updated_by_id: str = "",
     reset: bool = False,
     create_if_missing: bool = False,
+    language: str | None = None,
+    image_prompt: str | None = None,
+    image_url: str | None = None,
 ) -> dict[str, Any]:
+    if isinstance(source, (dict, list)):
+        source = _source_text(source)
     if canvas is None and canvas_id:
         canvas = await get_canvas_row(session, tenant_id, canvas_id)
     if canvas is None:
-        kind, oid = await resolve_owner(
-            session, tenant_id, owner_kind=owner_kind, owner_id=owner_id, project_id=project_id
-        )
-        canvas = await find_canvas(session, tenant_id, owner_kind=kind, owner_id=oid, slug=slug)
+        if signal_id is None:
+            raise HTTPException(status_code=400, detail="canvas_id or signal_id required")
+        canvas = await find_canvas(session, tenant_id, signal_id=signal_id, slug=slug)
         if canvas is None:
             if not create_if_missing:
                 raise HTTPException(status_code=404, detail="Canvas not found")
             created = await create_canvas(
                 session,
                 tenant_id,
-                owner_kind=kind,
-                owner_id=oid,
+                signal_id=signal_id,
                 title=(title or slug or "Canvas"),
                 slug=slug,
                 updated_by_type=updated_by_type,
@@ -1207,17 +1374,61 @@ async def put_canvas_source(
             },
         )
 
+    content_kind = (canvas.kind or KIND_DASHBOARD).strip() or KIND_DASHBOARD
+    if canvas_refresh_wake.get() and content_kind != KIND_DASHBOARD:
+        raise HTTPException(status_code=400, detail="A refresh wake only updates a dashboard.")
+    await ensure_canvas_thread(session, tenant_id, canvas)
+
     if reset:
-        compiled_source, compiled_tree = _empty_document()
+        if content_kind == KIND_DASHBOARD:
+            compiled_source, compiled_tree = _empty_document()
+        else:
+            compiled_source, _tree, language_text = await _fresh_content(
+                session,
+                tenant_id,
+                content_kind=content_kind,
+                source=None,
+                language=None,
+                image_prompt=None,
+                image_url=None,
+            )
+            compiled_tree = _tree
+            canvas.language = language_text
         canvas.notes = "Cleared canvas"
-    else:
+    elif content_kind == KIND_DASHBOARD:
         if source is None and tree is None:
             raise HTTPException(status_code=400, detail="Provide source or tree.")
         compiled_source, compiled_tree = await _compile_payload_async(source=source, tree=tree)
-        if notes is not None:
-            canvas.notes = (notes.strip() or None)
-            if canvas.notes and len(canvas.notes) > 2000:
-                canvas.notes = canvas.notes[:2000]
+    else:
+        if source is None and not (image_prompt or "").strip() and not (image_url or "").strip():
+            raise HTTPException(status_code=400, detail="Provide source for this canvas.")
+        try:
+            if content_kind == KIND_IMAGE and (
+                (image_prompt or "").strip() or (image_url or "").strip()
+            ):
+                compiled_source = await materialize_image(
+                    session,
+                    tenant_id,
+                    prompt=image_prompt,
+                    image_url=image_url,
+                    alt=(image_prompt or "")[:200],
+                )
+                language_text = None
+            else:
+                compiled_source, language_text = prepare_content(
+                    content_kind,
+                    str(source or ""),
+                    language=language if language is not None else canvas.language,
+                    tenant_id=tenant_id,
+                )
+        except CanvasContentError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        compiled_tree = dict(EMPTY_TREE)
+        canvas.language = language_text
+    if notes is not None and not reset:
+        canvas.notes = (notes.strip() or None)
+        if canvas.notes and len(canvas.notes) > 2000:
+            canvas.notes = canvas.notes[:2000]
     if title is not None:
         canvas.title = (title.strip() or canvas.title)[:160]
     canvas.source = compiled_source
@@ -1228,11 +1439,22 @@ async def put_canvas_source(
     canvas.revision = int(canvas.revision or 0) + 1
     canvas.updated_by_type = (updated_by_type or "agent")[:32]
     canvas.updated_by_id = (updated_by_id or "")[:64]
-    canvas.updated_at = datetime.utcnow()
+    canvas.updated_at = utcnow()
     session.add(canvas)
     await session.commit()
     await session.refresh(canvas)
     return await _serialize(session, tenant_id, canvas)
+
+
+def _source_text(value: Any) -> str | None:
+    """Keep a string source. A tool JSON object is stored as JSON text, not its Python repr."""
+    from app.services.canvas_content import coerce_canvas_source
+
+    if isinstance(value, (dict, list)):
+        return coerce_canvas_source(value)
+    if value is None:
+        return None
+    return str(value)
 
 
 async def apply_canvas_document(
@@ -1249,15 +1471,15 @@ async def apply_canvas_document(
             raise HTTPException(status_code=400, detail="canvas_id required")
         return await delete_canvas(session, tenant_id, UUID(canvas_id))
     if change_kind == "create":
-        owner_kind = str(after.get("owner_kind") or OWNER_PROJECT)
-        owner_raw = str(after.get("owner_id") or after.get("project_id") or "").strip()
-        if not owner_raw:
-            raise HTTPException(status_code=400, detail="owner_id required")
+        signal_raw = str(after.get("signal_id") or "").strip()
+        folder_raw = str(after.get("folder_id") or "").strip()
+        new_thread = bool(after.get("new_thread"))
         result = await create_canvas(
             session,
             tenant_id,
-            owner_kind=owner_kind,
-            owner_id=UUID(owner_raw),
+            signal_id=UUID(signal_raw) if signal_raw and not new_thread else None,
+            new_thread=new_thread,
+            folder_id=UUID(folder_raw) if folder_raw and new_thread else None,
             title=str(after.get("title") or "Canvas"),
             slug=str(after.get("slug") or "") or None,
             managing_agent_id=UUID(after["managing_agent_id"]) if after.get("managing_agent_id") else None,
@@ -1269,23 +1491,27 @@ async def apply_canvas_document(
             updated_by_id=str(after.get("agent_id") or after.get("updated_by_id") or ""),
             kick=bool(after.get("kick", True)),
             force_new=bool(after.get("force_new")),
-            signal_id=UUID(after["signal_id"]) if after.get("signal_id") else None,
-            new_thread=bool(after.get("new_thread")),
+            canvas_kind=str(after.get("canvas_kind") or after.get("kind") or "") or None,
+            language=str(after.get("language") or "") or None,
+            source=_source_text(after.get("source")),
+            image_prompt=str(after.get("image_prompt") or "") or None,
+            image_url=str(after.get("image_url") or "") or None,
         )
         return {"status": "applied", "canvas": result}
 
     canvas_id_raw = str(after.get("canvas_id") or after.get("id") or "").strip()
-    project_raw = str(after.get("project_id") or "").strip()
-    owner_kind = str(after.get("owner_kind") or (OWNER_PROJECT if project_raw else "")).strip() or None
-    owner_raw = str(after.get("owner_id") or project_raw).strip()
+    signal_raw = str(after.get("signal_id") or "").strip()
     slug = str(after.get("slug") or "").strip().lower()
-    if not canvas_id_raw and not slug:
-        raise HTTPException(status_code=400, detail="canvas_id or slug required")
+    if not canvas_id_raw and not (signal_raw and slug):
+        raise HTTPException(status_code=400, detail="canvas_id, or signal_id and slug, required")
+    signal_id = UUID(signal_raw) if signal_raw else None
     agent_id = str(after.get("agent_id") or after.get("updated_by_id") or "")
     has_document = (
         after.get("source") is not None
         or after.get("tree") is not None
         or bool(after.get("reset") or after.get("reset_to_default"))
+        or bool(str(after.get("image_prompt") or "").strip())
+        or bool(str(after.get("image_url") or "").strip())
     )
     has_meta = bool(
         after.get("refresh_cadence") or after.get("refresh_cron") or after.get("managing_agent_id")
@@ -1296,18 +1522,19 @@ async def apply_canvas_document(
             session,
             tenant_id,
             canvas_id=UUID(canvas_id_raw) if canvas_id_raw else None,
-            owner_kind=owner_kind,
-            owner_id=UUID(owner_raw) if owner_raw else None,
-            project_id=UUID(project_raw) if project_raw else None,
+            signal_id=signal_id,
             slug=slug or "main",
             title=str(after["title"]) if after.get("title") is not None else None,
-            source=after.get("source"),
+            source=_source_text(after.get("source")) if isinstance(after.get("source"), (dict, list)) else after.get("source"),
             tree=after.get("tree"),
             notes=str(after.get("notes") or "") or None,
             reset=bool(after.get("reset") or after.get("reset_to_default")),
             updated_by_type="agent",
             updated_by_id=agent_id,
             create_if_missing=False,
+            language=str(after.get("language") or "") or None,
+            image_prompt=str(after.get("image_prompt") or "") or None,
+            image_url=str(after.get("image_url") or "") or None,
         )
     if has_meta:
         if result and result.get("id"):
@@ -1315,13 +1542,7 @@ async def apply_canvas_document(
         elif canvas_id_raw:
             canvas_id = UUID(canvas_id_raw)
         else:
-            found = await get_canvas(
-                session,
-                tenant_id,
-                owner_kind=owner_kind,
-                owner_id=UUID(owner_raw) if owner_raw else None,
-                slug=slug,
-            )
+            found = await get_canvas(session, tenant_id, signal_id=signal_id, slug=slug)
             canvas_id = UUID(str(found["id"]))
         manager = UUID(str(after["managing_agent_id"])) if after.get("managing_agent_id") else None
         result = await patch_canvas_meta(
@@ -1334,45 +1555,3 @@ async def apply_canvas_document(
         )
     return {"status": "applied", "canvas": result}
 
-
-# Back-compat names used by older routers/tests.
-async def get_or_create_canvas(
-    session: AsyncSession,
-    tenant_id: UUID,
-    project_id: UUID,
-    *,
-    slug: str = "main",
-) -> ProjectCanvas:
-    """Load a project canvas by slug; create an empty one only if none exist yet for that slug."""
-    canvas = await find_canvas(
-        session, tenant_id, owner_kind=OWNER_PROJECT, owner_id=project_id, slug=slug
-    )
-    if canvas is not None:
-        return canvas
-    created = await create_canvas(
-        session,
-        tenant_id,
-        owner_kind=OWNER_PROJECT,
-        owner_id=project_id,
-        title="Canvas",
-        slug=slug,
-        updated_by_type="system",
-    )
-    return await get_canvas_row(session, tenant_id, UUID(created["id"]))
-
-
-async def put_canvas(
-    session: AsyncSession,
-    tenant_id: UUID,
-    project_id: UUID,
-    **kwargs: Any,
-) -> dict[str, Any]:
-    return await put_canvas_source(
-        session,
-        tenant_id,
-        project_id=project_id,
-        owner_kind=OWNER_PROJECT,
-        owner_id=project_id,
-        create_if_missing=True,
-        **kwargs,
-    )

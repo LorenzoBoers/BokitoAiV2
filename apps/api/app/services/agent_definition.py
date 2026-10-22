@@ -7,6 +7,7 @@ On the ``Agent`` row next to ``tools_json`` (allowlist) and ``autonomy_level``:
 - ``disallowed_tools_json``: denylist; a denied tool is gone even when listed.
 - ``capability_mode``: ``read-only`` (no mutating tool) | ``read-write`` (no
   consequential tool) | ``all``.
+- ``effort``: ``low`` | ``medium`` | ``high``, how much the model thinks.
 - ``prompt_mode``: ``extend`` adds Bokito's prompt around the agent's own;
   ``full`` keeps only the agent prompt plus the safety, language and
   when-to-ask blocks.
@@ -70,6 +71,12 @@ def capability_mode(agent: Any | None) -> str:
 def prompt_mode(agent: Any | None) -> str:
     value = str(getattr(agent, "prompt_mode", "extend") or "extend") if agent is not None else "extend"
     return value if value in PROMPT_MODES else "extend"
+
+
+def effort(agent: Any | None) -> str:
+    from app.services.agent.effort_policy import normalize_effort
+
+    return normalize_effort(getattr(agent, "effort", "") if agent is not None else "")
 
 
 def skills(agent: Any | None) -> list[str]:
@@ -179,6 +186,12 @@ def validate_definition(payload: dict[str, Any]) -> dict[str, str]:
         if payload["prompt_mode"] not in PROMPT_MODES:
             raise HTTPException(status_code=422, detail="prompt_mode is extend or full")
         out["prompt_mode"] = payload["prompt_mode"]
+    if payload.get("effort") is not None:
+        from app.services.agent.effort_policy import EFFORTS
+
+        if payload["effort"] not in EFFORTS:
+            raise HTTPException(status_code=422, detail="effort is low, medium or high")
+        out["effort"] = payload["effort"]
     if "skills" in payload and payload["skills"] is not None:
         out["skills_json"] = json.dumps(_str_list(payload["skills"]))
     if "completion_requirement" in payload and payload["completion_requirement"] is not None:
@@ -198,6 +211,7 @@ def serialize_definition(agent: Any) -> dict[str, Any]:
         "disallowed_tools": sorted(disallowed_tools(agent)),
         "capability_mode": capability_mode(agent),
         "prompt_mode": prompt_mode(agent),
+        "effort": effort(agent),
         "skills": skills(agent),
         "completion_requirement": completion_requirement(agent),
         "mcp_inheritance": mcp_inheritance(agent),

@@ -70,12 +70,14 @@ def serialize_workstream(
         "description": ws.description,
         "module_slug": ws.module_slug,
         "template_slug": ws.template_slug,
-        "always_review": bool(ws.always_review),
+        "autonomy": ws.autonomy or "",
+        "department_id": str(ws.department_id) if ws.department_id else None,
         # Own setting only; "" / null follow the workspace ticket policy.
         "stage_entry_policy": ws.stage_entry_policy or "",
         "stage_entry_threshold": ws.stage_entry_threshold,
         "deliver_folder_id": str(ws.deliver_folder_id) if ws.deliver_folder_id else None,
         "deliver_works_in_key": ws.deliver_works_in_key or "",
+        **recipe_of(ws),
         "stages": stages,
         "stages_count": stages_count if stages_count is not None else len(stages),
         "tags": tag_rows,
@@ -83,6 +85,173 @@ def serialize_workstream(
         "updated_at": _iso(ws.updated_at),
     }
     return out
+
+
+RECIPE_FIELDS = ("instructions", "capabilities", "expected_outcome", "direct")
+CONNECTION_CAPABILITY = "connection:"
+MAX_INSTRUCTIONS = 4000
+MAX_CAPABILITIES = 40
+MAX_EXPECTED_OUTCOME = 500
+
+
+def recipe_of(ws: Workstream) -> dict[str, Any]:
+    """How the flow handles the work its label names: method, capabilities, outcome.
+
+    The flow label is the work kind; there is no separate list. ``direct`` is
+    derived from the stages: without a waiting stage the work is finished in
+    the conversation and the flow has no board.
+    """
+    from app.services.tickets import is_direct, workstream_stages
+
+    return {
+        "instructions": ws.instructions or "",
+        "capabilities": _parse_ids(ws.capabilities_json),
+        "expected_outcome": ws.expected_outcome or "",
+        "direct": is_direct(workstream_stages(ws)),
+    }
+
+
+async def apply_recipe(session: AsyncSession, ws: Workstream, patch: dict[str, Any]) -> bool:
+    """Set the recipe fields present in ``patch``. Returns whether anything changed.
+
+    ``capabilities`` are tool names or ``connection:{id}`` of this workspace;
+    unknown ones are rejected (422) so the agent never gets a dead reference.
+    """
+    from app.models.integration import IntegrationConnection
+    from app.tools.registry import get_tool_spec
+
+    before = recipe_of(ws)
+    if patch.get("instructions") is not None:
+        ws.instructions = str(patch["instructions"]).strip()[:MAX_INSTRUCTIONS]
+    if patch.get("expected_outcome") is not None:
+        ws.expected_outcome = str(patch["expected_outcome"]).strip()[:MAX_EXPECTED_OUTCOME]
+    if patch.get("capabilities") is not None:
+        raw = patch["capabilities"]
+        if not isinstance(raw, list):
+            raise HTTPException(status_code=422, detail="capabilities must be a list")
+        caps: list[str] = []
+        for item in raw[:MAX_CAPABILITIES]:
+            cap = str(item or "").strip()
+            if not cap or cap in caps:
+                continue
+            if cap.startswith(CONNECTION_CAPABILITY):
+                try:
+                    conn_id = UUID(cap[len(CONNECTION_CAPABILITY):])
+                except ValueError:
+                    raise HTTPException(status_code=422, detail=f"Unknown connection {cap}") from None
+                conn = await session.get(IntegrationConnection, conn_id)
+                if conn is None or conn.tenant_id != ws.tenant_id:
+                    raise HTTPException(status_code=422, detail=f"Unknown connection {cap}")
+            elif get_tool_spec(cap) is None:
+                raise HTTPException(status_code=422, detail=f"Unknown tool {cap}")
+            caps.append(cap)
+        ws.capabilities_json = json.dumps(caps)
+    if patch.get("direct") is not None and bool(patch["direct"]) != before["direct"]:
+        from app.models.auth import Tenant
+        from app.services.tickets import direct_stages_json, staged_json, workspace_language, workstream_stages
+
+        language = workspace_language(await session.get(Tenant, ws.tenant_id))
+        stages = workstream_stages(ws)
+        ws.stages_json = direct_stages_json(stages, language) if patch["direct"] else staged_json(stages, language)
+    return recipe_of(ws) != before
+
+
+FLOW_AUTONOMY = ("", "manual", "assisted", "autonomous")
+
+
+async def set_flow_autonomy(
+    session: AsyncSession, tenant: Any, ws: Workstream, value: str, *, user_id: UUID | None = None
+) -> str | None:
+    """Set the flow's dial. Returns the pending Govern change id when it must wait.
+
+    Equal to or stricter than the workspace mode applies now. Looser (or clearing
+    a dial back to a looser default) becomes a Govern change with a decision.
+    """
+    from app.services.ai_handling import mode_rank, workspace_mode
+    from app.services.audit import record_audit
+
+    value = (value or "").strip().lower()
+    if value not in FLOW_AUTONOMY:
+        raise HTTPException(status_code=422, detail="autonomy must be manual, assisted, autonomous or empty")
+    before = ws.autonomy or ""
+    base = workspace_mode(tenant)
+    target = value or base
+    current = before or base
+    if mode_rank(target) > mode_rank(current) and mode_rank(target) > mode_rank(base):
+        from app.services.platform_changes import propose_platform_change
+
+        change, _ = await propose_platform_change(
+            session,
+            tenant,
+            resource_type="workstream",
+            change_kind="update",
+            resource_id=str(ws.id),
+            before={"workstream_id": str(ws.id), "autonomy": before},
+            after={"workstream_id": str(ws.id), "autonomy": value},
+            summary=f"Autonomy of flow {ws.name}: {value or 'workspace default'}",
+            user_id=user_id,
+            mode="ask",
+        )
+        return str(change.id)
+    ws.autonomy = value
+    session.add(ws)
+    await record_audit(
+        session,
+        tenant.id,
+        action="govern:flow_autonomy",
+        actor_type="user" if user_id else "system",
+        actor_id=str(user_id or ""),
+        resource_type="workstream",
+        resource_id=str(ws.id),
+        outcome="applied",
+        summary=f"Autonomy of {ws.name}: {value or 'workspace default'}",
+        before={"autonomy": before},
+        after={"autonomy": value},
+        commit=False,
+    )
+    return None
+
+
+async def recipe_block(session: AsyncSession, signal: Any) -> str:
+    """The approach for this conversation's flow, for the agent's system prompt."""
+    from app.models.integration import IntegrationConnection
+    from app.models.signal import SignalTag
+
+    if signal is None or not getattr(signal, "ticket_tag_id", None):
+        return ""
+    tag = await session.get(SignalTag, signal.ticket_tag_id)
+    if tag is None or tag.workstream_id is None:
+        return ""
+    ws = await session.get(Workstream, tag.workstream_id)
+    if ws is None or ws.deleted_at is not None:
+        return ""
+    recipe = recipe_of(ws)
+    if not (recipe["instructions"] or recipe["capabilities"] or recipe["expected_outcome"] or recipe["direct"]):
+        return ""
+    lines = [f"## Approach: flow {ws.name or tag.name} (#{tag.name})"]
+    if tag.description:
+        lines.append(f"Handles: {tag.description}")
+    if recipe["direct"]:
+        lines.append("Handled directly: finish the work in this conversation and close it; there is no waiting stage.")
+    if recipe["instructions"]:
+        lines.append(recipe["instructions"])
+    if recipe["capabilities"]:
+        names: list[str] = []
+        for cap in recipe["capabilities"]:
+            if cap.startswith(CONNECTION_CAPABILITY):
+                try:
+                    conn = await session.get(IntegrationConnection, UUID(cap[len(CONNECTION_CAPABILITY):]))
+                except ValueError:
+                    conn = None
+                if conn is not None:
+                    names.append(f"connection {conn.display_name or conn.provider} ({conn.id})")
+            else:
+                names.append(cap)
+        if names:
+            lines.append(f"Use: {', '.join(names)}.")
+    if recipe["expected_outcome"]:
+        lines.append(f"Done means: {recipe['expected_outcome'].rstrip('.')}.")
+    return "\n".join(lines)
 
 
 async def apply_stage_entry(

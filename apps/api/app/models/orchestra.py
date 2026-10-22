@@ -32,7 +32,7 @@ WORKSTREAM_INPUT_KINDS = ("manual", "queue_item", "signal", "trigger", "ticket")
 
 
 class Workstream(SQLModel, table=True):
-    """Reusable playbook: a stage pipeline for tickets.
+    """Flow: the recipe for one kind of signal, plus its stage pipeline for tickets.
 
     Folders that share the flow's action tag (`project_tag_links` +
     `SignalTag.workstream_id`) become board lanes. Categories
@@ -53,8 +53,9 @@ class Workstream(SQLModel, table=True):
     # integration connected, agents available).
     module_slug: str = ""
     template_slug: str = ""
-    # A person confirms before the flow sends. Caps this flow at Assisted.
-    always_review: bool = Field(default=False)
+    # This flow's mode: "" follows channel and workspace; manual | assisted |
+    # autonomous under the Govern ceiling. Looser than the workspace goes via Govern.
+    autonomy: str = Field(default="", max_length=16)
     # How an agent may place a ticket in a stage: first_stage | propose |
     # auto_above. Empty / null follow the workspace ticket policy.
     stage_entry_policy: str = Field(default="")
@@ -64,6 +65,12 @@ class Workstream(SQLModel, table=True):
     # records a delivery there.
     deliver_folder_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     deliver_works_in_key: str = Field(default="", max_length=80)
+    # The recipe: how the work its label names is handled (services/workstreams.apply_recipe).
+    # The working method the agent gets, the tools and connections it may use
+    # (names / ids, not copies), and what "done" produces in free text.
+    instructions: str = Field(default="")
+    capabilities_json: str = Field(default="[]")
+    expected_outcome: str = Field(default="")
     # Ticket pipeline: [{"key", "name", "kind": open|waiting|done}]; "[]" means
     # the default Open / Waiting / Done.
     stages_json: str = Field(default="[]")

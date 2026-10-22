@@ -7,7 +7,7 @@ import { AvatarStack } from './AvatarStack'
 import { TeamAvatar } from './TeamAvatar'
 
 type TeamSource = {
-  id?: string
+  id?: string | number | null
   name?: string | null
   members?: TeamMemberRef[]
   avatar_kind?: string | null

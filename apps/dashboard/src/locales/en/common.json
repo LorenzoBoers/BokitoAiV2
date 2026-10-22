@@ -55,6 +55,7 @@
       "default": "the platform default",
       "workspace": "the workspace default",
       "channel": "the channel",
+      "flow": "the flow",
       "conversation": "this conversation"
     },
     "follows": "Follows {{source}}",
@@ -71,8 +72,7 @@
       "govern": "The Autonomy dial caps conversations at {{mode}}.",
       "privacy": "Privacy settings keep AI away from message bodies.",
       "breaker": "Autonomous paused after unusual activity. Drafts only until someone resumes it.",
-      "agent": "This agent is set to {{mode}}, so it does not go further.",
-      "flow": "This flow is set to Always review, so a person sends."
+      "agent": "This agent is set to {{mode}}, so it does not go further."
     },
     "reasons": {
       "assigned": "Assigned to a person",

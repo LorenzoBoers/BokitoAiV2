@@ -100,7 +100,7 @@ def test_tool_phrase_is_progressive_while_running_and_past_when_done():
     assert think["label_key"] == "activity.thought"
     from app.services.agent.turn_surface import surface_motion
 
-    assert surface_motion([], speaking=True, worked=False) == "typing"
+    assert surface_motion([], speaking=True, worked=False) == "writing"
     assert surface_motion([{"kind": "think", "status": "running"}], speaking=False, worked=False) == "thinking"
     assert surface_motion([{"tool": "generate_image", "status": "running"}], speaking=False, worked=True) == "working"
     assert surface_motion([{"tool": "propose_action", "status": "ok", "proposes": True}], speaking=False, worked=True) == "writing"

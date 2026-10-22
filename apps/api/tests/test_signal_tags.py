@@ -80,10 +80,10 @@ async def test_triage_files_the_category_as_ticket_not_tag(client: AsyncClient, 
     from app.services.interpretation import _file_from_triage
 
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    created = await client.post("/api/categories", headers=headers, json={"name": "refund"})
+    created = await client.post("/api/labels", headers=headers, json={"name": "refund"})
     category_id = UUID(created.json()["id"])
     await client.patch(
-        f"/api/categories/{category_id}", headers=headers, json={"create_mode": "auto", "auto_threshold": 5}
+        f"/api/labels/{category_id}", headers=headers, json={"create_mode": "auto", "auto_threshold": 5}
     )
     from app.models.signal import SignalTag
 
@@ -324,7 +324,7 @@ async def test_set_thread_tags_removes_own_free_label(client: AsyncClient, sessi
     session_override.add(signal)
     await session_override.commit()
 
-    category = await client.post("/api/categories", headers=headers, json={"name": "repair"})
+    category = await client.post("/api/labels", headers=headers, json={"name": "repair"})
     assert category.status_code == 200, category.text
     filed_ticket = await client.put(
         f"/api/signals/{target}/ticket",

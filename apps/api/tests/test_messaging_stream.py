@@ -43,11 +43,10 @@ async def test_agent_loop_stream_yields_real_deltas():
                 "usage": {"input_tokens": 5, "output_tokens": 3},
             }
 
-    loop = AgentLoop(AsyncMock(), __import__("uuid").uuid4(), None, enable_chat_thinking=True)
+    loop = AgentLoop(AsyncMock(), __import__("uuid").uuid4(), None)
     loop.tools = []
     loop.max_loops = 1
     loop.llm = FakeLLM()
-    loop.thinking_budget = 1024
     loop.resolved_call = type(
         "Call",
         (),
@@ -63,7 +62,7 @@ async def test_agent_loop_stream_yields_real_deltas():
 
     with patch.object(loop, "_prepare_chat", new=AsyncMock(return_value=([], {"input_tokens": 0, "output_tokens": 0}))):
         with patch.object(loop, "_record_usage", new=AsyncMock()):
-            with patch.object(loop, "_resolve_thinking_budget", return_value=1024):
+            with patch.object(loop, "_resolve_effort", return_value="medium"):
                 events = []
                 async for event in loop.stream_chat([{"role": "user", "content": "Hi"}]):
                     events.append(event)

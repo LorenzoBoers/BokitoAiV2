@@ -1,5 +1,5 @@
 import type { InboxListQuickFilter } from './inbox-prefs'
-import { clearStoredMailDraft } from './mail-draft-store'
+import { clearStoredMailDraft, mailDraftHasContent, readStoredMailDraft } from './mail-draft-store'
 
 /** Inclusive range select for bulk checkboxes (Gmail/Linear style). */
 export function toggleOrRangeSelect(
@@ -149,6 +149,22 @@ export const COMPOSER_DRAFT_SLOTS: ComposerDraftSlot[] = ['reply', 'ask', 'note'
 
 export const composerDraftStorageKey = (threadId: string, slot?: ComposerDraftSlot) =>
   slot ? `inbox.draft.${threadId}.${slot}` : `inbox.draft.${threadId}`
+
+/** True when any composer slot or the mail composer still holds unsent text. */
+export function hasStoredComposerDraft(threadId: string | null | undefined): boolean {
+  if (!threadId || typeof window === 'undefined') return false
+  try {
+    const keys = [
+      composerDraftStorageKey(threadId),
+      ...COMPOSER_DRAFT_SLOTS.map((slot) => composerDraftStorageKey(threadId, slot)),
+    ]
+    if (keys.some((key) => (window.localStorage.getItem(key) ?? '').trim())) return true
+  } catch {
+    return false
+  }
+  const mail = readStoredMailDraft(threadId)
+  return Boolean(mail && mailDraftHasContent(mail))
+}
 
 /**
  * Drop the unsent drafts of a conversation (close, spam, handled elsewhere) —

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime
@@ -303,7 +305,7 @@ async def supersede_open_outcomes(
             )
         )
     ).scalars().all()
-    now = datetime.utcnow()
+    now = utcnow()
     for decision in rows:
         decision.status = "deferred"
         decision.resolved_at = now
@@ -517,7 +519,7 @@ async def archive_automated_mail_if_enabled(
 
         await settle_ticket_on_close(session, signal, actor_type="system", actor_id="automated_mail")
     signal.has_unread = False
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     await add_signal_tags(session, tenant_id, signal.id, [AUTOMATED_MAIL_TAG])
     return True
 
@@ -586,7 +588,7 @@ async def acknowledge_channel_not_ready(
             author_agent_id=agent.id if agent else None,
             body_text=note,
             body_preview=note[:200],
-            received_at=datetime.utcnow(),
+            received_at=utcnow(),
             metadata_json=json.dumps(
                 {
                     "kind": "channel_not_ready",
@@ -772,6 +774,7 @@ async def create_reply_suggestion(
     messages: list[str] | None = None,
     activity: list[dict] | None = None,
     announce: bool = True,
+    reveal: bool = True,
 ) -> dict:
     """Persist an inline DecisionRequest for a drafted reply (suggest-only).
 
@@ -819,7 +822,7 @@ async def create_reply_suggestion(
                         author_agent_id=agent.id,
                         body_text=internal_note,
                         body_preview=internal_note[:200],
-                        received_at=datetime.utcnow(),
+                        received_at=utcnow(),
                     )
                 )
                 await session.commit()
@@ -874,6 +877,16 @@ async def create_reply_suggestion(
 
     from app.services.signal_decisions import create_decision
 
+    message_meta: dict = {}
+    if based_on is not None:
+        message_meta["based_on_message_id"] = str(based_on)
+    if is_mock:
+        message_meta["is_mock"] = True
+        message_meta["llm_mode"] = "mock"
+        message_meta["llm_configured"] = False
+    if activity:
+        message_meta["activity"] = activity
+
     decision, message = await create_decision(
         session,
         tenant_id,
@@ -886,6 +899,8 @@ async def create_reply_suggestion(
         project_id=signal.project_id,
         run_id=run_id,
         announce=announce,
+        reveal=reveal,
+        message_meta=message_meta or None,
         notification_payload={
             "kind": "reply_suggestion",
             "channel": signal.channel,
@@ -894,22 +909,16 @@ async def create_reply_suggestion(
             "is_mock": is_mock,
         },
     )
-    if message is not None and (is_mock or based_on is not None or activity):
+    if message is not None and message_meta:
         try:
             meta = json.loads(message.metadata_json or "{}")
         except json.JSONDecodeError:
             meta = {}
         if not isinstance(meta, dict):
             meta = {}
-        if based_on is not None:
-            meta["based_on_message_id"] = str(based_on)
+        meta.update(message_meta)
         if is_mock:
-            meta["is_mock"] = True
-            meta["llm_mode"] = "mock"
-            meta["llm_configured"] = False
             message.auto_sent = False
-        if activity:
-            meta["activity"] = activity
         message.metadata_json = json.dumps(meta, default=str)
         session.add(message)
 
@@ -928,7 +937,7 @@ async def create_reply_suggestion(
             payload_json=json.dumps(
                 {
                     "decision_id": str(decision.id),
-                    "message_id": str(message.id),
+                    "message_id": str(message.id) if message is not None else None,
                     "run_id": str(run_id) if run_id else None,
                     "is_mock": is_mock,
                 }
@@ -940,7 +949,7 @@ async def create_reply_suggestion(
     return {
         "suggestion": True,
         "decision_id": str(decision.id),
-        "message_id": str(message.id),
+        "message_id": str(message.id) if message is not None else None,
         "channel": signal.channel,
         "delivery": "pending_approval",
     }
@@ -1001,7 +1010,7 @@ async def _deliver_chat_reply(
                 author_agent_id=agent.id,
                 body_text=internal_note,
                 body_preview=internal_note[:200],
-                received_at=datetime.utcnow(),
+                received_at=utcnow(),
             )
         )
         await session.flush()
@@ -1229,7 +1238,7 @@ async def persist_inbound_agent_reply(
                     author_agent_id=agent.id,
                     body_text=parts.internal_note,
                     body_preview=parts.internal_note[:200],
-                    received_at=datetime.utcnow(),
+                    received_at=utcnow(),
                 )
             )
             await session.commit()
@@ -1253,7 +1262,7 @@ async def persist_inbound_agent_reply(
             author_agent_id=agent.id,
             body_text=parts.internal_note,
             body_preview=parts.internal_note[:200],
-            received_at=datetime.utcnow(),
+            received_at=utcnow(),
         )
         session.add(note_message)
         await session.flush()
@@ -1383,7 +1392,7 @@ async def close_after_agent_reply(
         return False
     signal.status = "closed"
     signal.has_unread = False
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     handling_svc.on_status_change(session, signal, actor_id=str(agent.id))
     from app.services.tickets import settle_ticket_on_close
 

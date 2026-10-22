@@ -2,6 +2,11 @@ import Constants, { ExecutionEnvironment } from 'expo-constants'
 import * as Device from 'expo-device'
 import { Platform } from 'react-native'
 import { subscribePush } from './api'
+import { detectLocale, translate } from './copy'
+
+/** Matches the `category` the API puts on a decision push. */
+export const DECISION_CATEGORY = 'decision'
+export const DECISION_ACTIONS = { approve: 'approve', reject: 'reject', call: 'call' } as const
 
 function isExpoGo(): boolean {
   return Constants.executionEnvironment === ExecutionEnvironment.StoreClient
@@ -50,6 +55,25 @@ export async function registerForPush(): Promise<string | null> {
       importance: Notifications.AndroidImportance.HIGH,
     })
   }
+
+  const locale = detectLocale()
+  await Notifications.setNotificationCategoryAsync(DECISION_CATEGORY, [
+    {
+      identifier: DECISION_ACTIONS.approve,
+      buttonTitle: translate(locale, 'decisions.approve'),
+      options: { opensAppToForeground: false },
+    },
+    {
+      identifier: DECISION_ACTIONS.reject,
+      buttonTitle: translate(locale, 'decisions.reject'),
+      options: { opensAppToForeground: false, isDestructive: true },
+    },
+    {
+      identifier: DECISION_ACTIONS.call,
+      buttonTitle: translate(locale, 'decisions.callMe'),
+      options: { opensAppToForeground: true },
+    },
+  ]).catch(() => undefined)
 
   const { status: existing } = await Notifications.getPermissionsAsync()
   let status = existing

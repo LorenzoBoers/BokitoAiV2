@@ -58,6 +58,18 @@ export type CockpitSummary = {
     channel: string
     last_message_at: string | null
   }[]
+  /** Accepted scorecard proposals of the last 30 days with their effect. */
+  improvements?: CockpitImprovement[]
+}
+
+export type CockpitImprovement = {
+  change_id: string
+  workstream_id: string
+  flow: string
+  autonomy: string
+  accepted_at: string | null
+  autonomous_pct_before: number | null
+  autonomous_pct_now: number | null
 }
 
 export type PushSubscriptionPayload = {

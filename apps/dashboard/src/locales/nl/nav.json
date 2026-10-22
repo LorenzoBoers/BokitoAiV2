@@ -1,4 +1,51 @@
 {
+  "departmentPage": {
+    "proposals": "Verbetervoorstellen",
+    "proposalsHint": "De leidende agent doet deze voorstellen vanuit de scorekaart. Er verandert niets tot iemand het goedkeurt in het afdelingsgesprek.",
+    "openProposal": "Openen",
+    "proposalKind": { "autonomy": "Autonomie", "instructions": "Instructies", "capabilities": "Capabilities", "new_flow": "Nieuwe flow" },
+    "title": "Afdeling",
+    "subtitle": "Wie leidt, wie werkt erin, en wat er per flow loopt.",
+    "loadError": "Deze afdeling kon niet laden",
+    "changeIcon": "Icoon wijzigen",
+    "tabAll": "Alles",
+    "settings": "Afdelingsinstellingen",
+    "decisions": "Beslissingen",
+    "openFolder": "Map openen",
+    "folderEmpty": "Geen open werk van deze afdeling in deze map.",
+    "openBoard": "Bord openen",
+    "flowsHint": "Elke flow als pijplijn: hoeveel open tickets in elke fase staan.",
+    "team": "Team",
+    "iconTitle": "Icoon van de afdeling",
+    "iconBody": "Dit icoon staat bij de afdeling in het menu links.",
+    "leadership": "Leiding",
+    "lead": "Leidende agent",
+    "accountable": "Eindverantwoordelijke",
+    "none": "Niet ingesteld",
+    "duty": { "primary": "Eerste", "backup": "Back-up" },
+    "openAssigned_one": "{{count}} open",
+    "openAssigned_other": "{{count}} open",
+    "hours_one": "{{count}} uur per week",
+    "hours_other": "{{count}} uur per week",
+    "flows": "Flows",
+    "noFlows": "Nog geen flow hoort bij deze afdeling. Stel de afdeling in op een flowpagina.",
+    "totals": { "open": "Open", "waiting": "Wacht", "overdue": "Over tijd" },
+    "columns": { "flow": "Flow", "volume": "Gesloten (7 dagen)", "autonomous": "Autonoom", "corrected": "Gecorrigeerd" },
+    "fromModule": "Uit de module {{name}}",
+    "openRoom": "Afdelingsgesprek",
+    "cost": "{{amount}} in 7 dagen",
+    "stageTitle": "{{overdue}} over tijd, {{soon}} binnen een week",
+    "presence": {"available": "Beschikbaar", "busy": "Bezet", "away": "Afwezig", "offline": "Offline"},
+    "agentStatus": {"standby": "Stand-by", "working": "Aan het werk", "error": "Vraagt aandacht"},
+    "today": {"title": "Vandaag", "unassigned_one": "{{count}} ticket dat niemand oppakte", "unassigned_other": "{{count}} tickets die niemand oppakte", "overdue_one": "{{count}} over tijd", "overdue_other": "{{count}} over tijd", "due_this_week_one": "{{count}} deze week", "due_this_week_other": "{{count}} deze week", "decisions_one": "{{count}} beslissing wacht", "decisions_other": "{{count}} beslissingen wachten", "calm": "Niets vraagt om aandacht.", "orientation": "Laatste oriëntatie van de leider, {{when}}", "quiet": "Niets nieuws sinds de vorige oriëntatie.", "noOrientation": "De leider heeft nog niet georiënteerd. Dat doet hij op zijn schema in het afdelingsgesprek."},
+    "awareness": {"title": "Waar de leider op let", "hint": "Tussen de oriëntaties wordt de leider wakker van deze gebeurtenissen in de gesprekken van deze afdeling, binnen zijn dagbudget.", "follows": "Gebeurtenissen die de leider volgt", "follow": {"inbound": "Nieuwe berichten", "stage_change": "Stapwissels", "deadline": "Deadlines", "decision": "Afgeronde beslissingen", "assignment": "Toewijzingen", "escalation": "Escalaties", "delivery": "Opleveringen"}, "dailyCost": "Dagbudget (EUR)", "spentToday": "{{amount}} vandaag besteed", "maxProposals": "Voorstellen per oriëntatie", "nextOrientation": "Volgende oriëntatie", "save": "Opslaan", "noLead": "Deze afdeling heeft geen leidende agent. Maak eerst een agent eerste onder Leiding."},
+    "domain": {"title": "Domeinvragen", "hint": "De leider vraagt de eindverantwoordelijke wat hij niet uit het werk kan lezen. Antwoorden worden feiten in zijn vaste brief.", "empty": "De leider heeft nog niets gevraagd.", "placeholder": "Jouw antwoord", "answer": "Antwoorden", "inThread": "Antwoord in het gesprek"},
+    "reach": {"title": "Wat deze afdeling kan bereiken", "flows": "Flows", "channels": "Kanalen", "connections": "Koppelingen", "organizations": "Organisaties", "none": "Nog geen"},
+    "lands": {"title": "Waar ons werk landt", "hint": "Mappen met open tickets van deze afdeling. Thuismappen staan bovenaan.", "empty": "Nog geen map bevat werk van deze afdeling.", "home": "Thuismap"},
+    "attempts": {"title": "Pushes en oproepen", "hint": "Elke push en oproep die agents voor deze afdeling naar mensen stuurden, laatste 14 dagen.", "empty": "Niemand werd gestoord in de laatste 14 dagen.", "perPerson": "{{name}}: {{count}}", "untitled": "Gesprek zonder titel", "status": {"delivered": "Bezorgd", "quiet_hours": "Vastgehouden: stille uren", "daily_max": "Vastgehouden: dagmaximum", "no_device": "Geen toestel", "ringing": "Gaat over", "requested": "Gevraagd om te bellen", "declined": "Geweigerd", "missed": "Gemist", "answered": "Opgenomen"}},
+    "outcomes": {"title": "Uitkomsten", "hint": "Hoe de voorstellen van de leider vielen (60 dagen) en de correcties per flow (30 dagen).", "accepted_one": "{{count}} voorstel goedgekeurd", "accepted_other": "{{count}} voorstellen goedgekeurd", "rejected_one": "{{count}} afgewezen", "rejected_other": "{{count}} afgewezen", "feedback_one": "{{count}} correctie", "feedback_other": "{{count}} correcties"},
+    "scorecardHint": "Gesloten, autonoom en gecorrigeerd komen uit de scorekaart van elk flowlabel over de laatste 7 dagen."
+  },
   "comingSoon": "Binnenkort",
   "errorBoundary": {
     "title": "Er ging iets mis",
@@ -14,7 +61,7 @@
   },
   "tabs": {
     "newChat": {
-      "title": "Nieuw gesprek",
+      "title": "Nieuwe chat",
       "subtitle": "Start een gesprek"
     },
     "overview": {
@@ -286,6 +333,8 @@
     "save": "Opslaan",
     "saved": "Opgeslagen.",
     "saveError": "Kon de flow niet opslaan.",
+    "departmentLabel": "Afdeling",
+    "departmentNone": "Geen afdeling",
     "refresh": "Vernieuwen",
     "promote": "Promoveer naar kennis",
     "runPromoted": "Kennisdestillatie gestart.",
@@ -335,6 +384,9 @@
     "deactivated": "Gedeactiveerd",
     "edit": "Bewerken",
     "moreActions": "Meer acties",
+    "openSettings": "Flowinstellingen",
+    "settingsTitle": "Instellingen",
+    "settingsHint": "Waar deze flow oplevert, wat klaar betekent, en wie hem draait.",
     "meta": {
       "actionTag": "Label",
       "bindTag": "Label koppelen",
@@ -387,10 +439,6 @@
       "tickets_one": "{{count}} ticket",
       "tickets_other": "{{count}} tickets"
     },
-    "alwaysReview": {
-      "label": "Altijd controle",
-      "hint": "Een mens bevestigt elk antwoord op tickets van deze flow voordat het verstuurd wordt."
-    },
     "deliverTo": {
       "label": "Levert op in",
       "none": "Nog geen bestemming",
@@ -404,6 +452,23 @@
       "cancel": "Annuleren",
       "saved": "Bestemming opgeslagen",
       "saveError": "Bestemming opslaan mislukt"
+    },
+    "recipe": {
+      "done": "Klaar betekent",
+      "donePlaceholder": "Wat klaar oplevert, in een zin",
+      "instructions": "Werkwijze",
+      "instructionsPlaceholder": "Hoe de agent dit soort werk afhandelt, in een paar zinnen",
+      "direct": "Direct afgehandeld: geen wachtfase en geen bord in mappen",
+      "uses": "Gebruikt",
+      "saveError": "De aanpak opslaan is mislukt",
+      "autonomy": "Autonomie",
+      "autonomyLevel": {
+        "inherit": "Standaard van de workspace",
+        "manual": "Handmatig",
+        "assisted": "Geassisteerd",
+        "autonomous": "Autonoom"
+      },
+      "autonomyLooserInGovern": "Losser dan nu gaat via Govern"
     }
   },
   "crumbs": {
@@ -415,7 +480,7 @@
     "document": "Document",
     "learn": "Hulp",
     "docs": "Docs",
-    "newConversation": "Nieuw gesprek",
+    "newConversation": "Nieuwe chat",
     "widgetInstall": "Installeren",
     "widgetVoice": "Stem en uren",
     "widgetLook": "Uiterlijk",
@@ -592,7 +657,7 @@
         },
         {
           "title": "Agents in gesprekken",
-          "body": "Noem een agent of start een chat via Nieuw gesprek. Agentruns en keuzekaarten verschijnen inline — keur goed of pas aan voordat iets wordt verstuurd."
+          "body": "Noem een agent of start een chat via Nieuwe chat. Agentruns en keuzekaarten verschijnen inline — keur goed of pas aan voordat iets wordt verstuurd."
         },
         {
           "title": "Beslissingen",
@@ -2205,6 +2270,7 @@
     "push": "Push",
     "slack": "Slack",
     "opsAlways": "Beheerders zien deze melding altijd in de app.",
+    "reach": {"title": "Wanneer agents je mogen bereiken", "body": "Pushes en oproepen van agents wachten tijdens je stille uren en stoppen bij je dagmaximum. Dringend werk van je afdeling kan je bereiken; de rest blijft in de app.", "quietFrom": "Stil vanaf", "quietTo": "Stil tot", "maxPerDay": "Hoogstens pushes per dag", "callTitle": "Agents mogen me bellen", "callBody": "Alleen bij een beslissingskaart, en alleen als je beschikbaar bent en niet al in gesprek."},
     "soundTitle": "Geluid in de app",
     "soundBody": "Speel een kort geluidje (zoals in de chatwidget) wanneer er een melding binnenkomt terwijl Bokito open staat.",
     "soundTest": "Testgeluid",
@@ -2415,6 +2481,7 @@
   },
   "tabGroups": {
     "work": "Werk",
+    "departments": "Afdelingen",
     "team": "Team"
   },
   "palette": {
@@ -2436,7 +2503,7 @@
     "groupKnowledge": "Kennis",
     "unnamedContact": "Naamloos contact",
     "untitledConversation": "Naamloos gesprek",
-    "newChat": "Nieuw gesprek",
+    "newChat": "Nieuwe chat",
     "newEmail": "Nieuwe e-mail",
     "newContact": "Nieuw contact",
     "newAgent": "Nieuwe agent",
@@ -2471,7 +2538,7 @@
     "checkupsDue": "Openstaande taken",
     "newFlow": "Nieuwe flow",
     "openActionTags": "Tags openen",
-    "newConversation": "Nieuw gesprek"
+    "newConversation": "Nieuwe chat"
   },
   "gateway": {
     "connected": "Live",
@@ -2708,7 +2775,7 @@
       "inbox": "Inbox",
       "agentOps": "Agent-ops"
     },
-    "newChat": "Nieuw gesprek",
+    "newChat": "Nieuwe chat",
     "activity": {
       "label": "Activiteit",
       "hint": "Live tijdlijn van agent- en teamwerk"
@@ -2861,7 +2928,7 @@
       "empty": "Maak een flow vanaf een label",
       "settingsAria": "Flows beheren"
     },
-    "newConversation": "Nieuw gesprek"
+    "newConversation": "Nieuwe chat"
   },
   "users": {
     "group": {
@@ -2934,6 +3001,7 @@
       "exceptionsEmpty": "Elk kanaal volgt de dial.",
       "exceptionGroups": {
         "channel": "Kanalen",
+        "flow": "Flows",
         "conversation": "Open gesprekken"
       },
       "exceptionClear": "Weer de standaard volgen",
@@ -3361,6 +3429,17 @@
       "install": "Installeren",
       "uninstall": "Deïnstalleren",
       "finishSetup": "Inrichten afronden",
+      "addDepartment": "Afdeling toevoegen",
+      "addDepartmentTitle": "{{name}} toevoegen als afdeling",
+      "addDepartmentBody": "Een module is een afdeling in een doos: een specialist-agent, labels en flows. Kies waar hij landt.",
+      "addDepartmentWhere": "Afdeling",
+      "addDepartmentNew": "Nieuwe afdeling: {{name}}",
+      "addDepartmentOverlap": "{{name}} (doet al vergelijkbaar werk)",
+      "addDepartmentAccountable": "Eindverantwoordelijke",
+      "addDepartmentLeads": "Laat de specialist leiden in plaats van {{lead}}",
+      "shipsSpecialist": "Specialist: {{name}}",
+      "shipsLabels": "Labels: {{list}}",
+      "shipsFlows": "Flows: {{list}}",
       "installStarted": "{{name}} is klaar om in te richten.",
       "installFinished": "{{name}} is geïnstalleerd.",
       "uninstalled": "{{name}} is gedeïnstalleerd.",
@@ -4113,7 +4192,7 @@
       "runsEmptyHint": "Chat met deze agent of plan werk in de Agenda.",
       "projectLink": "Werkmap: {{name}}",
       "openProject": "Lead van {{name}}. Open de werkmap.",
-      "chatWith": "Nieuw gesprek",
+      "chatWith": "Nieuwe chat",
       "openGovern": "Govern",
       "openAgenda": "Agenda",
       "openThreads": "Gesprekken van deze agent",
@@ -4394,6 +4473,10 @@
         "promptMode": "Prompt",
         "promptExtend": "Aanvullen op Bokito-prompt",
         "promptFull": "Alleen eigen prompt",
+        "effort": "Denkwerk",
+        "effortLow": "Licht",
+        "effortMedium": "Normaal",
+        "effortHigh": "Grondig",
         "disallowed": "Geblokkeerde tools",
         "disallowedHint": "Toolnamen, gescheiden door komma's.",
         "skills": "Vaardigheden",
@@ -4643,6 +4726,8 @@
       "loadError": "Kon werkmap niet laden.",
       "viewThreads": "Gesprekken bekijken",
       "openInCommunication": "Open in communicatie",
+      "whoWorksHere": "Wie werkt hier",
+      "homeDepartment": "Thuisafdeling van deze map",
       "closedConversations": "Gesloten gesprekken",
       "breadcrumb": "Werkmappen",
       "newFolder": "Nieuwe werkmap",
@@ -4916,7 +5001,7 @@
       "agentHint": "Die agent vraagt wat op het canvas hoort, bouwt het en houdt het actueel.",
       "startChat": "Start gesprek",
       "setupThreadTitle": "Canvas · {{place}}",
-      "setupOpener": "Ik wil een nieuw snapshot-canvas op {{place}}.\n{{ownerLine}}\nVraag me wat erop moet staan. Stel daarna een kort plan voor: titel, wat je toont, en hoe vaak verversen. Na mijn akkoord bouw je het in dit gesprek, zet je de verversperiode uit wat we afspraken, en blijf je het hier beheren.",
+      "setupOpener": "Ik wil een nieuw snapshot-canvas op {{place}}.\nVraag me wat erop moet staan. Stel daarna een kort plan voor: titel, wat je toont, en hoe vaak verversen. Na mijn akkoord bouw je het in dit gesprek, zet je de verversperiode uit wat we afspraken, en blijf je het hier beheren.",
       "ownerFolderFallback": "deze werkmap",
       "cancel": "Annuleren",
       "delete": "Verwijderen",
@@ -4940,13 +5025,38 @@
       "cronInvalid": "Vul een cron van vijf velden in.",
       "writing": "De beheeragent schrijft dit canvas.",
       "buildingBadge": "Bezig",
+      "download": "Downloaden",
+      "exportCsv": "CSV",
+      "exportExcel": "Excel",
+      "exportGoogle": "Google Sheets",
+      "exportFailed": "Dit sheet kon niet worden geëxporteerd.",
+      "kinds": {
+        "dashboard": "Dashboard",
+        "document": "Document",
+        "diagram": "Diagram",
+        "drawing": "Tekening",
+        "image": "Beeld",
+        "code": "Code",
+        "email": "E-mail",
+        "sheet": "Sheet"
+      },
       "askAgent": "Vraag agent om bij te werken",
       "openThread": "Open gesprek",
       "ownerAgent": "Eigenaar",
       "moreActions": "Meer acties",
       "lastUpdated": "Bijgewerkt {{time}}",
       "showSource": "Bron tonen",
-      "hideSource": "Bron verbergen"
+      "hideSource": "Bron verbergen",
+      "viewLabel": "Canvasweergave",
+      "preview": "Voorbeeld",
+      "code": "Code",
+      "copy": "Kopiëren",
+      "copied": "Gekopieerd",
+      "copyFailed": "Dit canvas kon niet worden gekopieerd.",
+      "downloadAs": "Downloaden als {{type}}",
+      "openFull": "Vergroten",
+      "close": "Sluiten",
+      "version": "Versie {{n}}"
     },
     "worksIn": {
       "title": "Werkt in",
@@ -6188,14 +6298,14 @@
     "instructions": "Instructies",
     "instructionsPlaceholder": "Hoe moet je assistent zich gedragen? Wat moet hij over jou en je werk weten?",
     "defaultTarget": "Standaardchat",
-    "defaultTargetHint": "Met wie een Nieuw gesprek praat, tenzij je iemand anders kiest.",
+    "defaultTargetHint": "Met wie een Nieuwe chat praat, tenzij je iemand anders kiest.",
     "companyAgent": "bedrijfsagent",
     "myAssistant": "mijn assistent",
     "save": "Wijzigingen opslaan",
     "saved": "Opgeslagen",
     "loadError": "Kon assistentinstellingen niet laden.",
     "saveError": "Kon instellingen niet opslaan.",
-    "openCommunication": "Nieuw gesprek openen",
+    "openCommunication": "Nieuwe chat openen",
     "openModels": "Modellen openen",
     "openKnowledge": "Kennis openen",
     "openInboxAi": "AI-antwoorden openen",
@@ -6416,6 +6526,10 @@
     }
   },
   "membersPage": {
+    "scopeLabel": "Wat dit lid ziet",
+    "hoursLabel": "Uren per week",
+    "hoursPlaceholder": "Uren per week",
+    "scopes": { "workspace": "Hele werkruimte", "departments": "Eigen afdelingen" },
     "loadError": "Kon leden niet laden.",
     "inviteError": "Kon de uitnodiging niet versturen.",
     "resendError": "Kon de uitnodiging niet opnieuw versturen.",
@@ -6441,9 +6555,9 @@
       "admin": "Ja",
       "memberNo": "Nee"
     },
-    "hireAgentsTitle": "Neem nieuwe agents aan",
+    "hireAgentsTitle": "Afdeling toevoegen",
     "hireAgentsSoon": "binnenkort",
-    "hireAgentsBody": "Kies specialisten uit het aanbod en zet ze naast je team.",
+    "hireAgentsBody": "Een module uit het aanbod is een afdeling in een doos: een specialist-agent met zijn labels en flows. Voeg hem toe als nieuwe afdeling of laat hem aansluiten bij een bestaande.",
     "hireAgentsCta": "Aanbod",
     "agentsSectionHint": "Bedrijfsagents naast je mensen. Neem er meer aan via het aanbod.",
     "agentsEmpty": "Nog geen bedrijfsagents.",
@@ -6628,6 +6742,7 @@
   },
   "orgCanvas": {
     "title": "Grid",
+    "issueOwner": "{{department}}, leider {{lead}}",
     "subtitle": "Van binnenkomst tot resultaat: wie het oppakt, hoe het loopt en in welke werkmap het landt.",
     "link": "Grid",
     "openInGrid": "Open in Grid",
@@ -6677,11 +6792,11 @@
     "estimated": "Geschat: nog niet alles is als oplevering vastgelegd.",
     "columns": {
       "input": "Binnenkomst",
-      "executor": "Uitvoerders",
-      "executorSub": "per afdeling",
-      "work": "Flow",
-      "workSub": "hoe",
-      "result": "Resultaat",
+      "executor": "Aanpak",
+      "executorSub": "wie, per afdeling",
+      "work": "Soort",
+      "workSub": "flowlabel, % autonoom",
+      "result": "Uitkomst",
       "resultSub": "waar het landt"
     },
     "zone": {
@@ -6700,6 +6815,7 @@
       "conversations_one": "{{count}} gesprek in {{days}} d",
       "conversations_other": "{{count}} gesprekken in {{days}} d",
       "done": "{{count}} klaar",
+      "autonomousPct": "{{pct}}% autonoom",
       "flow": "Flow",
       "agent": "Agent",
       "person": "Persoon",
@@ -6716,7 +6832,8 @@
       "knowledgeSub": "Wat agents leren uit correcties",
       "corrections": "correcties",
       "open": "Nog open",
-      "closedWithout": "Gesloten zonder resultaat"
+      "connection": "Koppeling",
+      "closedWithout": "Afgerond"
     },
     "mode": {
       "autonomous": "Autonoom",
@@ -6741,6 +6858,7 @@
       "source": {
         "workspace": "Ingesteld voor de werkruimte",
         "channel": "Ingesteld op het kanaal",
+        "flow": "Ingesteld op de flow",
         "conversation": "Ingesteld op het gesprek",
         "default": "Standaard"
       },
@@ -6748,7 +6866,6 @@
         "govern": "Begrensd door het plafond van de werkruimte in Govern",
         "privacy": "Begrensd door de privacy-instellingen",
         "agent": "Begrensd door de eigen instelling van deze agent",
-        "flow": "Begrensd: de flow staat op Altijd controle",
         "breaker": "Begrensd: de noodstop van het kanaal is geactiveerd"
       },
       "receivesFrom": "Ontvangt van",
@@ -6775,14 +6892,14 @@
       "overloaded": "{{name}} heeft {{count}} open",
       "no_department": "{{name}} zit in geen afdeling",
       "offline": "{{name}} is offline met {{count}} open",
-      "unassigned": "{{count}} open zonder dat iemand het oppakt",
-      "connection_without_folder": "Een koppeling schreef zonder werkmap"
+      "unassigned": "{{count}} open zonder dat iemand het oppakt"
     },
     "labelChips": "Labels",
     "reset": "Beginbeeld"
   },
   "teamPage": {
     "openConversations": "Gesprekken",
+    "openDepartment": "Overzicht",
     "openFolder": "Werkmap {{name}} openen in Communicatie",
     "loadError": "Het team kon niet worden geladen.",
     "saveError": "Opslaan is mislukt.",
@@ -7204,6 +7321,10 @@
     "allForYou": "Alles in Voor jou ({{count}})",
     "quiet": "Al 14 dagen stil",
     "quietHint": "Open gesprekken zonder bericht. Sluit ze als het werk klaar is.",
+    "improved": "Wat is verbeterd",
+    "improvedHint": "Voorstellen uit de scorekaart die je de laatste 30 dagen accepteerde, met het aandeel autonoom van de flow nu.",
+    "improvedDetail": "Op {{mode}} gezet; was {{before}}% autonoom",
+    "improvedDetailNew": "Op {{mode}} gezet",
     "quietClose": "Afsluiten",
     "emptySignals": "Geen open tickets.",
     "emptyRunning": "Er draait nu niets en er staat niets gepland.",

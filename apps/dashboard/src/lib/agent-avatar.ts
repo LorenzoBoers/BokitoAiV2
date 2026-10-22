@@ -1,26 +1,4 @@
-import {
-  BookOpen,
-  Bot,
-  Brain,
-  Briefcase,
-  Building2,
-  Headset,
-  HeartHandshake,
-  Home,
-  Lightbulb,
-  Mail,
-  MessageCircle,
-  Plane,
-  Scale,
-  Shield,
-  ShoppingBag,
-  Sparkles,
-  Stethoscope,
-  Users,
-  Wrench,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import {
   DEFAULT_BOT_ORB_COLOR,
   DEFAULT_BOT_ORB_SHAPE,
@@ -28,55 +6,26 @@ import {
   resolveBotOrbShape,
   type BotOrbShapeKey,
 } from './bot-orb-shapes'
+import { platformIcon, platformIconIds } from './platform-icons'
 
-/** Curated Lucide keys mirrored from the API allow-list (legacy icon mode). */
-export const AGENT_AVATAR_ICON_KEYS = [
-  'bot',
-  'sparkles',
-  'headset',
-  'mail',
-  'message-circle',
-  'briefcase',
-  'building-2',
-  'wrench',
-  'heart-handshake',
-  'shield',
-  'zap',
-  'book-open',
-  'scale',
-  'stethoscope',
-  'shopping-bag',
-  'plane',
-  'home',
-  'users',
-  'brain',
-  'lightbulb',
-] as const
+/** Full Lucide kebab set for pickers; resolve via platformIcon. */
+export const AGENT_AVATAR_ICON_KEYS = platformIconIds()
 
-export type AgentAvatarIconKey = (typeof AGENT_AVATAR_ICON_KEYS)[number]
+export type AgentAvatarIconKey = string
 
-export const AGENT_AVATAR_ICONS: Record<AgentAvatarIconKey, LucideIcon> = {
-  bot: Bot,
-  sparkles: Sparkles,
-  headset: Headset,
-  mail: Mail,
-  'message-circle': MessageCircle,
-  briefcase: Briefcase,
-  'building-2': Building2,
-  wrench: Wrench,
-  'heart-handshake': HeartHandshake,
-  shield: Shield,
-  zap: Zap,
-  'book-open': BookOpen,
-  scale: Scale,
-  stethoscope: Stethoscope,
-  'shopping-bag': ShoppingBag,
-  plane: Plane,
-  home: Home,
-  users: Users,
-  brain: Brain,
-  lightbulb: Lightbulb,
-}
+/** @deprecated Prefer platformIcon / resolveAgentAvatarIcon. */
+export const AGENT_AVATAR_ICONS: Record<string, LucideIcon> = new Proxy(
+  {} as Record<string, LucideIcon>,
+  {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined
+      return platformIcon(prop) ?? undefined
+    },
+    has(_target, prop) {
+      return typeof prop === 'string' && platformIcon(prop) != null
+    },
+  },
+)
 
 export {
   BOT_ORB_COLORS as AGENT_AVATAR_COLORS,
@@ -145,9 +94,7 @@ export type AgentAvatarSource = {
 }
 
 export function resolveAgentAvatarIcon(key: string | null | undefined): LucideIcon | null {
-  if (!key) return null
-  const normalized = key.trim().toLowerCase() as AgentAvatarIconKey
-  return AGENT_AVATAR_ICONS[normalized] ?? null
+  return platformIcon(key)
 }
 
 /**

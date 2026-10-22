@@ -343,6 +343,66 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
+      {prefs.reach ? (
+        <Card className="space-y-3 p-4" data-testid="notification-reach-card">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-text-heading">{t('notificationsPage.reach.title')}</p>
+            <p className="text-xs text-text-secondary">{t('notificationsPage.reach.body')}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="space-y-1 text-xs text-text-muted">
+              <span>{t('notificationsPage.reach.quietFrom')}</span>
+              <input
+                type="time"
+                value={prefs.reach.quiet_from ?? ''}
+                onChange={(event) =>
+                  void apply({ ...prefs, reach: { ...prefs.reach!, quiet_from: event.target.value || null } })
+                }
+                className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-text-muted">
+              <span>{t('notificationsPage.reach.quietTo')}</span>
+              <input
+                type="time"
+                value={prefs.reach.quiet_to ?? ''}
+                onChange={(event) =>
+                  void apply({ ...prefs, reach: { ...prefs.reach!, quiet_to: event.target.value || null } })
+                }
+                className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-text-muted">
+              <span>{t('notificationsPage.reach.maxPerDay')}</span>
+              <input
+                type="number"
+                min={0}
+                max={200}
+                value={prefs.reach.max_per_day}
+                onChange={(event) =>
+                  void apply({
+                    ...prefs,
+                    reach: { ...prefs.reach!, max_per_day: Math.max(0, Math.min(200, Number(event.target.value) || 0)) },
+                  })
+                }
+                className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+              />
+            </label>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm text-text-heading">{t('notificationsPage.reach.callTitle')}</p>
+              <p className="text-xs text-text-secondary">{t('notificationsPage.reach.callBody')}</p>
+            </div>
+            <Switch
+              checked={prefs.reach.agents_may_call}
+              onCheckedChange={(value) => void apply({ ...prefs, reach: { ...prefs.reach!, agents_may_call: value } })}
+              aria-label={t('notificationsPage.reach.callTitle')}
+            />
+          </div>
+        </Card>
+      ) : null}
+
       {saveError ? <p className="text-sm text-status-error">{saveError}</p> : null}
 
       {loading ? <NotificationMatrixSkeleton /> : null}

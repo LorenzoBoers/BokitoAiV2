@@ -8,6 +8,8 @@ Signal thread so humans see it.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 import secrets
@@ -30,7 +32,9 @@ SCHEDULED_WAKE_PREAMBLE = (
     "This is a scheduled wake. You work inside this task's own conversation: "
     "whatever you write lands there and is read by {recipient}. Write to them "
     "directly, most important first, at most three points. Use your tools to "
-    "check what you need before you write.\n"
+    "check what you need before you write. That chat message is the report. "
+    "Do not call post_internal_note instead of writing it, even when the task "
+    "says to post a note.\n"
     "Propose, do not act: before you set anything up (a flow, project, rule, "
     "integration, agent), ask with create_decision_request so they can approve "
     "in the conversation. When a question concerns another conversation, pass "
@@ -84,6 +88,8 @@ def serialize_trigger(row: Trigger) -> dict[str, Any]:
         "workstream_id": str(row.workstream_id) if row.workstream_id else None,
         "signal_id": str(row.signal_id) if row.signal_id else None,
         "purpose": row.purpose or None,
+        "project_id": str(row.project_id) if row.project_id else None,
+        "title_template": row.title_template or "",
         "instructions": row.instructions,
         "has_webhook_secret": bool(row.webhook_secret),
         "enabled": row.enabled,
@@ -147,7 +153,7 @@ def next_cron_run(expr: str, after: datetime) -> datetime | None:
 
 
 def compute_next_run(trigger: Trigger, now: datetime | None = None) -> datetime | None:
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     if not trigger.enabled:
         return None
     if trigger.kind == "cron":
@@ -171,7 +177,7 @@ async def rotate_webhook_secret(
         raise HTTPException(status_code=400, detail="Only webhook triggers have secrets")
     new_secret = secrets.token_urlsafe(24)
     trigger.webhook_secret = new_secret
-    trigger.updated_at = datetime.utcnow()
+    trigger.updated_at = utcnow()
     session.add(trigger)
     await session.commit()
     await session.refresh(trigger)
@@ -232,6 +238,9 @@ async def create_trigger(
     created_by_user_id: UUID | None = None,
     defer_thread: bool = False,
     hold: bool = False,
+    purpose: str = "",
+    project_id: UUID | None = None,
+    title_template: str = "",
 ) -> Trigger:
     """A rule always runs in a thread: ``signal_id`` or a new agenda thread.
 
@@ -241,7 +250,7 @@ async def create_trigger(
 
     if kind not in TRIGGER_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid trigger kind: {kind}")
-    if kind == "cron" and next_cron_run(cron_expr, datetime.utcnow()) is None:
+    if kind == "cron" and next_cron_run(cron_expr, utcnow()) is None:
         raise HTTPException(status_code=400, detail="Invalid cron expression")
     if kind in ("once", "event") and run_at is None:
         raise HTTPException(status_code=400, detail=f"run_at is required for kind={kind}")
@@ -259,7 +268,12 @@ async def create_trigger(
         enabled=enabled,
         signal_id=signal_id,
         created_by_user_id=created_by_user_id,
+        purpose=purpose,
+        project_id=project_id,
+        title_template=title_template[:200],
     )
+    if purpose == "recurring_ticket" and workstream_id is None:
+        raise HTTPException(status_code=400, detail="A recurring ticket needs a flow")
     if kind in ("once", "event"):
         trigger.next_run_at = run_at
     else:
@@ -273,7 +287,8 @@ async def create_trigger(
     await session.flush()
     if kind == "event":
         await convert_event_trigger(session, trigger)
-    elif not defer_thread:
+    elif not defer_thread and purpose != "recurring_ticket":
+        # A recurring ticket opens its own conversation each period.
         await ensure_trigger_thread(session, trigger)
     await session.commit()
     await session.refresh(trigger)
@@ -531,7 +546,7 @@ async def fire_trigger(
     from app.gateway.publish import publish_thread_update
     from app.services.thread_schedule import convert_event_trigger, ensure_trigger_thread, mirror_next_at
 
-    now = datetime.utcnow()
+    now = utcnow()
 
     if trigger.kind == "event":
         # A person moment is a date on its thread, not a rule.
@@ -544,6 +559,11 @@ async def fire_trigger(
         from app.services.stage_checkups import fire_checkup
 
         return await fire_checkup(session, trigger)
+
+    if trigger.purpose == "recurring_ticket":
+        from app.services.recurring_tickets import fire_recurring_ticket
+
+        return await fire_recurring_ticket(session, trigger, manual=manual)
 
     # Soft-deleted canvases used to leave refresh cron enabled.
     from app.services.project_canvas import is_canvas_refresh_trigger
@@ -667,7 +687,16 @@ async def fire_trigger(
         checklist = await _heartbeat_checklist(session, trigger.tenant_id)
         if checklist:
             prompt_parts.append(f"## Checklist\n{checklist}")
-    if trigger.instructions.strip():
+    orientation = None
+    if trigger.purpose == "orientation":
+        from app.services.awareness import orientation_prompt
+
+        orientation = await orientation_prompt(session, trigger, now)
+    if orientation:
+        prompt_parts.append(orientation)
+        if trigger.instructions.strip():
+            prompt_parts.append(f"## Also\n{trigger.instructions.strip()}")
+    elif trigger.instructions.strip():
         prompt_parts.append(f"## Your task\n{trigger.instructions.strip()}")
     elif trigger.kind != "heartbeat":
         prompt_parts.append("## Your task\nExecute the scheduled wake.")
@@ -742,7 +771,7 @@ async def fire_trigger(
         from app.services.run_errors import open_workspace_block, record_run_error, workspace_block
 
         run.status = "failed"
-        run.completed_at = datetime.utcnow()
+        run.completed_at = utcnow()
         record_run_error(run, exc)
         session.add(run)
         block = workspace_block(exc)
@@ -763,7 +792,7 @@ async def fire_trigger(
             return {"run_id": str(run.id), "status": "blocked", "block": block}
         raise
     run.status = "completed"
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
 
     from app.services.task_ledger import settle_run_task
 
@@ -781,6 +810,10 @@ async def fire_trigger(
         await _surface_result(session, trigger, agent, loop, text)
     else:
         await _wake_event(session, signal, "wake_quiet", trigger, agent)
+    if orientation:
+        from app.services.awareness import record_orientation
+
+        await record_orientation(session, trigger, agent, text, quiet=suppressed or repeated)
 
     trigger.last_run_at = now
     trigger.last_status = "ok" if suppressed else "unchanged" if repeated else "reported"
@@ -840,7 +873,7 @@ def _planned_occurrences(trigger: Trigger, start: datetime, end: datetime) -> li
 
 
 async def process_due_triggers(session: AsyncSession, tenant_id: UUID | None = None) -> int:
-    now = datetime.utcnow()
+    now = utcnow()
     conditions = [
         Trigger.enabled.is_(True),
         Trigger.deleted_at.is_(None),

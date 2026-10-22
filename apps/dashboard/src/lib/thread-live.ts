@@ -233,6 +233,7 @@ export function mergeThreadRow(existing: InboxThread, row: InboxThread): InboxTh
     agentAvatarColor: keepAvatar(row.agentAvatarColor, existing.agentAvatarColor),
     agentAvatarShape: keepAvatar(row.agentAvatarShape, existing.agentAvatarShape),
     agentAvatarImageUrl: keepAvatar(row.agentAvatarImageUrl, existing.agentAvatarImageUrl),
+    speaker: row.speaker === undefined ? existing.speaker : row.speaker ?? existing.speaker,
     aiHandling: row.aiHandling ?? existing.aiHandling,
     ticket: row.ticket === undefined ? existing.ticket : row.ticket,
     tags: row.tags ?? existing.tags,

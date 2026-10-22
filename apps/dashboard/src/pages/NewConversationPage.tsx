@@ -17,6 +17,7 @@ import MailComposer, { type MailRecipientSuggestion, type MailSendPayload } from
 import { clearStoredMailDraft, readStoredMailDraft, type StoredMailDraft } from '../lib/mail-draft-store'
 import type { MailComposerIntent } from '../lib/mail-reply'
 import { stashChatContinue } from '../lib/chat-auto-continue'
+import { startOnboardingSetupThread } from '../lib/onboarding-wizard-api'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
@@ -120,6 +121,8 @@ export default function NewConversationPage() {
   const connectionParam = searchParams.get('connectionId')?.trim() || ''
   const memberParam = searchParams.get('member')?.trim() || ''
   const autoSendRequested = useRef(searchParams.get('autosend') === '1')
+  const setupRequested = useRef(searchParams.get('setup') === '1')
+  const setupStarted = useRef(false)
 
   const [targets, setTargets] = useState<ChatTarget[]>([])
   const [contacts, setContacts] = useState<ContactRow[]>([])
@@ -641,7 +644,7 @@ export default function NewConversationPage() {
     try {
       // Persist the opener with the thread so a lost navigation state cannot
       // leave an empty "Untitled chat". ThreadDetail then continues the agent.
-      const created = await bokitoCreateConversation(token, 'New conversation', selectedAgent.id, {
+      const created = await bokitoCreateConversation(token, 'New chat', selectedAgent.id, {
         message: content || undefined,
         attachments: attachments.length ? attachments : undefined,
       })
@@ -821,6 +824,31 @@ export default function NewConversationPage() {
     void startAgent()
   }, [loadingTargets, selectedAgent, mention.raw, intent, startAgent])
 
+  useEffect(() => {
+    if (!setupRequested.current || setupStarted.current || intent !== 'agent') return
+    if (loadingTargets || !token) return
+    if (agentParam && targets.some((row) => row.id === agentParam) && selectedAgent?.id !== agentParam) {
+      return
+    }
+    setupStarted.current = true
+    void (async () => {
+      setSending(true)
+      setError(null)
+      try {
+        const opened = await startOnboardingSetupThread(token)
+        const agentId = opened.agent_id || selectedAgent?.id || agentParam
+        if (!opened.started) stashChatContinue(opened.signal_id, { mode: 'speak' })
+        navigate(agentChatPath(agentId, opened.signal_id), {
+          state: opened.started ? {} : { speakFirst: true },
+        })
+      } catch (err) {
+        setupStarted.current = false
+        setError(err instanceof Error ? err.message : t('newConversation.startError'))
+        setSending(false)
+      }
+    })()
+  }, [intent, loadingTargets, token, agentParam, targets, selectedAgent, navigate, t])
+
   const onComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     mention.onKeyDown(e, () => void start())
   }
@@ -953,17 +981,17 @@ export default function NewConversationPage() {
                       type="button"
                       onClick={() => stepCarousel(-1)}
                       aria-label={t('newConversation.previousAgent')}
-                      className="absolute left-0 top-1/2 z-[1] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                      className="absolute left-0 top-1/2 z-[1] flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-heading"
                     >
-                      <ChevronLeft size={22} />
+                      <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
                     </button>
                     <button
                       type="button"
                       onClick={() => stepCarousel(1)}
                       aria-label={t('newConversation.nextAgent')}
-                      className="absolute right-0 top-1/2 z-[1] flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                      className="absolute right-0 top-1/2 z-[1] flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-heading"
                     >
-                      <ChevronRight size={22} />
+                      <ChevronRight size={28} strokeWidth={2.25} aria-hidden />
                     </button>
                   </>
                 ) : null}
@@ -976,16 +1004,16 @@ export default function NewConversationPage() {
                       ['--slide-from' as string]: slideDir > 0 ? '40px' : '-40px',
                     }}
                   >
-                    <div className="flex h-[72px] items-center justify-center">
+                    <div className="flex h-20 items-center justify-center">
                       {activeCarousel.kind === 'agent' ? (
-                        <div className="relative" style={{ width: 72, height: 72 }}>
+                        <div className="relative" style={{ width: 80, height: 80 }} data-dot-field-agent>
                           <AgentGlow
                             color={agentProfileAccentColor(resolveAgentAvatarColor(activeCarousel.agent.avatar_color))}
                             className="inset-[-28%]"
                           />
                           <AgentMark
                             agent={activeCarousel.agent}
-                            size={72}
+                            size={80}
                             decorative={false}
                             mode="live"
                             className="relative z-[1]"
@@ -997,10 +1025,10 @@ export default function NewConversationPage() {
                           email={activeCarousel.member.email}
                           avatarUrl={activeCarousel.member.avatarUrl}
                           presence={activeCarousel.member.presence}
-                          size={72}
+                          size={80}
                         />
                       ) : activeCarousel.kind === 'note' || activeCarousel.kind === 'transcript' ? (
-                        <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-bg-elevated text-accent">
+                        <span className="flex h-20 w-20 items-center justify-center rounded-2xl bg-bg-elevated text-accent">
                           {activeCarousel.kind === 'note' ? <StickyNote size={32} /> : <Mic size={32} />}
                         </span>
                       ) : (
@@ -1017,7 +1045,7 @@ export default function NewConversationPage() {
                     <CarouselCaption item={activeCarousel} />
                   </div>
                 ) : (
-                  <span className="mx-auto flex h-[72px] w-14 items-center justify-center rounded-full border border-border/50 bg-bg-surface text-text-muted">
+                  <span className="mx-auto flex h-20 w-14 items-center justify-center rounded-full border border-border/50 bg-bg-surface text-text-muted">
                     <Bot size={24} />
                   </span>
                 )}

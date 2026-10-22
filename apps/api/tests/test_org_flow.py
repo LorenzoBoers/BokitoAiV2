@@ -312,7 +312,7 @@ async def test_replies_per_channel(session_override):
 
 
 @pytest.mark.asyncio
-async def test_closed_on_purpose_stays_out_of_the_sink(session_override):
+async def test_closed_on_purpose_is_done_and_counted(session_override):
     from app.models.signal import SignalEvent
 
     d = await _seed(session_override)
@@ -333,7 +333,7 @@ async def test_closed_on_purpose_stays_out_of_the_sink(session_override):
     await session_override.commit()
     body = await org_flow.build_org_flow(session_override, tenant, None)
     sink = _node(body, org_flow.SINK_CLOSED)
-    assert sink["count"] == sunk
+    assert sink["count"] == sunk + 3
     assert sink["closed_on_purpose"] == {"no_reply": 2, "handled_externally": 1}
 
 

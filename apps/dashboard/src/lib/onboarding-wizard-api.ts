@@ -49,11 +49,13 @@ export type OnboardingWizardPatch = {
 }
 
 export function startOnboardingSetupThread(token: string) {
-  return appScopedPost<{ signal_id: string; created: string }>(
-    appRoutes.onboarding.setupThread,
-    {},
-    token,
-  )
+  return appScopedPost<{
+    signal_id: string
+    agent_id: string
+    channel: string
+    created: string
+    started: boolean
+  }>(appRoutes.onboarding.setupThread, {}, token)
 }
 
 export function getOnboardingWizard(token: string) {

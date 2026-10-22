@@ -25,10 +25,19 @@ Autonomy is one dial on [Govern](/docs/govern/govern): **Manual**, **Assisted** 
 
 1. A channel or a single open conversation can be set lower. These show under **Per channel** on the same page; choose **Follow the default again** to remove one. See [Autonomy](/docs/inbox/inbox-ai).
 2. Each agent has its own level (see [Agents](/docs/ai/agents)). A conversation that agent handles never goes higher.
-3. A flow with **Always review** keeps every reply on its tickets at Assisted. See [Flows](/docs/ai/flows).
+3. Each flow has its own **Autonomy** on the flow page. Stricter than the dial applies at once; looser waits here for approval. A flow on **Assisted** keeps every reply on its tickets a draft. See [Flows](/docs/ai/flows).
 4. **Privacy** that keeps AI away from message bodies sets everything to Manual, and a tripped circuit breaker keeps a channel at Assisted until someone resumes it.
 
 Hover the mode in a conversation header to see which of these decided.
+
+## Accept a proposal from the scorecard
+
+Bokito proposes a different dial for a flow when its outcomes show it.
+
+1. Every flow label has a scorecard: how many tickets closed, how many ran without a person, and how many were corrected.
+2. When a flow on Assisted has at least 20 clean outcomes in 30 days and fewer than one in ten corrected, its department lead proposes **Autonomous** in the department conversation. When an autonomous flow is corrected often, the lead proposes **Assisted**.
+3. Accept or reject the proposal in the conversation or under **Govern**. A flow gets at most one proposal per direction every 30 days.
+4. Accepted proposals show on [Today](/docs/getting-started/cockpit) under **What improved**, with the autonomous share before and now.
 
 ## Set tool permissions
 
@@ -60,7 +69,7 @@ Customer messages, web pages and tool results can contain text written to steer 
 
 1. Start the dial on **Assisted** while you learn how the workspace behaves.
 2. Watch which drafts go out unedited. Bokito suggests Autonomous once at least 80% of 50 or more drafts are sent unchanged.
-3. Put flows that must always be checked on **Always review** before you raise the dial.
+3. Set flows that must always be checked to **Assisted** on the flow page before you raise the dial.
 
 Website visitors never change the workspace on their own, whatever the dial says.
 

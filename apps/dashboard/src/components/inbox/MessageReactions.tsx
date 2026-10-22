@@ -113,9 +113,7 @@ export function MessageReactions({
       if (!canReact || !token || busy) return
       const previous = aggregate
       const optimistic: MessageReactionAggregate =
-        aggregate.mine === kind
-          ? { kinds: stripMine(aggregate, kind), mine: null }
-          : upsertMine(aggregate, kind)
+        aggregate.mine === kind ? stripMine(aggregate, kind) : upsertMine(aggregate, kind)
       apply(optimistic)
       setBusy(true)
       setMenuOpen(false)

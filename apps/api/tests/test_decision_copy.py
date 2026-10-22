@@ -70,6 +70,28 @@ def test_connect_and_module_decisions_name_the_target():
     assert "account" in module["args"]["slug"].lower()
 
 
+def test_schedule_decision_names_the_cadence():
+    from app.tools.decision_copy import schedule_intent_key
+
+    payload = {
+        "title": "Statuscheck klantenflows",
+        "every_minutes": 10,
+        "new_thread": True,
+        "owner": "f669bfed-cc69-4476-9ef7-7c9bc1b206a6",
+        "enabled": True,
+    }
+    title, summary = format_policy_decision("set_thread_schedule", payload)
+    assert title == "Approve: Every 10 minutes: Statuscheck klantenflows"
+    assert summary.startswith("Every 10 minutes: Statuscheck klantenflows")
+    other = {**payload, "owner": "me"}
+    assert schedule_intent_key("set_thread_schedule", payload) == schedule_intent_key(
+        "set_thread_schedule", other
+    )
+    assert schedule_intent_key("set_thread_schedule", payload) != schedule_intent_key(
+        "set_thread_schedule", {**payload, "every_minutes": 30}
+    )
+
+
 def test_open_internal_threads_alias_runs_list_threads():
     name, payload = resolve_tool_alias("list_open_internal_threads", {})
     assert name == "list_threads"

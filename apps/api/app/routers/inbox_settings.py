@@ -347,11 +347,21 @@ class NotificationCategoryModel(BaseModel):
     channels: NotificationChannelsModel
 
 
+class NotificationReachModel(BaseModel):
+    """How agents may reach you: quiet hours (HH:MM, workspace time), pushes a day, calls."""
+
+    quiet_from: str | None = "22:00"
+    quiet_to: str | None = "07:00"
+    max_per_day: int = 12
+    agents_may_call: bool = True
+
+
 class NotificationPrefsResponse(BaseModel):
     version: int = 2
     tiers: dict[str, NotificationChannelsModel]
     rows: list[NotificationCategoryModel]
     sound: bool = True
+    reach: NotificationReachModel = NotificationReachModel()
 
 
 class NotificationPrefsBody(BaseModel):
@@ -359,6 +369,7 @@ class NotificationPrefsBody(BaseModel):
     tiers: dict[str, dict[str, bool]] | None = None
     rows: list[dict] | None = None
     sound: bool | None = None
+    reach: dict | None = None
 
 
 @router.get("/user/notification-preferences", response_model=NotificationPrefsResponse)
@@ -390,6 +401,8 @@ async def patch_notification_preferences(
         patch["sound"] = body.sound
     if body.version is not None:
         patch["version"] = body.version
+    if body.reach is not None:
+        patch["reach"] = body.reach
     prefs = await save_prefs(session, auth.tenant.id, auth.user.id, patch)
     return serialize_prefs(prefs)
 

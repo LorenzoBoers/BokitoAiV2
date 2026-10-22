@@ -80,11 +80,16 @@ type Member = {
   name: string
   email: string
   role: MemberRole
+  scope: MemberScope
+  hoursPerWeek?: number | null
   avatarUrl: string | null
   isCurrentUser: boolean
   joinedAt: string | null
   isActive: boolean
 }
+
+type MemberScope = 'workspace' | 'departments'
+const MEMBER_SCOPES: MemberScope[] = ['workspace', 'departments']
 
 type Invite = {
   id: string
@@ -147,6 +152,8 @@ function mapMemberRow(item: unknown, currentUserId: string | undefined): Member 
     name,
     email,
     role: asRole(row.role),
+    scope: row.scope === 'departments' ? 'departments' : 'workspace',
+    hoursPerWeek: typeof row.hours_per_week === 'number' ? row.hours_per_week : null,
     avatarUrl: typeof row.avatar_url === 'string' ? row.avatar_url : null,
     isCurrentUser: String(id) === String(currentUserId),
     joinedAt: typeof row.joined_at === 'string' ? row.joined_at : null,
@@ -257,6 +264,7 @@ export default function MemberManagement({
         name: user.name,
         email: user.email,
         role: asRole(user.role),
+        scope: 'workspace',
         avatarUrl: user.avatarUrl ?? null,
         isCurrentUser: true,
         joinedAt: null,
@@ -289,6 +297,7 @@ export default function MemberManagement({
                   name: user.name,
                   email: user.email,
                   role: asRole(user.role),
+                  scope: 'workspace',
                   avatarUrl: user.avatarUrl ?? null,
                   isCurrentUser: true,
                   joinedAt: null,
@@ -393,6 +402,42 @@ export default function MemberManagement({
       await reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('membersPage.revokeError'))
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
+  const changeMemberScope = async (member: Member, scope: MemberScope) => {
+    if (!token || !workspaceId || member.scope === scope || !canEditMemberRow(member)) return
+    setRowBusyId(member.id)
+    setError(null)
+    try {
+      await appScopedPatch(appRoutes.workspaces.member(workspaceId, member.uuid ?? member.id), { scope }, token)
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('membersPage.roleError'))
+    } finally {
+      setRowBusyId(null)
+    }
+  }
+
+  const changeMemberHours = async (member: Member, raw: string) => {
+    if (!token || !workspaceId || !canEditMemberRow(member)) return
+    const trimmed = raw.trim()
+    const hours = trimmed === '' ? null : Number(trimmed)
+    if (hours !== null && !Number.isFinite(hours)) return
+    if (hours === (member.hoursPerWeek ?? null)) return
+    setRowBusyId(member.id)
+    setError(null)
+    try {
+      await appScopedPatch(
+        appRoutes.workspaces.member(workspaceId, member.uuid ?? member.id),
+        hours === null ? { clear_hours: true } : { hours_per_week: Math.round(hours) },
+        token,
+      )
+      await reload()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('membersPage.roleError'))
     } finally {
       setRowBusyId(null)
     }
@@ -676,7 +721,7 @@ export default function MemberManagement({
         <div className="relative z-[1] flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
           <div className="flex items-center gap-1.5" aria-hidden>
             {marketplaceBannerAgents.map((agent, index) => (
-              <AiAvatar key={agent.name ?? index} {...agent} size={44} decorative mode="static" />
+              <AiAvatar key={agent.name ?? index} {...agent} size={40} decorative mode="static" />
             ))}
           </div>
           <div className="min-w-0 flex-1">
@@ -801,7 +846,7 @@ export default function MemberManagement({
                             name={m.name}
                             email={m.email}
                             avatarUrl={m.avatarUrl}
-                            size={26}
+                            size={32}
                             presence={meta?.presence}
                           />
                           <div className="min-w-0">
@@ -839,6 +884,45 @@ export default function MemberManagement({
                         ) : (
                           <Badge variant={roleTone(m.role)}>{t(`membersPage.roles.${m.role}`)}</Badge>
                         )}
+                        {m.role === 'member' && canEditMemberRow(m) && m.isActive ? (
+                          <Select
+                            value={m.scope}
+                            onValueChange={(value) => void changeMemberScope(m, value as MemberScope)}
+                            disabled={busy}
+                          >
+                            <SelectTrigger
+                              className="mt-1 h-7 w-[150px] text-xs"
+                              aria-label={t('membersPage.scopeLabel')}
+                              data-testid="member-scope"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MEMBER_SCOPES.map((scope) => (
+                                <SelectItem key={scope} value={scope}>
+                                  {t(`membersPage.scopes.${scope}`)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : m.scope === 'departments' ? (
+                          <p className="mt-1 text-2xs text-text-muted">{t('membersPage.scopes.departments')}</p>
+                        ) : null}
+                        {canEditMemberRow(m) && m.isActive ? (
+                          <Input
+                            key={`${m.id}-${m.hoursPerWeek ?? ''}`}
+                            type="number"
+                            min={0}
+                            max={80}
+                            defaultValue={m.hoursPerWeek ?? ''}
+                            placeholder={t('membersPage.hoursPlaceholder')}
+                            aria-label={t('membersPage.hoursLabel')}
+                            className="mt-1 h-7 w-[150px] text-xs"
+                            disabled={busy}
+                            onBlur={(e) => void changeMemberHours(m, e.currentTarget.value)}
+                            data-testid="member-hours"
+                          />
+                        ) : null}
                       </TableCell>
                       <TableCell className="text-text-secondary">
                         {meta?.teams.length ? meta.teams.join(', ') : '-'}
@@ -980,7 +1064,7 @@ export default function MemberManagement({
                     <TableCell>
                       <Link
                         to={`/agents/${agent.id}`}
-                        className="flex items-center gap-2.5 overflow-visible hover:underline"
+                        className="flex items-center gap-2 overflow-visible hover:underline"
                       >
                         <AgentMark
                           agent={agent}

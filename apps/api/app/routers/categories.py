@@ -17,7 +17,7 @@ from app.models.orchestra import Workstream
 from app.models.signal import SignalTag
 from app.services import tickets as svc
 
-router = APIRouter(prefix="/categories", tags=["categories"])
+router = APIRouter(prefix="/labels", tags=["labels"])
 ticket_router = APIRouter(prefix="/signals", tags=["categories"])
 
 

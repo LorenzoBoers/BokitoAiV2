@@ -108,7 +108,10 @@ const KNOWN_SUBJECTS: Record<string, string> = {
   'Does this demo make sense?': 'decisionCard.knownSubjects.demoMakesSense',
   'inbox routing rule': 'decisionCard.knownSubjects.inboxRoutingRule',
   'Inbox routing rule': 'decisionCard.knownSubjects.inboxRoutingRule',
+  'New chat': 'listItem.untitled',
   'New conversation': 'listItem.untitled',
+  'Nieuwe chat': 'listItem.untitled',
+  'Nieuw gesprek': 'listItem.untitled',
   'Deep-link check: approve this?': 'decisionCard.knownSubjects.deepLinkCheck',
 }
 

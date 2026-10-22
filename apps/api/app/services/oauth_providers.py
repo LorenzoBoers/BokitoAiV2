@@ -22,6 +22,7 @@ MONEYBIRD = "moneybird"
 ALPACA = "alpaca_mcp"
 GOOGLE_CALENDAR = "google_calendar"
 OUTLOOK_CALENDAR = "outlook_calendar"
+GOOGLE_DRIVE = "google_drive"
 
 _GOOGLE_SCOPES = [
     "openid",
@@ -36,6 +37,14 @@ _GOOGLE_CALENDAR_SCOPES = [
     "profile",
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/calendar.readonly",
+]
+# Incremental consent: Drive and Sheets are their own grant on the same Google app.
+_GOOGLE_DRIVE_SCOPES = [
+    "openid",
+    "email",
+    "profile",
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
 ]
 _MICROSOFT_SCOPES = [
     "offline_access",
@@ -75,7 +84,7 @@ CALENDAR_PROVIDERS = frozenset({GOOGLE_CALENDAR, OUTLOOK_CALENDAR})
 
 def _credential_key(provider: str) -> str:
     """Map calendar slugs onto the Google/Microsoft OAuth app credentials."""
-    if provider == GOOGLE_CALENDAR:
+    if provider in (GOOGLE_CALENDAR, GOOGLE_DRIVE):
         return GOOGLE
     if provider == OUTLOOK_CALENDAR:
         return MICROSOFT
@@ -146,6 +155,8 @@ def _scopes(provider: str) -> list[str]:
         return _GOOGLE_SCOPES
     if provider == GOOGLE_CALENDAR:
         return _GOOGLE_CALENDAR_SCOPES
+    if provider == GOOGLE_DRIVE:
+        return _GOOGLE_DRIVE_SCOPES
     if provider == MICROSOFT:
         return _MICROSOFT_SCOPES
     if provider == OUTLOOK_CALENDAR:

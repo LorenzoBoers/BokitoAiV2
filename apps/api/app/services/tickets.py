@@ -14,6 +14,8 @@ conversation as a ``ticket_stage_changed`` event.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime, timedelta
@@ -262,6 +264,27 @@ def _stage_work(item: dict[str, Any], kind: str) -> dict[str, Any]:
 
 def workstream_stages(ws: Workstream | None) -> list[dict[str, Any]]:
     return parse_stages(ws.stages_json if ws else None)
+
+
+def is_direct(stages: list[dict[str, Any]]) -> bool:
+    """A flow without a waiting stage is handled in the conversation itself: no board."""
+    kinds = [s.get("kind") for s in stages]
+    return "waiting" not in kinds and kinds.count("open") <= 1
+
+
+def direct_stages_json(stages: list[dict[str, Any]], language: str) -> str:
+    """Keep the first open and the first done stage; that is direct handling."""
+    defaults = {s["kind"]: s for s in default_stages(language)}
+    keep = [
+        next((s for s in stages if s.get("kind") == kind), defaults[kind]) for kind in ("open", "done")
+    ]
+    return validate_stages(keep)
+
+
+def staged_json(stages: list[dict[str, Any]], language: str) -> str:
+    """Give a direct flow its waiting stage back, before the done stage."""
+    done_at = next((i for i, s in enumerate(stages) if s.get("kind") == "done"), len(stages))
+    return insert_named_stage(json.dumps(stages), kind="waiting", index=done_at, language=language)
 
 
 def default_stages_json(language: str = "en") -> str:
@@ -529,7 +552,7 @@ async def category_counts(session: AsyncSession, tenant_id: UUID) -> dict[UUID, 
 
     from app.services.trash import alive
 
-    now = datetime.utcnow()
+    now = utcnow()
     week, two_weeks = now - timedelta(days=7), now - timedelta(days=14)
     rows = await session.execute(
         select(
@@ -642,7 +665,7 @@ async def ensure_platform_tags(
             await session.execute(select(SignalTag.name).where(SignalTag.tenant_id == tenant_id))
         ).scalars()
     )
-    now = datetime.utcnow()
+    now = utcnow()
     for spec in PLATFORM_TAG_SEEDS:
         if spec["name"] in existing:
             continue
@@ -800,7 +823,7 @@ async def ticket_payload(
             "basis": signal.due_basis or "",
         },
         "checklist": checklist_rows(stages, signal),
-        "next_step": next_step(signal, stages, now=datetime.utcnow(), soon_days=soon_days),
+        "next_step": next_step(signal, stages, now=utcnow(), soon_days=soon_days),
         "proposals": await proposals_payload(session, signal),
         "stage_entry": {"policy": policy, "threshold": threshold},
     }
@@ -833,7 +856,7 @@ async def tickets_by_signal(
     from app.services.ticket_work import due_state, soon_days_for
 
     soon_days = await soon_days_for(session, tenant_id)
-    now = datetime.utcnow()
+    now = utcnow()
     done = ("done", "closed")
     out: dict[UUID, dict[str, Any]] = {}
     for signal in signals:
@@ -907,7 +930,7 @@ async def move_ticket_stage(
         guard_checklist_exit(stages, signal, current, target)
     signal.stage_key = target["key"]
     signal.ticket_status = target["kind"]
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         SignalEvent(
@@ -939,6 +962,10 @@ async def move_ticket_stage(
         from app.services.deliveries import deliver_flow_ticket
 
         await deliver_flow_ticket(session, signal, ws, actor_type=actor_type, actor_id=actor_id)
+        if signal.status == "closed":
+            from app.services.deliveries import settle_outcome
+
+            await settle_outcome(session, signal)
     from app.services.stage_checkups import on_stage_entered
 
     await on_stage_entered(session, signal, target, actor_type=actor_type, actor_id=actor_id)
@@ -973,7 +1000,7 @@ async def resolve_open_ticket_for_close(
             if str(value).strip() == "":
                 current.pop(str(key), None)
         signal.ticket_fields_json = json.dumps(current)
-        signal.updated_at = datetime.utcnow()
+        signal.updated_at = utcnow()
         session.add(signal)
     try:
         await move_ticket_stage(
@@ -1005,25 +1032,31 @@ async def settle_ticket_on_close(
     actor_type: str = "system",
     actor_id: str = "",
 ) -> bool:
-    """Move an open ticket to its done stage when the conversation closes.
+    """Settle a conversation that closed: move an open ticket to its done stage,
+    then record the episode's outcome.
 
     A flow without a done stage, or a done stage that still needs fields, leaves
-    the ticket where it is. Closing the conversation still succeeds.
+    the ticket where it is. Closing the conversation still succeeds. Returns
+    whether the ticket moved.
     """
-    if signal.status != "closed" or signal.ticket_tag_id is None:
+    from app.services.deliveries import settle_outcome
+
+    if signal.status != "closed":
         return False
-    if (signal.ticket_status or "") == "done":
-        return False
-    try:
-        return await move_ticket_stage(
-            session,
-            signal,
-            status="done",
-            actor_type=actor_type,
-            actor_id=actor_id,
-        )
-    except HTTPException:
-        return False
+    moved = False
+    if signal.ticket_tag_id is not None and (signal.ticket_status or "") != "done":
+        try:
+            moved = await move_ticket_stage(
+                session,
+                signal,
+                status="done",
+                actor_type=actor_type,
+                actor_id=actor_id,
+            )
+        except HTTPException:
+            moved = False
+    await settle_outcome(session, signal)
+    return moved
 
 
 def _auto_close_conversation_for_done_stage(
@@ -1042,7 +1075,7 @@ def _auto_close_conversation_for_done_stage(
     signal.status = "closed"
     signal.has_unread = False
     on_status_change(session, signal, actor_id=actor_id or "")
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         SignalEvent(
@@ -1103,7 +1136,7 @@ async def clear_ticket(session: AsyncSession, signal: Signal) -> str | None:
     signal.ticket_certainty = None
     signal.ticket_filed_at = None
     signal.ticket_fields_json = "{}"
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     await session.flush()
     from app.services.folders import refile
@@ -1117,7 +1150,7 @@ async def _status_update(session: AsyncSession, signal: Signal, text: str) -> No
     from app.gateway.publish import publish_signal_message
     from app.models.signal import SignalMessage
 
-    now = datetime.utcnow()
+    now = utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,
@@ -1262,7 +1295,7 @@ async def file_ticket(
 
     score = 10 if certainty is None and actor == "operator" else int(certainty or 0)
     score = max(0, min(10, score))
-    now = datetime.utcnow()
+    now = utcnow()
     signal.ticket_tag_id = tag.id
     signal.ticket_certainty = score
     signal.ticket_filed_at = now
@@ -1432,7 +1465,7 @@ async def update_ticket(
             if str(value).strip() == "":
                 current.pop(str(key), None)
         signal.ticket_fields_json = json.dumps(current)
-        signal.updated_at = datetime.utcnow()
+        signal.updated_at = utcnow()
         session.add(signal)
 
     if "project_id" in patch:
@@ -1687,6 +1720,8 @@ async def project_board(
     out: list[dict[str, Any]] = []
     for ws in flows:
         stages = workstream_stages(ws)
+        if is_direct(stages):
+            continue
         out.append(
             {
                 "workstream_id": str(ws.id),
@@ -1737,7 +1772,7 @@ def _board_cards(
     """Board cards; a ticket on an unknown stage lands on the first stage of its kind."""
     from app.services.ticket_work import next_step
 
-    now = datetime.utcnow()
+    now = utcnow()
     keys = {s["key"] for s in stages}
     first_by_kind: dict[str, str] = {}
     for s in stages:

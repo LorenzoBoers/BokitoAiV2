@@ -148,7 +148,7 @@ export default function BulkActionsBar({
                   className="gap-2 text-xs"
                   onSelect={() => onAction('assign', m.id)}
                 >
-                  <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={18} presence={m.presence} />
+                  <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={20} presence={m.presence} />
                   {m.name}
                 </DropdownMenuItem>
               ))

@@ -12,6 +12,8 @@ lasts until its next moment; pausing turns the rule off.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any, Iterable
@@ -161,7 +163,7 @@ async def sync_rule_runner(session: AsyncSession, signal: Signal) -> None:
     agent_id = runner_agent_id(signal)
     if rule.agent_id != agent_id:
         rule.agent_id = agent_id
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utcnow()
         session.add(rule)
 
 
@@ -173,7 +175,7 @@ async def create_schedule_thread(
     agent: Agent | None = None,
     project_id: UUID | None = None,
 ) -> Signal:
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=tenant_id,
         channel="internal",
@@ -369,7 +371,7 @@ async def apply_thread_schedule(
 
     at, ends_at = naive_utc(at), naive_utc(ends_at)
     repeat = _repeat_from(cron=cron, every_minutes=every_minutes)
-    if repeat and repeat[0] == "cron" and next_cron_run(repeat[1], datetime.utcnow()) is None:
+    if repeat and repeat[0] == "cron" and next_cron_run(repeat[1], utcnow()) is None:
         raise HTTPException(status_code=422, detail="Invalid cron expression")
     if ends_at and at and ends_at < at:
         raise HTTPException(status_code=422, detail="ends_at is before the start")
@@ -435,10 +437,10 @@ async def apply_thread_schedule(
         if not enabled:
             rule.next_run_at = None
         elif rule.kind == "once":
-            rule.next_run_at = at or rule.next_run_at or datetime.utcnow()
+            rule.next_run_at = at or rule.next_run_at or utcnow()
         else:
-            rule.next_run_at = at if at and at > datetime.utcnow() else compute_next_run(rule)
-        rule.updated_at = datetime.utcnow()
+            rule.next_run_at = at if at and at > utcnow() else compute_next_run(rule)
+        rule.updated_at = utcnow()
         session.add(rule)
         await session.flush()
         # The caller already picked this conversation (Plan, or a tool with a
@@ -446,7 +448,7 @@ async def apply_thread_schedule(
         await ensure_trigger_thread(session, rule, agent=agent, detach_assistant=False)
     else:
         if rule is not None and rule.kind != "webhook":
-            rule.deleted_at = datetime.utcnow()
+            rule.deleted_at = utcnow()
             rule.enabled = False
             session.add(rule)
             rule = None
@@ -454,9 +456,9 @@ async def apply_thread_schedule(
             set_owner(signal, "user", created_by_user_id, by_user_id=created_by_user_id)
         signal.next_at = at
 
-    if hide and not repeat and at is not None and at > datetime.utcnow():
+    if hide and not repeat and at is not None and at > utcnow():
         signal.hidden_until = at - timedelta(minutes=surface_before_minutes)
-        if signal.hidden_until > datetime.utcnow():
+        if signal.hidden_until > utcnow():
             signal.status = "snoozed"
         else:
             signal.hidden_until = None
@@ -469,7 +471,7 @@ async def apply_thread_schedule(
     merged = {**thread_details(signal), **(details or {})}
     merged.pop("surfaced", None)
     signal.schedule_json = _details_json(merged)
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         SignalEvent(
@@ -497,7 +499,7 @@ async def clear_thread_schedule(
     """Drop the date and the rule (webhook intake stays). Caller commits."""
     rule = await thread_rule(session, signal.id)
     if rule is not None and rule.kind != "webhook":
-        rule.deleted_at = datetime.utcnow()
+        rule.deleted_at = utcnow()
         rule.enabled = False
         session.add(rule)
     signal.next_at = None
@@ -505,7 +507,7 @@ async def clear_thread_schedule(
     signal.hidden_until = None
     if signal.status == "snoozed":
         signal.status = "open"
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         SignalEvent(
@@ -529,10 +531,10 @@ async def set_rule_enabled(session: AsyncSession, signal: Signal, enabled: bool)
     if not enabled:
         rule.next_run_at = None
     elif rule.kind == "once":
-        rule.next_run_at = rule.next_run_at or datetime.utcnow()
+        rule.next_run_at = rule.next_run_at or utcnow()
     else:
         rule.next_run_at = compute_next_run(rule)
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = utcnow()
     session.add(rule)
     mirror_next_at(signal, rule)
     session.add(signal)
@@ -588,7 +590,7 @@ async def owner_recipients(
 
 def reopen_for_moment(signal: Signal, now: datetime | None = None) -> bool:
     """Bring a thread back to the list: open and unread. True when it was parked."""
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     parked = signal.status in REOPEN_FROM
     if parked:
         signal.status = "open"
@@ -640,7 +642,7 @@ async def wake_due_threads(session: AsyncSession) -> int:
     """
     from app.gateway.publish import publish_thread_update
 
-    now = datetime.utcnow()
+    now = utcnow()
     surfaced = await surface_hidden_threads(session, now)
     has_rule = exists().where(
         Trigger.signal_id == Signal.id,
@@ -695,7 +697,7 @@ async def surface_hidden_threads(session: AsyncSession, now: datetime | None = N
     """Snoozed threads whose ``hidden_until`` passed come back: open, unread, notified."""
     from app.gateway.publish import publish_thread_update
 
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     rows = (
         await session.execute(
             select(Signal).where(
@@ -754,7 +756,7 @@ async def convert_event_trigger(session: AsyncSession, trigger: Trigger) -> Sign
         signal.next_at = trigger.next_run_at
     if trigger.instructions:
         signal.schedule_json = _details_json({**thread_details(signal), "note": trigger.instructions})
-    trigger.deleted_at = datetime.utcnow()
+    trigger.deleted_at = utcnow()
     trigger.enabled = False
     session.add(trigger)
     session.add(signal)

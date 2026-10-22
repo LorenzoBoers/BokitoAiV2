@@ -11,6 +11,8 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 TRIGGER_KINDS = ("cron", "interval", "heartbeat", "webhook", "once", "event")
+# Purposes listed as routines; a stage check-up belongs to its ticket.
+ROUTINE_PURPOSES = ("", "orientation", "recurring_ticket")
 
 
 class Trigger(SQLModel, table=True):
@@ -45,9 +47,14 @@ class Trigger(SQLModel, table=True):
 
     # "" for operator/agent wakes; "stage_checkup" for the recurring look at a
     # ticket in a flow stage. It goes to the conversation's owner at fire time
-    # (lifecycle lives in services/stage_checkups.py).
+    # (lifecycle lives in services/stage_checkups.py). "orientation": the
+    # department lead's briefing in the department room (services/awareness.py).
+    # "recurring_ticket": a new ticket each period on the flow of
+    # ``workstream_id`` in folder ``project_id`` (services/recurring_tickets.py).
     purpose: str = Field(default="", index=True)
     stage_key: str = ""
+    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id")
+    title_template: str = Field(default="", max_length=200)
 
     enabled: bool = True
     last_run_at: Optional[datetime] = None

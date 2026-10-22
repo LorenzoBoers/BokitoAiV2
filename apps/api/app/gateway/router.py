@@ -294,7 +294,7 @@ async def gateway_websocket(
         try:
             await websocket.send_json({"type": "error", "message": "unauthorized"})
         except Exception:
-            pass
+            logger.debug("gateway unauthorized error send failed", exc_info=True)
         await websocket.close(code=4401)
         return
 
@@ -432,7 +432,7 @@ async def gateway_websocket(
                         device or "dashboard",
                     )
             except Exception:
-                pass
+                logger.debug("gateway disconnect presence update failed", exc_info=True)
 
 
 __all__ = ["router", "manager", "ConnectionManager"]

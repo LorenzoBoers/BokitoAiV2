@@ -35,7 +35,7 @@ Everything in Bokito hangs on these five. Label, department, channel and contact
 
 ### {icon:autonomy} Autonomy
 
-**NL:** Autonomie. What an agent may do on its own: **Autonomous**, **Assisted** or **Manual**. One dial in **Govern**, tab **Policy**, for the whole workspace. A channel, a conversation, an agent or a flow on **Always review** may sit lower; nothing goes above the dial. Connects to [Set Autonomy](/docs/govern/autonomy) and [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
+**NL:** Autonomie. What an agent may do on its own: **Autonomous**, **Assisted** or **Manual**. One dial in **Govern**, tab **Policy**, for the whole workspace. A channel, a conversation, an agent or a flow may sit lower; nothing goes above the dial. Connects to [Set Autonomy](/docs/govern/autonomy) and [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
 
 ## Properties
 
@@ -53,11 +53,11 @@ Everything in Bokito hangs on these five. Label, department, channel and contact
 
 ## Rail
 
-At the top the **New conversation** button, then **Inbox** on its own, above the **Work** group. Group **Work**: Agenda, Folders, Flows. Group **Team**: Agents, Workforce. Above your account: **Connections**, then **Settings**. Today lives in Inbox, Knowledge under Agents, the Grid under Workforce, and Govern and Usage under Settings.
+At the top the **New chat** button, then **Inbox** on its own, above the **Work** group. Group **Work**: Agenda, Folders, Flows. Group **Team**: Agents, Workforce. Above your account: **Connections**, then **Settings**. Today lives in Inbox, Knowledge under Agents, the Grid under Workforce, and Govern and Usage under Settings.
 
-### {icon:new-chat} New conversation
+### {icon:new-chat} New chat
 
-**NL:** Nieuw gesprek. Start a conversation with a company agent open to you, or an outbound client message. Without a reachable agent the composer says there are no agents. The helper in the corner is a different chat and is hidden on this screen. Connects to [Agents](/docs/ai/agents) and [Communication](/docs/inbox/communication).
+**NL:** Nieuwe chat. Start a conversation with a company agent open to you, or an outbound client message. Without a reachable agent the composer says there are no agents. The helper in the corner is a different chat and is hidden on this screen. Connects to [Agents](/docs/ai/agents) and [Communication](/docs/inbox/communication).
 
 ### {icon:communication} Inbox
 

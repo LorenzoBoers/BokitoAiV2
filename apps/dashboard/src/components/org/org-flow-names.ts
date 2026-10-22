@@ -21,6 +21,8 @@ export function useGridNames() {
           return t('nav:orgCanvas.result.reply')
         case 'knowledge':
           return t('nav:orgCanvas.result.knowledge')
+        case 'connection':
+          return n.label || t('nav:orgCanvas.result.connection')
         case 'sink_open':
           return t('nav:orgCanvas.result.open')
         case 'sink_closed_without_result':

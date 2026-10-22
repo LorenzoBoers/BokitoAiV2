@@ -500,7 +500,8 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
 
     if item_type == "canvas":
         from app.models.project import Project
-        from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
+        from app.models.project_canvas import ProjectCanvas
+        from app.models.signal import Signal
 
         row = (
             await session.execute(
@@ -513,30 +514,48 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         ).scalar_one_or_none() if row_id else None
         if not row:
             return _missing(item_type, ref)
-        from app.services.works_in import folder_href
+        from app.services.works_in import GENERAL_FOLDER_NAMES, folder_href
+        from app.services.project_canvas import _thread_path, canvas_on_thread, serialize_canvas
 
-        project = (
-            await session.execute(
-                select(Project).where(Project.id == row.owner_id, Project.tenant_id == tenant_id)
+        signal = await session.get(Signal, row.signal_id) if row.signal_id else None
+        folder_id = None
+        subtitle = ""
+        if signal is not None and signal.project_id:
+            project = (
+                await session.execute(
+                    select(Project).where(
+                        Project.id == signal.project_id, Project.tenant_id == tenant_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if project is not None and project.name not in set(GENERAL_FOLDER_NAMES.values()):
+                subtitle = project.name
+            if project is not None and project.deleted_at is None:
+                folder_id = project.id
+        serialized = serialize_canvas(row, folder_id=folder_id)
+        empty = bool(serialized.get("empty"))
+        content_kind = str(serialized.get("kind") or "dashboard")
+        preview = None if empty or content_kind != "dashboard" else canvas_chat_preview(row.tree_json)
+        if folder_id:
+            path = folder_href(folder_id, "canvas", canvas=str(row.id))
+        elif signal is not None:
+            path = canvas_on_thread(
+                _thread_path(row.managing_agent_id or signal.agent_id, signal.id),
+                row.id,
             )
-        ).scalar_one_or_none()
-        subtitle = project.name if project else ""
-        path = folder_href(row.owner_id, "canvas", canvas=str(row.id))
-        project_id = str(row.project_id or row.owner_id)
-        from app.services.project_canvas import serialize_canvas
-
-        empty = bool(serialize_canvas(row).get("empty"))
-        preview = None if empty else canvas_chat_preview(row.tree_json)
+        else:
+            path = None
         payload = {
             "type": item_type,
             "id": str(row.id),
             "title": _clip(row.title),
             "subtitle": _clip(subtitle),
-            "kind": row.owner_kind or OWNER_PROJECT,
+            "canvas_kind": content_kind,
             "slug": row.slug,
-            # Empty shells stay listed but are not openable until filled.
             "path": None if empty else path,
-            "project_id": project_id,
+            "folder_id": str(folder_id) if folder_id else None,
+            "project_id": str(folder_id) if folder_id else None,
+            "signal_id": str(row.signal_id) if row.signal_id else None,
             "empty": empty,
         }
         if preview:

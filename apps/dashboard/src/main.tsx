@@ -13,10 +13,18 @@ import { NativeTitleTooltipBridge } from './components/ui/NativeTitleTooltipBrid
 import { TooltipProvider } from './components/ui/tooltip'
 import { ConfirmProvider } from './components/ui/confirm-dialog'
 import App from './App'
-import i18n from './i18n'
+import i18n, { ensureLanguage } from './i18n'
 import { PLATFORM_DEFAULT_LANGUAGE } from './lib/api.config'
 import { initSentry } from './lib/sentry'
 import { registerServiceWorker } from './lib/web-push'
+// Self-hosted fonts (latin subset): no request to Google, no third-party IP transfer.
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-500.css'
+import '@fontsource/inter/latin-600.css'
+import '@fontsource/inter/latin-700.css'
+import '@fontsource/jetbrains-mono/latin-400.css'
+import '@fontsource/jetbrains-mono/latin-500.css'
+import '@fontsource/jetbrains-mono/latin-600.css'
 import './index.css'
 import { Button } from './components/ui/button'
 
@@ -54,7 +62,8 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload()
 })
 const bootLanguage = resolveBootLanguage()
-void i18n.changeLanguage(bootLanguage)
+// Locale strings load per language; render once the active one is in.
+const languageReady = ensureLanguage(bootLanguage)
 document.documentElement.lang = bootLanguage
 try {
   const fromQuery = new URLSearchParams(window.location.search).get('lang')
@@ -140,10 +149,14 @@ const router = createBrowserRouter([
   },
 ])
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AppErrorBoundary>
-      <RouterProvider router={router} />
-    </AppErrorBoundary>
-  </StrictMode>,
-)
+void languageReady
+  .catch(() => undefined)
+  .then(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <AppErrorBoundary>
+          <RouterProvider router={router} />
+        </AppErrorBoundary>
+      </StrictMode>,
+    )
+  })

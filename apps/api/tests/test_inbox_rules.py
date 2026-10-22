@@ -414,6 +414,10 @@ async def test_apply_rule_auto_close(client: AsyncClient, session_override):
     await session_override.refresh(signal)
     assert signal.status == "closed"
     assert signal.has_unread is False
+    outcome = json.loads(signal.outcome_json or "{}")
+    assert outcome["autonomy_used"] == "autonomous"
+    assert outcome["kind"] == "no_action"
+    assert outcome["rule_id"] == str(rule.id)
 
     await session_override.refresh(rule)
     assert rule.hit_count == 1

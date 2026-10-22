@@ -6,6 +6,8 @@ through Postgres so staff can add OAuth/URL presets without a deploy.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import time
 from datetime import datetime
 from typing import Any
@@ -93,7 +95,7 @@ async def ensure_seeded(session: AsyncSession) -> None:
         ).all()
     }
     added = False
-    now = datetime.utcnow()
+    now = utcnow()
 
     # Repair static_id when JSON changed (e.g. dropbox_mcp must not claim "dropbox").
     catalog_by_slug = {
@@ -280,7 +282,7 @@ async def upsert_host(
     if not slug:
         raise HTTPException(status_code=400, detail="slug is required")
     row = await get_catalog_host(session, slug)
-    now = datetime.utcnow()
+    now = utcnow()
     if row is None:
         row = IntegrationCatalogHost(
             slug=slug,
@@ -342,7 +344,7 @@ async def create_provider(session: AsyncSession, body: dict[str, Any]) -> Integr
     url = str(body.get("mcp_remote_url") or "").strip()
     auth = str(body.get("auth_type") or "mcp_remote_oauth")
     status = _normalize_status(auth, url, str(body.get("status") or "available"))
-    now = datetime.utcnow()
+    now = utcnow()
     row = IntegrationCatalogProvider(
         slug=slug,
         static_id=str(body.get("static_id") or slug),
@@ -400,7 +402,7 @@ async def update_provider(
     auth = str(row.auth_type or "mcp_remote_oauth")
     status_in = body.get("status") if "status" in body else row.status
     row.status = _normalize_status(auth, url, str(status_in or "coming_soon"))
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
     await session.refresh(row)

@@ -43,7 +43,8 @@ TASK_STATUSES = (
 
 # Workflow kinds are the project-queue vocabulary; "job" is the internal
 # execution unit created by dispatch paths (workstreams, triggers, delegation).
-QUEUE_ITEM_KINDS = ("feature", "bug", "task", "idea", "risk")
+# "post": a content calendar entry (services/content_calendar.py).
+QUEUE_ITEM_KINDS = ("feature", "bug", "task", "idea", "risk", "post")
 TASK_KINDS = ("job", *QUEUE_ITEM_KINDS)
 TASK_PRIORITIES = ("low", "normal", "high", "urgent")
 

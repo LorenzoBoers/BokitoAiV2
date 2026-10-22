@@ -63,7 +63,7 @@ def test_narrow_passport_still_gets_canvas_tools():
     assert {"update_progress", "react_to_message", "list_departments", "list_folders"} <= operator
 
     external = {tool["name"] for tool in with_platform_core(narrowed, trust="external")}
-    assert external == {"call_mcp_tool"}
+    assert external == {"call_mcp_tool", "list_mcp_tools"}
 
     refresh = {tool["name"] for tool in with_platform_core(narrowed, trust="operator", refresh=True)}
     assert "update_folder_canvas" in refresh
@@ -84,6 +84,22 @@ def test_module_seat_keeps_workspace_core():
     assert {"list_folders", "create_folder", "list_folder_docs", "list_contacts"} <= offered
     assert "list_folders" in core_tool_names("operator")
     assert not core_tool_names("external")
+
+
+def test_revision_canvas_edits_the_only_one_of_that_kind():
+    from app.tools.project_work import revision_canvas
+
+    listed = [
+        {"id": "dash", "kind": "dashboard", "title": "Random Cijfers"},
+        {"id": "note", "kind": "document", "title": "Notitie"},
+    ]
+    body = {"kind": "dashboard", "title": "Nieuwe grafieken", "source": "<Stack />"}
+    assert revision_canvas(listed, body)["id"] == "dash"
+    assert revision_canvas(listed, {**body, "force_new": True}) is None
+    assert revision_canvas(listed, {**body, "kind": "document"})["id"] == "note"
+    assert revision_canvas(listed, {"kind": "dashboard", "title": "Leeg"}) is None
+    two = listed + [{"id": "dash-2", "kind": "dashboard", "title": "Andere"}]
+    assert revision_canvas(two, body) is None
 
 
 def test_canvas_refresh_trigger_detects_wake_copy():

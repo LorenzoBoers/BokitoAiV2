@@ -22,6 +22,82 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
+def test_fragment_format_call_and_prop_map_compile():
+    source = """
+import { Heading, Stat, Table, BarChart } from "bokito/canvas"
+
+export const kpiData = { bereik: 45200, groei: 12.5 }
+export const contentData = [
+  { datum: "2026-10-22", kanaal: "Instagram" },
+  { datum: "2026-10-23", kanaal: "LinkedIn" }
+]
+
+export default function Canvas() {
+  return (
+    <>
+      <Heading>Test</Heading>
+      <Stat label="Bereik" value={kpiData.bereik.toLocaleString()} />
+      <Table
+        columns={contentData.map(item => ({ key: item.datum, header: item.datum }))}
+        rows={contentData.map(item => ({
+          [item.datum]: `${item.kanaal}`
+        }))}
+      />
+      <BarChart data={contentData} />
+    </>
+  )
+}
+"""
+    _compiled, tree = compile_canvas(source=source)
+    assert tree["type"] == "Stack"
+    assert tree["children"][0]["props"]["text"] == "Test"
+    assert tree["children"][1]["props"]["value"] == 45200
+    assert tree["children"][2]["props"]["columns"] == ["2026-10-22", "2026-10-23"]
+    assert tree["children"][2]["props"]["rows"][1]["2026-10-23"] == "LinkedIn"
+
+
+def test_compile_bokito_canvas_wrapper():
+    source = """
+<bokito/canvas>
+  <Stat title="Engagement Rate" value="12.5%" />
+  <Heading level="2" text="Doelgroep" />
+</bokito/canvas>
+"""
+    _compiled, tree = compile_canvas(source=source)
+    assert tree["type"] == "Stack"
+    assert [child["type"] for child in tree["children"]] == ["Stat", "Heading"]
+    assert tree["children"][0]["props"]["value"] == "12.5%"
+
+
+def test_compile_hyphen_wrapper_and_pie():
+    """The shape agents actually send when they add charts to a dashboard."""
+    source = """
+<bokito-canvas>
+  <Stat title="Willekeurige Cijfers" value="{randomNumber: 42}" />
+  <BarChart title="Verdeling" series={[
+    {label: "0-10", value: 3},
+    {label: "11-20", value: 5}
+  ]} />
+  <Card title="Gemiddelde" value="{average: 20.33}" />
+  <PieChart title="Cijferverdeling" series={[
+    {label: "Laag", percentage: 25},
+    {label: "Hoog", percentage: 75}
+  ]} />
+</bokito-canvas>
+"""
+    _compiled, tree = compile_canvas(source=source)
+    assert tree["type"] == "Stack"
+    stat, chart, card, pie = tree["children"]
+    assert stat["props"]["value"] == 42
+    assert chart["props"]["series"][0]["points"][0] == {"x": "0-10", "y": 3}
+    assert card["children"][0]["props"]["text"] == "20.33"
+    assert pie["type"] == "PieChart"
+    assert pie["props"]["slices"] == [
+        {"name": "Laag", "value": 25},
+        {"name": "Hoog", "value": 75},
+    ]
+
+
 def test_compile_source_roundtrip():
     source = """
 import { Stack, Grid, Stat, Heading } from "bokito/canvas"
@@ -322,7 +398,8 @@ async def test_project_canvas_nodes_and_conflict(client: AsyncClient, session_ov
     assert created.status_code == 200, created.text
     body = created.json()
     assert body["slug"] == "nps"
-    assert body["owner_kind"] == "project"
+    assert body["folder_id"] == project_id
+    assert "owner_kind" not in body
     assert body["empty"] is True
     assert body["refresh_cadence"] == "hourly"
     assert body["refresh_minutes"] == 60
@@ -348,7 +425,6 @@ export default function Canvas() {
         tenant.id,
         {
             "canvas_id": body["id"],
-            "project_id": project_id,
             "notes": "Added KPI",
             "source": source,
         },
@@ -384,16 +460,14 @@ export default function Canvas() {
     assert len(listed.json()["items"]) == 2
 
     deleted = await client.delete(
-        f"/api/folders/{project_id}/canvases/{second.json()['slug']}",
+        f"/api/workforce/canvases/{second.json()['id']}",
         headers=headers,
     )
     assert deleted.status_code == 200
 
 
 @pytest.mark.asyncio
-async def test_canvas_without_folder_lands_in_general_and_forbidden_source(
-    client: AsyncClient, session_override
-):
+async def test_default_location_and_forbidden_source(client: AsyncClient, session_override):
     from sqlalchemy import select
 
     from app.models.auth import Tenant
@@ -402,7 +476,6 @@ async def test_canvas_without_folder_lands_in_general_and_forbidden_source(
 
     headers = await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    tenant_id = str(tenant.id)
 
     empty = await client.get("/api/workforce/canvases/default-location", headers=headers)
     assert empty.status_code == 200
@@ -414,24 +487,27 @@ async def test_canvas_without_folder_lands_in_general_and_forbidden_source(
         "href": f"/folders/{general.id}?tab=canvas",
     }
 
+    folder_id = await _make_project(client, headers, "canvas-morning")
     created = await client.post(
         "/api/workforce/canvases",
         headers=headers,
         json={
             "title": "Morning scan",
+            "new_thread": True,
+            "folder_id": folder_id,
             "refresh_cadence": "weekly",
             "notes": "Open threads and running work",
         },
     )
     assert created.status_code == 200, created.text
-    assert created.json()["owner_kind"] == "project"
-    assert created.json()["owner_id"] == str(general.id)
+    assert created.json()["folder_id"] == folder_id
+    assert created.json()["signal_id"]
     assert created.json()["empty"] is True
     assert created.json()["refresh_cadence"] == "weekly"
     assert created.json()["notes"] == "Open threads and running work"
 
     listed = await client.get(
-        f"/api/workforce/canvases?owner_kind=project&owner_id={general.id}",
+        f"/api/workforce/canvases?folder_id={folder_id}",
         headers=headers,
     )
     assert listed.status_code == 200
@@ -439,19 +515,33 @@ async def test_canvas_without_folder_lands_in_general_and_forbidden_source(
 
     landed = await client.get("/api/workforce/canvases/default-location", headers=headers)
     assert landed.json()["canvas_id"] == created.json()["id"]
-    assert landed.json()["href"] == f"/folders/{general.id}?tab=canvas&canvas={created.json()['id']}"
+    assert landed.json()["folder_id"] == folder_id
+    assert landed.json()["href"] == f"/folders/{folder_id}?tab=canvas&canvas={created.json()['id']}"
     gone = await client.get(
         "/api/workforce/canvases/default-location?canvas_id=00000000-0000-0000-0000-000000000000",
         headers=headers,
     )
     assert gone.json()["canvas_id"] == created.json()["id"]
 
-    retired = await client.post(
+    loose = await client.post(
         "/api/workforce/canvases",
         headers=headers,
-        json={"owner_kind": "tenant", "owner_id": tenant_id, "title": "Old style"},
+        json={"title": "Loose board"},
     )
-    assert retired.status_code == 400
+    assert loose.status_code == 200, loose.text
+    assert loose.json()["folder_id"] is None
+    unfiled = await client.get(
+        f"/api/workforce/canvases/default-location?canvas_id={loose.json()['id']}",
+        headers=headers,
+    )
+    assert unfiled.json()["folder_id"] is None
+    assert unfiled.json()["canvas_id"] == loose.json()["id"]
+    assert unfiled.json()["href"].endswith(
+        f"/t/{loose.json()['signal_id']}?canvas={loose.json()['id']}"
+    )
+
+    missing = await client.get("/api/workforce/canvases", headers=headers)
+    assert missing.status_code == 400
 
     with pytest.raises(HTTPException) as bad:
         await apply_canvas_document(
@@ -543,9 +633,9 @@ async def test_same_title_reuses_canvas_and_agent_create_stays_in_chat(
     )
     assert first.status_code == 200, first.text
     again = await client.post(
-        f"/api/folders/{project_id}/canvases",
+        "/api/workforce/canvases",
         headers=headers,
-        json={"title": "  financieel   overzicht "},
+        json={"signal_id": first.json()["signal_id"], "title": "  financieel   overzicht "},
     )
     assert again.status_code == 200, again.text
     assert again.json()["id"] == first.json()["id"]
@@ -564,8 +654,7 @@ async def test_same_title_reuses_canvas_and_agent_create_stays_in_chat(
         session_override,
         tenant.id,
         {
-            "owner_kind": "project",
-            "owner_id": project_id,
+            "signal_id": first.json()["signal_id"],
             "title": "Tweede dashboard",
             "kick": False,
         },
@@ -573,6 +662,7 @@ async def test_same_title_reuses_canvas_and_agent_create_stays_in_chat(
     )
     canvas = applied["canvas"]
     assert canvas.get("reused") is not True
+    assert canvas["folder_id"] == project_id
     assert canvas["signal_id"]
     assert canvas["thread"]["id"] == canvas["signal_id"]
     quiet = await session_override.get(Trigger, UUID(canvas["refresh_trigger_id"]))
@@ -611,13 +701,12 @@ async def test_create_canvas_uses_current_thread_or_opens_new(client, session_ov
     home = await create_canvas(
         session_override,
         tenant.id,
-        owner_kind="project",
-        owner_id=UUID(project_id),
         title="From this chat",
         kick=False,
         signal_id=chat.id,
     )
     assert home["signal_id"] == str(chat.id)
+    assert home["folder_id"] is None
     assert home["thread"]["id"] == str(chat.id)
     assert home["thread"]["path"]
 
@@ -632,16 +721,68 @@ async def test_create_canvas_uses_current_thread_or_opens_new(client, session_ov
     other = await create_canvas(
         session_override,
         tenant.id,
-        owner_kind="project",
-        owner_id=UUID(project_id),
         title="Own thread",
         kick=False,
-        signal_id=chat.id,
         new_thread=True,
+        folder_id=UUID(project_id),
     )
     assert other["signal_id"]
     assert other["signal_id"] != str(chat.id)
     assert other["thread"]["id"] == other["signal_id"]
+    assert other["folder_id"] == project_id
+
+    with pytest.raises(HTTPException) as homeless:
+        await create_canvas(session_override, tenant.id, title="Nowhere", kick=False)
+    assert homeless.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_assistant_home_canvas_keeps_one_refresh_thread(client, session_override):
+    """Saving a canvas asked for in an assistant chat must not open a new thread each time."""
+    from uuid import UUID
+
+    from sqlalchemy import func, select
+
+    from app.models.auth import Tenant
+    from app.models.signal import Signal
+    from app.services.project_canvas import create_canvas, get_canvas, patch_canvas_meta
+
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    chat = Signal(
+        tenant_id=tenant.id,
+        channel="assistant",
+        source="chat",
+        subject="Weekly updates",
+        status="open",
+        priority="normal",
+    )
+    session_override.add(chat)
+    await session_override.commit()
+    await session_override.refresh(chat)
+
+    created = await create_canvas(
+        session_override,
+        tenant.id,
+        title="ChargeCars weekly",
+        refresh_cadence="weekly",
+        kick=False,
+        signal_id=chat.id,
+    )
+    await patch_canvas_meta(
+        session_override,
+        tenant.id,
+        UUID(created["id"]),
+        notes="Same canvas, saved again",
+        refresh_cadence="weekly",
+    )
+    await get_canvas(session_override, tenant.id, canvas_id=UUID(created["id"]))
+    live = await session_override.scalar(
+        select(func.count())
+        .select_from(Signal)
+        .where(Signal.deleted_at.is_(None), Signal.subject.like("Refresh canvas%"))
+    )
+    assert live == 1
 
 
 @pytest.mark.asyncio
@@ -715,7 +856,7 @@ async def test_soft_delete_canvas_disables_refresh_trigger(client: AsyncClient, 
     assert signal is not None and signal.next_at is not None
 
     deleted = await client.delete(
-        f"/api/folders/{project_id}/canvases/{body['slug']}",
+        f"/api/workforce/canvases/{body['id']}",
         headers=headers,
     )
     assert deleted.status_code == 200, deleted.text
@@ -726,3 +867,105 @@ async def test_soft_delete_canvas_disables_refresh_trigger(client: AsyncClient, 
     assert trigger.next_run_at is None
     assert trigger.last_status == "canvas_binned"
     assert signal.next_at is None
+
+
+@pytest.mark.asyncio
+async def test_canvas_follows_its_thread_when_refiled(client: AsyncClient, session_override):
+    from uuid import UUID
+
+    from app.models.signal import Signal
+    from app.services import folders
+
+    headers = await _auth_headers(client)
+    folder_a = await _make_project(client, headers, "canvas-refile-a")
+    folder_b = await _make_project(client, headers, "canvas-refile-b")
+    created = await client.post(
+        f"/api/folders/{folder_a}/canvases",
+        headers=headers,
+        json={"title": "Moving board", "refresh_cadence": "manual"},
+    )
+    assert created.status_code == 200, created.text
+    canvas_id = created.json()["id"]
+
+    in_a = await client.get(f"/api/workforce/canvases?folder_id={folder_a}", headers=headers)
+    assert in_a.status_code == 200, in_a.text
+    assert [item["id"] for item in in_a.json()["items"]] == [canvas_id]
+    in_b = await client.get(f"/api/workforce/canvases?folder_id={folder_b}", headers=headers)
+    assert in_b.json()["items"] == []
+
+    home = await session_override.get(Signal, UUID(created.json()["signal_id"]))
+    assert home is not None
+    await folders.file_in_folder(session_override, home, None)
+    await folders.file_in_folder(session_override, home, UUID(folder_b))
+    await session_override.commit()
+
+    in_b = await client.get(f"/api/workforce/canvases?folder_id={folder_b}", headers=headers)
+    assert [item["id"] for item in in_b.json()["items"]] == [canvas_id]
+    assert in_b.json()["items"][0]["folder_id"] == folder_b
+    in_a = await client.get(f"/api/workforce/canvases?folder_id={folder_a}", headers=headers)
+    assert in_a.json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_brand_kind_is_rejected(client: AsyncClient, session_override):
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.services.canvas_content import CanvasContentError, normalize_kind
+    from app.services.project_canvas import apply_canvas_document, create_canvas
+
+    with pytest.raises(CanvasContentError):
+        normalize_kind("brand")
+
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    with pytest.raises(HTTPException) as direct:
+        await create_canvas(
+            session_override,
+            tenant.id,
+            new_thread=True,
+            title="Huisstijl",
+            canvas_kind="brand",
+            kick=False,
+        )
+    assert direct.value.status_code == 400
+    with pytest.raises(HTTPException) as applied:
+        await apply_canvas_document(
+            session_override,
+            tenant.id,
+            {"new_thread": True, "title": "Huisstijl", "kind": "brand", "kick": False},
+            change_kind="create",
+        )
+    assert applied.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_slug_is_unique_per_conversation(client: AsyncClient, session_override):
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.services.project_canvas import create_canvas
+
+    await _auth_headers(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    first = await create_canvas(
+        session_override, tenant.id, new_thread=True, title="Board one", slug="board", kick=False
+    )
+    second = await create_canvas(
+        session_override,
+        tenant.id,
+        signal_id=UUID(first["signal_id"]),
+        title="Board two",
+        slug="board",
+        kick=False,
+    )
+    elsewhere = await create_canvas(
+        session_override, tenant.id, new_thread=True, title="Board three", slug="board", kick=False
+    )
+    assert first["slug"] == "board"
+    assert second["signal_id"] == first["signal_id"]
+    assert second["slug"] == "board-2"
+    assert elsewhere["signal_id"] != first["signal_id"]
+    assert elsewhere["slug"] == "board"

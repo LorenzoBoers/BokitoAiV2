@@ -24,6 +24,8 @@ parent with an ``AgentTurn(cause_kind="subagent_result")`` when it ends.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import json
 import logging
@@ -170,7 +172,7 @@ async def _post_row(session: AsyncSession, run: AgentRun, agent_name: str) -> UU
         body_text=body,
         body_preview=body[:200],
         metadata_json=json.dumps({"kind": "subagent", **_row_meta(run, agent_name)}),
-        received_at=datetime.utcnow(),
+        received_at=utcnow(),
     )
     session.add(row)
     await session.flush()
@@ -290,6 +292,7 @@ async def spawn(ctx: Any, tool_input: dict[str, Any]) -> dict[str, Any]:
                 "background": background,
                 "model": seat.model,
                 "capability_mode": seat.capability_mode,
+                "effort": seat.reasoning_effort or "low",
                 "persona": seat.persona.name if seat.persona else "",
                 "role": seat.role.name if seat.role else "",
                 "parent_agent_id": str(ctx.agent.id) if ctx.agent is not None else "",
@@ -358,7 +361,7 @@ async def kill(ctx: Any, tool_input: dict[str, Any]) -> dict[str, Any]:
     request_cancel(run.id)
     run.status = "cancelled"
     run.stop_reason = "user_interrupt"
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     ctx.session.add(run)
     await _refresh_row(ctx.session, run)
     await ctx.session.commit()
@@ -439,7 +442,7 @@ async def take_messages(session: AsyncSession, run_id: UUID, *, deliveries: tupl
         ).scalars()
     )
     rows.sort(key=lambda r: 0 if r.delivery == "interject" else 1)
-    now = datetime.utcnow()
+    now = utcnow()
     for row in rows:
         row.status = "delivered"
         row.delivered_at = now
@@ -504,6 +507,9 @@ def _runtime_agent(agent: Agent, meta: dict[str, Any]) -> Agent:
     runtime = apply_snapshot_to_agent(agent, snapshot)
     if meta.get("capability_mode"):
         runtime.capability_mode = meta["capability_mode"]
+    from app.services.agent.effort_policy import normalize_effort
+
+    runtime.effort = normalize_effort(meta.get("effort"), "low")
     return runtime
 
 
@@ -551,7 +557,7 @@ async def execute(session: AsyncSession, run_id: UUID) -> dict[str, Any]:
         if await _active_count(session, run.tenant_id) >= limits(tenant)["max_concurrent"]:
             return {"ok": False, "reason": "still_queued"}
         run.status = "running"
-        run.started_at = datetime.utcnow()
+        run.started_at = utcnow()
         session.add(run)
         await session.commit()
 
@@ -601,7 +607,7 @@ async def execute(session: AsyncSession, run_id: UUID) -> dict[str, Any]:
         try:
             await session.rollback()
         except Exception:  # noqa: BLE001
-            pass
+            logger.debug("subagent rollback after failure failed", exc_info=True)
 
     await session.refresh(run)
     if run.status == "cancelled" or error == "cancelled":
@@ -615,7 +621,7 @@ async def execute(session: AsyncSession, run_id: UUID) -> dict[str, Any]:
         run.stop_reason = getattr(loop, "stop_reason", "") or "end_turn"
         run.result_json = json.dumps({"text": text[:RESULT_CHARS]})
         run.checkpoint_json = json.dumps([*messages, {"role": "assistant", "content": text}][-40:])
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     session.add(run)
     await _refresh_row(session, run)
     await session.commit()

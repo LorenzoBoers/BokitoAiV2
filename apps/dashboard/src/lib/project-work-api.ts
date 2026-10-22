@@ -270,6 +270,7 @@ export interface WorksInItem {
   origin: WorksInOrigin
   label: string
   detail: string
+  canvas_kind?: string | null
   href: string | null
   status: string
   count: number | null

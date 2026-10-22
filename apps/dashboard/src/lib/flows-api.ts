@@ -11,7 +11,9 @@ export type WorkstreamRunStatus =
   | 'cancelled'
 export type WorkstreamInputKind = 'manual' | 'queue_item' | 'signal' | 'trigger' | 'ticket'
 
-/** A flow: a reusable stage pipeline titled by its action-tag hashtag. */
+/** A flow: the recipe for one kind of signal plus its stage pipeline, titled by its flow label. */
+export type FlowAutonomy = '' | 'manual' | 'assisted' | 'autonomous'
+
 export type WorkstreamRow = {
   id: string
   signal_id?: string | null
@@ -24,14 +26,24 @@ export type WorkstreamRow = {
   tags?: Array<{ id: string; name: string; color?: string; icon?: string }>
   stages: TicketStage[]
   stages_count?: number
-  /** A person confirms before this flow's tickets send (caps them at Assisted). */
-  always_review?: boolean
+  /** This flow's mode under the Govern ceiling; empty follows channel and workspace. */
+  autonomy?: FlowAutonomy
+  /** The department that runs this flow; null when none. */
+  department_id?: string | null
+  /** Set when a looser mode waits for approval in Govern. */
+  pending_change_id?: string | null
   /** Agent stage moves: empty follows the workspace default. */
   stage_entry_policy?: string
   /** Certainty (0-10) for `auto_above`; null follows the workspace. */
   stage_entry_threshold?: number | null
   deliver_folder_id?: string | null
   deliver_works_in_key?: string
+  /** The recipe: the working method, tools / `connection:{id}`, what done produces (free text). */
+  instructions?: string
+  capabilities?: string[]
+  expected_outcome?: string
+  /** No waiting stage: handled in the conversation, no board. */
+  direct?: boolean
   /** Detail only: the resolved "Delivers to" with labels. */
   deliver_to?: FlowDestination | null
   /** List only: live tickets per stage key. */
@@ -143,7 +155,22 @@ export async function insertFlowStage(
 
 export async function patchWorkstream(
   workstreamId: string,
-  patch: Partial<Pick<WorkstreamRow, 'name' | 'description' | 'stages' | 'always_review' | 'deliver_folder_id' | 'deliver_works_in_key'>> & {
+  patch: Partial<
+    Pick<
+      WorkstreamRow,
+      | 'name'
+      | 'description'
+      | 'stages'
+      | 'autonomy'
+      | 'department_id'
+      | 'deliver_folder_id'
+      | 'deliver_works_in_key'
+      | 'instructions'
+      | 'capabilities'
+      | 'expected_outcome'
+      | 'direct'
+    >
+  > & {
     /** The flow's one action tag (at most one id); empty detaches it. */
     tag_ids?: string[]
     /** Empty string follows the workspace default. */

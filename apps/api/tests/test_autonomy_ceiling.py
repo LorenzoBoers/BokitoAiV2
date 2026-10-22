@@ -20,15 +20,16 @@ def test_explicit_ceiling_ignores_messaging_allow(monkeypatch):
     assert clamped == "govern"
 
 
-def test_flow_always_review_caps_autonomous(monkeypatch):
+def test_flow_dial_sets_mode_under_the_ceiling(monkeypatch):
     monkeypatch.setattr(
         "app.services.privacy.tenant_allows_llm_message_bodies",
         lambda _tenant: True,
     )
     tenant = SimpleNamespace(
-        settings_json='{"ai_handling":{"default":"autonomous","ceiling":"autonomous"}}',
+        settings_json='{"ai_handling":{"default":"autonomous","ceiling":"assisted"}}',
         name="Acme",
     )
-    handling = resolve_ai_handling(tenant, flow_always_review=True)  # type: ignore[arg-type]
-    assert handling.effective == "assisted"
-    assert handling.clamped_by == "flow"
+    stricter = resolve_ai_handling(tenant, scope="flow", flow_mode="manual")  # type: ignore[arg-type]
+    assert stricter.effective == "manual" and stricter.source == "flow"
+    looser = resolve_ai_handling(tenant, scope="flow", flow_mode="autonomous")  # type: ignore[arg-type]
+    assert looser.effective == "assisted" and looser.clamped_by == "govern"

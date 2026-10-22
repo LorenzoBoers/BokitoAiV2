@@ -36,4 +36,6 @@ export const workspaceRoutes = {
   search: () => '/workspace/search',
   platformSkills: (lang: string) =>
     withQuery('/workspace/platform-skills', new URLSearchParams({ lang })),
+  debugDom: () => '/workspace/debug-dom',
+  debugDomEvents: () => '/workspace/debug-dom/events',
 } as const

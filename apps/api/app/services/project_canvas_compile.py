@@ -24,6 +24,7 @@ SDK_TYPES = frozenset(
         "Table",
         "BarChart",
         "LineChart",
+        "PieChart",
         "Card",
         "Badge",
     }
@@ -130,6 +131,16 @@ def normalize_tree(raw: Any, *, depth: int = 0, counter: list[int] | None = None
     props = _clean_props(raw.get("props") if isinstance(raw.get("props"), dict) else {})
     if node_type in {"BarChart", "LineChart"}:
         props = _normalize_chart_props(props)
+    elif node_type == "PieChart":
+        props = _normalize_pie_props(props)
+    elif node_type == "Stat":
+        plain = _plain_measure(props.get("value"))
+        if plain is not None:
+            props["value"] = plain
+        if not props.get("hint"):
+            extra = props.get("change") or props.get("trend")
+            if extra is not None:
+                props["hint"] = str(extra)
     elif node_type == "Table":
         props = _normalize_table_props(props)
     elif node_type == "Callout":
@@ -137,11 +148,6 @@ def normalize_tree(raw: Any, *, depth: int = 0, counter: list[int] | None = None
             props["tone"] = str(props.pop("type"))
         else:
             props.pop("type", None)
-    elif node_type == "Stat":
-        if not props.get("hint"):
-            extra = props.get("change") or props.get("trend")
-            if extra is not None:
-                props["hint"] = str(extra)
     children_raw = raw.get("children")
     children: list[Any] = []
     if isinstance(children_raw, list):
@@ -156,6 +162,11 @@ def normalize_tree(raw: Any, *, depth: int = 0, counter: list[int] | None = None
                     if _is_brace_noise(raw) and not (child.get("children") or []):
                         continue
                 children.append(normalize_tree(child, depth=depth + 1, counter=counter))
+    if node_type == "Card" and not any(isinstance(child, dict) for child in children):
+        shown = _plain_measure(props.get("value"))
+        if shown is not None:
+            children.append({"type": "Text", "props": {"text": str(shown)[:_MAX_STRING]}, "children": []})
+            props.pop("value", None)
     return {"type": node_type, "props": props, "children": children}
 
 
@@ -184,6 +195,11 @@ def _strip_comments(source: str) -> str:
 
 _UNBOUND = object()
 _CONST_START = re.compile(r"\b(?:const|let)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=")
+_FORMAT_CALLS = frozenset({"toLocaleString", "toString", "toFixed"})
+_PROP_MAP = re.compile(
+    r"^([A-Za-z_][A-Za-z0-9_]*)\.map\(\s*"
+    r"(?:\(\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\)?\s*=>\s*"
+)
 
 
 def _collect_bindings(source: str) -> dict[str, Any]:
@@ -275,6 +291,16 @@ def _span_balanced(text: str, i: int) -> int | None:
         if ch in {'"', "'"}:
             in_str = ch
             i += 1
+            continue
+        if ch == "`":
+            i += 1
+            while i < len(text) and text[i] != "`":
+                if text[i] == "\\" and i + 1 < len(text):
+                    i += 2
+                    continue
+                i += 1
+            if i < len(text):
+                i += 1
             continue
         if ch == open_ch:
             depth += 1
@@ -381,6 +407,55 @@ def _looks_like_point_rows(value: Any) -> bool:
     return "points" not in first and "values" not in first
 
 
+def _plain_measure(value: Any) -> Any:
+    """A Stat or Card value written as ``{name: 42}`` is the number, not that object."""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, dict):
+        for item in value.values():
+            if isinstance(item, (int, float)) and not isinstance(item, bool):
+                return item
+        return None
+    if isinstance(value, str):
+        match = re.fullmatch(
+            r"\{\s*[A-Za-z_][A-Za-z0-9_]*\s*:\s*(-?\d+(?:\.\d+)?)\s*\}",
+            value.strip(),
+        )
+        if match:
+            number = float(match.group(1))
+            return int(number) if number.is_integer() else number
+    return None
+
+
+def _normalize_pie_props(props: dict[str, Any]) -> dict[str, Any]:
+    rows = props.get("slices") or props.get("series") or props.get("data")
+    slices: list[dict[str, Any]] = []
+    if isinstance(rows, list):
+        for row in rows[:12]:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("name") or row.get("label") or "").strip()
+            raw = row.get("value")
+            if raw is None:
+                raw = row.get("percentage") if "percentage" in row else row.get("y")
+            try:
+                number = float(raw)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                continue
+            slices.append(
+                {
+                    "name": label[:80],
+                    "value": int(number) if number.is_integer() else number,
+                }
+            )
+    props["slices"] = slices
+    props.pop("series", None)
+    props.pop("data", None)
+    return props
+
+
 def _normalize_chart_props(props: dict[str, Any]) -> dict[str, Any]:
     series = props.get("series")
     data = props.get("data")
@@ -450,25 +525,50 @@ class _JsxParser:
         self.i += 1
         if self.i < len(self.s) and self.s[self.i] == "/":
             raise CanvasCompileError("Unexpected closing tag.")
-        name = self._read_ident()
-        if name not in SDK_TYPES:
-            raise CanvasCompileError(f"Unknown canvas component {name!r}.")
-        props = self._read_props()
-        self.skip_ws()
-        if self.i < len(self.s) - 1 and self.s[self.i : self.i + 2] == "/>":
-            self.i += 2
-            return {"type": name, "props": props, "children": []}
-        if self.i >= len(self.s) or self.s[self.i] != ">":
-            raise CanvasCompileError(f"Expected > after <{name}.")
-        self.i += 1
+        # <>...</> is the usual root when a canvas has several sections.
+        fragment = self.i < len(self.s) and self.s[self.i] == ">"
+        if fragment:
+            name = "Stack"
+            props: dict[str, Any] = {}
+            self.i += 1
+        else:
+            name = self._read_ident()
+            if self._consume_canvas_wrapper(name):
+                # Models wrap a dashboard in <bokito/canvas> or <bokito-canvas>.
+                name = "Stack"
+                props = {}
+                self.skip_ws()
+                if self.i >= len(self.s) or self.s[self.i] != ">":
+                    raise CanvasCompileError("Expected > after the canvas wrapper.")
+                self.i += 1
+            else:
+                if name not in SDK_TYPES:
+                    raise CanvasCompileError(f"Unknown canvas component {name!r}.")
+                props = self._read_props()
+                self.skip_ws()
+                if self.i < len(self.s) - 1 and self.s[self.i : self.i + 2] == "/>":
+                    self.i += 2
+                    return {"type": name, "props": props, "children": []}
+                if self.i >= len(self.s) or self.s[self.i] != ">":
+                    raise CanvasCompileError(f"Expected > after <{name}.")
+                self.i += 1
         children: list[Any] = []
         while True:
             self.skip_ws()
             if self.i >= len(self.s):
-                raise CanvasCompileError(f"Unclosed <{name}>.")
+                raise CanvasCompileError("Unclosed fragment." if fragment else f"Unclosed <{name}>.")
+            if self.s.startswith("</>", self.i):
+                if not fragment:
+                    raise CanvasCompileError("Unexpected </>.")
+                self.i += 3
+                break
+            if fragment and self.s.startswith("</", self.i):
+                raise CanvasCompileError("A fragment closes with </>.")
             if self.s.startswith("</", self.i):
                 self.i += 2
                 close = self._read_ident()
+                if self._consume_canvas_wrapper(close):
+                    close = "Stack"
                 if close != name:
                     raise CanvasCompileError(f"Mismatched tag: opened {name}, closed {close}.")
                 self.skip_ws()
@@ -571,6 +671,16 @@ class _JsxParser:
             nodes.append(parser.parse_node())
         return nodes
 
+    def _consume_canvas_wrapper(self, name: str) -> bool:
+        """True when ``name`` starts ``<bokito/canvas>`` or ``<bokito-canvas>``."""
+        if name != "bokito":
+            return False
+        for suffix in ("/canvas", "-canvas"):
+            if self.s.startswith(suffix, self.i):
+                self.i += len(suffix)
+                return True
+        return False
+
     def _read_ident(self) -> str:
         self.skip_ws()
         start = self.i
@@ -615,6 +725,11 @@ class _JsxParser:
             if self.i < len(self.s):
                 self.i += 1
             return value
+        if self.s[self.i] == "[":
+            # Models write data=[...] instead of data={[...]}.
+            start = self.i
+            self._read_balanced("[", "]")
+            return _parse_js_value(self.s[start : self.i], self.bindings)
         if self.s[self.i] != "{":
             raise CanvasCompileError("Prop values must be a string or {expression}.")
         expr = self._read_balanced("{", "}")
@@ -639,6 +754,16 @@ class _JsxParser:
                 continue
             if ch in {'"', "'"}:
                 in_str = ch
+            elif ch == "`":
+                self.i += 1
+                while self.i < len(self.s) and self.s[self.i] != "`":
+                    if self.s[self.i] == "\\" and self.i + 1 < len(self.s):
+                        self.i += 2
+                        continue
+                    self.i += 1
+                if self.i < len(self.s):
+                    self.i += 1
+                continue
             elif ch == open_ch:
                 depth += 1
             elif ch == close_ch:
@@ -657,6 +782,111 @@ class _JsxParser:
         return self.s[start : self.i]
 
 
+def _span_parens(text: str, i: int) -> int | None:
+    if i >= len(text) or text[i] != "(":
+        return None
+    depth = 0
+    in_str: str | None = None
+    while i < len(text):
+        ch = text[i]
+        if in_str:
+            if ch == "\\" and i + 1 < len(text):
+                i += 2
+                continue
+            if ch == in_str:
+                in_str = None
+            i += 1
+            continue
+        if ch in {'"', "'"}:
+            in_str = ch
+        elif ch == "`":
+            i += 1
+            while i < len(text) and text[i] != "`":
+                if text[i] == "\\" and i + 1 < len(text):
+                    i += 2
+                    continue
+                i += 1
+            if i < len(text):
+                i += 1
+            continue
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return None
+
+
+def _path_value(expr: str, bindings: dict[str, Any]) -> Any:
+    parts = [part for part in expr.strip().split(".") if part]
+    if not parts or parts[0] not in bindings:
+        raise CanvasCompileError(
+            f"Inline {expr.strip() or 'that value'}. Use a const field, not a calculation."
+        )
+    resolved = _resolve_path(bindings[parts[0]], parts[1:])
+    if resolved is _UNBOUND:
+        raise CanvasCompileError(
+            f"Const {parts[0]!r} has no {expr.strip()}. Inline that prop value."
+        )
+    return resolved
+
+
+def _template_literal(text: str, i: int, bindings: dict[str, Any]) -> tuple[str, int]:
+    i += 1
+    parts: list[str] = []
+    buf: list[str] = []
+    while i < len(text) and text[i] != "`":
+        if text.startswith("${", i):
+            if buf:
+                parts.append("".join(buf))
+                buf = []
+            end = text.find("}", i + 2)
+            if end < 0:
+                raise CanvasCompileError("Unclosed template in a canvas prop.")
+            parts.append(str(_path_value(text[i + 2 : end], bindings)))
+            i = end + 1
+            continue
+        buf.append(text[i])
+        i += 1
+    if i >= len(text) or text[i] != "`":
+        raise CanvasCompileError("Unclosed template in a canvas prop.")
+    if buf:
+        parts.append("".join(buf))
+    return "".join(parts), i + 1
+
+
+def _computed_key(text: str, i: int, bindings: dict[str, Any]) -> tuple[str, int]:
+    end = text.find("]", i + 1)
+    if end < 0:
+        raise CanvasCompileError("Unclosed computed key in a canvas prop.")
+    return str(_path_value(text[i + 1 : end], bindings)), end + 1
+
+
+def _expand_prop_map(expr: str, bindings: dict[str, Any]) -> Any:
+    """Turn ``rows.map(item => ({ key: item.name }))`` into a list of objects."""
+    text = expr.strip()
+    match = _PROP_MAP.match(text)
+    if not match:
+        return _UNBOUND
+    rows = bindings.get(match.group(1))
+    if not isinstance(rows, list):
+        return _UNBOUND
+    rest = text[match.end() :].strip()
+    if not rest.startswith("("):
+        return _UNBOUND
+    end = _span_parens(rest, 0)
+    if end is None or rest[end:].strip() != ")":
+        return _UNBOUND
+    inner = rest[1 : end - 1].strip()
+    item = match.group(2)
+    return [
+        _parse_js_value(inner, {**bindings, item: row})
+        for row in rows[:80]
+    ]
+
+
 def _parse_js_value(expr: str, bindings: dict[str, Any] | None = None) -> Any:
     text = expr.strip()
     if not text:
@@ -671,6 +901,9 @@ def _parse_js_value(expr: str, bindings: dict[str, Any] | None = None) -> Any:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
+    mapped = _expand_prop_map(text, bindings or {})
+    if mapped is not _UNBOUND:
+        return mapped
     # JS object / array with unquoted keys, plus consts declared above the return.
     normalized = _js_to_json(text, bindings or {})
     try:
@@ -700,17 +933,25 @@ def _js_to_json(text: str, bindings: dict[str, Any] | None = None) -> str:
             out.append('"')
             i += 1
             continue
+        known = bindings or {}
+        prev = "".join(out).rstrip()[-1:] if out else ""
+        if ch == "`":
+            literal, i = _template_literal(text, i, known)
+            out.append(json.dumps(literal))
+            continue
+        if ch == "[" and prev in {"{", ","}:
+            key, i = _computed_key(text, i, known)
+            out.append(json.dumps(key))
+            continue
         if ch.isalpha() or ch == "_":
             start = i
             while i < len(text) and (text[i].isalnum() or text[i] == "_"):
                 i += 1
             ident = text[start:i]
             nxt = text[i:].lstrip()[:1]
-            prev = "".join(out).rstrip()[-1:] if out else ""
-            known = bindings or {}
             if ident in {"true", "false", "null"} and nxt != ".":
                 out.append(ident)
-            elif nxt == ":" and prev in "{,":
+            elif nxt == ":" and prev in {"{", ","}:
                 out.append(json.dumps(ident))
             elif ident in known:
                 path = [ident]
@@ -730,6 +971,23 @@ def _js_to_json(text: str, bindings: dict[str, Any] | None = None) -> str:
                         end += 1
                     path.append(text[k:end])
                     i = end
+                while len(path) > 1 and path[-1] in _FORMAT_CALLS:
+                    path.pop()
+                    j = i
+                    while j < len(text) and text[j].isspace():
+                        j += 1
+                    if j < len(text) and text[j] == "(":
+                        depth = 0
+                        while j < len(text):
+                            if text[j] == "(":
+                                depth += 1
+                            elif text[j] == ")":
+                                depth -= 1
+                                if depth == 0:
+                                    j += 1
+                                    break
+                            j += 1
+                        i = j
                 resolved = _resolve_path(known[ident], path[1:])
                 if resolved is _UNBOUND:
                     joined = ".".join(path)

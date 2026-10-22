@@ -286,6 +286,11 @@ function splitPath(pathname: string): { head: string; parts: string[]; threadId:
   }
 }
 
+/** The conversation open in a Communication pathname (`.../t/:threadId`), if any. */
+export function threadIdFromPath(pathname: string): string | null {
+  return splitPath(pathname)?.threadId ?? null
+}
+
 /** Parse the active leaf from a pathname, ignoring any `/t/:threadId` suffix. */
 export function leafFromPath(pathname: string): HubLeaf | null {
   const split = splitPath(pathname)

@@ -7,9 +7,11 @@ spread emoji elsewhere in the product.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import logging
 from typing import Any, Literal
 from uuid import UUID
+
+from app.core.time import utcnow
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select
@@ -20,6 +22,8 @@ from app.models.auth import User
 from app.models.learning import Feedback
 from app.models.message_reaction import MessageReaction
 from app.models.signal import Signal, SignalMessage
+
+logger = logging.getLogger(__name__)
 
 ReactionKind = Literal[
     "up", "down", "hundred", "facepalm", "clap", "thinking", "investigating"
@@ -165,7 +169,7 @@ async def set_reaction(
     """Set or replace this actor's reaction on the message."""
     message = await _load_message(session, tenant_id, message_id)
     norm = normalize_kind(kind, actor_type=actor_type)
-    now = datetime.utcnow()
+    now = utcnow()
 
     row = (
         await session.execute(
@@ -402,4 +406,8 @@ async def _publish(message: SignalMessage, aggregate: dict[str, Any]) -> None:
             reactions=aggregate,
         )
     except Exception:  # noqa: BLE001 — never break the write path
-        pass
+        logger.warning(
+            "publish message reaction failed for message %s",
+            message.id,
+            exc_info=True,
+        )

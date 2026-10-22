@@ -1,5 +1,6 @@
 """Workspace markdown docs API: memory, persona, skills, docs, daily logs."""
 
+import asyncio
 import re
 from typing import Annotated
 from uuid import UUID
@@ -166,7 +167,8 @@ async def upload_workspace_doc(
     if not data:
         raise HTTPException(status_code=400, detail="Empty file")
     filename = file.filename or "document"
-    text = extract_text(filename, data)
+    # PDF/Word parsing is CPU-bound: keep it off the event loop.
+    text = await asyncio.to_thread(extract_text, filename, data)
 
     stored = await get_storage_backend().store(
         data=data,
@@ -425,3 +427,67 @@ async def search_workspace(
         agent_id=body.agent_id,
     )
     return {"results": results}
+
+
+class DebugDomUpdate(BaseModel):
+    enabled: bool = False
+    features: list[str] = []
+
+
+class DebugDomEventIn(BaseModel):
+    name: str
+    detail: dict = {}
+
+
+class DebugDomEventsBody(BaseModel):
+    feature: str
+    signal_id: UUID | None = None
+    events: list[DebugDomEventIn] = []
+
+
+@router.get("/debug-dom")
+async def get_debug_dom(auth: Annotated[AuthContext, Depends(get_current_auth)]):
+    """Whether this workspace records browser DOM events. No screen."""
+    from app.services.debug_dom import read_flag
+
+    return read_flag(auth.tenant.settings_json)
+
+
+@router.put("/debug-dom")
+async def put_debug_dom(
+    body: DebugDomUpdate,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.debug_dom import write_flag
+
+    auth.require_role("owner", "admin")
+    auth.tenant.settings_json = write_flag(
+        auth.tenant.settings_json, enabled=body.enabled, features=body.features
+    )
+    session.add(auth.tenant)
+    await session.commit()
+    from app.services.debug_dom import read_flag
+
+    return read_flag(auth.tenant.settings_json)
+
+
+@router.post("/debug-dom/events")
+async def post_debug_dom_events(
+    body: DebugDomEventsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.services.debug_dom import read_flag, record_debug_dom
+
+    flag = read_flag(auth.tenant.settings_json)
+    stored = await record_debug_dom(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        feature=body.feature.strip().lower(),
+        signal_id=body.signal_id,
+        events=[item.model_dump() for item in body.events],
+        enabled=bool(flag.get("enabled")) and body.feature.strip().lower() in flag.get("features", []),
+    )
+    return {"stored": stored}

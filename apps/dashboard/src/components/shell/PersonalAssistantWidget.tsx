@@ -7,6 +7,9 @@ import { livechatWidgetHttpOrigin } from '../../lib/api.config'
 import { ensureChatWidgetScript } from '../../lib/chat-widget-loader'
 import {
   consumeAssistantThreadRequest,
+  launcherHiddenFor,
+  launcherSuppressed,
+  onLauncherSuppressedChange,
   openAssistantThread,
   registerAssistantWidget,
 } from '../../lib/personal-assistant-widget'
@@ -26,26 +29,13 @@ function describePage(pathname: string, search: string): string {
 }
 
 /**
- * The launcher sits bottom-right — exactly where an open conversation puts
- * its send controls. Hide it while a thread or the new-conversation composer
- * is on screen so it never covers a Send button; it returns on every other
- * page (lists, Overview, settings, ...). Topbar Help force-opens the panel
- * even while the launcher is hidden.
- */
-function launcherHiddenFor(pathname: string): boolean {
-  if (pathname === '/new' || pathname.startsWith('/new/')) return true
-  if (!pathname.startsWith('/communication')) return false
-  return pathname.includes('/t/') || pathname.startsWith('/communication/new')
-}
-
-/**
  * Hide the host and the floating button inside its shadow root.
  * `display: none` on the host alone is not enough: the launcher is
  * `position: fixed`, and a later open/close can put the host back on screen
  * while this page should stay clear of the button.
  */
 function applyLauncherVisibility(el: HTMLElement, pathname: string, forceOpen: boolean) {
-  const hidden = !forceOpen && launcherHiddenFor(pathname)
+  const hidden = !forceOpen && (launcherHiddenFor(pathname) || launcherSuppressed())
   el.dataset.launcherHidden = hidden ? 'true' : 'false'
   if (hidden) {
     el.setAttribute('hidden', '')
@@ -120,6 +110,9 @@ export default function PersonalAssistantWidget() {
       if (!el) return
       applyLauncherVisibility(el, window.location.pathname, open)
     }
+    const offSuppressed = onLauncherSuppressedChange(() => {
+      if (el) applyLauncherVisibility(el, window.location.pathname, forceOpenRef.current)
+    })
     void ensureChatWidgetScript()
       .then(() => {
         if (cancelled || generation !== inAppMountGeneration) return
@@ -159,6 +152,7 @@ export default function PersonalAssistantWidget() {
       })
     return () => {
       cancelled = true
+      offSuppressed()
       forceOpenRef.current = false
       widgetRef.current = null
       registerAssistantWidget(null)

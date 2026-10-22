@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   activityEntryPath,
+  canvasOnThreadPath,
   channelFolderPath,
   notificationSignalId,
   openEntityPath,
@@ -20,8 +21,17 @@ describe('restoredEntityPath', () => {
     expect(restoredEntityPath('trigger', 't1')).toBe('/agenda?trigger=t1')
   })
 
-  it('opens a project canvas on its folder via the restore hint', () => {
-    expect(restoredEntityPath('canvas', 'cv1', { project_id: 'p9' })).toBe('/folders/p9?tab=canvas&canvas=cv1')
+  it('opens a canvas beside the conversation it lives on', () => {
+    expect(canvasOnThreadPath('/communication/agent/a1/t/s1', 'cv1')).toBe(
+      '/communication/agent/a1/t/s1?canvas=cv1',
+    )
+    expect(canvasOnThreadPath('/communication/agent/a1/t/s1?foo=1', 'cv1')).toBe(
+      '/communication/agent/a1/t/s1?foo=1&canvas=cv1',
+    )
+  })
+
+  it('opens a canvas on its folder via the restore hint', () => {
+    expect(restoredEntityPath('canvas', 'cv1', { folder_id: 'p9' })).toBe('/folders/p9?tab=canvas&canvas=cv1')
     expect(restoredEntityPath('canvas', 'cv1')).toBe('/cockpit/canvas?canvas=cv1')
   })
 

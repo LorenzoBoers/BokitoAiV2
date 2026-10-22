@@ -26,6 +26,15 @@ export default function ChannelAiHandlingSetting({
     onChanged,
   })
   const tripped = Boolean(handling?.breakerTrippedAt)
+  const showPromotion =
+    Boolean(handling?.promotion) &&
+    (handling?.requested === 'assisted' || handling?.effective === 'assisted')
+  const promotionHint = showPromotion && handling?.promotion
+    ? t('aiHandling.metrics.promotionProgress', {
+        done: handling.promotion.unedited,
+        target: handling.promotion.targetDrafts,
+      })
+    : undefined
 
   const reset = async (keepAssisted: boolean) => {
     if (!token) return
@@ -39,7 +48,6 @@ export default function ChannelAiHandlingSetting({
   }
 
   return (
-    <>
     <AiHandlingPicker
       variant="row"
       density="field"
@@ -49,6 +57,11 @@ export default function ChannelAiHandlingSetting({
       saving={saving}
       onChange={(mode) => void change(mode)}
       testId="channel-ai-handling"
+      description={
+        promotionHint ? (
+          <span data-testid="channel-autonomy-progress">{promotionHint}</span>
+        ) : undefined
+      }
       label={
         <span className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
           {t('aiHandling.title')}
@@ -80,14 +93,5 @@ export default function ChannelAiHandlingSetting({
         ) : null
       }
     />
-    {handling?.promotion && (handling.requested === 'assisted' || handling.effective === 'assisted') ? (
-      <p className="px-1 pb-1 text-xs text-text-muted" data-testid="channel-autonomy-progress">
-        {t('aiHandling.metrics.promotionProgress', {
-          done: handling.promotion.unedited,
-          target: handling.promotion.targetDrafts,
-        })}
-      </p>
-    ) : null}
-    </>
   )
 }

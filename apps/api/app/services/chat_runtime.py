@@ -94,7 +94,6 @@ def build_agent_loop(
     tool_signal_id: UUID | None = None,
     run: AgentRun | None = None,
     surface: str = "",
-    enable_chat_thinking: bool = False,
     reply_mode: str | None = None,
     user_role: str | None = None,
 ) -> AgentLoop:
@@ -109,7 +108,6 @@ def build_agent_loop(
         trust=trust,
         tool_signal_id=tool_signal_id or signal_id,
         surface=surface or trust,
-        enable_chat_thinking=enable_chat_thinking,
         reply_mode=reply_mode,
         user_role=user_role,
     )

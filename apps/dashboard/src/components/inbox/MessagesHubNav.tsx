@@ -427,7 +427,7 @@ function AgentFolderRow({
       icon={
         <AgentMark
           agent={agent}
-          size={14}
+          size={16}
           decorative
           mode="static"
           activity={activity}
@@ -797,13 +797,13 @@ export default function MessagesHubNav() {
     for (const agent of companyAgents) {
       icons.set(
         agentItemId(agent.id),
-        <AgentMark agent={agent} size={14} decorative mode="static" />,
+        <AgentMark agent={agent} size={16} decorative mode="static" />,
       )
     }
     for (const team of teams) {
       icons.set(
         teamItemId(team.id),
-        <TeamFacepile team={team} size={14} faces={2} cutout="bg" linkAgents={false} presence={team.presence?.status} />,
+        <TeamFacepile team={team} size={16} faces={2} cutout="bg" linkAgents={false} presence={team.presence?.status} />,
       )
     }
     return paintCatalog(built, icons, marks)
@@ -879,7 +879,7 @@ export default function MessagesHubNav() {
               label={team.name}
               title={team.description || team.name}
               icon={
-                <TeamFacepile team={team} size={14} faces={2} cutout="bg" linkAgents={false} presence={team.presence?.status} />
+                <TeamFacepile team={team} size={16} faces={2} cutout="bg" linkAgents={false} presence={team.presence?.status} />
               }
               activeLeaf={activeLeaf}
               defaultQueue="open"

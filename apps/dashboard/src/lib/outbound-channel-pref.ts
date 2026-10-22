@@ -4,8 +4,7 @@
  * mirrors for instant paint before prefs load.
  */
 
-import { appRoutes } from '../api/routes'
-import { APP_API_BASE } from './api.config'
+import { loadPreferences, setPref } from './preferences'
 
 const LOCAL_KEY = 'bokito.defaultOutboundConnectionId'
 
@@ -30,12 +29,7 @@ export function writeLocalOutboundConnectionId(id: number | null): void {
 }
 
 export async function fetchOutboundConnectionId(token: string): Promise<number | null> {
-  const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const data = (await res.json()) as { default_outbound_connection_id?: unknown }
+  const data = await loadPreferences(token)
   const raw = data.default_outbound_connection_id
   const n = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN
   return Number.isFinite(n) && n > 0 ? n : null
@@ -43,16 +37,7 @@ export async function fetchOutboundConnectionId(token: string): Promise<number |
 
 export async function saveOutboundConnectionId(token: string, id: number | null): Promise<void> {
   writeLocalOutboundConnectionId(id)
-  const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({ default_outbound_connection_id: id }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  await setPref('default_outbound_connection_id', id, token)
 }
 
 /** Pick the best mailbox: preferred id if sendable, else primary, else first. */

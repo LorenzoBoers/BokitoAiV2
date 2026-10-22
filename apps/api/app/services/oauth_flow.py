@@ -292,7 +292,7 @@ async def _store_integration_credentials(
                     meta["identity"] = str(admins[0].get("name") or admins[0].get("id") or "")
                     instance_key = instance_key_for("moneybird", administrations=admins)
             except Exception:
-                pass
+                logger.warning("Moneybird administration lookup failed", exc_info=True)
         else:
             meta["verify_error"] = str(
                 check.get("error") or check.get("note") or "Moneybird verification failed"

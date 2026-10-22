@@ -8,8 +8,8 @@ may send it back with a reminder instead. Reasons, in order:
 1. Queued messages from the agent that started this subagent.
 2. A completion requirement: ``{"any_of": [tool, ...], "reminder": str}``.
    The turn may only end after one of those tools ran without error.
-3. The work-announce nudge: the model said it would do something and
-   stopped (at most once per turn).
+3. No result after tools: tools ran, then the model stopped without a
+   word after the last tool result (at most once per turn).
 
 At most ``MAX_STOP_CONTINUATIONS`` continuations per turn. On the
 continuation after the first, ``stop_hook_active`` is true. When the limit
@@ -37,11 +37,10 @@ DEFAULT_REMINDER = (
     "Call the one that fits now."
 )
 ANNOUNCE_REMINDER = (
-    "Continue now. Finish what you started in this turn — the full answer in "
-    "several short bubbles if that is what was asked, and any tools you still "
-    "need. Do not stop after the opening line. Saying you are working on it is "
-    "not an answer: do the work now, or call ask_agent when a colleague must "
-    "help, instead of announcing it."
+    "Continue now. The tools ran but you have not told the operator the result. "
+    "Finish what you started in this turn: any tools you still need, then the "
+    "result itself. Saying you are working on it is not an answer; hand it off "
+    "with ask_agent when a colleague must help."
 )
 
 
@@ -73,7 +72,7 @@ class StopGate:
         self,
         *,
         called_ok: set[str],
-        announced_work: bool = False,
+        no_result_after_tools: bool = False,
         queued_messages: str = "",
     ) -> str | None:
         """Reminder text to continue with, or None to let the turn end."""
@@ -87,7 +86,7 @@ class StopGate:
             if nxt is None:
                 self.forced = True
             return nxt
-        if announced_work and not self.announce_nudged:
+        if no_result_after_tools and not self.announce_nudged:
             self.announce_nudged = True
             return self._continue(ANNOUNCE_REMINDER)
         return None

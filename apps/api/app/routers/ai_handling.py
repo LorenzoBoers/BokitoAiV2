@@ -123,6 +123,7 @@ class ExceptionRow(BaseModel):
 
 class Exceptions(BaseModel):
     channels: list[ExceptionRow]
+    flows: list[ExceptionRow] = []
     conversations: list[ExceptionRow]
 
 

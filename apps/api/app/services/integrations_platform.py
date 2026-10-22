@@ -1,6 +1,7 @@
 """Integrations platform service (marketplace, connections, MCP, OAuth mock)."""
 
 import json
+import logging
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from uuid import UUID
@@ -19,6 +20,8 @@ from app.services.crypto import (
     get_connection_credentials,
     set_connection_credentials,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
@@ -481,7 +484,9 @@ async def install_mcp(
     auth: dict[str, Any] | None = None,
     use_mock: bool = False,
     module_slug: str | None = None,
+    fields: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    from app.services.connection_presets import build_from_fields, preset_for
     from app.services.integration_catalog_store import ensure_catalog_fresh
 
     if provider not in PROVIDER_BY_SLUG:
@@ -490,6 +495,12 @@ async def install_mcp(
         raise HTTPException(status_code=400, detail="Unknown provider")
     if PROVIDER_BY_SLUG[provider].get("status") == "coming_soon":
         raise HTTPException(status_code=400, detail="This integration is not available yet.")
+    preset = preset_for(provider)
+    if preset is not None and not use_mock:
+        server_url, preset_auth, preset_key = build_from_fields(provider, fields or {})
+        auth = {**(auth or {}), **preset_auth}
+        api_key = preset_key or api_key
+        auth_type = "fields"
     url = server_url or PROVIDER_BY_SLUG[provider].get("mcp_remote_url") or ""
     if not url and provider == "bjorn_lunden_mcp":
         # Björn Lundén runs natively against the BLA REST API — no separate
@@ -551,7 +562,7 @@ async def install_mcp(
             auth_payload["bearer_token"] = token
             auth_payload["auth_type"] = "bearer"
     elif provider == "custom_mcp" or not url.startswith("native://"):
-        if not key and not use_mock:
+        if not key and not use_mock and preset is None:
             raise HTTPException(
                 status_code=400,
                 detail="API key or bearer token is required to install this MCP server.",
@@ -842,6 +853,28 @@ async def test_mcp_server(
             payload["note"] = check["note"]
         return payload
 
+    from app.services.native_connectors import native_connector
+
+    connector = native_connector(server.server_url)
+    if connector is not None:
+        from app.services.mcp_remote_client import HEALTH_ERROR, HEALTH_OK, record_health
+
+        auth_data = _parse_json(server.auth_json)
+        check = await connector.validate(auth_data if isinstance(auth_data, dict) else {})
+        tools = [dict(t) for t in connector.TOOLS]
+        await record_health(session, server, HEALTH_OK if check.get("ok") else HEALTH_ERROR, str(check.get("error") or ""))
+        await _persist_discovered_tools(session, server, tools)
+        payload = {
+            "ok": bool(check.get("ok")),
+            "server_id": str(server.id),
+            "server_name": server.name,
+            "tool_count": len(tools),
+            "tools": tools,
+        }
+        if check.get("error"):
+            payload["error"] = check["error"]
+        return payload
+
     if server.server_url.startswith("native://"):
         from app.services.bjorn_lunden import BL_NATIVE_TOOLS, validate_credentials
 
@@ -882,16 +915,20 @@ async def test_mcp_server(
             "tools": tools,
         }
 
-    auth = _parse_json(server.auth_json)
-    payload = {"jsonrpc": "2.0", "id": "1", "method": "tools/list", "params": {}}
-    headers = _mcp_auth_headers(auth if isinstance(auth, dict) else {})
+    from app.services.mcp_remote_client import (
+        HEALTH_ERROR,
+        HEALTH_OK,
+        HEALTH_RECONNECT,
+        McpCallError,
+        list_tools,
+        record_health,
+    )
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(server.server_url, json=payload, headers=headers)
-            response.raise_for_status()
-            body = response.json()
-    except Exception as exc:
+        tools = await list_tools(session, server)
+    except McpCallError as exc:
+        await record_health(session, server, HEALTH_RECONNECT if exc.needs_reconnect else HEALTH_ERROR, str(exc))
+        await session.commit()
         return {
             "ok": False,
             "server_id": str(server.id),
@@ -899,17 +936,9 @@ async def test_mcp_server(
             "tool_count": 0,
             "tools": [],
             "error": str(exc),
+            "needs_reconnect": exc.needs_reconnect,
         }
-
-    tools_raw = body.get("result", {}).get("tools", []) if isinstance(body, dict) else []
-    tools = [
-        {
-            "name": str(t.get("name", "")),
-            "description": str(t.get("description", ""))[:200],
-        }
-        for t in tools_raw
-        if isinstance(t, dict) and t.get("name")
-    ]
+    await record_health(session, server, HEALTH_OK)
     await _persist_discovered_tools(session, server, tools)
     return {
         "ok": True,
@@ -1097,7 +1126,7 @@ async def ensure_email_account(
     try:
         await remove_demo_threads(session, tenant_id)
     except Exception:  # noqa: BLE001 — cleanup must never break connect
-        pass
+        logger.warning("remove demo threads after mailbox connect failed", exc_info=True)
     return account
 
 

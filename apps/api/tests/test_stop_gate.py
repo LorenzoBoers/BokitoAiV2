@@ -6,7 +6,12 @@ from sqlalchemy import select
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.services.agent.loop import AgentLoop
-from app.services.agent.stop_gate import MAX_STOP_CONTINUATIONS, StopGate, inbound_requirement
+from app.services.agent.stop_gate import (
+    ANNOUNCE_REMINDER,
+    MAX_STOP_CONTINUATIONS,
+    StopGate,
+    inbound_requirement,
+)
 
 
 def test_requirement_reminds_until_met():
@@ -25,13 +30,25 @@ def test_limit_forces_stop():
     assert gate.stop_reason() == "requirement_forced"
 
 
-def test_announce_nudge_once_and_queue_first():
+def test_no_result_nudge_once_and_queue_first():
     gate = StopGate()
-    assert gate.check(called_ok=set(), announced_work=True)
-    assert gate.check(called_ok=set(), announced_work=True) is None
+    assert gate.check(called_ok=set()) is None
+    assert gate.check(called_ok=set(), no_result_after_tools=True) == ANNOUNCE_REMINDER
+    assert gate.check(called_ok=set(), no_result_after_tools=True) is None
     assert gate.check(called_ok=set(), queued_messages="<system-reminder>hi</system-reminder>") == (
         "<system-reminder>hi</system-reminder>"
     )
+
+
+def test_no_result_signal_is_structural():
+    loop = object.__new__(AgentLoop)
+    loop.trace_steps = []
+    # No tool ran: an announcement alone is not the signal any more.
+    assert not loop._no_result_after_tools([{"type": "text", "text": "Ik ga het regelen."}])
+    loop.trace_steps = [{"step_type": "tool_call"}]
+    assert loop._no_result_after_tools([])
+    assert loop._no_result_after_tools([{"type": "text", "text": "  "}])
+    assert not loop._no_result_after_tools([{"type": "text", "text": "De flow staat nu op altijd beoordelen."}])
 
 
 def test_inbound_requirement_lists_outcomes():
@@ -44,7 +61,7 @@ class _ScriptedLLM:
     def __init__(self):
         self.calls = 0
 
-    async def chat(self, messages, tools=None, model=None, *, thinking_budget=0, max_tokens=None):
+    async def chat(self, messages, tools=None, model=None, *, effort=None, max_tokens=None):
         self.calls += 1
         if self.calls == 3:
             return {

@@ -34,11 +34,14 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   const setupIncomplete = Boolean(onboardingStatus && !onboardingStatus.completed) && !onSetupPage
   const tab = tabFromPath(pathname)
   const onModuleWorkspace = pathname.startsWith('/connections/')
+  const onDepartment = pathname.startsWith('/departments/')
   const pageTitle = tab
     ? t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
-    : onModuleWorkspace
-      ? t('tabs.modules.title', { defaultValue: 'Connections' })
-      : (currentWorkspace?.name ?? 'Bokito')
+    : onDepartment
+      ? t('tabGroups.departments', { defaultValue: 'Departments' })
+      : onModuleWorkspace
+        ? t('tabs.modules.title', { defaultValue: 'Connections' })
+        : (currentWorkspace?.name ?? 'Bokito')
   const settingsLink = settingsLinkForPath(pathname)
   const extraCrumbs = extraCrumbsForPath(pathname)
   const pageGuide = pageGuideForPath(pathname)

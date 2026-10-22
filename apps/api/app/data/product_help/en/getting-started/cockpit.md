@@ -9,7 +9,7 @@ related: communication,categories,agent-runs,decisions,agenda,agents
 
 # How Today works
 
-Today is the morning scan inside Communication. Open **Communication**, then **Today**, to see what needs attention, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. The address is `/communication/today`. Under **Settings → Profile** you can set Today as your start page after sign-in; Communication remains the default.
+Today is the morning scan inside Communication. Open **Communication**, then **Today**, to see what needs attention, open tickets, running work and weekly trajectory, then jump into the underlying conversation or run. The address is `/communication/today`. Under **Settings → Profile** you can set your start page after sign-in to **New chat** (default), **Inbox**, **Agenda** or **Today**.
 
 ## Scan the day on Today
 
@@ -21,6 +21,8 @@ Today is the morning scan inside Communication. Open **Communication**, then **T
 3. Below that, **AI activity** shows a stacked area chart of weighted **AI** (purple) over **Manual** (gray) work, **Time saved** (estimated minutes from AI outcomes: autonomous sends, assisted drafts sent or continued by a person, quiet no-reply triage, confirmed no-reply closes, AI-filed tickets, completed flows) and **AI share** (the share of credited actions AI handled). Use the **7 days** / **30 days** / **90 days** switcher (same as **Settings → Usage**) to change the window; both figures show a green up or red down arrow with the percentage change versus the previous equal period when that data is available. A donut of weighted **Autonomous**, **Assisted** and **Manual** actions for the selected period sits to the right (with open conversation counts under the legend). **Autonomy settings** opens the workspace dial.
 4. Under **More workspace context**, scan the three secondary blocks: **Open tickets by category**, **Running and next up**, and **Trajectory**. **Running and next up** warns about due check-ups and overdue look-ats, lists the next few [Agenda](/docs/ai/agenda) items, then the runs in progress, and ends with **Open Agenda**. Trajectory compares this week with last week: **Tickets filed (7 days)** counts confirmed tickets only, and the block links to completed runs, Govern proposals, and Usage.
 5. Click any row to open its conversation, run, or filtered list. A row under **Open tickets by category** opens that category's row in Communication. When an open conversation has had no message for 14 days, **Quiet for 14 days** lists it with **Close**. With no recurring task yet, a one-time banner **Let an agent help you move forward** offers **Set up task**. That opens **Plan** already filled: every weekday at 09:00, the lead agent, and a task that names what is open and suggests next steps. After **Save** you land in that conversation, where the agent writes each time. **Hide** dismisses the banner for this workspace.
+
+When you accepted a proposal from a flow's scorecard in the last 30 days, **What improved** shows that flow with its autonomous share now and before, for example **Set to Autonomous; was 64% autonomous**. Click it to open the flow. See [Autonomy](/docs/govern/autonomy).
 
 On a new workspace, Today may still show setup progress. Finish those from the [setup guide](/docs/getting-started/setup-guide).
 

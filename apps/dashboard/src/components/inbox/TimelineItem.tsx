@@ -1049,9 +1049,14 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     const folder = typeof p.folder_name === 'string' ? p.folder_name : ''
     if (p.target_kind === 'knowledge') return t('timeline.events.deliveredKnowledge')
     if (p.target_kind === 'works_in' && folder) {
-      const item =
+      const kind =
+        typeof p.canvas_kind === 'string' && p.canvas_kind && p.canvas_kind !== 'dashboard'
+          ? t(`nav:projects.canvas.kinds.${p.canvas_kind}`, { defaultValue: '' })
+          : ''
+      const named =
         (typeof p.item_label === 'string' && p.item_label) ||
         t(`nav:projects.worksIn.kind.${String(p.item_kind ?? '')}`, { defaultValue: '' })
+      const item = named && kind ? `${named} · ${kind}` : named
       return item
         ? t('timeline.events.deliveredItem', { folder, item })
         : t('timeline.events.deliveredFolder', { folder })
@@ -1219,6 +1224,13 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     return t('timeline.events.ticketStageChanged', { stage })
   },
   escalated: (t) => t('timeline.events.escalated'),
+  reach_attempt: (t, p) => {
+    const status = typeof p.status === 'string' ? p.status : ''
+    return t(`timeline.events.reach.${p.channel === 'call' ? 'call' : 'push'}`, {
+      name: typeof p.recipient_name === 'string' ? p.recipient_name : '',
+      status: t(`timeline.events.reach.status.${status}`, { defaultValue: status }),
+    })
+  },
   ai_paused: (t) => t('timeline.events.aiPaused'),
   ai_resumed: (t) => t('timeline.events.aiResumed'),
   ai_handling_changed: (t, p, name) => {
@@ -1537,7 +1549,7 @@ function OwnerInlineChip({
     face = (
       <TeamFacepile
         team={team ?? { id: id ?? display, name: display }}
-        size={12}
+        size={16}
         linkAgents={false}
       />
     )
@@ -1547,7 +1559,7 @@ function OwnerInlineChip({
     face = (
       <AiAvatar
         {...toAiAvatarProps(agent ?? { id: id ?? display, name: display }, display)}
-        size={12}
+        size={16}
         decorative
         mode="static"
       />
@@ -1559,7 +1571,7 @@ function OwnerInlineChip({
     const email = member?.email || self?.email || display
     const avatarUrl = member?.avatarUrl ?? self?.avatarUrl ?? null
     face = display ? (
-      <UserAvatar name={display} email={email} avatarUrl={avatarUrl} size={12} decorative />
+      <UserAvatar name={display} email={email} avatarUrl={avatarUrl} size={16} decorative />
     ) : (
       <Users size={10} className="shrink-0 opacity-80" aria-hidden />
     )
@@ -1940,6 +1952,8 @@ export function MessageTimelineItem({
   const enterKey = String(messageProp.listKey || messageProp.id)
   const enterLatch = useRef<{ key: string; on: boolean } | null>(null)
   const wantsEnter = enterAnimation || Boolean(messageProp.decisionResponse)
+  // Latch on once true so a stream tick does not replay. Never latch a quiet
+  // handoff on: the first paint must already be wantsEnter=false.
   if (!enterLatch.current || enterLatch.current.key !== enterKey) {
     enterLatch.current = { key: enterKey, on: wantsEnter }
   } else if (wantsEnter) {
@@ -2694,7 +2708,8 @@ export function MessageTimelineItem({
       : proposal?.items?.length
         ? proposal.items
         : []
-  const showcaseItems = attachedItems
+  const canvasItems = attachedItems.filter((item) => item.type === 'canvas')
+  const showcaseItems = attachedItems.filter((item) => item.type !== 'canvas')
   const proposalOpen =
     !!proposal && (proposal.status === 'awaiting_human' || proposal.status === 'pending')
   const proposalMulti = proposal?.selection === 'multiple'
@@ -2986,6 +3001,11 @@ export function MessageTimelineItem({
   ) : null
 
   const traceIndent = isOwn ? 'ml-auto' : THREAD_INDENT
+  const canvasAside = canvasItems.length ? (
+    <div className={cn(traceIndent, 'w-full max-w-2xl')}>
+      <ProposalItemList items={canvasItems} />
+    </div>
+  ) : null
   const proposalActions =
     proposal && threadId ? (
       <div
@@ -3051,6 +3071,7 @@ export function MessageTimelineItem({
       return (
         <>
           {bubble}
+          {canvasAside}
           {mailReadOverlay}
         </>
       )
@@ -3058,6 +3079,7 @@ export function MessageTimelineItem({
     return (
       <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
         <div className="w-full">{bubble}</div>
+        {canvasAside}
         {proposalActions}
         {workbenchCard}
         {mailReadOverlay}
@@ -3077,6 +3099,7 @@ export function MessageTimelineItem({
         />
       ) : null}
       <div className="w-full">{bubble}</div>
+      {canvasAside}
       {mailReadOverlay}
       {proposalActions}
       {activityAfter.length > 0 ? (
@@ -3259,7 +3282,7 @@ export function EventClusterTimelineItem({
           >
             <UserAvatar
               name={actorName || '?'}
-              email={actorMember?.email}
+              email={actorMember?.email ?? ''}
               avatarUrl={actorMember?.avatarUrl}
               size={CHAT_AVATAR_SIZE}
               decorative

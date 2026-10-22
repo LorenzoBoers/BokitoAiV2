@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, Loader2, MoreHorizontal, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, MoreHorizontal, Settings, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
@@ -14,11 +14,22 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiError
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { FlowHeaderSkeleton } from '../components/ui/skeleton'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import { Label } from '../components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { Textarea } from '../components/ui/textarea'
 import { NameEdit } from '../components/ui/NameEdit'
 import { LabelMarkDialog } from '../components/ui/LabelMark'
 import { TagPill } from '../components/ui/TagPill'
 import { Tip } from '../components/ui/Tip'
 import { FlowDestination } from '../components/flows/FlowDestination'
+import { FlowRecipe } from '../components/flows/FlowRecipe'
 import { FlowStageEntryControl } from '../components/flows/FlowStageEntryControl'
 import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/flows/FlowTicketBoard'
 import { StageProgressIcon } from '../components/flows/StageProgressIcon'
@@ -28,12 +39,14 @@ import { flowActionTag, flowTitle } from '../lib/flow-title'
 import { useEntityRefresh } from '../lib/live-store'
 import { listSignalTags, updateSignalTag, type LabelColor, type SignalTag } from '../lib/signals-api'
 import type { FlowBoard, TicketStage, TicketStageKind } from '../lib/tickets-api'
+import { listTeams, type Team } from '../lib/teams-api'
 import { timeAgo } from '../lib/time-ago'
 import {
   deleteWorkstream,
   getWorkstream,
   getWorkstreamBoard,
   patchWorkstream,
+  type FlowAutonomy,
   type WorkstreamDetail as WorkstreamDetailPayload,
 } from '../lib/flows-api'
 
@@ -69,10 +82,12 @@ export default function WorkstreamDetail() {
   const [markOpen, setMarkOpen] = useState(false)
   const [savingMark, setSavingMark] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [freeTags, setFreeTags] = useState<SignalTag[]>([])
   const [bindingTag, setBindingTag] = useState(false)
   const [savingReview, setSavingReview] = useState(false)
+  const [departments, setDepartments] = useState<Team[]>([])
 
   const loadBoard = useCallback(async () => {
     if (!workstreamId) return
@@ -117,6 +132,26 @@ export default function WorkstreamDetail() {
       .then((rows) => setFreeTags(rows.filter((row) => !row.workstreamId)))
       .catch(() => setFreeTags([]))
   }, [isAdmin, tag, token])
+
+  useEffect(() => {
+    if (!token) return
+    void listTeams(token)
+      .then((rows) => setDepartments(rows.filter((row) => !row.system && !row.root)))
+      .catch(() => setDepartments([]))
+  }, [token])
+
+  const saveDepartment = async (next: string) => {
+    if (!workstream) return
+    setSavingReview(true)
+    try {
+      const updated = await patchWorkstream(workstream.id, { department_id: next || null })
+      setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
+    } catch (err) {
+      toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
+    } finally {
+      setSavingReview(false)
+    }
+  }
 
   useEffect(() => {
     if (!workstream) return
@@ -186,15 +221,14 @@ export default function WorkstreamDetail() {
     }
   }
 
-  const saveAlwaysReview = async (next: boolean) => {
+  const saveAutonomy = async (next: FlowAutonomy) => {
     if (!workstream) return
     setSavingReview(true)
-    setWorkstream((prev) => (prev ? { ...prev, always_review: next } : prev))
     try {
-      const updated = await patchWorkstream(workstream.id, { always_review: next })
+      const updated = await patchWorkstream(workstream.id, { autonomy: next })
       setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
+      if (updated.pending_change_id) toast.message(t('workstreamsPage.recipe.autonomyLooserInGovern'))
     } catch (err) {
-      setWorkstream((prev) => (prev ? { ...prev, always_review: !next } : prev))
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
     } finally {
       setSavingReview(false)
@@ -286,6 +320,16 @@ export default function WorkstreamDetail() {
               </div>
               <div className="flex h-8 shrink-0 items-center gap-2">
                 <OpenInGridButton kind="flow" id={workstream.id} />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 w-8 px-0 text-text-muted"
+                  aria-label={t('workstreamsPage.openSettings')}
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings size={16} aria-hidden />
+                </Button>
                 {isAdmin ? (
                   <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
@@ -319,91 +363,154 @@ export default function WorkstreamDetail() {
               </div>
             </div>
 
-            <FlowDestination
-              flow={workstream}
-              canEdit={isAdmin}
-              onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
-            />
-
-            {isAdmin ? (
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                onBlur={() => void saveDescription()}
-                placeholder={t('workstreamsPage.descriptionPlaceholder')}
-                aria-label={t('workstreamsPage.descriptionLabel')}
-                disabled={savingMeta}
-                rows={workstream.description || description ? 2 : 1}
-                className="w-full max-w-2xl resize-none rounded-md border border-transparent bg-transparent px-2 py-1 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted/45 hover:border-border/60 focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60"
-              />
-            ) : workstream.description ? (
-              <p className="max-w-3xl truncate text-sm text-text-muted" title={workstream.description}>
-                {workstream.description}
-              </p>
-            ) : null}
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-              <label
-                className="inline-flex items-center gap-2 text-text-secondary"
-                title={t('workstreamsPage.alwaysReview.hint')}
+            {workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
+              <Link
+                to="/agenda?view=list&layers=tasks"
+                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-heading"
               >
-                <Switch
-                  checked={Boolean(workstream.always_review)}
-                  disabled={!isAdmin || savingReview}
-                  onCheckedChange={(checked) => void saveAlwaysReview(checked)}
-                  aria-label={t('workstreamsPage.alwaysReview.label')}
-                  data-testid="flow-always-review"
-                />
-                <span className="font-medium">{t('workstreamsPage.alwaysReview.label')}</span>
-                <span className="text-text-muted">{t('workstreamsPage.alwaysReview.hint')}</span>
-              </label>
-              <FlowStageEntryControl
-                flow={workstream}
-                canEdit={isAdmin}
-                onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
-              />
-              {!tag && isAdmin ? (
-                  <ChoiceSelect
-                    aria-label={t('workstreamsPage.meta.bindTag')}
-                    placeholder={t('workstreamsPage.meta.bindTag')}
-                    triggerClassName="h-7 w-52 text-xs"
-                    value=""
-                    onValueChange={(value) => void bindTag(value)}
-                    disabled={bindingTag}
-                    groups={[
-                      {
-                        items:
-                          freeTags.length === 0
-                            ? [
-                                {
-                                  value: '__none__',
-                                  label: t('workstreamsPage.meta.noFreeTags'),
-                                  kind: 'tag',
-                                  disabled: true,
-                                },
-                              ]
-                            : freeTags.map((row) => ({
-                                value: row.id,
-                                label: row.name,
-                                kind: 'tag' as const,
-                              })),
-                      },
-                    ]}
-                  />
-              ) : !tag ? (
-                <span className="italic text-text-muted">{t('workstreamsPage.meta.noActionTag')}</span>
-              ) : null}
-              {workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
-                <Link
-                  to="/agenda?view=list&layers=tasks"
-                  className="inline-flex items-center gap-1 text-text-muted hover:text-text-heading"
-                >
-                  <CalendarClock size={12} aria-hidden />
-                  {t('workstreamsPage.meta.checkupsOnAgenda')}
-                </Link>
-              ) : null}
-            </div>
+                <CalendarClock size={12} aria-hidden />
+                {t('workstreamsPage.meta.checkupsOnAgenda')}
+              </Link>
+            ) : null}
           </header>
+
+          <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+            <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0">
+              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+                <DialogTitle>{t('workstreamsPage.settingsTitle')}</DialogTitle>
+                <DialogDescription>{t('workstreamsPage.settingsHint')}</DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[min(760px,calc(92vh-5.5rem))] space-y-5 overflow-y-auto px-5 py-4">
+                <FlowDestination
+                  flow={workstream}
+                  canEdit={isAdmin}
+                  onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
+                />
+
+                <FlowRecipe
+                  flow={workstream}
+                  canEdit={isAdmin}
+                  onSaved={(updated) => {
+                    if (updated.direct !== workstream.direct) void loadBoard()
+                    setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
+                  }}
+                />
+
+                {isAdmin || workstream.description ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="flow-description">{t('workstreamsPage.descriptionLabel')}</Label>
+                    {isAdmin ? (
+                      <Textarea
+                        id="flow-description"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        onBlur={() => void saveDescription()}
+                        placeholder={t('workstreamsPage.descriptionPlaceholder')}
+                        aria-label={t('workstreamsPage.descriptionLabel')}
+                        disabled={savingMeta}
+                        rows={3}
+                        className="min-h-16"
+                      />
+                    ) : (
+                      <p className="text-sm text-text-secondary">{workstream.description}</p>
+                    )}
+                  </div>
+                ) : null}
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="flow-autonomy">{t('workstreamsPage.recipe.autonomy')}</Label>
+                  <Select
+                    value={workstream.autonomy || 'inherit'}
+                    disabled={!isAdmin || savingReview}
+                    onValueChange={(value) =>
+                      void saveAutonomy((value === 'inherit' ? '' : value) as FlowAutonomy)
+                    }
+                  >
+                    <SelectTrigger id="flow-autonomy" className="h-8 text-sm" data-testid="flow-autonomy">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(['inherit', 'manual', 'assisted', 'autonomous'] as const).map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {t(`workstreamsPage.recipe.autonomyLevel.${mode}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-text-muted">{t('workstreamsPage.recipe.autonomyLooserInGovern')}</p>
+                </div>
+
+                {departments.length > 0 ? (
+                  <div className="flex flex-col gap-1.5" data-testid="flow-department">
+                    <Label>{t('workstreamsPage.departmentLabel')}</Label>
+                    <ChoiceSelect
+                      aria-label={t('workstreamsPage.departmentLabel')}
+                      value={workstream.department_id || '__none__'}
+                      onValueChange={(value) => void saveDepartment(value === '__none__' ? '' : value)}
+                      disabled={!isAdmin || savingReview}
+                      groups={[
+                        {
+                          items: [
+                            {
+                              value: '__none__',
+                              label: t('workstreamsPage.departmentNone'),
+                              kind: 'team',
+                            },
+                            ...departments.map((dept) => ({
+                              value: dept.id,
+                              label: dept.name,
+                              kind: 'team' as const,
+                              team: dept,
+                            })),
+                          ],
+                        },
+                      ]}
+                    />
+                  </div>
+                ) : null}
+
+                <FlowStageEntryControl
+                  flow={workstream}
+                  canEdit={isAdmin}
+                  onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
+                />
+
+                {!tag && isAdmin ? (
+                  <div className="flex flex-col gap-1.5">
+                    <Label>{t('workstreamsPage.meta.bindTag')}</Label>
+                    <ChoiceSelect
+                      aria-label={t('workstreamsPage.meta.bindTag')}
+                      placeholder={t('workstreamsPage.meta.bindTag')}
+                      value=""
+                      onValueChange={(value) => void bindTag(value)}
+                      disabled={bindingTag}
+                      groups={[
+                        {
+                          items:
+                            freeTags.length === 0
+                              ? [
+                                  {
+                                    value: '__none__',
+                                    label: t('workstreamsPage.meta.noFreeTags'),
+                                    kind: 'tag',
+                                    disabled: true,
+                                  },
+                                ]
+                              : freeTags.map((row) => ({
+                                  value: row.id,
+                                  label: row.name,
+                                  kind: 'tag' as const,
+                                })),
+                        },
+                      ]}
+                    />
+                  </div>
+                ) : !tag ? (
+                  <p className="text-sm italic text-text-muted">{t('workstreamsPage.meta.noActionTag')}</p>
+                ) : null}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <FlowViewBody
             board={board}

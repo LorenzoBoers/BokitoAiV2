@@ -26,6 +26,7 @@ import {
   supportsClosedDisclosure,
   threadFitsChannelLeaf,
 } from '../lib/hub-list-filters'
+import { CanvasStage } from '../components/project-canvas/CanvasStage'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
 import DecisionGroupsBanner from '../components/inbox/DecisionGroupsBanner'
 import ThreadList, { type ThreadListStatus as ListStatus } from '../components/inbox/ThreadList'
@@ -72,7 +73,6 @@ import OnboardingChecklist, { useOnboardingStatus } from '../components/onboardi
 import { useAuth } from '../context/AuthContext'
 import { useNavBadges } from '../context/NavBadgeContext'
 import { useChannelStatus } from '../hooks/useChannelStatus'
-import { Callout } from '../components/ui/callout'
 import { Button } from '../components/ui/button'
 import { ChannelMarkStack } from '../components/ui/ChannelGlyph'
 import {
@@ -1787,14 +1787,22 @@ export default function Communication() {
     return <Navigate to={leafPath({ type: 'tag', tag: leaf.tag })} replace />
   }
 
+  const stagedCanvasId = (searchParams.get('canvas') || '').trim() || null
+  function closeStagedCanvas() {
+    const next = new URLSearchParams(searchParams)
+    next.delete('canvas')
+    setSearchParams(next, { replace: true })
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
       <SplitRow
-        storageKey="bokito.split.inbox"
-        minFlex={360}
+        storageKey={stagedCanvasId ? 'bokito.split.canvas' : 'bokito.split.inbox'}
+        minFlex={stagedCanvasId ? 480 : 360}
         resetHint={t('split.resetHint')}
         className="min-h-0 flex-1"
       >
+        {stagedCanvasId ? null : (
         <SplitPane
           id="list"
           defaultWidth={288}
@@ -1869,28 +1877,9 @@ export default function Communication() {
             scopeLabel={scopeLabel}
             onClearScope={hasFolderFilter ? clearScope : undefined}
             banner={
-              <>
-                {!channelStatusLoading && !sendReady && filteredThreads.length > 0 ? (
-                  <Callout
-                    tone="warning"
-                    className="rounded-none border-x-0 border-t-0"
-                    title={t('banners.channelNotReady', {
-                      defaultValue: 'No channel is ready to send. Connect or repair a mailbox or chat channel.',
-                    })}
-                    actions={
-                      <Link
-                        to="/settings/channels"
-                        className="text-xs font-semibold text-accent hover:underline"
-                      >
-                        {t('banners.openChannels', { defaultValue: 'Open Channels' })}
-                      </Link>
-                    }
-                  />
-                ) : null}
-                {needsDecisionParam ? (
-                  <DecisionGroupsBanner onDismissed={() => void refreshThreads()} />
-                ) : null}
-              </>
+              needsDecisionParam ? (
+                <DecisionGroupsBanner onDismissed={() => void refreshThreads()} />
+              ) : null
             }
             total={threadsTotal}
             hasMore={threadsHaveMore}
@@ -2003,7 +1992,16 @@ export default function Communication() {
             }
           />
         </SplitPane>
-        <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
+        )}
+        <SplitPane
+          id="main"
+          defaultWidth={stagedCanvasId ? 520 : 0}
+          minWidth={stagedCanvasId ? 340 : 0}
+          maxWidth={stagedCanvasId ? 960 : 0}
+          flex={!stagedCanvasId}
+          label={stagedCanvasId ? t('split.thread') : undefined}
+          className={stagedCanvasId ? 'hidden md:flex' : undefined}
+        >
           <ThreadDetail
             key={selectedThreadId ?? 'empty'}
             detail={
@@ -2052,9 +2050,14 @@ export default function Communication() {
             }
           />
         </SplitPane>
+        {stagedCanvasId ? (
+          <SplitPane id="canvas" defaultWidth={0} minWidth={0} maxWidth={0} flex label={t('split.canvas')}>
+            <CanvasStage canvasId={stagedCanvasId} onClose={closeStagedCanvas} />
+          </SplitPane>
+        ) : null}
         {/* Must be a direct SplitPane child: SplitRow ignores anything else
             (a wrapping fragment would silently drop the whole pane). */}
-        {detail && showContactPanel && isLgUp ? (
+        {detail && showContactPanel && isLgUp && !stagedCanvasId ? (
           <SplitPane
             id="context"
             defaultWidth={288}
@@ -2077,7 +2080,7 @@ export default function Communication() {
         ) : null}
       </SplitRow>
       {/* Mobile/tablet: same context panel as a slide-over. */}
-      {detail && showContactPanel && !isLgUp ? (
+      {detail && showContactPanel && !isLgUp && !stagedCanvasId ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"

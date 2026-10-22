@@ -83,6 +83,9 @@ class Membership(SQLModel, table=True):
     # False = deactivated in this workspace: history stays, they cannot work here.
     is_active: bool = True
     deactivated_at: Optional[datetime] = None
+    # workspace | departments (freelancer: only the work of their departments).
+    scope: str = Field(default="workspace", max_length=16)
+    hours_per_week: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

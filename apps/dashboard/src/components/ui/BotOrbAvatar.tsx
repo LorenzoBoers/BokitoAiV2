@@ -18,6 +18,7 @@ import {
   type BotOrbShapeKey,
 } from '../../lib/bot-orb-shapes'
 import { distanceToRect, subscribeBotOrbPointer } from '../../lib/bot-orb-pointer'
+import { snapMarkSize } from '../../lib/mark-scale'
 import { cn } from '../../lib/utils'
 
 export type BotOrbMode = 'live' | 'static'
@@ -78,12 +79,9 @@ function resolveBotOrbPaused(
   return Boolean(paused)
 }
 
-/** Orbit chrome always uses brand violet — independent of avatar body color. */
-const BOT_ORB_ORBIT_COLOR = '#9159fe'
-/**
- * Think/type badges: brand violet. Edge is theme-tinted via CSS
- * (`--bot-orb-badge-edge`); shadow is theme-aware in index.css.
- */
+/** Chrome around the body is always the AI color, independent of the body color. */
+const BOT_ORB_ORBIT_COLOR = 'var(--bot-orb-glow)'
+/** Badge edge is theme-tinted via CSS (`--bot-orb-badge-edge`). */
 const BOT_ORB_BADGE_FILL = BOT_ORB_ORBIT_COLOR
 
 /**
@@ -312,30 +310,9 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
           </g>
         </g>
       )
-    case 'typing':
-      return (
-        <g className="bot-orb__type-dots" transform="translate(32 56)">
-          {[-8.5, 0, 8.5].map((cx) => (
-            <circle
-              key={cx}
-              className="bot-orb__type-dot bot-orb__badge-glyph"
-              cx={cx}
-              cy="0"
-              r="2.8"
-              fill={BOT_ORB_BADGE_FILL}
-              stroke="var(--bot-orb-badge-edge)"
-              strokeWidth="0.7"
-            />
-          ))}
-        </g>
-      )
     case 'searching':
-      return (
-        <g className="bot-orb__fx bot-orb__sonar" fill="none">
-          <circle className="bot-orb__ping" cx="32" cy="32" r="29" />
-          <circle className="bot-orb__ping bot-orb__ping--late" cx="32" cy="32" r="29" />
-        </g>
-      )
+      // Rings paint behind the body (see SearchingSonar before the figure).
+      return null
     case 'writing':
       return (
         <g className="bot-orb__fx">
@@ -368,7 +345,6 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
         </g>
       )
     case 'yes':
-    case 'done':
       return (
         <g className="bot-orb__fx">
           {[
@@ -381,6 +357,30 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
               <path className={`bot-orb__sparkle bot-orb__sparkle--${i}`} d={SPARKLE} />
             </g>
           ))}
+        </g>
+      )
+    case 'done':
+      return (
+        <g transform="translate(50 12)">
+          <g className="bot-orb__done-mark bot-orb__badge-glyph">
+            <circle
+              cx="0"
+              cy="0"
+              r="8.5"
+              fill={BOT_ORB_BADGE_FILL}
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="0.9"
+              paintOrder="stroke fill"
+            />
+            <path
+              d="M-3.6 0.2 L-1.2 2.8 L3.8 -2.6"
+              fill="none"
+              stroke="var(--bot-orb-badge-edge)"
+              strokeWidth="2.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </g>
         </g>
       )
     case 'no':
@@ -398,14 +398,6 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
           </g>
         </g>
       )
-    case 'jump':
-      return (
-        <g className="bot-orb__fx bot-orb__ticks" fill="none" strokeLinecap="round">
-          <path d="M22 5 l-3 -5" />
-          <path d="M32 2 v-6" />
-          <path d="M42 5 l3 -5" />
-        </g>
-      )
     case 'leave':
       return (
         <g className="bot-orb__fx bot-orb__speed" fill="none" strokeLinecap="round">
@@ -421,24 +413,6 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
   }
 }
 
-/** Five motes spiral in while the orb rises out of the ground. */
-function SpawnGather() {
-  return (
-    <g className="bot-orb__gather" aria-hidden>
-      {[0, 72, 144, 216, 288].map((deg, i) => (
-        <circle
-          key={deg}
-          className="bot-orb__mote"
-          cx="32"
-          cy="38"
-          r="2.2"
-          style={{ ['--mote-a' as string]: `${deg}deg`, animationDelay: `${i * 0.06}s` }}
-        />
-      ))}
-    </g>
-  )
-}
-
 /**
  * Colored bot mark: silhouette + white eyes + mood chrome. Face and body run
  * on a spring rig painted per frame; chrome and glow are CSS via data-motion.
@@ -446,7 +420,7 @@ function SpawnGather() {
 export function BotOrbAvatar({
   color,
   shape,
-  size = 32,
+  size: rawSize = 32,
   className,
   motion = 'idle',
   pulseId = null,
@@ -458,11 +432,12 @@ export function BotOrbAvatar({
   decorative = false,
   label = 'Agent',
 }: Props) {
+  const size = snapMarkSize(rawSize)
   const frozen = resolveBotOrbPaused(mode, paused)
   const uid = useId().replace(/:/g, '')
   const clipId = `bot-orb-clip-${uid}`
   const maskId = `bot-orb-mask-${uid}`
-  const haloId = `bot-orb-halo-${uid}`
+  const groundClipId = `bot-orb-ground-${uid}`
   const rootRef = useRef<HTMLSpanElement>(null)
   const rigRef = useRef<BotOrbRig | null>(null)
   if (!rigRef.current) rigRef.current = new BotOrbRig()
@@ -784,6 +759,7 @@ export function BotOrbAvatar({
       onPointerDown={canPoke ? onPointerDown : undefined}
       {...a11y}
     >
+      <span className="bot-orb__aura" aria-hidden />
       <svg className="bot-orb__svg" viewBox="0 0 64 64" width={size} height={size} aria-hidden>
         <defs>
           <clipPath id={clipId} clipPathUnits="userSpaceOnUse" clipRule="nonzero">
@@ -792,10 +768,10 @@ export function BotOrbAvatar({
           <mask id={maskId} maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
             <path d={faceClip} fill="#ffffff" fillRule="nonzero" />
           </mask>
-          <radialGradient id={haloId} cx="32" cy="33" r="38" gradientUnits="userSpaceOnUse">
-            <stop offset="0.5" className="bot-orb__halo-stop" stopOpacity="0.6" />
-            <stop offset="1" className="bot-orb__halo-stop" stopOpacity="0" />
-          </radialGradient>
+          {/* Ground line for the full spawn: the body rises out of y=64. */}
+          <clipPath id={groundClipId} clipPathUnits="userSpaceOnUse">
+            <rect x="-64" y="-64" width="192" height="128" />
+          </clipPath>
           {/* Local y < 32 = far side of the orbital plane (paints behind the body). */}
           <clipPath id={orbitBackClipId} clipPathUnits="userSpaceOnUse">
             <rect x="0" y="0" width="64" height="32" />
@@ -805,12 +781,18 @@ export function BotOrbAvatar({
           </clipPath>
         </defs>
 
-        {!frozen ? <circle className="bot-orb__halo" cx="32" cy="33" r="38" fill={`url(#${haloId})`} /> : null}
-        {rising && riseStyle === 'full' ? <SpawnGather /> : null}
-
         {orbitRings ? <OrbitHalves rings={orbitRings} clipId={orbitBackClipId} layer="back" /> : null}
 
+        {/* Search rings sit behind the silhouette so they wrap the mark, not cover it. */}
+        {showChrome && displayMotion === 'searching' ? (
+          <g className="bot-orb__fx bot-orb__sonar" fill="none">
+            <circle className="bot-orb__ping" cx="32" cy="32" r="26" />
+            <circle className="bot-orb__ping bot-orb__ping--late" cx="32" cy="32" r="26" />
+          </g>
+        ) : null}
+
         {/* Figure carries the CSS entrance; the rig group inside carries every spring. */}
+        <g clipPath={rising && riseStyle === 'full' ? `url(#${groundClipId})` : undefined}>
         <g className="bot-orb__figure">
           <g ref={ref('rig')} className="bot-orb__rig">
             <g className="bot-orb__body" style={{ transformOrigin: '32px 32px' }}>
@@ -903,6 +885,7 @@ export function BotOrbAvatar({
               </g>
             </g>
           </g>
+        </g>
         </g>
 
         {orbitRings ? <OrbitHalves rings={orbitRings} clipId={orbitFrontClipId} layer="front" /> : null}

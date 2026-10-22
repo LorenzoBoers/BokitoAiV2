@@ -424,31 +424,6 @@ async function thinkingLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
   }
 }
 
-async function typingLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
-  rig.setFace('neutral')
-  rig.set({ gx: 0, gy: 0.8, bx: 0, br: 0 })
-  while (!signal.aborted) {
-    const smile = Math.random() < 0.12
-    if (smile) rig.setFace('calm')
-    const syllables = 3 + Math.floor(Math.random() * 5)
-    for (let i = 0; i < syllables; i++) {
-      rig.set({ sy: 1.045, sx: 0.975, by: -0.3 })
-      await sleep(rand(90, 140), signal)
-      rig.set({ sy: 0.975, sx: 1.02, by: 0.2 })
-      await sleep(rand(80, 130), signal)
-    }
-    rig.set({ sy: 1, sx: 1, by: 0 })
-    if (smile) rig.setFace('neutral')
-    if (Math.random() < 0.35) {
-      rig.set({ gx: rand(-4, 4), gy: rand(-3, 2) })
-      await sleep(rand(160, 380), signal)
-      rig.set({ gx: 0, gy: 0.8 })
-    }
-    if (Math.random() < 0.2) rig.blink()
-    await sleep(rand(180, 520), signal)
-  }
-}
-
 const WORK_FOCUS: Gaze = { x: 0.25, y: -0.35 }
 
 async function workingLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
@@ -556,7 +531,6 @@ const LOOPS: Partial<Record<BotOrbMotion, (rig: BotOrbRig, ctx: DirectorCtx) => 
   idle: idleLoop,
   listening: listeningLoop,
   thinking: thinkingLoop,
-  typing: typingLoop,
   working: workingLoop,
   searching: searchingLoop,
   writing: writingLoop,
@@ -615,18 +589,39 @@ const SHOTS: Record<BotOrbOneShot, (rig: BotOrbRig, signal: AbortSignal) => Prom
     await sleep(420, signal)
   },
   async jump(rig, signal) {
-    rig.setFace('sleepy', { instant: true })
-    await sleep(160, signal)
-    rig.setFace('surprised', { cut: true })
-    rig.set({ sy: 0.82, sx: 1.12, by: 1.4 })
-    await sleep(150, signal)
-    rig.set({ sy: 1.16, sx: 0.9, by: -6, gy: -2 })
+    // Anticipation: sink low and wide, eyes narrow on the take-off.
+    rig.setFace('focused')
+    rig.tune(['sx', 'sy', 'by'], 14, 0.7)
+    rig.set({ sy: 0.72, sx: 1.2, by: 2.6, gy: 1.5 })
     await sleep(260, signal)
-    rig.set({ sy: 1, sx: 1, by: 0, gy: 0 })
-    await sleep(140, signal)
-    rig.kick({ sy: -3.2, sx: 2 })
+
+    // Launch: stretch tall and shoot up on a slower, softer spring for hang time.
+    rig.setFace('surprised', { cut: true })
+    rig.tune(['by'], 9, 0.62)
+    rig.tune(['sx', 'sy'], 18, 0.45)
+    rig.set({ sy: 1.22, sx: 0.84, by: -17, gy: -3, br: -6 })
+    await sleep(230, signal)
+
+    // Apex: round out and enjoy it with a little tuck-turn.
     rig.setFace('happy')
-    await sleep(500, signal)
+    rig.set({ sy: 1.02, sx: 0.99, br: 8 })
+    await sleep(170, signal)
+
+    // Fall: stretch slightly into the drop.
+    rig.tune(['by'], 16, 0.95)
+    rig.set({ by: 0, sy: 1.1, sx: 0.92, br: 0, gy: 0 })
+    await sleep(200, signal)
+
+    // Land: hard squash, then a small rebound hop and settle.
+    rig.tune(['sx', 'sy', 'by'], 20, 0.35)
+    rig.snap({ sy: 0.74, sx: 1.24 })
+    rig.set({ by: 1.6 })
+    await sleep(110, signal)
+    rig.set({ sy: 1.06, sx: 0.95, by: -3.5 })
+    await sleep(150, signal)
+    rig.set({ sy: 1, sx: 1, by: 0 })
+    rig.kick({ sy: -1.6, sx: 1.2 })
+    await sleep(420, signal)
   },
   async done(rig, signal) {
     rig.setFace('happy')

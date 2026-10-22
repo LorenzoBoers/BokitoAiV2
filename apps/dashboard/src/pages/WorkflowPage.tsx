@@ -8,7 +8,6 @@ import { AlertTriangle } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { OrgEdgeFades } from '../components/org/OrgEdgeFades'
 import { ORG_FLOAT_GLASS, ORG_FLOAT_PANEL } from '../components/org/org-float-panel'
-import { WorkforceSectionTabs } from '../components/shell/SectionTabs'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { OrgCanvasSkeleton, OrgLegendSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -43,6 +42,8 @@ export default function WorkflowPage() {
   const view: GridView = searchParams.get('view') === '2d' ? '2d' : '3d'
   const days = readDays(searchParams.get('days'))
   const isolated = lens === 'labels' ? searchParams.get('label') || null : null
+  // From a department page: that department's lane stays lit.
+  const department = searchParams.get('department') || null
 
   const [flow, setFlow] = useState<OrgFlow | null>(null)
   const [error, setError] = useState('')
@@ -128,6 +129,7 @@ export default function WorkflowPage() {
             data={flow}
             lens={lens}
             label={isolated}
+            zone={department}
             selectedId={selectedId}
             hoverId={hoverId}
             onHover={setHoverId}
@@ -138,6 +140,7 @@ export default function WorkflowPage() {
             data={flow}
             lens={lens}
             label={isolated}
+            zone={department}
             selectedId={selectedId}
             hoverId={hoverId}
             onHover={setHoverId}
@@ -149,10 +152,7 @@ export default function WorkflowPage() {
       </div>
       <OrgEdgeFades />
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 px-4 pb-3 pt-3">
-        <div className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <WorkforceSectionTabs className="-mx-1" />
-          </div>
+        <div className="pointer-events-auto flex flex-wrap items-start justify-end gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <SegmentedControl
               size="sm"

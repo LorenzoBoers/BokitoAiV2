@@ -50,7 +50,7 @@ export default function WorkspaceHubNav() {
             name={displayName}
             email={email}
             avatarUrl={user?.avatarUrl}
-            size={28}
+            size={32}
             decorative
             className="rounded-md"
           />

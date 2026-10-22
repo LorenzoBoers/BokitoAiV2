@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime, timedelta
+from app.core.time import utcnow
+from datetime import timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -297,7 +298,7 @@ async def _pending_invites_for_email(session: AsyncSession, email: str) -> list[
         .where(
             Invite.email == email,
             Invite.accepted_at.is_(None),
-            Invite.expires_at > datetime.utcnow(),
+            Invite.expires_at > utcnow(),
         )
         .order_by(Invite.created_at.desc())
     )
@@ -844,7 +845,7 @@ async def invite_info(
 ):
     """Public preview for the accept-invite page: who is invited, to which workspace."""
     result = await session.execute(
-        select(Invite).where(Invite.token == token, Invite.expires_at > datetime.utcnow())
+        select(Invite).where(Invite.token == token, Invite.expires_at > utcnow())
     )
     invite = result.scalar_one_or_none()
     if not invite or invite.accepted_at:
@@ -870,7 +871,7 @@ async def accept_invite(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     result = await session.execute(
-        select(Invite).where(Invite.token == body.token, Invite.expires_at > datetime.utcnow())
+        select(Invite).where(Invite.token == body.token, Invite.expires_at > utcnow())
     )
     invite = result.scalar_one_or_none()
     if not invite or invite.accepted_at:
@@ -924,7 +925,7 @@ async def accept_invite(
     user.last_tenant_id = invite.tenant_id
     # Reaching the tokenized link proves control of the invited mailbox.
     user.email_verified = True
-    invite.accepted_at = datetime.utcnow()
+    invite.accepted_at = utcnow()
     tenant_result = await session.execute(select(Tenant).where(Tenant.id == invite.tenant_id))
     tenant = tenant_result.scalar_one()
     from app.services.audit import record_audit
@@ -1004,7 +1005,7 @@ async def workspace_setup_accept_invite(
                 Invite.id == invite_uuid,
                 Invite.email == user.email,
                 Invite.accepted_at.is_(None),
-                Invite.expires_at > datetime.utcnow(),
+                Invite.expires_at > utcnow(),
             )
         )
     ).scalar_one_or_none()
@@ -1031,7 +1032,7 @@ async def workspace_setup_accept_invite(
         existing_membership.deactivated_at = None
         existing_membership.role = canonical_workspace_role(invite.role)
     user.last_tenant_id = invite.tenant_id
-    invite.accepted_at = datetime.utcnow()
+    invite.accepted_at = utcnow()
     from app.services.audit import record_audit
 
     await record_audit(
@@ -1285,7 +1286,7 @@ async def patch_profile(
         if not isinstance(stored, dict):
             stored = {}
         if body.onboarded:
-            stored.setdefault("onboarded_at", datetime.utcnow().isoformat())
+            stored.setdefault("onboarded_at", utcnow().isoformat())
         if body.email_signature_html is not None:
             from app.services.signatures import MAX_SIGNATURE_LENGTH, SIGNATURE_KEY
 
@@ -1509,7 +1510,7 @@ async def _issue_auth_token(
 
     Any prior unused tokens of the same kind for this user are invalidated so a
     fresh request always supersedes an older link."""
-    now = datetime.utcnow()
+    now = utcnow()
     prior = await session.execute(
         select(AuthToken).where(
             AuthToken.user_id == user.id,
@@ -1540,18 +1541,22 @@ async def _consume_auth_token(
         select(AuthToken).where(AuthToken.token == token, AuthToken.kind == kind)
     )
     row = result.scalar_one_or_none()
-    if row is None or row.used_at is not None or row.expires_at < datetime.utcnow():
+    if row is None or row.used_at is not None or row.expires_at < utcnow():
         raise HTTPException(status_code=400, detail="Invalid or expired token.")
     user = await session.get(User, row.user_id)
     if user is None:
         raise HTTPException(status_code=400, detail="Invalid or expired token.")
-    row.used_at = datetime.utcnow()
+    row.used_at = utcnow()
     return user
 
 
 def _dev_magic_link(path: str, token: str) -> dict[str, str]:
-    """In non-production, surface the token + link so flows are testable without SMTP."""
-    if settings.is_production:
+    """Surface the token + link only when explicitly enabled (local dev, tests).
+
+    Gated on ``EXPOSE_DEV_AUTH_TOKENS`` rather than "not production": public
+    dev/staging hosts must never hand out reset tokens to anonymous callers.
+    """
+    if settings.is_production or not settings.expose_dev_auth_tokens:
         return {}
     link = f"{path}?token={token}"
     logger.info("[auth] dev magic link: %s", link)

@@ -1,4 +1,4 @@
-"""MCP tool client with mock and HTTP JSON transport."""
+"""MCP tool calls: native adapters, mocks, and remote servers (``mcp_remote_client``)."""
 
 from __future__ import annotations
 
@@ -6,13 +6,11 @@ import json
 from typing import Any
 from uuid import UUID
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.integration import McpServer
-from app.services.mcp_auth import mcp_auth_headers
 
 
 def _mock_trading_tool(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
@@ -254,6 +252,17 @@ async def call_mcp_tool(
         response.update(outcome)
         return response
 
+    from app.services.native_connectors import native_connector
+
+    connector = native_connector(server.server_url)
+    if connector is not None:
+        try:
+            auth_data = json.loads(server.auth_json or "{}")
+        except (json.JSONDecodeError, TypeError):
+            auth_data = {}
+        outcome = await connector.call(auth_data if isinstance(auth_data, dict) else {}, tool_name, arguments or {})
+        return {"server": server_name, "tool": tool_name, **outcome}
+
     if server.server_url.startswith("native://"):
         from app.services.bjorn_lunden import call_bl_tool, has_bl_credentials
 
@@ -282,29 +291,36 @@ async def call_mcp_tool(
             }
         return _mock_mcp_response(server_name, tool_name, arguments)
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "tools/call",
-        "params": {"name": tool_name, "arguments": arguments or {}},
-    }
-    auth = json.loads(server.auth_json or "{}")
-    headers = mcp_auth_headers(auth if isinstance(auth, dict) else {})
+    from app.services.mcp_remote_client import McpCallError, call_tool
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(server.server_url, json=payload, headers=headers)
-            response.raise_for_status()
-            body = response.json()
-            return {
-                "server": server_name,
-                "tool": tool_name,
-                "result": body.get("result", body),
-            }
-    except Exception as exc:
-        return {
-            "server": server_name,
-            "tool": tool_name,
-            "error": str(exc),
-            "fallback": {"status": "unreachable", "url": server.server_url},
-        }
+        result = await call_tool(session, server, tool_name, arguments or {})
+    except McpCallError as exc:
+        await session.commit()
+        out: dict[str, Any] = {"server": server_name, "tool": tool_name, "error": str(exc)}
+        if exc.needs_reconnect:
+            out["error"] = f"{server_name} needs to be connected again under Connections."
+            out["needs_reconnect"] = True
+        else:
+            schema = _cached_schema(server, tool_name)
+            if schema:
+                out["input_schema"] = schema
+        return out
+    await session.commit()
+    response = {"server": server_name, "tool": tool_name, "result": result}
+    if result.get("isError"):
+        schema = _cached_schema(server, tool_name)
+        if schema:
+            response["input_schema"] = schema
+    return response
+
+
+def _cached_schema(server: McpServer, tool_name: str) -> dict[str, Any]:
+    try:
+        tools = json.loads(server.tools_json or "[]")
+    except json.JSONDecodeError:
+        return {}
+    for tool in tools if isinstance(tools, list) else []:
+        if isinstance(tool, dict) and tool.get("name") == tool_name:
+            return tool.get("input_schema") or {}
+    return {}

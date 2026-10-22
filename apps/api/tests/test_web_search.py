@@ -164,6 +164,16 @@ async def test_brave_search_unwraps_nested_image_src():
     assert out["results"][0]["url"] == "https://pixabay.com/jet/"
 
 
+def test_web_search_passport_includes_fetch_url():
+    import json
+    from types import SimpleNamespace
+
+    from app.tools.registry import agent_allowed_tools
+
+    agent = SimpleNamespace(tools_json=json.dumps(["web_search"]))
+    assert agent_allowed_tools(agent) == {"web_search", "fetch_url"}
+
+
 def test_web_search_on_suggest_and_assistant_allowlists():
     from app.services.personal_assistant import TOOL_ALLOWLIST
     from app.workers.tasks import SUGGEST_MODE_TOOLS

@@ -89,6 +89,42 @@ export function threadHubPath(
   return inboxPath('open', String(thread.id))
 }
 
+/** The agent a conversation shows: the last sender, falling back to the pinned agent. */
+export function threadFace(thread: InboxThread): {
+  id: string | null
+  name: string | null
+  kind: string | null
+  avatarKind: string | null
+  avatarIcon: string | null
+  avatarColor: string | null
+  avatarShape: string | null
+  avatarImageUrl: string | null
+} {
+  const speaker = thread.speaker
+  if (speaker?.id) {
+    return {
+      id: speaker.id,
+      name: speaker.name || null,
+      kind: speaker.kind,
+      avatarKind: speaker.avatarKind,
+      avatarIcon: speaker.avatarIcon,
+      avatarColor: speaker.avatarColor,
+      avatarShape: speaker.avatarShape,
+      avatarImageUrl: speaker.avatarImageUrl,
+    }
+  }
+  return {
+    id: thread.agentId ?? null,
+    name: thread.agentName ?? null,
+    kind: thread.agentKind ?? null,
+    avatarKind: thread.agentAvatarKind ?? null,
+    avatarIcon: thread.agentAvatarIcon ?? null,
+    avatarColor: thread.agentAvatarColor ?? null,
+    avatarShape: thread.agentAvatarShape ?? null,
+    avatarImageUrl: thread.agentAvatarImageUrl ?? null,
+  }
+}
+
 /** Primary label for thread list rows and headers. */
 export function threadCounterpartyName(
   thread: InboxThread,
@@ -100,7 +136,8 @@ export function threadCounterpartyName(
       const teamName = thread.contactName?.trim()
       if (teamName) return teamName
     }
-    if (thread.agentName?.trim()) return thread.agentName.trim()
+    const face = threadFace(thread).name?.trim()
+    if (face) return face
     const name = thread.contactName?.trim()
     if (name && name.toLowerCase() !== 'agent') return name
     return labels?.agent ?? 'Agent'

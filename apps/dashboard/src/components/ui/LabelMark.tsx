@@ -11,11 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from './dialog'
+import { filterPlatformIcons, platformIcon } from '../../lib/platform-icons'
 import {
   FLOW_LABEL_COLOR,
   FLOW_LABEL_ICON,
   LABEL_MARK_COLORS,
-  LABEL_MARK_ICONS,
   LABEL_MARK_INK,
   labelMarkInk,
   type LabelMarkColor,
@@ -29,7 +29,7 @@ function coerceFlowColor(color: LabelColor): LabelMarkColor {
 }
 
 function coerceFlowIcon(icon: string): string {
-  return icon && icon in LABEL_MARK_ICONS ? icon : FLOW_LABEL_ICON
+  return icon && platformIcon(icon) ? icon : FLOW_LABEL_ICON
 }
 
 /** Color swatches and icon grid shared by the label dialog and new-flow setup. */
@@ -55,10 +55,7 @@ export function LabelMarkFields({
     setQuery('')
   }, [name])
 
-  const icons = useMemo(() => {
-    const needle = query.trim().toLowerCase()
-    return Object.keys(LABEL_MARK_ICONS).filter((id) => !needle || id.includes(needle))
-  }, [query])
+  const iconIds = useMemo(() => filterPlatformIcons(query, markIcon), [query, markIcon])
 
   return (
     <div className="space-y-3">
@@ -82,13 +79,18 @@ export function LabelMarkFields({
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder={t('workstreamsPage.mark.search', { defaultValue: 'Search icons' })}
-        aria-label={t('workstreamsPage.mark.search', { defaultValue: 'Search icons' })}
+        placeholder={t('workstreamsPage.mark.search', {
+          defaultValue: 'Search icons (Lucide)',
+        })}
+        aria-label={t('workstreamsPage.mark.search', {
+          defaultValue: 'Search icons (Lucide)',
+        })}
         className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
       />
-      <div className="grid max-h-40 grid-cols-8 gap-1 overflow-auto">
-        {icons.map((id) => {
-          const Icon = LABEL_MARK_ICONS[id]
+      <div className="grid max-h-[min(50vh,24rem)] grid-cols-8 gap-1 overflow-auto">
+        {iconIds.map((id) => {
+          const Icon = platformIcon(id)
+          if (!Icon) return null
           const selected = markIcon === id
           const ink = labelMarkInk(markColor)
           return (
@@ -110,6 +112,13 @@ export function LabelMarkFields({
           )
         })}
       </div>
+      {!query.trim() ? (
+        <p className="text-2xs text-text-muted">
+          {t('workstreamsPage.mark.searchHint', {
+            defaultValue: 'Popular icons first, then the full Lucide set. Type to filter.',
+          })}
+        </p>
+      ) : null}
     </div>
   )
 }

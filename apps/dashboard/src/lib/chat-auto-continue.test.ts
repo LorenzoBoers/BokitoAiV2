@@ -30,6 +30,12 @@ describe('chat-auto-continue', () => {
     expect(peekChatContinue('t1')).toBe(false)
   })
 
+  it('stashes a speak-first flag once', () => {
+    stashChatContinue('t4', { mode: 'speak' })
+    expect(takeChatContinue('t4')).toEqual({ mode: 'speak' })
+    expect(takeChatContinue('t4')).toBeNull()
+  })
+
   it('stashes a send draft with trimmed text', () => {
     stashChatContinue('t2', { mode: 'send', text: '  hello agent  ' })
     expect(takeChatContinue('t2')).toEqual({ mode: 'send', text: 'hello agent' })

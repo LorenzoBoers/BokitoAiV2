@@ -6,6 +6,7 @@ the bus fans them out locally and across workers via Redis pub/sub when availabl
 """
 
 from app.gateway import entity_events as _entity_events  # noqa: F401  (session hooks)
+from app.services import event_wakes as _event_wakes  # noqa: F401  (session hooks)
 from app.gateway.bus import event_bus
 from app.gateway.publish import (
     publish_agent_status,

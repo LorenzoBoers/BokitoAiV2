@@ -61,6 +61,19 @@ def error_summary(exc: BaseException) -> str:
     return (str(exc) or type(exc).__name__)[:1000]
 
 
+def failure_brief(exc: BaseException | None) -> str:
+    """One line an agent can act on. Internal driver errors stay off the thread."""
+    text = " ".join(str(exc or "").split())
+    lowered = text.lower()
+    if "greenlet_spawn" in lowered or "missinggreenlet" in lowered:
+        return "a tool call failed while saving its result"
+    if isinstance(exc, TimeoutError) or "timed out" in lowered:
+        return "the reply took too long to finish"
+    if "sqlalche.me" in lowered or "traceback" in lowered:
+        return "an internal error interrupted the reply"
+    return text[:180] or "an internal error interrupted the reply"
+
+
 # ── workspace-wide circuit breaker ─────────────────────────────────
 #
 # Once a block is seen, inbound processing stops starting runs for a while

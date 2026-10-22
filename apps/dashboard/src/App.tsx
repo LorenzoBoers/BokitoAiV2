@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-do
 import AppShell from './components/shell/AppShell'
 import MessagesHub from './components/shell/MessagesHub'
 import SettingsLayout, { SettingsHomeRedirect } from './components/shell/SettingsLayout'
+import WorkforceLayout from './components/shell/WorkforceLayout'
 import ProjectsLayout from './components/projects/ProjectsLayout'
 import WorkspaceHubLayout from './components/layout/WorkspaceHubLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -26,6 +27,7 @@ import {
   newConversationPath,
   type InboxQueue,
 } from './lib/messages-paths'
+import { departmentPath } from './lib/navigation'
 
 // Pages are lazy-loaded so each route becomes its own chunk.
 // Public pages
@@ -77,6 +79,7 @@ const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
 const OrgCanvasPage = lazy(() => import('./pages/OrgCanvasPage'))
 const WorkflowPage = lazy(() => import('./pages/WorkflowPage'))
+const DepartmentPage = lazy(() => import('./pages/DepartmentPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
@@ -124,6 +127,13 @@ function LegacyFlowRedirect() {
   const location = useLocation()
   const rest = location.pathname.replace(/^\/workstreams/, '')
   return <Navigate to={`/flows${rest}${location.search}${location.hash}`} replace />
+}
+
+function LegacyDepartmentRedirect() {
+  const { id } = useParams()
+  const location = useLocation()
+  if (!id) return <Navigate to="/workforce?tab=departments" replace />
+  return <Navigate to={`${departmentPath(id)}${location.search}${location.hash}`} replace />
 }
 
 function LastInboxRedirect() {
@@ -459,9 +469,16 @@ export default function App() {
           <Route path="/contacts/companies/:companyId" element={<ContactsPage />} />
           <Route path="/contacts/:contactId" element={<ContactsPage />} />
           <Route path="/agenda" element={<AgendaPage />} />
-          <Route path="/workforce" element={<TeamPage />} />
-          <Route path="/workforce/grid" element={<OrgCanvasPage />} />
-          <Route path="/workforce/workflow" element={<WorkflowPage />} />
+          <Route element={<WorkforceLayout />}>
+            <Route path="/workforce" element={<TeamPage />} />
+            <Route path="/workforce/grid" element={<OrgCanvasPage />} />
+            <Route path="/workforce/workflow" element={<WorkflowPage />} />
+          </Route>
+          <Route
+            path="/workforce/departments/:id"
+            element={<LegacyDepartmentRedirect />}
+          />
+          <Route path="/departments/:id" element={<DepartmentPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}
           <Route path="/learn" element={<LearnPage />} />

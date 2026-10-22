@@ -1,3 +1,4 @@
+from app.core.time import utcnow
 """Workforce runtime service (agents, work logs, messages, graph controls)."""
 
 import json
@@ -517,7 +518,7 @@ def apply_agent_runtime(
 
     status = agent_status(status)
     agent.runtime_status = status
-    now = datetime.utcnow()
+    now = utcnow()
     agent.updated_at = now
     agent.last_active_at = now
     live_activity: str | None = str(activity_id) if activity_id else None
@@ -626,7 +627,7 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     agent.is_active = False
     agent.runtime_status = "standby"
     agent.is_lead = False
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
     session.add(agent)
     from app.services.archived_agents import retarget_threads_for_agent
 
@@ -654,7 +655,7 @@ async def restore_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     agent.kind = "company"
     agent.is_active = True
     agent.runtime_status = "standby"
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
     session.add(agent)
     await session.commit()
     return {"ok": True, "id": str(agent_id), "agent": serialize_agent(agent, view="runtime")}
@@ -679,7 +680,7 @@ async def update_agent_model(
     if mode == model_policy.INHERIT:
         agent.model = model_policy.INHERIT
         agent.provider = "bokito"
-        agent.updated_at = datetime.utcnow()
+        agent.updated_at = utcnow()
         session.add(agent)
         await session.commit()
         await session.refresh(agent)
@@ -687,7 +688,7 @@ async def update_agent_model(
     if mode == model_policy.AUTOMATIC:
         agent.model = model_policy.AUTOMATIC
         agent.provider = "bokito"
-        agent.updated_at = datetime.utcnow()
+        agent.updated_at = utcnow()
         session.add(agent)
         await session.commit()
         await session.refresh(agent)
@@ -727,7 +728,7 @@ async def update_agent_model(
 
     agent.model = slug
     agent.provider = provider_type
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
@@ -946,7 +947,7 @@ async def update_agent(
             set_agent_ask_target(agent, kind, UUID(target["id"]) if target else None)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
@@ -1135,15 +1136,15 @@ async def resolve_message(
                 )
             ).scalar_one_or_none()
             if signal and signal.status in ("open", "pending"):
-                signal.next_at = datetime.utcnow() + timedelta(days=defer_days)
-                signal.updated_at = datetime.utcnow()
+                signal.next_at = utcnow() + timedelta(days=defer_days)
+                signal.updated_at = utcnow()
                 session.add(signal)
                 await session.commit()
 
 
 def default_workforce_config(tenant_id: UUID) -> dict[str, Any]:
     org = tenant_numeric_id(tenant_id)
-    now = _ms(datetime.utcnow())
+    now = _ms(utcnow())
     return {
         "id": org,
         "organisation_id": org,
@@ -1208,7 +1209,7 @@ async def update_workforce_config(
     for key, value in patch.items():
         if key in WORKFORCE_CONFIG_KEYS and value is not None:
             stored[key] = value
-    stored["updated_at"] = _ms(datetime.utcnow())
+    stored["updated_at"] = _ms(utcnow())
     settings["workforce_config"] = stored
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
@@ -1279,7 +1280,7 @@ async def complete_activity(
     run.status = "failed" if outcome == "failed" else "completed" if outcome == "completed" else "completed"
     if outcome == "cancelled":
         run.status = "failed"
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     if summary:
         run.subject = summary[:500]
     session.add(run)
@@ -1309,9 +1310,9 @@ async def clear_stale_runtime(
     """
     from sqlalchemy import and_, exists, or_
 
-    cutoff = datetime.utcnow() - timedelta(minutes=max(1, max_stale_minutes))
-    orphan_cutoff = datetime.utcnow() - timedelta(minutes=2)
-    now = datetime.utcnow()
+    cutoff = utcnow() - timedelta(minutes=max(1, max_stale_minutes))
+    orphan_cutoff = utcnow() - timedelta(minutes=2)
+    now = utcnow()
 
     open_run = exists().where(
         and_(
@@ -1433,7 +1434,7 @@ async def create_demo_run(
         subject=subject,
         tokens_input=120,
         tokens_output=80,
-        completed_at=datetime.utcnow() if status != "running" else None,
+        completed_at=utcnow() if status != "running" else None,
     )
     session.add(run)
     await session.flush()

@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from app.core.time import utcnow
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -89,27 +90,43 @@ async def _ring_user_id(
     tenant_id: UUID,
     decision: DecisionRequest,
 ) -> UUID | None:
-    """The person who should hear the ring, or None when nobody is available."""
-    now = datetime.utcnow()
-    connected = connected_user_ids_for(tenant_id)
-    if decision.addressee_kind == "user" and decision.addressee_user_id:
-        user = await session.get(User, decision.addressee_user_id)
-        if user is not None and _person_available(user, connected, now=now):
-            return user.id
-        return None
-    if decision.addressee_kind == "department" and decision.addressee_department_id:
-        from app.services.teams import get_team, team_members
+    """The first person on the reach ladder who is available and lets agents call."""
+    from app.services.notify import load_prefs
+    from app.services.reach import in_quiet_hours, ladder
 
-        team = await get_team(session, tenant_id, decision.addressee_department_id)
-        if team is None:
-            return None
-        for member in await team_members(session, team):
-            if member.kind != "user":
-                continue
-            user = await session.get(User, member.id)
-            if user is not None and _person_available(user, connected, now=now):
-                return user.id
+    now = utcnow()
+    connected = connected_user_ids_for(tenant_id)
+    signal = await session.get(Signal, decision.signal_id) if decision.signal_id else None
+    people, _direct, _dept = await ladder(session, decision, signal)
+    for user_id in people:
+        user = await session.get(User, user_id)
+        if user is None or not user.is_active or not _person_available(user, connected, now=now):
+            continue
+        reach = (await load_prefs(session, tenant_id, user_id)).get("reach") or {}
+        if not reach.get("agents_may_call", True) or in_quiet_hours(reach, now):
+            continue
+        return user.id
     return None
+
+
+async def _record_call(session: AsyncSession, call: AgentCall, status: str) -> None:
+    """Every ring and its outcome is a reach event on the thread."""
+    from app.services.department_domain import department_of_signal
+    from app.services.reach import record_reach
+
+    signal = await session.get(Signal, call.signal_id)
+    department_id = await department_of_signal(session, signal) if signal is not None else None
+    await record_reach(
+        session,
+        signal_id=call.signal_id,
+        tenant_id=call.tenant_id,
+        channel="call",
+        recipient_user_id=call.user_id,
+        status=status,
+        department_id=department_id,
+        agent_id=call.agent_id,
+        decision_id=call.decision_id,
+    )
 
 
 def serialize_call(
@@ -132,7 +149,8 @@ def serialize_call(
         "title": title,
         "summary": summary,
         "text": text,
-        "ring_until": call.ring_until.isoformat() if call.ring_until else None,
+        # Always stamp Z so browsers do not treat naive UTC as local time.
+        "ring_until": f"{call.ring_until.isoformat()}Z" if call.ring_until else None,
     }
 
 
@@ -197,7 +215,7 @@ async def maybe_ring_for_decision(
     ).first()
     if busy is not None:
         return None
-    now = datetime.utcnow()
+    now = utcnow()
     call = AgentCall(
         tenant_id=tenant_id,
         signal_id=decision.signal_id,
@@ -238,9 +256,68 @@ async def maybe_ring_for_decision(
             agent_name = agent_name or agent.name
     session.add(call)
     await session.flush()
+    await _record_call(session, call, RINGING)
     await publish_call(
         call,
         agent_name=agent_name,
+        title=decision.title,
+        summary=decision.summary or "",
+    )
+    return call
+
+
+async def request_call(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    decision_id: UUID,
+) -> AgentCall:
+    """Call me: the person asked for the ring, so presence and quiet hours do not apply."""
+    from fastapi import HTTPException
+
+    if not calls_enabled():
+        raise HTTPException(status_code=409, detail="Calls are off in this workspace")
+    decision = await session.get(DecisionRequest, decision_id)
+    if (
+        decision is None
+        or decision.tenant_id != tenant_id
+        or decision.status != "awaiting_human"
+        or decision.signal_id is None
+    ):
+        raise HTTPException(status_code=404, detail="Decision not found")
+    open_call = (
+        await session.execute(
+            select(AgentCall).where(
+                AgentCall.tenant_id == tenant_id,
+                AgentCall.user_id == user_id,
+                AgentCall.status.in_(tuple(OPEN_STATUSES)),
+            )
+        )
+    ).scalars().first()
+    if open_call is not None:
+        return open_call
+    from app.services.reach import decision_agent
+
+    signal = await session.get(Signal, decision.signal_id)
+    agent = await decision_agent(session, decision, signal)
+    now = utcnow()
+    call = AgentCall(
+        tenant_id=tenant_id,
+        signal_id=decision.signal_id,
+        agent_id=agent.id if agent is not None else None,
+        decision_id=decision.id,
+        run_id=decision.run_id,
+        user_id=user_id,
+        status=RINGING,
+        ring_until=now + timedelta(seconds=ring_seconds()),
+        created_at=now,
+    )
+    session.add(call)
+    await session.flush()
+    await _record_call(session, call, "requested")
+    await publish_call(
+        call,
+        agent_name=agent.name if agent is not None else "",
         title=decision.title,
         summary=decision.summary or "",
     )
@@ -273,9 +350,10 @@ async def decline_call(
     if call.status != RINGING:
         raise HTTPException(status_code=409, detail="Call is not ringing")
     call.status = DECLINED
-    call.ended_at = datetime.utcnow()
+    call.ended_at = utcnow()
     session.add(call)
     await session.flush()
+    await _record_call(session, call, DECLINED)
     await publish_call(call)
     return call
 
@@ -291,9 +369,10 @@ async def miss_call(
     if call.status != RINGING:
         return call
     call.status = MISSED
-    call.ended_at = datetime.utcnow()
+    call.ended_at = utcnow()
     session.add(call)
     await session.flush()
+    await _record_call(session, call, MISSED)
     await publish_call(call)
     return call
 
@@ -302,7 +381,7 @@ async def expire_rings(session: AsyncSession) -> int:
     """Mark rings that outlived their window. The decision card stays."""
     if not calls_enabled():
         return 0
-    now = datetime.utcnow()
+    now = utcnow()
     rows = (
         await session.execute(
             select(AgentCall).where(
@@ -315,6 +394,7 @@ async def expire_rings(session: AsyncSession) -> int:
         call.status = MISSED
         call.ended_at = now
         session.add(call)
+        await _record_call(session, call, MISSED)
         await publish_call(call)
     if rows:
         await session.commit()
@@ -332,7 +412,7 @@ async def list_ringing(
                 AgentCall.tenant_id == tenant_id,
                 AgentCall.user_id == user_id,
                 AgentCall.status == RINGING,
-                AgentCall.ring_until >= datetime.utcnow(),
+                AgentCall.ring_until >= utcnow(),
             )
         )
     ).scalars().all()
@@ -458,6 +538,16 @@ async def run_call_tool(
         }
     if name == "confirm_choice":
         return await _confirm_choice(session, call, arguments)
+    if name == "hang_up":
+        raw = arguments.get("transcript")
+        await end_call(
+            session,
+            tenant_id,
+            user_id,
+            call_id,
+            transcript=raw if isinstance(raw, list) else None,
+        )
+        return {"status": "ended"}
     raise HTTPException(status_code=400, detail="Unknown call tool")
 
 
@@ -509,8 +599,9 @@ async def end_call(
     from app.services.chat_runtime import post_message
 
     call = await _load_owned(session, tenant_id, user_id, call_id)
-    if call.status not in OPEN_STATUSES:
-        return call
+    # A hang-up ends the call before the goodbye line is transcribed.
+    # A second end still files those lines.
+    already_ended = call.status not in OPEN_STATUSES
     signal = await session.get(Signal, call.signal_id)
     if signal is not None:
         recent = (
@@ -540,8 +631,10 @@ async def end_call(
                 author_agent_id=call.agent_id if role == "assistant" else None,
                 metadata={"source": "agent_call", "agent_call_id": str(call.id)},
             )
+    if already_ended:
+        return call
     call.status = ENDED
-    call.ended_at = datetime.utcnow()
+    call.ended_at = utcnow()
     session.add(call)
     await session.flush()
     await publish_call(call)
@@ -559,9 +652,9 @@ async def accept_call(
     call = await _load_owned(session, tenant_id, user_id, call_id)
     if call.status != RINGING:
         raise HTTPException(status_code=409, detail="Call is not ringing")
-    if call.ring_until < datetime.utcnow():
+    if call.ring_until < utcnow():
         call.status = MISSED
-        call.ended_at = datetime.utcnow()
+        call.ended_at = utcnow()
         session.add(call)
         await session.flush()
         await publish_call(call)
@@ -569,7 +662,7 @@ async def accept_call(
     decision = await session.get(DecisionRequest, call.decision_id)
     if decision is None or decision.status != "awaiting_human":
         call.status = ENDED
-        call.ended_at = datetime.utcnow()
+        call.ended_at = utcnow()
         session.add(call)
         await session.flush()
         raise HTTPException(status_code=409, detail="Decision is no longer open")
@@ -585,9 +678,10 @@ async def accept_call(
         )
     )
     call.status = LIVE
-    call.answered_at = datetime.utcnow()
+    call.answered_at = utcnow()
     session.add(call)
     await session.flush()
+    await _record_call(session, call, "answered")
     await publish_call(
         call,
         agent_name=agent.name if agent else "",

@@ -1,3 +1,4 @@
+from app.core.time import utcnow
 import json
 import logging
 from datetime import datetime
@@ -64,7 +65,7 @@ async def _defer_duplicate_action_asks(
             )
         )
     ).scalars().all()
-    now = datetime.utcnow()
+    now = utcnow()
     for row in rows:
         try:
             options = json.loads(row.options_json or "[]")
@@ -110,32 +111,6 @@ async def _count_rule_verdict(
             session.add(agent)
 
 
-async def _deliver_connection_write(
-    session: AsyncSession,
-    decision: DecisionRequest,
-    action_type: str,
-    connection_id: str,
-    result: Any,
-    *,
-    user_id: UUID | None,
-) -> None:
-    """An approved action wrote through a connection: deliver into its folder."""
-    from app.services.deliveries import record_connection_write
-
-    try:
-        await record_connection_write(
-            session,
-            decision.tenant_id,
-            decision.signal_id,
-            tool_name=action_type,
-            tool_input={"connection_id": connection_id},
-            result=result if isinstance(result, dict) else {},
-            user_id=user_id,
-        )
-    except Exception:
-        logger.exception("delivery after %s failed", action_type)
-
-
 async def resolve_decision(
     session: AsyncSession,
     tenant_id: UUID,
@@ -160,7 +135,7 @@ async def resolve_decision(
 
     decision.chosen_option_id = option_id
     decision.status = action
-    decision.resolved_at = datetime.utcnow()
+    decision.resolved_at = utcnow()
     decision.resolved_by_user_id = user_id
     await _count_rule_verdict(session, tenant_id, options, action)
     from app.services.auto_review import record_agreement
@@ -169,6 +144,16 @@ async def resolve_decision(
     from app.services.ticket_work import record_proposal_outcome
 
     await record_proposal_outcome(session, decision, action, user_id=user_id)
+
+    if action == "rejected" and decision.platform_change_id and user_id:
+        from app.services.platform_changes import reject_platform_change
+
+        try:
+            await reject_platform_change(
+                session, tenant_id, decision.platform_change_id, user_id, commit=False
+            )
+        except HTTPException:
+            pass
 
     if decision.notification_id:
         notif_result = await session.execute(
@@ -203,191 +188,11 @@ async def resolve_decision(
 
             await apply_checkout_choice(session, tenant_id, payload, user_id=user_id)
 
-        if action_type == "file_ticket":
-            tag_raw = str(payload.get("tag_id") or "").strip()
-            signal_raw = str(payload.get("signal_id") or decision.signal_id or "").strip()
-            if tag_raw and signal_raw:
-                from app.services.tickets import file_ticket
+        from app.services.decision_actions import run_decision_action
 
-                try:
-                    await file_ticket(
-                        session,
-                        tenant_id,
-                        signal_id=UUID(signal_raw),
-                        tag_id=UUID(tag_raw),
-                        summary=str(payload.get("summary") or decision.summary or ""),
-                        certainty=10,
-                        actor="operator",
-                        created_by_type="user",
-                        created_by_id=str(user_id or ""),
-                        user_id=user_id,
-                    )
-                except Exception as exc:
-                    raise DecisionActionError(action_type, str(exc)) from exc
-
-        if action_type == "file_in_folder":
-            from app.services.folders import settle_folder_choice
-
-            try:
-                await settle_folder_choice(session, tenant_id, payload, user_id=user_id)
-            except Exception as exc:
-                raise DecisionActionError(action_type, str(exc)) from exc
-
-        if action_type == "activate_inbox_rule":
-            rule_raw = str(payload.get("rule_id") or "").strip()
-            if rule_raw:
-                from app.services.inbox_rules import update_rule
-
-                try:
-                    await update_rule(
-                        session, tenant_id, UUID(rule_raw), status="active", user_id=user_id
-                    )
-                except ValueError as exc:
-                    raise DecisionActionError(action_type, str(exc)) from exc
-
-        if action_type == "enable_module":
-            slug = str(payload.get("module") or "").strip()
-            if slug:
-                from app.modules.catalog import set_module_enabled
-
-                try:
-                    await set_module_enabled(
-                        session, tenant_id, slug, True, actor_id=user_id
-                    )
-                except ValueError:
-                    pass
-
-        if action_type == "calendar_create_event":
-            from app.services.calendar_sync import create_external_event
-
-            conn_raw = str(payload.get("connection_id") or "").strip()
-            title = str(payload.get("title") or "").strip()
-            start_raw = str(payload.get("start_at") or "").strip()
-            end_raw = str(payload.get("end_at") or "").strip()
-            if conn_raw and title and start_raw and end_raw:
-                try:
-                    start_at = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
-                    end_at = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
-                    written = await create_external_event(
-                        session,
-                        tenant_id,
-                        connection_id=UUID(conn_raw),
-                        title=title,
-                        start_at=start_at,
-                        end_at=end_at,
-                        description=str(payload.get("description") or ""),
-                        location=str(payload.get("location") or ""),
-                        all_day=bool(payload.get("all_day")),
-                        calendar_id=str(payload.get("calendar_id") or "") or None,
-                    )
-                except Exception as exc:
-                    raise DecisionActionError(action_type, str(exc)) from exc
-                await _deliver_connection_write(
-                    session, decision, action_type, conn_raw, written, user_id=user_id
-                )
-
-        if action_type == "calendar_update_event":
-            from app.services.calendar_sync import update_external_event
-
-            event_raw = str(payload.get("event_id") or "").strip()
-            if event_raw:
-                try:
-                    start_at = None
-                    end_at = None
-                    start_raw = str(payload.get("start_at") or "").strip()
-                    end_raw = str(payload.get("end_at") or "").strip()
-                    if start_raw:
-                        start_at = datetime.fromisoformat(start_raw.replace("Z", "+00:00"))
-                    if end_raw:
-                        end_at = datetime.fromisoformat(end_raw.replace("Z", "+00:00"))
-                    title = payload.get("title")
-                    written = await update_external_event(
-                        session,
-                        tenant_id,
-                        UUID(event_raw),
-                        title=str(title).strip() if title is not None else None,
-                        start_at=start_at,
-                        end_at=end_at,
-                        description=(
-                            str(payload.get("description"))
-                            if "description" in payload
-                            else None
-                        ),
-                        location=(
-                            str(payload.get("location")) if "location" in payload else None
-                        ),
-                        all_day=payload.get("all_day") if "all_day" in payload else None,
-                    )
-                except Exception as exc:
-                    raise DecisionActionError(action_type, str(exc)) from exc
-                from app.services.calendar_sync import event_connection
-
-                _event, conn = await event_connection(session, tenant_id, UUID(event_raw))
-                if conn is not None:
-                    await _deliver_connection_write(
-                        session, decision, action_type, str(conn.id), written, user_id=user_id
-                    )
-
-        if action_type == "add_module_source":
-            slug = str(payload.get("module") or "").strip()
-            url = str(payload.get("url") or "").strip()
-            title = str(payload.get("title") or "").strip()
-            if slug and url:
-                from app.services.module_sources import create_tenant_source, queue_source_index
-
-                try:
-                    row = await create_tenant_source(
-                        session, tenant_id, slug, title=title or url, url=url
-                    )
-                    await queue_source_index(session, row)
-                except ValueError:
-                    pass
-
-        if action_type == "orchestration_continue":
-            task_id_raw = payload.get("task_id")
-            if task_id_raw:
-                from app.services.orchestration.dispatcher import resume_agent_task
-
-                await resume_agent_task(session, tenant_id, UUID(str(task_id_raw)))
-
-        # workstream_continue / retry / skip / cancel: step-run ledger retired.
-        if action_type in (
-            "workstream_continue",
-            "workstream_retry",
-            "workstream_skip_step",
-            "workstream_cancel",
-        ):
-            pass
-
-        if action_type in ("reset_ai_breaker", "keep_ai_assisted"):
-            account_raw = payload.get("channel_account_id")
-            if account_raw:
-                from app.models.auth import Tenant
-                from app.models.channel import ChannelAccount
-                from app.services.ai_handling import reset_breaker
-
-                breaker_account = await session.get(ChannelAccount, UUID(str(account_raw)))
-                breaker_tenant = await session.get(Tenant, tenant_id)
-                if breaker_account is not None and breaker_account.tenant_id == tenant_id and breaker_tenant:
-                    await reset_breaker(
-                        session,
-                        breaker_tenant,
-                        breaker_account,
-                        keep_assisted=action_type == "keep_ai_assisted",
-                        actor_id=str(user_id) if user_id else "",
-                    )
-
-        if action_type in ("contact_link", "contact_create"):
-            from app.services.contact_identity import apply_decided_link
-
-            if decision.signal_id and "signal_id" not in payload:
-                payload["signal_id"] = str(decision.signal_id)
-            try:
-                await apply_decided_link(
-                    session, tenant_id, action_type, payload, user_id=user_id
-                )
-            except (ValueError, PermissionError) as exc:
-                raise DecisionActionError(action_type, str(exc)) from exc
+        settled = await run_decision_action(
+            session, tenant_id, decision, action_type, payload, user_id=user_id
+        )
 
         change_id = decision.platform_change_id
         platform_change_id = payload.get("platform_change_id") or chosen.get("platform_change_id")
@@ -395,35 +200,7 @@ async def resolve_decision(
             await accept_platform_change(session, tenant_id, change_id, user_id)
         elif platform_change_id and user_id:
             await accept_platform_change(session, tenant_id, UUID(platform_change_id), user_id)
-        elif action_type and action_type not in (
-            "reject",
-            "defer",
-            "draft",
-            "escalate",
-            "acknowledge",
-            # Soft record-only (module propose_* cards, priority picks). No tool run.
-            "approve",
-            "human_takeover",
-            "assign_me",
-            "take_over",
-            "setup_integration",
-            "enable_module",
-            "activate_inbox_rule",
-            "calendar_create_event",
-            "calendar_update_event",
-            "add_module_source",
-            "accept_platform_change",
-            "orchestration_continue",
-            "workstream_continue",
-            "workstream_retry",
-            "workstream_skip_step",
-            "workstream_cancel",
-            "session_checkout",
-            "reset_ai_breaker",
-            "keep_ai_assisted",
-            "contact_link",
-            "contact_create",
-        ):
+        elif action_type and not settled:
             from app.tools import execute_tool
             from app.tools.registry import get_tool_spec
 
@@ -565,7 +342,7 @@ async def resolve_decision(
                 metadata_json=json.dumps({"decision_id": str(decision.id)}),
             )
             session.add(escalate_msg)
-            signal.last_message_at = datetime.utcnow()
+            signal.last_message_at = utcnow()
             await session.flush()
             await publish_signal_message(signal, escalate_msg)
 

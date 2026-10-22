@@ -4,6 +4,7 @@ import { appRoutes } from '../api/routes/app.routes';
 import { apiGet, apiPost } from '../lib/api';
 import type { GatewayEvent } from '../lib/gateway';
 import { applyLive, listLive, onLiveReconnect, seedLive, useLiveList } from '../lib/live-store';
+import { floatingThreadId, isInChatStack, nudgeChatStack } from '../lib/chat-stack';
 import { openEntityPath } from '../lib/open-entity';
 import { parseNotificationFrom } from '../lib/notification-from';
 import { playIncomingNotificationSound } from '../lib/notification-sound';
@@ -135,12 +136,18 @@ export function announceNotification(
   if (raw.payload?.announce === false) return;
   const audible = AUDIBLE_KINDS.has(kind) || (!signalId && tier === 1);
   if (!audible) return;
-  if (viewingSignal(signalId)) return;
+  if (viewingSignal(signalId) || (signalId && floatingThreadId() === String(signalId))) return;
 
   void playIncomingNotificationSound();
 
   // Conversation work stays out of the bell — toast + deep link instead.
   if (!signalId) return;
+
+  // A conversation in the chat stack announces itself on its card instead.
+  if (isInChatStack(signalId)) {
+    nudgeChatStack(signalId);
+    return;
+  }
 
   const href = openEntityPath({
     type: 'notification',

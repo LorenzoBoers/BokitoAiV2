@@ -691,10 +691,12 @@ export function ProfileSettingsContent() {
 
       {/* ── Start page ── */}
       <Section title={t('profile:landing.title')} description={t('profile:landing.description')}>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {([
-            { id: 'communication' as const, label: t('profile:landing.communication') },
-            { id: 'overview' as const, label: t('profile:landing.overview') },
+            { id: 'new' as const, label: t('profile:landing.new') },
+            { id: 'inbox' as const, label: t('profile:landing.inbox') },
+            { id: 'agenda' as const, label: t('profile:landing.agenda') },
+            { id: 'today' as const, label: t('profile:landing.today') },
           ]).map((option) => (
             <button
               key={option.id}

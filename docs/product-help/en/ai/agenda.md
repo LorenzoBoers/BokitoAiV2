@@ -48,6 +48,23 @@ Every agenda item is a conversation with a date. With a repeat it becomes a recu
 
 You plan the same way from a conversation: choose **Plan** in the thread menu. See [Communication](/docs/inbox/communication). Agents plan work too: ask one in a conversation to "check this again on Friday" or "send me an overview of open quotes every Monday". Depending on your [autonomy posture](/docs/govern/autonomy), the plan is created directly or arrives as a decision in Communication first.
 
+## Get a morning briefing per department
+
+The lead agent of each department looks at its work every weekday and says what needs attention.
+
+1. Turn on the check-in: in the [setup guide](/docs/getting-started/setup-guide), **Let the assistant watch** has **Turn on check-in**, or ask the assistant. Every department with a **Lead agent** then gets an orientation instead of the hourly check-in: weekdays at 07:30 in the department conversation.
+2. The briefing names tickets past their deadline, tickets waiting on a customer longer than the stage check-up, required fields or checklist items still open, people planned over their **Hours per week**, and connections that need reconnecting.
+3. On Monday, the briefing also looks at how the flow scorecards moved and names one improvement to try.
+4. The orientation shows on **Agenda** under routines and in the department conversation as its next wake.
+
+## Get trends per client
+
+A department with an outward focus, such as Research, looks outside once a week instead.
+
+1. On Monday at 08:00, the Research lead reads the client folders that have a **Profiel** doc, and searches the web for what changed for those clients.
+2. For each client a trend fits, it opens an internal conversation labelled `#trend` in that client's folder, with for whom, why, how to use it, and the source links.
+3. Open the folder in [Communication](/docs/inbox/communication) or filter on `#trend` to read them. Reply in the conversation to turn a trend into work, or close it.
+
 ## Show your Google or Outlook calendars
 
 1. Choose the plus next to **Calendars**. It opens **Connections** filtered to calendars. Choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.

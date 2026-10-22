@@ -20,7 +20,7 @@ export const THREAD_TRANSCRIPT_CLASS = 'mx-auto w-full max-w-[820px] px-4 py-4'
 /** Composer dock under the transcript. */
 export const THREAD_COMPOSER_DOCK_CLASS = 'shrink-0 border-t border-border/60 bg-bg px-3 py-3'
 
-/** Ask-mode composer outline (mirrors ComposerCard tone="ai"). */
+/** Legacy AI strip — unused by the Team tab (that uses the default accent tone). */
 export const COMPOSER_AI_STRIP_CLASS =
   'border-ai/55 bg-bg-surface focus-within:border-ai/80'
 

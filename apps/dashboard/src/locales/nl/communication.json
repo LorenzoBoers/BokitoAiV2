@@ -1,4 +1,28 @@
 {
+  "chatStack": {
+    "label": "Gesprekken bij de hand",
+    "more": "+{{count}}",
+    "moreLabel": "Alle vastgezette gesprekken tonen",
+    "untitled": "Gesprek",
+    "you": "Jij",
+    "working": "{{name}} is bezig",
+    "workingFallback": "Agent is bezig",
+    "following": "Volgt je",
+    "pinned": "Vastgezet",
+    "open": "{{title}} openen",
+    "minimize": "Minimaliseren",
+    "minimizeToStack": "Minimaliseren naar stapel",
+    "move": "Sleep om te verplaatsen",
+    "expand": "Volledig gesprek openen",
+    "pin": "In de stapel houden",
+    "unpin": "Uit de stapel halen",
+    "dismiss": "Niet meer volgen",
+    "loading": "Gesprek laden",
+    "pinError": "De stapel kon niet worden bijgewerkt.",
+    "shortcutHint": "Alt+1 t/m Alt+9 opent een gesprek",
+    "callRinging": "{{name}} belt",
+    "callLive": "In gesprek met {{name}}"
+  },
   "handledExternally": {
     "title": "Al afgehandeld buiten Bokito",
     "hint": "Je hebt gebeld, of geantwoord via een eigen WhatsApp of een andere mailbox. Leg het vast zodat het gesprek niet meer om een antwoord vraagt en open AI-voorstellen opzij gaan.",
@@ -489,7 +513,7 @@
     "workedFor_other": "Gewerkt voor {{duration}} · {{count}} acties",
     "otherCount_one": "{{count}} notitie",
     "otherCount_other": "{{count}} notities",
-    "writing": "Typt...",
+    "writing": "Schrijft...",
     "thought": "Nagedacht",
     "thoughtFailed": "Nadenken mislukt",
     "note": "Notitie",
@@ -1049,10 +1073,10 @@
         "cta": "Leden uitnodigen"
       }
     },
-    "startConversation": "Nieuw gesprek"
+    "startConversation": "Nieuwe chat"
   },
   "newConversation": {
-    "title": "Nieuw gesprek",
+    "title": "Nieuwe chat",
     "back": "Terug naar Communicatie",
     "changeType": "Ander type",
     "draftBadge": "Concept",
@@ -1201,9 +1225,9 @@
     "openInboxAi": "AI-antwoorden aanpassen",
     "selectThread": "Selecteer een gesprek om te bekijken.",
     "selectThreadTitle": "Kies een gesprek",
-    "selectThreadHint": "Kies een gesprek in de lijst, of start een Nieuw gesprek.",
+    "selectThreadHint": "Kies een gesprek in de lijst, of start een Nieuwe chat.",
     "openSetupGuide": "Setupgids openen",
-    "startNewChat": "Nieuw gesprek",
+    "startNewChat": "Nieuwe chat",
     "backToConversations": "Terug naar gesprekken",
     "agentHandling": "Agent op dit gesprek",
     "threadActions": "Gespreksacties",
@@ -1341,7 +1365,7 @@
     "assign": "Aan mij toewijzen",
     "reply": "Antwoord focussen",
     "compose": "Nieuwe e-mail",
-    "newChat": "Nieuw gesprek",
+    "newChat": "Nieuwe chat",
     "search": "Zoeken focussen",
     "thisHelp": "Deze lijst tonen",
     "escape": "Terug naar de lijst, of zoeken verlaten",
@@ -1501,7 +1525,7 @@
     "send": "Versturen",
     "emptyPick": "Start een chat met je assistent, of kies een gesprek uit de lijst.",
     "aiDisclosure": "Je chat met AI. Een medewerker kan overnemen wanneer nodig.",
-    "newChat": "Nieuw gesprek",
+    "newChat": "Nieuwe chat",
     "openAgents": "Agents openen",
     "openKnowledge": "Kennis openen",
     "openSetup": "Setupgids openen",
@@ -1545,16 +1569,9 @@
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}u",
     "daysAgo": "{{count}}d",
-    "certaintyHint": "AI-zekerheid {{value}}%",
-    "category": {
-      "support": "Support",
-      "sales": "Sales",
-      "billing": "Facturatie"
-    }
+    "certaintyHint": "AI-zekerheid {{value}}%"
   },
   "banners": {
-    "channelNotReady": "Er is geen kanaal klaar om te versturen. Koppel of herstel een mailbox of chatkanaal.",
-    "openChannels": "Kanalen openen",
     "noReplyTips": "{{count}} “Geen antwoord nodig”-tips wachten bij beslissingen",
     "reviewTips": "Bekijken",
     "dismissTips": "Alles wegzetten",
@@ -1746,6 +1763,7 @@
       "ticketStageChanged": "Ticket verplaatst naar {{stage}}",
       "ticketStageChangedYou": "Jij hebt het ticket verplaatst naar {{stage}}",
       "ticketStageChangedBy": "{{name}} heeft het ticket verplaatst naar {{stage}}",
+      "reach": {"push": "Push naar {{name}}: {{status}}", "call": "Oproep naar {{name}}: {{status}}", "status": {"delivered": "bezorgd", "quiet_hours": "vastgehouden voor stille uren", "daily_max": "vastgehouden op het dagmaximum", "no_device": "geen toestel", "ringing": "gaat over", "requested": "gevraagd", "declined": "geweigerd", "missed": "gemist", "live": "opgenomen", "ended": "beëindigd"}},
       "escalated": "Doorgestuurd naar het team",
       "aiPaused": "AI gepauzeerd op dit gesprek",
       "aiResumed": "AI hervat op dit gesprek",
@@ -1960,6 +1978,8 @@
     "context": "Zijpaneel verslepen",
     "closeContext": "Contactpaneel sluiten",
     "nav": "Communicatiebalk verslepen",
+    "thread": "Gesprek verslepen",
+    "canvas": "Canvas verslepen",
     "resetHint": "Sleep om te verdelen. Dubbelklik of Enter zet terug."
   },
   "scopeChips": {
@@ -2276,7 +2296,7 @@
       "cap_privacy": "De privacyinstellingen houden de AI op {{mode}}.",
       "cap_breaker": "De noodrem op dit kanaal is aangesproken, dus hoogstens {{mode}}.",
       "cap_agent": "{{agent}} mag hoogstens {{mode}} werken.",
-      "cap_flow": "Flow {{flow}} laat antwoorden altijd controleren, dus hoogstens {{mode}}.",
+      "handling_flow": "Autonomie staat op {{mode}}, ingesteld op flow {{source}}.",
       "knowledge_doc": "Gelezen voor het laatste antwoord: {{title}}",
       "knowledge_none": "Het laatste antwoord gebruikte geen kennisdocumenten, of het is ouder dan deze registratie.",
       "folder": "Gearchiveerd in werkmap {{folder}}.",
@@ -2287,6 +2307,7 @@
       "delivered_reply": "Opgeleverd als antwoord via {{channel}} ({{count}}).",
       "delivered_works_in": "Opgeleverd in {{folder}}, {{item}}.",
       "delivered_folder": "Opgeleverd in werkmap {{folder}}.",
+      "delivered_connection": "Weggeschreven in {{connection}}.",
       "delivered_knowledge": "Een correctie hier is bewaard als voorbeeld voor latere antwoorden."
     }
   }

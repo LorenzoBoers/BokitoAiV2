@@ -1,5 +1,4 @@
-import { appRoutes } from '../api/routes'
-import { APP_API_BASE } from './api.config'
+import { loadPreferences, setPref } from './preferences'
 
 const STORAGE_KEY = 'bokito-close-email-on-send'
 export const CLOSE_EMAIL_ON_SEND_EVENT = 'bokito-close-email-on-send'
@@ -22,27 +21,17 @@ export function writeCachedCloseEmailOnSend(enabled: boolean): void {
 }
 
 export async function fetchCloseEmailOnSend(token: string): Promise<boolean> {
-  const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    credentials: 'include',
-  })
-  if (!res.ok) return readCachedCloseEmailOnSend()
-  const data = (await res.json()) as { close_email_on_send?: unknown }
-  const enabled = data.close_email_on_send === true
-  writeCachedCloseEmailOnSend(enabled)
-  return enabled
+  try {
+    const data = await loadPreferences(token)
+    const enabled = data.close_email_on_send === true
+    writeCachedCloseEmailOnSend(enabled)
+    return enabled
+  } catch {
+    return readCachedCloseEmailOnSend()
+  }
 }
 
 export async function persistCloseEmailOnSend(token: string, enabled: boolean): Promise<void> {
-  const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify({ close_email_on_send: enabled }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  await setPref('close_email_on_send', enabled, token)
   writeCachedCloseEmailOnSend(enabled)
 }

@@ -432,9 +432,10 @@ export default function ThreadList({
       {banner}
 
       {statusSegment ? (
-        <div className="flex justify-center px-2 pt-1.5">
+        <div className="thread-status-switch flex justify-center px-2 pt-1.5">
           <SegmentedControl
             size="sm"
+            className="flex-nowrap"
             aria-label={t('threadList.statusSwitch')}
             value={statusSegment.value}
             onChange={statusSegment.onChange}

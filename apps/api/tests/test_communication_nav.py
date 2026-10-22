@@ -50,7 +50,7 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     project_id = created.json()["id"]
     assert created.json()["tag_names"] == ["repairs"]
 
-    category = (await client.post("/api/categories", headers=headers, json={"name": "storing"})).json()
+    category = (await client.post("/api/labels", headers=headers, json={"name": "storing"})).json()
     await client.patch(
         f"/api/flows/{category['workstream_id']}",
         headers=headers,
@@ -115,7 +115,7 @@ async def test_nav_rows_and_list_filters(client: AsyncClient, session_override):
     }
     assert folder_rows[project_id]["children"] == []
 
-    hidden = await client.patch(f"/api/categories/{category['id']}", headers=headers, json={"show_in_nav": False})
+    hidden = await client.patch(f"/api/labels/{category['id']}", headers=headers, json={"show_in_nav": False})
     assert hidden.status_code == 200
     assert (await client.get("/api/signals/nav", headers=headers)).json()["ticket_tags"] == []
 

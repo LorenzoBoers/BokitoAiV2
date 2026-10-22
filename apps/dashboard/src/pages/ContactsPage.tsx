@@ -673,7 +673,7 @@ export default function ContactsPage() {
                         className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                         onClick={(event) => event.stopPropagation()}
                       >
-                        <PersonAvatar name={contact.displayName} email={contact.address} size={28} />
+                        <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate-fade text-sm font-medium text-text-primary">
                             {humanizeContactName(

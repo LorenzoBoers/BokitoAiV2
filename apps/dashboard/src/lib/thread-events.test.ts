@@ -21,7 +21,11 @@ describe('threadPatchHasMeaning', () => {
 
 describe('withTagDiffs', () => {
   it('fills tags_added with only the newly applied label each step', () => {
-    const events = [
+    const events: Array<{
+      eventType: string
+      createdAt: string
+      payload: { tags: string[]; tags_added?: string[]; tags_removed?: string[] }
+    }> = [
       {
         eventType: 'thread_updated',
         createdAt: '2026-10-14T21:00:00Z',

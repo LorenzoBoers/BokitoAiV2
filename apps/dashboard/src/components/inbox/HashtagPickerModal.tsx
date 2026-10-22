@@ -40,7 +40,7 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   thread: InboxThread
-  onPatch?: (input: PatchThreadInput) => Promise<void>
+  onPatch?: (input: PatchThreadInput) => Promise<boolean | void>
   onTicketChanged?: () => void
 }
 

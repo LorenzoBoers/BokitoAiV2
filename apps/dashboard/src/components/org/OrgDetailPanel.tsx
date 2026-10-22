@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, AlertTriangle, Archive, CornerUpLeft, Folder, Inbox, Lightbulb, Tag, X } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { AlertCircle, AlertTriangle, Archive, CornerUpLeft, Folder, Inbox, Lightbulb, Link2, Tag, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { AgentGlow } from '../ui/agent-glow'
@@ -14,10 +14,15 @@ import { useAgentPresence } from '../../hooks/useAgentPresence'
 import { agentProfileAccentColor, resolveAgentAvatarColor } from '../../lib/agent-avatar'
 import { stashChatContinue } from '../../lib/chat-auto-continue'
 import { agentChatPath } from '../../lib/messages-paths'
+import { cn } from '../../lib/utils'
 import { NO_LABEL_KEY, suggestOrgFlowLabels, type OrgFlow, type OrgFlowNode } from '../../lib/org-flow-api'
-import { labelHex, labelKeyOf, pathsOf } from '../../lib/org-flow-layout'
+import { labelHex, labelKeyOf, OTHER_LABEL_KEY, pathsOf } from '../../lib/org-flow-layout'
+import { workstreamPath } from '../../lib/workstream-ui'
 import { WORKS_IN_ADD_HASH } from '../projects/WorksInSection'
 import { useGridNames } from './org-flow-names'
+
+const ROW_LINK =
+  'flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-left text-sm leading-[18px] text-text-primary hover:bg-bg-elevated'
 
 type Props = {
   data: OrgFlow
@@ -42,7 +47,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="text-2xs font-semibold uppercase leading-4 tracking-[0.08em] text-text-muted">{children}</h3>
 }
 
-const ROW_MARK = 18
+const ROW_MARK = 20
 /** People have no orb color. Titles and the corner wash use this blue. */
 const PERSON_ACCENT = '#3b82f6'
 
@@ -80,6 +85,12 @@ function NodeMark({ node }: { node: OrgFlowNode }) {
       return (
         <GlyphDisc className="bg-bg-elevated text-text-primary">
           <Lightbulb size={11} strokeWidth={1.7} />
+        </GlyphDisc>
+      )
+    case 'connection':
+      return (
+        <GlyphDisc className="bg-status-success/15 text-status-success">
+          <Link2 size={11} strokeWidth={1.7} />
         </GlyphDisc>
       )
     case 'unassigned':
@@ -161,7 +172,16 @@ export function OrgIssuesList({
                     className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-heading"
                   >
                     <AlertTriangle size={13} className="mt-0.5 shrink-0 text-status-warning" />
-                    <span>{text}</span>
+                    <span>
+                      {text}
+                      {issue.department ? (
+                        <span className="block text-2xs text-text-muted">
+                          {issue.lead
+                            ? t('orgCanvas.issueOwner', { department: issue.department, lead: issue.lead })
+                            : issue.department}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                 ) : (
                   <Link
@@ -186,6 +206,7 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
   const { t, i18n } = useTranslation('nav')
   const names = useGridNames()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { token } = useAuth()
   const [suggesting, setSuggesting] = useState(false)
   const byId = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes])
@@ -209,7 +230,15 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
   const splitTotal = [...split.values()].reduce((a, b) => a + b, 0)
   const unlabeled = splitTotal ? (split.get(NO_LABEL_KEY) ?? 0) / splitTotal : 0
   const labelRows = (() => {
-    const rows: Array<{ key: string; name: string; color: string; tone: string; icon: string | null; flow: boolean; count: number }> = []
+    const rows: Array<{
+      key: string
+      name: string
+      color: string
+      tone: string
+      icon: string | null
+      flowId: string | null
+      count: number
+    }> = []
     let other = 0
     for (const label of data.labels) {
       const count = split.get(labelKeyOf(label)) ?? 0
@@ -224,23 +253,40 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
         color: labelHex(label.color),
         tone: label.color,
         icon: label.icon || null,
-        flow: true,
+        flowId: label.flow_id,
         count,
       })
     }
     if (other > 0) {
       rows.push({
-        key: 'other',
+        key: OTHER_LABEL_KEY,
         name: t('orgCanvas.legendFlow.other'),
         color: labelHex('neutral'),
         tone: 'neutral',
         icon: null,
-        flow: false,
+        flowId: null,
         count: other,
       })
     }
     return rows.sort((a, b) => b.count - a.count)
   })()
+
+  const isolateLabel = (key: string) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('lens', 'labels')
+    if (searchParams.get('label') === key) next.delete('label')
+    else next.set('label', key)
+    setSearchParams(next, { replace: true })
+  }
+
+  const titleClass = 'truncate text-lg font-semibold leading-5 text-text-heading'
+  const titleNode = node.href ? (
+    <Link to={node.href} className={cn(titleClass, 'hover:underline')}>
+      {names.node(node)}
+    </Link>
+  ) : (
+    <h2 className={titleClass}>{names.node(node)}</h2>
+  )
 
   const zone = isExecutor && node.zones?.length ? data.zones.find((z) => z.id === node.zones![0]) : null
   const distributeHref = isExecutor ? (zone?.href ?? '/workforce?tab=departments') : null
@@ -282,21 +328,38 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
           .map((p) => {
             const other = byId.get(p[end])
             if (!other) return null
+            const dest = other.href || other.threads_href || null
+            const body = (
+              <>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <NodeMark node={other} />
+                  <span className="truncate">{names.node(other)}</span>
+                </span>
+                <span className="shrink-0 tabular-nums text-text-muted">{p.count}</span>
+              </>
+            )
             return (
               <li key={`${p.source}->${p.target}`}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(other.id)}
-                  onMouseEnter={() => onHover(other.id)}
-                  onMouseLeave={() => onHover(null)}
-                  className="flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-left text-sm leading-[18px] text-text-primary hover:bg-bg-elevated"
-                >
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <NodeMark node={other} />
-                    <span className="truncate">{names.node(other)}</span>
-                  </span>
-                  <span className="shrink-0 tabular-nums text-text-muted">{p.count}</span>
-                </button>
+                {dest ? (
+                  <Link
+                    to={dest}
+                    onMouseEnter={() => onHover(other.id)}
+                    onMouseLeave={() => onHover(null)}
+                    className={ROW_LINK}
+                  >
+                    {body}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelect(other.id)}
+                    onMouseEnter={() => onHover(other.id)}
+                    onMouseLeave={() => onHover(null)}
+                    className={ROW_LINK}
+                  >
+                    {body}
+                  </button>
+                )}
               </li>
             )
           })}
@@ -319,18 +382,33 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
                 <div className="mb-1 mt-2" data-testid={live ? 'grid-agent-character' : 'grid-person-character'}>
                   <AgentGlow color={accent} placement="corner-left" className="-left-12 -top-16 -z-10 h-44 w-44" />
                   <div className="flex items-start gap-3">
-                    <AgentMark
-                      agent={{ ...(node.mark ?? {}), name: node.mark?.name || names.node(node) }}
-                      size={56}
-                      mode={live ? 'live' : 'static'}
-                      motion={live && activity === 'working' ? 'working' : 'idle'}
-                      baseMotion={live && activity === 'working' ? 'working' : 'idle'}
-                      spawnKey={live ? `quick-${node.id}` : undefined}
-                      fallbackName={names.node(node)}
-                      decorative
-                    />
+                    {node.href ? (
+                      <Link to={node.href} className="shrink-0" aria-label={names.node(node)}>
+                        <AgentMark
+                          agent={{ ...(node.mark ?? {}), name: node.mark?.name || names.node(node) }}
+                          size={64}
+                          mode={live ? 'live' : 'static'}
+                          motion={live && activity === 'working' ? 'working' : 'idle'}
+                          baseMotion={live && activity === 'working' ? 'working' : 'idle'}
+                          spawnKey={live ? `quick-${node.id}` : undefined}
+                          fallbackName={names.node(node)}
+                          decorative
+                        />
+                      </Link>
+                    ) : (
+                      <AgentMark
+                        agent={{ ...(node.mark ?? {}), name: node.mark?.name || names.node(node) }}
+                        size={64}
+                        mode={live ? 'live' : 'static'}
+                        motion={live && activity === 'working' ? 'working' : 'idle'}
+                        baseMotion={live && activity === 'working' ? 'working' : 'idle'}
+                        spawnKey={live ? `quick-${node.id}` : undefined}
+                        fallbackName={names.node(node)}
+                        decorative
+                      />
+                    )}
                     <div className="min-w-0 pt-1">
-                      <h2 className="truncate text-lg font-semibold leading-5 text-text-heading">{names.node(node)}</h2>
+                      {titleNode}
                       {jobTitle ? (
                         <p className="mt-1 truncate text-sm font-medium leading-snug" style={{ color: accent }}>
                           {jobTitle}
@@ -346,13 +424,19 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
             })()
           ) : node.kind === 'flow' ? (
             <div className="mb-3 mt-2">
-              <FlowMark node={node} size={40} />
-              <h2 className="mt-2 truncate text-lg font-semibold leading-5 text-text-heading">{names.node(node)}</h2>
+              {node.href ? (
+                <Link to={node.href} className="inline-flex" aria-label={names.node(node)}>
+                  <FlowMark node={node} size={40} />
+                </Link>
+              ) : (
+                <FlowMark node={node} size={40} />
+              )}
+              <div className="mt-2">{titleNode}</div>
               <p className="text-xs leading-4 text-text-secondary">{kindLine}</p>
             </div>
           ) : (
             <>
-              <h2 className="truncate text-lg font-semibold leading-5 text-text-heading">{names.node(node)}</h2>
+              {titleNode}
               <p className="text-xs leading-4 text-text-secondary">{kindLine}</p>
             </>
           )}
@@ -429,21 +513,39 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
               <span key={row.key} className="h-full" style={{ width: `${(row.count / splitTotal) * 100}%`, background: row.color }} />
             ))}
           </div>
-          {labelRows.map((row) => (
-            <span key={row.key} className="flex items-center justify-between gap-2 text-sm leading-[18px]">
-              <span className="flex min-w-0 items-center gap-2">
-                {row.flow ? (
-                  <FlowMark node={{ icon: row.icon, color: row.tone }} size={ROW_MARK} />
-                ) : (
-                  <GlyphDisc className="bg-bg-elevated text-text-muted">
-                    <Tag size={11} strokeWidth={1.7} />
-                  </GlyphDisc>
-                )}
-                <span className="truncate text-text-primary">{row.name}</span>
-              </span>
-              <span className="font-semibold tabular-nums text-text-heading">{row.count}</span>
-            </span>
-          ))}
+          <ul className="flex flex-col gap-0.5">
+            {labelRows.map((row) => {
+              const mark = row.flowId ? (
+                <FlowMark node={{ icon: row.icon ?? undefined, color: row.tone }} size={ROW_MARK} />
+              ) : (
+                <GlyphDisc className="bg-bg-elevated text-text-muted">
+                  <Tag size={11} strokeWidth={1.7} />
+                </GlyphDisc>
+              )
+              const body = (
+                <>
+                  <span className="flex min-w-0 items-center gap-2">
+                    {mark}
+                    <span className="truncate">{row.name}</span>
+                  </span>
+                  <span className="font-semibold tabular-nums text-text-heading">{row.count}</span>
+                </>
+              )
+              return (
+                <li key={row.key}>
+                  {row.flowId ? (
+                    <Link to={workstreamPath(row.flowId)} className={ROW_LINK}>
+                      {body}
+                    </Link>
+                  ) : (
+                    <button type="button" onClick={() => isolateLabel(row.key)} className={ROW_LINK}>
+                      {body}
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
           {unlabeled > UNLABELED_SHARE && SUGGEST_KINDS.has(node.kind) ? (
             <div className="mt-1 flex flex-col gap-1.5">
               <p className="text-xs text-text-secondary">{t('orgCanvas.panel.unlabeled', { pct: Math.round(unlabeled * 100) })}</p>
@@ -471,14 +573,14 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
             <Link to={node.threads_href}>{t('orgCanvas.panel.openThreads')}</Link>
           </Button>
         ) : null}
+        {!isFolder && node.href ? (
+          <Button asChild size="sm" variant={node.threads_href ? 'secondary' : 'default'}>
+            <Link to={node.href}>{t('orgCanvas.panel.openItem')}</Link>
+          </Button>
+        ) : null}
         {distributeHref ? (
           <Button asChild size="sm" variant="secondary">
             <Link to={distributeHref}>{t('orgCanvas.panel.distribute')}</Link>
-          </Button>
-        ) : null}
-        {!isFolder && node.href && !node.threads_href ? (
-          <Button asChild size="sm" variant="secondary">
-            <Link to={node.href}>{t('orgCanvas.panel.openItem')}</Link>
           </Button>
         ) : null}
       </div>

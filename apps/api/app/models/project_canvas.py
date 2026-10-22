@@ -1,9 +1,12 @@
-"""Canvas — AI-written snapshot dashboard (bokito/canvas).
+"""Canvas — one saved piece of work on a conversation.
 
-A canvas is a workspace inside a folder (Project); loose canvases live in the
-folder "Algemeen" / "General". Agents and operators create, fill and refresh
-the snapshot. Refresh uses the existing
-Agenda Trigger, not a second scheduler.
+A canvas has exactly one home conversation (``signal_id``). A conversation
+holds zero or more canvases. The folder of a canvas is derived from that
+conversation's ``Signal.project_id`` (and moves when the thread is refiled).
+``kind`` picks how the source is stored and drawn: dashboard (bokito/canvas),
+document, diagram, drawing, image, code, email, or sheet. Only a dashboard
+has an Agenda refresh. A sheet is a table the operator can export as CSV,
+Excel, or a Google Sheet.
 """
 
 from __future__ import annotations
@@ -16,18 +19,34 @@ from sqlalchemy import Index, text
 from sqlmodel import Field, SQLModel
 
 CANVAS_SCHEMA_VERSION = 2
-OWNER_PROJECT = "project"
-CANVAS_OWNERS = (OWNER_PROJECT,)
+
+KIND_DASHBOARD = "dashboard"
+KIND_DOCUMENT = "document"
+KIND_DIAGRAM = "diagram"
+KIND_DRAWING = "drawing"
+KIND_IMAGE = "image"
+KIND_CODE = "code"
+KIND_EMAIL = "email"
+KIND_SHEET = "sheet"
+CANVAS_KINDS = (
+    KIND_DASHBOARD,
+    KIND_DOCUMENT,
+    KIND_DIAGRAM,
+    KIND_DRAWING,
+    KIND_IMAGE,
+    KIND_CODE,
+    KIND_EMAIL,
+    KIND_SHEET,
+)
 
 
 class ProjectCanvas(SQLModel, table=True):
     __tablename__ = "project_canvases"
     __table_args__ = (
         Index(
-            "uq_canvas_owner_slug_alive",
+            "uq_canvas_signal_slug_alive",
             "tenant_id",
-            "owner_kind",
-            "owner_id",
+            "signal_id",
             "slug",
             unique=True,
             sqlite_where=text("deleted_at IS NULL"),
@@ -40,12 +59,10 @@ class ProjectCanvas(SQLModel, table=True):
     department_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="departments.id", index=True
     )
-    owner_kind: str = Field(default=OWNER_PROJECT, max_length=16, index=True)
-    owner_id: uuid.UUID = Field(index=True)
-    # Kept for project delete cascade and older queries; mirrors owner_id when owner_kind=project.
-    project_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
     slug: str = Field(default="main", index=True, max_length=64)
     title: str = Field(default="Canvas")
+    kind: str = Field(default=KIND_DASHBOARD, max_length=16)
+    language: Optional[str] = Field(default=None, max_length=32)
     schema_version: int = Field(default=CANVAS_SCHEMA_VERSION)
     revision: int = Field(default=1)
     layout_json: str = Field(default="{}")
@@ -53,7 +70,7 @@ class ProjectCanvas(SQLModel, table=True):
     source: str = Field(default="")
     tree_json: str = Field(default="{}")
     managing_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
-    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
+    signal_id: uuid.UUID = Field(foreign_key="signals.id", index=True)
     refresh_trigger_id: Optional[uuid.UUID] = Field(default=None, foreign_key="triggers.id")
     updated_by_type: str = Field(default="system", max_length=32)
     updated_by_id: str = Field(default="", max_length=64)

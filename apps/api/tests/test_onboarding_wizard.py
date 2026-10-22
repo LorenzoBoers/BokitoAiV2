@@ -84,8 +84,14 @@ async def test_wizard_get_and_complete(client: AsyncClient):
 
     opened = await client.post("/api/app/onboarding/setup-thread", headers=headers)
     assert opened.status_code == 200, opened.text
-    signal_id = opened.json()["signal_id"]
+    body = opened.json()
+    signal_id = body["signal_id"]
+    assert body["channel"] == "assistant"
+    assert body["agent_id"] == created.json()["lead_agent"]["id"]
+    assert body["started"] is False
+    assert body["created"] == "true"
     again = await client.post("/api/app/onboarding/setup-thread", headers=headers)
     assert again.status_code == 200
     assert again.json()["signal_id"] == signal_id
     assert again.json()["created"] == "false"
+    assert again.json()["started"] is False

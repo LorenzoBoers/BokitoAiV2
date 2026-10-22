@@ -27,6 +27,7 @@ type PendingPart = {
   text: string
   attachments?: unknown[]
   continuePending?: boolean
+  speakFirst?: boolean
 }
 
 const SETTLE_MS = 400
@@ -60,6 +61,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       text: string,
       attachments?: unknown[],
       continuePending?: boolean,
+      speakFirst?: boolean,
     ) => Promise<void>
   >(async () => {})
 
@@ -152,18 +154,20 @@ export function useAiChatStream(token: string | null, conversationId: string | n
     text: string
     attachments?: unknown[]
     continuePending?: boolean
+    speakFirst?: boolean
   } | null => {
     const parts = pendingPartsRef.current
     if (!parts.length) return null
     pendingPartsRef.current = []
     const continuePending = parts.some((p) => p.continuePending)
+    const speakFirst = parts.some((p) => p.speakFirst)
     const text = parts
       .map((p) => p.text.trim())
       .filter(Boolean)
       .join('\n\n')
     const attachments = [...parts].reverse().find((p) => p.attachments?.length)?.attachments
-    if (!continuePending && !text && !attachments?.length) return null
-    return { text: text || ' ', attachments, continuePending }
+    if (!continuePending && !speakFirst && !text && !attachments?.length) return null
+    return { text: speakFirst ? '' : text || ' ', attachments, continuePending, speakFirst }
   }
 
   const scheduleFlush = useCallback((sessionId: string) => {
@@ -181,6 +185,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         next.text,
         next.attachments,
         next.continuePending,
+        next.speakFirst,
       )
     }, SETTLE_MS)
   }, [])
@@ -191,8 +196,9 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       text: string,
       attachments?: unknown[],
       continuePending?: boolean,
+      speakFirst?: boolean,
     ) => {
-      if (!token || (!continuePending && !text.trim() && !attachments?.length)) return
+      if (!token || (!continuePending && !speakFirst && !text.trim() && !attachments?.length)) return
       sessionIdRef.current = sessionId
       streamingRef.current = true
       clearDeltaFlush()
@@ -209,7 +215,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         await bokitoStreamMessage(
           token,
           sessionId,
-          text.trim() || ' ',
+          speakFirst ? '' : text.trim() || ' ',
           (delta) => {
             if (pendingDeltaRef.current.replaceText) return
             pendingDeltaRef.current.text += delta
@@ -222,7 +228,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
           },
           {
             ...(attachments?.length ? { attachments } : {}),
-            ...(continuePending ? { continuePending: true } : {}),
+            ...(speakFirst ? { speakFirst: true } : continuePending ? { continuePending: true } : {}),
             onParts: (parts) => {
               const bubbles = parts.filter((part) => part.trim())
               pendingDeltaRef.current.text = bubbles.join('\n\n')
@@ -301,16 +307,19 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         attachments?: unknown[]
         /** Kick the agent on an opener already stored with the thread. */
         continuePending?: boolean
+        /** Onboarding setup: agent speaks first, with no user bubble. */
+        speakFirst?: boolean
       },
     ) => {
       const trimmed = text.trim()
       const attachments = opts?.attachments?.length ? opts.attachments : undefined
       const continuePending = Boolean(opts?.continuePending)
-      if (!token || (!continuePending && !trimmed && !attachments?.length)) return false
+      const speakFirst = Boolean(opts?.speakFirst)
+      if (!token || (!continuePending && !speakFirst && !trimmed && !attachments?.length)) return false
       onFinishedRef.current = opts?.onFinished
       sessionIdRef.current = sessionId
-      // Opener is already on the server when continuePending; skip the phantom bubble.
-      if (!continuePending) {
+      // Opener is already on the server, or the agent speaks first.
+      if (!continuePending && !speakFirst) {
         const optimistic: ChatMessage = {
           id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           role: 'user',
@@ -329,9 +338,10 @@ export function useAiChatStream(token: string | null, conversationId: string | n
       }
 
       pendingPartsRef.current.push({
-        text: trimmed || ' ',
+        text: speakFirst ? '' : trimmed || ' ',
         attachments,
         continuePending,
+        speakFirst,
       })
 
       if (streamingRef.current) {
@@ -349,6 +359,7 @@ export function useAiChatStream(token: string | null, conversationId: string | n
         next.text,
         next.attachments,
         next.continuePending,
+        next.speakFirst,
       )
       return true
     },

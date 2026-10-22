@@ -150,7 +150,7 @@ describe('buildTimelineRows event clusters', () => {
         bundle: [],
         bundleId: null,
       },
-    } as InboxMessage
+    } as unknown as InboxMessage
     const answer = {
       id: 'm-answer',
       threadId: 't1',
@@ -160,7 +160,7 @@ describe('buildTimelineRows event clusters', () => {
       decisionResponse: true,
       decisionResponseDecisionId: 'd1',
       payload: {},
-    } as InboxMessage
+    } as unknown as InboxMessage
     const rows = buildTimelineRows(
       detail(
         [
@@ -199,7 +199,7 @@ describe('syntheticDecisionAnswers', () => {
           options: [{ id: 'end_only', label: 'Sessie afronden', action_type: 'session_checkout' }],
         },
       },
-    } as InboxMessage
+    } as unknown as InboxMessage
     expect(syntheticDecisionAnswers([card], 't1', t)).toHaveLength(0)
   })
 })
@@ -209,7 +209,7 @@ describe('isHiddenDecisionResponse', () => {
     const answer = {
       decisionResponse: true,
       decisionResponseDecisionId: 'd1',
-    } as InboxMessage
+    } as unknown as InboxMessage
     expect(isHiddenDecisionResponse(answer, new Set(['d1']))).toBe(true)
     expect(isHiddenDecisionResponse(answer, new Set(['other']))).toBe(false)
   })
@@ -243,7 +243,7 @@ describe('isSessionCheckoutCard', () => {
             },
           ],
         },
-      } as InboxMessage),
+      } as unknown as InboxMessage),
     ).toBe(true)
   })
 
@@ -267,7 +267,7 @@ describe('isSessionCheckoutCard', () => {
         payload: {
           options: [{ id: 'approve', label: 'Toepassen', action_type: 'create_inbox_rule' }],
         },
-      } as InboxMessage),
+      } as unknown as InboxMessage),
     ).toBe(false)
   })
 })

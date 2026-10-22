@@ -190,6 +190,12 @@ def agent_allowed_tools(agent: Any | None) -> set[str] | None:
     # A denylist still wins.
     if allowed & _LABEL_TOOLS:
         allowed.update(("merge_labels", "update_tag"))
+    # An agent that may call MCP tools may read their argument schemas.
+    if "call_mcp_tool" in allowed:
+        allowed.add("list_mcp_tools")
+    # Search without reading the page is not browsing. A denylist still wins.
+    if "web_search" in allowed:
+        allowed.add("fetch_url")
     return allowed
 
 

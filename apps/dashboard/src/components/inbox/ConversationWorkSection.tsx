@@ -1,12 +1,12 @@
 import { ArrowUpRight, ChevronDown } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import type { InboxThread, PatchThreadInput, ProposalItem } from '../../lib/inbox-api'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { isInternalThread } from '../../lib/message-composer'
-import { openEntityPath } from '../../lib/open-entity'
+import { canvasOnThreadPath, openEntityPath } from '../../lib/open-entity'
 import { listCanvasesForThread, type ProjectCanvas } from '../../lib/project-canvas-api'
 import { findNavRowPath, type NavRow } from '../../lib/signals-api'
 import { CanvasShowcaseCard } from './ProposalItemPreview'
@@ -26,7 +26,7 @@ import { ThreadTags } from './ThreadTags'
 type Props = {
   thread: InboxThread
   saving?: boolean
-  onPatch?: (input: PatchThreadInput) => Promise<void>
+  onPatch?: (input: PatchThreadInput) => Promise<boolean | void>
   /** Opens the planner (date or repeat for this thread). */
   onPlan?: () => void
   /** Pause, resume, clear, or run-now changed the schedule. Null asks for a refetch. */
@@ -79,18 +79,25 @@ function flattenFolders(rows: NavRow[], depth = 0): FolderChoice[] {
   )
 }
 
-function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): ProposalItem {
+function canvasItem(
+  row: ProjectCanvas,
+  cadence: string,
+  writingLabel: string,
+  kindLabel: string,
+  here: string,
+): ProposalItem {
   const empty = Boolean(row.empty)
+  const dashboard = (row.kind || 'dashboard') === 'dashboard'
+  const home = row.thread?.path || here
   return {
     type: 'canvas',
     id: row.id,
     title: row.title,
+    canvasKind: row.kind || 'dashboard',
     subtitle: empty
       ? writingLabel
-      : [row.managing_agent?.name, cadence].filter(Boolean).join(' · '),
-    path: empty
-      ? null
-      : `/folders/${row.project_id || row.owner_id}?tab=canvas&canvas=${row.id}`,
+      : [kindLabel, row.managing_agent?.name, dashboard ? cadence : null].filter(Boolean).join(' · '),
+    path: empty ? null : canvasOnThreadPath(home, row.id),
     signalId: row.signal_id ?? null,
     empty,
   }
@@ -102,6 +109,7 @@ function canvasItem(row: ProjectCanvas, cadence: string, writingLabel: string): 
  */
 export function ConversationWorkSection({ thread, saving = false, onPatch, onPlan, onScheduleChanged }: Props) {
   const { t } = useTranslation(['communication', 'nav'])
+  const { pathname, search } = useLocation()
   const { nav } = useCommunicationNav()
   const [ticketBump, setTicketBump] = useState(0)
   const [canvases, setCanvases] = useState<ProjectCanvas[]>([])
@@ -159,6 +167,8 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                 row,
                 t(`projects.canvas.cadence.${row.refresh_cadence || 'manual'}`, { ns: 'nav' }),
                 t('projects.canvas.writing', { ns: 'nav' }),
+                t(`projects.canvas.kinds.${row.kind || 'dashboard'}`, { ns: 'nav' }),
+                `${pathname}${search}`,
               )}
             />
           ))}

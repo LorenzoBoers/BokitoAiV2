@@ -8,6 +8,8 @@ export const integrationsRoutes = {
   platform: {
     providers: '/integrations/providers',
     moduleBySlug: (slug: string) => `/integrations/modules/${encodeURIComponent(slug)}`,
+    moduleInstallPlan: (slug: string) =>
+      `/integrations/modules/${encodeURIComponent(slug)}/install-plan`,
     moduleAgents: (slug: string) =>
       `/integrations/modules/${encodeURIComponent(slug)}/agents`,
     moduleAgentsHire: (slug: string) =>

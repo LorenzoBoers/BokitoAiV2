@@ -511,7 +511,8 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
     mcp_with_tools = [m for m in mcp_servers if m.get("tools")]
     if mcp_with_tools:
         lines.append(
-            "MCP servers (query with call_mcp_tool(server_name, tool_name, arguments)):"
+            "MCP servers (list_mcp_tools(server_name) gives the arguments; then "
+            "call_mcp_tool(server_name, tool_name, arguments)):"
         )
         for m in mcp_with_tools[:6]:
             tool_list = ", ".join(m.get("tools", [])[:20])

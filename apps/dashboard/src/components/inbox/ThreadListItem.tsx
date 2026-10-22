@@ -41,6 +41,7 @@ import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/cont
 import {
   isInternalThread,
   threadCounterpartyName,
+  threadFace,
   threadNeedsReply,
   threadSecondaryLine,
 } from '../../lib/message-composer'
@@ -190,6 +191,7 @@ function ThreadListItem({
   const scheduleDue = (parseServerTime(scheduleAt)?.getTime() ?? Infinity) <= Date.now()
   const isDirect = variant === 'direct' || thread.channel === 'assistant'
   const isAgentThread = isInternalThread(thread)
+  const face = threadFace(thread)
   const ticket =
     !isAgentThread && thread.ticket && thread.ticket.status !== 'proposed' ? thread.ticket : null
   const ticketName = ticket ? `#${ticket.name}` : ''
@@ -203,7 +205,7 @@ function ThreadListItem({
   const primaryLabel = isDirect
     ? (() => {
         const subject = (thread.emailSubject || '').trim()
-        if (!subject || subject === 'New conversation' || subject === '(No subject)') return untitledFallback()
+        if (!subject || subject === 'New chat' || subject === 'New conversation' || subject === 'Nieuwe chat' || subject === 'Nieuw gesprek' || subject === '(No subject)') return untitledFallback()
         return translateDecisionText(subject, t) || untitledFallback()
       })()
     : isAgentThread
@@ -219,15 +221,15 @@ function ThreadListItem({
         const preview = translateMockAgentBody(thread.lastMessagePreview, t).trim()
         if (preview && preview !== primaryLabel) return preview
         const agentLabel =
-          thread.agentName?.trim() ||
-          (thread.agentKind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
+          face.name?.trim() ||
+          (face.kind === 'company' ? t('listItem.companyAgent') : t('listItem.assistant'))
         // Avatar already identifies the agent; skip a secondary that only repeats the title.
         if (agentLabel && agentLabel !== primaryLabel) return agentLabel
         return ''
       })()
     : isAgentThread
       ? (() => {
-          const agentName = (thread.agentName ?? '').trim()
+          const agentName = (face.name ?? '').trim()
           const subject = translateDecisionText(threadSecondaryLine(thread), t).trim()
           const preview = translateMockAgentBody(thread.lastMessagePreview, t).trim()
           const isRedundant = (value: string) =>
@@ -357,10 +359,19 @@ function ThreadListItem({
           <AiAvatar
             {...toAiAvatarProps(
               preferLiveAgentAvatar(
-                thread.agentId
-                  ? agents.find((row) => String(row.id) === String(thread.agentId))
+                face.id
+                  ? agents.find((row) => String(row.id) === String(face.id))
                   : undefined,
-                thread,
+                {
+                  name: face.name,
+                  agentId: face.id,
+                  agentName: face.name,
+                  agentAvatarKind: face.avatarKind,
+                  agentAvatarIcon: face.avatarIcon,
+                  agentAvatarColor: face.avatarColor,
+                  agentAvatarShape: face.avatarShape,
+                  agentAvatarImageUrl: face.avatarImageUrl,
+                },
               ),
             )}
             size={28}
@@ -372,7 +383,7 @@ function ThreadListItem({
           <ContactAvatar
             name={thread.contactName}
             email={thread.contactEmail}
-            size={28}
+            size={32}
             className="mt-0.5"
           />
         )}
@@ -641,7 +652,7 @@ function ThreadListItem({
                           name={assigneeName ?? '?'}
                           email={assigneeEmail ?? assigneeName ?? ''}
                           avatarUrl={assigneeAvatarUrl}
-                          size={14}
+                          size={16}
                           decorative
                           presence={
                             assigneePresence === 'available' ||
@@ -692,18 +703,6 @@ function ThreadListItem({
                         <FolderIcon size={11} aria-hidden className="shrink-0" />
                         <span className="truncate">{folder.name}</span>
                       </span>
-                    ) : null}
-                    {!ticket && thread.category && thread.category !== 'other' ? (
-                      <Badge
-                        variant="neutral"
-                        size="sm"
-                        className="shrink-0 capitalize"
-                        data-testid="thread-row-category"
-                      >
-                        {t(`listItem.category.${thread.category}`, {
-                          defaultValue: thread.category,
-                        })}
-                      </Badge>
                     ) : null}
                     {typeof thread.certainty === 'number' && thread.certainty >= 80 ? (
                       <span

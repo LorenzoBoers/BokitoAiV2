@@ -1,16 +1,16 @@
 import { canvasesRoutes } from '../api/routes'
-import { workforceDelete, workforceGet, workforcePatch } from './api'
-import type { CanvasNode } from './project-canvas/types'
+import { WORKFORCE_API_BASE, buildAuthHeaders, workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
+import type { CanvasKind, CanvasNode } from './project-canvas/types'
 
 export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
 
 export type ProjectCanvas = {
   id: string
-  project_id?: string | null
-  owner_kind: 'project'
-  owner_id: string
+  folder_id?: string | null
   slug: string
   title: string
+  kind?: CanvasKind
+  language?: string | null
   schema_version: number
   revision: number
   source: string
@@ -42,7 +42,7 @@ export type ProjectCanvas = {
 }
 
 export async function listCanvases(folderId: string): Promise<ProjectCanvas[]> {
-  const data = await workforceGet<{ items: ProjectCanvas[] }>(canvasesRoutes.list('project', folderId))
+  const data = await workforceGet<{ items: ProjectCanvas[] }>(canvasesRoutes.list(folderId))
   return data.items ?? []
 }
 
@@ -79,4 +79,42 @@ export async function patchCanvasMeta(
 
 export async function deleteCanvas(canvasId: string): Promise<void> {
   await workforceDelete(canvasesRoutes.byId(canvasId))
+}
+
+function saveBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+async function exportError(res: Response): Promise<string> {
+  try {
+    const data = (await res.json()) as { detail?: unknown }
+    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail
+  } catch {
+    return ''
+  }
+  return ''
+}
+
+/** Download the sheet canvas as CSV or Excel. The file is built on the server. */
+export async function downloadSheet(canvasId: string, format: 'csv' | 'xlsx', filename: string): Promise<void> {
+  const res = await fetch(`${WORKFORCE_API_BASE}${canvasesRoutes.exportFile(canvasId, format)}`, {
+    method: 'GET',
+    headers: buildAuthHeaders(undefined, false),
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const detail = await exportError(res)
+    throw new Error(detail || `HTTP ${res.status}`)
+  }
+  saveBlob(filename, await res.blob())
+}
+
+/** Create a Google Sheet from this canvas and return its URL. */
+export async function exportSheetToGoogle(canvasId: string): Promise<{ url: string; title?: string }> {
+  return workforcePost(canvasesRoutes.exportGoogle(canvasId), {})
 }

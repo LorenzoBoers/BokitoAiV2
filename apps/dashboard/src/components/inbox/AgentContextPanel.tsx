@@ -190,7 +190,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
             <Link to={workHref} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50">
               <AiAvatar
                 {...toAiAvatarProps(view, t('agentContext.workspaceAssistant'))}
-                size={36}
+                size={40}
                 decorative
                 mode="static"
                 activity={corner}
@@ -199,7 +199,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
           ) : (
             <AiAvatar
               {...toAiAvatarProps(view ?? agent, t('agentContext.workspaceAssistant'))}
-              size={36}
+              size={40}
               decorative
               mode="static"
             />

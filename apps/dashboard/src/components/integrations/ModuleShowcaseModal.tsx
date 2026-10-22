@@ -1,3 +1,4 @@
+import type { ModuleInstallOptions } from '../../lib/integrations-api'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -33,7 +34,11 @@ type Props = {
   onOpenChange: (open: boolean) => void
   module: IntegrationModuleRow | null
   applications: IntegrationApplication[]
-  onAction: (slug: string, action: 'install' | 'complete_setup' | 'uninstall') => Promise<unknown>
+  onAction: (
+    slug: string,
+    action: 'install' | 'complete_setup' | 'uninstall',
+    options?: ModuleInstallOptions,
+  ) => Promise<unknown>
 }
 
 function partnerRows(applications: IntegrationApplication[], extraHostSlugs: string[]) {
@@ -325,8 +330,8 @@ export function ModuleShowcaseModal({
               ) : null}
               <ModuleInstallControls
                 module={module}
-                onAction={async (slug, action) => {
-                  await onAction(slug, action)
+                onAction={async (slug, action, options) => {
+                  await onAction(slug, action, options)
                   if (action === 'install' || action === 'complete_setup') {
                     onOpenChange(false)
                   }

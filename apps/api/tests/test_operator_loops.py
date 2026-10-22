@@ -41,7 +41,7 @@ async def _signal(session, tenant_id, **kwargs) -> Signal:
 
 
 async def _category(client: AsyncClient, headers, name: str) -> dict:
-    created = await client.post("/api/categories", headers=headers, json={"name": name})
+    created = await client.post("/api/labels", headers=headers, json={"name": name})
     assert created.status_code == 200, created.text
     return created.json()
 

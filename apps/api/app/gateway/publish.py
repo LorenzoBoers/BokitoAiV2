@@ -64,9 +64,9 @@ def _thread_row(
     so clients can upsert it directly without a follow-up fetch.
 
     `is_pinned` is per-user state and stays False here; the dashboard joins
-    pins client-side. Agent enrichment is skipped (would need a DB read);
+    pins client-side. The pinned agent is skipped (would need a DB read);
     clients keep the previous row's agent, ai_handling, tags and category
-    fields on upsert when absent.
+    fields on upsert when absent. `speaker` rides along in extras.
     """
     from app.services.signal_threads import serialize_thread
 
@@ -82,9 +82,12 @@ async def _row_extras(signal: "Signal") -> dict[str, Any]:
 
         async with async_session_factory() as session:
             tickets = await tickets_by_signal(session, signal.tenant_id, [signal])
+            from app.services.signal_threads import conversation_speaker
+
             return {
                 "tags": await signal_tag_names(session, signal.id),
                 "ticket": tickets.get(signal.id),
+                "speaker": await conversation_speaker(session, signal),
             }
     except Exception:  # noqa: BLE001 - publishing never breaks business logic
         return {}

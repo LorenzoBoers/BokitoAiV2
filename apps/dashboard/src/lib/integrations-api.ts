@@ -8,7 +8,17 @@ import {
   apiPut,
 } from './api'
 
-export type IntegrationAuthType = 'oauth2' | 'api_key' | 'mcp_remote_oauth' | 'none'
+export type IntegrationAuthType = 'oauth2' | 'api_key' | 'mcp_remote_oauth' | 'fields' | 'none'
+
+/** One input of a preset connection; the server validates and builds the URL and auth. */
+export interface IntegrationPresetField {
+  key: string
+  label: string
+  label_nl: string
+  secret: boolean
+  required: boolean
+  placeholder: string
+}
 export type IntegrationProviderStatus = 'available' | 'coming_soon' | 'deprecated'
 
 export interface IntegrationHostRow {
@@ -29,6 +39,8 @@ export interface IntegrationProviderRow {
   description: string
   category: string
   auth_type: IntegrationAuthType
+  /** Preset connections: the form to fill. */
+  fields?: IntegrationPresetField[]
   /** Boolean flags plus optional lists (e.g. auth_modes). */
   capabilities?: Record<string, boolean | string[] | undefined>
   status: IntegrationProviderStatus
@@ -244,9 +256,30 @@ export async function listIntegrationProviders(): Promise<ProvidersListResponse>
   return { ...data, providers }
 }
 
+/** Add department: where the module lands, who is accountable, whether its specialist leads. */
+export type ModuleInstallOptions = {
+  department_id?: string | null
+  accountable_user_id?: string | null
+  specialist_leads?: boolean | null
+}
+
+export type ModuleInstallPlan = {
+  slug: string
+  name: string
+  ships: { specialist: string | null; labels: string[]; flows: string[]; folder: boolean }
+  candidates: Array<{ id: string; name: string; overlap: string[]; score: number; lead_name: string | null }>
+  suggested_department_id: string | null
+  default_accountable_user_id: string | null
+  people: Array<{ id: string; name: string }>
+}
+
+export async function getModuleInstallPlan(slug: string): Promise<ModuleInstallPlan> {
+  return apiGet<ModuleInstallPlan>(integrationsRoutes.platform.moduleInstallPlan(slug))
+}
+
 export async function patchIntegrationModule(
   slug: string,
-  body: { enabled?: boolean; action?: 'install' | 'complete_setup' | 'uninstall' },
+  body: { enabled?: boolean; action?: 'install' | 'complete_setup' | 'uninstall' } & ModuleInstallOptions,
 ): Promise<IntegrationModuleRow> {
   const data = await apiPatch<{ module: IntegrationModuleRow }>(
     integrationsRoutes.platform.moduleBySlug(slug),
@@ -422,7 +455,7 @@ export async function revokeIntegrationConnection(connectionId: string): Promise
 export type ConnectionAccessLevel = 'use' | 'manage'
 
 export type ConnectionAccessEntry = {
-  kind: 'user' | 'agent' | 'team'
+  kind: 'user' | 'agent' | 'department'
   id: string
   level: ConnectionAccessLevel
 }
@@ -533,6 +566,7 @@ export async function installMcpIntegration(input: {
   auth?: Record<string, unknown>
   use_mock?: boolean
   module_slug?: string
+  fields?: Record<string, string>
 }): Promise<{
   connection: IntegrationConnectionRow
   binding: { id: string; config: unknown }

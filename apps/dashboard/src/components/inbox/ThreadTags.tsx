@@ -16,7 +16,7 @@ import { HashtagPickerModal } from './HashtagPickerModal'
 type Props = {
   thread: InboxThread
   saving?: boolean
-  onPatch?: (input: PatchThreadInput) => Promise<void>
+  onPatch?: (input: PatchThreadInput) => Promise<boolean | void>
   onTicketChanged?: () => void
 }
 

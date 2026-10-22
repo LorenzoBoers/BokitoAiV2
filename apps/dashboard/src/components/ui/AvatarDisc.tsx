@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { snapMarkSize } from '../../lib/mark-scale'
 import { cn } from '../../lib/utils'
 
 type AvatarDiscProps = {
@@ -18,7 +19,8 @@ type AvatarDiscProps = {
  * initials size ratio, one muted fallback. Agents use AgentMark instead.
  */
 export function AvatarDisc({ size, children, imageUrl, alt = '', colors, decorative = true, className }: AvatarDiscProps) {
-  const box: CSSProperties = { width: size, height: size }
+  const boxSize = snapMarkSize(size)
+  const box: CSSProperties = { width: boxSize, height: boxSize }
   if (imageUrl) {
     return (
       <img
@@ -32,7 +34,7 @@ export function AvatarDisc({ size, children, imageUrl, alt = '', colors, decorat
   return (
     <span
       aria-hidden={decorative || undefined}
-      style={{ ...box, fontSize: Math.round(size * 0.36), background: colors?.bg, color: colors?.text }}
+      style={{ ...box, fontSize: Math.round(boxSize * 0.36), background: colors?.bg, color: colors?.text }}
       className={cn(
         'inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold leading-none',
         !colors && 'border border-border/60 bg-bg-hover text-text-muted',

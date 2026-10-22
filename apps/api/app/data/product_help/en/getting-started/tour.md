@@ -9,12 +9,12 @@ related: welcome,cockpit,communication
 
 # Product tour
 
-After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — **About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel** — before this tour. **Your agent** creates the workspace lead and uses the same living bot mark as the rest of the platform: shape, color, and motion. It does not rename Bokito, the in-app helper. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done; finishing the wizard starts the tour.
+After you create a workspace, owners finish a short **first-run wizard** (`/onboarding`) — **About you**, **Languages**, **Notifications**, **Autonomy**, **Your agent**, optional **Channel** — before this tour. **Your agent** creates the workspace lead and uses the same living bot mark as the rest of the platform: shape, color, and motion. It does not rename Bokito, the in-app helper. Invited members only set personal language and notifications. The rail tour does not auto-start until that wizard is done. Finishing the wizard opens New chat with the agent you just created, and that agent starts the setup chat.
 
 ## After the tour
 
 1. End the tour with **Start the setup chat**, **Open Communication**, or **I will explore on my own**.
-2. Your new lead opens one conversation in Communication and asks if the name is right, then about the company and how work should run.
+2. The app opens New chat with that agent. They ask if the name is right, then about the company and how work should run.
 3. Proposals wait in Govern. A daily check-in starts only if you say yes in that conversation.
 
 Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organization. Use the command palette (`Ctrl+K` or `Cmd+K`) to jump without hunting the rail.
@@ -22,11 +22,11 @@ Bokito has one sidebar. Pinned items sit above three groups: Work, AI and Organi
 ## Daily loop at the top
 
 ![Sidebar with the daily loop](/api/docs/assets/tour/sidebar.png)
-*New conversation and Inbox sit above the grouped sections.*
+*New chat and Inbox sit above the grouped sections.*
 
-- **New conversation** — opens `/new` to start a conversation.
+- **New chat** — opens `/new` to start a conversation.
 - **Inbox** — the conversations, and the contacts behind them. Pinned above **Work**, not inside that section. See [Communication](/docs/inbox/communication) and [Contacts](/docs/inbox/contacts).
-- **Today** — the morning scan of open work, decisions and usage, first inside Inbox. See [Today](/docs/getting-started/cockpit). You can set Today as your start page under Profile; Inbox is the default.
+- **Today** — the morning scan of open work, decisions and usage, first inside Inbox. See [Today](/docs/getting-started/cockpit). Under Profile you can set your start page to **New chat** (default), **Inbox**, **Agenda** or **Today**.
 
 ## Work and AI
 
@@ -47,20 +47,20 @@ At the bottom of the rail, **Organization** groups the workspace itself:
 
 Owners and admins use Organization most; members mainly open Workforce. See the [setup guide](/docs/getting-started/setup-guide).
 
-Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **Chat** (default), **Messages**, or **Today**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
+Personal screens — **Profile** and **Notifications** — are yours, not workspace docs. On Profile, set **First name** and **Last name** (used in greetings and email signatures), choose **Start page** as **New chat** (default), **Inbox**, **Agenda** or **Today**, **Appearance** as **Light**, **Dark** or **System**, and optionally a personal **Email signature** as the fallback when a mailbox uses each person's signature or has no shared template. Shared mailbox signatures live under **Settings** → **Channels**.
 
 ## Use the command palette
 
 1. Press `Ctrl+K` (Windows) or `Cmd+K` (Mac) from any signed-in page.
 2. Type to jump. Results group under **Recent**, **Go to**, **Actions**, **Sessions**, **Threads**, **Contacts**, **Messages queues**, **Knowledge** and **Settings**.
-3. With an empty query, **Actions** also offers **New conversation**, **Talk to an agent**, **Open agent**, **Open flow**, **Open folder**, **Open Knowledge**, **Open Agenda**, **New flow**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **New folder**, **Connect mailbox**, **Open setup guide**, **Open help (Bokito)** and **Open support**. **Open folder** and **New folder** open a folder.
+3. With an empty query, **Actions** also offers **New chat**, **Talk to an agent**, **Open agent**, **Open flow**, **Open folder**, **Open Knowledge**, **Open Agenda**, **New flow**, **Invite a teammate**, **Open my profile**, **Open notifications**, **New email**, **New contact**, **New agent**, **New folder**, **Connect mailbox**, **Open setup guide**, **Open help (Bokito)** and **Open support**. **Open folder** and **New folder** open a folder.
 4. Settings pages appear after you type. You can **Switch to light mode** or **Switch to dark mode** from the palette too.
 
 Communication search in the thread list searches conversations. The palette is for jumping, not for inbox filters.
 
 ## Ask Bokito
 
-1. Choose **Help** in the top bar (next to **Setup** while onboarding is incomplete), or the Bokito button in the bottom-right on pages where the launcher is shown. On Communication with an open thread, and on New conversation, the corner launcher stays hidden so it does not cover Send; use the top bar **Help** button to force the panel open.
+1. Choose **Help** in the top bar (next to **Setup** while onboarding is incomplete), or the Bokito button in the bottom-right on pages where the launcher is shown. On Communication with an open thread, and on New chat, the corner launcher stays hidden so it does not cover Send; use the top bar **Help** button to force the panel open.
 2. Type your question. Bokito knows which page you are viewing, so "what does this status mean?" works without explaining where you are.
 3. The conversation runs with your own permissions, and Bokito hands real work to the workspace agents. See [Bokito, your assistant](/docs/getting-started/assistant).
 

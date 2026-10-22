@@ -597,6 +597,30 @@ export const deferDecision = (id: string, optionId = 'later') =>
   apiPost(`/api/notifications/decisions/${id}/defer`, { option_id: optionId })
 
 // ---------------------------------------------------------------------------
+// Agent calls
+// ---------------------------------------------------------------------------
+
+export type AgentCall = {
+  call_id: string
+  status: string
+  agent_name: string
+  signal_id: string
+  decision_id: string
+  title: string
+  summary: string
+  text: string
+  ring_until: string | null
+}
+
+export const requestCall = (decisionId: string) =>
+  apiPost<AgentCall>('/api/calls/request', { decision_id: decisionId })
+
+export const listRingingCalls = () => apiGet<AgentCall[]>('/api/calls/ringing')
+
+export const declineCall = (callId: string) =>
+  apiPost<{ call_id: string; status: string }>(`/api/calls/${callId}/decline`, {})
+
+// ---------------------------------------------------------------------------
 // Push
 // ---------------------------------------------------------------------------
 

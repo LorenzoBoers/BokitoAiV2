@@ -1,3 +1,4 @@
+from app.core.time import utcnow
 import json
 import logging
 import os
@@ -43,6 +44,7 @@ SUGGEST_MODE_TOOLS = frozenset(
         "read_doc",
         "get_tenant_overview",
         "call_mcp_tool",
+        "list_mcp_tools",
         "create_decision_request",
         "propose_action",
         "attach_items",
@@ -115,7 +117,7 @@ def autonomous_gate_reason(signal, agent, *, now: datetime | None = None) -> str
     if signal.assignee_kind != "agent" or signal.agent_id != agent.id:
         return "not_owner"
     until = signal.human_composing_until
-    if until is not None and until > (now or datetime.utcnow()):
+    if until is not None and until > (now or utcnow()):
         return "human_composing"
     return None
 
@@ -349,7 +351,11 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
                 session, signal, reason="customer_inbound"
             )
         except Exception:  # noqa: BLE001
-            pass
+            logging.getLogger(__name__).warning(
+                "handoff interrupt on inbound failed for signal %s",
+                signal.id,
+                exc_info=True,
+            )
 
         # Workspace-wide LLM block (credits, key, spend cap): do not start a run
         # per message while it lasts; remember the thread and re-triage later.
@@ -641,7 +647,8 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
             "0. Always read first: call get_contact when a contact is linked, use "
             "search_index / read_doc for relevant knowledge, then call "
             "record_thread_read once with a one-sentence summary, certainty 0-100, "
-            "priority, and optional ticket_category / free tags from the catalog "
+            "priority, the flow label as ticket_category when one fits (it is the kind of work), "
+            "and optional free tags from the catalog "
             "(list_categories / list_tags). When you learn a lasting fact about the "
             "person, update them with upsert_contact (notes or fields).\n"
         )
@@ -749,7 +756,7 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
             from app.services.run_errors import record_run_error, workspace_block
 
             run.status = "failed"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = utcnow()
             record_run_error(run, exc)
             session.add(run)
             # A failed run must not leave the conversation parked on the agent.
@@ -970,7 +977,7 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
 
         await mark_agent_activity(session, agent, status="standby")
         run.status = "completed"
-        run.completed_at = datetime.utcnow()
+        run.completed_at = utcnow()
         if isinstance(tokens, dict):
             run.tokens_input = int(tokens.get("input_tokens") or 0)
             run.tokens_output = int(tokens.get("output_tokens") or 0)
@@ -1022,7 +1029,7 @@ async def coding_agent_run(ctx, tenant_id: str, task_subject: str, repo_path: st
         )
         session.add(event)
         run.status = "completed"
-        run.completed_at = datetime.utcnow()
+        run.completed_at = utcnow()
         await session.commit()
         return {"coding_run": str(run.id)}
 
@@ -1061,7 +1068,7 @@ def _mailbox_sync_is_fresh(settings_json: str | None) -> bool:
             stamp = stamp.replace(tzinfo=None)
     except ValueError:
         return False
-    age = (datetime.utcnow() - stamp).total_seconds()
+    age = (utcnow() - stamp).total_seconds()
     return age < _EMAIL_SYNC_FRESH_SECONDS
 
 
@@ -1140,7 +1147,7 @@ async def send_tenant_digests_job(ctx):
     async with async_session_factory() as session:
         daily = await send_tenant_digests(session, period="daily")
         weekly = 0
-        if datetime.utcnow().weekday() == 0:
+        if utcnow().weekday() == 0:
             weekly = await send_tenant_digests(session, period="weekly")
     return {"daily": daily, "weekly": weekly}
 
@@ -1185,6 +1192,14 @@ async def reindex_module_sources_job(ctx):
     async with async_session_factory() as session:
         count = await reindex_due_sources(session)
         return {"reindexed": count}
+
+
+async def connection_health_job(ctx):
+    """Daily: list the tools of every connection; a bad turn becomes an internal signal."""
+    from app.services.connection_health import check_all
+
+    async with async_session_factory() as session:
+        return await check_all(session)
 
 
 async def workbench_poll_job(ctx):
@@ -1276,6 +1291,7 @@ class WorkerSettings:
         reindex_module_sources_job,
         nudge_idle_agent_sessions_job,
         workbench_poll_job,
+        connection_health_job,
     ]
     on_startup = startup
     on_shutdown = shutdown
@@ -1289,6 +1305,7 @@ class WorkerSettings:
         cron(reindex_module_sources_job, weekday=0, hour=3, minute=15),
         cron(nudge_idle_agent_sessions_job, second=30),
         cron(workbench_poll_job, second={0, 30}),
+        cron(connection_health_job, hour=5, minute=40),
     ]
 
 

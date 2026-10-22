@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
@@ -68,7 +69,14 @@ function ItemCard({
     <>
       <Icon size={16} className="shrink-0 text-text-muted" aria-hidden />
       <span className="min-w-0 flex-1">
-        <span className="block truncate-fade text-sm font-medium text-text-primary">{label}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate-fade text-sm font-medium text-text-primary">{label}</span>
+          {item.canvas_kind ? (
+            <Badge variant="neutral" size="sm">
+              {t(`projects.canvas.kinds.${item.canvas_kind}`, { defaultValue: item.canvas_kind })}
+            </Badge>
+          ) : null}
+        </span>
         <span className="flex items-center gap-1 text-xs text-text-muted">
           {item.origin === 'connection' ? <Link2 size={11} aria-hidden /> : null}
           {t(`projects.worksIn.origin.${item.origin}`)}

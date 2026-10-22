@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime
@@ -77,7 +79,7 @@ async def get_or_create_contact(
     )
     contact = result.scalar_one_or_none()
     if contact:
-        contact.last_seen_at = datetime.utcnow()
+        contact.last_seen_at = utcnow()
         if display_name and not contact.display_name:
             contact.display_name = display_name
         session.add(contact)
@@ -92,7 +94,7 @@ async def get_or_create_contact(
         address=address,
         display_name=display_name,
         status="approved",
-        last_seen_at=datetime.utcnow(),
+        last_seen_at=utcnow(),
     )
     canonical = (
         await session.execute(
@@ -218,7 +220,7 @@ def serialize_signal(row: Signal) -> dict[str, Any]:
         "status": row.status,
         "priority": row.priority,
         "has_unread": row.has_unread,
-        "category": row.category,
+        "ticket_tag_id": str(row.ticket_tag_id) if row.ticket_tag_id else None,
         "urgency": row.urgency,
         "impact": row.impact,
         "summary": row.summary,
@@ -406,7 +408,7 @@ async def create_inbound_signal(
         subject=subject,
         external_id=external_id,
     )
-    now = datetime.utcnow()
+    now = utcnow()
     if existing:
         if existing.status == "snoozed":
             from app.services.thread_schedule import wake_hidden_on_inbound
@@ -622,13 +624,11 @@ async def apply_triage(
     tenant_id: UUID,
     signal_id: UUID,
     *,
-    category: str,
     urgency: int,
     impact: int,
     summary: str,
     certainty: int,
     priority: Optional[str] = None,
-    intent: Optional[str] = None,
     sentiment: Optional[str] = None,
     agent_id: Optional[UUID] = None,
     agent_name: Optional[str] = None,
@@ -647,24 +647,19 @@ async def apply_triage(
     signal = result.scalar_one_or_none()
     if not signal:
         raise HTTPException(status_code=404, detail="Signal not found")
-    signal.category = category
     signal.urgency = max(0, min(100, urgency))
     signal.impact = max(0, min(100, impact))
     signal.summary = summary
     signal.certainty = max(0, min(100, certainty))
-    signal.triaged_at = datetime.utcnow()
-    if intent:
-        signal.intent = intent
+    signal.triaged_at = utcnow()
     if sentiment:
         signal.sentiment = sentiment
     if priority:
         signal.priority = priority
     payload: dict = {
-        "category": category,
         "urgency": urgency,
         "impact": impact,
         "certainty": certainty,
-        "intent": intent,
         "summary": summary,
         "priority": priority,
     }

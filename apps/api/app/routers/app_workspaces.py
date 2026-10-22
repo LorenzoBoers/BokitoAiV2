@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -261,7 +261,11 @@ async def get_workspace_invites(
 
 
 class MemberRolePatchBody(BaseModel):
-    role: str
+    role: str | None = None
+    # workspace | departments (a freelancer sees only their departments' work).
+    scope: str | None = None
+    hours_per_week: int | None = None
+    clear_hours: bool = False
 
 
 def _actor_is_workspace_owner(auth: AuthContext) -> bool:
@@ -289,25 +293,49 @@ async def patch_workspace_member(
         session, workspace_id, auth.user, is_staff=auth.is_staff
     )
     auth.require_role("owner", "admin")
-    updated = await update_member_role(
-        session,
-        tenant.id,
-        member_id,
-        body.role,
-        acting_is_workspace_owner=_actor_is_workspace_owner(auth),
-    )
     from app.services.audit import record_audit
+    from app.services.workspaces_portal import update_member_access
 
-    await record_audit(
-        session,
-        tenant.id,
-        action="user:role_changed",
-        actor_type="user",
-        actor_id=auth.user.id,
-        resource_type="membership",
-        resource_id=member_id,
-        payload={"role": body.role},
-    )
+    updated: dict = {}
+    if body.role is not None:
+        updated = await update_member_role(
+            session,
+            tenant.id,
+            member_id,
+            body.role,
+            acting_is_workspace_owner=_actor_is_workspace_owner(auth),
+        )
+        await record_audit(
+            session,
+            tenant.id,
+            action="user:role_changed",
+            actor_type="user",
+            actor_id=auth.user.id,
+            resource_type="membership",
+            resource_id=member_id,
+            payload={"role": body.role},
+        )
+    if body.scope is not None or body.hours_per_week is not None or body.clear_hours:
+        updated = await update_member_access(
+            session,
+            tenant.id,
+            member_id,
+            scope=body.scope,
+            hours_per_week=body.hours_per_week,
+            clear_hours=body.clear_hours,
+        )
+        await record_audit(
+            session,
+            tenant.id,
+            action="user:access_changed",
+            actor_type="user",
+            actor_id=auth.user.id,
+            resource_type="membership",
+            resource_id=member_id,
+            payload={"scope": body.scope, "hours_per_week": body.hours_per_week},
+        )
+    if not updated:
+        raise HTTPException(status_code=400, detail="Nothing to change")
     return updated
 
 

@@ -135,8 +135,8 @@ def test_tool_descriptions_use_no_forbidden_synonyms():
     assert _tool_hits(in_builtin=False) == {}
 
 
-@pytest.mark.xfail(strict=True, reason="builtin.py descriptions are rewritten after the open design-token commit")
 def test_builtin_tool_descriptions_use_no_forbidden_synonyms():
+    # builtin.py is now a thin loader; descriptions live in domain modules.
     assert _tool_hits(in_builtin=True) == {}
 
 

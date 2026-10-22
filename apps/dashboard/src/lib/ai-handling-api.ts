@@ -150,6 +150,7 @@ export type AiHandlingOverview = {
   disclosurePreview: string | null
   exceptions: {
     channels: AiHandlingException[]
+    flows: AiHandlingException[]
     conversations: AiHandlingException[]
   }
   canRaise: boolean
@@ -216,6 +217,7 @@ function toOverview(raw: Raw): AiHandlingOverview {
     disclosurePreview: str(raw.disclosure_preview) || null,
     exceptions: {
       channels: list(exceptions.channels),
+      flows: list(exceptions.flows),
       conversations: list(exceptions.conversations),
     },
     canRaise: Boolean(raw.can_raise),

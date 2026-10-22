@@ -35,7 +35,7 @@ Alles in Bokito hangt aan deze vijf. Label, afdeling, kanaal en contact zijn eig
 
 ### {icon:autonomy} Autonomie
 
-**EN:** Autonomy. Wat een agent zelf mag: **Autonoom**, **Geassisteerd** of **Handmatig**. Eén dial in **Govern**, tab **Beleid**, voor de hele werkruimte. Een kanaal, een gesprek, een agent of een flow met **Altijd controle** mag lager staan; niets gaat boven de dial. Hangt aan [Autonomie instellen](/docs/govern/autonomy) en [Antwoorden, waarborgen en overdracht](/docs/inbox/inbox-ai).
+**EN:** Autonomy. Wat een agent zelf mag: **Autonoom**, **Geassisteerd** of **Handmatig**. Eén dial in **Govern**, tab **Beleid**, voor de hele werkruimte. Een kanaal, een gesprek, een agent of een flow mag lager staan; niets gaat boven de dial. Hangt aan [Autonomie instellen](/docs/govern/autonomy) en [Antwoorden, waarborgen en overdracht](/docs/inbox/inbox-ai).
 
 ## Eigenschappen
 
@@ -53,11 +53,11 @@ Alles in Bokito hangt aan deze vijf. Label, afdeling, kanaal en contact zijn eig
 
 ## Rail
 
-Bovenaan de knop **Nieuw gesprek**, daarna **Inbox** los boven de groep **Werk**. Groep **Werk**: Agenda, Werkmappen, Flows. Groep **Team**: Agents, Workforce. Boven je account: **Koppelingen**, daarna **Instellingen**. Vandaag zit in Inbox, Kennis onder Agents, de Grid onder Workforce, en Govern en Verbruik onder Instellingen.
+Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. Groep **Werk**: Agenda, Werkmappen, Flows. Groep **Team**: Agents, Workforce. Boven je account: **Koppelingen**, daarna **Instellingen**. Vandaag zit in Inbox, Kennis onder Agents, de Grid onder Workforce, en Govern en Verbruik onder Instellingen.
 
-### {icon:new-chat} Nieuw gesprek
+### {icon:new-chat} Nieuwe chat
 
-**EN:** New conversation. Start een gesprek met een bedrijfsagent die voor jou openstaat, of een uitgaand klantbericht. Zonder bereikbare agent zegt de opsteller dat er geen agents zijn. De hulp in de hoek is een ander gesprek en is op dit scherm verborgen. Hangt aan [Agents](/docs/ai/agents) en [Communicatie](/docs/inbox/communication).
+**EN:** New chat. Start een gesprek met een bedrijfsagent die voor jou openstaat, of een uitgaand klantbericht. Zonder bereikbare agent zegt de opsteller dat er geen agents zijn. De hulp in de hoek is een ander gesprek en is op dit scherm verborgen. Hangt aan [Agents](/docs/ai/agents) en [Communicatie](/docs/inbox/communication).
 
 ### {icon:communication} Inbox
 
@@ -85,7 +85,7 @@ Bovenaan de knop **Nieuw gesprek**, daarna **Inbox** los boven de groep **Werk**
 
 ### {icon:no-reply} Geen antwoord nodig
 
-**EN:** No reply needed. De lezing zegt dat er niet geantwoord hoeft te worden. Herhaalde keuzes worden een regel voor die afzender. Zo'n gesprek telt op de Grid niet als gesloten zonder resultaat. Hangt aan [Antwoorden, waarborgen en overdracht](/docs/inbox/inbox-ai).
+**EN:** No reply needed. De lezing zegt dat er niet geantwoord hoeft te worden. Herhaalde keuzes worden een regel voor die afzender. Zo'n gesprek landt op de Grid in **Afgerond** en telt daar apart mee. Hangt aan [Antwoorden, waarborgen en overdracht](/docs/inbox/inbox-ai).
 
 ### {icon:delivered} Opgeleverd
 

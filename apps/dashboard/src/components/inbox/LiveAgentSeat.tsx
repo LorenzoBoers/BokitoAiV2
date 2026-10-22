@@ -551,26 +551,24 @@ export function LiveAgentAvatarSlot({
     <span
       ref={rootRef}
       className={cn('relative inline-flex shrink-0', className)}
-      style={{
-        width: size,
-        height: size,
-        ['--agent-tint' as string]: avatarProps.color || undefined,
-      }}
+      style={{ width: size, height: size }}
       data-live-agent-slot={slotId}
       data-live-agent={live ? 'true' : undefined}
     >
       {holdForSpawn ? null : (
-        <AiAvatar
-          {...avatarProps}
-          size={size}
-          mode={mode}
-          spawnKey={spawnKey}
-          // Live seat: face mood only — no presence corner (orb chrome is enough).
-          activity={live ? undefined : activity}
-          motion={live ? motion : undefined}
-          pulseId={live ? pulseId : undefined}
-          baseMotion={live ? baseMotion : undefined}
-        />
+        <span className="live-agent-face inline-flex" data-live={live || undefined}>
+          <AiAvatar
+            {...avatarProps}
+            size={size}
+            mode={mode}
+            spawnKey={spawnKey}
+            // Live seat: face mood only — no presence corner (orb chrome is enough).
+            activity={live ? undefined : activity}
+            motion={live ? motion : undefined}
+            pulseId={live ? pulseId : undefined}
+            baseMotion={live ? baseMotion : undefined}
+          />
+        </span>
       )}
       {showDoneMark ? <AgentDoneCorner size={size} enter={checkEnter || showDone} /> : null}
     </span>

@@ -102,7 +102,9 @@ describe('optimisticNestSources', () => {
     )
     expect(next?.find((row) => row.id === 'b')?.parent_id).toBe('a')
     expect(next?.find((row) => row.id === 'b')?.tag_names).toEqual(['b'])
-    expect(next?.find((row) => row.id === 'b')?.sort_order).toBe(0)
+    expect(
+      (next?.find((row) => row.id === 'b') as { sort_order?: number } | undefined)?.sort_order,
+    ).toBe(0)
   })
 })
 

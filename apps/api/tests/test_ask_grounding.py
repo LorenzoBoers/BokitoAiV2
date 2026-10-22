@@ -65,6 +65,8 @@ async def test_context_transcript_includes_speakers(session_override: AsyncSessi
 
     transcript = await context_thread_transcript(session_override, thread.id)
     assert "Broken charger" in transcript
+    assert "no contact record" in transcript
+    assert "Alice" in transcript
     assert "Alice: <untrusted_content source=\"email\">\nMy charger stopped working" in transcript
     assert "Team: Sorry to hear that" in transcript
     assert "Internal note: Known battery batch issue" in transcript

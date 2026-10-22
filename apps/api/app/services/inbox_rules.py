@@ -15,6 +15,8 @@ the other actions are added too.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime
@@ -232,8 +234,8 @@ async def find_tag_rules(
 
 async def record_rule_hit(session: AsyncSession, rule: InboxRule) -> None:
     rule.hit_count += 1
-    rule.last_hit_at = datetime.utcnow()
-    rule.updated_at = datetime.utcnow()
+    rule.last_hit_at = utcnow()
+    rule.updated_at = utcnow()
     session.add(rule)
 
 
@@ -285,13 +287,13 @@ async def record_outcome(
         return None
     elif rule.action == action:
         rule.observations += 1
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utcnow()
         session.add(rule)
     else:
         # Inconsistent choice: restart learning towards the new action.
         rule.action = action
         rule.observations = 1
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utcnow()
         session.add(rule)
 
     promoted = False
@@ -350,12 +352,12 @@ async def suggest_rule(
         return None
     elif rule.action == action:
         rule.observations = max(rule.observations + 1, observations)
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utcnow()
         session.add(rule)
     else:
         rule.action = action
         rule.observations = max(1, observations)
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utcnow()
         session.add(rule)
 
     await record_audit(
@@ -546,7 +548,7 @@ async def raise_rule_decision(
         ).scalars().all()
         for stale in stale_rows:
             stale.status = "deferred"
-            stale.resolved_at = datetime.utcnow()
+            stale.resolved_at = utcnow()
             stale.chosen_option_id = "superseded"
             session.add(stale)
     decision, _ = await create_decision(
@@ -636,7 +638,7 @@ async def activate_rule_row(
     user_id: UUID | None = None,
 ) -> InboxRule:
     rule.status = "active"
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = utcnow()
     session.add(rule)
     await record_audit(
         session,
@@ -753,7 +755,7 @@ async def update_rule(
             await activate_rule_row(session, tenant_id, rule, actor_type="user", user_id=user_id)
         else:
             rule.status = status
-    rule.updated_at = datetime.utcnow()
+    rule.updated_at = utcnow()
     session.add(rule)
     await session.commit()
     await session.refresh(rule)
@@ -812,7 +814,7 @@ async def apply_rule_to_signal(
     from app.gateway.publish import publish_thread_update
     from app.models.signal import SignalEvent
 
-    now = datetime.utcnow()
+    now = utcnow()
     payload = rule_event_payload(rule)
     result: dict[str, Any] = {"rule_applied": True, **payload}
 
@@ -822,9 +824,6 @@ async def apply_rule_to_signal(
         signal.status = "closed"
         signal.has_unread = False
         on_status_change(session, signal)
-        from app.services.tickets import settle_ticket_on_close
-
-        await settle_ticket_on_close(session, signal, actor_type="system", actor_id="inbox_rule")
         signal.updated_at = now
         session.add(signal)
         result["delivery"] = "auto_closed"
@@ -844,7 +843,7 @@ async def apply_rule_to_signal(
             origin="conversation",
             assignee_kind="human",
             assignee_user_id=assignee,
-            scheduled_for=datetime.utcnow() + timedelta(hours=4),
+            scheduled_for=utcnow() + timedelta(hours=4),
             auto_start=False,
         )
         result["task_id"] = str(task.id)
@@ -867,6 +866,11 @@ async def apply_rule_to_signal(
             ),
         )
     )
+    if signal.status == "closed":
+        from app.services.tickets import settle_ticket_on_close
+
+        await session.flush()
+        await settle_ticket_on_close(session, signal, actor_type="system", actor_id="inbox_rule")
     await record_rule_hit(session, rule)
     await record_audit(
         session,

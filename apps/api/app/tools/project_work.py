@@ -1,7 +1,7 @@
-"""Agent tools for conversation-driven project work (category: projects).
+"""Agent tools for conversation-driven folder work (category: folders).
 
 Lets agents recognize opportunities and bugs in conversations and turn them
-into project queue items, link work to smart-doc sections, and manage section
+into folder queue items, link work to smart-doc sections, and manage section
 statuses — all under the tenant's allowance policy. In "ask" mode
 create_queue_item renders an inline proposal card in the thread instead of
 mutating directly.
@@ -24,9 +24,9 @@ from app.tools.registry import ToolContext, ToolSpec, register_tool
 async def _resolve_project(
     ctx: ToolContext, tool_input: dict[str, Any]
 ) -> tuple[Project | None, str | None]:
-    """Project from explicit id/slug/name, then the thread's project, then the run's.
+    """Folder from explicit id/slug/name, then the thread's folder, then the run's.
 
-    Returns ``(project, error)``. ``error`` explains a failed explicit ref
+    Returns ``(folder, error)``. ``error`` explains a failed explicit ref
     (unknown, Bin, wrong tenant); omitted when falling back to context.
     """
     from app.services.projects import resolve_folder_ref
@@ -130,6 +130,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     kind = str(tool_input.get("kind") or "task")
     body = str(tool_input.get("body") or "")
     priority = str(tool_input.get("priority") or "normal")
+    fields = tool_input.get("fields") if isinstance(tool_input.get("fields"), dict) else None
 
     if ctx.mode == "ask":
         # Inline proposal card in the thread; approval executes this tool again.
@@ -141,6 +142,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
             "title": title,
             "body": body,
             "priority": priority,
+            **({"fields": fields} if fields else {}),
         }
         return await execute_tool(
             ctx.session,
@@ -148,7 +150,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
             ctx.user_id,
             "create_decision_request",
             {
-                "title": f"Add to queue of {project.name}?",
+                "title": f"Add to queue of {folder.name}?",
                 "summary": f"{kind}: {title}" + (f" — {body[:200]}" if body else ""),
                 "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
                 # Provenance for the card: the queue this item would join.
@@ -189,6 +191,7 @@ async def _create_queue_item(ctx: ToolContext, tool_input: dict[str, Any]) -> di
         signal_id=ctx.signal_id,
         created_by_type="agent" if ctx.agent else "user",
         created_by_id=str(ctx.agent.id) if ctx.agent else str(ctx.user_id or ""),
+        fields=fields,
     )
     try:
         meta = json.loads(item.metadata_json or "{}")
@@ -234,16 +237,23 @@ async def _list_queue_items(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         }
         for i in items
     ]
-    return {"project": project.slug, "items": compact}
+    return {"folder": project.slug, "items": compact}
 
 
 async def _update_queue_item_status(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.project_work import transition_queue_item
+    from app.services.project_work import transition_queue_item, update_queue_item
 
     try:
         item_id = UUID(str(tool_input.get("queue_item_id") or ""))
     except ValueError:
         return {"error": "queue_item_id must be a valid id"}
+    fields = tool_input.get("fields")
+    if isinstance(fields, dict) and fields:
+        item = await update_queue_item(ctx.session, ctx.tenant_id, item_id, fields=fields)
+        if not tool_input.get("status"):
+            return {"queue_item": serialize_work_item(item, view="queue")}
+    if not tool_input.get("status"):
+        return {"error": "Pass status, fields, or both."}
     duplicate_raw = str(tool_input.get("duplicate_of_id") or "").strip()
     duplicate_of = UUID(duplicate_raw) if duplicate_raw else None
     item = await transition_queue_item(
@@ -353,7 +363,7 @@ async def _list_project_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> di
     for section in sections:
         by_doc.setdefault(section.doc_id, []).append(section)
     return {
-        "project": project.slug,
+        "folder": project.slug,
         "docs": [
             {
                 "doc_id": str(doc.id),
@@ -383,7 +393,7 @@ async def _list_project_resources(ctx: ToolContext, tool_input: dict[str, Any]) 
         return _queue_folder_missing(err=err)
     from app.services.project_work import list_resources
 
-    return {"project": project.slug, "resources": await list_resources(ctx.session, ctx.tenant_id, project.id)}
+    return {"folder": project.slug, "resources": await list_resources(ctx.session, ctx.tenant_id, project.id)}
 
 
 async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -413,7 +423,7 @@ async def _propose_project_resource(ctx: ToolContext, tool_input: dict[str, Any]
             ctx.user_id,
             "create_decision_request",
             {
-                "title": f"Link {resource_type} resource to {project.name}?",
+                "title": f"Link {resource_type} resource to {folder.name}?",
                 "summary": f"{provider or resource_type}: {label or external_ref}",
                 "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
                 "options": [
@@ -480,14 +490,26 @@ register_tool(
             "when kind matches a label with a flow on the folder (bug → #bug, feature → "
             "#feature), and showcases that ticket in your reply. Do not use "
             "split_conversation on assistant chats — that tool is for customer "
-            "threads only. Under 'ask' policy this renders an inline proposal card."
+            "threads only. Under 'ask' policy this renders an inline proposal card. "
+            "kind post with fields (date, channel, caption, image) is a content calendar "
+            "entry; the folder's linked Sheet follows each change."
         ),
         category="projects",
         input_schema={
             "type": "object",
             "properties": {
                 "project_id": {"type": "string", "description": "Folder id or slug; omit to use the thread's folder."},
-                "kind": {"type": "string", "enum": ["feature", "bug", "task", "idea", "risk"]},
+                "kind": {"type": "string", "enum": ["feature", "bug", "task", "idea", "risk", "post"]},
+                "fields": {
+                    "type": "object",
+                    "description": "Calendar entry: date (YYYY-MM-DD), channel, caption, image (url).",
+                    "properties": {
+                        "date": {"type": "string"},
+                        "channel": {"type": "string"},
+                        "caption": {"type": "string"},
+                        "image": {"type": "string"},
+                    },
+                },
                 "title": {"type": "string"},
                 "body": {"type": "string", "description": "Context: what, why, and the source quote."},
                 "priority": {"type": "string", "enum": ["low", "normal", "high", "urgent"]},
@@ -540,7 +562,8 @@ register_tool(
         description=(
             "Move a queue task through its lifecycle (proposed -> queued -> "
             "analyzing -> planned -> running -> verifying -> completed; rejected). "
-            "Include impact_summary when finishing an analysis."
+            "Include impact_summary when finishing an analysis. Pass fields to change a "
+            "calendar entry (date, channel, caption, image); status may then be omitted."
         ),
         category="projects",
         input_schema={
@@ -553,8 +576,9 @@ register_tool(
                 ]},
                 "impact_summary": {"type": "string"},
                 "duplicate_of_id": {"type": "string"},
+                "fields": {"type": "object", "description": "Calendar entry fields to change."},
             },
-            "required": ["queue_item_id", "status"],
+            "required": ["queue_item_id"],
         },
         handler=_update_queue_item_status,
     )
@@ -675,21 +699,10 @@ register_tool(
 )
 
 
-async def _resolve_canvas_owner(ctx: ToolContext, tool_input: dict[str, Any]) -> tuple[str, Any]:
-    """A canvas lives in a folder; without one it goes to the general folder."""
-    from uuid import UUID as _UUID
+def _canvas_source(value: Any) -> str | None:
+    from app.services.canvas_content import coerce_canvas_source
 
-    from app.services.project_canvas import OWNER_PROJECT
-    from app.services.works_in import general_folder
-
-    project, _err = await _resolve_project(ctx, tool_input)
-    if project is not None:
-        return OWNER_PROJECT, project.id
-    owner_raw = str(tool_input.get("owner_id") or "").strip()
-    if owner_raw:
-        return OWNER_PROJECT, _UUID(owner_raw)
-    folder = await general_folder(ctx.session, ctx.tenant_id)
-    return OWNER_PROJECT, folder.id
+    return coerce_canvas_source(value)
 
 
 def _canvas_link(row: dict[str, Any]) -> str | None:
@@ -697,9 +710,17 @@ def _canvas_link(row: dict[str, Any]) -> str | None:
     from app.services.works_in import folder_href
 
     cid = row.get("id")
-    if not cid or not row.get("owner_id"):
+    folder_id = row.get("folder_id")
+    if not cid:
         return None
-    return folder_href(row["owner_id"], "canvas", canvas=str(cid))
+    if folder_id:
+        return folder_href(folder_id, "canvas", canvas=str(cid))
+    thread = row.get("thread") if isinstance(row.get("thread"), dict) else None
+    if thread and thread.get("path"):
+        from app.services.project_canvas import canvas_on_thread
+
+        return canvas_on_thread(str(thread["path"]), cid)
+    return None
 
 
 async def _stash_canvas_showcase(
@@ -737,20 +758,20 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     if canvas_id:
         canvas = await canvas_svc.get_canvas(ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id))
         return {**canvas, "path": _canvas_link(canvas)}
-    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
+    if not ctx.signal_id:
+        return {"error": "Pass canvas_id, or call this from a conversation."}
     slug = str(tool_input.get("slug") or "main").strip().lower() or "main"
     try:
         canvas = await canvas_svc.get_canvas(
             ctx.session,
             ctx.tenant_id,
-            owner_kind=owner_kind,
-            owner_id=owner_id,
+            signal_id=ctx.signal_id,
             slug=slug,
         )
         return {**canvas, "path": _canvas_link(canvas)}
     except HTTPException:
-        listed = await canvas_svc.list_canvases(
-            ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
+        listed = await canvas_svc.list_canvases_for_signal(
+            ctx.session, ctx.tenant_id, ctx.signal_id
         )
         return {
             "error": "Canvas not found. Pass canvas_id or slug from this list.",
@@ -759,7 +780,6 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
                 for i in listed
             ],
         }
-
 
 async def _propose_canvas_change(
     ctx: ToolContext,
@@ -811,7 +831,6 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
                 "A change updates that canvas. Do not create another one."
             )
         }
-    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
     notes = str(tool_input.get("notes") or "").strip()
     source = tool_input.get("source")
     tree = tool_input.get("tree")
@@ -820,14 +839,17 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
         tool_input.get(key) not in (None, "")
         for key in ("refresh_cadence", "refresh_cron", "managing_agent_id")
     )
-    if not reset and source is None and tree is None and not has_meta:
+    image_prompt = str(tool_input.get("image_prompt") or "").strip()
+    image_url = str(tool_input.get("image_url") or "").strip()
+    if not reset and source is None and tree is None and not has_meta and not image_prompt and not image_url:
         return {
-            "error": "Pass source (bokito/canvas JSX) or tree, or reset=true to clear the canvas."
+            "error": (
+                "Pass source for this canvas, image_prompt or image_url for an image, "
+                "or reset=true to clear it."
+            )
         }
     after: dict[str, Any] = {
-        "owner_kind": owner_kind,
-        "owner_id": str(owner_id),
-        "project_id": str(owner_id) if owner_kind == "project" else None,
+        "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
         "slug": slug or None,
         "notes": notes or None,
         "agent_id": str(ctx.agent.id) if ctx.agent else "",
@@ -839,9 +861,15 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
     if tool_input.get("title") is not None:
         after["title"] = str(tool_input.get("title") or "")
     if source is not None:
-        after["source"] = str(source)
+        after["source"] = _canvas_source(source)
     if isinstance(tree, dict):
         after["tree"] = tree
+    if tool_input.get("language"):
+        after["language"] = str(tool_input.get("language") or "")
+    if image_prompt:
+        after["image_prompt"] = image_prompt
+    if image_url:
+        after["image_url"] = image_url
     if tool_input.get("refresh_cadence"):
         after["refresh_cadence"] = str(tool_input.get("refresh_cadence"))
     if tool_input.get("refresh_cron"):
@@ -861,13 +889,13 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
         ctx,
         change_kind="update",
         after=after,
-        before={"owner_kind": owner_kind, "owner_id": str(owner_id), "slug": slug},
+        before={"canvas_id": canvas_id or None, "slug": slug or None},
         summary=summary,
         tool_name="update_folder_canvas",
     )
     canvas = result.get("canvas") if isinstance(result, dict) else None
     if isinstance(canvas, dict) and canvas.get("id"):
-        if ctx.agent is not None and canvas.get("owner_id"):
+        if ctx.agent is not None and canvas.get("folder_id"):
             from uuid import UUID as _UUID
 
             from app.services.deliveries import TARGET_WORKS_IN, record_delivery
@@ -878,7 +906,7 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
                 ctx.tenant_id,
                 ctx.signal_id,
                 target_kind=TARGET_WORKS_IN,
-                folder_id=_UUID(str(canvas["owner_id"])),
+                folder_id=_UUID(str(canvas["folder_id"])),
                 works_in_key=canvas_key(canvas["id"]),
                 agent_id=ctx.agent.id,
             )
@@ -888,13 +916,47 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
     return result
 
 
+def revision_canvas(listed: list[dict[str, Any]], tool_input: dict[str, Any]) -> dict[str, Any] | None:
+    """The canvas a follow-up should edit.
+
+    One canvas of the requested kind on this conversation is that canvas.
+    ``force_new`` or ``new_thread`` starts another. Several of the same kind
+    stay a real create: the model names which one with ``update_folder_canvas``.
+    """
+    if tool_input.get("force_new") or tool_input.get("new_thread"):
+        return None
+    from app.services.canvas_content import CanvasContentError, normalize_kind
+
+    try:
+        kind = normalize_kind(str(tool_input.get("kind") or "") or None)
+    except CanvasContentError:
+        return None
+    has_body = any(
+        str(tool_input.get(key) or "").strip()
+        for key in ("source", "image_prompt", "image_url")
+    )
+    if not has_body:
+        return None
+    same = [
+        row
+        for row in listed
+        if isinstance(row, dict)
+        and row.get("id")
+        and str(row.get("kind") or "dashboard") == kind
+    ]
+    if len(same) != 1:
+        return None
+    return same[0]
+
+
 async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
     from uuid import UUID as _UUID
 
     title = str(tool_input.get("title") or "").strip()
     if not title:
         return {"error": "title is required"}
+    if not ctx.signal_id and not tool_input.get("new_thread"):
+        return {"error": "create_canvas needs this conversation, or new_thread=true"}
     named_owner = str(tool_input.get("managing_agent_id") or "").strip()
     if named_owner:
         try:
@@ -905,9 +967,6 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     else:
         manager = str(ctx.agent.id) if ctx.agent else None
     after = {
-        "owner_kind": owner_kind,
-        "owner_id": str(owner_id),
-        "project_id": str(owner_id) if owner_kind == "project" else None,
         "title": title,
         "slug": str(tool_input.get("slug") or "") or None,
         "refresh_minutes": tool_input.get("refresh_minutes"),
@@ -926,7 +985,36 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             if ctx.signal_id and not tool_input.get("new_thread")
             else None
         ),
+        "canvas_kind": str(tool_input.get("kind") or "dashboard"),
+        "language": str(tool_input.get("language") or "") or None,
+        "source": _canvas_source(tool_input.get("source")),
+        "image_prompt": str(tool_input.get("image_prompt") or "") or None,
+        "image_url": str(tool_input.get("image_url") or "") or None,
     }
+    if ctx.signal_id and not tool_input.get("new_thread") and not tool_input.get("force_new"):
+        from app.services import project_canvas as canvas_svc
+
+        listed = await canvas_svc.list_canvases_for_signal(
+            ctx.session, ctx.tenant_id, ctx.signal_id
+        )
+        existing = revision_canvas(listed, tool_input)
+        if existing is not None:
+            revised = {
+                key: value
+                for key, value in tool_input.items()
+                if key not in ("title", "slug", "kind", "force_new", "new_thread")
+            }
+            revised["canvas_id"] = str(existing["id"])
+            result = await _update_project_canvas(ctx, revised)
+            if isinstance(result, dict) and not result.get("error"):
+                result["updated_existing"] = True
+                result["canvas_id"] = str(existing["id"])
+                result["message"] = (
+                    "Updated the canvas already on this conversation. "
+                    "A follow-up edits that canvas with update_folder_canvas. "
+                    "Pass force_new only when they asked for a separate canvas."
+                )
+            return result
     result = await _propose_canvas_change(
         ctx,
         change_kind="create",
@@ -954,12 +1042,11 @@ async def _delete_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 
     canvas_id = str(tool_input.get("canvas_id") or "").strip()
     if not canvas_id:
-        owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
         slug = str(tool_input.get("slug") or "").strip().lower()
-        if not slug:
-            return {"error": "Pass canvas_id or slug"}
+        if not slug or not ctx.signal_id:
+            return {"error": "Pass canvas_id, or slug in this conversation"}
         current = await canvas_svc.get_canvas(
-            ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id, slug=slug
+            ctx.session, ctx.tenant_id, signal_id=ctx.signal_id, slug=slug
         )
         canvas_id = current["id"]
     return await _propose_canvas_change(
@@ -973,21 +1060,41 @@ async def _delete_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
 
 
 async def _list_canvases_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from uuid import UUID as _UUID
+
     from app.services import project_canvas as canvas_svc
 
-    owner_kind, owner_id = await _resolve_canvas_owner(ctx, tool_input)
-    listed = await canvas_svc.list_canvases(
-        ctx.session, ctx.tenant_id, owner_kind=owner_kind, owner_id=owner_id
-    )
+    project_raw = str(tool_input.get("project_id") or tool_input.get("owner_id") or "").strip()
+    if project_raw:
+        listed = await canvas_svc.list_canvases_for_folder(
+            ctx.session, ctx.tenant_id, _UUID(project_raw)
+        )
+        folder_id: str | None = project_raw
+    elif ctx.signal_id:
+        signal = await ctx.session.get(Signal, ctx.signal_id)
+        if signal is not None and signal.tenant_id == ctx.tenant_id and signal.project_id:
+            listed = await canvas_svc.list_canvases_for_folder(
+                ctx.session, ctx.tenant_id, signal.project_id
+            )
+            folder_id = str(signal.project_id)
+        else:
+            listed = await canvas_svc.list_canvases_for_signal(
+                ctx.session, ctx.tenant_id, ctx.signal_id
+            )
+            folder_id = None
+    else:
+        return {"error": "Pass project_id, or call this from a conversation."}
     return {
-        "owner_kind": owner_kind,
-        "owner_id": str(owner_id),
+        "folder_id": folder_id,
         "canvases": [
             {
                 "id": i["id"],
                 "slug": i["slug"],
                 "title": i["title"],
+                "kind": i.get("kind") or "dashboard",
                 "empty": i.get("empty"),
+                "signal_id": i.get("signal_id"),
+                "folder_id": i.get("folder_id"),
                 "path": _canvas_link(i),
             }
             for i in listed
@@ -999,10 +1106,11 @@ register_tool(
     ToolSpec(
         name="list_canvases",
         description=(
-            "List snapshot canvases in a folder. Pass project_id for that folder; "
-            "omit it for the folder General. A lookup does not show cards. "
-            "Call attach_items (type canvas) when you want a preview card. "
-            "Link each path inline in the same sentence."
+            "List canvases for this conversation's folder (and its subfolders), "
+            "or pass project_id for a folder. Each canvas belongs to one home "
+            "conversation (signal_id). kind is dashboard, document, diagram, "
+            "drawing, image, code, email, or sheet. A lookup does not show cards. "
+            "Link each path inline."
         ),
         category="projects",
         input_schema={
@@ -1022,9 +1130,8 @@ register_tool(
     ToolSpec(
         name="get_folder_canvas",
         description=(
-            "Read a snapshot canvas in a folder. Returns bokito/canvas source and "
-            "tree. Not live queue/budget data. Pass canvas_id, or slug with project_id "
-            "(omit project_id for the folder General). "
+            "Read a snapshot canvas. Returns bokito/canvas source and tree. Not "
+            "live queue/budget data. Pass canvas_id, or slug on this conversation. "
             "A lookup does not show a card. Call attach_items (type canvas) when "
             "you want a preview card. Link the returned path inline, for example "
             "[Title](path)."
@@ -1034,8 +1141,6 @@ register_tool(
             "type": "object",
             "properties": {
                 "canvas_id": {"type": "string"},
-                "project_id": {"type": "string"},
-                "owner_id": {"type": "string"},
                 "slug": {"type": "string"},
             },
         },
@@ -1049,18 +1154,18 @@ register_tool(
     ToolSpec(
         name="update_folder_canvas",
         description=(
-            "Replace one snapshot canvas, or change its refresh and owner. "
-            "Pass canvas_id from create_canvas or list_canvases. A tweak updates "
-            "that canvas; it does not create a second one. "
-            "Write bokito/canvas JSX in `source` (import only from bokito/canvas) in "
-            "the same turn you create a canvas. Props are literals. A const above "
-            "the return may hold an object, array, number, or string, and a prop "
-            "may use that name. If this tool returns an error, rewrite source and "
-            "call it again with the same canvas_id in this turn. Allowed: Stack, Grid, Row, Text, "
-            "Heading, Callout, Divider, List, Stat, Table, BarChart, LineChart, Card, "
-            "Badge. Embed numbers you just looked up. Omit empty sections. "
-            "refresh_cadence is manual, hourly, daily, weekly, monthly, or custom "
-            "(then pass refresh_cron). managing_agent_id changes the owner. "
+            "Replace one canvas, or change a dashboard's refresh and owner. "
+            "Pass canvas_id. A tweak updates that canvas; it does not create "
+            "another, and it does not open a second conversation. "
+            "dashboard source is bokito/canvas JSX (import only from bokito/canvas). "
+            "document source is markdown. diagram source is mermaid. drawing source "
+            "is one SVG; an image href may only be a file stored for this workspace. "
+            "image takes image_prompt (generated and stored) or image_url of a "
+            "workspace file. code takes language and source. email source is JSON "
+            "with subject, preheader, and body_html. sheet source is JSON with "
+            "columns and rows, or tabs of those. "
+            "If this returns an error, rewrite and call it again with the same "
+            "canvas_id. refresh_cadence applies only to a dashboard. "
             "A preview card is attached when the write applies. Link its path inline."
         ),
         category="projects",
@@ -1081,6 +1186,9 @@ register_tool(
                 },
                 "refresh_cron": {"type": "string"},
                 "managing_agent_id": {"type": "string"},
+                "language": {"type": "string"},
+                "image_prompt": {"type": "string"},
+                "image_url": {"type": "string"},
             },
         },
         handler=_update_project_canvas,
@@ -1091,24 +1199,27 @@ register_tool(
     ToolSpec(
         name="create_canvas",
         description=(
-            "Create a snapshot canvas in a folder (project_id; omit it for the "
-            "folder General), "
-            "then write its content in the same turn with update_folder_canvas "
-            "and the returned canvas_id. Do not stop at an empty canvas. The same "
-            "title on that owner returns the existing canvas; update that id "
-            "instead of opening a second one. Pass force_new only when the person "
-            "explicitly wants another canvas with the same title. You are the "
-            "owner unless managing_agent_id names another agent. refresh_cadence "
-            "is manual (once), hourly, daily (default), weekly, monthly, or custom "
-            "with refresh_cron (five-field cron, UTC) — choose it from the "
-            "conversation; the UI no longer collects cadence on create. The "
-            "canvas lives on this conversation unless new_thread is true (this "
-            "chat is about something else — then a new thread owns the canvas "
-            "and its Agenda repeat). When the UI starts a setup chat, interview "
-            "first, propose a plan, then call this after they agree. Pass "
-            "project_id from the opener when present. A preview "
-            "card is attached when it is created. Link its path inline in the "
-            "same sentence."
+            "Create a canvas on this conversation. "
+            "kind is dashboard (default, bokito/canvas, the only kind with a "
+            "refresh), document, diagram, drawing, image, code, email, "
+            "or sheet (JSON columns and rows; the operator exports CSV, Excel, "
+            "or Google Sheets). A dashboard chart uses Stat, BarChart, LineChart, "
+            "or PieChart inside <> or <Stack>. Drawing is one complete <svg> "
+            "document (a poster or illustration). Diagram is Mermaid "
+            "text; document is markdown. A design or drawing request is a canvas, "
+            "never a long chat message or a code block. "
+            "One canvas has one home conversation: this one, unless new_thread "
+            "is true. A conversation can hold several canvases. When this "
+            "conversation already has exactly one canvas of this kind, a call "
+            "with source updates that canvas. Pass force_new only when they "
+            "asked for a separate canvas. The same title returns the existing "
+            "canvas; update that id. Do not make a canvas "
+            "for a short answer. An image that should stay uses kind image with "
+            "image_prompt or image_url. Pass source on create when you already "
+            "have the body. refresh_cadence is only for a dashboard. "
+            "The canvas card appears beside the chat message, never inside it. "
+            "Say one or two sentences. Do not paste the sheet JSON or a markdown "
+            "table in the message. One create per turn."
         ),
         category="projects",
         input_schema={
@@ -1116,7 +1227,6 @@ register_tool(
             "properties": {
                 "title": {"type": "string"},
                 "slug": {"type": "string"},
-                "project_id": {"type": "string"},
                 "refresh_minutes": {"type": "integer"},
                 "refresh_cadence": {
                     "type": "string",
@@ -1127,6 +1237,23 @@ register_tool(
                 "notes": {"type": "string"},
                 "force_new": {"type": "boolean"},
                 "new_thread": {"type": "boolean"},
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "dashboard",
+                        "document",
+                        "diagram",
+                        "drawing",
+                        "image",
+                        "code",
+                        "email",
+                        "sheet",
+                    ],
+                },
+                "language": {"type": "string"},
+                "source": {"type": "string"},
+                "image_prompt": {"type": "string"},
+                "image_url": {"type": "string"},
             },
             "required": ["title"],
         },
@@ -1143,7 +1270,6 @@ register_tool(
             "type": "object",
             "properties": {
                 "canvas_id": {"type": "string"},
-                "project_id": {"type": "string"},
                 "slug": {"type": "string"},
             },
         },

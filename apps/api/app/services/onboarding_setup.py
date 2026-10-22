@@ -82,6 +82,13 @@ def fallback_opener(name: str, language: str) -> str:
     return f"Hoi, ik ben {name}, je assistent. Is dit de naam die je wilt gebruiken?"
 
 
+# Model input for the first streamed turn. Never stored as a user bubble.
+SETUP_KICKOFF = (
+    "Begin the workspace setup now. Introduce yourself by name and "
+    "ask only whether that name is right. One question. Do not call tools yet."
+)
+
+
 def _onboarding_block(settings: dict) -> dict:
     raw = settings.get(ONBOARDING_KEY)
     return dict(raw) if isinstance(raw, dict) else {}
@@ -97,17 +104,42 @@ def _setup_signal_id(block: dict) -> UUID | None:
         return None
 
 
+def _setup_payload(signal: Signal, *, created: str, started: bool) -> dict[str, str | bool]:
+    return {
+        "signal_id": str(signal.id),
+        "agent_id": str(signal.agent_id or ""),
+        "channel": signal.channel or "",
+        "created": created,
+        "started": started,
+    }
+
+
+async def _setup_started(session: AsyncSession, signal_id: UUID) -> bool:
+    from sqlalchemy import select
+
+    from app.models.signal import SignalMessage
+
+    existing = (
+        await session.execute(
+            select(SignalMessage.id).where(SignalMessage.signal_id == signal_id).limit(1)
+        )
+    ).scalar_one_or_none()
+    return existing is not None
+
+
 async def open_lead_setup_thread(
     session: AsyncSession,
     tenant: Tenant,
     *,
     user_id: UUID,
-) -> dict[str, str]:
-    """Open the lead's setup conversation and let them speak first.
+) -> dict[str, str | bool]:
+    """Create the lead's setup conversation and return at once.
 
-    Idempotent: a second call returns the same thread and does not kick again.
+    The client opens New conversation, then streams the first question on
+    this thread. No model call happens here. An assistant setup thread is
+    reused. An older internal inbox thread stays where it is; the pointer
+    moves to a new assistant conversation.
     """
-    from app.services.chat_runtime import post_message, start_agent_turn
     from app.services.lead_agent import get_lead_agent
     from app.services.ownership import set_owner
     from app.services.workspaces_portal import parse_settings, save_settings
@@ -121,25 +153,29 @@ async def open_lead_setup_thread(
             existing is not None
             and existing.tenant_id == tenant.id
             and existing.deleted_at is None
+            and existing.channel == "assistant"
+            and (existing.source or "") == "onboarding"
         ):
-            return {"signal_id": str(existing.id), "created": "false"}
+            return _setup_payload(
+                existing,
+                created="false",
+                started=await _setup_started(session, existing.id),
+            )
 
     lead = await get_lead_agent(session, tenant.id)
     if lead is None or lead.acts_for_user:
         raise HTTPException(status_code=404, detail="Create your first agent before the tour")
 
-    now = datetime.utcnow()
     signal = Signal(
         tenant_id=tenant.id,
-        channel="internal",
+        channel="assistant",
         source="onboarding",
         subject=(lead.name or "Assistant")[:200],
         contact_name=(lead.name or "Assistant")[:200],
+        owner_user_id=user_id,
         agent_id=lead.id,
-        status="open",
-        priority="normal",
-        has_unread=True,
-        last_message_at=now,
+        has_unread=False,
+        last_message_at=datetime.utcnow(),
     )
     set_owner(signal, "user", user_id, by_user_id=user_id)
     session.add(signal)
@@ -150,41 +186,4 @@ async def open_lead_setup_thread(
     save_settings(tenant, settings)
     session.add(tenant)
     await session.commit()
-    await session.refresh(signal)
-    await session.refresh(lead)
-
-    language = str(settings.get("ai_workspace_language") or "nl")
-    text = ""
-    try:
-        result = await start_agent_turn(
-            session,
-            tenant_id=tenant.id,
-            user_id=user_id,
-            agent=lead,
-            signal=signal,
-            user_text=(
-                "Begin the workspace setup now. Introduce yourself by name and "
-                "ask only whether that name is right. One question. Do not call tools yet."
-            ),
-            trust="system",
-            surface="onboarding_setup",
-            extra_system=lead.system_prompt or SETUP_SOP,
-        )
-        text = str(result.get("text") or "").strip()
-    except Exception:
-        text = ""
-    if not text:
-        text = fallback_opener(lead.name, language)
-    await post_message(
-        session,
-        signal,
-        content=text,
-        role="assistant",
-        trust="system",
-        author_agent_id=lead.id,
-    )
-    signal.has_unread = True
-    signal.last_message_at = datetime.utcnow()
-    session.add(signal)
-    await session.commit()
-    return {"signal_id": str(signal.id), "created": "true"}
+    return _setup_payload(signal, created="true", started=False)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import base64
 import json
 import re
@@ -114,7 +116,7 @@ def workspace_payload(tenant: Tenant, role: str) -> dict[str, Any]:
         "livechat_settings": merged_livechat,
         "role": role,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
-        "updated_at": datetime.utcnow().isoformat(),
+        "updated_at": utcnow().isoformat(),
     }
 
 
@@ -334,6 +336,8 @@ async def list_members(session: AsyncSession, tenant_id: UUID) -> list[dict[str,
                 "name": user.display_name or user.email,
                 "email": user.email,
                 "role": canonical_workspace_role(membership.role),
+                "scope": membership.scope or "workspace",
+                "hours_per_week": membership.hours_per_week,
                 "avatar_url": user.avatar_url,
                 "joined_at": membership.created_at.isoformat() if membership.created_at else None,
                 "is_active": bool(membership.is_active),
@@ -417,6 +421,42 @@ async def update_member_role(
     }
 
 
+async def update_member_access(
+    session: AsyncSession,
+    tenant_id: UUID,
+    member_id: str,
+    *,
+    scope: str | None = None,
+    hours_per_week: int | None = None,
+    clear_hours: bool = False,
+) -> dict[str, Any]:
+    """Scope (workspace | departments) and weekly hours of one member."""
+    from app.services.department_access import SCOPES
+
+    user, membership = await _resolve_membership(session, tenant_id, member_id)
+    if scope is not None:
+        if scope not in SCOPES:
+            raise AppError("Scope must be workspace or departments.", status_code=400)
+        if scope == "departments" and membership.role in ("owner", "admin"):
+            raise AppError("Owners and admins always see the whole workspace.", status_code=400)
+        membership.scope = scope
+    if clear_hours:
+        membership.hours_per_week = None
+    elif hours_per_week is not None:
+        if not 0 <= hours_per_week <= 80:
+            raise AppError("Hours per week must be between 0 and 80.", status_code=400)
+        membership.hours_per_week = hours_per_week
+    await session.commit()
+    return {
+        "id": user_numeric_id(user.id),
+        "uuid": str(user.id),
+        "email": user.email,
+        "role": membership.role,
+        "scope": membership.scope,
+        "hours_per_week": membership.hours_per_week,
+    }
+
+
 async def remove_member(
     session: AsyncSession,
     tenant_id: UUID,
@@ -436,7 +476,7 @@ async def remove_member(
     await _ensure_not_last_owner(session, tenant_id, membership)
     if membership.is_active:
         membership.is_active = False
-        membership.deactivated_at = datetime.utcnow()
+        membership.deactivated_at = utcnow()
     if user.last_tenant_id == tenant_id:
         user.last_tenant_id = None
 
@@ -663,7 +703,7 @@ async def create_workspace_invite(
         invite.token = token
         invite.role = normalized_role
         invite.invited_by_user_id = inviter.id
-        invite.expires_at = datetime.utcnow() + INVITE_TTL
+        invite.expires_at = utcnow() + INVITE_TTL
     else:
         invite = Invite(
             tenant_id=tenant.id,
@@ -671,7 +711,7 @@ async def create_workspace_invite(
             role=normalized_role,
             token=token,
             invited_by_user_id=inviter.id,
-            expires_at=datetime.utcnow() + INVITE_TTL,
+            expires_at=utcnow() + INVITE_TTL,
         )
         session.add(invite)
     await session.commit()
@@ -698,7 +738,7 @@ async def resend_invite(
         raise AppError("Invite not found", status_code=404)
     _check_resend_rate(str(invite.id))
     invite.token = await create_invite_token()
-    invite.expires_at = datetime.utcnow() + INVITE_TTL
+    invite.expires_at = utcnow() + INVITE_TTL
     await session.commit()
     await session.refresh(invite)
 

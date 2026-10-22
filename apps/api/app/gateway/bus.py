@@ -13,10 +13,10 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime
 from typing import Any, Awaitable, Callable
 
 from app.config import get_settings
+from app.core.time import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class EventBus:
             try:
                 await self._redis.aclose()
             except Exception:
-                pass
+                logger.debug("gateway redis aclose failed", exc_info=True)
             self._redis = None
 
     # -- publishing --
@@ -94,7 +94,7 @@ class EventBus:
             "topics": topics,
             "event": event,
             "data": data,
-            "ts": datetime.utcnow().isoformat() + "Z",
+            "ts": utcnow().isoformat() + "Z",
         }
         await self._dispatch_local(envelope)
         await self._publish_redis(envelope)
@@ -188,7 +188,7 @@ class EventBus:
                 await pubsub.aclose()
                 await redis.aclose()
             except Exception:
-                pass
+                logger.debug("gateway redis reader cleanup failed", exc_info=True)
 
 
 event_bus = EventBus()

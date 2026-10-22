@@ -191,7 +191,7 @@ function MailboxSettings(props: KindSettingsProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {CHANNEL_SYNC_WINDOW_OPTIONS.map((days) => (
+            {(CHANNEL_SYNC_WINDOW_OPTIONS as readonly number[]).map((days) => (
               <SelectItem key={days} value={String(days)}>
                 {days === 0
                   ? t('channelsPage.everything')

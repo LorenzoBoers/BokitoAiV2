@@ -17,7 +17,8 @@ describe('bot-orb-motion', () => {
   it('classifies one-shots and busy loops', () => {
     expect(isBotOrbOneShot('yes')).toBe(true)
     expect(isBotOrbOneShot('thinking')).toBe(false)
-    expect(isBotOrbBusyLoop('typing')).toBe(true)
+    expect(isBotOrbBusyLoop('writing')).toBe(true)
+    expect(isBotOrbMotion('typing')).toBe(false)
     expect(isBotOrbBusyLoop('idle')).toBe(false)
   })
 
@@ -67,7 +68,7 @@ describe('bot-orb-motion', () => {
         presence: 'working',
       }).motion,
     ).toBe('yes')
-    expect(resolveBotOrbDrive({ live: 'typing', presence: 'working' }).motion).toBe('typing')
+    expect(resolveBotOrbDrive({ live: 'writing', presence: 'working' }).motion).toBe('writing')
     expect(resolveBotOrbDrive({ presence: 'working' }).motion).toBe('working')
     expect(resolveBotOrbDrive({}).motion).toBe('idle')
   })

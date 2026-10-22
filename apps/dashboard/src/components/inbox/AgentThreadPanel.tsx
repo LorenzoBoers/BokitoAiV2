@@ -4,6 +4,7 @@ import { PanelRightClose } from 'lucide-react'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { listAgents } from '../../lib/agents-api'
 import type { InboxThread, PatchThreadInput, RelatedConversation } from '../../lib/inbox-api'
+import { threadFace } from '../../lib/message-composer'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import ContactPanel from './ContactPanel'
 import AgentContextPanel from './AgentContextPanel'
@@ -17,7 +18,7 @@ type Props = {
   onThreadUpdated?: () => void
   /** External threads: edits under "This conversation" (priority, look again). */
   saving?: boolean
-  onPatch?: (input: PatchThreadInput) => Promise<void>
+  onPatch?: (input: PatchThreadInput) => Promise<boolean | void>
   onPlan?: () => void
   /** Other conversations with this person (from the thread payload). */
   relatedConversations?: RelatedConversation[]
@@ -39,18 +40,19 @@ export default function AgentThreadPanel({
   // show the agent you are talking to.
   const isChatThread = thread.channel === 'assistant'
   const isExternal = thread.folder !== 'internal' && !isChatThread
+  const face = threadFace(thread)
 
-  // Resolve the agent this thread targets (chat threads carry agent_id).
+  // The panel shows who sent the last message, not the pinned agent.
   useEffect(() => {
     let cancelled = false
-    if (isExternal || !thread.agentId) {
+    if (isExternal || !face.id) {
       setTargetAgent(null)
       return
     }
     void (async () => {
       try {
         const agents = await listAgents()
-        if (!cancelled) setTargetAgent(agents.find((a) => a.id === thread.agentId) ?? null)
+        if (!cancelled) setTargetAgent(agents.find((a) => a.id === face.id) ?? null)
       } catch {
         if (!cancelled) setTargetAgent(null)
       }
@@ -58,7 +60,7 @@ export default function AgentThreadPanel({
     return () => {
       cancelled = true
     }
-  }, [thread.agentId, isExternal])
+  }, [face.id, isExternal])
 
   const projectId = thread.projectId ?? null
 
@@ -90,25 +92,30 @@ export default function AgentThreadPanel({
       return {
         ...orchestrator,
         organisation_id: thread.organisationId,
+        slug: '',
+        role: 'orchestrator',
+        status: 'standby',
+        current_activity_summary: null,
         role_id: null,
         role_name: t('workforce.agents.types.orchestrator', { ns: 'nav' }),
-        role_slug: orchestrator.role,
+        role_slug: null,
         parent_agent_id: null,
         current_session_id: null,
         current_activity_id: null,
+        current_thread_id: null,
         updated_at: 0,
       }
     }
-    if (thread.agentName) {
+    if (face.name) {
       return {
-        id: thread.agentId ?? 'unknown',
+        id: face.id ?? 'unknown',
         organisation_id: thread.organisationId,
-        name: thread.agentName,
+        name: face.name,
         slug: '',
-        role: thread.agentKind === 'orchestrator' ? 'orchestrator' : 'assistant',
+        role: face.kind === 'orchestrator' ? 'orchestrator' : 'assistant',
         role_id: null,
         role_name:
-          thread.agentKind === 'orchestrator'
+          face.kind === 'orchestrator'
             ? t('workforce.agents.types.orchestrator', { ns: 'nav' })
             : t('workforce.agents.types.worker', { ns: 'nav' }),
         role_slug: null,
@@ -122,7 +129,7 @@ export default function AgentThreadPanel({
       }
     }
     return null
-  }, [targetAgent, orchestrator, thread.agentId, thread.agentName, thread.agentKind, thread.organisationId, t])
+  }, [targetAgent, orchestrator, face.id, face.name, face.kind, thread.organisationId, t])
 
   const closeAction = (
     <Button variant="ghost" size="iconSm"

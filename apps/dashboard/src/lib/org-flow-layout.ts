@@ -53,8 +53,8 @@ export const COLUMN = {
   result: { x: 786, w: 300 },
 } as const
 
-/** Department sections in 3D are narrower than their 2D box; marks keep their place. */
-const ZONE_WIDTH_3D = 120
+/** A department lane spans the executor and flow columns. */
+const ZONE_RIGHT = COLUMN.work.x + COLUMN.work.w + 20
 /** Column plates in 3D: this share of the 2D column width, centered on it. */
 const PLATE_WIDTH_3D = 0.58
 /** Gap between column plates in 3D, in scene units. */
@@ -172,27 +172,47 @@ export function layoutOrgFlow2D(data: OrgFlow, options: LayoutOptions = {}): Flo
   }
   const inputBottom = y
 
-  // Executors in zones; a second department gets a ghost card.
+  // Lane paths (executor to result) run above every department lane, so no line crosses a flow card.
+  const flowIds = new Set(data.nodes.filter((n) => n.layer === 'work').map((n) => n.id))
+  const laned = data.paths.filter((p) => byId.get(p.source)?.layer === 'executor' && byId.get(p.target)?.layer === 'result')
+  const laneBand = laned.reduce((sum, p) => sum + pathWidth(p.count) + LANE_GAP, 0)
+  const laneTop = TOP + 8
+  const bandTop = flowIds.size ? Math.max(TOP + 40, laneTop + laneBand + 24) : TOP
+
+  // Department lanes: executors on the left, the department's flows on the right.
+  // A second department gets a ghost card.
   const executors = data.nodes.filter((n) => n.layer === 'executor' && n.kind !== 'unassigned')
-  const zoneMembers = new Map<string, { main: OrgFlowNode[]; ghosts: OrgFlowNode[] }>()
-  for (const zone of data.zones) zoneMembers.set(zone.id, { main: [], ghosts: [] })
+  const zoneMembers = new Map<string, { main: OrgFlowNode[]; ghosts: OrgFlowNode[]; flows: OrgFlowNode[] }>()
+  for (const zone of data.zones) zoneMembers.set(zone.id, { main: [], ghosts: [], flows: [] })
   for (const node of executors) {
     const ids = node.zones ?? []
     const main = ids[0] ?? 'none'
     zoneMembers.get(main)?.main.push(node)
     for (const ghost of ids.slice(1)) zoneMembers.get(ghost)?.ghosts.push(node)
   }
-  const weight = (id: string) => (zoneMembers.get(id)?.main ?? []).reduce((sum, n) => sum + n.count, 0)
+  const freeFlows: OrgFlowNode[] = []
+  for (const node of data.nodes.filter((n) => n.layer === 'work')) {
+    const lane = node.zones?.[0]
+    const members = lane && lane !== 'none' ? zoneMembers.get(lane) : undefined
+    if (members) members.flows.push(node)
+    else freeFlows.push(node)
+  }
+  const sizeOf = (id: string) => {
+    const m = zoneMembers.get(id)
+    return m ? m.main.length + m.ghosts.length + m.flows.length : 0
+  }
+  const weight = (id: string) =>
+    [...(zoneMembers.get(id)?.main ?? []), ...(zoneMembers.get(id)?.flows ?? [])].reduce((sum, n) => sum + n.count, 0)
   const zoneOrder = data.zones
-    .filter((z) => z.id !== 'none' && ((zoneMembers.get(z.id)?.main.length ?? 0) + (zoneMembers.get(z.id)?.ghosts.length ?? 0)) > 0)
+    .filter((z) => z.id !== 'none' && sizeOf(z.id) > 0)
     .sort((a, b) => weight(b.id) - weight(a.id) || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }))
   if ((zoneMembers.get('none')?.main.length ?? 0) > 0) {
     const none = data.zones.find((z) => z.id === 'none')
     if (none) zoneOrder.push(none)
   }
-  y = TOP
+  y = bandTop
   for (const zone of zoneOrder) {
-    const members = zoneMembers.get(zone.id) ?? { main: [], ghosts: [] }
+    const members = zoneMembers.get(zone.id) ?? { main: [], ghosts: [], flows: [] }
     const rows = [...members.main.sort(byCountThenName).map((n) => ({ n, ghost: false })), ...members.ghosts.sort(byCountThenName).map((n) => ({ n, ghost: true }))]
     const top = y
     let cy = y + ZONE_HEADER
@@ -202,10 +222,19 @@ export function layoutOrgFlow2D(data: OrgFlow, options: LayoutOptions = {}): Flo
       if (!row.ghost) cardOf.set(row.n.id, card)
       cy += CARD_H.executor + 8
     }
-    const h = cy - top + ZONE_PAD - 8
-    zones.push({ id: zone.id, none: zone.id === 'none', x: COLUMN.zone.x, y: top, w: COLUMN.zone.w, h })
+    let fy = y + ZONE_HEADER
+    for (const node of members.flows.sort(byCountThenName)) {
+      const card: CardBox = { nodeId: node.id, ghost: false, zoneId: zone.id, x: COLUMN.work.x, y: fy, w: COLUMN.work.w, h: CARD_H.work }
+      cards.push(card)
+      cardOf.set(node.id, card)
+      fy += CARD_H.work + 12
+    }
+    const h = Math.max(cy - top + ZONE_PAD - 8, fy - top + ZONE_PAD - 12)
+    const right = members.flows.length ? ZONE_RIGHT : COLUMN.zone.x + COLUMN.zone.w
+    zones.push({ id: zone.id, none: zone.id === 'none', x: COLUMN.zone.x, y: top, w: right - COLUMN.zone.x, h })
     y = top + h + ZONE_GAP
   }
+  const lanesBottom = y
   const unassigned = byId.get('executor:unassigned')
   if (unassigned) {
     const card: CardBox = { nodeId: unassigned.id, ghost: false, zoneId: null, x: COLUMN.executor.x, y: y + 4, w: COLUMN.executor.w, h: CARD_H.executor }
@@ -215,11 +244,12 @@ export function layoutOrgFlow2D(data: OrgFlow, options: LayoutOptions = {}): Flo
   }
   const executorBottom = y
 
-  // Results: reply, folders, knowledge, then the two sinks side by side.
+  // Results: reply, folders, connections, knowledge, then the two sinks side by side.
   y = TOP
   const results = data.nodes.filter((n) => n.layer === 'result')
-  const order = (n: OrgFlowNode) => ({ reply: 0, folder: 1, knowledge: 2, sink_open: 3, sink_closed_without_result: 4 })[n.kind as 'reply'] ?? 5
-  const main = results.filter((n) => order(n) < 3).sort((a, b) => order(a) - order(b) || byCountThenName(a, b))
+  const order = (n: OrgFlowNode) =>
+    ({ reply: 0, folder: 1, connection: 2, knowledge: 3, sink_open: 4, sink_closed_without_result: 5 })[n.kind as 'reply'] ?? 6
+  const main = results.filter((n) => order(n) < 4).sort((a, b) => order(a) - order(b) || byCountThenName(a, b))
   for (const node of main) {
     const h = resultHeight(node)
     const card: CardBox = { nodeId: node.id, ghost: false, zoneId: null, x: COLUMN.result.x, y, w: COLUMN.result.w, h }
@@ -247,13 +277,9 @@ export function layoutOrgFlow2D(data: OrgFlow, options: LayoutOptions = {}): Flo
   })
   const resultBottom = y + (sinks.length ? CARD_H.sink + 16 : 0)
 
-  // Paths. Lane paths are known before the flow column, so flows start below the lane band.
-  const flowIds = new Set(data.nodes.filter((n) => n.layer === 'work').map((n) => n.id))
-  const laned = data.paths.filter((p) => byId.get(p.source)?.layer === 'executor' && byId.get(p.target)?.layer === 'result')
-  const laneBand = laned.reduce((sum, p) => sum + pathWidth(p.count) + LANE_GAP, 0)
-  const laneTop = TOP + 8
-  y = Math.max(TOP + 40, laneTop + laneBand + 24)
-  for (const node of data.nodes.filter((n) => n.layer === 'work').sort(byCountThenName)) {
+  // Flows outside a department lane (All's) sit below the lanes in the free column.
+  y = Math.max(bandTop, lanesBottom)
+  for (const node of freeFlows.sort(byCountThenName)) {
     const card: CardBox = { nodeId: node.id, ghost: false, zoneId: null, x: COLUMN.work.x, y, w: COLUMN.work.w, h: CARD_H.work }
     cards.push(card)
     cardOf.set(node.id, card)
@@ -413,14 +439,12 @@ export function layoutOrgFlow3D(data: OrgFlow): FlowLayout3D {
     ghost: c.ghost,
     zoneId: c.zoneId,
   }))
-  const zones = flat.zones.map((z) => ({
-    id: z.id,
-    none: z.none,
-    x: (z.x + z.w / 2) * UNIT + placed[1].shift,
-    z: (z.y + z.h / 2) * UNIT,
-    w: Math.min(z.w, ZONE_WIDTH_3D) * UNIT,
-    d: z.h * UNIT,
-  }))
+  // A lane with flows spans the executor and flow plates; otherwise it stays on the executor plate.
+  const zones = flat.zones.map((z) => {
+    const left = placed[1].left + 0.1
+    const right = z.x + z.w > COLUMN.zone.x + COLUMN.zone.w ? placed[2].right - 0.1 : placed[1].right - 0.1
+    return { id: z.id, none: z.none, x: (left + right) / 2, z: (z.y + z.h / 2) * UNIT, w: right - left, d: z.h * UNIT }
+  })
   const bottom = Math.max(...flat.cards.map((c) => (c.y + c.h) * UNIT), ...zones.map((z) => z.z + z.d / 2), 4)
   const plates: Plate[] = placed.map((p) => ({
     layer: p.layer,
@@ -489,7 +513,7 @@ const pathKey = (p: Pick<OrgFlowPath, 'source' | 'target'>) => `${p.source}->${p
 export function emphasis(
   data: OrgFlow,
   lens: GridLens,
-  { focus = null, label = null }: { focus?: string | null; label?: string | null } = {},
+  { focus = null, label = null, zone = null }: { focus?: string | null; label?: string | null; zone?: string | null } = {},
 ): Emphasis {
   if (focus) {
     const nodes = new Set([focus])
@@ -513,6 +537,19 @@ export function emphasis(
       nodes.add(p.target)
     }
     return { litNodes: nodes, litPaths: paths, label }
+  }
+  if (zone) {
+    // One department: its executors and flows, and whatever they connect to.
+    const own = new Set(data.nodes.filter((n) => n.zones?.[0] === zone).map((n) => n.id))
+    const nodes = new Set(own)
+    const paths = new Set<string>()
+    for (const p of data.paths) {
+      if (!own.has(p.source) && !own.has(p.target)) continue
+      paths.add(pathKey(p))
+      nodes.add(p.source)
+      nodes.add(p.target)
+    }
+    return { litNodes: nodes, litPaths: paths, label: null }
   }
   return { litNodes: null, litPaths: null, label: null }
 }

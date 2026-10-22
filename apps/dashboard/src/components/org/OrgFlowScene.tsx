@@ -42,6 +42,8 @@ type Props = {
   data: OrgFlow
   lens: GridLens
   label: string | null
+  /** One department in focus: other lanes dim. */
+  zone?: string | null
   selectedId: string | null
   hoverId: string | null
   onHover: (id: string | null) => void
@@ -101,6 +103,7 @@ const KIND_HEX: Record<string, number> = {
   reply: 0x60a5fa,
   folder: 0xf59e0b,
   knowledge: 0xcbd5e1,
+  connection: 0x34d399,
   sink_open: 0x6a6a70,
   sink_closed_without_result: 0x6a6a70,
 }
@@ -128,7 +131,7 @@ type Mark = {
 }
 
 /** Grid in 3D: four plates in the 2D order, Result bent back as a horseshoe next to Intake. */
-export function OrgFlowScene({ data, lens, label, selectedId, hoverId, onHover, onSelect, zoomApiRef, onZoomPct }: Props) {
+export function OrgFlowScene({ data, lens, label, zone = null, selectedId, hoverId, onHover, onSelect, zoomApiRef, onZoomPct }: Props) {
   const { t } = useTranslation('nav')
   const names = useGridNames()
   const { isDark } = useTheme()
@@ -137,8 +140,8 @@ export function OrgFlowScene({ data, lens, label, selectedId, hoverId, onHover, 
   const homeRef = useRef<{ lookAt: [number, number, number, number, number, number]; zoom: number } | null>(null)
   const onZoomPctRef = useRef(onZoomPct)
   onZoomPctRef.current = onZoomPct
-  const stateRef = useRef<{ lit: Emphasis; selectedId: string | null }>({ lit: emphasis(data, lens, { label }), selectedId })
-  stateRef.current = { lit: emphasis(data, lens, { focus: hoverId, label }), selectedId }
+  const stateRef = useRef<{ lit: Emphasis; selectedId: string | null }>({ lit: emphasis(data, lens, { label, zone }), selectedId })
+  stateRef.current = { lit: emphasis(data, lens, { focus: hoverId, label, zone }), selectedId }
   const handlersRef = useRef({ onHover, onSelect })
   handlersRef.current = { onHover, onSelect }
 
@@ -302,7 +305,12 @@ export function OrgFlowScene({ data, lens, label, selectedId, hoverId, onHover, 
           : node.kind === 'channel'
             ? names.channel(node.channel)
             : node.kind === 'flow'
-              ? (node.module?.name ?? (node.done ? t('orgCanvas.node.done', { count: node.done }) : ''))
+              ? (node.module?.name ??
+                (node.autonomous_pct != null
+                  ? t('orgCanvas.node.autonomousPct', { pct: Math.round(node.autonomous_pct) })
+                  : node.done
+                    ? t('orgCanvas.node.done', { count: node.done })
+                    : ''))
               : node.kind === 'sink_open' || node.kind === 'sink_closed_without_result'
                 ? String(node.kind === 'sink_open' ? node.open || node.count : node.count)
                 : t('orgCanvas.node.conversations', { count: node.count, days: data.days })

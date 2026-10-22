@@ -106,7 +106,7 @@ async def test_agent_list_hides_prompt_detail_keeps_it(client: AsyncClient):
 async def test_close_asks_for_stage_fields_then_closes(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
-    created = await client.post("/api/categories", headers=headers, json={"name": "klacht-close"})
+    created = await client.post("/api/labels", headers=headers, json={"name": "klacht-close"})
     assert created.status_code == 200, created.text
     body = created.json()
     stages = [

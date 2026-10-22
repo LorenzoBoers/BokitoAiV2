@@ -87,7 +87,7 @@ export default function MyAssistantSettings() {
           <BotOrbAvatar
             shape={DEFAULT_BOT_ORB_SHAPE}
             color={DEFAULT_BOT_ORB_COLOR}
-            size={72}
+            size={80}
             decorative
             label={t('assistantSettings.title')}
           />

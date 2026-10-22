@@ -11,6 +11,8 @@ born from a thread echo progress back into that thread as SignalEvents.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -498,12 +500,17 @@ async def create_queue_item(
     created_by_type: str = "user",
     created_by_id: str = "",
     commit: bool = True,
+    fields: dict[str, Any] | None = None,
 ) -> AgentTask:
     """Create a queue task; auto-accepts when the workspace posture is autonomous.
 
     When ``kind`` matches a project flow action tag (bug/feature), also opens a
     ticket conversation on that board so Project home and #tag nav show it.
+    ``fields`` (date, channel, caption, image) make a ``post`` a content
+    calendar entry; the folder's Sheet follows (services/content_calendar.py).
     """
+    from app.services.content_calendar import mirror_after_change, normalize_calendar_fields, set_item_fields
+
     if kind not in QUEUE_ITEM_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
     if priority not in TASK_PRIORITIES:
@@ -525,7 +532,7 @@ async def create_queue_item(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    now = datetime.utcnow()
+    now = utcnow()
     item = AgentTask(
         tenant_id=tenant_id,
         project_id=project_id,
@@ -543,6 +550,9 @@ async def create_queue_item(
         created_at=now,
         updated_at=now,
     )
+    calendar = normalize_calendar_fields(fields)
+    if calendar:
+        set_item_fields(item, calendar, replace=True)
     session.add(item)
     await session.flush()
 
@@ -616,6 +626,7 @@ async def create_queue_item(
     if commit:
         await session.commit()
         await session.refresh(item)
+        await mirror_after_change(session, item)
     if auto and item.status == "proposed":
         # Workspace Autonomous posture skips the human accept gate.
         await transition_queue_item(
@@ -652,7 +663,7 @@ async def transition_queue_item(
         raise HTTPException(
             status_code=400, detail=f"Cannot move queue item from {previous} to {status}"
         )
-    now = datetime.utcnow()
+    now = utcnow()
     item.status = status
     item.updated_at = now
     if status == "completed":
@@ -695,10 +706,13 @@ async def transition_queue_item(
     if commit:
         await session.commit()
         await session.refresh(item)
+        from app.services.content_calendar import mirror_after_change
+
+        await mirror_after_change(session, item)
     else:
         await session.flush()
 
-    if status == "queued":
+    if status == "queued" and item.kind != "post":
         # Acceptance wakes the project agent for doc impact analysis.
         await start_queue_item_analysis(session, tenant_id, item)
     return item
@@ -714,6 +728,7 @@ async def update_queue_item(
     kind: str | None = None,
     priority: str | None = None,
     assigned_agent_id: UUID | None = None,
+    fields: dict[str, Any] | None = None,
 ) -> AgentTask:
     item = await get_queue_item(session, tenant_id, item_id)
     if title is not None and title.strip():
@@ -730,10 +745,16 @@ async def update_queue_item(
         item.priority = priority
     if assigned_agent_id is not None:
         item.assignee_agent_id = assigned_agent_id
-    item.updated_at = datetime.utcnow()
+    from app.services.content_calendar import mirror_after_change, normalize_calendar_fields, set_item_fields
+
+    calendar = normalize_calendar_fields(fields)
+    if calendar:
+        set_item_fields(item, calendar)
+    item.updated_at = utcnow()
     session.add(item)
     await session.commit()
     await session.refresh(item)
+    await mirror_after_change(session, item)
     return item
 
 
@@ -975,7 +996,7 @@ async def patch_resource(
         if status not in PROJECT_RESOURCE_STATUSES:
             raise HTTPException(status_code=400, detail=f"Invalid resource status: {status}")
         resource.status = status
-    resource.updated_at = datetime.utcnow()
+    resource.updated_at = utcnow()
     session.add(resource)
     await session.commit()
     await session.refresh(resource)
@@ -1055,6 +1076,66 @@ async def conversation_project_context(
         "avoid duplicates."
     )
     return "\n".join(lines)
+
+
+CLIENT_BLOCK_CHARS = 6000
+CLIENT_DOC_CHARS = 1500
+
+
+async def client_knowledge_block(
+    session: AsyncSession, tenant_id: UUID, signal: Any | None
+) -> str:
+    """The folder's own docs as standing knowledge for a conversation filed there.
+
+    Walks the folder and its parents (nearest first). Pinned docs come first,
+    then folder order; the block stays within ``CLIENT_BLOCK_CHARS`` and names
+    the docs that did not fit so the agent can read them.
+    """
+    from app.models.project import Project
+    from app.services.workspace import list_docs
+
+    project_id = getattr(signal, "project_id", None) if signal is not None else None
+    chain: list[Any] = []
+    seen: set[UUID] = set()
+    while project_id is not None and project_id not in seen and len(chain) < 4:
+        seen.add(project_id)
+        row = await session.get(Project, project_id)
+        if row is None or row.tenant_id != tenant_id or row.deleted_at is not None:
+            break
+        chain.append(row)
+        project_id = row.parent_id
+    if not chain:
+        return ""
+    parts: list[str] = []
+    left_out: list[str] = []
+    budget = CLIENT_BLOCK_CHARS
+    for folder in chain:
+        docs = await list_docs(session, tenant_id, project_id=folder.id)
+        docs.sort(key=lambda d: (not d.is_pinned, d.sort_order, d.path))
+        for doc in docs:
+            body = (doc.content or "").strip()
+            if not body:
+                continue
+            label = f"### {doc.title or doc.path} ({folder.name}, path: {doc.path})"
+            text = body if len(body) <= CLIENT_DOC_CHARS else body[:CLIENT_DOC_CHARS].rstrip() + " ..."
+            if budget - len(text) - len(label) < 0:
+                left_out.append(doc.path)
+                continue
+            budget -= len(text) + len(label)
+            parts.append(f"{label}\n{text}")
+    if not parts and not left_out:
+        return ""
+    lines = [
+        f"## Client: {chain[0].name}",
+        "This conversation is filed in this folder. Its docs are the standing "
+        "knowledge for this client: strategy, audience, tone of voice, agreements "
+        "and what was already made. Follow them, avoid repeating past content, "
+        "and record lasting feedback in the folder docs.",
+        *parts,
+    ]
+    if left_out:
+        lines.append("Also in this folder (read_doc when relevant): " + ", ".join(left_out[:12]))
+    return "\n\n".join(lines)
 
 
 # ── agent flows: analysis and verification ───────────────────────
@@ -1175,7 +1256,7 @@ async def _wake_task_agent(
     ctx["workflow_fallback_status"] = fallback_status
     item.context_json = json.dumps(ctx)
     item.assignee_agent_id = agent.id
-    item.updated_at = datetime.utcnow()
+    item.updated_at = utcnow()
     session.add(item)
     await session.commit()
 

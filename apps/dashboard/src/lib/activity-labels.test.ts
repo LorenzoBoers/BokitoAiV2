@@ -49,7 +49,9 @@ describe('activity labels', () => {
     expect(translateDecisionText('Heartbeat', t)).toBe('Check-in')
     expect(translateDecisionText('Try your first decision', t)).toBe('Probeer je eerste beslissing')
     expect(translateDecisionText('Does this demo make sense?', t)).toBe('Is deze demo duidelijk?')
+    expect(translateDecisionText('New chat', t)).toBe('Naamloze chat')
     expect(translateDecisionText('New conversation', t)).toBe('Naamloze chat')
+    expect(translateDecisionText('Nieuwe chat', t)).toBe('Naamloze chat')
     expect(translateDecisionText('Deep-link check: approve this?', t)).toBe(
       'Open deze beslissing vanuit de bel',
     )

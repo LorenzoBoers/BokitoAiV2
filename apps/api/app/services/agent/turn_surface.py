@@ -44,7 +44,7 @@ def surface_motion(
 ) -> str:
     """Face motion for the live orb. The client plays this; it does not infer it."""
     if speaking:
-        return "typing"
+        return "writing"
     if any(item.get("proposes") for item in pending):
         return "writing"
     running = [item for item in pending if item.get("status") == "running" and item.get("tool")]

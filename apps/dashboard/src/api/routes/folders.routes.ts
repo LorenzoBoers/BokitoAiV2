@@ -35,14 +35,10 @@ export const foldersRoutes = {
   resources: (folderId: string) => `${base(folderId)}/resources`,
   resourceById: (folderId: string, resourceId: string) =>
     `${base(folderId)}/resources/${encodeURIComponent(resourceId)}`,
-  canvases: (folderId: string) => `${base(folderId)}/canvases`,
-  canvas: (folderId: string, slug: string) =>
-    `${base(folderId)}/canvases/${encodeURIComponent(slug)}`,
 } as const
 
 export const canvasesRoutes = {
-  list: (ownerKind: string, ownerId: string) =>
-    `/canvases?owner_kind=${encodeURIComponent(ownerKind)}&owner_id=${encodeURIComponent(ownerId)}`,
+  list: (folderId: string) => `/canvases?folder_id=${encodeURIComponent(folderId)}`,
   bySignal: (signalId: string) => `/canvases?signal_id=${encodeURIComponent(signalId)}`,
   create: '/canvases',
   defaultLocation: (canvasId?: string | null) =>
@@ -50,4 +46,8 @@ export const canvasesRoutes = {
       ? `/canvases/default-location?canvas_id=${encodeURIComponent(canvasId)}`
       : '/canvases/default-location',
   byId: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}`,
+  exportFile: (canvasId: string, format: 'csv' | 'xlsx') =>
+    `/canvases/${encodeURIComponent(canvasId)}/export?format=${format}`,
+  exportGoogle: (canvasId: string) =>
+    `/canvases/${encodeURIComponent(canvasId)}/export/google`,
 } as const

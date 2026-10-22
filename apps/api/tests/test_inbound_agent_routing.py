@@ -215,7 +215,6 @@ async def test_apply_thread_read_writes_enriched_triaged_event(session_override)
         signal.id,
         summary="Invoice dispute needs a fix today",
         certainty=85,
-        category="billing",
         urgency=80,
         impact=60,
         priority="high",

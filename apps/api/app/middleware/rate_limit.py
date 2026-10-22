@@ -19,10 +19,22 @@ _MAX_KEYS = 50_000
 
 
 def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """Client IP as seen by the last trusted proxy.
+
+    The left-most X-Forwarded-For entry is whatever the caller sent, so it
+    cannot be trusted. Each trusted proxy (Caddy) appends the peer it saw;
+    the entry ``trusted_proxy_hops`` from the right is the real client.
+    """
+    from app.config import get_settings
+
+    hops = max(0, int(get_settings().trusted_proxy_hops))
+    peer = request.client.host if request.client else "unknown"
+    if hops == 0:
+        return peer
+    parts = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    if len(parts) >= hops:
+        return parts[-hops]
+    return peer
 
 
 def _prune(now: float, window: deque[float], period_seconds: float) -> None:

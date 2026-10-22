@@ -18,7 +18,7 @@ Agents zijn de AI-werkers van deze workspace. Elke agent heeft één vorm: naam,
 
 1. Open **Agents**. Bedrijfsagents staan als kaarten. Op elke kaart zie je open gesprekken (de detaillaag, **Open gesprekken**) en threads die een beslissing nodig hebben (**Voor jou**, gefilterd op die agent). Zoeken en de pillen **Alles** en **Bezig** beperken het raster. Een agent die een werkmap leidt, toont die werkmap als chip op de kaart; klik erop om de werkmap te openen. Boven de kaarten staat **Activiteit**: een tijdlijn met **Nu** in het midden en even grote punten. Elk punt heeft een icoon voor het actietype (chat, geplande wake, heartbeat, enzovoort). Als meerdere acties dicht bij elkaar liggen, toont het punt een getal; hover om ze onder elkaar te zien. Sessies van twee minuten of korter tonen één tijdstip, geen van–tot. Klik om de run, het gesprek of het Agenda-item te openen. Dezelfde tijdlijn staat op elke agentpagina, dan alleen voor die agent.
 2. Kies **Nieuwe agent**. Vul een **Naam** in, een verplichte **Functie** (max. 32 tekens), optioneel een **Omschrijving**, selecteer een **Model**, beschrijf de **Instructies** en kies **Agent aanmaken**. De functie staat onder de naam; de omschrijving is een langere optionele tekst. Instructies zijn de brief die de agent volgt.
-3. Open een kaart. Het tandwiel rechtsboven opent **Instellingen**: instructies, model, regels, handtekening, chattoegang en tools. Gebruik **Nieuw gesprek** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links onder de gecentreerde profielheader. Gerelateerde instellingen (Autonomie, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
+3. Open een kaart. Het tandwiel rechtsboven opent **Instellingen**: instructies, model, regels, handtekening, chattoegang en tools. Gebruik **Nieuwe chat** om een intern gesprek te starten. Agenda en gesprekken zijn rustige links onder de gecentreerde profielheader. Gerelateerde instellingen (Autonomie, Kennis, Govern) staan als links onderaan de pagina, niet in de header.
 
 Leden kunnen een agent openen om te lezen. Ze zien **Je kunt deze agent bekijken. Vraag een beheerder om instellingen te wijzigen.** Ze kunnen nog steeds chatten vanuit Communicatie.
 
@@ -57,6 +57,14 @@ De kaart **Definitie** beperkt een agent verder dan zijn toollijst en bepaalt ho
 3. Zet **Prompt**: **Aanvullen op Bokito-prompt** houdt de werkregels van Bokito en voegt de instructies toe; **Alleen eigen prompt** gebruikt alleen de instructies.
 4. Vul **Geblokkeerde tools** in (geblokkeerd, ook als de toollijst ze noemt), **Vaardigheden** (paden van workspace-documenten die de agent leest wanneer ze van toepassing zijn), **Moet eindigen met** (de agent krijgt een herinnering tot hij een van deze tools aanroept, maximaal 8 keer per beurt) en **MCP-servers**.
 5. Kies **Opslaan**. Agents die klantmail beantwoorden eindigen een beurt altijd met een conceptantwoord, een notitie dat er geen antwoord nodig is, een beslissing of een verstuurd antwoord.
+
+## Kies hoeveel de agent nadenkt
+
+**Denkwerk** bepaalt hoe hard de agent nadenkt voor en tussen zijn acties. De agent kiest per stap zelf of hij nadenkt, antwoordt of iets doet; deze instelling is het plafond.
+
+1. Open de agent, kies het tandwiel en zoek **Definitie**.
+2. Zet **Denkwerk**: **Licht** voor snelle korte antwoorden, **Normaal** voor het meeste werk of **Grondig** voor analyse en lange taken.
+3. Kies **Opslaan**. Een groet of bedankje krijgt altijd een snel antwoord. Bij een langere taak zegt de agent eerst in één zin wat hij gaat doen, doet het daarna en eindigt met het resultaat.
 
 ## Laat een agent een deeltaak uitbesteden
 
@@ -113,7 +121,7 @@ Sommige agents horen bij een module (bijvoorbeeld een aangenomen Boekhouding-spe
 1. Open een bedrijfsagent.
 2. Hover de **naam**: die wordt een pil met een pennetje. Een klik opent dezelfde dialoog als het potlood op het agentmark (of **Bewerken** via het ···-menu).
 3. Pas de **naam** aan, vul de verplichte **Functie** in (max. 32 tekens; onder de naam in de markkleur), voeg optioneel een langere **Omschrijving** toe, kies **Initialen** of **Bot**. Bij **Bot** kies je een **vorm** en een **kleur** voor het geanimeerde gezicht (snelkeuze: paars, de workspace-accentkleur en grijs; open **Meer kleuren** voor de rest), en sla op. De lichamen van Claude en Cursor houden hun originele kleuren; voor die vormen is de kleurkeuze verborgen. Instructies staan in het tandwiel; dat is niet deze omschrijving.
-4. Onder **Bekijk beweging** probeer de stemmingen (**Idle**, **Luistert**, **Denkt**, **Typt**, **Werkt**, **Zoekt**, **Schrijft**, **Verstuurt**, **Slaapt**) en de korte reacties (**Ja**, **Nee**, **Alert**, **Sprong**, **Klaar**, **Vertrekt**). In live chats volgt het gezicht de beurt: luistert terwijl je typt, denkt tijdens redeneren, zoekt tijdens opzoeken, schrijft tijdens een voorstel, verstuurt bij overdracht aan een collega en typt tijdens streamen. Aan het eind van de beurt toont het klaar, vertrekt het na een overdracht of toont het een alert na een fout. Drukke stemmingen en reacties gloeien in de kleur van de stemming. In rust kijkt het gezicht naar je cursor en leunt het er een beetje naartoe.
+4. Onder **Bekijk beweging** probeer de stemmingen (**Idle**, **Luistert**, **Denkt**, **Werkt**, **Zoekt**, **Schrijft**, **Verstuurt**, **Slaapt**) en de korte reacties (**Ja**, **Nee**, **Alert**, **Sprong**, **Klaar**, **Vertrekt**). In live chats volgt het gezicht de beurt: luistert terwijl je typt, denkt tijdens redeneren, zoekt tijdens opzoeken, schrijft terwijl tekst binnenkomt of een voorstel klaarstaat en verstuurt bij overdracht aan een collega. Aan het eind van de beurt toont het klaar, vertrekt het na een overdracht of toont het een alert na een fout. Alleen terwijl de agent bezig is (denken, zoeken, schrijven, versturen of werken) licht er een zachte orb in de eigen kleur van de agent achter hem op, ruim buiten het teken, die groeit en krimpt met het werk. Orbits en badges rond het teken blijven AI-paars. In rust kijkt het gezicht naar je cursor en leunt het er een beetje naartoe.
 
 Dezelfde look zie je in de Agents-bibliotheek, agentdetail, Communicatie en de webchat-headerbubble van de antwoordingende agent.
 

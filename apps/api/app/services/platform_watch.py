@@ -261,7 +261,24 @@ def absent_watch_status() -> dict[str, Any]:
 
 
 async def watch_status(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
+    from app.services.awareness import ORIENTATION
+
     trigger = await get_heartbeat_trigger(session, tenant_id)
+    if trigger is None or not trigger.enabled:
+        orientation = (
+            await session.execute(
+                select(Trigger)
+                .where(
+                    Trigger.tenant_id == tenant_id,
+                    Trigger.purpose == ORIENTATION,
+                    Trigger.deleted_at.is_(None),
+                )
+                .order_by(Trigger.enabled.desc(), Trigger.created_at)
+                .limit(1)
+            )
+        ).scalars().first()
+        if orientation is not None:
+            return serialize_watch_status(orientation, orientation.signal_id)
     if trigger is None:
         return absent_watch_status()
     return serialize_watch_status(trigger, trigger.signal_id)
@@ -275,15 +292,41 @@ async def set_platform_watch(
     Enabling is what creates the rule and its Agenda thread. Turning it off
     when none exists does not leave a paused conversation behind.
     """
+    from app.services.awareness import ORIENTATION, ensure_orientations
+
     trigger = await get_heartbeat_trigger(session, tenant_id)
     if not enabled:
+        orientations = (
+            await session.execute(
+                select(Trigger).where(
+                    Trigger.tenant_id == tenant_id,
+                    Trigger.purpose == ORIENTATION,
+                    Trigger.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all()
+        for row in orientations:
+            row.enabled = False
+            row.next_run_at = None
+            session.add(row)
         if trigger is None:
-            return absent_watch_status()
+            await session.flush()
+            return serialize_watch_status(orientations[0], orientations[0].signal_id) if orientations else absent_watch_status()
         trigger.enabled = False
         trigger.next_run_at = None
         session.add(trigger)
         await session.flush()
         return serialize_watch_status(trigger, trigger.signal_id)
+    # Workspaces with departments: each department lead orients in its room
+    # instead of one general check-in.
+    orientations = await ensure_orientations(session, tenant_id)
+    if orientations:
+        if trigger is not None and trigger.enabled:
+            trigger.enabled = False
+            trigger.next_run_at = None
+            session.add(trigger)
+        await session.flush()
+        return serialize_watch_status(orientations[0], orientations[0].signal_id)
     if trigger is None:
         trigger = await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=True)
     trigger.enabled = True

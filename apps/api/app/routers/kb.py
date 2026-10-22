@@ -6,6 +6,7 @@ The dashboard addresses collections/documents by a stable numeric id derived
 from the row UUID.
 """
 
+import asyncio
 import json
 from typing import Annotated, Any
 from uuid import UUID
@@ -234,7 +235,8 @@ async def create_document(
         index_error = "Could not fetch the uploaded file."
     else:
         try:
-            content = extract_text(filename, data)
+            # PDF/Word parsing is CPU-bound: keep it off the event loop.
+            content = await asyncio.to_thread(extract_text, filename, data)
             index_status = "indexed"
         except HTTPException as exc:
             index_status = "unsupported" if exc.status_code == 415 else "failed"

@@ -264,3 +264,41 @@ async def test_external_cannot_call_internal_accounting_read(
     )
     assert denied.get("status") == "denied"
     assert denied.get("reason") == "audience"
+
+
+@pytest.mark.asyncio
+async def test_inbound_read_is_available_on_customer_threads(client: AsyncClient, session_override):
+    """Inbound mail runs as trust=external. Filing the read must not be refused."""
+    from app.services.signals import create_inbound_signal
+
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    signal = await create_inbound_signal(
+        session_override,
+        tenant.id,
+        channel="email",
+        source="mock",
+        subject="Reservation",
+        body_text="Can we move the booking to Friday?",
+    )
+    shown = {
+        tool["name"]
+        for tool in filter_tools_for_audience(
+            get_tool_definitions(),
+            "customer",
+            enabled_customer_tools=set(),
+        )
+    }
+    assert "record_thread_read" in shown
+
+    result = await execute_tool(
+        session_override,
+        tenant.id,
+        None,
+        "record_thread_read",
+        {"summary": "Guest asks to move a booking to Friday", "certainty": 70},
+        signal_id=signal.id,
+        trust="external",
+    )
+    assert result.get("reason") != "audience"
+    assert result.get("ok") is True
+    assert result.get("summary") == "Guest asks to move a booking to Friday"

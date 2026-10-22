@@ -6,7 +6,7 @@ import { RouteShellSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { canvasDefaultLocation } from '../lib/project-canvas-api'
 
-/** Old canvas links (`/cockpit/canvas`) open the canvas in its folder. */
+/** Old `/cockpit/canvas` links open the canvas on its conversation. */
 export default function CanvasRedirectPage() {
   const { t } = useTranslation('nav')
   const navigate = useNavigate()

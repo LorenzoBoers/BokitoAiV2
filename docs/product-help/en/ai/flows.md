@@ -2,7 +2,7 @@
 title: How Flows work
 intro: A flow belongs to exactly one label. The list and page show a title with that label (`#klacht`) beside it, and a live board of its tickets with a lane per folder. The label is colored only while the flow exists.
 description: Create a flow for a label, follow its tickets per stage and folder lane, edit or add stages on the board, and delete it.
-keywords: flows, workstreams, always review, delivers to, destination, stages, owner, check-up, pipeline, tickets, hashtags, labels, folders, board, lanes
+keywords: flows, workstreams, autonomy, department, recurring ticket, client approval, delivers to, destination, stages, owner, check-up, pipeline, tickets, hashtags, labels, folders, board, lanes
 sort: 45
 related: categories,folders,agenda,agents,knowledge
 ---
@@ -14,7 +14,7 @@ A flow is the pipeline for work that comes back under one label: a complaint, a 
 ## Create a flow
 
 1. Open **Flows** (Work group) and choose **New flow**. The dialog lists existing flow labels first; those pills are disabled. Type in the search field to narrow to tags that are still free, or type a new hashtag.
-2. Choose a free tag, or **Create tag** when nothing matches. A label setup appears at the bottom: pick a color and an icon. A new label starts blue with the flow mark. **Create** attaches that hashtag to the flow; an existing free hashtag is reused. A hashtag that already belongs to another flow stays disabled and cannot start a second one.
+2. Choose a free tag, or **Create tag** when nothing matches. A label setup appears at the bottom: pick a color and an icon. The icon list is long and scrollable (popular marks first, then the full Lucide set); type to filter by name or Dutch/English keywords. A new label starts blue with the flow mark. **Create** attaches that hashtag to the flow; an existing free hashtag is reused. A hashtag that already belongs to another flow stays disabled and cannot start a second one.
 3. The **Flows** list shows each flow with the route icon, the title, and its label beside it, plus stages, open tickets per stage, folders it is used in, and last activity.
 
 ## Follow tickets on the flow board
@@ -39,7 +39,7 @@ A flow is the pipeline for work that comes back under one label: a complaint, a 
 
 An agent that reads a conversation can say which stage a ticket belongs in. The flow decides whether that move happens directly or waits for a person.
 
-1. Open the flow. Next to **Always review**, **Stage moves by agents** shows the setting. Owners and admins pick one of four options.
+1. Open the flow. Next to **Autonomy**, **Stage moves by agents** shows the setting. Owners and admins pick one of four options.
 2. **Workspace default** follows the setting under [Labels](/docs/ai/categories). **Propose, a person confirms** puts a decision card in the conversation; the ticket moves when someone chooses **Move to** that stage.
 3. **Move when sure enough** moves directly when the agent's certainty is at least the number in **Certainty from**. Below that it proposes.
 4. **People move stages** refuses every agent move; the agent says in the conversation which stage fits.
@@ -60,26 +60,61 @@ A stage can list what has to be there before the work moves on, and say who it w
 2. Empty lanes (folders with no tickets yet) stay hidden. Turn on **Show empty folders** on the flow page to see them.
 3. On a [folder](/docs/ai/folders), a flow appears under **Flows** once a conversation in that folder (or a nested folder) has the flow's label filed as a ticket.
 
-## Always review a flow's replies
-
-A flow can make a person confirm every reply on its tickets.
-
-![Always review on a flow](/api/docs/assets/flows/always-review.png)
-*The switch sits under the flow title.*
-
-1. Open the flow. Under the title, turn on **Always review**. Only an owner or admin can change it.
-2. Every reply on a ticket of this flow becomes a draft a person sends, even when the conversation and the [Autonomy](/docs/govern/autonomy) dial are on Autonomous.
-3. Hover the mode in the conversation header: it says **This flow is set to Always review, so a person sends.**
-4. Turn it off when autonomous replies are fine for these tickets.
-
 ## Set where a flow delivers
 
 A flow can name the folder, and optionally the place in its [Works in](/docs/ai/folders), where finished tickets land, for example **Delivers to Administration › Exact**.
 
-1. Open the flow. Under the title, **Delivers to** shows the destination; owners and admins choose **Set destination** or **Change**.
+1. Open the flow and choose the gear at the top right. **Delivers to** shows the destination; owners and admins choose **Set destination** or **Change**.
 2. Pick a folder, then **The folder itself** or one of its Works in places, and choose **Save**.
 3. When a ticket of this flow reaches a done stage, its conversation shows **Delivered in** that place, unless the work was already delivered into a folder.
 4. **Remove** clears the destination; tickets then deliver only where their agents wrote.
+
+## Describe how the flow handles its work
+
+A flow is also the approach for one kind of work: the label says what it is, the flow says how the agent works and what done produces.
+
+1. Open the flow and choose the gear at the top right. In **Done means**, write what done produces in one sentence, for example **The posts of the month are scheduled**.
+2. In **Working method**, write in a few sentences how the agent handles this work. It saves when you leave the field. Agents on this flow's conversations get the working method, the tools and connections it uses (**Uses**), and what done means.
+3. Turn on **Handled directly** for short work such as a question: the flow has no waiting stage and no board in folders, and the ticket closes when the work is done.
+4. An agent can propose the same changes in a conversation with `update_flow`; the proposal follows [Govern](/docs/govern/govern).
+
+## Set the autonomy and department of a flow
+
+Each flow has its own dial under the workspace ceiling, and belongs to the department that runs it.
+
+1. Open the flow and choose the gear at the top right. **Autonomy** shows **Workspace default**, **Manual**, **Assisted** or **Autonomous**. Owners and admins pick one.
+2. Stricter than the workspace applies at once. Looser waits for approval in [Govern](/docs/govern/autonomy); the window says **Looser than now goes through Govern**. On **Assisted**, every reply on a ticket of this flow becomes a draft a person sends, even when the conversation is on Autonomous. Hover the mode in the conversation header to see that the flow set it.
+3. Under **Department**, pick the department that runs this flow. Its lead agent includes the flow's tickets in the morning briefing, and the [department page](/docs/getting-started/team) shows the flow with its scorecard.
+4. When a flow's scorecard shows enough clean outcomes, the department lead proposes a looser dial in the department conversation (see the next section).
+
+## Let the department lead improve a flow
+
+Once a day the lead agent of a department reads the scorecards of its flows and proposes improvements in the department conversation.
+
+1. Open the department in the left menu. Under **Improvement proposals**, each open proposal shows what it changes: **Autonomy**, **Instructions**, **Capabilities** or **New flow**. Choose **Open** to go to the department conversation.
+2. **Autonomy:** after enough tickets without a correction or a rejected decision the lead proposes **Autonomous**; when many tickets need a correction it proposes a step back to **Assisted**. The number of clean tickets is a workspace setting (20 by default).
+3. **Instructions:** when the team corrects three or more drafts on the flow's label, the lead proposes to add how the team wrote those replies to the **Working method**.
+4. **Capabilities:** when the team rejects the same tool three or more times on the flow's tickets, the lead proposes to take it out of **Uses**, or to add a line that the agent asks first.
+5. **New flow:** when the same kind of work keeps arriving without a label that fits, the lead of the department that saw it proposes a flow with a new label for that department.
+6. Approve or reject the card in the conversation. Nothing changes before someone approves. The same proposal does not come back for 30 days, and how often a lead's proposals are approved counts on that agent's scorecard.
+
+## Open a ticket every period
+
+Work that comes back, such as monthly content or a weekly report, opens itself as a ticket on the flow.
+
+1. Ask an agent in a conversation, for example: **Open a #maandcontent ticket in folder Klanten/Studio Veluwe on the first of every month.**
+2. The agent sets a rule with the flow label, the folder, the title (for example **Maandcontent {maand}**) and the schedule. One rule per flow and folder: asking again updates it.
+3. On that date, Bokito opens one conversation, files it on the flow in that folder, and gives it to the agent. When the rule has instructions, the agent starts right away.
+4. The rule shows on [Agenda](/docs/ai/agenda) under routines. Pause or delete it there.
+
+## Get the client's approval in a stage
+
+A stage that waits on the customer moves on the client's answer.
+
+1. Give the approval stage **Waiting on customer** (see the checklist section above).
+2. The agent sends the work to the client as a draft. When the client answers, the agent reads the reply.
+3. **Approved** moves the ticket to the next stage. **Changes requested** moves it back one stage and adds the feedback to the folder doc **Afspraken**, so the next round follows it.
+4. The verdict shows in the conversation timeline and counts as a correction on the flow's scorecard.
 
 ## Delete a flow
 

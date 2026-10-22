@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -40,6 +41,11 @@ async def _send_expo_push(token: str, title: str, body: str, payload: dict | Non
         "data": payload or {},
         "sound": "default",
     }
+    # The app registers the action buttons per category (Approve, Reject, Call me).
+    if payload and payload.get("category"):
+        message["categoryId"] = payload["category"]
+    if payload and payload.get("priority") == "high":
+        message["priority"] = "high"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.post(EXPO_PUSH_URL, json=message)
@@ -144,14 +150,35 @@ async def notify_decision(
 
     from app.models.auth import User
     from app.models.signal import Signal
-    from app.services.addressee import addressee_user_ids
     from app.services.notification_mail import send_notification_mail, thread_link
     from app.services.notify import TIER_NOW, channels_for, load_prefs
     from app.services.presence import user_status
+    from app.services.reach import (
+        URGENT,
+        decision_agent,
+        in_quiet_hours,
+        ladder,
+        pushes_today,
+        record_reach,
+        urgency,
+    )
 
-    title = "Decision required"
-    body = (decision.title or decision.summary or "A decision needs your attention")[:200]
     resolved_signal_id = signal_id or decision.signal_id
+    signal = (
+        (
+            await session.execute(
+                select(Signal).where(Signal.id == resolved_signal_id, Signal.tenant_id == decision.tenant_id)
+            )
+        ).scalar_one_or_none()
+        if resolved_signal_id
+        else None
+    )
+    agent = await decision_agent(session, decision, signal)
+    now = datetime.utcnow()
+    score = urgency(decision, signal, now)
+    urgent = score >= URGENT
+    title = f"{agent.name} asks you to decide" if agent is not None else "Decision required"
+    body = (decision.title or decision.summary or "A decision needs your attention")[:200]
     payload = {
         # `decision_request` matches the notification kind the dashboard router
         # and the service worker both switch on.
@@ -160,26 +187,35 @@ async def notify_decision(
         "signal_id": str(resolved_signal_id) if resolved_signal_id else "",
         # Deep-link target: the card itself, not the top of the thread.
         "message_id": str(decision.message_id) if decision.message_id else "",
+        # Approve, Reject and Call me on the notification itself.
+        "category": "decision",
+        "agent_id": str(agent.id) if agent is not None else "",
+        "agent_name": agent.name if agent is not None else "",
+        "agent_avatar": (getattr(agent, "avatar_url", "") or "") if agent is not None else "",
+        "urgency": score,
     }
 
-    recipients: list[UUID] = await addressee_user_ids(session, decision)
-    if not recipients and not decision.addressee_kind and resolved_signal_id:
-        signal_result = await session.execute(
-            select(Signal).where(Signal.id == resolved_signal_id, Signal.tenant_id == decision.tenant_id)
-        )
-        signal = signal_result.scalar_one_or_none()
-        if signal:
-            recipients = await resolve_thread_recipient_ids(session, signal)
-
+    people, direct, department_id = await ladder(session, decision, signal)
     sent = 0
-    for user_id in dict.fromkeys(recipients):
+    for user_id in dict.fromkeys(people):
         user = await session.get(User, user_id)
         if not user or not user.is_active:
             continue
         prefs = await load_prefs(session, decision.tenant_id, user_id)
         channels = channels_for(prefs, tier=TIER_NOW, category="decisions", status=user_status(user))
-        if "push" in channels:
-            sent += await send_push_to_user(session, decision.tenant_id, user_id, title, body, payload)
+        reach = prefs.get("reach") or {}
+        status = "silent"
+        delivered = 0
+        if "push" in channels and (user_id in direct or urgent):
+            # Urgent work may wake someone in quiet hours; calm work waits.
+            if in_quiet_hours(reach, now) and not urgent:
+                status = "quiet_hours"
+            elif await pushes_today(session, decision.tenant_id, user_id, now) >= int(reach.get("max_per_day") or 0):
+                status = "daily_max"
+            else:
+                delivered = await send_push_to_user(session, decision.tenant_id, user_id, title, body, payload)
+                status = "delivered" if delivered else "no_device"
+                sent += delivered
         if "email" in channels:
             text = f"{decision.title}\n\n{(decision.summary or '').strip()[:500]}".strip()
             if resolved_signal_id:
@@ -191,6 +227,24 @@ async def notify_decision(
                 text=text,
                 tenant_id=decision.tenant_id,
             )
+        if resolved_signal_id and status != "silent":
+            await record_reach(
+                session,
+                signal_id=resolved_signal_id,
+                tenant_id=decision.tenant_id,
+                channel="push",
+                recipient_user_id=user_id,
+                status=status,
+                delivered=delivered,
+                department_id=department_id,
+                agent_id=agent.id if agent is not None else None,
+                decision_id=decision.id,
+                urgency_score=score,
+            )
+        # Up the ladder only while nobody was reached and the work is urgent.
+        if user_id not in direct and (delivered or not urgent):
+            break
+    await session.commit()
     return sent
 
 

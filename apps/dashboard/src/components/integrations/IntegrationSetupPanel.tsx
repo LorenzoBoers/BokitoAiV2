@@ -5,6 +5,7 @@ import type { IntegrationProviderRow } from '../../lib/integrations-api'
 import { resolveSetupConfig } from '../../lib/integration-setup'
 import { IntegrationOAuthSetupPanel } from './setup/IntegrationOAuthSetupPanel'
 import { IntegrationMcpSetupPanel } from './setup/IntegrationMcpSetupPanel'
+import { IntegrationFieldsSetupPanel } from './setup/IntegrationFieldsSetupPanel'
 import { Button } from '../ui/button'
 
 type Props = {
@@ -32,6 +33,10 @@ export function IntegrationSetupPanel({ integration, provider, onSaved, onBack }
 
   if (integration.id === 'whatsapp' || config.platformSlug === 'whatsapp') {
     return <WhatsAppSetupPanel />
+  }
+
+  if (provider?.fields?.length) {
+    return <IntegrationFieldsSetupPanel provider={provider} onSaved={onSaved} onCancel={onBack} />
   }
 
   if (config.mode === 'oauth2' || config.mode === 'remote_mcp_oauth') {

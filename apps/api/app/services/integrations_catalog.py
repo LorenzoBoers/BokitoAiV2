@@ -1,4 +1,4 @@
-﻿"""Static integration provider catalog for the dashboard marketplace.
+"""Static integration provider catalog for the dashboard marketplace.
 
 Provider ids are stable UUID5 values derived from slug so connection rows
 can reference them via provider_id without a database seed table.
@@ -154,6 +154,17 @@ _CORE_PROVIDERS: list[dict[str, Any]] = [
         host_slug="google",
         capabilities={"calendar": True},
         sort_order=4,
+    ),
+    _provider(
+        "google_drive",
+        "Google Drive and Sheets",
+        "Agents search and read Drive files and Sheets; writing to a Sheet asks first.",
+        "Productiviteit",
+        "oauth2",
+        host_slug="google",
+        capabilities={"documents": True},
+        sort_order=4,
+        module="documents",
     ),
     _provider(
         "outlook_calendar",
@@ -440,7 +451,9 @@ def remote_row_to_provider(
             HOSTS.append(HOST_BY_SLUG[slug_key])
         host_slug = slug_key
     sort = row.get("sort_order")
-    return _provider(
+    from app.services.connection_presets import public_fields
+
+    provider = _provider(
         slug,
         str(row.get("name") or slug),
         str(row.get("description") or ""),
@@ -454,6 +467,10 @@ def remote_row_to_provider(
         mcp_transport=str(row.get("mcp_transport") or "streamable_http") if url else None,
         module=str(module) if module else None,
     )
+    fields = public_fields(slug)
+    if fields:
+        provider["fields"] = fields
+    return provider
 
 
 def _remote_mcp_providers_from_json() -> list[dict[str, Any]]:

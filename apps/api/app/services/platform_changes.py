@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -56,7 +58,7 @@ def serialize_change(row: PlatformChange, *, signal_id: UUID | None = None) -> d
     rollback_deadline = applied_at + timedelta(days=ROLLBACK_WINDOW_DAYS)
     can_rollback = (
         row.status in ("accepted", "applied_yolo")
-        and datetime.utcnow() <= rollback_deadline
+        and utcnow() <= rollback_deadline
     )
     return {
         "id": str(row.id),
@@ -139,7 +141,7 @@ async def _supersede_pending(
             PlatformChange.status.in_(("draft", "pending_review")),
         )
     )
-    now = datetime.utcnow()
+    now = utcnow()
     for row in result.scalars().all():
         row.status = "superseded"
         row.resolved_at = now
@@ -216,7 +218,7 @@ async def propose_platform_change(
             proposed_by_id=proposed_by_id,
             agent_id=agent.id if agent else None,
             run_id=run_id,
-            resolved_at=datetime.utcnow(),
+            resolved_at=utcnow(),
         )
         session.add(change)
         await session.flush()
@@ -378,7 +380,7 @@ async def accept_platform_change(
     change.status = "accepted"
     change.version = await _next_version(session, tenant_id, change.resource_type, change.resource_id)
     change.resolved_by_user_id = user_id
-    change.resolved_at = datetime.utcnow()
+    change.resolved_at = utcnow()
     applied = await apply_change_to_domain(session, tenant_id, change)
     if not change.resource_id:
         for key in ("block_id", "agent_id", "workstream_id", "integration_id", "mcp_server_id", "canvas_node_id"):
@@ -415,6 +417,8 @@ async def reject_platform_change(
     tenant_id: UUID,
     change_id: UUID,
     user_id: UUID,
+    *,
+    commit: bool = True,
 ) -> PlatformChange:
     result = await session.execute(
         select(PlatformChange).where(
@@ -429,7 +433,10 @@ async def reject_platform_change(
 
     change.status = "rejected"
     change.resolved_by_user_id = user_id
-    change.resolved_at = datetime.utcnow()
+    change.resolved_at = utcnow()
+    from app.services.flow_proposals import record_rejected_proposal
+
+    record_rejected_proposal(session, change, user_id)
     await record_audit(
         session,
         tenant_id,
@@ -440,9 +447,11 @@ async def reject_platform_change(
         resource_id=change.resource_id,
         outcome="denied",
         summary=change.summary,
+        commit=False,
     )
-    await session.commit()
-    await session.refresh(change)
+    if commit:
+        await session.commit()
+        await session.refresh(change)
     return change
 
 
@@ -463,7 +472,7 @@ async def rollback_platform_change(
     if change.status not in ("accepted", "applied_yolo"):
         raise HTTPException(status_code=400, detail=f"Cannot rollback status {change.status}")
     applied_at = change.resolved_at or change.created_at
-    if datetime.utcnow() > applied_at + timedelta(days=ROLLBACK_WINDOW_DAYS):
+    if utcnow() > applied_at + timedelta(days=ROLLBACK_WINDOW_DAYS):
         raise HTTPException(
             status_code=409,
             detail=f"Changes can only be reverted within {ROLLBACK_WINDOW_DAYS} days",
@@ -483,7 +492,7 @@ async def rollback_platform_change(
         proposed_by_type="user",
         proposed_by_id=str(user_id),
         resolved_by_user_id=user_id,
-        resolved_at=datetime.utcnow(),
+        resolved_at=utcnow(),
     )
     session.add(rollback_row)
     await record_audit(

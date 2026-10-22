@@ -8,6 +8,8 @@ plain tasks: queue workflow wakes, delegation, trigger wakes, ad-hoc jobs.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -61,7 +63,7 @@ async def _mirror_task_message(
     ).scalar_one_or_none()
     if not signal:
         return
-    now = datetime.utcnow()
+    now = utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=task.tenant_id,
@@ -213,7 +215,7 @@ async def _execute_agent_segment(
     run.result_json = json.dumps({"text": text[:8000]})
     run.checkpoint_json = json.dumps([*messages, {"role": "assistant", "content": text}][-40:])
     run.status = "completed"
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     session.add(run)
 
     # Usage is metered inside AgentLoop.run_chat; derive a cents figure for budget tracking.
@@ -313,7 +315,7 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
 
     if not agent:
         task.status = "failed"
-        task.completed_at = datetime.utcnow()
+        task.completed_at = utcnow()
         session.add(task)
         await _mirror_task_message(
             session,
@@ -357,7 +359,7 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         ).scalar_one_or_none()
         if task is not None:
             task.status = "failed"
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utcnow()
             session.add(task)
             await _mirror_task_message(
                 session,
@@ -440,7 +442,7 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
                 return {"retry": True, "retry_count": retries + 1}
 
             task.status = "failed"
-            task.completed_at = datetime.utcnow()
+            task.completed_at = utcnow()
             session.add(task)
             await _mirror_task_message(
                 session,
@@ -470,15 +472,15 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
         if task.status == "running":
             task.status = str(ctx.get("workflow_fallback_status") or "planned")
         if task.status == "completed" and task.completed_at is None:
-            task.completed_at = datetime.utcnow()
-        task.updated_at = datetime.utcnow()
+            task.completed_at = utcnow()
+        task.updated_at = utcnow()
         session.add(task)
         await session.commit()
         return {"completed": True, "run_id": str(run.id), "workflow_status": task.status}
 
     task.status = "completed"
-    task.completed_at = datetime.utcnow()
-    task.updated_at = datetime.utcnow()
+    task.completed_at = utcnow()
+    task.updated_at = utcnow()
     session.add(task)
     await _mirror_task_message(
         session,

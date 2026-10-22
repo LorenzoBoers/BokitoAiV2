@@ -1,4 +1,4 @@
-"""OS overlay graph HTTP is gone; tools and Govern apply no longer write it."""
+"""OS overlay graph is gone: no HTTP routes, no agent tools. Govern apply stays a no-op."""
 
 from uuid import uuid4
 
@@ -6,9 +6,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from app.models.agent import Agent
 from app.models.auth import Tenant
-from app.tools import execute_tool
 from app.tools.registry import get_tool_spec
 
 
@@ -32,39 +30,12 @@ async def test_os_graph_http_is_gone(client: AsyncClient):
         ("delete", f"/api/workforce/os/edges/{uuid4()}"),
     ):
         res = await getattr(client, method)(path, headers=headers)
-        payload = res.json()
-        assert res.status_code == 410, f"{method} {path} -> {res.status_code} {payload}"
-        assert payload.get("status") == "retired"
-        assert "Agent" in payload.get("hint", "")
+        assert res.status_code == 404, f"{method} {path} -> {res.status_code}"
 
 
-@pytest.mark.asyncio
-async def test_os_graph_tools_are_retired(session_override):
-    tenant = Tenant(slug=f"graph-{uuid4().hex[:8]}", name="Graph")
-    session_override.add(tenant)
-    await session_override.commit()
-    await session_override.refresh(tenant)
-    agent = Agent(tenant_id=tenant.id, name="Graph caller", kind="company")
-    session_override.add(agent)
-    await session_override.commit()
-    await session_override.refresh(agent)
-
+def test_os_graph_tools_are_unregistered():
     for name in ("add_graph_node", "connect_graph_nodes"):
-        spec = get_tool_spec(name)
-        assert spec is not None
-        assert spec.gated is False
-        assert spec.mutating is False
-
-    result = await execute_tool(
-        session_override,
-        tenant.id,
-        None,
-        "add_graph_node",
-        {"node_type": "agent", "ref_id": str(agent.id)},
-        agent=agent,
-    )
-    assert result["status"] == "retired"
-    assert "Agent" in result["hint"]
+        assert get_tool_spec(name) is None
 
 
 @pytest.mark.asyncio

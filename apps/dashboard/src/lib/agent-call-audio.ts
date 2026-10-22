@@ -33,7 +33,12 @@ function parseArgs(raw: unknown): Record<string, unknown> {
   return asRecord(raw)
 }
 
-function sendToolResult(channel: RTCDataChannel, callId: string, output: unknown) {
+function sendToolResult(
+  channel: RTCDataChannel,
+  callId: string,
+  output: unknown,
+  followUp = true,
+) {
   if (channel.readyState !== 'open') return
   channel.send(
     JSON.stringify({
@@ -45,13 +50,16 @@ function sendToolResult(channel: RTCDataChannel, callId: string, output: unknown
       },
     }),
   )
-  channel.send(JSON.stringify({ type: 'response.create' }))
+  // A hang-up must not start another spoken turn after the goodbye.
+  if (followUp) channel.send(JSON.stringify({ type: 'response.create' }))
 }
 
 export async function startAgentCallAudio(opts: {
   clientSecret: string
   onTool: ToolHandler
   onLine: (line: CallTranscriptLine) => void
+  /** The agent called hang_up. Tear the call down after the goodbye plays. */
+  onHangUp?: () => void
 }): Promise<LiveCall> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
   const pc = new RTCPeerConnection()
@@ -63,6 +71,27 @@ export async function startAgentCallAudio(opts: {
     audio.srcObject = event.streams[0] ?? null
   }
   const channel = pc.createDataChannel('oai-events')
+  let stopped = false
+  let hangUp = false
+  let goodbyeDone = false
+  let hungUp = false
+  const finishHangUp = () => {
+    if (!hangUp || !goodbyeDone || hungUp) return
+    hungUp = true
+    // The provider has finished the goodbye. Leave a beat for the
+    // playback buffer, then drop the line.
+    window.setTimeout(() => {
+      opts.onHangUp?.()
+      stop()
+    }, 700)
+  }
+  const stop = () => {
+    if (stopped) return
+    stopped = true
+    stream.getTracks().forEach((track) => track.stop())
+    audio.srcObject = null
+    pc.close()
+  }
 
   channel.onmessage = (event) => {
     let frame: Record<string, unknown>
@@ -72,16 +101,33 @@ export async function startAgentCallAudio(opts: {
       return
     }
     const type = String(frame.type || '')
+    if (type === 'response.done' && hangUp) {
+      goodbyeDone = true
+      finishHangUp()
+      return
+    }
     if (type === 'response.function_call_arguments.done') {
       const toolCallId = String(frame.call_id || '')
       const name = String(frame.name || '')
       if (!toolCallId || !name) return
+      const ending = name === 'hang_up'
+      if (ending) {
+        hangUp = true
+        window.setTimeout(() => {
+          goodbyeDone = true
+          finishHangUp()
+        }, 4000)
+      }
       void opts
         .onTool(name, parseArgs(frame.arguments))
-        .then((output) => sendToolResult(channel, toolCallId, output))
-        .catch(() =>
-          sendToolResult(channel, toolCallId, { status: 'error', say: 'That did not go through.' }),
-        )
+        .then((output) => {
+          sendToolResult(channel, toolCallId, output, !ending)
+          if (ending) finishHangUp()
+        })
+        .catch(() => {
+          if (ending) hangUp = false
+          sendToolResult(channel, toolCallId, { status: 'error', say: 'That did not go through.' })
+        })
       return
     }
     if (type === 'conversation.item.input_audio_transcription.completed') {
@@ -140,11 +186,7 @@ export async function startAgentCallAudio(opts: {
   return {
     lines,
     speak,
-    stop: () => {
-      stream.getTracks().forEach((track) => track.stop())
-      audio.srcObject = null
-      pc.close()
-    },
+    stop,
   }
 }
 

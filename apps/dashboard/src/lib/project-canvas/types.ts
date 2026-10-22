@@ -1,3 +1,25 @@
+export const CANVAS_KINDS = [
+  'dashboard',
+  'document',
+  'diagram',
+  'drawing',
+  'image',
+  'code',
+  'email',
+  'sheet',
+] as const
+
+export type CanvasKind = (typeof CANVAS_KINDS)[number]
+
+export function canvasKindOf(kind: string | null | undefined): CanvasKind {
+  return (CANVAS_KINDS as readonly string[]).includes(kind || '') ? (kind as CanvasKind) : 'dashboard'
+}
+
+export function canvasIsPending(row: { kind?: string | null; empty?: boolean; tree?: CanvasNode | null }): boolean {
+  if (canvasKindOf(row.kind) !== 'dashboard') return Boolean(row.empty)
+  return Boolean(row.empty || isEmptyCanvasTree(row.tree))
+}
+
 export const CANVAS_TYPES = [
   'Stack',
   'Grid',
@@ -11,6 +33,7 @@ export const CANVAS_TYPES = [
   'Table',
   'BarChart',
   'LineChart',
+  'PieChart',
   'Card',
   'Badge',
 ] as const

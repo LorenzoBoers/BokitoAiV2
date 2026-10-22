@@ -1,5 +1,7 @@
 """Cockpit KPI aggregation."""
 
+from app.core.time import utcnow
+
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -13,11 +15,12 @@ from app.models.auth import User
 from app.models.learning import EvalScore, Feedback
 from app.models.signal import EXTERNAL_CHANNELS, Signal, SignalMessage
 from app.models.usage import UsageLedger
+from app.services.flow_proposals import accepted_improvements
 
 
 async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, Any]:
-    since_week = datetime.utcnow() - timedelta(days=7)
-    since_month = datetime.utcnow() - timedelta(days=30)
+    since_week = utcnow() - timedelta(days=7)
+    since_month = utcnow() - timedelta(days=30)
 
     conv_count = (
         await session.execute(
@@ -106,8 +109,8 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
 
     # Resolved: closed without a human takeover, and still closed after 72 hours.
     # Count those that matured during the last 7 days.
-    matured_before = datetime.utcnow() - timedelta(hours=72)
-    matured_after = datetime.utcnow() - timedelta(days=7, hours=72)
+    matured_before = utcnow() - timedelta(hours=72)
+    matured_after = utcnow() - timedelta(days=7, hours=72)
     handoff_reasons = ("handoff_requested", "escalated", "operator_takeover")
     resolved_week = int(
         (
@@ -129,7 +132,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         ).scalar()
         or 0
     )
-    quiet_before = datetime.utcnow() - timedelta(days=14)
+    quiet_before = utcnow() - timedelta(days=14)
     quiet_rows = (
         await session.execute(
             select(Signal)
@@ -182,6 +185,7 @@ async def cockpit_summary(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         ],
         "learning_autonomy_rate": autonomy_rate,
         "learning_sample_size": latest_eval.sample_size if latest_eval else 0,
+        "improvements": await accepted_improvements(session, tenant_id),
     }
 
 
@@ -192,7 +196,7 @@ async def usage_breakdown(
     from app.models.agent import Agent
     from app.services.agent_avatar import avatar_payload
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
 
     # By model (+ key source so we can split BYOK vs platform/billable).
     model_rows = (
@@ -360,7 +364,7 @@ async def usage_token_series(
     """
     if hours is not None:
         hours = max(1, min(int(hours), 168))
-        end = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        end = utcnow().replace(minute=0, second=0, microsecond=0)
         start = end - timedelta(hours=hours - 1)
         buckets = {
             (start + timedelta(hours=i)).isoformat(): 0 for i in range(hours)
@@ -395,7 +399,7 @@ async def usage_token_series(
         }
 
     days = max(1, min(int(days if days is not None else 30), 365))
-    today = datetime.utcnow().date()
+    today = utcnow().date()
     start_day = today - timedelta(days=days - 1)
     since = datetime.combine(start_day, datetime.min.time())
     buckets = {(start_day + timedelta(days=i)).isoformat(): 0 for i in range(days)}
@@ -463,7 +467,7 @@ async def autonomy_trajectory(
     session: AsyncSession, tenant_id: UUID, *, days: int = 90
 ) -> dict[str, Any]:
     """Overview line data from stored learning evaluations."""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     rows = (
         await session.execute(
             select(EvalScore)

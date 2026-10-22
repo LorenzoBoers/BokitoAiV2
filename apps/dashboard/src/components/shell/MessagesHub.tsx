@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useSearchParams } from 'react-router-dom'
 import { Eye, PenLine } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import MessagesHubNav from '../inbox/MessagesHubNav'
@@ -17,6 +17,8 @@ import { HubMainSkeleton } from '../ui/skeleton'
 function MessagesHubFrame() {
   const { t } = useTranslation(['nav', 'communication'])
   const { openEditor } = useSidebarEditor()
+  const [searchParams] = useSearchParams()
+  const canvasOpen = Boolean((searchParams.get('canvas') || '').trim())
 
   return (
     <>
@@ -26,6 +28,7 @@ function MessagesHubFrame() {
         resetHint={t('split.resetHint', { ns: 'communication' })}
         className="h-full min-h-0"
       >
+        {canvasOpen ? null : (
         <SplitPane
           id="nav"
           defaultWidth={232}
@@ -61,6 +64,7 @@ function MessagesHubFrame() {
             </div>
           </aside>
         </SplitPane>
+        )}
         <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
           <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-hidden">

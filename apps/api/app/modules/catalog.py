@@ -8,6 +8,7 @@ unless the tenant has more than one package connected.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -15,6 +16,8 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 MODULE_SKILL_DIR = Path(__file__).resolve().parent.parent / "data" / "module_skills"
 
@@ -476,24 +479,35 @@ MODULES: list[ModuleSpec] = [
             "Bridge to external document storage. Read content flows into the "
             "existing workspace knowledge stack; uploads only as a proposal."
         ),
-        status="coming_soon",
-        provider_slugs=(),
-        planned_provider_slugs=("google_drive", "microsoft_graph_files", "dropbox"),
+        status="available",
+        provider_slugs=("google_drive",),
+        planned_provider_slugs=("microsoft_graph_files", "dropbox"),
         tool_cards=(
             ModuleToolCard(
                 "search",
                 "Search files",
-                "Search files across connected Drive / SharePoint / Dropbox.",
+                "Search files on the connected Google Drive by name or text.",
+                props=(("query", {"type": "string"}), ("limit", {"type": "integer"})),
             ),
             ModuleToolCard(
                 "list",
                 "List files",
-                "List files in a folder on the connected storage package.",
+                "List files in a Drive folder (folder_id, default the root), newest first.",
+                props=(("folder_id", {"type": "string"}), ("limit", {"type": "integer"})),
             ),
             ModuleToolCard(
                 "get_content",
                 "Read content",
-                "Read file content into Knowledge for the agent to cite.",
+                "Read a file's text (Docs as text, Sheets as CSV) for the agent to cite.",
+                props=(("file_id", {"type": "string"}),),
+                required=("file_id",),
+            ),
+            ModuleToolCard(
+                "sheets_read",
+                "Read sheet",
+                "Read cell values from a Google Sheet range (A1 notation).",
+                props=(("spreadsheet_id", {"type": "string"}), ("range", {"type": "string"})),
+                required=("spreadsheet_id",),
             ),
             ModuleToolCard(
                 "propose_upload",
@@ -502,13 +516,40 @@ MODULES: list[ModuleSpec] = [
                 kind="propose",
             ),
         ),
-        needs_when="files that live in Drive, SharePoint, or Dropbox",
+        apply_cards=(
+            ModuleToolCard(
+                "sheets_append",
+                "Append rows",
+                "Append rows to a Google Sheet range. Writes ask first under the workspace allowance.",
+                kind="apply",
+                props=(
+                    ("spreadsheet_id", {"type": "string"}),
+                    ("range", {"type": "string"}),
+                    ("values", {"type": "array", "items": {"type": "array", "items": {}}}),
+                ),
+                required=("spreadsheet_id", "values"),
+            ),
+            ModuleToolCard(
+                "sheets_update",
+                "Update cells",
+                "Overwrite a Google Sheet range with rows. Writes ask first under the workspace allowance.",
+                kind="apply",
+                props=(
+                    ("spreadsheet_id", {"type": "string"}),
+                    ("range", {"type": "string"}),
+                    ("values", {"type": "array", "items": {"type": "array", "items": {}}}),
+                ),
+                required=("spreadsheet_id", "range", "values"),
+            ),
+        ),
+        needs_when="files that live in Drive, or rows in a Google Sheet",
         setup_steps=(
-            "This module is prepared but not connectable yet.",
-            "When a storage connector ships, reads feed Knowledge and uploads stay decisions.",
+            "Install Documents under Settings > Modules.",
+            "Connect Google Drive under Connections (read access to Drive, read and write to Sheets).",
+            "Link a folder or Sheet to a client folder as a resource when the agent should use it there.",
         ),
         capability_summary=(
-            "Later: search and read external files into Knowledge."
+            "Agents search and read Drive files and Sheets; writing to a Sheet asks first."
         ),
     ),
     ModuleSpec(
@@ -1355,9 +1396,18 @@ async def install_module(
     *,
     actor_id: Any = None,
     hire_specialist: bool = True,
+    department_id: UUID | None = None,
+    accountable_user_id: UUID | None = None,
+    specialist_leads: bool | None = None,
 ) -> dict[str, Any]:
-    """One-time drop: department + specialist + package assets. Idempotent."""
+    """One-time drop: department + specialist + package assets. Idempotent.
+
+    ``department_id`` installs into an existing department instead of a new one.
+    ``accountable_user_id`` is the person accountable (default: All's).
+    ``specialist_leads`` decides the lead when the department already has one.
+    """
     from app.services.audit import record_audit
+    from app.services.module_department import adopt_department, set_accountable
     from app.services.module_origin import module_is_installed
     from app.services.module_sources import ensure_platform_seeds
 
@@ -1370,6 +1420,8 @@ async def install_module(
     if await module_is_installed(session, tenant_id, slug):
         return await _serialize_module_row(session, tenant_id, slug)
 
+    if department_id is not None:
+        await adopt_department(session, tenant_id, slug, department_id)
     await ensure_platform_seeds(session, tenant_id, slug)
 
     hire: dict[str, Any] = {}
@@ -1393,7 +1445,7 @@ async def install_module(
 
             auto_tag = await install_tag_template(session, tenant_id, slug, tags[0].slug)
         except Exception:  # noqa: BLE001
-            pass
+            logger.warning("auto tag install for module %s failed", slug, exc_info=True)
 
     from app.services.module_department import bind_module_department
 
@@ -1403,8 +1455,10 @@ async def install_module(
     except (ValueError, TypeError):
         agent_uuid = None
     department = await bind_module_department(
-        session, tenant_id, slug, agent_id=agent_uuid
+        session, tenant_id, slug, agent_id=agent_uuid, specialist_leads=specialist_leads
     )
+    await set_accountable(session, tenant_id, department.id, accountable_user_id)
+    await session.commit()
     await record_audit(
         session,
         tenant_id,
@@ -1509,7 +1563,7 @@ async def hire_module_agent(
                 session, tenant_id, slug, agent.id, is_default=True
             )
         except Exception:  # noqa: BLE001
-            pass
+            logger.warning("add module agent for %s failed", slug, exc_info=True)
 
     dept = await get_module_department(session, tenant_id, slug)
     if dept is not None and result.action in ("created", "exists", "restore_pending"):
@@ -1621,7 +1675,7 @@ async def uninstall_module(
     from app.services.module_department import archive_module_department
 
     archived = await soft_archive_module_specialists(session, tenant_id, slug)
-    await archive_module_department(session, tenant_id, slug)
+    kept = await archive_module_department(session, tenant_id, slug, specialist_ids=archived)
     await clear_module_agents(session, tenant_id, slug)
     await record_audit(
         session,
@@ -1638,7 +1692,108 @@ async def uninstall_module(
     row["assigned_agent_count"] = 0
     row["default_agent_id"] = None
     row["archived_specialist_ids"] = archived
+    row["department_kept"] = kept == "kept"
     return row
+
+
+def _words(text: str) -> set[str]:
+    import re
+
+    return {w for w in re.findall(r"[a-z0-9]+", (text or "").lower()) if len(w) > 2}
+
+
+async def module_install_plan(session: AsyncSession, tenant_id: UUID, slug: str) -> dict[str, Any]:
+    """What adding this module as a department brings, and which department it could join.
+
+    A department overlaps when its name shares a word with the module, or it already
+    has a label or flow with a name the module ships. The best overlap is suggested.
+    """
+    from app.models.agent import Agent
+    from app.models.auth import Membership, User
+    from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
+    from app.services.department_access import department_leads
+    from app.services.teams import all_department, list_teams
+
+    spec = MODULE_BY_SLUG.get(slug)
+    if spec is None:
+        raise ValueError(f"Unknown module '{slug}'")
+    package = get_module_package(slug)
+    template = package.agent_template if package else _persona_with_prompt(spec)
+    tags = [t.name for t in module_tag_templates(slug)]
+    flows = [w.name for w in module_workstream_templates(slug)]
+    tag_names = {t.lower() for t in tags}
+    flow_names = {f.lower() for f in flows}
+    module_words = _words(spec.name)
+
+    candidates: list[dict[str, Any]] = []
+    for dept in await list_teams(session, tenant_id, include_system=False):
+        if dept.origin_module_slug and dept.origin_module_slug != slug:
+            continue
+        reasons: list[str] = []
+        score = 0
+        if module_words & _words(dept.name):
+            reasons.append("name")
+            score += 2
+        dept_tags = (
+            await session.execute(
+                select(SignalTag.name).where(SignalTag.tenant_id == tenant_id, SignalTag.department_id == dept.id)
+            )
+        ).scalars().all()
+        if tag_names & {n.lower() for n in dept_tags}:
+            reasons.append("labels")
+            score += 1
+        dept_flows = (
+            await session.execute(
+                select(Workstream.name).where(
+                    Workstream.tenant_id == tenant_id,
+                    Workstream.department_id == dept.id,
+                    Workstream.deleted_at.is_(None),
+                )
+            )
+        ).scalars().all()
+        if flow_names & {n.lower() for n in dept_flows}:
+            reasons.append("flows")
+            score += 1
+        leads = await department_leads(session, tenant_id, dept.id)
+        lead = await session.get(Agent, leads["lead_agent_id"]) if leads["lead_agent_id"] else None
+        candidates.append({
+            "id": str(dept.id),
+            "name": dept.name,
+            "overlap": reasons,
+            "score": score,
+            "lead_name": lead.name if lead else None,
+        })
+    candidates.sort(key=lambda c: (-c["score"], c["name"].lower()))
+    suggested = next((c["id"] for c in candidates if c["score"] > 0), None)
+
+    root = await all_department(session, tenant_id)
+    root_accountable = (await department_leads(session, tenant_id, root.id))["accountable_user_id"]
+    people = [
+        {"id": str(u.id), "name": u.display_name or u.email}
+        for u in (
+            await session.execute(
+                select(User)
+                .join(Membership, Membership.user_id == User.id)
+                .where(Membership.tenant_id == tenant_id, User.is_active.is_(True))
+                .order_by(User.display_name)
+            )
+        ).scalars().all()
+    ]
+    return {
+        "slug": slug,
+        "name": spec.name,
+        "ships": {
+            "specialist": template.name if template else None,
+            "labels": tags,
+            "flows": flows,
+            "folder": bool(package and package.project),
+        },
+        "candidates": candidates,
+        "suggested_department_id": suggested,
+        "default_accountable_user_id": str(root_accountable) if root_accountable else None,
+        "people": people,
+    }
 
 
 async def enable_module_for_provider(

@@ -6,6 +6,12 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from app.config import get_settings
+from app.services.agent.llm_efficiency import (
+    anthropic_usage,
+    apply_prompt_caching,
+    prompt_caching_enabled,
+    shared_client,
+)
 
 if TYPE_CHECKING:
     from app.services.tenant_llm import TenantLLMConfig
@@ -252,18 +258,21 @@ def _mock_topic(last_user: str) -> str:
     return first_line[:120]
 
 
-# Claude 5+ rejects ``thinking.type.enabled`` + ``budget_tokens``; it takes
-# ``adaptive`` with an effort level. Older ids that answer with that 400 are
-# learned at runtime.
+# Claude 4.6 and later take ``thinking.type.adaptive`` with ``output_config.effort``
+# (4.7+ reject ``enabled`` + ``budget_tokens``; 4.5 and older reject ``adaptive``).
+# Ids that answer with the adaptive 400 anyway are learned at runtime.
 _ADAPTIVE_THINKING_MODELS: set[str] = set()
-_CLAUDE_MAJOR_RE = re.compile(r"claude-[a-z]+-(\d+)")
+_CLAUDE_VERSION_RE = re.compile(r"claude-[a-z]+-(\d+)(?:-(\d{1,2})(?!\d))?")
 
 
 def _uses_adaptive_thinking(model: str) -> bool:
     if model in _ADAPTIVE_THINKING_MODELS:
         return True
-    match = _CLAUDE_MAJOR_RE.search(model or "")
-    return bool(match) and int(match.group(1)) >= 5
+    match = _CLAUDE_VERSION_RE.search(model or "")
+    if not match:
+        return False
+    major, minor = int(match.group(1)), int(match.group(2) or 0)
+    return major >= 5 or (major == 4 and minor >= 6)
 
 
 def _learn_adaptive_thinking(exc: BaseException, model: str) -> bool:
@@ -277,20 +286,28 @@ def _learn_adaptive_thinking(exc: BaseException, model: str) -> bool:
 _MISTRAL_REASONING_PREFIXES = ("mistral-medium", "mistral-small")
 
 
-def _thinking_effort(budget: int) -> str:
-    if budget <= 2048:
-        return "low"
-    if budget <= 8192:
-        return "medium"
-    return "high"
+# Thinking counts toward max_tokens; leave room for the reply at each effort.
+_EFFORT_MAX_TOKENS = {"low": 4096, "medium": 8192, "high": 16000}
 
 
-def _resolve_max_tokens(max_tokens: int | None, thinking_budget: int) -> int:
+def _legacy_budget(effort: str | None) -> int:
+    """``budget_tokens`` for models without adaptive thinking. Low thinks not at all."""
+    from app.services.agent.effort_policy import EFFORT_BUDGET
+
+    if not effort or effort == "low":
+        return 0
+    return EFFORT_BUDGET.get(effort, 0)
+
+
+def _resolve_max_tokens(max_tokens: int | None, effort: str | None) -> int:
     base = max_tokens if max_tokens and max_tokens > 0 else 4096
-    if thinking_budget > 0:
-        # Anthropic requires max_tokens > budget_tokens.
-        return max(base, thinking_budget + 1024)
-    return base
+    if not effort:
+        return base
+    from app.services.agent.effort_policy import EFFORT_BUDGET
+
+    # Anthropic requires max_tokens > budget_tokens on the legacy path too.
+    floor = max(_EFFORT_MAX_TOKENS.get(effort, 4096), EFFORT_BUDGET.get(effort, 0) + 1024)
+    return max(base, floor)
 
 
 def _anthropic_content_blocks(response_content: Any) -> list[dict[str, Any]]:
@@ -335,7 +352,7 @@ class MockLLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         *,
-        thinking_budget: int = 0,
+        effort: str | None = None,
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
         last_user = _last_user_text(messages)
@@ -476,17 +493,17 @@ class MockLLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         *,
-        thinking_budget: int = 0,
+        effort: str | None = None,
         max_tokens: int | None = None,
     ):
         result = await self.chat(
             messages,
             tools,
             model,
-            thinking_budget=thinking_budget,
+            effort=effort,
             max_tokens=max_tokens,
         )
-        if thinking_budget > 0:
+        if effort and effort != "low":
             for chunk in (
                 "Considering the user's request... ",
                 "Checking context and tools... ",
@@ -517,6 +534,12 @@ class AnthropicLLMProvider:
             kwargs["base_url"] = self.base_url
         return kwargs
 
+    def _prepare(self, create_kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Final request kwargs: prompt-cache breakpoints when talking to Anthropic."""
+        if prompt_caching_enabled(self.base_url):
+            return apply_prompt_caching(create_kwargs)
+        return create_kwargs
+
     @staticmethod
     def _create_kwargs(
         *,
@@ -524,22 +547,23 @@ class AnthropicLLMProvider:
         system: str,
         chat_messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None,
-        thinking_budget: int,
+        effort: str | None,
         max_tokens: int | None,
     ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {
             "model": model or settings.default_chat_model,
-            "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
+            "max_tokens": _resolve_max_tokens(max_tokens, effort),
             "system": system,
             "messages": chat_messages,
             "tools": tools or [],
         }
-        if thinking_budget > 0:
-            if _uses_adaptive_thinking(kwargs["model"]):
-                kwargs["thinking"] = {"type": "adaptive"}
-                kwargs["output_config"] = {"effort": _thinking_effort(thinking_budget)}
-            else:
-                kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
+        if not effort:
+            return kwargs
+        if _uses_adaptive_thinking(kwargs["model"]):
+            kwargs["thinking"] = {"type": "adaptive"}
+            kwargs["output_config"] = {"effort": effort}
+        elif budget := _legacy_budget(effort):
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
         return kwargs
 
     async def chat(
@@ -548,12 +572,12 @@ class AnthropicLLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         *,
-        thinking_budget: int = 0,
+        effort: str | None = None,
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
         from anthropic import AsyncAnthropic
 
-        client = AsyncAnthropic(**self._client_kwargs())
+        client = shared_client("anthropic", self._client_kwargs(), AsyncAnthropic)
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
         def _kwargs() -> dict[str, Any]:
@@ -562,18 +586,18 @@ class AnthropicLLMProvider:
                 system=system,
                 chat_messages=chat_messages,
                 tools=tools,
-                thinking_budget=thinking_budget,
+                effort=effort,
                 max_tokens=max_tokens,
             )
 
         async def _create():
             create_kwargs = _kwargs()
             try:
-                return await client.messages.create(**create_kwargs)
+                return await client.messages.create(**self._prepare(create_kwargs))
             except Exception as exc:
                 if not _learn_adaptive_thinking(exc, create_kwargs["model"]):
                     raise
-                return await client.messages.create(**_kwargs())
+                return await client.messages.create(**self._prepare(_kwargs()))
 
         response = await with_rate_limit_retry(
             _create,
@@ -585,10 +609,7 @@ class AnthropicLLMProvider:
         return {
             "stop_reason": response.stop_reason,
             "content": _anthropic_content_blocks(response.content),
-            "usage": {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens,
-            },
+            "usage": anthropic_usage(response.usage),
         }
 
     async def stream_chat(
@@ -597,12 +618,12 @@ class AnthropicLLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         *,
-        thinking_budget: int = 0,
+        effort: str | None = None,
         max_tokens: int | None = None,
     ):
         from anthropic import AsyncAnthropic
 
-        client = AsyncAnthropic(**self._client_kwargs())
+        client = shared_client("anthropic", self._client_kwargs(), AsyncAnthropic)
         system = next((m["content"] for m in messages if m["role"] == "system"), "")
         chat_messages = [m for m in messages if m["role"] != "system"]
         for attempt in range(2):
@@ -611,12 +632,12 @@ class AnthropicLLMProvider:
                 system=system,
                 chat_messages=chat_messages,
                 tools=tools,
-                thinking_budget=thinking_budget,
+                effort=effort,
                 max_tokens=max_tokens,
             )
             started = False
             try:
-                async for event in self._stream_events(client, create_kwargs):
+                async for event in self._stream_events(client, self._prepare(create_kwargs)):
                     started = True
                     yield event
                 return
@@ -647,10 +668,7 @@ class AnthropicLLMProvider:
             final = await stream.get_final_message()
             yield {
                 "type": "done",
-                "usage": {
-                    "input_tokens": final.usage.input_tokens,
-                    "output_tokens": final.usage.output_tokens,
-                },
+                "usage": anthropic_usage(final.usage),
                 "content": _anthropic_content_blocks(final.content),
                 "stop_reason": final.stop_reason,
             }
@@ -768,7 +786,7 @@ class OpenAILLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         *,
-        thinking_budget: int = 0,
+        effort: str | None = None,
         max_tokens: int | None = None,
     ) -> dict[str, Any]:
         from openai import AsyncOpenAI
@@ -776,14 +794,14 @@ class OpenAILLMProvider:
         kwargs: dict[str, Any] = {"api_key": self.api_key}
         if self.base_url:
             kwargs["base_url"] = self.base_url
-        client = AsyncOpenAI(**kwargs)
+        client = shared_client("openai", kwargs, AsyncOpenAI)
         oai_messages = self._messages_to_openai(messages)
         create_kwargs: dict[str, Any] = {
             "model": model or "gpt-4o",
             "messages": oai_messages,
-            "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
+            "max_tokens": _resolve_max_tokens(max_tokens, effort),
         }
-        extra_body = _reasoning_extra_body(self.provider_type, create_kwargs["model"], thinking_budget)
+        extra_body = _reasoning_extra_body(self.provider_type, create_kwargs["model"], effort)
         if extra_body:
             create_kwargs["extra_body"] = extra_body
         oai_tools = self._tools_to_openai(tools)
@@ -836,7 +854,7 @@ class OpenAILLMProvider:
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         *,
-        thinking_budget: int = 0,
+        effort: str | None = None,
         max_tokens: int | None = None,
     ):
         from openai import AsyncOpenAI
@@ -844,15 +862,15 @@ class OpenAILLMProvider:
         kwargs: dict[str, Any] = {"api_key": self.api_key}
         if self.base_url:
             kwargs["base_url"] = self.base_url
-        client = AsyncOpenAI(**kwargs)
+        client = shared_client("openai", kwargs, AsyncOpenAI)
         oai_messages = self._messages_to_openai(messages)
         create_kwargs: dict[str, Any] = {
             "model": model or "gpt-4o",
             "messages": oai_messages,
-            "max_tokens": _resolve_max_tokens(max_tokens, thinking_budget),
+            "max_tokens": _resolve_max_tokens(max_tokens, effort),
             "stream": True,
         }
-        extra_body = _reasoning_extra_body(self.provider_type, create_kwargs["model"], thinking_budget)
+        extra_body = _reasoning_extra_body(self.provider_type, create_kwargs["model"], effort)
         if extra_body:
             create_kwargs["extra_body"] = extra_body
         oai_tools = self._tools_to_openai(tools)
@@ -928,9 +946,9 @@ class OpenAILLMProvider:
         }
 
 
-def _reasoning_extra_body(provider_type: str, model: str, thinking_budget: int) -> dict[str, Any] | None:
-    """Mistral hybrid models keep their reasoning hidden unless asked for it."""
-    if provider_type != "mistral" or thinking_budget <= 0:
+def _reasoning_extra_body(provider_type: str, model: str, effort: str | None) -> dict[str, Any] | None:
+    """Mistral hybrid models reason only when asked. They know one level: high."""
+    if provider_type != "mistral" or effort not in ("medium", "high"):
         return None
     if not model.startswith(_MISTRAL_REASONING_PREFIXES):
         return None

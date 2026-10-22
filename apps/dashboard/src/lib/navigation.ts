@@ -66,6 +66,11 @@ export const DEPARTMENTS_PATH = '/workforce?tab=departments' as const
 export const CONNECTIONS_PATH = '/connections' as const
 export const AUTONOMY_PATH = '/settings/govern?tab=policy' as const
 
+/** Department page — top-level path, not under Workforce. */
+export function departmentPath(id: string): string {
+  return `/departments/${encodeURIComponent(id)}`
+}
+
 /** Org map mark. Same glyph on Open in Grid and the Grid tab. */
 export const GRID_ICON: LucideIcon = Network
 

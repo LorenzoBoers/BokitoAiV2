@@ -47,6 +47,8 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "managing_agent_id": "VARCHAR",
         "refresh_trigger_id": "VARCHAR",
         "signal_id": "VARCHAR",
+        "kind": "VARCHAR DEFAULT 'dashboard'",
+        "language": "VARCHAR",
     },
     "agents": {
         "slug": "VARCHAR DEFAULT ''",

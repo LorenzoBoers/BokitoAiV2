@@ -462,17 +462,18 @@ async def restore_entry(
                 tenant.id,
                 "slug",
                 row.slug,
-                extra=[
-                    ProjectCanvas.owner_kind == row.owner_kind,
-                    ProjectCanvas.owner_id == row.owner_id,
-                ],
+                extra=[ProjectCanvas.signal_id == row.signal_id],
             )
             if new_slug != row.slug:
                 hint["slug"] = new_slug
                 row.slug = new_slug
-            # Lets the dashboard open the restored canvas on its project.
-            if getattr(row, "owner_kind", None) == "project" and getattr(row, "owner_id", None):
-                hint["project_id"] = str(row.owner_id)
+            # Lets the dashboard open the restored canvas on its folder.
+            from app.models.signal import Signal as _Signal
+
+            home = await session.get(_Signal, row.signal_id) if row.signal_id else None
+            if home is not None and home.project_id:
+                hint["folder_id"] = str(home.project_id)
+                hint["project_id"] = str(home.project_id)
             unstamp_row(row)
             session.add(row)
             await resume_refresh_trigger_for_canvas(session, tenant.id, row)

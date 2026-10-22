@@ -212,7 +212,7 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
         "autonomy_level",
         "runtime_status",
         "parent_agent_id",
-        "thinking_budget",
+        "effort",
         "max_tokens",
         "max_loops",
         "max_cost_cents",
@@ -221,6 +221,10 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
             value = fields[key]
             if key == "autonomy_level":
                 value = parse_autonomy_level(value)
+            if key == "effort":
+                from app.services.agent.effort_policy import normalize_effort
+
+                value = normalize_effort(value)
             setattr(agent, key, value)
     if "tools" in fields:
         agent.tools_json = json.dumps(fields["tools"] or [])

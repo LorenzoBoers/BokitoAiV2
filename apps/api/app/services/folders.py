@@ -9,6 +9,8 @@ labels — nesting does not rewrite them.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -484,7 +486,7 @@ async def refresh_home(
     if new_id != signal.project_id:
         previous = signal.project_id
         signal.project_id = new_id
-        signal.updated_at = datetime.utcnow()
+        signal.updated_at = utcnow()
         session.add(signal)
         session.add(
             SignalEvent(
@@ -647,7 +649,7 @@ async def _defer_folder_decisions(session: AsyncSession, signal: Signal) -> None
             )
         )
     ).scalars()
-    now = datetime.utcnow()
+    now = utcnow()
     for row in rows:
         row.status = "deferred"
         row.resolved_at = now

@@ -9,7 +9,8 @@ host thread's timeline as a collapsed, expandable block.
 """
 
 import json
-from datetime import datetime, timedelta
+from app.core.time import utcnow
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -577,9 +578,9 @@ async def close_session(
         "message_count": len(chat_messages),
     }
     conversation.session_state = "closed"
-    conversation.session_closed_at = datetime.utcnow()
+    conversation.session_closed_at = utcnow()
     conversation.session_outcome_json = json.dumps(outcome)
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = utcnow()
     session.add(conversation)
     session.add(
         SignalEvent(
@@ -686,7 +687,7 @@ async def _supersede_checkout(
     if stale is None:
         return
     stale.status = "deferred"
-    stale.resolved_at = datetime.utcnow()
+    stale.resolved_at = utcnow()
     stale.chosen_option_id = "superseded"
     session.add(stale)
     if stale.notification_id:
@@ -773,7 +774,7 @@ async def apply_checkout_choice(
         outcome.pop("checkout_summary", None)
         outcome.pop("idle_nudge_at", None)
         conversation.session_outcome_json = json.dumps(outcome)
-        conversation.updated_at = datetime.utcnow()
+        conversation.updated_at = utcnow()
         session.add(conversation)
         return {"ok": True, "state": "active", "session_id": str(conversation.id)}
 
@@ -812,7 +813,7 @@ async def resume_session_after_message(
     outcome.pop("checkout_summary", None)
     outcome.pop("idle_nudge_at", None)
     conversation.session_outcome_json = json.dumps(outcome)
-    conversation.updated_at = datetime.utcnow()
+    conversation.updated_at = utcnow()
     session.add(conversation)
     return True
 
@@ -883,7 +884,7 @@ async def nudge_idle_sessions(
     )
     if idle <= 0:
         return {"checked": 0, "closed": 0, "nudged": 0}
-    cutoff = datetime.utcnow() - timedelta(seconds=idle)
+    cutoff = utcnow() - timedelta(seconds=idle)
 
     leftover = list(
         (

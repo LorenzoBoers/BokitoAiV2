@@ -178,7 +178,10 @@ coloring a pill locally.
 
 `IconTile` (`neutral`, `accent`, `ai`, `success`, `warning`, `error`; sizes
 `sm`, `md`, `lg`) holds one icon or logo. Every round face renders through
-`AvatarDisc` (image or initials). One face: `UserAvatar` (members),
+`AvatarDisc` (image or initials). Face boxes share one ladder in
+`lib/mark-scale.ts`: **16, 20, 24, 32, 40, 48, 64, 80, 96, 128**. A row uses
+one step and a 4px gap (`gap-1`, `gap-2`, `gap-3`) so names start on the same
+line. One face: `UserAvatar` (members),
 `PersonAvatar` (a name or email only), `AgentMark` (agents; wraps `AiAvatar`), `ContactAvatar` (external people and companies),
 `TeamAvatar` (empty-team fallback). A group of people and agents is
 `AvatarStack`: three faces when there are three people or agents; with more, the third circle is +N. Agent orbs use a

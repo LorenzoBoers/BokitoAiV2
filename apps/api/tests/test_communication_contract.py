@@ -84,7 +84,7 @@ async def test_latest_previews_prefer_non_placeholder(client: AsyncClient, sessi
     )
     await session_override.commit()
 
-    previews = await threads_svc._latest_message_previews(
+    previews, _speakers = await threads_svc._latest_message_previews(
         session_override, tenant.id, [signal.id]
     )
     snippet, direction, by_agent = previews[signal.id]
@@ -115,12 +115,16 @@ async def test_latest_preview_flags_agent_author(client: AsyncClient, session_ov
     )
     await session_override.commit()
 
-    previews = await threads_svc._latest_message_previews(session_override, tenant.id, [signal.id])
+    previews, speakers = await threads_svc._latest_message_previews(session_override, tenant.id, [signal.id])
     snippet, direction, by_agent = previews[signal.id]
     assert "ships" in snippet
     assert direction == "outbound"
     assert by_agent is True
-    assert threads_svc.serialize_thread(signal, last_by_agent=by_agent)["last_message_by_agent"] is True
+    assert speakers[signal.id] == agent.id
+    face = threads_svc.serialize_thread(signal, last_by_agent=by_agent, speaker=agent)
+    assert face["last_message_by_agent"] is True
+    assert face["agent_id"] is None
+    assert face["speaker"]["name"] == "Desk"
 
 
 @pytest.mark.asyncio

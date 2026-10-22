@@ -1,4 +1,28 @@
 {
+  "chatStack": {
+    "label": "Chats at hand",
+    "more": "+{{count}}",
+    "moreLabel": "Show all pinned conversations",
+    "untitled": "Conversation",
+    "you": "You",
+    "working": "{{name}} is working",
+    "workingFallback": "Agent is working",
+    "following": "Following",
+    "pinned": "Pinned",
+    "open": "Open {{title}}",
+    "minimize": "Minimize",
+    "minimizeToStack": "Minimize to stack",
+    "move": "Drag to move",
+    "expand": "Open full conversation",
+    "pin": "Keep in stack",
+    "unpin": "Remove from stack",
+    "dismiss": "Stop following",
+    "loading": "Loading conversation",
+    "pinError": "Could not update the stack.",
+    "shortcutHint": "Alt+1 to Alt+9 opens a chat",
+    "callRinging": "{{name}} is calling",
+    "callLive": "On a call with {{name}}"
+  },
   "handledExternally": {
     "title": "Already handled outside Bokito",
     "hint": "You called, replied from a personal WhatsApp or another mailbox. Log it so the conversation stops asking for a reply and open AI proposals are set aside.",
@@ -489,7 +513,7 @@
     "workedFor_other": "Worked for {{duration}} · {{count}} actions",
     "otherCount_one": "{{count}} note",
     "otherCount_other": "{{count}} notes",
-    "writing": "Typing...",
+    "writing": "Writing...",
     "thought": "Thought",
     "thoughtFailed": "Could not finish thinking",
     "note": "Note",
@@ -1049,10 +1073,10 @@
         "cta": "Invite members"
       }
     },
-    "startConversation": "New conversation"
+    "startConversation": "New chat"
   },
   "newConversation": {
-    "title": "New conversation",
+    "title": "New chat",
     "back": "Back to Communication",
     "changeType": "Change type",
     "draftBadge": "Draft",
@@ -1201,9 +1225,9 @@
     "openInboxAi": "Adjust AI replies",
     "selectThread": "Select a thread to view.",
     "selectThreadTitle": "Pick a conversation",
-    "selectThreadHint": "Choose a thread from the list, or start a New conversation.",
+    "selectThreadHint": "Choose a thread from the list, or start a New chat.",
     "openSetupGuide": "Open setup guide",
-    "startNewChat": "Start a New conversation",
+    "startNewChat": "Start a New chat",
     "backToConversations": "Back to conversations",
     "agentHandling": "Agent on this conversation",
     "threadActions": "Thread actions",
@@ -1341,7 +1365,7 @@
     "assign": "Assign to me",
     "reply": "Focus reply",
     "compose": "New email",
-    "newChat": "New conversation",
+    "newChat": "New chat",
     "search": "Focus search",
     "thisHelp": "Show this list",
     "escape": "Back to the list, or leave search",
@@ -1501,7 +1525,7 @@
     "send": "Send",
     "emptyPick": "Start a chat with your assistant, or pick a conversation from the list.",
     "aiDisclosure": "You are chatting with AI. A teammate can take over when needed.",
-    "newChat": "New conversation",
+    "newChat": "New chat",
     "openAgents": "Open Agents",
     "openKnowledge": "Open Knowledge",
     "openSetup": "Open setup guide",
@@ -1545,16 +1569,9 @@
     "minutesAgo": "{{count}}m",
     "hoursAgo": "{{count}}h",
     "daysAgo": "{{count}}d",
-    "certaintyHint": "AI certainty {{value}}%",
-    "category": {
-      "support": "Support",
-      "sales": "Sales",
-      "billing": "Billing"
-    }
+    "certaintyHint": "AI certainty {{value}}%"
   },
   "banners": {
-    "channelNotReady": "No channel is ready to send. Connect or repair a mailbox or chat channel.",
-    "openChannels": "Open Channels",
     "noReplyTips": "{{count}} “No reply needed” tips wait in decisions",
     "reviewTips": "Review",
     "dismissTips": "Dismiss all",
@@ -1746,6 +1763,7 @@
       "ticketStageChanged": "Ticket moved to {{stage}}",
       "ticketStageChangedYou": "You moved the ticket to {{stage}}",
       "ticketStageChangedBy": "{{name}} moved the ticket to {{stage}}",
+      "reach": {"push": "Push to {{name}}: {{status}}", "call": "Call to {{name}}: {{status}}", "status": {"delivered": "delivered", "quiet_hours": "held for quiet hours", "daily_max": "held at the daily maximum", "no_device": "no device", "ringing": "ringing", "requested": "asked for", "declined": "declined", "missed": "missed", "live": "answered", "ended": "ended"}},
       "escalated": "Escalated to the team",
       "aiPaused": "AI paused on this thread",
       "aiResumed": "AI resumed on this thread",
@@ -1960,6 +1978,8 @@
     "context": "Resize side panel",
     "closeContext": "Close contact panel",
     "nav": "Resize communication sidebar",
+    "thread": "Resize conversation",
+    "canvas": "Resize canvas",
     "resetHint": "Drag to resize. Double-click or press Enter to reset."
   },
   "scopeChips": {
@@ -2276,7 +2296,7 @@
       "cap_privacy": "Privacy settings keep the AI at {{mode}}.",
       "cap_breaker": "The breaker tripped on this channel, so at most {{mode}}.",
       "cap_agent": "{{agent}} may work at most {{mode}}.",
-      "cap_flow": "Flow {{flow}} always reviews replies, so at most {{mode}}.",
+      "handling_flow": "Autonomy is {{mode}}, set on flow {{source}}.",
       "knowledge_doc": "Read for the last reply: {{title}}",
       "knowledge_none": "The last reply used no knowledge documents, or it predates this record.",
       "folder": "Filed in folder {{folder}}.",
@@ -2287,6 +2307,7 @@
       "delivered_reply": "Delivered as a reply on {{channel}} ({{count}}).",
       "delivered_works_in": "Delivered in {{folder}}, {{item}}.",
       "delivered_folder": "Delivered in folder {{folder}}.",
+      "delivered_connection": "Written to {{connection}}.",
       "delivered_knowledge": "A correction here is kept as an example for later replies."
     }
   }

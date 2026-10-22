@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -68,7 +70,7 @@ async def process_feedback_batch(session: AsyncSession, tenant_id: UUID, limit: 
             score_sum += row.score
             score_count += 1
         row.processed = True
-        row.processed_at = datetime.utcnow()
+        row.processed_at = utcnow()
         processed += 1
     correction_proposals = await propose_repeated_corrections(session, tenant_id)
     await session.commit()
@@ -88,7 +90,7 @@ async def propose_repeated_corrections(
     from app.models.platform_change import PlatformChange
     from app.models.signal import SignalTag
 
-    since = datetime.utcnow() - timedelta(days=30)
+    since = utcnow() - timedelta(days=30)
     grouped = (
         await session.execute(
             select(
@@ -419,7 +421,7 @@ async def apply_heuristic_allowance_tighten(
     if tenant is None:
         return {"tightened": []}
 
-    since = datetime.utcnow() - timedelta(days=7)
+    since = utcnow() - timedelta(days=7)
     counts = await _category_exception_counts(session, tenant_id, since=since)
     effective = tenant_allowances(tenant)
     tightened: list[dict[str, Any]] = []
@@ -482,7 +484,7 @@ async def apply_heuristic_allowance_tighten(
             "from": change["from"],
             "to": change["to"],
             "reason": reason,
-            "at": datetime.utcnow().isoformat() + "Z",
+            "at": utcnow().isoformat() + "Z",
             "escalations": escalations,
             "rejects": rejects,
         }
@@ -509,7 +511,7 @@ async def propose_persona_review(session: AsyncSession, tenant_id: UUID) -> bool
     """
     import json as _json
 
-    since = datetime.utcnow() - timedelta(days=7)
+    since = utcnow() - timedelta(days=7)
     negatives = (
         await session.execute(
             select(Feedback)
@@ -581,7 +583,7 @@ async def suggest_rules_from_feedback(session: AsyncSession, tenant_id: UUID) ->
     from app.models.signal import Signal, SignalMessage
     from app.services.inbox_rules import PROMOTION_THRESHOLD, suggest_rule
 
-    since = datetime.utcnow() - timedelta(days=7)
+    since = utcnow() - timedelta(days=7)
     rows = (
         await session.execute(
             select(Feedback.subject_id)
@@ -649,8 +651,8 @@ async def suggest_rules_from_feedback(session: AsyncSession, tenant_id: UUID) ->
 
 
 async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[EvalScore]:
-    since = datetime.utcnow() - timedelta(days=7)
-    now = datetime.utcnow()
+    since = utcnow() - timedelta(days=7)
+    now = utcnow()
 
     auto_executed = (
         await session.execute(
@@ -744,6 +746,94 @@ async def compute_eval_scores(session: AsyncSession, tenant_id: UUID) -> list[Ev
     return created
 
 
+LABEL_SCORECARD = "label_scorecard"
+NO_LABEL = "none"
+
+
+async def compute_label_scorecards(session: AsyncSession, tenant_id: UUID, days: int = 7) -> list[EvalScore]:
+    """One scorecard per flow label from the ``outcome`` events of the window.
+
+    The flow label is the kind of work, so learning measures per label. Stored
+    as ``EvalScore(scope="label", metric="label_scorecard")``, one row per label
+    per day (the hourly cycle updates today's row). Work closed without a flow
+    label lands under ``scope_id="none"``; its share is the unmatched share.
+    ``value`` is the autonomous share in percent; ``details_json`` holds the card.
+    """
+    from statistics import median
+
+    from app.models.signal import SignalEvent
+
+    now = utcnow()
+    since = now - timedelta(days=days)
+    rows = (
+        await session.execute(
+            select(SignalEvent.payload_json).where(
+                SignalEvent.tenant_id == tenant_id,
+                SignalEvent.event_type == "outcome",
+                SignalEvent.created_at >= since,
+            )
+        )
+    ).scalars().all()
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for raw in rows:
+        try:
+            data = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            groups.setdefault(str(data.get("label_id") or NO_LABEL), []).append(data)
+    total = sum(len(items) for items in groups.values())
+
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    existing = {
+        row.scope_id: row
+        for row in (
+            await session.execute(
+                select(EvalScore).where(
+                    EvalScore.tenant_id == tenant_id,
+                    EvalScore.scope == "label",
+                    EvalScore.metric == LABEL_SCORECARD,
+                    EvalScore.created_at >= day_start,
+                )
+            )
+        ).scalars().all()
+    }
+    out: list[EvalScore] = []
+    for label_id, items in groups.items():
+        volume = len(items)
+        autonomy = {level: sum(1 for i in items if i.get("autonomy_used") == level) for level in ("autonomous", "assisted", "manual")}
+        kinds: dict[str, int] = {}
+        for item in items:
+            kind = str(item.get("kind") or "done")
+            kinds[kind] = kinds.get(kind, 0) + 1
+        durations = [int(i.get("duration_s") or 0) for i in items]
+        card = {
+            "flow_id": next((str(i["flow_id"]) for i in reversed(items) if i.get("flow_id")), None),
+            "volume": volume,
+            "autonomy": autonomy,
+            "autonomous_pct": round(autonomy["autonomous"] / volume * 100, 1),
+            "corrected_pct": round(sum(1 for i in items if i.get("corrections")) / volume * 100, 1),
+            "rejected_pct": round(sum(1 for i in items if i.get("rejected_decisions")) / volume * 100, 1),
+            "median_duration_s": int(median(durations)) if durations else 0,
+            "kinds": kinds,
+            "share_pct": round(volume / total * 100, 1) if total else 0.0,
+            "computed_at": now.isoformat() + "Z",
+        }
+        row = existing.get(label_id) or EvalScore(
+            tenant_id=tenant_id, scope="label", scope_id=label_id, metric=LABEL_SCORECARD
+        )
+        row.value = card["autonomous_pct"]
+        row.sample_size = volume
+        row.window_start = since
+        row.window_end = now
+        row.details_json = json.dumps(card)
+        session.add(row)
+        out.append(row)
+    if out:
+        await session.commit()
+    return out
+
+
 def serialize_eval(row: EvalScore) -> dict[str, Any]:
     return {
         "id": str(row.id),
@@ -801,9 +891,16 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
     rules_suggested = await suggest_rules_from_feedback(session, tenant_id)
     batch = await process_feedback_batch(session, tenant_id)
     evals = await compute_eval_scores(session, tenant_id)
+    scorecards = await compute_label_scorecards(session, tenant_id)
     guardrails = await apply_heuristic_guardrails(session, tenant_id)
     allowances = await apply_heuristic_allowance_tighten(session, tenant_id)
     persona_proposed = await propose_persona_review(session, tenant_id)
+    from app.services.flow_proposals import propose_from_scorecards, score_proposers
+
+    flow_proposals = await propose_from_scorecards(session, tenant_id)
+    proposer_scores = await score_proposers(session, tenant_id)
+    if proposer_scores:
+        await session.commit()
 
     enqueue_strategy = await _eval_trend_worsened(session, tenant_id, "escalation_rate")
     if await _eval_trend_worsened(session, tenant_id, "resolution_quality"):
@@ -849,9 +946,12 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
         "rules_suggested": rules_suggested,
         "feedback_batch": batch,
         "eval_count": len(evals),
+        "label_scorecards": len(scorecards),
         "guardrails": guardrails,
         "allowances": allowances,
         "persona_review_proposed": persona_proposed,
+        "flow_proposals": len(flow_proposals),
+        "proposer_scores": len(proposer_scores),
         "strategy_review_recommended": enqueue_strategy,
         "strategy_workstream_enqueued": workstream_enqueued,
     }

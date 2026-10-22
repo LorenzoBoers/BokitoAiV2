@@ -18,6 +18,7 @@ import {
   connectionCountForProvider,
   listIntegrationProviders,
   patchIntegrationModule,
+  type ModuleInstallOptions,
   type IntegrationModuleRow,
   type IntegrationProviderRow,
   type ProvidersListResponse,
@@ -202,8 +203,8 @@ export function useIntegrationCatalog() {
   )
 
   const runModuleAction = useCallback(
-    async (slug: string, action: 'install' | 'complete_setup' | 'uninstall') => {
-      const row = await patchIntegrationModule(slug, { action })
+    async (slug: string, action: 'install' | 'complete_setup' | 'uninstall', options?: ModuleInstallOptions) => {
+      const row = await patchIntegrationModule(slug, { action, ...(options ?? {}) })
       setModules((current) => current.map((module) => (module.slug === slug ? { ...module, ...row } : module)))
       await refreshCatalog()
       return row

@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import math
 import re
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -24,6 +24,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.workspace import (
     DOC_KINDS,
     DOC_SECTION_STATUSES,
@@ -31,6 +32,8 @@ from app.models.workspace import (
     DocSection,
     WorkspaceDoc,
 )
+
+logger = logging.getLogger(__name__)
 
 CHUNK_TARGET_CHARS = 1500
 # Knowledge skill: one topic per section, roughly 150-400 words. Agents get a
@@ -232,7 +235,7 @@ async def sync_sections_from_content(
         await session.execute(select(DocSection).where(DocSection.doc_id == doc.id))
     ).scalars().all()
     by_anchor = {section.anchor: section for section in existing}
-    now = datetime.utcnow()
+    now = utcnow()
 
     seen: set[str] = set()
     out: list[DocSection] = []
@@ -716,12 +719,12 @@ async def upsert_doc(
             doc.agent_id = agent_id
         if internal is not None:
             doc.internal = internal
-        doc.updated_at = datetime.utcnow()
+        doc.updated_at = utcnow()
     else:
         inferred_kind = kind or ("project_doc" if project_id else _infer_kind(norm))
         # Keep created_at == updated_at on first write so "explicitly saved
         # after bootstrap" checks (e.g. onboarding) compare cleanly.
-        now = datetime.utcnow()
+        now = utcnow()
         doc = WorkspaceDoc(
             tenant_id=tenant_id,
             project_id=project_id,
@@ -781,7 +784,7 @@ async def upsert_section(
             )
         )
     ).scalar_one_or_none()
-    now = datetime.utcnow()
+    now = utcnow()
     if existing and mode == "append" and existing.content.strip():
         content = f"{existing.content.rstrip()}\n\n{content}"
     if enforce_limit:
@@ -856,7 +859,7 @@ async def update_section(
     doc = await get_doc(session, tenant_id, section.doc_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Doc not found")
-    now = datetime.utcnow()
+    now = utcnow()
     content_changed = False
     if heading is not None and heading != section.heading:
         section.heading = heading.strip()
@@ -922,7 +925,7 @@ async def delete_section(
     if doc is not None:
         sections = await list_sections(session, tenant_id, doc.id)
         doc.content = render_doc_content(sections)
-        doc.updated_at = datetime.utcnow()
+        doc.updated_at = utcnow()
         session.add(doc)
     if commit:
         await session.commit()
@@ -946,7 +949,7 @@ async def set_section_status(
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
     previous = section.status
-    now = datetime.utcnow()
+    now = utcnow()
     section.status = status
     section.status_changed_at = now
     section.status_changed_by_type = actor_type
@@ -1119,7 +1122,7 @@ async def build_workspace_context(
         if rendered:
             parts.append("## Approved examples\n" + "\n\n".join(rendered))
     except Exception:
-        pass
+        logger.debug("approved examples prompt section failed", exc_info=True)
     try:
         from app.models.learning import Feedback
 
@@ -1158,7 +1161,7 @@ async def build_workspace_context(
                 + "\n\n".join(chunks)
             )
     except Exception:
-        pass
+        logger.debug("recent corrections prompt section failed", exc_info=True)
     try:
         from app.modules.catalog import active_module_skill_prompt
 
@@ -1167,7 +1170,7 @@ async def build_workspace_context(
             parts.append(module_skills)
     except Exception:
         # Module skills must never break prompt assembly.
-        pass
+        logger.debug("module skills prompt section failed", exc_info=True)
     try:
         from app.services.tenant_introspection import build_tenant_snapshot_prompt
 
@@ -1176,5 +1179,5 @@ async def build_workspace_context(
             parts.append(snapshot)
     except Exception:
         # Never break chat if snapshot queries fail.
-        pass
+        logger.debug("tenant snapshot prompt section failed", exc_info=True)
     return "\n\n".join(parts)

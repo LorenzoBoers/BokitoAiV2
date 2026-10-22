@@ -6,7 +6,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 
-from jose import jwt
+import jwt
 from starlette.testclient import TestClient
 
 from app.config import get_settings
@@ -313,7 +313,10 @@ async def test_set_read_publishes_thread_update(client, session_override, monkey
     async def fake_publish(signal, **_kwargs):
         calls.append(str(signal.id))
 
-    monkeypatch.setattr(svc, "publish_thread_update", fake_publish)
+    monkeypatch.setattr(
+        "app.services.signal_threads.mutations.publish_thread_update",
+        fake_publish,
+    )
 
     tenant = (await session_override.execute(select(Tenant))).scalars().first()
     user = (await session_override.execute(select(User))).scalars().first()

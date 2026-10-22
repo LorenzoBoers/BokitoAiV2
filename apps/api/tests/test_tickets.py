@@ -71,7 +71,7 @@ async def _category(
     stages: list[dict] | None = None,
     **config,
 ) -> dict:
-    created = await client.post("/api/categories", headers=headers, json={"name": name})
+    created = await client.post("/api/labels", headers=headers, json={"name": name})
     assert created.status_code == 200, created.text
     body = created.json()
     ws_id = body["workstream_id"]
@@ -86,7 +86,7 @@ async def _category(
         res = await client.patch(f"/api/flows/{ws_id}", headers=headers, json=patch)
         assert res.status_code == 200, res.text
     if config:
-        res = await client.patch(f"/api/categories/{body['id']}", headers=headers, json=config)
+        res = await client.patch(f"/api/labels/{body['id']}", headers=headers, json=config)
         assert res.status_code == 200, res.text
         body = res.json()
     return body
@@ -101,7 +101,7 @@ async def test_seeds_are_free_tags_and_promote_makes_a_category(client: AsyncCli
     names = {row["name"]: row for row in tags}
     assert {"factuur", "klacht", "storing", "functieverzoek", "spam"} <= set(names)
     assert names["klacht"]["is_category"] is False
-    assert (await client.get("/api/categories", headers=headers)).json()["items"] == []
+    assert (await client.get("/api/labels", headers=headers)).json()["items"] == []
 
     promoted = await client.post(
         f"/api/signals/tags/{names['klacht']['id']}/promote", headers=headers, json={}
@@ -109,7 +109,7 @@ async def test_seeds_are_free_tags_and_promote_makes_a_category(client: AsyncCli
     assert promoted.status_code == 200, promoted.text
     assert promoted.json()["is_category"] is True
     assert promoted.json()["show_in_nav"] is True
-    categories = (await client.get("/api/categories", headers=headers)).json()["items"]
+    categories = (await client.get("/api/labels", headers=headers)).json()["items"]
     assert [row["name"] for row in categories] == ["klacht"]
 
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
@@ -118,7 +118,7 @@ async def test_seeds_are_free_tags_and_promote_makes_a_category(client: AsyncCli
     assert promoted.json()["icon"]
 
     detached = await client.patch(
-        f"/api/categories/{names['klacht']['id']}",
+        f"/api/labels/{names['klacht']['id']}",
         headers=headers,
         json={"workstream_id": None},
     )
@@ -411,10 +411,10 @@ async def test_agent_category_change_is_a_platform_change(client: AsyncClient, s
 async def test_signal_policy_and_backlog_promotion(client: AsyncClient, session_override):
     headers = await _login(client)
     tenant = await _tenant(session_override)
-    default = await client.get("/api/categories/policy", headers=headers)
+    default = await client.get("/api/labels/policy", headers=headers)
     assert default.json()["accept_roles"] == "admins"
     saved = await client.put(
-        "/api/categories/policy", headers=headers, json={"accept_roles": "members", "backlog_threshold": 2}
+        "/api/labels/policy", headers=headers, json={"accept_roles": "members", "backlog_threshold": 2}
     )
     assert saved.json()["accept_roles"] == "members"
 
@@ -428,13 +428,13 @@ async def test_signal_policy_and_backlog_promotion(client: AsyncClient, session_
             sentence="A customer claims warranty on a delivered product.",
             example="My heat pump broke after two months.",
         )
-    entry = (await client.get("/api/categories/backlog", headers=headers)).json()["items"][0]
+    entry = (await client.get("/api/labels/backlog", headers=headers)).json()["items"][0]
     assert entry["count"] == 2
-    promoted = await client.post(f"/api/categories/backlog/{entry['key']}/promote", headers=headers, json={})
+    promoted = await client.post(f"/api/labels/backlog/{entry['key']}/promote", headers=headers, json={})
     assert promoted.status_code == 200, promoted.text
     assert promoted.json()["name"] == "warranty_claim"
     assert promoted.json()["workstream_id"]
-    assert (await client.get("/api/categories/backlog", headers=headers)).json()["items"] == []
+    assert (await client.get("/api/labels/backlog", headers=headers)).json()["items"] == []
 
 
 @pytest.mark.asyncio
@@ -511,7 +511,7 @@ async def test_detaching_the_playbook_unfiles_tickets(client: AsyncClient, sessi
     bug = await _category(client, headers, "storing")
     signal = await _signal(session_override, tenant.id)
     await client.put(f"/api/signals/{signal.id}/ticket", headers=headers, json={"tag_id": bug["id"]})
-    res = await client.patch(f"/api/categories/{bug['id']}", headers=headers, json={"workstream_id": None})
+    res = await client.patch(f"/api/labels/{bug['id']}", headers=headers, json={"workstream_id": None})
     assert res.status_code == 200, res.text
     tag = await session_override.get(SignalTag, UUID(bug["id"]))
     await session_override.refresh(tag)
@@ -555,7 +555,7 @@ async def test_action_tag_can_be_a_folder(client: AsyncClient, session_override)
     signal = await _signal(session_override, tenant.id, subject="Pump")
     filed = await client.put(f"/api/signals/{signal.id}/ticket", headers=headers, json={"tag_id": repair["id"]})
     assert filed.json()["ticket"]["project_id"] == folder["id"]
-    row = (await client.get("/api/categories", headers=headers)).json()["items"][0]
+    row = (await client.get("/api/labels", headers=headers)).json()["items"][0]
     assert [f["id"] for f in row["folders"]] == [folder["id"]]
     # Folder collects the tickets; the flow tag stays under Flows as well.
     nav = (await client.get("/api/signals/nav", headers=headers)).json()
@@ -585,7 +585,7 @@ async def test_category_list_carries_folders_and_counts(client: AsyncClient, ses
         session_override, tenant.id, signal_id=proposed.id, tag_id=UUID(repair["id"]), certainty=2, actor="agent"
     )
 
-    row = (await client.get("/api/categories", headers=headers)).json()["items"][0]
+    row = (await client.get("/api/labels", headers=headers)).json()["items"][0]
     assert row["folders"] == []
     assert (row["open"], row["waiting"], row["proposed"]) == (2, 0, 1)
     assert row["filed_7d"] == 2
@@ -635,4 +635,40 @@ async def test_stage_move_requires_target_fields(client: AsyncClient, session_ov
     assert moved.status_code == 200, moved.text
     assert moved.json()["ticket"]["status"] == "done"
     assert moved.json()["ticket"]["fields"]["eindoordeel"] == "Opgelost"
+
+
+@pytest.mark.asyncio
+async def test_approved_file_ticket_decision_runs_the_tool_once(client: AsyncClient, session_override):
+    import json as _json
+
+    from app.models.auth import User
+    from app.services.notifications import resolve_decision
+
+    headers = await _login(client)
+    tenant = await _tenant(session_override)
+    category = await _category(client, headers, "retour")
+    signal = await _signal(session_override, tenant.id, subject="Retour")
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    decision = DecisionRequest(
+        tenant_id=tenant.id,
+        signal_id=signal.id,
+        title="File as #retour",
+        summary="File as #retour",
+        options_json=_json.dumps(
+            [{"id": "yes", "action_type": "file_ticket", "payload": {"tag_id": category["id"]}}]
+        ),
+    )
+    session_override.add(decision)
+    await session_override.commit()
+
+    await resolve_decision(session_override, tenant.id, decision.id, "yes", "approved", user_id=user.id)
+    await session_override.commit()
+    await session_override.refresh(signal)
+    assert str(signal.ticket_tag_id) == category["id"]
+    filed = (
+        await session_override.execute(
+            select(SignalEvent).where(SignalEvent.signal_id == signal.id, SignalEvent.event_type == "category_set")
+        )
+    ).scalars().all()
+    assert len(filed) == 1
 

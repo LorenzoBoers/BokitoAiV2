@@ -7,6 +7,7 @@ import {
   saveInboxFolderPrefs,
   type InboxFolderPrefs,
 } from '../lib/inbox-folder-prefs'
+import { onPreferencesClear } from '../lib/preferences'
 import type { HubLeaf, SubQueue } from '../lib/messages-paths'
 
 // Session cache so the sidebar does not refetch on every remount.
@@ -73,3 +74,5 @@ export function useInboxFolderPrefs() {
 export function clearInboxFolderPrefsCache(): void {
   cached = null
 }
+
+onPreferencesClear(clearInboxFolderPrefsCache)

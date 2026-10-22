@@ -633,8 +633,8 @@ export default function ConnectionsHub() {
         applications={
           moduleShowcase ? applicationsForModule(applications, moduleShowcase) : []
         }
-        onAction={async (slug, action) => {
-          await runModuleAction(slug, action)
+        onAction={async (slug, action, options) => {
+          await runModuleAction(slug, action, options)
           await refreshCatalog()
         }}
       />

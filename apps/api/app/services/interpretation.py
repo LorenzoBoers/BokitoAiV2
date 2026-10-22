@@ -22,6 +22,21 @@ from app.services.signals import apply_triage
 logger = logging.getLogger(__name__)
 
 
+async def _flow_waits(session: AsyncSession, signal: Any) -> bool:
+    """Whether the conversation's flow has a waiting stage (work that leaves the thread)."""
+    from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
+    from app.services.tickets import is_direct, workstream_stages
+
+    if not signal.ticket_tag_id:
+        return False
+    tag = await session.get(SignalTag, signal.ticket_tag_id)
+    if tag is None or tag.workstream_id is None:
+        return False
+    ws = await session.get(Workstream, tag.workstream_id)
+    return ws is not None and ws.deleted_at is None and not is_direct(workstream_stages(ws))
+
+
 async def _file_from_triage(
     session: AsyncSession,
     tenant_id: UUID,
@@ -171,6 +186,7 @@ async def _record_unknown_signal(
     raw: object,
     *,
     fallback_quote: str = "",
+    agent_id: UUID | None = None,
 ) -> None:
     """Count one sighting of a pattern no hashtag covers (never creates one)."""
     if not isinstance(raw, dict):
@@ -189,6 +205,7 @@ async def _record_unknown_signal(
             name=strip_emoji(name),
             sentence=strip_emoji(str(raw.get("sentence") or "")),
             example=strip_emoji(quote),
+            agent_id=agent_id,
         )
     except Exception:  # noqa: BLE001 — the backlog must never fail ingest
         logger.warning("backlog record failed for %s", name, exc_info=True)
@@ -201,11 +218,9 @@ async def apply_thread_read(
     *,
     summary: str,
     certainty: int = 50,
-    category: str = "other",
     urgency: int = 50,
     impact: int = 40,
     priority: str = "normal",
-    intent: Optional[str] = None,
     sentiment: Optional[str] = None,
     ticket_category: str = "",
     tags: Optional[list[str]] = None,
@@ -232,25 +247,12 @@ async def apply_thread_read(
     if priority not in ("normal", "high", "urgent"):
         priority = "normal"
 
-    if intent not in (
-        "question",
-        "implementation_request",
-        "bug_report",
-        "feedback",
-        "complaint",
-        "other",
-    ):
-        intent = None
     if sentiment not in ("positive", "neutral", "negative"):
         sentiment = None
 
     summary = strip_emoji(str(summary or ""))[:500]
     if not summary:
         summary = "Inbound message"
-
-    category = str(category or "other")
-    if category not in ("support", "sales", "billing", "other"):
-        category = "other"
 
     all_tags = await registry_rows(session, tenant_id)
     categories = [row for row in all_tags if row.workstream_id is not None]
@@ -301,20 +303,18 @@ async def apply_thread_read(
         )
     elif not suggested_tags:
         await _record_unknown_signal(
-            session, tenant_id, unknown_signal, fallback_quote=body_quote
+            session, tenant_id, unknown_signal, fallback_quote=body_quote, agent_id=agent_id
         )
 
     signal = await apply_triage(
         session,
         tenant_id,
         signal_id,
-        category=category,
         urgency=int(urgency),
         impact=int(impact),
         summary=summary,
         certainty=certainty,
         priority=priority,
-        intent=intent,
         sentiment=sentiment,
         agent_id=agent_id,
         agent_name=agent_name,
@@ -323,7 +323,7 @@ async def apply_thread_read(
         extra_payload={"run_id": str(run_id)} if run_id else None,
     )
 
-    if signal.project_id and intent in ("implementation_request", "bug_report"):
+    if signal.project_id and await _flow_waits(session, signal):
         try:
             chips = json.loads(signal.suggested_actions_json or "[]")
         except json.JSONDecodeError:
@@ -352,7 +352,6 @@ async def triage_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID)
         signal_id,
         summary=(ctx.get("subject") or "Inbound signal")[:500],
         certainty=50,
-        category="other",
         urgency=50,
         impact=40,
         priority="normal",

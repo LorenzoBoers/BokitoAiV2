@@ -8,6 +8,8 @@ project-scoped `search_repo` agent tool retrieve real repository content.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import base64
 import json
 from datetime import datetime
@@ -156,7 +158,7 @@ async def index_project_repo(
 
     repo.sync_status = "indexing"
     repo.sync_error = None
-    repo.updated_at = datetime.utcnow()
+    repo.updated_at = utcnow()
     session.add(repo)
     await session.commit()
 
@@ -208,10 +210,10 @@ async def index_project_repo(
             await session.execute(delete(DocChunk).where(DocChunk.id.in_(stale_ids)))
 
         repo.sync_status = "ready"
-        repo.synced_at = datetime.utcnow()
+        repo.synced_at = utcnow()
         repo.sync_ref = head_sha
         repo.sync_error = None
-        repo.updated_at = datetime.utcnow()
+        repo.updated_at = utcnow()
         session.add(repo)
         await session.commit()
         return {
@@ -224,7 +226,7 @@ async def index_project_repo(
         await session.rollback()
         repo.sync_status = "error"
         repo.sync_error = str(exc)[:500]
-        repo.updated_at = datetime.utcnow()
+        repo.updated_at = utcnow()
         session.add(repo)
         await session.commit()
         return {"indexed": 0, "error": str(exc)[:500]}

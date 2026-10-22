@@ -92,7 +92,9 @@ export default defineConfig(({ mode }) => {
               }
               return undefined
             }
-            if (/[\\/]src[\\/]locales[\\/]/.test(id)) return 'locales'
+            // One chunk per language, loaded on demand by src/i18n.
+            const locale = /[\\/]src[\\/]locales[\\/]([a-z]{2})[\\/]/.exec(id)
+            if (locale) return `locales-${locale[1]}`
             return undefined
           },
         },

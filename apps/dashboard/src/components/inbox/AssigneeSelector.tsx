@@ -135,7 +135,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
       name={currentMember.name}
       email={currentMember.email}
       avatarUrl={currentMember.avatarUrl}
-      size={18}
+      size={20}
       presence={currentMember.presence}
       decorative
     />
@@ -145,7 +145,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
         ...currentTeam,
         name: currentTeam.system ? tn(`teamPage.system.${currentTeam.kind}`) : currentTeam.name,
       })}
-      size={18}
+      size={20}
       decorative
       presence={currentTeam.presence?.status}
     />
@@ -153,7 +153,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
     <AgentMark
       agent={currentAgent}
       fallbackName={owner.agentId}
-      size={18}
+      size={20}
       decorative
       mode="static"
       activity={currentAgentActivity}
@@ -225,7 +225,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => void onAssign({ kind: 'user', id: p.id })}
                   className={cn('gap-2 text-xs', currentAssigneeId === p.id && 'bg-bg-hover/80')}
                 >
-                  <UserAvatar name={p.name} email={p.email} avatarUrl={p.avatarUrl} size={18} presence={p.presence} />
+                  <UserAvatar name={p.name} email={p.email} avatarUrl={p.avatarUrl} size={20} presence={p.presence} />
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
                   {!p.canHandle ? <span className="shrink-0 text-2xs text-text-muted">{blocked}</span> : null}
                 </DropdownMenuItem>
@@ -272,7 +272,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                       avatar_color: team.avatarColor,
                       avatar_image_url: team.avatarImageUrl,
                     }}
-                    size={18}
+                    size={20}
                     linkAgents={false}
                     presence={team.presence}
                   />
@@ -287,7 +287,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                 onSelect={() => void onAssign({ kind: 'user', id: m.id })}
                 className={cn('gap-2 text-xs', currentAssigneeId === m.id && 'bg-bg-hover/80')}
               >
-                <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={18} presence={m.presence} />
+                <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={20} presence={m.presence} />
                 {m.name}
               </DropdownMenuItem>
             ))

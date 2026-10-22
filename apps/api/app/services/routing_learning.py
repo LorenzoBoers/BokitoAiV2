@@ -1,6 +1,7 @@
 """Learned routing: questions on a topic go to the person who answers them.
 
-The topic of a decision is its conversation's intent, else its category.
+The topic of a decision is its conversation's flow label (``ticket_tag_id``):
+the subject lives in labels, the same for every business.
 When one person answered at least ``MIN_ANSWERS`` decisions on a topic in the
 last ``WINDOW`` and holds ``MIN_SHARE`` of them, the system proposes a Govern
 change "Questions about invoices go to Lisa". Accepted, it becomes a routing
@@ -22,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.auth import Tenant, User
 from app.models.notification import DecisionRequest
 from app.models.platform_change import PlatformChange
-from app.models.signal import Signal
+from app.models.signal import Signal, SignalTag
 
 MIN_ANSWERS = 5
 MIN_SHARE = 0.8
@@ -32,7 +33,7 @@ WINDOW = timedelta(days=60)
 def topic_of(signal: Signal | None) -> str:
     if signal is None:
         return ""
-    return str(signal.intent or signal.category or "").strip().lower()[:80]
+    return str(signal.ticket_tag_id) if signal.ticket_tag_id else ""
 
 
 def routing_rules(tenant: Tenant | None) -> list[dict[str, Any]]:
@@ -97,7 +98,6 @@ async def learn_from_answer(session: AsyncSession, decision: DecisionRequest) ->
     if current and current.get("user_id") == str(decision.resolved_by_user_id):
         return None
     since = datetime.utcnow() - WINDOW
-    topic_expr = func.lower(func.coalesce(func.nullif(Signal.intent, ""), Signal.category))
     rows = (
         await session.execute(
             select(DecisionRequest.resolved_by_user_id, func.count())
@@ -106,7 +106,7 @@ async def learn_from_answer(session: AsyncSession, decision: DecisionRequest) ->
                 DecisionRequest.tenant_id == decision.tenant_id,
                 DecisionRequest.resolved_by_user_id.is_not(None),
                 DecisionRequest.resolved_at >= since,
-                topic_expr == topic,
+                Signal.ticket_tag_id == signal.ticket_tag_id,
             )
             .group_by(DecisionRequest.resolved_by_user_id)
         )
@@ -121,6 +121,8 @@ async def learn_from_answer(session: AsyncSession, decision: DecisionRequest) ->
         return None
     person = await session.get(User, leader)
     name = (person.display_name or person.email) if person else "this person"
+    label = await session.get(SignalTag, signal.ticket_tag_id)
+    label_name = f"#{label.name}" if label else "this label"
 
     from app.services.platform_changes import propose_platform_change
 
@@ -131,13 +133,14 @@ async def learn_from_answer(session: AsyncSession, decision: DecisionRequest) ->
         change_kind="create",
         after={
             "topic": topic,
+            "topic_label": label_name,
             "user_id": str(leader),
             "user_name": name,
             "answers": int(answers),
             "total": total,
         },
         before={"rule": current} if current else None,
-        summary=f"Questions about {topic} go to {name} ({int(answers)} of {total} answered)"[:240],
+        summary=f"Questions about {label_name} go to {name} ({int(answers)} of {total} answered)"[:240],
         mode="ask",
     )
     return {"change_id": str(change.id), "status": change.status, **outcome}

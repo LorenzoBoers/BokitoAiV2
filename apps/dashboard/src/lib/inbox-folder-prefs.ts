@@ -17,8 +17,7 @@
  * key without the queue segment.
  */
 
-import { appRoutes } from '../api/routes'
-import { APP_API_BASE } from './api.config'
+import { loadPreferences, setPref } from './preferences'
 import { INBOX_WORK_QUEUES, isSubQueue, type HubLeaf, type SubQueue } from './messages-paths'
 
 export type InboxFolderPrefs = {
@@ -77,29 +76,17 @@ export function parseInboxFolderPrefs(raw: unknown): InboxFolderPrefs {
 }
 
 export async function fetchInboxFolderPrefs(token: string): Promise<InboxFolderPrefs> {
-  const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-    headers: { Authorization: `Bearer ${token}` },
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const data = (await res.json()) as { inbox_folders?: unknown }
+  const data = await loadPreferences(token)
   return parseInboxFolderPrefs(data.inbox_folders)
 }
 
 export async function saveInboxFolderPrefs(token: string, prefs: InboxFolderPrefs): Promise<void> {
-  const res = await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
+  await setPref(
+    'inbox_folders',
+    {
+      default_queue: prefs.defaultQueue,
+      channel_defaults: prefs.channelDefaults,
     },
-    credentials: 'include',
-    body: JSON.stringify({
-      inbox_folders: {
-        default_queue: prefs.defaultQueue,
-        channel_defaults: prefs.channelDefaults,
-      },
-    }),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    token,
+  )
 }

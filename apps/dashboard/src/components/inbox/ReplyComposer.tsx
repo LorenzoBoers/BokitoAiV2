@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Plus,
   Phone,
-  PhoneOff,
   Quote,
   Send,
   Square,
@@ -165,8 +164,6 @@ type Props = {
   latestInboundMessageId?: string | null
   /** Whether a suggestion card is still open; undefined when the card is not loaded. */
   isProposalOpen?: (decisionMessageId: string) => boolean | undefined
-  /** Opens "Already handled outside Bokito" (send menu, customer threads only). */
-  onHandledExternally?: () => void
   /**
    * Email reply with text already in the small composer: focusing that text
    * opens the mail client with the same body. Notes and Ask stay here.
@@ -245,7 +242,6 @@ export default function ReplyComposer({
   proposal = null,
   latestInboundMessageId = null,
   isProposalOpen,
-  onHandledExternally,
   onPromoteEmailEdit,
   routingPolicy = null,
   handbackChoice = false,
@@ -752,7 +748,7 @@ export default function ReplyComposer({
   const tagged = useMemo(() => mentionedTargets(body), [body])
   const chipNames = useMemo(() => tagged.map((target) => target.name), [tagged])
   const tagFaces = useMemo<AvatarStackMember[]>(() => {
-    return tagged.flatMap((tag) => {
+    return tagged.flatMap((tag): AvatarStackMember[] => {
       const item = mentionItems.find((row) => row.type === tag.type && row.id === tag.id)
       const name = item?.name || tag.name
       if (tag.type === 'agent') {
@@ -907,6 +903,9 @@ export default function ReplyComposer({
         // Clear immediately so Enter cannot triple-submit the same body.
         clearDraft()
         setAttachments([])
+        // Focus before the reply starts. Waiting until the stream ends left
+        // the caret on the send button, so the next keys hit list shortcuts.
+        textareaRef.current?.focus()
         let sent: boolean | void = false
         try {
           sent = await onAgentMessage(text, payload)
@@ -916,7 +915,7 @@ export default function ReplyComposer({
             if (payload?.length) setAttachments(payload)
           }
         }
-        requestAnimationFrame(() => textareaRef.current?.focus())
+        textareaRef.current?.focus()
         return
       } else if (isNote) {
         await onNote(text, payload)
@@ -1370,7 +1369,7 @@ export default function ReplyComposer({
           ref={textareaRef}
           id="inbox-reply-composer"
           mode={isNote || isAsk ? 'note' : surface.channel === 'email' ? 'email' : 'chat'}
-              tone={isAsk ? 'ai' : isNote ? 'note' : 'default'}
+              tone={isNote ? 'note' : 'default'}
           value={composerValue}
           readOnly={dictation.listening}
           onChange={(e) => {
@@ -1515,7 +1514,7 @@ export default function ReplyComposer({
             <div
               className={cn(
                 'flex h-8 items-stretch overflow-hidden rounded-lg border',
-                isAsk ? 'border-ai' : isReply ? 'border-border' : 'border-text-muted',
+                isReply || isAsk ? 'border-border' : 'border-text-muted',
               )}
             >
             <button
@@ -1538,11 +1537,9 @@ export default function ReplyComposer({
               }
               className={cn(
                 'flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40',
-                isAsk
-                  ? 'bg-ai text-ai-fg hover:opacity-90'
-                  : isReply
-                      ? 'bg-accent text-accent-fg hover:bg-accent-hover'
-                      : 'bg-bg-elevated text-text-primary hover:bg-bg-hover',
+                isAsk || isReply
+                  ? 'bg-accent text-accent-fg hover:bg-accent-hover'
+                  : 'bg-bg-elevated text-text-primary hover:bg-bg-hover',
               )}
             >
               {isNote ? (
@@ -1561,9 +1558,7 @@ export default function ReplyComposer({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
-                    disabled={
-                      (!canSend && !onHandledExternally) || busy || disabled || uploading
-                    }
+                    disabled={!canSend || busy || disabled || uploading}
                     title={t('composer.sendMore')}
                     aria-label={t('composer.sendMore')}
                     className="flex h-8 w-6 items-center justify-center border-l border-accent-fg/20 bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
@@ -1613,19 +1608,6 @@ export default function ReplyComposer({
                       {t('composer.sendAndClose')}
                     </DropdownMenuItem>
                   )}
-                  {onHandledExternally ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="gap-1.5"
-                        onClick={onHandledExternally}
-                        data-testid="composer-handled-externally"
-                      >
-                        <PhoneOff size={13} />
-                        {t('composer.handledExternally')}
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}

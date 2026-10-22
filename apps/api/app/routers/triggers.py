@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.middleware.rate_limit import rate_limit
-from app.models.trigger import TRIGGER_KINDS, Trigger
+from app.models.trigger import ROUTINE_PURPOSES, TRIGGER_KINDS, Trigger
 from app.services import triggers as svc
 
 router = APIRouter(tags=["triggers"])
@@ -154,7 +154,7 @@ async def list_triggers(
         Trigger.tenant_id == auth.tenant.id,
         Trigger.deleted_at.is_(None),
         # Stage check-ups belong to their ticket; the routines list stays readable.
-        Trigger.purpose == "",
+        Trigger.purpose.in_(ROUTINE_PURPOSES),
     )
     if kind:
         stmt = stmt.where(Trigger.kind == kind)

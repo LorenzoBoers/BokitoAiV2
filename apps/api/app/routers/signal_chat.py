@@ -17,6 +17,7 @@ AI handling (take over / hand back) uses PUT /ai-handling/conversation/{id}.
 import asyncio
 import json
 import logging
+from app.core.time import utcnow
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 from uuid import UUID
@@ -147,6 +148,8 @@ class ConversationCreate(BaseModel):
     agent_id: UUID | None = None
     # Ask-assistant: ground the conversation in this customer thread.
     context_signal_id: UUID | None = None
+    # File the new chat into this folder (Canvas tab "Add").
+    folder_id: UUID | None = None
     # Opener from "New conversation": persisted with the thread so a lost
     # client-side auto-send cannot leave an empty "Untitled chat".
     message: str = ""
@@ -167,6 +170,9 @@ class MessageCreate(BaseModel):
     # After create-with-message: run the agent on the last user bubble without
     # appending a duplicate. content may be empty; the last user message is used.
     continue_pending: bool = False
+    # Workspace setup only: the agent speaks first. The kickoff is model input
+    # and is not stored as a user message.
+    speak_first: bool = False
 
 
 async def _resolve_turn_content(
@@ -181,7 +187,22 @@ async def _resolve_turn_content(
     ``continue_pending`` skips appending so New conversation / Correction can
     create the thread with the opener already stored, then kick the agent
     without duplicating the user message when client-side auto-send is flaky.
+    ``speak_first`` is only the onboarding setup thread: no stored user line.
     """
+    if body.speak_first:
+        if (signal.source or "") != "onboarding" or (signal.channel or "") != "assistant":
+            raise HTTPException(status_code=400, detail="speak_first is only for workspace setup")
+        existing = (
+            await session.execute(
+                select(SignalMessage.id).where(SignalMessage.signal_id == signal.id).limit(1)
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            raise HTTPException(status_code=400, detail="Setup already started")
+        from app.services.onboarding_setup import SETUP_KICKOFF
+
+        return SETUP_KICKOFF, []
+
     if body.continue_pending:
         last = (
             await session.execute(
@@ -338,6 +359,20 @@ async def create_conversation(
     set_owner(signal, "user", auth.user.id, by_user_id=auth.user.id)
     session.add(signal)
     await session.flush()
+    if body.folder_id is not None:
+        from app.services.folders import file_in_folder
+
+        try:
+            await file_in_folder(
+                session,
+                signal,
+                body.folder_id,
+                user_id=auth.user.id,
+                actor_type="user",
+                actor_id=str(auth.user.id),
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="Folder not found") from exc
     has_opener = bool(opener or attachments)
     if has_opener:
         await append_signal_chat_message(
@@ -372,7 +407,7 @@ async def update_conversation(
 ):
     signal = await _get_thread(session, conversation_id, auth.tenant.id)
     signal.subject = body.title
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     await session.commit()
     return {"id": str(signal.id), "title": signal.subject}
 
@@ -506,7 +541,6 @@ async def send_message(
         tool_signal_id=signal.context_signal_id,
         run=run,
         surface="operator_chat",
-        enable_chat_thinking=True,
         user_role=auth.role,
     )
     llm_meta = await _llm_meta_for_agent(session, auth.tenant.id, agent)
@@ -658,11 +692,25 @@ async def _persist_failed_chat_turn(
         logger.debug("clear floor after failed chat turn failed", exc_info=True)
 
     sealed = False
-    had_partial_work = (
-        loop is not None
-        and loop.turn is not None
-        and bool(getattr(loop.turn, "all_activity", lambda: [])())
-    )
+    recovering = False
+    if not abandoned and agent is not None and error is not None:
+        from app.services.agent_turns import _queue_recovery
+        from app.services.run_errors import failure_brief
+
+        recovering = await _queue_recovery(session, signal, agent, failure_brief(error))
+    if recovering:
+        # The recovery turn speaks. The canned English line is not the reply.
+        if loop is not None and loop.turn is not None:
+            try:
+                await loop.turn.finish("error")
+            except Exception:  # noqa: BLE001
+                logger.debug("closing the live turn after a chat failure failed", exc_info=True)
+        if loop is not None:
+            await loop.end_inline_turn("error")
+        await session.commit()
+        if run:
+            clear_cancel(run.id)
+        return
     if loop is not None and loop.turn is not None:
         try:
             await loop.turn.finish("error")
@@ -701,37 +749,6 @@ async def _persist_failed_chat_turn(
     await session.commit()
     if run:
         clear_cancel(run.id)
-
-    # Partial tool work crashed: wake the same agent so they can tell the human
-    # and continue (canvas/folder builds must not die silently after a hard refresh).
-    if (
-        not abandoned
-        and agent is not None
-        and had_partial_work
-        and error_text
-    ):
-        try:
-            from app.services.agent_turns import enqueue_turn
-
-            await enqueue_turn(
-                session,
-                signal,
-                agent_id=agent.id,
-                cause_kind="system",
-                prompt=(
-                    "Your previous turn failed before you finished "
-                    f"(error for the human: {error_text[:280]}). "
-                    "Tell the human in one short sentence that something went wrong, "
-                    "then continue the unfinished work if you can "
-                    "(for example finish update_folder_canvas). "
-                    "Do not pass. Do not say you are still waiting."
-                ),
-                requested_by_kind="system",
-                idempotency_key=f"recover:{run.id}" if run else None,
-            )
-            await session.commit()
-        except Exception:  # noqa: BLE001
-            logger.debug("wake agent after failed chat turn failed", exc_info=True)
 
 
 async def _drive_operator_chat_turn(
@@ -773,7 +790,6 @@ async def _drive_operator_chat_turn(
                 tool_signal_id=context_signal_id,
                 run=run,
                 surface="operator_chat",
-                enable_chat_thinking=True,
                 user_role=user_role,
             )
             loaded_history = history
@@ -788,6 +804,10 @@ async def _drive_operator_chat_turn(
                 except Exception:
                     logger.exception("chat history load failed for %s", signal_id)
                     loaded_history = [{"role": "user", "content": turn_content}]
+            if not loaded_history and (turn_content or "").strip():
+                # Empty transcript (setup speak-first). The kickoff is this
+                # turn's model input and is not a stored user message.
+                loaded_history = [{"role": "user", "content": turn_content}]
             try:
                 async with asyncio.timeout(_OPERATOR_CHAT_DRIVE_TIMEOUT_S):
                     async for event in loop.stream_chat(
@@ -874,7 +894,7 @@ async def _drive_operator_chat_turn(
                 try:
                     await session.rollback()
                 except Exception:
-                    pass
+                    logger.debug("rollback after assistant stream failure failed", exc_info=True)
                 # Keep ``loop`` so the open checkpoint is replaced (not left as a
                 # stuck “Update folder canvas” under a second error bubble).
                 try:
@@ -1139,7 +1159,7 @@ async def cancel_conversation_run(
         turn_run = await session.get(AgentRun, run_id)
         if turn_run is not None and turn_run.status == "running":
             turn_run.status = "cancelled"
-            turn_run.completed_at = datetime.utcnow()
+            turn_run.completed_at = utcnow()
             session.add(turn_run)
     await session.commit()
     run = await _running_chat_run(session, auth.tenant.id, conversation_id)
@@ -1148,7 +1168,7 @@ async def cancel_conversation_run(
 
     request_cancel(run.id)
     run.status = "cancelled"
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     session.add(run)
     await session.commit()
     _cancel_live_chat_turn(conversation_id)
@@ -1221,7 +1241,7 @@ def _should_reclaim_chat_run(conversation_id: UUID, started: datetime) -> bool:
     """Reclaim when this process has no live turn, or the run is older than 15 min."""
     if not _chat_turn_is_live(conversation_id):
         return True
-    return datetime.utcnow() - started >= CHAT_BUSY_STALE
+    return utcnow() - started >= CHAT_BUSY_STALE
 
 
 async def reclaim_orphaned_chat_runs() -> int:
@@ -1278,13 +1298,13 @@ async def _ensure_session_idle(
     busy = await _running_chat_run(session, tenant_id, conversation_id)
     if busy is None:
         return
-    started = busy.started_at or datetime.utcnow()
+    started = busy.started_at or utcnow()
     if _should_reclaim_chat_run(conversation_id, started):
         logger.warning(
             "reclaiming orphaned chat run %s on conversation %s (age %s, live=%s)",
             busy.id,
             conversation_id,
-            datetime.utcnow() - started,
+            utcnow() - started,
             _chat_turn_is_live(conversation_id),
         )
         from app.services.agent.turn_persist import end_dead_turns
@@ -1431,7 +1451,7 @@ async def _finalize_run(
     if run is None:
         return
     run.status = status
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     if error is not None:
         from app.services.run_errors import record_run_error
 

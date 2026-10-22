@@ -296,6 +296,11 @@ async def authorize_tool_call(
             decided = Authorization("allow", f"rule:{hard['id']}", "grants")
     if decided is None:
         decided = _read_only_stage(spec, tool_input)
+    if decided is None and spec.name == "call_mcp_tool":
+        from app.services.mcp_remote_client import is_read_only_mcp_call
+
+        if await is_read_only_mcp_call(session, tenant.id, tool_input):
+            decided = Authorization("allow", "mcp_read_only_hint", "read_only")
     if decided is not None and decided.stage == "read_only":
         if forced_ask:
             return Authorization("ask", f"hook:{hook[1]}", "hook")  # type: ignore[index]
@@ -381,6 +386,21 @@ async def _clamp(
                 handling = await resolve_for_signal(session, tenant, signal, agent=agent)
                 if handling.effective != "autonomous":
                     mode, reason, stage = "ask", f"ai_handling:{handling.effective}", "clamp"
+
+    # The conversation's flow dial tightens the category slider (never loosens:
+    # the workspace posture stays the ceiling).
+    if mode == "allow" and spec.mutating and (tool_input or {}).get("signal_id"):
+        from app.models.signal import Signal
+        from app.services.ai_handling import flow_dial_for
+
+        try:
+            flow_signal = await session.get(Signal, UUID(str((tool_input or {})["signal_id"])))
+        except ValueError:
+            flow_signal = None
+        if flow_signal is not None and flow_signal.tenant_id == tenant.id:
+            dial, _ = await flow_dial_for(session, flow_signal)
+            if dial in AUTONOMY_POSTURES and AUTONOMY_POSTURES[dial]["allowances"].get(spec.category, "ask") != "allow":
+                mode, reason, stage = "ask", f"flow:{dial}", "clamp"
 
     # Trust clamp is absolute: external sessions never auto-mutate.
     if trust == "external" and mode != "deny":

@@ -59,10 +59,11 @@
   },
   "landing": {
     "title": "Startpagina",
-    "description": "Kies waar Bokito opent na het inloggen. Inbox is de standaard.",
-    "chat": "Inbox",
-    "communication": "Inbox",
-    "overview": "Vandaag",
+    "description": "Kies waar Bokito opent na het inloggen. Nieuwe chat is de standaard.",
+    "new": "Nieuwe chat",
+    "inbox": "Inbox",
+    "agenda": "Agenda",
+    "today": "Vandaag",
     "saveError": "Startpagina opslaan is niet gelukt."
   },
   "theme": {

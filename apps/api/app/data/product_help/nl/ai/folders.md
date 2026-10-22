@@ -48,7 +48,7 @@ Een werkmap in Bokito is iets anders dan een Excel-werkmap.
 
 ## Lees het Overzicht
 
-1. De kop toont de naam en daarnaast het labelveld met de pillen. **Open in Communicatie** springt naar dezelfde werkmap in de Communicatie-rail.
+1. De kop toont de naam en daarnaast het labelveld met de pillen. **Open in Communicatie** springt naar dezelfde werkmap in de Communicatie-rail. **Wie werkt hier** noemt de afdeling waar de werkmap bij hoort, gemarkeerd als **Thuisafdeling van deze map**, en elke afdeling met open tickets in de werkmap of de werkmappen daarin. Kies er een om de afdelingspagina te openen.
 2. Hover een boomrij voor de labels en **Onder:** de bovenliggende werkmap.
 3. **Flows** toont elk bord waarvan een gesprek in deze werkmap (of een werkmap daarin) een ticket is: fasen als kolommen, tickets als kaarten. **Recente gesprekken** toont de passende gesprekken; **Alle gesprekken** opent het tabblad Gesprekken.
 
@@ -81,12 +81,30 @@ Een werkmap in Bokito is iets anders dan een Excel-werkmap.
 
 1. Open het tabblad **Canvas** en kies **Canvas toevoegen**. Kies de agent die het beheert.
 2. Dat opent een gesprek: de agent vraagt wat je wilt zien, stelt een kort plan voor (titel, widgets, verversing), bouwt de snapshot en zet het verversingsritme. Blijf in dat gesprek praten om het te wijzigen.
-3. De werkbalk van het canvas toont de beheeragent, wanneer het is bijgewerkt en de verversperiode. Gebruik het vernieuw-icoon, of verwijder via het **⋯**-menu. Elk canvas hoort bij een werkmap en staat ook onder **Werkt in**.
+3. Boven het canvas staan de beheeragent, wanneer het is bijgewerkt en de verversperiode. Het canvas zit in een venster: de titelbalk noemt het soort en de versie en bevat **Voorbeeld** / **Code**, kopiëren, downloaden, vernieuwen en het **⋯**-menu met **Verwijderen**. Elk canvas hoort bij een werkmap en staat ook onder **Werkt in**. Alleen een **Dashboard** heeft een verversperiode.
+
+## Bewaar meer dan een dashboard op een canvas
+
+Een canvas hoort bij zijn gesprek. De werkmap van dat gesprek is waar het canvas op het tabblad Canvas staat (inclusief submappen). Dat gesprek kan meerdere canvases bevatten. De agent kiest het soort: **Document** (een rapport in Markdown), **Diagram** (een Mermaid-flow), **Tekening** (een SVG, eventueel met een plaatje dat in Bokito is opgeslagen), **Beeld** (een gegenereerde foto bij het gesprek), **Code** (een script dat je kunt downloaden), **E-mail** (een brief met onderwerp en body) of **Sheet** (een tabel). Logo en kleuren blijven in Instellingen. Een kort antwoord blijft in de chat.
+
+1. Vraag in het canvasgesprek om het stuk, bijvoorbeeld een diagram, een plaatje om te bewaren of een tabel.
+2. Open het tabblad **Canvas**, of het venster onder het antwoord van de agent. De titelbalk toont het soort. Elk soort gebruikt hetzelfde venster; het vergroot-icoon opent het canvas naast het gesprek. Het gesprek blijft links, het canvas vult rechts, en de verdeling ertussen is te slepen. Sluiten keert terug naar het gesprek.
+3. Gebruik het download-icoon in de titelbalk. Een document downloadt als Markdown, een diagram als Mermaid, een tekening als SVG, code als eigen bestandstype. Op een sheet kies je **CSV**, **Excel** of **Google Sheets**. CSV en Excel downloaden een bestand. Google Sheets maakt een spreadsheet in de gekoppelde Google Drive en opent die. Koppel Google Drive onder Koppelingen wanneer die export daarom vraagt.
+4. Wijzig het in datzelfde gesprek. Het canvas krijgt geen tweede gesprek.
 
 ## Volg documentatie
 
 1. Open het tabblad **Documentatie** voor documenten in deze werkmap. Maak of bewerk ze zoals in Kennis; agents wijzigen ze alleen binnen een [flow](/docs/ai/flows)-run.
 2. Kies **Openen in Kennishub** om hetzelfde document daar te bewerken.
+
+## Posts plannen op een contentkalender
+
+Een klantmap houdt zijn posts als items, en Bokito houdt een Google Sheet daarmee gelijk.
+
+1. Koppel **Google Drive** onder [Koppelingen](/docs/integrations/integrations). Vraag in een gesprek een agent de Google Sheet van de contentkalender aan de map toe te voegen, bijvoorbeeld: **Zet deze sheet als contentkalender van Klanten/Studio Veluwe** met de link van de sheet. Die staat dan in **Werkt in** als **Spreadsheet**. Bokito schrijft naar het tabblad **Kalender**, tenzij je een ander tabblad noemt.
+2. Een agent op een contentticket zet elke post als item in de map, met datum, kanaal, caption en beeld.
+3. Bij elke post die erbij komt, verandert of verschuift, schrijft Bokito de sheet opnieuw met alle posts van de map: datum, kanaal, titel, caption, beeld en status.
+4. Staat de werkruimte op Handmatig, dan verandert de sheet alleen als je een agent vraagt hem bij te werken. Publiceren doet een mens.
 
 ## Agenda en de rail
 

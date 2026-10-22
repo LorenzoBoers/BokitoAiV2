@@ -12,10 +12,12 @@ import type { AiHandlingException, AiHandlingOverview } from '../../../lib/ai-ha
 import { inboxPath } from '../../../lib/messages-paths'
 import { SectionHeading } from './SettingRow'
 
-type ExceptionScope = Extract<AiHandlingScope, 'channel' | 'conversation'>
+export type ExceptionScope = Extract<AiHandlingScope, 'channel' | 'conversation'> | 'flow'
 
 function exceptionHref(scope: ExceptionScope, row: AiHandlingException): string {
-  return scope === 'conversation' ? inboxPath('open', row.id) : '/settings/channels'
+  if (scope === 'conversation') return inboxPath('open', row.id)
+  if (scope === 'flow') return `/flows/${row.id}`
+  return '/settings/channels'
 }
 
 /** Channels (and open conversations) that sit below the dial. */
@@ -33,6 +35,7 @@ export function ChannelExceptionsCard({
   const groups = overview
     ? ([
         { scope: 'channel' as const, rows: overview.exceptions.channels },
+        { scope: 'flow' as const, rows: overview.exceptions.flows },
         { scope: 'conversation' as const, rows: overview.exceptions.conversations },
       ] satisfies Array<{ scope: ExceptionScope; rows: AiHandlingException[] }>).filter((group) => group.rows.length > 0)
     : []

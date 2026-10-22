@@ -12,6 +12,7 @@ available person > working agent > away person > standby agent > offline.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 from uuid import UUID
@@ -49,7 +50,7 @@ def _naive_utc(value: datetime | None) -> datetime | None:
 
 
 def user_status(user: User, *, now: datetime | None = None) -> str:
-    now = _naive_utc(now) or datetime.utcnow()
+    now = _naive_utc(now) or utcnow()
     away_until = _naive_utc(user.away_until)
     if user.away and (away_until is None or away_until > now):
         return AWAY
@@ -74,7 +75,7 @@ def visible_user_status(user: User, *, connected: bool, now: datetime | None = N
 def serialize_presence(
     user: User, *, now: datetime | None = None, connected: bool = False
 ) -> dict:
-    now = _naive_utc(now) or datetime.utcnow()
+    now = _naive_utc(now) or utcnow()
     away_until = _naive_utc(user.away_until)
     away_active = bool(user.away and (away_until is None or away_until > now))
     return {
@@ -104,7 +105,7 @@ async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) ->
     if user is None:
         return False
     await session.refresh(user)
-    now = datetime.utcnow()
+    now = utcnow()
     last_seen = _naive_utc(user.last_seen_at)
     if not force and last_seen and now - last_seen < TOUCH_INTERVAL:
         return False
@@ -129,7 +130,7 @@ async def mark_offline(session: AsyncSession, user_id: UUID) -> bool:
     if user is None:
         return False
     await session.refresh(user)
-    now = datetime.utcnow()
+    now = utcnow()
     cutoff = now - timedelta(seconds=5)
     last_seen = _naive_utc(user.last_seen_at)
     if last_seen and last_seen > cutoff:
@@ -165,7 +166,7 @@ async def statuses_for(
     ids = list({uid for uid in user_ids if uid})
     if not ids:
         return {}
-    now = datetime.utcnow()
+    now = utcnow()
     rows = (await session.execute(select(User).where(User.id.in_(ids)))).scalars().all()
     return {row.id: user_status(row, now=now) for row in rows}
 
@@ -186,7 +187,7 @@ async def anyone_available(
         if not ids:
             return False
         users = (await session.execute(select(User).where(User.id.in_(ids)))).scalars().all()
-    now = datetime.utcnow()
+    now = utcnow()
     return any(user_status(u, now=now) == AVAILABLE for u in users)
 
 
@@ -274,7 +275,7 @@ async def presence_snapshot(
     the topic, so without this replay the dashboard keeps the REST seed
     (often offline) for the whole session.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     events: list[tuple[str, dict[str, Any]]] = []
     if include_people:
         rows = (

@@ -148,18 +148,28 @@
 
 @layer components {
   /*
-   * Live notification toast + Sonner chrome: frosted glass so the page shows
-   * through. Sonner's default `--normal-bg` is opaque; strip it on our custom
-   * toast and tint the remaining toasts the same way.
+   * Sonner chrome: solid elevated sheet (same as menus/dialogs). Beat Sonner's
+   * theme-scoped richColors pastels so success is not mint-on-mint when the
+   * brand accent (e.g. gold) paints the Undo button — green stays on text/icon.
    */
-  [data-sonner-toaster] {
+  [data-sonner-toaster],
+  [data-sonner-toaster][data-sonner-theme='light'],
+  [data-sonner-toaster][data-sonner-theme='dark'] {
     --normal-bg: rgb(var(--color-bg-elevated));
     --normal-border: rgb(var(--color-border) / 0.7);
     --normal-text: rgb(var(--color-text-heading));
     --success-bg: rgb(var(--color-bg-elevated));
+    --success-border: rgb(var(--color-border) / 0.7);
+    --success-text: rgb(var(--color-status-success));
     --error-bg: rgb(var(--color-bg-elevated));
+    --error-border: rgb(var(--color-border) / 0.7);
+    --error-text: rgb(var(--color-status-error));
     --info-bg: rgb(var(--color-bg-elevated));
+    --info-border: rgb(var(--color-border) / 0.7);
+    --info-text: rgb(var(--color-status-info));
     --warning-bg: rgb(var(--color-bg-elevated));
+    --warning-border: rgb(var(--color-border) / 0.7);
+    --warning-text: rgb(var(--color-status-warning));
   }
   /* Custom notification body owns the glass card — keep the Sonner shell clear. */
   [data-sonner-toast]:has([data-testid='notification-toast']) {
@@ -791,7 +801,7 @@
     flex-shrink: 0;
     user-select: none;
   }
-  /* Live seat only: a soft glow in the agent's color that breathes.
+  /* Live seat only: a soft AI-color glow that breathes.
      --live-pace (stream reveal rate) brightens it while text streams.
      Footprints and lists stay flat. */
   [data-live-agent='true'] {
@@ -831,9 +841,21 @@
       opacity: calc((0.85 + var(--live-pace) * 0.15) * var(--live-glow-strength));
     }
   }
+  /* The live face stands a little taller than the footprints in its column. */
+  .live-agent-face {
+    transform-origin: 50% 60%;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .live-agent-face[data-live] {
+    transform: scale(1.2);
+  }
+  /* A bot orb carries its own aura (busy moods only), so the seat glow is off. */
+  [data-live-agent='true']:has(.bot-orb)::after {
+    content: none;
+  }
   @media (prefers-reduced-motion: reduce) {
     [data-live-agent='true']::after {
-      animation: none;
+      animation: none !important;
     }
   }
   [data-live-agent='true'] > * {
@@ -927,80 +949,88 @@
   }
 
   /*
-   * Glow: one halo behind the mark. Busy and reaction moods glow by default,
-   * idle stays dark. Color is the mood, pulse is CSS.
+   * Aura: a soft orb of light in the agent's own color behind the mark, well
+   * larger than the avatar. It only lights while the agent is busy (thinking,
+   * searching, writing, sending, working) and grows and shrinks with that
+   * mood. Radial and fully faded before its own edge, so no box shape shows.
+   * The chrome around the mark (orbits, badges) stays AI violet.
    */
   .bot-orb {
-    --bot-orb-glow: #9159fe;
+    --bot-orb-glow: rgb(var(--color-ai));
+    --bot-orb-aura-strength: 1;
+    /* Keep the aura/svg stack inside the mark, so corner badges stay in front. */
+    isolation: isolate;
   }
-  .bot-orb__halo-stop {
-    stop-color: var(--bot-orb-glow);
+  :root[data-theme='light'] .bot-orb {
+    --bot-orb-aura-strength: 0.75;
   }
-  .bot-orb__halo {
-    opacity: 0;
-    transform-box: view-box;
-    transform-origin: 32px 33px;
-    transition: opacity 0.6s ease;
+  .bot-orb__svg {
+    position: relative;
+    z-index: 1;
+  }
+  .bot-orb__aura {
+    position: absolute;
+    inset: -75%;
+    z-index: 0;
+    border-radius: 9999px;
     pointer-events: none;
+    background: radial-gradient(
+      circle closest-side,
+      color-mix(in srgb, var(--bot-orb-color) 42%, transparent) 0%,
+      color-mix(in srgb, var(--bot-orb-color) 22%, transparent) 32%,
+      color-mix(in srgb, var(--bot-orb-color) 7%, transparent) 65%,
+      transparent 100%
+    );
+    opacity: 0;
+    transform: scale(0.8);
+    transition:
+      opacity 0.8s ease,
+      transform 0.8s ease;
   }
-  .bot-orb[data-motion='working'] {
-    --bot-orb-glow: var(--bot-orb-color);
+  .bot-orb[data-motion='thinking']:not(.bot-orb--paused) .bot-orb__aura,
+  .bot-orb[data-motion='searching']:not(.bot-orb--paused) .bot-orb__aura {
+    animation: bot-orb-aura-pulse 1.72s ease-in-out infinite;
   }
-  .bot-orb[data-motion='yes'],
-  .bot-orb[data-motion='done'] {
-    --bot-orb-glow: rgb(var(--color-status-success));
+  .bot-orb[data-motion='writing']:not(.bot-orb--paused) .bot-orb__aura,
+  .bot-orb[data-motion='sending']:not(.bot-orb--paused) .bot-orb__aura {
+    animation: bot-orb-aura-soft 1.2s ease-in-out infinite;
   }
-  .bot-orb[data-motion='alert'] {
-    --bot-orb-glow: rgb(var(--color-status-error));
-  }
-  .bot-orb[data-motion='no'] {
-    --bot-orb-glow: rgb(var(--color-status-warning));
-  }
-  .bot-orb[data-motion='jump'],
-  .bot-orb[data-motion='leave'] {
-    --bot-orb-glow: var(--bot-orb-color);
-  }
-  .bot-orb[data-motion='listening'] .bot-orb__halo {
-    opacity: 0.35;
-  }
-  .bot-orb[data-motion='thinking'] .bot-orb__halo,
-  .bot-orb[data-motion='searching'] .bot-orb__halo {
-    animation: bot-orb-halo-pulse 1.72s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='typing'] .bot-orb__halo,
-  .bot-orb[data-motion='writing'] .bot-orb__halo,
-  .bot-orb[data-motion='sending'] .bot-orb__halo {
-    animation: bot-orb-halo-pulse-soft 1.2s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='working'] .bot-orb__halo {
-    animation: bot-orb-halo-pulse 2.4s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='yes'] .bot-orb__halo,
-  .bot-orb[data-motion='done'] .bot-orb__halo,
-  .bot-orb[data-motion='jump'] .bot-orb__halo,
-  .bot-orb[data-motion='no'] .bot-orb__halo {
-    animation: bot-orb-halo-flash 1.3s ease-out both;
-  }
-  .bot-orb[data-motion='alert'] .bot-orb__halo {
-    animation: bot-orb-halo-alarm 0.5s ease-in-out 3;
-  }
-  .bot-orb--spawn .bot-orb__halo {
-    animation: bot-orb-halo-spawn 1.5s ease-out both;
+  .bot-orb[data-motion='working']:not(.bot-orb--paused) .bot-orb__aura {
+    animation: bot-orb-aura-pulse 2.4s ease-in-out infinite;
   }
   /* Thinking and searching: the eyes glow too. */
   .bot-orb[data-motion='thinking'] .bot-orb__eyes,
   .bot-orb[data-motion='searching'] .bot-orb__eyes {
     filter: drop-shadow(0 0 1.4px rgba(255, 255, 255, 0.95));
   }
+  @keyframes bot-orb-aura-pulse {
+    0%,
+    100% {
+      transform: scale(0.84);
+      opacity: calc(0.55 * var(--bot-orb-aura-strength));
+    }
+    50% {
+      transform: scale(1.02);
+      opacity: var(--bot-orb-aura-strength);
+    }
+  }
+  @keyframes bot-orb-aura-soft {
+    0%,
+    100% {
+      transform: scale(0.88);
+      opacity: calc(0.6 * var(--bot-orb-aura-strength));
+    }
+    50% {
+      transform: scale(0.98);
+      opacity: calc(0.85 * var(--bot-orb-aura-strength));
+    }
+  }
 
   /*
-   * Full spawn: motes gather, the body rises from below with a hop, then the
-   * eyes open. Root clips during the rise so it reads as coming out of the
-   * ground. Quickspawn: short pop for later answers in the same thread.
+   * Full spawn: the body rises from below with a hop, then the eyes open. An
+   * SVG clip under the figure (not the box) is the ground. Quickspawn: short
+   * pop for later answers in the same thread.
    */
-  .bot-orb--spawn {
-    overflow: hidden;
-  }
   .bot-orb--spawn .bot-orb__figure {
     transform-box: view-box;
     transform-origin: 32px 58px;
@@ -1018,25 +1048,6 @@
     transform-origin: 32px 32px;
     animation: bot-orb-quickspawn 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
     transition: none;
-  }
-  .bot-orb__mote {
-    fill: var(--bot-orb-color);
-    transform-box: view-box;
-    transform-origin: 32px 38px;
-    animation: bot-orb-mote 0.9s cubic-bezier(0.55, 0, 0.3, 1) both;
-  }
-  @keyframes bot-orb-mote {
-    0% {
-      opacity: 0;
-      transform: rotate(var(--mote-a)) translateX(30px) scale(0.6);
-    }
-    25% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0;
-      transform: rotate(calc(var(--mote-a) + 160deg)) translateX(0) scale(1.2);
-    }
   }
   @keyframes bot-orb-spawn-rise {
     0% {
@@ -1139,18 +1150,6 @@
     transform-origin: center;
     animation: bot-orb-think-mark 1.35s ease-in-out infinite;
   }
-  .bot-orb__type-dot {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: bot-orb-type-dot 1.05s ease-in-out infinite;
-  }
-  .bot-orb__type-dot:nth-child(2) {
-    animation-delay: 0.16s;
-  }
-  .bot-orb__type-dot:nth-child(3) {
-    animation-delay: 0.32s;
-  }
-
   /* Mood chrome. Shapes take the mood color; motion is all CSS. */
   .bot-orb__fx {
     fill: var(--bot-orb-glow);
@@ -1160,13 +1159,15 @@
   }
   .bot-orb__ping {
     fill: none;
-    stroke-width: 1.4;
+    stroke: color-mix(in srgb, var(--bot-orb-glow) 45%, transparent);
+    stroke-width: 0.85;
+    stroke-linecap: round;
     transform-box: view-box;
     transform-origin: 32px 32px;
-    animation: bot-orb-ping 1.5s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
+    animation: bot-orb-ping 1.8s cubic-bezier(0.2, 0.55, 0.35, 1) infinite;
   }
   .bot-orb__ping--late {
-    animation-delay: 0.75s;
+    animation-delay: 0.9s;
   }
   .bot-orb__scribble {
     fill: none;
@@ -1203,6 +1204,11 @@
   .bot-orb__zz--late {
     animation-delay: 1.2s;
   }
+  .bot-orb__done-mark {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bot-orb-done-mark 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
   .bot-orb__sparkle {
     transform-box: fill-box;
     transform-origin: center;
@@ -1218,24 +1224,19 @@
     animation-delay: 0.32s;
   }
   .bot-orb__sweat {
-    fill: color-mix(in srgb, rgb(var(--color-status-info)) 75%, white);
+    fill: color-mix(in srgb, var(--bot-orb-glow) 70%, white);
     transform-box: fill-box;
     transform-origin: top center;
     animation: bot-orb-sweat 1.2s ease-in both;
   }
   .bot-orb__bang {
-    fill: rgb(var(--color-status-error));
+    fill: var(--bot-orb-glow);
     stroke: var(--bot-orb-badge-edge);
     stroke-width: 0.8;
     paint-order: stroke fill;
     transform-box: fill-box;
     transform-origin: bottom center;
     animation: bot-orb-bang 1.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  }
-  .bot-orb__ticks {
-    fill: none;
-    stroke-width: 1.8;
-    animation: bot-orb-ticks 0.7s ease-out 0.3s both;
   }
   .bot-orb__speed path {
     stroke-width: 2;
@@ -1263,64 +1264,6 @@
       transform: scale(0.99, 1.025);
     }
   }
-  @keyframes bot-orb-halo-pulse {
-    0%,
-    100% {
-      opacity: 0.3;
-      transform: scale(0.94);
-    }
-    50% {
-      opacity: 0.75;
-      transform: scale(1.04);
-    }
-  }
-  @keyframes bot-orb-halo-pulse-soft {
-    0%,
-    100% {
-      opacity: 0.22;
-    }
-    50% {
-      opacity: 0.45;
-    }
-  }
-  @keyframes bot-orb-halo-flash {
-    0% {
-      opacity: 0;
-      transform: scale(0.8);
-    }
-    25% {
-      opacity: 0.9;
-      transform: scale(1.1);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(1.2);
-    }
-  }
-  @keyframes bot-orb-halo-alarm {
-    0%,
-    100% {
-      opacity: 0.2;
-    }
-    50% {
-      opacity: 0.85;
-    }
-  }
-  @keyframes bot-orb-halo-spawn {
-    0%,
-    50% {
-      opacity: 0;
-      transform: scale(0.6);
-    }
-    66% {
-      opacity: 0.85;
-      transform: scale(1.08);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(1.15);
-    }
-  }
   @keyframes bot-orb-orbit-crawl {
     to {
       stroke-dashoffset: -100;
@@ -1342,26 +1285,14 @@
       opacity: 1;
     }
   }
-  @keyframes bot-orb-type-dot {
-    0%,
-    70%,
-    100% {
-      opacity: 0.22;
-      transform: scale(0.85);
-    }
-    30% {
-      opacity: 1;
-      transform: scale(1.08);
-    }
-  }
   @keyframes bot-orb-ping {
     0% {
-      opacity: 0.75;
-      transform: scale(0.88);
+      opacity: 0.35;
+      transform: scale(0.95);
     }
     100% {
       opacity: 0;
-      transform: scale(1.4);
+      transform: scale(1.55);
     }
   }
   @keyframes bot-orb-scribble {
@@ -1415,6 +1346,20 @@
     100% {
       opacity: 0;
       transform: translate(4px, -6px);
+    }
+  }
+  @keyframes bot-orb-done-mark {
+    0% {
+      opacity: 0;
+      transform: scale(0.35);
+    }
+    55% {
+      opacity: 1;
+      transform: scale(1.12);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
     }
   }
   @keyframes bot-orb-sparkle {
@@ -1477,19 +1422,6 @@
       opacity: 0;
     }
   }
-  @keyframes bot-orb-ticks {
-    0% {
-      opacity: 0;
-      stroke-dasharray: 0 10;
-    }
-    40% {
-      opacity: 1;
-      stroke-dasharray: 10 0;
-    }
-    100% {
-      opacity: 0;
-    }
-  }
   @keyframes bot-orb-speed {
     0% {
       opacity: 0;
@@ -1514,9 +1446,6 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .bot-orb--spawn {
-      overflow: visible;
-    }
     .bot-orb--spawn .bot-orb__figure,
     .bot-orb--spawn .bot-orb__eyes,
     .bot-orb--spawn .bot-orb__nose,
@@ -1524,12 +1453,10 @@
     .agent-done-corner--enter,
     .bot-orb__body,
     .bot-orb__figure,
-    .bot-orb__halo,
-    .bot-orb__mote,
     .bot-orb__orbit-ring,
     .bot-orb__orbit-load,
     .bot-orb__think-mark,
-    .bot-orb__type-dot,
+    .bot-orb__aura,
     .bot-orb__fx,
     .bot-orb__fx * {
       animation: none !important;
@@ -2033,6 +1960,20 @@
 
 }
 
+/* Open / Gepland / Gesloten stays one row. Unlayered so it wins over the button's px utility. */
+.thread-status-switch {
+  container-type: inline-size;
+}
+.thread-status-switch [role='radio'] {
+  padding-inline: 0.375rem;
+}
+@container (max-width: 16.25rem) {
+  .thread-status-switch [role='radio'] {
+    padding-inline: 0.125rem;
+    font-size: 10px;
+  }
+}
+
 @keyframes messenger-preview-rise-in {
   from {
     opacity: 0;
@@ -2064,15 +2005,13 @@
   animation: msg-bubble-enter 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* First live bubble: short lift + fade. Finished before the row grows much. */
+/* First live bubble fades in place. A lift here read as the cloud jumping forward. */
 @keyframes msg-bubble-enter-live {
   from {
     opacity: 0;
-    transform: translate3d(0, 8px, 0);
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
   }
 }
 
@@ -2104,25 +2043,31 @@
   animation: bubble-confirm 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Live agent bubbles: grow out of the leading corner with a soft settle,
-   like a message landing rather than a block appearing. */
+/* Saved agent bubble: fade in place. Scale and a 14px rise moved the whole
+   row toward the reader, then the live cloud was swapped for that motion. */
 @keyframes bubble-pop-enter {
   from {
     opacity: 0;
-    transform: translate3d(0, 14px, 0) scale(0.94);
-  }
-  58% {
-    opacity: 1;
   }
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 .bubble-pop-enter {
-  transform-origin: 0 100%;
-  animation: bubble-pop-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: bubble-pop-enter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.bubble-grow {
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* Height stays instant. Easing it makes the scroller chase the bubble
+   every frame, which reads as a shake against the bottom. */
+.bubble-grow-box {
+  overflow: clip;
+  overflow-clip-margin: 0;
 }
 
 @keyframes turn-follow-in {
@@ -2608,6 +2553,113 @@
   100% {
     background-color: transparent;
     box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Chat stack (bottom-right): cards sit stacked, fan out to the left on hover
+   with a springy overshoot and a per-card stagger, and nudge on new activity. */
+.chat-stack-card {
+  transition:
+    transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 220ms ease;
+  transition-delay: var(--stack-delay, 0ms);
+  will-change: transform;
+}
+.chat-stack-card-body {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+.chat-stack[data-expanded='true'] .chat-stack-card:hover .chat-stack-card-body {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-overlay);
+  border-color: rgb(var(--color-accent) / 0.45);
+}
+.chat-stack-card-body[data-nudge='true'] {
+  animation: chat-stack-nudge 640ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes chat-stack-nudge {
+  0% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-7px) rotate(-1.6deg);
+  }
+  55% {
+    transform: translateY(1px) rotate(0.9deg);
+  }
+  80% {
+    transform: translateY(-1px) rotate(-0.3deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+/* Live agent line: a soft AI-tinted sweep while the agent works. */
+.chat-stack-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--color-text-secondary)) 0%,
+    rgb(var(--color-text-secondary)) 35%,
+    rgb(var(--color-ai-ink)) 50%,
+    rgb(var(--color-text-secondary)) 65%,
+    rgb(var(--color-text-secondary)) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chat-stack-shimmer 2.4s linear infinite;
+}
+@keyframes chat-stack-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+/* Faces ride the top edge; a working orb breathes. */
+.chat-stack-face[data-working='true'] {
+  animation: chat-stack-breathe 1.8s ease-in-out infinite;
+}
+@keyframes chat-stack-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+.chat-stack-unread {
+  animation: chat-stack-unread 1.6s ease-in-out infinite;
+}
+@keyframes chat-stack-unread {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--color-accent) / 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgb(var(--color-accent) / 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-stack-card,
+  .chat-stack-card-body {
+    transition: opacity 160ms ease;
+    transition-delay: 0ms;
+  }
+  .chat-stack-card-body[data-nudge='true'],
+  .chat-stack-face[data-working='true'],
+  .chat-stack-unread,
+  .chat-stack-shimmer {
+    animation: none;
+  }
+  .chat-stack-shimmer {
+    color: rgb(var(--color-text-secondary));
+    background: none;
   }
 }
 

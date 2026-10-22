@@ -101,11 +101,13 @@ export type Team = {
   members: TeamMemberRef[]
   member_count: number
   presence?: { status: PresenceStatus }
-  /** Fallback mark only; UI prefers the member facepile. */
+  /** Fallback mark for pickers when no member faces are known. */
   avatar_kind?: TeamAvatarKind | string
   avatar_icon?: string | null
   avatar_color?: string | null
   avatar_image_url?: string | null
+  /** Lucide icon id for the left menu and the Departments list. */
+  icon?: string
 }
 
 export type Presence = {
@@ -170,8 +172,211 @@ export function listTeams(token: string): Promise<Team[]> {
   return apiGet<Team[]>(appRoutes.teams.list, token)
 }
 
+export type DepartmentNavRow = {
+  id: string
+  name: string
+  icon: string
+  open: number
+  href: string
+}
+
+export function listNavDepartments(token: string): Promise<DepartmentNavRow[]> {
+  return apiGet<DepartmentNavRow[]>(appRoutes.teams.nav, token)
+}
+
 export function getTeamOverview(token: string): Promise<TeamOverview> {
   return apiGet<TeamOverview>(appRoutes.teams.overview, token)
+}
+
+export type DepartmentScorecard = {
+  volume?: number
+  autonomous_pct?: number
+  corrected_pct?: number
+  rejected_pct?: number
+  median_duration_s?: number
+}
+
+export type DepartmentAwareness = {
+  agent_id: string
+  agent_name: string
+  role: string
+  follows: string[]
+  followable: string[]
+  daily_cost_cents: number
+  spent_today_cents: number
+  max_proposals: number
+  cadence: string | null
+  next_wake_at: string | null
+  last_orientation_at: string | null
+  brief: { summary?: string; at?: string; quiet?: boolean } | null
+  scope: { flows: string[]; folders: string[]; organizations: string[] }
+}
+
+export type DepartmentQuestion = {
+  key: string
+  question: string
+  answer: string | null
+  status: 'open' | 'answered'
+  asked_at: string | null
+  answered_at: string | null
+  signal_id: string | null
+  message_id: string | null
+}
+
+type NamedRef = { id: string; name: string }
+
+export type DepartmentStage = {
+  key: string
+  name: string
+  kind: 'open' | 'waiting' | 'done' | 'closed'
+  count: number
+  overdue: number
+  soon: number
+}
+
+export type DepartmentFlow = {
+  id: string
+  name: string
+  label: string
+  label_id: string | null
+  autonomy: string
+  open: number
+  waiting: number
+  overdue: number
+  scorecard: DepartmentScorecard | null
+  stages: DepartmentStage[]
+  board_href: string
+}
+
+export type DepartmentBottleneck = { key: string; count: number }
+
+/** One folder tab: the department's work scoped to tickets in that folder. */
+export type DepartmentFolderScope = NamedRef & {
+  open: number
+  home: boolean
+  href: string
+  totals: { open: number; waiting: number; overdue: number }
+  bottlenecks: DepartmentBottleneck[]
+  flows: DepartmentFlow[]
+}
+
+export type DepartmentOverview = {
+  id: string
+  name: string
+  description: string
+  /** Lucide icon id shown in the left menu. */
+  icon: string
+  lead: {
+    id: string
+    name: string
+    status?: string | null
+    avatar_kind?: string | null
+    avatar_icon?: string | null
+    avatar_color?: string | null
+    avatar_shape?: string | null
+    avatar_image_url?: string | null
+  } | null
+  accountable: { id: string; name: string; presence?: string | null } | null
+  autonomy: string | null
+  origin_module: { slug: string; name: string } | null
+  room_signal_id: string | null
+  pickup: string
+  members: Array<{
+    kind: 'user' | 'agent'
+    id: string
+    name: string
+    duty: string
+    hours_per_week?: number | null
+    open_assigned?: number | null
+    presence?: string | null
+    status?: string | null
+    doing?: string
+    cost_cents?: number | null
+  }>
+  flows: DepartmentFlow[]
+  totals: { open: number; waiting: number; overdue: number }
+  today: {
+    bottlenecks: DepartmentBottleneck[]
+    decisions_waiting: number
+    orientation: { at: string | null; summary: string; quiet: boolean; signal_id: string } | null
+  }
+  /** Learning proposals of the department lead that still wait for an answer. */
+  proposals: Array<{
+    change_id: string
+    decision_id: string
+    kind: string
+    summary: string
+    signal_id: string
+    created_at: string
+  }>
+  proposal_history: Array<{
+    change_id: string
+    kind: string
+    summary: string
+    status: 'accepted' | 'rejected'
+    resolved_at: string | null
+  }>
+  awareness: DepartmentAwareness | null
+  reach: {
+    flows: Array<NamedRef & { label: string }>
+    channels: Array<NamedRef & { channel: string }>
+    connections: Array<NamedRef & { provider: string }>
+    modules: string[]
+    organizations: NamedRef[]
+  }
+  lands: Array<NamedRef & { open: number; home: boolean; href: string }>
+  folders: DepartmentFolderScope[]
+  reach_attempts: {
+    attempts: Array<{
+      at: string
+      signal_id: string
+      subject: string
+      channel: string
+      status: string
+      recipient: string
+    }>
+    per_person: Array<{ user_id: string; name: string; count: number }>
+  } | null
+  domain_questions: DepartmentQuestion[]
+  outcomes: {
+    accepted: number
+    rejected: number
+    per_flow: Array<NamedRef & { feedback: number }>
+  } | null
+  grid_href: string
+}
+
+export function getDepartmentOverview(token: string, id: string): Promise<DepartmentOverview> {
+  return apiGet<DepartmentOverview>(appRoutes.teams.departmentOverview(id), token)
+}
+
+export function askDomainQuestion(token: string, id: string, question: string): Promise<DepartmentQuestion> {
+  return apiPost<DepartmentQuestion>(appRoutes.teams.domainQuestions(id), { question }, token)
+}
+
+export function answerDomainQuestion(
+  token: string,
+  id: string,
+  key: string,
+  answer: string,
+): Promise<DepartmentQuestion> {
+  return apiPatch<DepartmentQuestion>(appRoutes.teams.domainQuestion(id, key), { answer }, token)
+}
+
+export function patchDepartmentAwareness(
+  token: string,
+  id: string,
+  patch: Partial<Pick<DepartmentAwareness, 'follows' | 'daily_cost_cents' | 'max_proposals' | 'scope'>>,
+): Promise<DepartmentAwareness> {
+  return apiPatch<DepartmentAwareness>(appRoutes.teams.awareness(id), patch, token)
+}
+
+/** Fired after a department changes so the left menu reloads its list. */
+export const DEPARTMENTS_CHANGED_EVENT = 'bokito:departments-changed'
+
+function announceDepartments<T>(value: T): T {
+  window.dispatchEvent(new Event(DEPARTMENTS_CHANGED_EVENT))
+  return value
 }
 
 export function createTeam(
@@ -183,7 +388,7 @@ export function createTeam(
     members?: TeamMemberRef[]
   },
 ): Promise<Team> {
-  return apiPost<Team>(appRoutes.teams.list, body, token)
+  return apiPost<Team>(appRoutes.teams.list, body, token).then(announceDepartments)
 }
 
 export function patchTeam(
@@ -193,17 +398,19 @@ export function patchTeam(
     name?: string
     description?: string
     pickup?: TeamPickup
+    /** Lucide icon id for the left menu; empty string resets it. */
+    icon?: string
   },
 ): Promise<Team> {
-  return apiPatch<Team>(appRoutes.teams.byId(id), body, token)
+  return apiPatch<Team>(appRoutes.teams.byId(id), body, token).then(announceDepartments)
 }
 
 export function setTeamMembers(token: string, id: string, members: TeamMemberRef[]): Promise<Team> {
-  return apiPut<Team>(appRoutes.teams.members(id), { members }, token)
+  return apiPut<Team>(appRoutes.teams.members(id), { members }, token).then(announceDepartments)
 }
 
 export function deleteTeam(token: string, id: string): Promise<unknown> {
-  return apiDelete(appRoutes.teams.byId(id), token)
+  return apiDelete(appRoutes.teams.byId(id), token).then(announceDepartments)
 }
 
 export function setMyAway(token: string, away: boolean, until?: string | null): Promise<Presence> {

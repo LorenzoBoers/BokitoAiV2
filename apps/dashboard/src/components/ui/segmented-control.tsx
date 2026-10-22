@@ -51,8 +51,8 @@ export function SegmentedControl<T extends string>({
             disabled={opt.disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 rounded-md font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50',
-              stretch && 'min-w-0 flex-1',
+              'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50',
+              stretch && 'min-w-0 flex-1 overflow-hidden',
               pad,
               active
                 ? 'bg-bg-surface text-text-heading ring-1 ring-border/40'

@@ -1,228 +1,164 @@
-"""Department membership as default allow; ACL rows as overrides.
+"""Department access: who leads a department and what a freelancer may see.
 
-Confirmed product defaults (v1 agents first):
+A department's lead is its primary agent; the person accountable is its
+primary user. Flows belong to a department through ``Workstream.department_id``.
 
-- Channel default level for dept members: ``handle``
-- Module: membership → use/read; write only via ``ModuleAgent.can_write``
-- AgentScope: empty rows → membership-default (after one-shot backfill)
-- Users: still use legacy access_list defaults until fase 3b
-
-Evaluation order for ``can_use``:
-
-1. owner/admin human (``principal.unrestricted``) → max level
-2. explicit DENY override → None
-3. matching non-deny override → that level (level-down or extra grant)
-4. ``home_department_id`` in ``principal.team_ids`` → ``default_level``
-5. else → None
-
-All-membership never means the whole workspace: only resources whose home is
-the All department. ``home_department_id is None`` stays outside the default.
+A member with ``Membership.scope == "departments"`` sees only conversations
+whose flow label belongs to a department they are in (or one below it),
+conversations assigned to them, and conversations they take part in. The rule
+rides on the channel ACL set (``ConversationAccess``) so every list, count and
+search that already applies the ACL applies this too.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.access_list import Principal, best_level
+from app.models.auth import Membership
+from app.models.orchestra import Workstream
+from app.models.signal import SignalTag
+from app.models.team import ALL_DEPARTMENT_NAME, Department, DepartmentMember
 
-DENY_LEVEL = "deny"
-
-# resource kind → (ordered levels, membership default level)
-RESOURCE_LEVELS: dict[str, tuple[tuple[str, ...], str]] = {
-    "channel": (("view", "handle"), "handle"),
-    "connection": (("use", "manage"), "use"),
-    "calendar": (("use", "manage"), "use"),
-    "project": (("use", "write"), "use"),
-    "knowledge": (("use", "write"), "use"),
-    "flow": (("use", "write"), "use"),
-    "module": (("use", "write"), "use"),
-}
+SCOPES = ("workspace", "departments")
 
 
-@dataclass(frozen=True)
-class AccessResource:
-    """One resource for ``can_use``."""
+class ConversationAccess(set):
+    """Visible channel ids plus the department rule for a scoped member."""
 
-    kind: str
-    home_department_id: UUID | None
-    levels: tuple[str, ...]
-    default_level: str
-    overrides: tuple[dict[str, str], ...] = ()
+    def __init__(self, account_ids, *, user_id: UUID, flow_tag_ids: set[UUID]):
+        super().__init__(account_ids)
+        self.user_id = user_id
+        self.flow_tag_ids = set(flow_tag_ids)
 
 
-def _matches_principal(entry: dict[str, str], principal: Principal) -> bool:
-    kind, ident = entry.get("kind", ""), entry.get("id", "")
-    return (kind == principal.kind and ident == principal.id) or (
-        kind == "department" and ident in principal.team_ids
-    )
+async def membership_scope(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> str:
+    row = (
+        await session.execute(
+            select(Membership.scope).where(Membership.tenant_id == tenant_id, Membership.user_id == user_id)
+        )
+    ).scalar_one_or_none()
+    return row if row in SCOPES else "workspace"
 
 
-def _has_deny(overrides: Sequence[dict[str, str]], principal: Principal) -> bool:
-    return any(
-        entry.get("level") == DENY_LEVEL and _matches_principal(entry, principal)
-        for entry in overrides
-    )
+async def accessible_department_ids(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> set[UUID]:
+    """Departments the user is in, plus every department below those.
 
-
-def can_use(principal: Principal, resource: AccessResource) -> str | None:
-    """Resolve access level for a principal on a resource, or None."""
-    if principal.unrestricted:
-        return resource.levels[-1] if resource.levels else None
-
-    overrides = list(resource.overrides)
-    if _has_deny(overrides, principal):
-        return None
-
-    allow_entries = [e for e in overrides if e.get("level") != DENY_LEVEL]
-    override_level = best_level(allow_entries, principal, resource.levels)
-    if override_level is not None:
-        # Explicit row wins (level-down or grant outside home).
-        return override_level
-
-    home = resource.home_department_id
-    if home is not None and str(home) in principal.team_ids:
-        return resource.default_level
-
-    return None
-
-
-def make_resource(
-    kind: str,
-    *,
-    home_department_id: UUID | None,
-    overrides: Sequence[dict[str, str]] | None = None,
-) -> AccessResource:
-    levels, default_level = RESOURCE_LEVELS[kind]
-    return AccessResource(
-        kind=kind,
-        home_department_id=home_department_id,
-        levels=levels,
-        default_level=default_level,
-        overrides=tuple(overrides or ()),
-    )
-
-
-async def resource_home_department_id(
-    session: AsyncSession, kind: str, resource_id: str
-) -> UUID | None:
-    """Home department for a resource id, or None when unset / unknown."""
-    try:
-        rid = UUID(str(resource_id))
-    except ValueError:
-        rid = None
-
-    if kind == "channel":
-        from app.models.channel import ChannelAccount
-
-        if rid is None:
-            return None
-        row = (
+    Everyone sits in the All root, so that membership grants nothing here.
+    """
+    direct = set(
+        (
             await session.execute(
-                select(ChannelAccount.routing_department_id).where(ChannelAccount.id == rid)
-            )
-        ).scalar_one_or_none()
-        return row
-
-    if kind == "project":
-        from app.models.project import Project
-
-        if rid is None:
-            return None
-        return (
-            await session.execute(select(Project.department_id).where(Project.id == rid))
-        ).scalar_one_or_none()
-
-    if kind == "knowledge":
-        from app.models.workspace import WorkspaceDoc
-
-        if rid is None:
-            return None
-        return (
-            await session.execute(
-                select(WorkspaceDoc.department_id).where(WorkspaceDoc.id == rid)
-            )
-        ).scalar_one_or_none()
-
-    if kind == "connection":
-        from app.models.integration import IntegrationConnection
-
-        if rid is None:
-            return None
-        return (
-            await session.execute(
-                select(IntegrationConnection.department_id).where(
-                    IntegrationConnection.id == rid
-                )
-            )
-        ).scalar_one_or_none()
-
-    if kind == "calendar":
-        from app.models.calendar import TenantCalendar
-
-        if rid is None:
-            return None
-        return (
-            await session.execute(
-                select(TenantCalendar.department_id).where(TenantCalendar.id == rid)
-            )
-        ).scalar_one_or_none()
-
-    if kind == "flow":
-        from app.models.orchestra import Workstream
-
-        if rid is None:
-            return None
-        return (
-            await session.execute(
-                select(Workstream.department_id).where(Workstream.id == rid)
-            )
-        ).scalar_one_or_none()
-
-    if kind == "module":
-        from app.models.team import Department
-
-        slug = str(resource_id).strip()
-        if not slug:
-            return None
-        # Slug is unique among live origin departments per tenant; without a
-        # tenant filter callers must pass an unambiguous slug in a single-tenant
-        # session, or embed tenant later. Prefer first live match.
-        return (
-            await session.execute(
-                select(Department.id)
+                select(DepartmentMember.department_id)
+                .join(Department, Department.id == DepartmentMember.department_id)
                 .where(
-                    Department.origin_module_slug == slug,
-                    Department.deleted_at.is_(None),
+                    DepartmentMember.tenant_id == tenant_id,
+                    DepartmentMember.member_kind == "user",
+                    DepartmentMember.user_id == user_id,
+                    or_(Department.parent_id.is_not(None), Department.name != ALL_DEPARTMENT_NAME),
                 )
-                .limit(1)
             )
-        ).scalar_one_or_none()
-
-    return None
-
-
-def normalize_override_entries(
-    raw: Any, levels: Sequence[str]
-) -> list[dict[str, str]]:
-    """Like access_list.normalize_entries but also keeps ``deny`` rows."""
-    from app.services.access_list import ACCESS_KINDS, normalize_entries
-
-    base = normalize_entries(raw, levels) or []
-    if not isinstance(raw, list):
-        return base
-    denies: list[dict[str, str]] = []
-    for entry in raw:
-        if not isinstance(entry, dict):
+        ).scalars().all()
+    )
+    if not direct:
+        return set()
+    rows = (
+        await session.execute(
+            select(Department.id, Department.parent_id).where(
+                Department.tenant_id == tenant_id, Department.deleted_at.is_(None)
+            )
+        )
+    ).all()
+    children: dict[UUID, list[UUID]] = {}
+    for dept_id, parent_id in rows:
+        if parent_id is not None:
+            children.setdefault(parent_id, []).append(dept_id)
+    out: set[UUID] = set()
+    stack = list(direct)
+    while stack:
+        current = stack.pop()
+        if current in out:
             continue
-        if str(entry.get("level") or "") != DENY_LEVEL:
-            continue
-        kind = str(entry.get("kind") or "")
-        ident = str(entry.get("id") or "")
-        if kind in ACCESS_KINDS and ident:
-            denies.append({"kind": kind, "id": ident, "level": DENY_LEVEL})
-    return base + denies
+        out.add(current)
+        stack.extend(children.get(current, []))
+    return out
+
+
+async def department_flow_tag_ids(session: AsyncSession, tenant_id: UUID, department_ids: set[UUID]) -> set[UUID]:
+    if not department_ids:
+        return set()
+    return set(
+        (
+            await session.execute(
+                select(SignalTag.id)
+                .join(Workstream, Workstream.id == SignalTag.workstream_id)
+                .where(SignalTag.tenant_id == tenant_id, Workstream.department_id.in_(department_ids))
+            )
+        ).scalars().all()
+    )
+
+
+async def scoped_access(
+    session: AsyncSession, tenant_id: UUID, user_id: UUID, account_ids: set[UUID]
+) -> set[UUID] | ConversationAccess:
+    """Wrap the channel ids with the department rule when the member is scoped."""
+    if await membership_scope(session, tenant_id, user_id) != "departments":
+        return account_ids
+    departments = await accessible_department_ids(session, tenant_id, user_id)
+    tags = await department_flow_tag_ids(session, tenant_id, departments)
+    return ConversationAccess(account_ids, user_id=user_id, flow_tag_ids=tags)
+
+
+def department_predicate(access: Any):
+    """Extra clause for a scoped member; None for everyone else."""
+    if not isinstance(access, ConversationAccess):
+        return None
+    from app.models.signal import Signal
+    from app.models.signal_participant import SignalParticipant
+
+    takes_part = (
+        select(SignalParticipant.id)
+        .where(
+            SignalParticipant.signal_id == Signal.id,
+            SignalParticipant.kind == "user",
+            SignalParticipant.ref_id == access.user_id,
+            SignalParticipant.left_at.is_(None),
+        )
+        .exists()
+    )
+    assigned = and_(Signal.assignee_kind == "user", Signal.assignee_id == access.user_id)
+    clauses = [assigned, takes_part]
+    if access.flow_tag_ids:
+        clauses.append(Signal.ticket_tag_id.in_(access.flow_tag_ids))
+    return or_(*clauses)
+
+
+async def department_leads(session: AsyncSession, tenant_id: UUID, department_id: UUID) -> dict[str, Any]:
+    """The lead (primary agent) and the person accountable (primary user)."""
+    rows = (
+        await session.execute(
+            select(DepartmentMember).where(
+                DepartmentMember.tenant_id == tenant_id,
+                DepartmentMember.department_id == department_id,
+                DepartmentMember.duty == "primary",
+            )
+        )
+    ).scalars().all()
+    lead = next((r.agent_id for r in rows if r.member_kind == "agent" and r.agent_id), None)
+    accountable = next((r.user_id for r in rows if r.member_kind == "user" and r.user_id), None)
+    return {"lead_agent_id": lead, "accountable_user_id": accountable}
+
+
+__all__ = [
+    "SCOPES",
+    "ConversationAccess",
+    "accessible_department_ids",
+    "department_flow_tag_ids",
+    "department_leads",
+    "department_predicate",
+    "membership_scope",
+    "scoped_access",
+]

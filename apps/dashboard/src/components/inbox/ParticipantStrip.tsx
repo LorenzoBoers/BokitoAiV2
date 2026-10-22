@@ -10,6 +10,8 @@ type Props = {
   /** Current owner. Shown on the assign control, so the strip skips them. */
   owner?: ThreadOwner | null
   activeTurn?: ThreadActiveTurn
+  /** Last sender. Brought to the front when nobody is mid-turn. */
+  faceId?: string | null
   waitingLabel?: string
 }
 
@@ -25,6 +27,7 @@ export function ParticipantStrip({
   participants,
   owner = null,
   activeTurn = null,
+  faceId = null,
   waitingLabel,
 }: Props) {
   const { members: people } = useMembers()
@@ -36,7 +39,16 @@ export function ParticipantStrip({
     if (owner && isOwner(participant, owner)) return false
     return true
   })
-  const stack = participantsToAvatarStack(roster, {
+  const onFloor = floorKey(activeTurn)
+  const ordered =
+    onFloor || !faceId
+      ? roster
+      : [...roster].sort((a, b) => {
+          const aFace = (a.kind || '').toLowerCase() === 'agent' && a.ref_id === faceId ? 0 : 1
+          const bFace = (b.kind || '').toLowerCase() === 'agent' && b.ref_id === faceId ? 0 : 1
+          return aFace - bFace
+        })
+  const stack = participantsToAvatarStack(ordered, {
     people,
     agents,
     teams,
@@ -57,9 +69,9 @@ export function ParticipantStrip({
       {stack.length > 0 ? (
         <AvatarStack
           members={stack}
-          size={18}
+          size={20}
           linkAgents={false}
-          activeKey={floorKey(activeTurn)}
+          activeKey={onFloor}
           cutout="bg"
         />
       ) : null}

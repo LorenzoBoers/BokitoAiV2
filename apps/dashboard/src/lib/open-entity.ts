@@ -26,7 +26,7 @@ export type EntityRef =
   | { type: 'calendar' }
   | { type: 'folder'; id: string }
   | { type: 'project'; id: string }
-  | { type: 'canvas'; id: string; projectId?: string | null; path?: string | null }
+  | { type: 'canvas'; id: string; folderId?: string | null; path?: string | null }
   | { type: 'work_item'; id?: string | null; projectId?: string | null }
   | { type: 'contact'; id: string }
   | { type: 'company'; id: string }
@@ -48,6 +48,16 @@ export type EntityRef =
   | { type: 'notification'; kind: string; payload: Record<string, unknown> }
 
 const enc = encodeURIComponent
+
+/** Open a canvas beside its conversation. Keeps the rest of the query. */
+export function canvasOnThreadPath(here: string, canvasId: string): string {
+  const split = here.indexOf('?')
+  const path = split === -1 ? here : here.slice(0, split)
+  const params = new URLSearchParams(split === -1 ? '' : here.slice(split + 1))
+  params.set('canvas', canvasId)
+  const search = params.toString()
+  return search ? `${path}?${search}` : path
+}
 
 type NotificationRef = Extract<EntityRef, { type: 'notification' }>
 
@@ -82,7 +92,7 @@ export function openEntityPath(ref: EntityRef): string | null {
       return `/folders/${enc(ref.id)}`
     case 'canvas':
       if (ref.path) return ref.path
-      if (ref.projectId) return `/folders/${enc(ref.projectId)}?tab=canvas&canvas=${enc(ref.id)}`
+      if (ref.folderId) return `/folders/${enc(ref.folderId)}?tab=canvas&canvas=${enc(ref.id)}`
       return `/cockpit/canvas?canvas=${enc(ref.id)}`
     case 'work_item':
       return ref.projectId ? `/folders/${enc(ref.projectId)}` : '/agenda'
@@ -184,7 +194,7 @@ export function restoredEntityPath(
       return openEntityPath({
         type: 'canvas',
         id: resourceId,
-        projectId: stringField(hint, 'folder_id') ?? stringField(hint, 'project_id'),
+        folderId: stringField(hint, 'folder_id'),
       })
     case 'knowledge':
       return openEntityPath({ type: 'knowledge', id: resourceId })

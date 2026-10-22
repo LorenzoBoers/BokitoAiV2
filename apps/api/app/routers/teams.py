@@ -53,6 +53,7 @@ class TeamOut(BaseModel):
     avatar_icon: str | None = None
     avatar_color: str | None = None
     avatar_image_url: str | None = None
+    icon: str = "building-2"
 
 
 class TeamCreateBody(BaseModel):
@@ -66,6 +67,7 @@ class TeamPatchBody(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = None
     pickup: Literal["people", "agent_first", "round_robin", "least_open"] | None = None
+    icon: str | None = Field(default=None, max_length=64)
 
 
 class TeamMembersBody(BaseModel):
@@ -164,6 +166,37 @@ async def list_teams(
     return out
 
 
+class DepartmentNavRow(BaseModel):
+    id: str
+    name: str
+    icon: str
+    open: int
+    href: str
+
+
+@router.get("/nav", response_model=list[DepartmentNavRow])
+async def department_nav(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The Departments group in the left menu: the departments the caller may
+    open, each with its icon and open tickets. Owners and admins see all."""
+    from app.services.channel_access import visible_channel_account_ids
+    from app.services.department_overview import nav_departments
+
+    user_id = auth.user.id if auth.user else None
+    visible = (
+        await visible_channel_account_ids(session, auth.tenant.id, user_id=user_id, role=auth.role)
+        if user_id
+        else None
+    )
+    out = await nav_departments(
+        session, auth.tenant.id, user_id=user_id, role=auth.role, visible_account_ids=visible
+    )
+    await session.commit()
+    return out
+
+
 @router.post("", response_model=TeamOut, status_code=201)
 async def create_team(
     body: TeamCreateBody,
@@ -219,6 +252,25 @@ async def patch_team(
         team.description = body.description.strip()[:300]
     if body.pickup is not None:
         team.pickup = body.pickup
+    if body.icon is not None:
+        import json
+
+        from app.data.platform_icons import PLATFORM_ICON_IDS
+
+        icon = body.icon.strip()
+        if icon and icon not in PLATFORM_ICON_IDS:
+            raise HTTPException(status_code=400, detail="Unknown icon")
+        try:
+            settings = json.loads(team.settings_json or "{}")
+        except (TypeError, ValueError):
+            settings = {}
+        if not isinstance(settings, dict):
+            settings = {}
+        if icon:
+            settings["icon"] = icon
+        else:
+            settings.pop("icon", None)
+        team.settings_json = json.dumps(settings)
     team.pinned = True
     team.updated_at = datetime.utcnow()
     session.add(team)
@@ -452,6 +504,285 @@ async def team_overview(
     agents.sort(key=lambda a: a["name"].lower())
     await session.commit()
     return {"people": people, "agents": agents, "teams": teams_out}
+
+
+class DepartmentRef(BaseModel):
+    id: str
+    name: str
+    status: str | None = None
+    presence: str | None = None
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_shape: str | None = None
+    avatar_image_url: str | None = None
+
+
+class DepartmentMemberRow(BaseModel):
+    kind: Literal["user", "agent"]
+    id: str
+    name: str
+    duty: str
+    hours_per_week: int | None = None
+    open_assigned: int | None = None
+    presence: str | None = None
+    status: str | None = None
+    doing: str = ""
+    cost_cents: int | None = None
+
+
+class DepartmentStageRow(BaseModel):
+    key: str
+    name: str
+    kind: Literal["open", "waiting", "done", "closed"] = "open"
+    count: int
+    overdue: int
+    soon: int
+
+
+class DepartmentFlowRow(BaseModel):
+    id: str
+    name: str
+    label: str
+    label_id: str | None = None
+    autonomy: str = ""
+    open: int
+    waiting: int
+    overdue: int
+    scorecard: dict | None = None
+    stages: list[DepartmentStageRow] = Field(default_factory=list)
+    board_href: str = ""
+
+
+class DepartmentProposalRow(BaseModel):
+    change_id: str
+    decision_id: str
+    kind: str
+    summary: str
+    signal_id: str
+    created_at: str
+
+
+class DepartmentProposalHistoryRow(BaseModel):
+    change_id: str
+    kind: str
+    summary: str
+    status: Literal["accepted", "rejected"]
+    resolved_at: str | None = None
+
+
+class DepartmentOrientation(BaseModel):
+    at: str | None = None
+    summary: str = ""
+    quiet: bool = False
+    signal_id: str
+
+
+class DepartmentToday(BaseModel):
+    bottlenecks: list[dict] = Field(default_factory=list)
+    decisions_waiting: int = 0
+    orientation: DepartmentOrientation | None = None
+
+
+class DepartmentReach(BaseModel):
+    flows: list[dict] = Field(default_factory=list)
+    channels: list[dict] = Field(default_factory=list)
+    connections: list[dict] = Field(default_factory=list)
+    modules: list[str] = Field(default_factory=list)
+    organizations: list[dict] = Field(default_factory=list)
+
+
+class DepartmentFolderRow(BaseModel):
+    id: str
+    name: str
+    open: int
+    home: bool
+    href: str
+
+
+class DepartmentFolderScope(DepartmentFolderRow):
+    """One folder tab on the department page: the same counts, scoped to tickets in that folder."""
+
+    totals: dict[str, int] = Field(default_factory=dict)
+    bottlenecks: list[dict] = Field(default_factory=list)
+    flows: list[DepartmentFlowRow] = Field(default_factory=list)
+
+
+class DepartmentQuestionRow(BaseModel):
+    key: str
+    question: str
+    answer: str | None = None
+    status: Literal["open", "answered"]
+    asked_at: str | None = None
+    answered_at: str | None = None
+    signal_id: str | None = None
+    message_id: str | None = None
+
+
+class DepartmentOverviewOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str = "building-2"
+    lead: DepartmentRef | None = None
+    accountable: DepartmentRef | None = None
+    autonomy: str | None = None
+    origin_module: dict | None = None
+    room_signal_id: str | None = None
+    pickup: str = "people"
+    members: list[DepartmentMemberRow]
+    flows: list[DepartmentFlowRow]
+    totals: dict[str, int]
+    today: DepartmentToday = Field(default_factory=DepartmentToday)
+    proposals: list[DepartmentProposalRow] = Field(default_factory=list)
+    proposal_history: list[DepartmentProposalHistoryRow] = Field(default_factory=list)
+    awareness: dict | None = None
+    reach: DepartmentReach = Field(default_factory=DepartmentReach)
+    lands: list[DepartmentFolderRow] = Field(default_factory=list)
+    folders: list[DepartmentFolderScope] = Field(default_factory=list)
+    reach_attempts: dict | None = None
+    domain_questions: list[DepartmentQuestionRow] = Field(default_factory=list)
+    outcomes: dict | None = None
+    grid_href: str = ""
+
+
+@router.get("/{team_id}/overview", response_model=DepartmentOverviewOut)
+async def department_overview(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """One department: who leads and is accountable, what asks attention today,
+    the work per flow and stage, people and agents, the lead's awareness,
+    what it can reach, where its work lands, pushes and calls, domain
+    questions and outcomes."""
+    from app.services.department_overview import department_overview as build
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    out = await build(session, auth.tenant.id, team.id)
+    if out is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    await session.commit()
+    return out
+
+
+class DomainQuestionBody(BaseModel):
+    question: str = Field(min_length=3, max_length=500)
+
+
+class DomainAnswerBody(BaseModel):
+    answer: str = Field(min_length=1, max_length=2000)
+
+
+@router.get("/{team_id}/domain/questions", response_model=list[DepartmentQuestionRow])
+async def list_domain_questions(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """What the lead asked the person accountable about the domain, newest first."""
+    from app.services.department_domain import domain_questions
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    return list(reversed(domain_questions(team)))
+
+
+@router.post("/{team_id}/domain/questions", response_model=DepartmentQuestionRow)
+async def ask_domain_question(
+    team_id: str,
+    body: DomainQuestionBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Put a domain question in the department room (the same question twice is one row)."""
+    from app.services.department_domain import ask_domain_question as ask
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    row = await ask(session, auth.tenant.id, team, body.question, agent_id=None)
+    await session.commit()
+    return row
+
+
+@router.patch("/{team_id}/domain/questions/{key}", response_model=DepartmentQuestionRow)
+async def answer_domain_question(
+    team_id: str,
+    key: str,
+    body: DomainAnswerBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Answer a domain question. The answer becomes a fact in the lead's standing brief."""
+    from app.services.department_domain import answer_domain_question as answer
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    try:
+        row = await answer(session, auth.tenant.id, team, key, body.answer, user_id=auth.user.id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail="Question not found") from exc
+    await session.commit()
+    return row
+
+
+class AwarenessPatch(BaseModel):
+    follows: list[str] | None = None
+    daily_cost_cents: int | None = Field(default=None, ge=0, le=100_000)
+    max_proposals: int | None = Field(default=None, ge=0, le=10)
+    scope: dict | None = None
+
+
+async def _lead_or_404(session: AsyncSession, tenant_id: UUID, team) -> Agent:
+    from app.services.department_access import department_leads
+
+    lead_id = (await department_leads(session, tenant_id, team.id))["lead_agent_id"]
+    lead = await session.get(Agent, lead_id) if lead_id else None
+    if lead is None or lead.tenant_id != tenant_id:
+        raise HTTPException(status_code=404, detail="This department has no lead agent")
+    return lead
+
+
+@router.get("/{team_id}/awareness")
+async def get_department_awareness(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """What the lead agent follows, may spend and last saw on its orientation."""
+    from app.services.agent_awareness import awareness_view
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    return await awareness_view(session, await _lead_or_404(session, auth.tenant.id, team))
+
+
+@router.patch("/{team_id}/awareness")
+async def patch_department_awareness(
+    team_id: str,
+    body: AwarenessPatch,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Change what wakes the lead agent between orientations and what it may spend a day."""
+    from app.services.agent_awareness import awareness_view, set_awareness
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    lead = await _lead_or_404(session, auth.tenant.id, team)
+    try:
+        set_awareness(lead, body.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    session.add(lead)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="department.awareness_updated",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="agent",
+        resource_id=str(lead.id),
+        summary=f"Awareness of {lead.name} changed",
+        after=body.model_dump(exclude_none=True),
+    )
+    await session.commit()
+    return await awareness_view(session, lead)
 
 
 @router.put("/me/away", response_model=PresenceOut)

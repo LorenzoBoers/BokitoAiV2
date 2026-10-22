@@ -150,7 +150,6 @@ class AgentLoop:
         trust: str = "operator",
         *,
         allowed_tool_names: set[str] | None = None,
-        enable_chat_thinking: bool = False,
         tool_signal_id: UUID | None = None,
         user_role: str | None = None,
         surface: str = "",
@@ -168,6 +167,9 @@ class AgentLoop:
         self.user_id = user_id
         self.agent = agent
         self.run = run
+        # Plain id. A failed tool rolls the session back and expires `run`,
+        # and reading `run.id` after that kills the turn.
+        self._run_id = run.id if run is not None else None
         self.signal_id = signal_id
         # Optional force from a flow stage / Agenda item / tool call.
         self.model_override = model_override
@@ -184,6 +186,12 @@ class AgentLoop:
         # Showcase cards from attach_items for this turn (request-scoped backup
         # for the module-level stash that persist_agent_turn consumes).
         self._showcase_items: list[dict[str, Any]] = []
+        # One sheet create per turn. Further calls were a multi-minute loop
+        # that pasted the table into the chat bubble.
+        self._canvas_placed = False
+        self._canvas_caption_asked = False
+        self._canvas_nudged = False
+        self._suppress_tools = False
         # Membership role of the session user; explicit when the caller has an
         # AuthContext (staff sessions map to admin there), else resolved from
         # the membership row on first tool call. Autonomous runs stay None.
@@ -194,7 +202,6 @@ class AgentLoop:
         self._tenant_cached = None
         self._tenant_resolved = False
         self._reachable_cached: bool | None = None
-        self.enable_chat_thinking = enable_chat_thinking
         self.llm = get_llm_provider()
         # Set during run_chat once the model call is resolved (drives metering).
         self.resolved_call = None
@@ -224,7 +231,8 @@ class AgentLoop:
         self._knowledge_reads: list[dict[str, Any]] = []
         self.thinking_text = ""
         self.thinking_ms = 0
-        self.thinking_budget = 0
+        # This turn's effort (effort_policy); the same on every round.
+        self.effort = ""
         # Set when this loop runs a subagent: parent messages land between rounds.
         self.subagent_run_id: UUID | None = None
         # Why the last turn ended (see app.services.agent.stop_gate.STOP_REASONS).
@@ -242,50 +250,58 @@ class AgentLoop:
         self.agent_turn_id: UUID | None = None
         self._inline_turn_id: UUID | None = None
 
-    # Phrases that mean "I will do X next" without having called a tool yet.
-    _WORK_ANNOUNCE_RE = re.compile(
-        r"(?i)\b("
-        r"even kijken|ik ga |laat me |ik zoek|ik kijk|ik pak|"
-        r"ik begin|hier komt|komt[- ]ie|"
-        r"i(?:'| a)?m going to|let me |i(?:'| wi)?ll |looking up|checking |"
-        r"i will |going to (?:look|check|list|find|create|file|open)|"
-        r"here we go|i(?:'| wi)?ll start|working on (?:this|it)|i(?:'| a)?m on it|"
-        r"ik ben (?:er )?mee bezig|ik regel|ik vraag|een moment|one moment|i(?:'| wi)?ll ask"
-        r")\b"
-    )
-    _STORY_ASK_RE = re.compile(
-        r"(?i)(verhaal|verhaaltje|meerdere bericht|multiple message|"
-        r"several message|in meerdere)"
-    )
+    def _no_result_after_tools(self, round_content: list[dict[str, Any]]) -> bool:
+        """Tools ran this turn and the closing round said nothing (or only a filler)."""
+        if not any(step.get("step_type") == "tool_call" for step in self.trace_steps):
+            return False
+        texts = [
+            str(block.get("text") or "").strip()
+            for block in round_content or []
+            if block.get("type") == "text"
+        ]
+        return all(not text or is_progress_filler(text) for text in texts)
 
-    def _turn_pace(self) -> str:
-        """reply, reply_then_think, or think for the latest user message."""
-        from app.services.agent.reasoning_policy import PACE_REPLY, turn_pace
+    _STRUCTURE_LINE_RE = re.compile(r"^\s*(#{1,6}\s|[-*\u2022]\s|\d+[.)]\s|\*\*[^*]+:\*\*|\|)")
 
-        return turn_pace(
-            str(getattr(self, "_turn_user_text", "") or ""),
-            has_attachments=bool(getattr(self, "_turn_has_attachments", False)),
-        ) or PACE_REPLY
-
-    def _looks_like_work_announce(self, text: str) -> bool:
-        cleaned = (text or "").strip()
-        if is_progress_filler(cleaned):
+    def _canvas_in_chat(self, text: str) -> bool:
+        """The reply is a canvas body: code, SVG, or a long layout spec. No canvas was made."""
+        if self._canvas_placed or self._canvas_nudged or self.trust != "operator":
+            return False
+        if not any(t.get("name") == "create_canvas" for t in self.tools or []):
+            return False
+        body = text or ""
+        if "```" in body or "<svg" in body.lower():
             return True
-        if len(cleaned) < 12 or len(cleaned) > 400:
-            return False
-        if not self._WORK_ANNOUNCE_RE.search(cleaned):
-            return False
-        # Finished answers usually end with a period after substance; keep it
-        # loose — the nudge is cheap and only runs once.
-        return True
+        structure = sum(1 for line in body.splitlines() if self._STRUCTURE_LINE_RE.match(line))
+        return structure >= 8
 
-    def _looks_like_unfinished_story(self, text: str) -> bool:
-        """User asked for a story / several bubbles; the model stopped after the opening."""
-        user = str(getattr(self, "_turn_user_text", "") or "")
-        if not self._STORY_ASK_RE.search(user):
-            return False
-        cleaned = (text or "").strip()
-        return 12 <= len(cleaned) <= 500
+    async def _move_to_canvas(self, llm_messages: list[dict[str, Any]], content: list[dict[str, Any]], text: str) -> None:
+        """Keep the opening sentence; the rest goes into a canvas on the next round."""
+        self._canvas_nudged = True
+        opening = (text or "").strip().split("\n\n", 1)[0].strip()
+        if len(opening) > 240 or self._STRUCTURE_LINE_RE.match(opening) or "```" in opening:
+            opening = ""
+        if self.turn is not None and self.turn.has_open_speech:
+            await self.turn.rewrite_open_speech(opening)
+        llm_messages.append(
+            {"role": "assistant", "content": content or [{"type": "text", "text": text or "(draft)"}]}
+        )
+        llm_messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "<system-reminder>\nThat belongs in a canvas, not in the message. If this "
+                    "conversation already lists a canvas, call update_folder_canvas with that "
+                    "canvas_id. Otherwise call create_canvas with the finished content in "
+                    "source (dashboard = Stat, BarChart, LineChart, PieChart inside <> or "
+                    "<Stack>; drawing = one <svg>; diagram = Mermaid; sheet = columns and "
+                    "rows; document = markdown). The operator only sees your first sentence. "
+                    "After the tool, say in one sentence what you made.\n</system-reminder>"
+                ),
+            }
+        )
+        logger.info("canvas nudge: layout in chat, run=%s", self._run_id)
+        await self._log_event("think", "Moving the draft into a canvas", {"stop_nudge": "canvas_in_chat"})
 
     async def _post_progress(self, text: str) -> bool:
         """Post an interim English line the operator can read. Time-gated."""
@@ -308,6 +324,54 @@ class AgentLoop:
         self._progress_count += 1
         await self._keep_lease()
         return True
+
+    async def _settle_canvas_speech(self) -> None:
+        """The sentence stays in the bubble. The sheet leaves it."""
+        turn = self.turn
+        if turn is None:
+            return
+        from app.services.canvas_sheet import detach_sheet_speech
+
+        changed = False
+        for seg in turn.segments:
+            raw = str(seg.get("text") or "")
+            cleaned = detach_sheet_speech(raw)
+            if cleaned != raw.strip():
+                seg["text"] = cleaned
+                changed = True
+        open_text = turn.open_speech_text
+        cleaned_open = detach_sheet_speech(open_text)
+        if cleaned_open == open_text and not changed:
+            return
+        await turn.rewrite_open_speech(cleaned_open)
+
+    async def _canvas_turn_done(self, llm_messages: list[dict[str, Any]]) -> bool:
+        """End after the canvas, unless the operator still needs a real sentence.
+
+        The English fallback is not a message. One round without tools lets the
+        agent say, in the operator's language, what it just made.
+        """
+        if not self._canvas_placed:
+            return False
+        await self._settle_canvas_speech()
+        text = (self.turn.bubble_text() if self.turn is not None else "").strip()
+        if text and text != "The sheet is beside this message.":
+            return True
+        if self._canvas_caption_asked:
+            return True
+        self._canvas_caption_asked = True
+        self._suppress_tools = True
+        llm_messages.append(
+            {
+                "role": "user",
+                "content": (
+                    "The canvas is already beside this message. "
+                    "Write one or two sentences in the operator's language about what you made. "
+                    "Do not call a tool. Do not paste JSON or a table."
+                ),
+            }
+        )
+        return False
 
     def _new_stop_gate(self) -> None:
         from app.services.agent.stop_gate import StopGate
@@ -343,14 +407,23 @@ class AgentLoop:
             )
             if bodies:
                 queued = subagents.reminder(bodies)
+        if not queued and self._canvas_in_chat(joined):
+            await self._move_to_canvas(llm_messages, assistant_content, joined)
+            return True
+        from app.services.agent.stop_gate import ANNOUNCE_REMINDER
+
         reminder = self._stop_gate.check(
             called_ok=self._called_ok,
-            announced_work=self._looks_like_work_announce(joined)
-            or self._looks_like_unfinished_story(joined),
+            no_result_after_tools=self._no_result_after_tools(assistant_content),
             queued_messages=queued,
         )
         if reminder is None:
             return False
+        if reminder == ANNOUNCE_REMINDER:
+            logger.info("stop gate: no result after tools, run=%s", self._run_id)
+            await self._log_event(
+                "think", "Continuing: no result after tools", {"stop_nudge": "no_result_after_tools"}
+            )
         llm_messages.append(
             {
                 "role": "assistant",
@@ -374,27 +447,18 @@ class AgentLoop:
             if bodies:
                 _append_user_text(llm_messages, subagents.reminder(bodies))
 
-    def _resolve_thinking_budget(self) -> int:
-        """This turn's reasoning budget (see ``reasoning_policy``).
+    def _resolve_effort(self) -> str:
+        """This turn's effort. Fixed for every round so thinking settings never flip mid-turn."""
+        from app.services.agent.effort_policy import turn_effort
 
-        The budget applies when the pace is think or the later half of
-        reply-then-think. A plain reply stays at 0, including Kong.
-        """
-        from app.services.agent.reasoning_policy import turn_thinking_budget
-
-        agent_budget = int(getattr(self.agent, "thinking_budget", 0) or 0) if self.agent else 0
-        if agent_budget > 0:
-            configured = agent_budget
-        elif self.enable_chat_thinking:
-            configured = max(0, int(get_settings().chat_thinking_budget or 0))
-        else:
-            configured = 0
-        return turn_thinking_budget(
+        configured = (
+            getattr(self.agent, "effort", "") if self.agent else ""
+        ) or get_settings().chat_default_effort
+        return turn_effort(
             configured,
+            user_text=str(getattr(self, "_turn_user_text", "") or ""),
+            has_attachments=bool(getattr(self, "_turn_has_attachments", False)),
             model_slug=getattr(self, "_turn_model_slug", None),
-            user_text=getattr(self, "_turn_user_text", ""),
-            has_attachments=getattr(self, "_turn_has_attachments", False),
-            agent_pinned=agent_budget > 0,
         )
 
     def _resolve_max_tokens(self) -> int | None:
@@ -413,14 +477,14 @@ class AgentLoop:
         return {
             "text": text,
             "ms": self.thinking_ms,
-            "budget": self.thinking_budget,
+            "effort": self.effort,
         }
 
     async def _log_event(self, event_type: str, message: str, payload: dict | None = None) -> None:
-        if not self.run:
+        if self._run_id is None:
             return
         event = RunEvent(
-            run_id=self.run.id,
+            run_id=self._run_id,
             tenant_id=self.tenant_id,
             event_type=event_type,
             message=message,
@@ -430,13 +494,19 @@ class AgentLoop:
         await self.session.commit()
         from app.gateway.publish import publish_run_event
 
+        status = "running"
+        if self.run is not None:
+            try:
+                status = self.run.status
+            except Exception:
+                status = "running"
         await publish_run_event(
             self.tenant_id,
-            self.run.id,
+            self._run_id,
             event_type=event_type,
             message=message,
             payload=payload or {},
-            status=self.run.status,
+            status=status,
         )
 
     def _append_trace_step(
@@ -566,6 +636,20 @@ class AgentLoop:
 
         event.listen(self.session.sync_session, "after_commit", _after_commit, once=True)
 
+    async def _abort_turn(self) -> None:
+        """A failed turn closes its live bubble and frees the floor now; the caller's rollback never commits."""
+        if self.turn is not None:
+            try:
+                await self.turn.finish("error")
+            except Exception:  # noqa: BLE001
+                logger.debug("closing failed live turn failed", exc_info=True)
+        turn_id, self._inline_turn_id = self._inline_turn_id, None
+        if turn_id is None:
+            return
+        from app.services.agent_turns import end_inline_turn
+
+        await end_inline_turn(self.session.bind, turn_id, outcome="error")
+
     async def _keep_lease(self) -> None:
         """Mark the turn alive between steps. The open turn itself lives on the thread log."""
         if not self.signal_id or self.turn is None:
@@ -583,6 +667,22 @@ class AgentLoop:
                 inline=self.agent_turn_id is None,
             )
         await self.session.commit()
+
+    async def _release_broken_session(self) -> None:
+        """Drop a session whose connection greenlet died mid-tool.
+
+        The next query opens a new connection. The tool result itself is
+        already in hand, so the model can rewrite and call again.
+        """
+        try:
+            await self.session.rollback()
+            return
+        except Exception:
+            logger.exception("rollback after a broken session failed")
+        try:
+            self.session.sync_session.close()
+        except Exception:
+            logger.exception("close after a broken session failed")
 
     async def _resolve_reply_mode(self) -> str:
         if self.reply_mode:
@@ -690,6 +790,95 @@ class AgentLoop:
         self._tenant_resolved = True
         return self._tenant_cached
 
+    async def _situation_block(self) -> str:
+        """Clock in the workspace timezone, and that browsing is a tool.
+
+        A custom role (social copy, for example) does not remove web_search
+        or fetch_url. Without the date, "komende week" becomes a guessed year.
+        """
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        tz_name = "Europe/Amsterdam"
+        tenant = await self._get_tenant()
+        raw = getattr(tenant, "settings_json", None) if tenant is not None else None
+        try:
+            stored = json.loads(raw or "{}")
+        except (TypeError, json.JSONDecodeError):
+            stored = {}
+        if isinstance(stored, dict) and str(stored.get("timezone") or "").strip():
+            tz_name = str(stored["timezone"]).strip()
+        try:
+            now = datetime.now(ZoneInfo(tz_name))
+        except Exception:
+            now = datetime.now(ZoneInfo("UTC"))
+            tz_name = "UTC"
+        stamp = f"{now.strftime('%A')} {now.day} {now.strftime('%B %Y, %H:%M')}"
+        names = {t.get("name") for t in (self.tools or [])}
+        lines = [
+            "## Now",
+            f"Today is {stamp} ({tz_name}).",
+            "Today, tomorrow, and komende week start from this date. Do not invent another year.",
+            "The operator's request in this turn is the job. Your role describes the usual "
+            "work; it does not limit the tools you may use.",
+        ]
+        if "web_search" in names and "fetch_url" in names:
+            lines.append(
+                "## Browse\n"
+                "You can browse. web_search finds pages and fetch_url reads one public "
+                "page. Both are on your tool list. A search result is links, not the "
+                "numbers. In the same turn, call fetch_url on the page that has the "
+                "daily figures. For a coming week, open a 14-day forecast and do not "
+                "put a year in the search query. Answer from the page you fetched. "
+                "If fetch_url errors, say that in one line and try one other url from "
+                "the results. Never say you cannot browse, and never send the operator "
+                "to a website to look it up themselves."
+            )
+        if "create_canvas" in names or "update_folder_canvas" in names:
+            here = ""
+            if self.signal_id and "update_folder_canvas" in names:
+                from app.services.project_canvas import list_canvases_for_signal
+
+                listed = await list_canvases_for_signal(
+                    self.session, self.tenant_id, self.signal_id
+                )
+                if listed:
+                    rows = "; ".join(
+                        f"{row.get('title') or 'Canvas'} "
+                        f"({row.get('kind') or 'dashboard'}, canvas_id={row.get('id')})"
+                        for row in listed[:8]
+                    )
+                    here = (
+                        f"\nCanvases already on this conversation: {rows}. "
+                        "A change, extra chart, or tweak is update_folder_canvas "
+                        "with that canvas_id. Do not call create_canvas to edit one. "
+                        "create_canvas with force_new is only when they asked for a "
+                        "separate canvas."
+                    )
+            lines.append(
+                "## Canvases\n"
+                "Anything they want to look at, keep or export is a canvas, not chat text. "
+                "A follow-up on a canvas already here is update_folder_canvas with its "
+                "canvas_id and the full new source. create_canvas is for the first canvas, "
+                "or a separate one (force_new) when they asked for another.\n"
+                "Call the tool once with the finished content in source:\n"
+                "- dashboard, grafieken, statistieken, cijfers: kind=dashboard. Root is "
+                "<> or <Stack>. Use Stat, BarChart, LineChart, PieChart, Card, Table, "
+                "Heading. A chart on a dashboard is not an SVG and not generate_image.\n"
+                "- sheet, table, list of values to export: kind=sheet with the values you read.\n"
+                "- poster, tekening, ontwerp, infographic: kind=drawing with one complete "
+                "<svg> document (viewBox, real text and numbers).\n"
+                "- diagram, flow, schema, process: kind=diagram with Mermaid source.\n"
+                "- report, plan, uitleg to keep: kind=document with markdown.\n"
+                "\"Put this in a design\" after an earlier canvas means a new drawing built "
+                "from that canvas's data, with force_new. A chart is not generate_image.\n"
+                "Write one sentence first, then call the tool in the same response. The card "
+                "sits beside your message. Never write the SVG, Mermaid, JSON, a table or a "
+                "layout description in the message."
+                + here
+            )
+        return "\n".join(lines)
+
     async def _operator_context(self) -> str:
         """Tell the model who is chatting — an internal operator, not a customer."""
         if not self.user_id:
@@ -774,6 +963,30 @@ class AgentLoop:
             "not from the human. Do not say the human started it."
         )
 
+    async def _with_lead_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """A department lead can always ask its person accountable a domain question."""
+        if self.agent is None or self.trust == "external" or any(t["name"] == "ask_domain_question" for t in tools):
+            return tools
+        from app.services.department_domain import agent_departments
+
+        led = [d for d, duty in await agent_departments(self.session, self.tenant_id, self.agent.id) if duty == "primary"]
+        if not led:
+            return tools
+        extra = next((t for t in get_tool_definitions() if t["name"] == "ask_domain_question"), None)
+        return [*tools, extra] if extra else tools
+
+    async def _aware_context(self) -> str:
+        """Role, standing brief and domain facts. Never for visitors."""
+        if self.agent is None or self.trust == "external":
+            return ""
+        from app.services.agent_awareness import aware_context
+
+        try:
+            return await aware_context(self.session, self.agent)
+        except Exception:  # noqa: BLE001 — a missing brief never blocks a run
+            logger.debug("aware context failed", exc_info=True)
+            return ""
+
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
         # Chat turns skip the full tenant snapshot. Scoring docs + snapshot
         # queries used to freeze the event loop so the first token never left.
@@ -851,12 +1064,16 @@ class AgentLoop:
                 parts.append(skills)
             if rag_context:
                 parts.append(f"## Relevant context\n{rag_context}")
+            aware = await self._aware_context()
+            if aware:
+                parts.append(aware)
             if extra_context:
                 parts.append(extra_context)
             tenant_for_lang = await self._get_tenant()
             parts.append(language_rules_for_trust(self.trust, tenant_for_lang))
             if self.trust != "external":
                 parts.append(when_to_ask_prompt(all_rules(tenant_for_lang, self.agent)))
+            parts.append(await self._situation_block())
             return "\n\n".join(parts).strip()
         if self.agent is not None:
             if self.trust == "external":
@@ -974,6 +1191,21 @@ class AgentLoop:
         category_map = await category_map_block(self.session, self.tenant_id)
         if category_map:
             parts.append(category_map)
+        aware = await self._aware_context()
+        if aware:
+            parts.append(aware)
+        if self.signal_id:
+            from app.models.signal import Signal
+            from app.services.project_work import client_knowledge_block
+            from app.services.workstreams import recipe_block
+
+            thread = await self.session.get(Signal, self.signal_id)
+            client = await client_knowledge_block(self.session, self.tenant_id, thread)
+            if client:
+                parts.append(client)
+            approach = await recipe_block(self.session, thread)
+            if approach:
+                parts.append(approach)
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
@@ -997,6 +1229,7 @@ class AgentLoop:
             from app.services.agent.style import CANVAS_REFRESH_TURN
 
             parts.append(CANVAS_REFRESH_TURN)
+        parts.append(await self._situation_block())
         return "\n\n".join(parts).strip()
 
     def _with_canvas_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1120,16 +1353,30 @@ class AgentLoop:
         )
         return True
 
+    def _llm_chat_timeout(self) -> float:
+        """Whole non-streaming call. A hung wake used to leave Bezig up until the 15-minute reap."""
+        elapsed = time.monotonic() - self._started if self._started else 0.0
+        tool_steps = sum(1 for step in self.trace_steps if step.get("step_type") == "tool_call")
+        if tool_steps >= 1 or elapsed >= 20:
+            return 180.0
+        return 90.0
+
     async def _llm_chat(self, llm_messages: list[dict[str, Any]], max_tokens: int) -> dict[str, Any]:
+        timeout = self._llm_chat_timeout()
         for attempt in range(_MAX_FAILOVER_STEPS + 1):
             try:
-                return await self.llm.chat(
-                    llm_messages,
-                    tools=self.tools,
-                    model=self.resolved_call.model_id if self.resolved_call else None,
-                    thinking_budget=self.thinking_budget,
-                    max_tokens=max_tokens,
+                return await asyncio.wait_for(
+                    self.llm.chat(
+                        llm_messages,
+                        tools=[] if self._suppress_tools else self.tools,
+                        model=self.resolved_call.model_id if self.resolved_call else None,
+                        effort=self.effort or None,
+                        max_tokens=max_tokens,
+                    ),
+                    timeout=timeout,
                 )
+            except TimeoutError as exc:
+                raise TimeoutError("llm chat timed out") from exc
             except Exception as exc:
                 if attempt >= _MAX_FAILOVER_STEPS or not await self._failover_after_rate_limit(exc):
                     raise
@@ -1154,9 +1401,9 @@ class AgentLoop:
             try:
                 stream = self.llm.stream_chat(
                     llm_messages,
-                    tools=self.tools,
+                    tools=[] if self._suppress_tools else self.tools,
                     model=self.resolved_call.model_id if self.resolved_call else None,
-                    thinking_budget=self.thinking_budget,
+                    effort=self.effort or None,
                     max_tokens=max_tokens,
                 )
                 agen = stream.__aiter__()
@@ -1239,6 +1486,7 @@ class AgentLoop:
                 enabled_customer_tools=enabled_customer,
             )
             self.tools = self._with_canvas_tools(self.tools)
+            self.tools = await self._with_lead_tools(self.tools)
             if not self.canvas_refresh:
                 from app.services.image_generation import image_generation_disabled
                 from app.services.tenant_models import get_tenant_model_prefs
@@ -1301,7 +1549,7 @@ class AgentLoop:
         try:
             await self.session.rollback()
         except Exception:
-            pass
+            logger.debug("rollback before bare chat prepare failed", exc_info=True)
         if getattr(self, "resolved_call", None) is None or getattr(self, "llm", None) is None:
             selected = await self._select_chat_model()
             self.resolved_call = await resolve_model_call(
@@ -1478,8 +1726,17 @@ class AgentLoop:
     async def _is_cancelled(self) -> bool:
         from app.services.agent.run_cancel import is_run_cancelled
 
-        run_id = self.run.id if self.run else None
-        return await is_run_cancelled(self.session, run_id)
+        return await is_run_cancelled(self.session, self._run_id)
+
+    async def _revive_bound_rows(self) -> None:
+        """Reload rows a tool rollback expired, so the model can read the error."""
+        for obj in (self.run, self.agent):
+            if obj is None:
+                continue
+            try:
+                await self.session.refresh(obj)
+            except Exception:
+                logger.debug("refresh after tool failed", exc_info=True)
 
     async def _speak_peer_request(self, tool: str, tool_input: Any, result: Any) -> None:
         """The question to another agent is a bubble of this turn, said once.
@@ -1501,6 +1758,32 @@ class AgentLoop:
         self.turn.note_said(line)
         if isinstance(tool_input, dict):
             self.turn.note_said(str(tool_input.get("question") or tool_input.get("brief") or ""))
+
+    async def _recover_leaked_proposal(self, turn: TurnRecorder) -> bool:
+        """Run a ``<propose_action>`` the model wrote as text, and drop the tag."""
+        speech = turn.open_speech_text
+        if "<propose_action" not in speech.lower():
+            return False
+        from app.services.agent.leaked_tools import lift_propose_action_markup
+
+        clean, calls = lift_propose_action_markup(speech)
+        if not calls:
+            return False
+        if clean:
+            await turn.rewrite_open_speech(clean)
+        else:
+            turn.discard_open_speech()
+        tool_uses = [
+            {
+                "type": "tool_use",
+                "id": call["id"],
+                "name": call["name"],
+                "input": call["input"],
+            }
+            for call in calls
+        ]
+        await self._execute_tool_loop([], tool_uses)
+        return True
 
     async def _execute_tool_loop(
         self,
@@ -1555,6 +1838,23 @@ class AgentLoop:
                         }
                     )
                     continue
+            if tool_use["name"] == "create_canvas" and self._canvas_placed:
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": tool_use["id"],
+                        "content": json.dumps(
+                            {
+                                "message": (
+                                    "The canvas is already beside the message. "
+                                    "Stop. Do not paste the sheet."
+                                ),
+                                "status": "done",
+                            }
+                        ),
+                    }
+                )
+                continue
             await self._maybe_promote_to_task(tool_use["name"])
             await self._log_event("tool_call", tool_use["name"], tool_use.get("input"))
             tool_input = tool_use.get("input", {})
@@ -1616,10 +1916,14 @@ class AgentLoop:
             self._append_trace_step("tool_result", name=tool_use["name"], payload={"result": result})
             if not (isinstance(result, dict) and result.get("error")):
                 self._called_ok.add(tool_use["name"])
-            if self.turn is not None and item is not None:
-                await self.turn.tool_end(item, result)
-                await self._speak_peer_request(tool_use.get("name") or "", tool_use.get("input") or {}, result)
-                await self._keep_lease()
+            try:
+                if self.turn is not None and item is not None:
+                    await self.turn.tool_end(item, result)
+                    await self._speak_peer_request(tool_use.get("name") or "", tool_use.get("input") or {}, result)
+                    await self._keep_lease()
+            except Exception:
+                logger.exception("tool %s finished; session follow-up failed", tool_use["name"])
+                await self._release_broken_session()
             if (
                 tool_use["name"] == "update_progress"
                 and isinstance(result, dict)
@@ -1629,15 +1933,12 @@ class AgentLoop:
                 result["posted"] = posted
                 if not posted:
                     result["skipped"] = "too_soon_or_recent"
-            if isinstance(result, dict) and result.get("error"):
-                # Denied / timed-out tools should not burn another long think
-                # before a short recovery reply.
-                if result.get("status") in ("denied", "timeout") or result.get(
-                    "reason"
-                ) in ("channel_access", "audience"):
-                    self.thinking_budget = 0
-                elif self.thinking_budget > 1024:
-                    self.thinking_budget = 1024
+            if tool_use["name"] in ("create_canvas", "update_folder_canvas") and isinstance(result, dict):
+                if not result.get("error"):
+                    self._canvas_placed = True
+                for row in result.get("items") or []:
+                    if isinstance(row, dict):
+                        self._showcase_items.append(row)
             tool_results.append(
                 {
                     "type": "tool_result",
@@ -1645,6 +1946,7 @@ class AgentLoop:
                     "content": self._tool_result_content(tool_use["name"], result),
                 }
             )
+            await self._revive_bound_rows()
         return tool_results
 
     def _tool_result_content(self, name: str, result: Any) -> str:
@@ -1669,16 +1971,40 @@ class AgentLoop:
         attachments: list[dict] | None = None,
     ) -> tuple[str, dict[str, int]]:
         """Non-streaming turn. Returns the last speech; ``self.turn`` has every segment."""
+        try:
+            return await self._run_chat(messages, extra_context, attachments)
+        except Exception:
+            await self._abort_turn()
+            raise
+
+    async def _run_chat(
+        self,
+        messages: list[dict[str, Any]],
+        extra_context: str,
+        attachments: list[dict] | None,
+    ) -> tuple[str, dict[str, int]]:
+        from app.services.project_canvas import canvas_refresh_wake
+
+        wake = canvas_refresh_wake.set(bool(self.canvas_refresh))
+        try:
+            return await self._run_chat_body(messages, extra_context, attachments)
+        finally:
+            canvas_refresh_wake.reset(wake)
+
+    async def _run_chat_body(
+        self,
+        messages: list[dict[str, Any]],
+        extra_context: str,
+        attachments: list[dict] | None,
+    ) -> tuple[str, dict[str, int]]:
         await self.begin_inline_turn()
         llm_messages, tokens = await self._prepare_chat(messages, extra_context, attachments)
         turn = self._new_turn()
-        full_budget = self._resolve_thinking_budget()
-        self.thinking_budget = full_budget
+        self.effort = self._resolve_effort()
         max_tokens = self._resolve_max_tokens()
         self._new_stop_gate()
         started = time.monotonic()
         self._started = started
-        ack_first = self._turn_pace() == "reply_then_think"
 
         self.stop_reason = "max_turns"
         for loop_idx in range(self.max_loops):
@@ -1687,7 +2013,6 @@ class AgentLoop:
                 break
             await self._between_rounds(llm_messages)
             await self._log_event("think", f"Loop {loop_idx + 1}")
-            self.thinking_budget = 0 if ack_first and loop_idx == 0 else full_budget
             response = await self._llm_chat(llm_messages, max_tokens)
             tokens["input_tokens"] += response.get("usage", {}).get("input_tokens", 0)
             tokens["output_tokens"] += response.get("usage", {}).get("output_tokens", 0)
@@ -1714,10 +2039,19 @@ class AgentLoop:
                 llm_messages.append({"role": "assistant", "content": content})
                 tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
                 llm_messages.append({"role": "user", "content": tool_results})
+                if await self._canvas_turn_done(llm_messages):
+                    self.stop_reason = "end_turn"
+                    break
+                if self._canvas_caption_asked and self._suppress_tools:
+                    continue
                 if self._passed_floor:
                     self.stop_reason = "end_turn"
                     break
                 continue
+
+            if await self._recover_leaked_proposal(turn):
+                self.stop_reason = "end_turn"
+                break
 
             joined = "\n".join(text_blocks)
             if await self._stop_check(
@@ -1753,6 +2087,23 @@ class AgentLoop:
         by snapshot + hybrid search. Widget and inbound turns keep RAG so
         published help-center hits can still append related-article links.
         """
+        try:
+            async for event in self._stream_chat(
+                messages, extra_context, attachments, skip_rag=skip_rag
+            ):
+                yield event
+        except Exception:
+            await self._abort_turn()
+            raise
+
+    async def _stream_chat(
+        self,
+        messages: list[dict[str, Any]],
+        extra_context: str,
+        attachments: list[dict] | None,
+        *,
+        skip_rag: bool,
+    ) -> AsyncGenerator[dict[str, Any], None]:
         turn = self._new_turn()
         stream_id = turn.stream_id
         started = time.monotonic()
@@ -1786,10 +2137,8 @@ class AgentLoop:
             llm_messages, tokens = await self._prepare_chat_bare(
                 messages, extra_context, attachments
             )
-        full_budget = self._resolve_thinking_budget()
-        self.thinking_budget = full_budget
+        self.effort = self._resolve_effort()
         max_tokens = self._resolve_max_tokens()
-        ack_first = self._turn_pace() == "reply_then_think"
         await self._keep_lease()
 
         cancelled = False
@@ -1801,8 +2150,6 @@ class AgentLoop:
                 break
             await self._between_rounds(llm_messages)
             await self._log_event("think", f"Loop {loop_idx + 1}")
-            self.thinking_budget = 0 if ack_first and loop_idx == 0 else full_budget
-
             response_content: list[dict[str, Any]] = []
             streamed_text = False
 
@@ -1858,10 +2205,31 @@ class AgentLoop:
                     llm_messages, tool_uses, stream_id=stream_id
                 )
                 llm_messages.append({"role": "user", "content": tool_results})
+                if await self._canvas_turn_done(llm_messages):
+                    self.stop_reason = "end_turn"
+                    yield {
+                        "type": "delta",
+                        "text": "",
+                        "segment_id": turn.current_segment_id,
+                        "parts": turn.speech_parts(),
+                    }
+                    break
+                if self._canvas_caption_asked and self._suppress_tools:
+                    continue
                 if self._passed_floor:
                     self.stop_reason = "end_turn"
                     break
                 continue
+
+            if not cancelled and await self._recover_leaked_proposal(turn):
+                self.stop_reason = "end_turn"
+                yield {
+                    "type": "delta",
+                    "text": "",
+                    "segment_id": turn.current_segment_id,
+                    "parts": turn.speech_parts(),
+                }
+                break
 
             joined = "\n".join(text_blocks) if text_blocks else turn.final_text
             if not cancelled and await self._stop_check(
@@ -1939,5 +2307,5 @@ class AgentLoop:
             "text": done_text,
             "thinking": self.thinking_text,
             "thinking_ms": self.thinking_ms,
-            "thinking_budget": self.thinking_budget,
+            "effort": self.effort,
         }

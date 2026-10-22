@@ -18,6 +18,8 @@ production only.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 from dataclasses import dataclass
@@ -202,26 +204,26 @@ def _graph_bounds(start: datetime, end: datetime, *, all_day: bool) -> tuple[dic
 
 def _parse_google_dt(value: dict[str, Any] | None) -> tuple[datetime, bool]:
     if not isinstance(value, dict):
-        return datetime.utcnow(), False
+        return utcnow(), False
     if value.get("date"):
         day = datetime.strptime(str(value["date"])[:10], "%Y-%m-%d")
         return day, True
     raw = str(value.get("dateTime") or "")
     if not raw:
-        return datetime.utcnow(), False
+        return utcnow(), False
     normalized = raw.replace("Z", "+00:00")
     try:
         return _iso_naive(datetime.fromisoformat(normalized)), False
     except ValueError:
-        return datetime.utcnow(), False
+        return utcnow(), False
 
 
 def _parse_graph_dt(value: dict[str, Any] | None, *, all_day: bool) -> datetime:
     if not isinstance(value, dict):
-        return datetime.utcnow()
+        return utcnow()
     raw = str(value.get("dateTime") or "")
     if not raw:
-        return datetime.utcnow()
+        return utcnow()
     if all_day and "T" not in raw:
         return datetime.strptime(raw[:10], "%Y-%m-%d")
     normalized = raw.replace("Z", "+00:00")
@@ -231,7 +233,7 @@ def _parse_graph_dt(value: dict[str, Any] | None, *, all_day: bool) -> datetime:
             return datetime.fromisoformat(normalized[:19])
         return _iso_naive(datetime.fromisoformat(normalized))
     except ValueError:
-        return datetime.utcnow()
+        return utcnow()
 
 
 def _check(resp: httpx.Response) -> None:
@@ -288,7 +290,7 @@ async def _access_token(
         creds["refresh_token"] = refreshed["refresh_token"]
     expires_in = refreshed.get("expires_in")
     if expires_in:
-        creds["expires_at"] = (datetime.utcnow() + timedelta(seconds=int(expires_in))).isoformat()
+        creds["expires_at"] = (utcnow() + timedelta(seconds=int(expires_in))).isoformat()
     set_connection_credentials(conn, creds)
     session.add(conn)
     await session.commit()
@@ -328,7 +330,7 @@ async def _mark(
     error: str = "",
 ) -> None:
     meta = _parse_json(conn.metadata_json)
-    meta["last_synced_at"] = datetime.utcnow().isoformat()
+    meta["last_synced_at"] = utcnow().isoformat()
     meta["sync_status"] = status
     meta["sync_error"] = error
     conn.metadata_json = json.dumps(meta)
@@ -521,7 +523,7 @@ async def _seed_mock_events(
     cal_ext = target.external_id if target else "primary"
     cal_name = target.name if target else "Primary"
     tc_id = target.id if target else await bind_event_calendar(session, conn, cal_ext)
-    now = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+    now = utcnow().replace(minute=0, second=0, microsecond=0)
     samples = [
         ("Team standup", now + timedelta(hours=2), now + timedelta(hours=2, minutes=30)),
         ("Customer call", now + timedelta(days=1, hours=10), now + timedelta(days=1, hours=11)),
@@ -550,7 +552,7 @@ async def _seed_mock_events(
 
 
 def _window() -> tuple[datetime, datetime]:
-    now = datetime.utcnow()
+    now = utcnow()
     return now - timedelta(days=SYNC_WINDOW_PAST_DAYS), now + timedelta(days=SYNC_WINDOW_FUTURE_DAYS)
 
 
@@ -696,7 +698,7 @@ async def _fetch_account(
 
 
 def _apply_event(row: CalendarEvent, data: dict[str, Any], calendar_name: str) -> None:
-    now = datetime.utcnow()
+    now = utcnow()
     row.calendar_name = calendar_name
     row.title = data["title"] or "(No title)"
     row.description = data["description"] or ""
@@ -1308,7 +1310,7 @@ async def update_external_event(
     row.all_day = new_all_day
     row.description = new_description
     row.location = new_location
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
     await session.refresh(row)

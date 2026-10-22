@@ -25,7 +25,9 @@ export default function MailboxSyncWindowField({
   id = 'mailbox-sync-window',
 }: Props) {
   const { t } = useTranslation('nav')
-  const options = allowUnlimited ? CHANNEL_SYNC_WINDOW_OPTIONS : INSTALL_SYNC_WINDOW_OPTIONS
+  const options: readonly number[] = allowUnlimited
+    ? CHANNEL_SYNC_WINDOW_OPTIONS
+    : INSTALL_SYNC_WINDOW_OPTIONS
 
   return (
     <div className="space-y-1.5">

@@ -27,6 +27,8 @@ type Props = {
   data: OrgFlow
   lens: GridLens
   label: string | null
+  /** One department in focus: other lanes dim. */
+  zone?: string | null
   selectedId: string | null
   hoverId: string | null
   onHover: (id: string | null) => void
@@ -66,6 +68,12 @@ function FaceInner({ node }: { node: OrgFlowNode }) {
       return (
         <span className={cn(round, 'bg-bg-elevated')}>
           <Lightbulb size={13} strokeWidth={1.6} className="text-text-primary" />
+        </span>
+      )
+    case 'connection':
+      return (
+        <span className={cn(round, 'bg-status-success/15')}>
+          <Link2 size={13} strokeWidth={1.7} className="text-status-success" />
         </span>
       )
     default:
@@ -114,7 +122,7 @@ function LabelBar({ node, data }: { node: OrgFlowNode; data: OrgFlow }) {
 }
 
 /** Grid in 2D: intake, executors in department zones, flows and results, left to right. */
-export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, onSelect }: Props) {
+export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hoverId, onHover, onSelect }: Props) {
   const { t } = useTranslation('nav')
   const names = useGridNames()
   const layout = useMemo(() => layoutOrgFlow2D(data, { labels: lens === 'labels' }), [data, lens])
@@ -129,11 +137,12 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
     observer.observe(host)
     return () => observer.disconnect()
   }, [layout.width])
-  const lit = useMemo(() => emphasis(data, lens, { focus: hoverId, label }), [data, lens, hoverId, label])
+  const lit = useMemo(() => emphasis(data, lens, { focus: hoverId, label, zone }), [data, lens, hoverId, label, zone])
   const byId = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes])
   const zoneById = useMemo(() => new Map(data.zones.map((z) => [z.id, z])), [data.zones])
 
   const zoneName = (id: string) => (id === 'none' ? t('orgCanvas.zone.none') : (zoneById.get(id)?.label ?? ''))
+  const focusZone = zone
 
   const subtitle = (node: OrgFlowNode, card: CardBox) => {
     if (card.ghost) {
@@ -167,6 +176,13 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
     }
     if (node.kind === 'flow') {
       if (node.module?.name) return <span className="text-text-muted">{node.module.name}</span>
+      if (node.autonomous_pct != null) {
+        return (
+          <span className="text-text-muted">
+            {t('orgCanvas.node.autonomousPct', { pct: Math.round(node.autonomous_pct) })}
+          </span>
+        )
+      }
       if (node.done) {
         return <span className="text-text-muted">{t('orgCanvas.node.done', { count: node.done })}</span>
       }
@@ -348,7 +364,15 @@ export function OrgFlowBoard({ data, lens, label, selectedId, hoverId, onHover, 
               'pointer-events-none absolute rounded-[14px] border',
               zone.none ? 'border-dashed border-status-warning/40 bg-status-warning/[0.04]' : 'border-status-info/25 bg-status-info/[0.05]',
             )}
-            style={{ left: zone.x, top: zone.y + HEADER_H, width: zone.w, height: zone.h }}
+            style={{
+              left: zone.x,
+              top: zone.y + HEADER_H,
+              width: zone.w,
+              height: zone.h,
+              opacity: focusZone && focusZone !== zone.id ? 0.35 : 1,
+            }}
+            data-testid="grid-zone"
+            data-zone-id={zone.id}
           >
             <div className={cn('px-4 pt-2 text-xs font-semibold leading-4', zone.none ? 'text-status-warning' : 'text-status-info')}>
               {zoneName(zone.id)}

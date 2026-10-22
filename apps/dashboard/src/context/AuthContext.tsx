@@ -21,6 +21,7 @@ import {
   type AuthSessionResponse,
 } from '../lib/api';
 import { switchStaffTenant as switchStaffTenantRequest } from '../lib/staff-api';
+import { clearPreferencesCache } from '../lib/preferences';
 import { UserRole, PermissionAction } from '../types/workspace';
 import {
   clearLocationHashPreservePath,
@@ -449,6 +450,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearSession = useCallback(() => {
+    clearPreferencesCache();
     clearRefreshTimer();
     try {
       sessionStorage.removeItem(ACCESS_TOKEN_FALLBACK_KEY);

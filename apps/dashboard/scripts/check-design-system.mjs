@@ -100,6 +100,15 @@ const RATCHET_RULES = [
 
 const BASELINE_PATH = join(ROOT, 'scripts', 'design-system-baseline.json')
 
+/** Face components whose `size={n}` must sit on the mark ladder. */
+const MARK_SCALE = new Set([16, 20, 24, 32, 40, 48, 64, 80, 96, 128])
+const MARK_SIZE = new RegExp(
+  `<(?:UserAvatar|AiAvatar|AgentMark|ContactAvatar|TeamAvatar|PersonAvatar|AvatarStack|TeamFacepile|ParticipantMark|BotOrbAvatar)\\b[^>]*?\\bsize=\\{(\\d+)\\}`,
+  'gs',
+)
+const MARK_SIZE_MESSAGE =
+  'Avatar size must be on the mark ladder: 16, 20, 24, 32, 40, 48, 64, 80, 96, 128 (lib/mark-scale.ts).'
+
 /** Lines carrying this marker are exempt (use sparingly, with a reason). */
 const IGNORE_MARKER = 'design-system-ignore'
 
@@ -140,6 +149,19 @@ for (const file of walk(SRC)) {
       }
     }
   })
+  const text = lines.join('\n')
+  MARK_SIZE.lastIndex = 0
+  for (const match of text.matchAll(MARK_SIZE)) {
+    const n = Number(match[1])
+    if (MARK_SCALE.has(n)) continue
+    const line = text.slice(0, match.index).split('\n').length
+    hits.push({
+      rule: { id: 'mark-scale', message: MARK_SIZE_MESSAGE },
+      rel: relPosix,
+      line,
+      text: `size={${n}}`,
+    })
+  }
 }
 
 if (updateBaseline) {

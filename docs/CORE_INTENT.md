@@ -25,8 +25,8 @@ Long-term aim: an operational **digital twin** the business can run on, observe 
 Apply these to every feature request.
 
 1. **Everything is reachable from a conversation.** Pages stay for browsing and for tools people use side by side with chat (a calendar, a list of agents). But nothing may exist only on a page: every agent, playbook, folder, contact, and setting must also open from the thread that needs it, and every action a page offers must have a chat path.
-2. **One object per idea.** Operators name seven things: Conversation, Action tag (a hashtag that starts a ticket flow; the conversation is then a Ticket), Flow, Folder, Contact (with its Organization), Agent, Decision. A free hashtag is a label on a conversation, not an eighth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the seven cannot give.
-3. **Modules add types and flows. They never add screens.** Installing accounting adds hashtags, a flow, and tools. It does not add a rail item, a queue, or a settings page.
+2. **One object per idea.** Operators name eight things: Conversation, Action tag (a hashtag that starts a ticket flow; the conversation is then a Ticket), Flow, Folder, Contact (with its Organization), Agent, Decision, Department. A Department is the domain that runs flows: a lead agent, an accountable person, members (people and agents, freelancers scoped to it), and one room where the lead posts the orientation and scorecard proposals. A free hashtag is a label on a conversation, not a ninth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the eight cannot give.
+3. **Modules add types and flows. They never add screens.** Installing accounting adds hashtags, a flow, and tools. It does not add a rail item, a queue, or a settings page. Hiring agents is adding a department: a module lands as a new department or joins one that already does that work, with its specialist as lead or member.
 4. **The system reads first, people correct.** Every message is interpreted. Manual actions exist to fix a miss, not as the normal path.
 5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; an action tag or flow may sit below it, also in Govern. No per-folder, per-channel, or per-page copy of it.
 6. **The thread is the log.** What an agent did on a conversation appears in that conversation as a message. Govern keeps the full trace; nobody has to go there to know what happened.
@@ -140,6 +140,8 @@ Features should declare which **stack stage(s)** they serve and what they hand o
 | **Govern & assure** | Is the change scoped, audited, reversible? |
 
 Isolated CRUD screens that do not connect to this loop are incomplete by design.
+
+**The signal chain.** Every signal runs one horizontal chain: read (the flow label the agent files is the work kind; there is no separate field or fixed list of verbs, free labels name the subject), approach (a Flow is the recipe for the work its label names: working method, capabilities, expected outcome, handled directly or with waiting stages), execute (capabilities through tools; every decision action is a tool or a registered settlement, never a per-module code path), outcome (one per episode, on close), learn (a scorecard per flow label; the department lead proposes autonomy, instructions, capabilities and new flows in its room), adjust (through Govern). Signals come from outside, from the team, and from agents' own awareness; an agent's proposal is a signal that runs the same chain, and its acceptance counts on that agent's scorecard.
 
 ### Learning by default
 

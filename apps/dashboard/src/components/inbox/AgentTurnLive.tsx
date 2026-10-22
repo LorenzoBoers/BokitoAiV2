@@ -56,6 +56,7 @@ function LiveBubble({
   header,
   avatar,
   items,
+  canvasItems,
   enterClass,
   hideGutter = false,
   accent,
@@ -66,6 +67,7 @@ function LiveBubble({
   header: ReactNode
   avatar: ReactNode
   items?: ProposalItem[]
+  canvasItems?: ProposalItem[]
   /** First growing bubble fades in; later segments pop in as they open. */
   enterClass: string
   hideGutter?: boolean
@@ -82,33 +84,53 @@ function LiveBubble({
   // Confirm is a ring only — no scale, so the timeline height stays still
   // when the reveal finishes.
   return (
-    <div className={cn(enterClass, 'flex items-start gap-2')}>
+    <div className={cn(enterClass, 'flex w-full items-start gap-2')}>
       {hideGutter ? null : <span className={THREAD_GUTTER}>{lead ? avatar : null}</span>}
-      <ChatBubbleShell
-        side="left"
-        variant="agent"
-        stack={stack}
-        accent={accent}
-        header={header}
-        bubbleClassName={confirm ? 'bubble-confirm' : undefined}
-        body={
-          text || items?.length ? (
-            <div>
-              {text ? <ChatText content={text} streaming={writing} /> : null}
-              {items?.length ? <ProposalItemList items={items} /> : null}
-            </div>
-          ) : null
-        }
-        actions={
-          writing ? (
-            <span className="flex h-5 items-center px-0.5">
-              <TypingDots label={t('activity.writing')} />
-            </span>
-          ) : (
-            <span className="block h-5 w-5" aria-hidden />
-          )
-        }
-      />
+      <div className="min-w-0 w-full">
+        <ChatBubbleShell
+          side="left"
+          variant="agent"
+          stack={stack}
+          accent={accent}
+          header={header}
+          // Parent column is already max-w-[85%] of the row (same as a saved
+          // bubble). Nested max-w-[85%] made the live cloud narrower, then the
+          // saved remount reflowed and nudged the thread.
+          fillWidth
+          bubbleClassName={confirm ? 'bubble-confirm' : undefined}
+          body={
+            text || items?.length ? (
+              <div>
+                {text ? <ChatText content={text} streaming={writing} /> : null}
+                {items?.length ? <ProposalItemList items={items} /> : null}
+              </div>
+            ) : null
+          }
+          actions={
+            writing ? (
+              <span className="flex h-5 items-center px-0.5">
+                <TypingDots label={t('activity.writing')} />
+              </span>
+            ) : (
+              <span className="block h-5 w-5" aria-hidden />
+            )
+          }
+          // Reserve the time slot the saved bubble will show, so the footer
+          // height does not grow on handoff.
+          meta={
+            stack === 'single' || stack === 'end' ? (
+              <span className="invisible tabular-nums" aria-hidden>
+                00:00
+              </span>
+            ) : null
+          }
+        />
+        {canvasItems?.length ? (
+          <div className="mt-1.5 max-w-2xl">
+            <ProposalItemList items={canvasItems} />
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -157,6 +179,8 @@ function LiveSpeech({
   }, [caughtUp, onRevealed])
   const writing = smooth.length < text.length
   const items = attached ?? []
+  const canvasItems = items.filter((item) => item.type === 'canvas')
+  const inlineItems = items.filter((item) => item.type !== 'canvas')
   // The API already split this segment. One segment is one bubble.
   const bubbles = smooth ? [smooth] : writing || holdReserve || items.length ? [''] : []
   if (!bubbles.length) return null
@@ -175,7 +199,8 @@ function LiveSpeech({
             avatar={avatar}
             hideGutter={hideGutter}
             accent={accent}
-            items={isLast ? items : undefined}
+            items={isLast ? inlineItems : undefined}
+            canvasItems={isLast ? canvasItems : undefined}
             enterClass={index === 0 ? 'msg-bubble-enter-live' : 'bubble-pop-enter'}
           />
         )
@@ -277,17 +302,12 @@ export default function AgentTurnLive({
   useEffect(() => {
     if (playbackDone && turn.streamId) onPlaybackDone?.(turn.streamId)
   }, [onPlaybackDone, playbackDone, turn.streamId])
-  const spokeRef = useRef(false)
-  useEffect(() => {
-    spokeRef.current = false
-  }, [turn.streamId])
-  useEffect(() => {
-    if (spokeRef.current || !turn.streamId || !onSpeechShown) return
-    const spoke = allBlocks.some((block) => block.type === 'speech' && block.text.trim().length > 0)
-    if (!spoke) return
-    spokeRef.current = true
+  const spokeForRef = useRef<string | null>(null)
+  const spokeNow = allBlocks.some((block) => block.type === 'speech' && block.text.trim().length > 0)
+  if (turn.streamId && onSpeechShown && spokeNow && spokeForRef.current !== turn.streamId) {
+    spokeForRef.current = turn.streamId
     onSpeechShown(turn.streamId)
-  }, [allBlocks, onSpeechShown, turn.streamId])
+  }
   if (!turn.active && allBlocks.length === 0) return null
   const firstSpeechIndex = blocks.findIndex((block) => block.type === 'speech')
   const serverLine = statusLabel(turn.status, t)
@@ -366,7 +386,9 @@ export default function AgentTurnLive({
           {avatarNode}
         </EntityAvatarLink>
       </span>
-      <div className="min-w-0 flex-1 space-y-1.5">
+      {/* Same 85% cap as ChatBubbleShell on a saved row, relative to the
+          full timeline width — not to the leftover after the gutter. */}
+      <div className="min-w-0 w-full max-w-[85%] space-y-1.5">
         {openingLine ? (
           <ActivityTrail items={[]} live showLine holdLabel={liveLine} frames={frames} />
         ) : blocks.length === 0 ? (

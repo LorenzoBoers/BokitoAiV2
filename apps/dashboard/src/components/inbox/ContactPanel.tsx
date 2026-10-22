@@ -98,7 +98,7 @@ type Props = {
   currentThreadId?: ThreadId | null
   threadPreview?: string | null
   threadStatus?: ThreadStatus
-  onPatch?: (input: PatchThreadInput) => Promise<void>
+  onPatch?: (input: PatchThreadInput) => Promise<boolean | void>
   /** How the current thread is linked: verified | claimed | manual; '' = inbound address. */
   contactBasis?: string
   /** Rendered above previous conversations (This conversation). */
@@ -174,7 +174,7 @@ export function otherConversations(
 }
 
 /** Header mark — same scale as AgentContextPanel. */
-const CONTACT_MARK_SIZE = 36
+const CONTACT_MARK_SIZE = 40
 
 function FieldRow({ icon: Icon, value }: { icon: typeof Mail; value?: string | null }) {
   if (!value) return null
@@ -485,7 +485,7 @@ export default function ContactPanel({
             <PersonAvatar
               name={teammate.name}
               email={teammate.email}
-              size={36}
+              size={40}
             />
             <div className="min-w-0 flex-1">
               <p className="truncate-fade text-base font-semibold text-text-heading">

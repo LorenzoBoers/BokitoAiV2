@@ -172,7 +172,11 @@ async def test_queue_item_bug_files_ticket_on_project_board(client: AsyncClient,
         tenant_id=tenant.id,
         name="bug",
         stages_json=json.dumps(
-            [{"key": "open", "label": "Open", "kind": "open"}, {"key": "done", "label": "Done", "kind": "done"}]
+            [
+                {"key": "open", "label": "Open", "kind": "open"},
+                {"key": "fixing", "label": "Fixing", "kind": "waiting"},
+                {"key": "done", "label": "Done", "kind": "done"},
+            ]
         ),
     )
     session_override.add(ws)

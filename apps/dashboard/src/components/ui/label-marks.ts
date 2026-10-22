@@ -1,41 +1,5 @@
-import {
-  Bot,
-  Briefcase,
-  Bug,
-  Calendar,
-  Clock,
-  CreditCard,
-  Download,
-  FileText,
-  Flag,
-  FlaskConical,
-  GitBranch,
-  Headset,
-  Heart,
-  LifeBuoy,
-  MapPin,
-  Megaphone,
-  MessageCircle,
-  Package,
-  PenLine,
-  Phone,
-  PhoneCall,
-  Plug,
-  Receipt,
-  Route,
-  RefreshCw,
-  Shield,
-  Siren,
-  Sparkles,
-  Star,
-  Tag,
-  Truck,
-  User,
-  UserPlus,
-  Wrench,
-  Zap,
-  type LucideIcon,
-} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { platformIcon } from '../../lib/platform-icons'
 
 /** Flow-label hues. Ids match the API allowlist. */
 export const LABEL_MARK_COLORS = ['rose', 'teal', 'violet', 'orange', 'emerald', 'pink', 'sky'] as const
@@ -52,44 +16,19 @@ export const LABEL_MARK_INK: Record<LabelMarkColor, { ink: string; wash: string 
   sky: { ink: '#38bdf8', wash: 'rgba(56, 189, 248, 0.16)' },
 }
 
-/** Lucide kebab ids the API accepts. */
-export const LABEL_MARK_ICONS: Record<string, LucideIcon> = {
-  bug: Bug,
-  shield: Shield,
-  'flask-conical': FlaskConical,
-  'git-branch': GitBranch,
-  route: Route,
-  siren: Siren,
-  'life-buoy': LifeBuoy,
-  headset: Headset,
-  'message-circle': MessageCircle,
-  phone: Phone,
-  'user-plus': UserPlus,
-  calendar: Calendar,
-  'map-pin': MapPin,
-  wrench: Wrench,
-  package: Package,
-  truck: Truck,
-  'file-text': FileText,
-  receipt: Receipt,
-  'credit-card': CreditCard,
-  user: User,
-  bot: Bot,
-  'refresh-cw': RefreshCw,
-  plug: Plug,
-  download: Download,
-  zap: Zap,
-  sparkles: Sparkles,
-  'phone-call': PhoneCall,
-  star: Star,
-  clock: Clock,
-  megaphone: Megaphone,
-  'pen-line': PenLine,
-  briefcase: Briefcase,
-  heart: Heart,
-  flag: Flag,
-  tag: Tag,
-}
+/** @deprecated Use platformIcon — kept so `id in LABEL_MARK_ICONS` call sites keep working. */
+export const LABEL_MARK_ICONS: Record<string, LucideIcon> = new Proxy(
+  {} as Record<string, LucideIcon>,
+  {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined
+      return platformIcon(prop) ?? undefined
+    },
+    has(_target, prop) {
+      return typeof prop === 'string' && platformIcon(prop) != null
+    },
+  },
+)
 
 /** New flow labels start blue with the route mark. Ids match the API defaults. */
 export const FLOW_LABEL_COLOR: LabelMarkColor = 'sky'
@@ -103,8 +42,7 @@ export const TAG_PILL_SIZE = {
 } as const
 
 export function labelMarkIcon(name: string | null | undefined): LucideIcon | null {
-  if (!name) return null
-  return LABEL_MARK_ICONS[name] ?? null
+  return platformIcon(name)
 }
 
 export function labelMarkInk(color: string | null | undefined): { ink: string; wash: string } | null {

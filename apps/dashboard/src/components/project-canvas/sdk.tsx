@@ -172,6 +172,26 @@ export function LineChart(props: ChartProps) {
   return <ChartFrame {...props} kind="line" />
 }
 
+export function PieChart({
+  title,
+  source,
+  slices,
+}: {
+  title: string
+  source: string
+  slices: { name: string; value: number }[]
+}) {
+  const usable = slices.filter((slice) => slice.name && Number.isFinite(slice.value) && slice.value > 0)
+  if (!title || usable.length === 0) return null
+  return (
+    <section className="space-y-2">
+      <h3 className="text-sm font-medium text-text-heading">{title}</h3>
+      <Chart kind="pie" slices={usable} height={144} ariaLabel={title} />
+      {source ? <p className="text-2xs text-text-muted">{source}</p> : null}
+    </section>
+  )
+}
+
 type ChartProps = {
   title: string
   xLabel: string

@@ -13,10 +13,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
 
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+# Auth-flow tests read dev_token from responses (no SMTP in tests).
+os.environ.setdefault("EXPOSE_DEV_AUTH_TOKENS", "true")
 os.environ.setdefault("TRIGGER_SCHEDULER_ENABLED", "false")
 os.environ.setdefault("BOKITO_MOCK_EXECUTION", "true")
 # Post-commit gateway safety-net tasks hit the wrong SQLite DB in tests.
 os.environ.setdefault("BOKITO_ENTITY_PUBLISH_SAFETY_NET", "0")
+# Event wakes run on the process-global session factory; tests call wake_for_events.
+os.environ.setdefault("BOKITO_EVENT_WAKES", "0")
 
 from app.db.session import get_session  # noqa: E402
 from app.main import app  # noqa: E402

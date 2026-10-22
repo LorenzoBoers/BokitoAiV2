@@ -31,7 +31,8 @@ import { setLeadAgent } from '../../../lib/workforce-api'
 import { resetTenantDefaultSendAs } from '../../../lib/reply-send-as'
 import { AutonomyDial } from './AutonomyDial'
 import { AutoReviewCard } from './AutoReviewCard'
-import { ChannelExceptionsCard } from './ChannelExceptionsCard'
+import { ChannelExceptionsCard, type ExceptionScope } from './ChannelExceptionsCard'
+import { patchWorkstream } from '../../../lib/flows-api'
 import { HandoverCard, type LeadAgentOption } from './HandoverCard'
 import { LanguageCard } from './LanguageCard'
 import { SafeguardsCard } from './SafeguardsCard'
@@ -236,9 +237,16 @@ export function AutonomySettings({ after }: { after?: ReactNode }) {
     }
   }
 
-  const clearException = async (scope: 'channel' | 'conversation', row: AiHandlingException) => {
+  const clearException = async (scope: ExceptionScope, row: AiHandlingException) => {
     if (!token) return
     try {
+      if (scope === 'flow') {
+        const updated = await patchWorkstream(row.id, { autonomy: '' })
+        await loadOverview()
+        if (updated.pending_change_id) toast.message(t('workstreamsPage.recipe.autonomyLooserInGovern'))
+        else toast.success(tc('aiHandling.cleared', { source: tc('aiHandling.sources.workspace') }))
+        return
+      }
       const updated = await setAiHandling(token, scope, row.id, null)
       await loadOverview()
       const source = updated?.inheritedSourceLabel || tc(`aiHandling.sources.${updated?.inheritedSource ?? 'workspace'}`)

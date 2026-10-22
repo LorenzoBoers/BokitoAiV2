@@ -335,9 +335,9 @@ describe('applyTurnEvent', () => {
     const turn = applyTurnEvent(EMPTY_TURN, 'agent.turn', {
       stream_id: 's1',
       phase: 'start',
-      surface: { motion: 'typing', blocks: [{ type: 'speech', id: 'a', text: 'Hoi' }] },
+      surface: { motion: 'searching', blocks: [{ type: 'speech', id: 'a', text: 'Hoi' }] },
     })
-    expect(liveTurnOrbMotion(turn)).toBe('typing')
+    expect(liveTurnOrbMotion(turn)).toBe('searching')
   })
 
   it('shows think text from the surface and does not append the delta again', () => {
@@ -524,12 +524,12 @@ describe('liveTurnOrbMotion', () => {
     expect(liveTurnOrbMotion(null)).toBe('idle')
   })
 
-  it('returns typing while speech streams', () => {
+  it('writes while speech streams', () => {
     const turn = applyTurnEvent(EMPTY_TURN, 'message.delta', {
       stream_id: 's1',
       delta: 'Hallo',
     })
-    expect(liveTurnOrbMotion(turn)).toBe('typing')
+    expect(liveTurnOrbMotion(turn)).toBe('writing')
   })
 
   it('stays idle while waiting with no visible work', () => {

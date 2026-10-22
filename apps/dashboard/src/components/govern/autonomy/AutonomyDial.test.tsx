@@ -18,7 +18,7 @@ function overview(patch: Partial<AiHandlingOverview> = {}): AiHandlingOverview {
     disclosure: {} as AiHandlingOverview['disclosure'],
     routing: {} as AiHandlingOverview['routing'],
     disclosurePreview: null,
-    exceptions: { channels: [], conversations: [] },
+    exceptions: { channels: [], flows: [], conversations: [] },
     canRaise: true,
     ...patch,
   }

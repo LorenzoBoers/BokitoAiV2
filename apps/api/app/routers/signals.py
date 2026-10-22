@@ -669,6 +669,70 @@ async def list_pins(
     return await svc.list_pins(session, auth.tenant.id, auth.user.id)
 
 
+class StackAgent(BaseModel):
+    id: str
+    name: str
+    kind: str | None = None
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_shape: str | None = None
+    avatar_image_url: str | None = None
+    working: bool = False
+    summary: str | None = None
+
+
+class StackItem(BaseModel):
+    id: str
+    title: str
+    preview: str
+    preview_author: str | None = None
+    preview_by: Literal["agent", "contact", "team"]
+    unread: bool
+    status: str
+    channel: str
+    pinned: bool
+    last_activity_at: str | None = None
+    agents: list[StackAgent]
+
+
+class StackResponse(BaseModel):
+    items: list[StackItem]
+
+
+@router.get("/stack", response_model=StackResponse)
+async def list_stack(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    follow: str | None = Query(
+        None,
+        description="Comma-separated conversation ids the user is following (just left). "
+        "At most three are kept; pinned ids are ignored here.",
+    ),
+):
+    """Chat stack: pinned conversations first (pin order), then followed ones.
+
+    Each card carries display fields only: title, last preview and who wrote
+    it, unread, and the agents in the conversation with ``working`` and a
+    live ``summary`` for those running now.
+    """
+    follow_ids: list[UUID] = []
+    for raw in (follow or "").split(","):
+        try:
+            follow_ids.append(UUID(raw.strip()))
+        except ValueError:
+            continue
+    return await svc.list_stack(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        follow_ids=follow_ids,
+        visible_account_ids=await visible_channel_account_ids(
+            session, auth.tenant.id, user_id=auth.user.id, role=auth.role
+        ),
+    )
+
+
 @router.get("/members")
 async def list_members(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -923,6 +987,37 @@ async def get_signal(
         if isinstance(row, dict) and row.get("kind") == "user" and str(row.get("ref_id") or "") == me:
             row["unread_count"] = 0
     return detail
+
+
+class ThreadUxEventIn(BaseModel):
+    name: str = Field(default="", max_length=40)
+    detail: dict = Field(default_factory=dict)
+
+
+class ThreadUxBody(BaseModel):
+    events: list[ThreadUxEventIn] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/{signal_id}/ux")
+async def record_signal_ux(
+    signal_id: UUID,
+    body: ThreadUxBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Temporary: store dumb chat-experience events for this thread."""
+    from app.services.thread_ux import record_thread_ux
+
+    stored = await record_thread_ux(
+        session,
+        tenant_id=auth.tenant.id,
+        user_id=auth.user.id,
+        signal_id=signal_id,
+        events=[item.model_dump() for item in body.events],
+    )
+    if stored < 0:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    return {"ok": True, "stored": stored}
 
 
 @router.get("/{signal_id}/why")
@@ -1826,46 +1921,6 @@ async def add_note(
         kind="user_message" if body.as_chat else "internal_note",
         attachments=body.attachments,
         actor_role=auth.role,
-    )
-    if not message:
-        raise HTTPException(status_code=404, detail="Signal not found")
-    return message
-
-
-class HandledExternallyBody(BaseModel):
-    """The conversation was settled outside Bokito."""
-
-    channel: Literal["phone", "whatsapp", "email", "other"] = "other"
-    note: str = ""
-    close: bool = False
-    # UI language for the timeline line ("Afgehandeld via telefoon door ...").
-    language: str = ""
-
-
-@router.post("/{signal_id}/handled-externally")
-async def handled_externally(
-    signal_id: UUID,
-    body: HandledExternallyBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    """Log that the conversation was handled by phone, WhatsApp, another
-    mailbox or elsewhere.
-
-    Writes a system line on the timeline, clears unread, sets aside open AI
-    reply proposals (reason ``handled_externally``), counts as the team's
-    reply for needs-reply, and optionally closes the conversation.
-    """
-    await _require_handle(session, auth, signal_id)
-    message = await svc.mark_handled_externally(
-        session,
-        auth.tenant.id,
-        auth.user.id,
-        signal_id,
-        channel=body.channel,
-        note=body.note,
-        close=body.close,
-        language=body.language,
     )
     if not message:
         raise HTTPException(status_code=404, detail="Signal not found")

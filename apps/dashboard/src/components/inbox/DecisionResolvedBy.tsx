@@ -33,7 +33,7 @@ export function DecisionResolvedBy({
         name={display}
         email={member?.email || display}
         avatarUrl={member?.avatarUrl ?? null}
-        size={14}
+        size={16}
         decorative
       />
       <span>{label}</span>

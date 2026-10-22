@@ -163,9 +163,15 @@ async def test_learned_routing_proposal_and_rule(client: AsyncClient, session_ov
     owner.last_seen_at = datetime.utcnow()
     session_override.add(owner)
 
+    from app.models.signal import SignalTag
+
+    invoices = SignalTag(tenant_id=tenant_id, name="invoices")
+    session_override.add(invoices)
+    await session_override.flush()
+    invoices_id = invoices.id
     decision_ids = []
     for index in range(MIN_ANSWERS):
-        signal = Signal(tenant_id=tenant_id, channel="email", subject=f"Invoice {index}", intent="Invoices")
+        signal = Signal(tenant_id=tenant_id, channel="email", subject=f"Invoice {index}", ticket_tag_id=invoices_id)
         session_override.add(signal)
         await session_override.flush()
         decision = DecisionRequest(
@@ -188,7 +194,8 @@ async def test_learned_routing_proposal_and_rule(client: AsyncClient, session_ov
         )
     ).scalar_one()
     assert change.status == "pending_review"
-    assert json.loads(change.after_json)["topic"] == "invoices"
+    after = json.loads(change.after_json)
+    assert after["topic"] == str(invoices_id) and after["topic_label"] == "#invoices"
     change_id = change.id
 
     await accept_platform_change(session_override, tenant_id, change_id, owner_id)
@@ -197,7 +204,7 @@ async def test_learned_routing_proposal_and_rule(client: AsyncClient, session_ov
     rules = routing_rules(tenant)
     assert rules and rules[0]["user_id"] == str(owner_id)
 
-    fresh = Signal(tenant_id=tenant_id, channel="email", subject="New invoice", intent="invoices")
+    fresh = Signal(tenant_id=tenant_id, channel="email", subject="New invoice", ticket_tag_id=invoices_id)
     session_override.add(fresh)
     await session_override.commit()
     owner = await session_override.get(User, owner_id)

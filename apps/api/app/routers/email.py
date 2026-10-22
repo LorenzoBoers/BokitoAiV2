@@ -380,6 +380,9 @@ async def send_email(
                 payload_json=json.dumps({"status": "closed", "via": "close_email_on_send"}),
             )
         )
+        from app.services.tickets import settle_ticket_on_close
+
+        await settle_ticket_on_close(session, signal, actor_type="user", actor_id=str(auth.user.id))
         closed_on_send = True
     await session.commit()
     await session.refresh(msg)

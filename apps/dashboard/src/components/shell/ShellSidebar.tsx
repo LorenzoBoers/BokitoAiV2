@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-react'
+import { Building2, PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 import { useOptionalNavBadges } from '../../context/NavBadgeContext'
 import { countForBadgeSlot } from '../../lib/nav-badge-counts'
+import { platformIcon } from '../../lib/platform-icons'
+import { DEPARTMENTS_CHANGED_EVENT, listNavDepartments, type DepartmentNavRow } from '../../lib/teams-api'
 import {
   FOOTER_TABS,
   PINNED_TABS,
@@ -45,6 +48,26 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   const { counts } = useOptionalNavBadges()
   const activeTab = tabFromPath(pathname)
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups)
+  const { token } = useAuth()
+  const [departments, setDepartments] = useState<DepartmentNavRow[]>([])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    const load = () => {
+      void listNavDepartments(token)
+        .then((rows) => {
+          if (!cancelled) setDepartments(rows)
+        })
+        .catch(() => undefined)
+    }
+    load()
+    window.addEventListener(DEPARTMENTS_CHANGED_EVENT, load)
+    return () => {
+      cancelled = true
+      window.removeEventListener(DEPARTMENTS_CHANGED_EVENT, load)
+    }
+  }, [token])
 
   const tabTitle = (tab: Tab) => t(`tabs.${tab}.title`, { defaultValue: titleForTab(tab) })
 
@@ -84,6 +107,37 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
     )
   }
 
+  const renderDepartments = () => {
+    if (departments.length === 0) return null
+    const label = 'departments'
+    return (
+      <NavFolder
+        key={label}
+        label={t(`tabGroups.${label}`, { defaultValue: 'Departments' })}
+        open={!(collapsedGroups[label] ?? false)}
+        onToggle={() => toggleGroup(label)}
+        flat={collapsed}
+        className={collapsed ? 'flex flex-col items-center gap-1' : undefined}
+        data-tour={`nav-group-${label}`}
+      >
+        {departments.map((dept) => (
+          <NavRowLink
+            key={dept.id}
+            to={dept.href}
+            onClick={() => onNavigate?.()}
+            icon={platformIcon(dept.icon) ?? Building2}
+            label={dept.name}
+            iconOnly={collapsed}
+            active={pathname.startsWith(dept.href)}
+            count={dept.open}
+            className="nav-row-accent"
+            data-tour="nav-department"
+          />
+        ))}
+      </NavFolder>
+    )
+  }
+
   return (
     <div className="flex h-full flex-col bg-bg">
       {/* Header: workspace switcher + collapse */}
@@ -112,7 +166,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             to={newConversationPath()}
             onClick={() => onNavigate?.()}
             icon={SquarePen}
-            label={t('tabs.newChat.title', { defaultValue: 'New conversation' })}
+            label={t('tabs.newChat.title', { defaultValue: 'New chat' })}
             iconOnly={collapsed}
             active={pathname === '/new' || pathname.startsWith('/communication/new')}
             className="nav-row-accent"
@@ -121,7 +175,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
           {PINNED_TABS.map(renderTab)}
           {TAB_GROUPS.map((group) => {
             const open = !(collapsedGroups[group.label] ?? false)
-            return (
+            return [
+              group.label === 'team' ? renderDepartments() : null,
               <NavFolder
                 key={group.label}
                 label={t(`tabGroups.${group.label}`, { defaultValue: group.label })}
@@ -132,8 +187,8 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
                 data-tour={`nav-group-${group.label}`}
               >
                 {group.tabs.map(renderTab)}
-              </NavFolder>
-            )
+              </NavFolder>,
+            ]
           })}
         </nav>
       </ScrollFade>

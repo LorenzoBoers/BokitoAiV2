@@ -21,6 +21,8 @@ so a laptop or phone can show an OS notification even with the dashboard open.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any, Iterable
@@ -127,7 +129,10 @@ def parse_prefs(prefs_json: str | None) -> dict[str, Any]:
     # v2: new-message defaults on for owned conversations (For you attention path).
     if version < 2:
         categories["new-message"] = dict(CATEGORY_DEFAULTS["new-message"])
-    return {"tiers": tiers, "categories": categories, "sound": sound, "version": PREFS_VERSION}
+    from app.services.reach import parse_reach
+
+    reach = parse_reach(raw.get("reach") if isinstance(raw, dict) else None)
+    return {"tiers": tiers, "categories": categories, "sound": sound, "version": PREFS_VERSION, "reach": reach}
 
 
 def serialize_prefs(prefs: dict[str, Any]) -> dict[str, Any]:
@@ -138,6 +143,7 @@ def serialize_prefs(prefs: dict[str, Any]) -> dict[str, Any]:
             {"id": key, "channels": value} for key, value in prefs["categories"].items()
         ],
         "sound": bool(prefs.get("sound", True)),
+        "reach": prefs.get("reach") or {},
     }
 
 
@@ -180,12 +186,16 @@ async def save_prefs(
             current["categories"][key] = _bool_map(entry.get("channels"), current["categories"][key])
     if isinstance(patch.get("sound"), bool):
         current["sound"] = patch["sound"]
+    if isinstance(patch.get("reach"), dict):
+        from app.services.reach import parse_reach
+
+        current["reach"] = parse_reach({**(current.get("reach") or {}), **patch["reach"]})
     if isinstance(patch.get("version"), int) and patch["version"] >= 1:
         current["version"] = patch["version"]
     else:
         current["version"] = PREFS_VERSION
     row.prefs_json = json.dumps(serialize_prefs(current))
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
     return current
@@ -226,7 +236,7 @@ def channels_for(
 
 def serialize_notification(n: Notification) -> dict[str, Any]:
     """One bell row: the list endpoint and the ``notification`` gateway event share it."""
-    created = n.created_at or datetime.utcnow()
+    created = n.created_at or utcnow()
     return {
         "id": str(n.id),
         "kind": n.kind,
@@ -380,7 +390,7 @@ async def deliver_external(
         data.setdefault("signal_id", str(signal_id))
     if category:
         data.setdefault("category", category)
-    now = datetime.utcnow()
+    now = utcnow()
     push_targets: list[UUID] = []
     mail_targets: list[UUID] = []
     for user in await _users(session, recipients):
@@ -437,7 +447,7 @@ async def notify(
     from app.services.presence import user_status
 
     if cooldown_minutes > 0:
-        since = datetime.utcnow() - timedelta(minutes=cooldown_minutes)
+        since = utcnow() - timedelta(minutes=cooldown_minutes)
         recent = await session.execute(
             select(Notification.id)
             .where(
@@ -460,7 +470,7 @@ async def notify(
         data["collapse"] = collapse_key
     if not announce:
         data["announce"] = False
-    now = datetime.utcnow()
+    now = utcnow()
     created: list[Notification] = []
     push_targets: list[UUID] = []
     mail_targets: list[UUID] = []

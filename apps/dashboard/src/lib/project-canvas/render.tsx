@@ -8,6 +8,7 @@ import {
   Grid,
   Heading,
   LineChart,
+  PieChart,
   List,
   Row,
   Stack,
@@ -19,6 +20,19 @@ import { asNumber, asString, asStringList, type CanvasNode } from './types'
 
 function prop(node: CanvasNode, key: string): unknown {
   return node.props?.[key]
+}
+
+function parseSlices(raw: unknown): { name: string; value: number }[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      const rec = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+      return {
+        name: asString(rec.name ?? rec.label),
+        value: asNumber(rec.value ?? rec.percentage ?? rec.y, Number.NaN),
+      }
+    })
+    .filter((slice) => slice.name.length > 0 && Number.isFinite(slice.value))
 }
 
 function parseSeries(raw: unknown): { name: string; points: { x: string; y: number }[] }[] {
@@ -135,6 +149,15 @@ export function renderCanvasTree(node: CanvasNode | null | undefined): ReactNode
         yLabel={asString(prop(node, 'yLabel') || prop(node, 'y_label'))}
         source={asString(prop(node, 'source'))}
         series={parseSeries(prop(node, 'series'))}
+      />
+    )
+  }
+  if (type === 'PieChart') {
+    return (
+      <PieChart
+        title={asString(prop(node, 'title'))}
+        source={asString(prop(node, 'source'))}
+        slices={parseSlices(prop(node, 'slices') ?? prop(node, 'series'))}
       />
     )
   }

@@ -10,6 +10,8 @@ import {
   Trash2,
 } from 'lucide-react'
 import { CANVAS_ICON } from '../lib/entity-icons'
+import { platformIcon } from '../lib/platform-icons'
+import { Building2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
 import { runFolderMoveUndo, setFolderMoveUndo } from '../lib/folder-move-undo'
@@ -202,6 +204,26 @@ export default function ProjectDetail() {
                   <span className="tabular-nums">{t('projects.page.folders', { count: folders.length })}</span>
                 ) : null}
               </div>
+              {project.departments?.length ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs" data-testid="folder-who-works-here">
+                  <span className="text-text-muted">{t('projects.detail.whoWorksHere')}</span>
+                  {project.departments.map((dept) => {
+                    const Icon = platformIcon(dept.icon) ?? Building2
+                    return (
+                      <Link
+                        key={dept.id}
+                        to={dept.href}
+                        className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-text-primary hover:border-accent/60"
+                        title={dept.home ? t('projects.detail.homeDepartment') : undefined}
+                      >
+                        <Icon size={11} className="text-accent" aria-hidden />
+                        {dept.name}
+                        {dept.open ? <span className="tabular-nums text-text-muted">{dept.open}</span> : null}
+                      </Link>
+                    )
+                  })}
+                </div>
+              ) : null}
             </div>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               <OpenInGridButton kind="folder" id={project.id} />

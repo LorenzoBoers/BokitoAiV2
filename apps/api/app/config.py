@@ -22,6 +22,14 @@ class Settings(BaseSettings):
 
     # "dev" | "prod" — prod enables fail-fast config checks and Secure cookies.
     environment: str = "dev"
+    # Return reset/verify tokens in auth API responses so flows work without
+    # SMTP. Only for local dev and automated tests — never on a reachable host
+    # (dev.app / staging are public), because it turns "knows an email" into
+    # "owns the account". Ignored when environment is production.
+    expose_dev_auth_tokens: bool = False
+    # Proxy hops in front of the API (Caddy = 1). The rate limiter reads the
+    # client IP from X-Forwarded-For at this depth; 0 = use the socket peer.
+    trusted_proxy_hops: int = 1
 
     # Days a deleted item stays in the workspace Bin before hard purge.
     # Tenant settings_json.trash.retention_days may override (1–365).
@@ -78,6 +86,9 @@ class Settings(BaseSettings):
     # OpenAI covers embeddings and BYOK. Keys can also live in platform_secrets.
     mistral_api_key: str = ""
     anthropic_api_key: str = ""
+    # Anthropic prompt caching (cache_control on tools/system/latest message).
+    # Disable only when a gateway in front of Anthropic rejects the field.
+    llm_prompt_caching: bool = True
     openai_api_key: str = ""
     # In-app agent calls. Off unless AGENT_CALLS_ENABLED=true, so production
     # neither rings nor shows the call screen. Dev turns it on in its own env.
@@ -86,7 +97,8 @@ class Settings(BaseSettings):
     # integrations. Off in production; dev sets FEATURE_CODING_AGENT_INTEGRATIONS=true.
     feature_coding_agent_integrations: bool = False
     agent_call_ring_seconds: int = 25
-    openai_realtime_model: str = "gpt-realtime"
+    # Mini keeps barge-in + tools at ~3x lower audio cost than gpt-realtime.
+    openai_realtime_model: str = "gpt-realtime-mini"
     openai_realtime_voice: str = "marin"
     # Agent web_search: prefer self-hosted SearXNG. Empty falls back to Brave.
     searxng_url: str = ""
@@ -116,9 +128,8 @@ class Settings(BaseSettings):
     # Raw provider fallback when a call bypasses the catalog; must be a real
     # API model id, not a virtual slug.
     default_chat_model: str = "claude-sonnet-4-6"
-    # Default Anthropic extended-thinking budget for assistant/internal chat when
-    # the agent has thinking_budget=0. Set to 0 to disable globally.
-    chat_thinking_budget: int = 1024
+    # Effort for a turn without an agent row (low | medium | high).
+    chat_default_effort: str = "medium"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
 

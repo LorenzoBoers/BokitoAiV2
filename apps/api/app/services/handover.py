@@ -29,7 +29,8 @@ reason ``bounce_limit``: people keep it until someone hands it back explicitly.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from app.core.time import utcnow
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -61,7 +62,7 @@ async def bounce_count(session: AsyncSession, signal: Signal, *, hours: int = ai
     """Escalations from the agent to people on this conversation in the last
     ``hours``: the agent gave up (handoff, decision, failure). The routine
     assisted handover and a person's own reply or hand back do not count."""
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = utcnow() - timedelta(hours=hours)
     rows = (
         await session.execute(
             select(SignalEvent.payload_json).where(
@@ -133,7 +134,7 @@ async def _add_system_note(
     """Append the agent's handover note and push it to open thread views."""
     note = _system_note(signal, body, meta=meta)
     session.add(note)
-    signal.last_message_at = datetime.utcnow()
+    signal.last_message_at = utcnow()
     await session.flush()
     await publish_signal_message(signal, note)
     return note
@@ -153,7 +154,7 @@ def _system_note(signal: Signal, body: str, *, meta: dict[str, Any]) -> SignalMe
         body_preview=body[:200],
         body_html=f"<p>{body}</p>",
         metadata_json=json.dumps({"system_note": True, **meta}),
-        received_at=datetime.utcnow(),
+        received_at=utcnow(),
     )
 
 
@@ -243,7 +244,7 @@ async def hand_to_people_after_assist(
         },
     )
     session.add(event)
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     return json.loads(event.payload_json)
 
 
@@ -323,7 +324,7 @@ async def escalate_to_human(
             _escalation_copy(lang, owner=label, reason=reason, bounce_limited=bounce_limited),
             meta={"handover": "to_human", "via": via, "bounce_limited": bounce_limited},
         )
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     return {
         "owner": owner_payload(signal),

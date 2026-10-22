@@ -34,7 +34,8 @@ class Agent(SQLModel, table=True):
     # Optional longer blurb (library, identity). Distinct from system_prompt.
     description: str = ""
     system_prompt: str = ""
-    thinking_budget: int = 0
+    # How much the model thinks: low | medium | high (services/agent/effort_policy.py).
+    effort: str = Field(default="medium", max_length=12)
     max_tokens: int = 4096
     max_loops: int = 15
     cost_aware: bool = False

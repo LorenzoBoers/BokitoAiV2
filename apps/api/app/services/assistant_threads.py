@@ -181,10 +181,18 @@ async def context_thread_transcript(
     from app.services.assistant_context import conversation_filing_brief
 
     filing = await conversation_filing_brief(session, signal)
+    if signal.contact_id:
+        who = f"contact: {signal.contact_name or signal.contact_email or 'unknown'}"
+    else:
+        sender = (signal.contact_name or "").strip() or "unknown"
+        email = f" <{signal.contact_email}>" if (signal.contact_email or "").strip() else ""
+        who = (
+            f"no contact record; the message is from {sender}{email}. "
+            "A name or email on the message is not a contact"
+        )
     header = (
         f"Thread: {signal.subject or '(no subject)'} | channel: {signal.channel} | "
-        f"contact: {signal.contact_name or signal.contact_email or 'unknown'} | "
-        f"status: {signal.status}\n"
+        f"{who} | status: {signal.status}\n"
         f"{filing}"
     )
     from app.models.signal import is_internal_channel
@@ -420,10 +428,15 @@ async def signal_chat_history(
                     "not narrate a step unless a tool call actually follows. "
                     "Answer directly and briefly (one or two short messages). "
                     "For a lookup about the contact or thread, look it up and "
-                    "reply — do not also call note_no_reply. When a reply to "
-                    "the contact is the obvious next step for their ask, "
-                    "draft it with suggest_thread_reply right away instead of "
-                    "asking whether you should. When you only need to leave "
+                    "reply — do not also call note_no_reply. The header says "
+                    "whether a contact record exists. When it says no contact "
+                    "record, do not say they already are one. When the teammate "
+                    "asks to make a contact, call link_conversation_contact "
+                    "with that email and name and report only what it returned. "
+                    "Draft a customer reply with suggest_thread_reply only when "
+                    "they asked to answer, reply, or handle the message. The "
+                    "draft must follow what the customer wrote; never flip a "
+                    "fact they stated. When you only need to leave "
                     "context for colleagues, call post_internal_note with no "
                     "signal_id (never pass this session's id). Never narrate "
                     "tool errors; retry correctly in the same turn. When you "

@@ -1,3 +1,4 @@
+import type { ModuleInstallOptions } from '../../lib/integrations-api'
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -113,7 +114,11 @@ export function MarketplaceModuleCard({
 }: {
   module: IntegrationModuleRow
   applications: IntegrationApplication[]
-  onAction: (slug: string, action: 'install' | 'complete_setup' | 'uninstall') => Promise<unknown>
+  onAction: (
+    slug: string,
+    action: 'install' | 'complete_setup' | 'uninstall',
+    options?: ModuleInstallOptions,
+  ) => Promise<unknown>
   /** Opens the module showcase modal (card body click). */
   onOpenDetail?: () => void
   /** In a mixed grid next to integrations: label the card as a module. */

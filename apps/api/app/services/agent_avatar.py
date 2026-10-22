@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from app.data.platform_icons import PLATFORM_ICON_IDS as ALLOWED_ICONS
 from app.models.agent import Agent
 
 AVATAR_KIND_INITIALS = "initials"
@@ -21,32 +22,6 @@ AVATAR_KINDS = (
     AVATAR_KIND_ICON,
     AVATAR_KIND_ORB,
     AVATAR_KIND_IMAGE,
-)
-
-# Curated Lucide keys mirrored in the dashboard (legacy icon mode).
-ALLOWED_ICONS = frozenset(
-    {
-        "bot",
-        "sparkles",
-        "headset",
-        "mail",
-        "message-circle",
-        "briefcase",
-        "building-2",
-        "wrench",
-        "heart-handshake",
-        "shield",
-        "zap",
-        "book-open",
-        "scale",
-        "stethoscope",
-        "shopping-bag",
-        "plane",
-        "home",
-        "users",
-        "brain",
-        "lightbulb",
-    }
 )
 
 # Hidden until FEATURE_CODING_AGENT_INTEGRATIONS is on (coding-agent bodies).

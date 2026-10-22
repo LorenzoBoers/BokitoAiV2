@@ -33,6 +33,23 @@ Connections are partner logins. A **module** is one package of hashtags, flows a
 
 WhatsApp itself is configured under **Channels**, not only here. The card points you there.
 
+## Connect the tools of a content agency
+
+Notion, Canva, Google Drive and Sheets, Mailblue, Metricool and Zapier connect from the same grid.
+
+1. Search for the tool on **Connections** and choose its card. **Notion** and **Canva** sign in with the provider. **Google Drive** covers Drive and Sheets: agents search and read files, and write rows to a sheet.
+2. **Mailblue** asks for the **Account URL** and the **API key**. **Metricool** asks for the **API token**, the **User id** and, optionally, a **Default brand id**. **Zapier** asks for your **Personal MCP server URL**, with the actions you enabled in Zapier.
+3. Choose **Connect**. Bokito checks the login right away and shows an error when a field is wrong.
+4. Use the connection for one client or department only with the section below, and name it on a flow under **Uses** so its agents work with it.
+
+## Reconnect a connection that stopped
+
+Bokito tests every connection once a day.
+
+1. When a connection stops answering or its login expires, a conversation **Connection {name} needs attention** appears for the department that owns it, or for the workspace.
+2. Open **Connections** and choose the connection's tile. Choose **Connect** again and finish the sign-in or fill in the new key.
+3. The department lead also names the connection in the morning briefing until it works again.
+
 ## Connect an AI or coding tool
 
 1. Choose the **AI tools** chip. **AI tool** cards (Cursor, Claude Code, Claude Desktop, Codex CLI, VS Code, Windsurf, ChatGPT) use this workspace over MCP; **Coding tool** cards (Cursor Cloud Agents, Claude Managed Agents, Devin) take a bug or feature from a conversation and bring the pull request back.
@@ -41,8 +58,8 @@ WhatsApp itself is configured under **Channels**, not only here. The card points
 ## Install a business module
 
 1. Open **Connections** in the rail under **Organization**. Installed modules sit in the **Connected** strip; use the **Modules** chip to find a preset that is not installed yet.
-2. Open **Accounting** (or another live module), then choose **Install**. That creates the module department once (visible on Grid), hires the specialist, and copies packaged hashtags, flows, sources and skill. The module is **installed** immediately; the catalog card shows **Installed** with a check and **Manage**. Later edits on that department stay yours — Bokito does not overwrite them on re-open.
-3. The toast offers **Talk to specialist**. On the module page you can open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module’s tools. **Uninstall** soft-deletes that department (and archives the specialist); partner logins stay on Connections.
+2. Open **Accounting** (or another live module), then choose **Add department**. A module is a department in a box: a specialist agent, labels and flows. Under **Department**, pick **New department** or an existing department that already does similar work; Bokito suggests the best match. Choose the **Accountable person**. When the department already has a lead, tick **Let the specialist lead instead** to make the specialist primary; otherwise it joins as a member. Bokito copies the packaged hashtags, flows, sources and skill. The catalog card shows **Installed** with a check and **Manage**. Later edits on that department stay yours.
+3. The toast offers **Talk to specialist**. On the module page you can open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module's tools. **Uninstall** archives the specialist. A department the module created is soft-deleted; a department it joined stays with its own work. Partner logins stay on Connections.
 4. Review **What agents can do**: each action shows a short description, the path (`accounting_list_companies`, …), **Read** or **Needs approval**, and **Website chat** when the tool can run in the installable widget (enable under Today). When partners are attached, **Tools from connected MCP servers** lists discovered MCP names.
 5. At the top of the module page, under **Connections**, choose **New registration** to connect the module package (Moneybird, KING, or Bjorn Lunden) and attach it in one step, or **Use an existing connection** when a login already exists. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Today**, **Sources**, and **Setup**.
 6. Attach a partner login when you want live data. Until then the module is installed but shows as incomplete for connections; after attach it is **Connected**. Hashtags and flows stay on their existing surfaces; the module adds no rail item.

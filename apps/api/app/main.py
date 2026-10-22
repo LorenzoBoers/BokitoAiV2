@@ -4,18 +4,20 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import OperationalError
 
 from app.config import get_settings, production_config_warnings, validate_production_settings
 from app.db.session import init_db
-from sqlalchemy.exc import OperationalError
-
 from app.exceptions import (
     AppError,
     app_error_handler,
     http_exception_handler,
     operational_error_handler,
 )
+from app.gateway.bus import event_bus
+from app.gateway.router import router as gateway_router
 from app.middleware.tenant import TenantHostMiddleware
+from app.observability import init_observability
 from app.routers import (
     auth,
     calendars,
@@ -66,11 +68,9 @@ from app.routers import (
     uploads,
     trash,
 )
-from app.gateway.bus import event_bus
-from app.gateway.router import router as gateway_router
-from app.observability import init_observability
 from app.services.trigger_scheduler import trigger_scheduler_enabled, trigger_scheduler_loop
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 init_observability("api")
 
@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
 
             await close_arq_pool()
         except Exception:
-            pass
+            logging.getLogger("app.chat").warning("failed to close arq pool", exc_info=True)
         await event_bus.stop()
 
 

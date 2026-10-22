@@ -20,7 +20,7 @@ def resolve_runtime_snapshot(agent: Agent) -> dict[str, Any]:
         "agent_name": agent.name,
         "provider": agent.provider,
         "model": agent.model,
-        "thinking_budget": agent.thinking_budget,
+        "effort": agent.effort,
         "max_tokens": agent.max_tokens,
         "max_loops": agent.max_loops,
         "autonomy_level": agent.autonomy_level,
@@ -29,6 +29,16 @@ def resolve_runtime_snapshot(agent: Agent) -> dict[str, Any]:
         "tools_override": [],
         "system_prompt_extra": "",
     }
+
+
+def _snapshot_effort(snapshot: dict[str, Any], agent: Agent) -> str:
+    from app.services.agent.effort_policy import effort_from_budget, normalize_effort
+
+    if snapshot.get("effort"):
+        return normalize_effort(snapshot["effort"], agent.effort)
+    if snapshot.get("thinking_budget"):
+        return effort_from_budget(snapshot["thinking_budget"])
+    return normalize_effort(agent.effort)
 
 
 def apply_snapshot_to_agent(agent: Agent, snapshot: dict[str, Any]) -> Agent:
@@ -46,7 +56,7 @@ def apply_snapshot_to_agent(agent: Agent, snapshot: dict[str, Any]) -> Agent:
         model=snapshot.get("model") or agent.model,
         provider=snapshot.get("provider") or agent.provider,
         system_prompt=system_prompt,
-        thinking_budget=int(snapshot.get("thinking_budget") or agent.thinking_budget),
+        effort=_snapshot_effort(snapshot, agent),
         max_tokens=int(snapshot.get("max_tokens") or agent.max_tokens),
         max_loops=int(snapshot.get("max_loops") or agent.max_loops),
         autonomy_level=snapshot.get("autonomy_level") or agent.autonomy_level,

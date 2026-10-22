@@ -264,7 +264,6 @@ async def widget_stream_events(
         agent=agent,
         signal_id=signal.id if signal else None,
         trust="operator" if user_id else "external",
-        enable_chat_thinking=surface == SURFACE_IN_APP,
         surface=surface,
     )
     full_text = ""

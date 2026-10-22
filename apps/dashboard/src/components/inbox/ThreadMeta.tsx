@@ -5,10 +5,10 @@ import { cn } from '../../lib/utils'
 export const THREAD_META = 'text-base leading-5'
 export const THREAD_ICON = 14
 /** Face beside a chat bubble, a mail card, and the matching meta gutter. */
-export const CHAT_AVATAR_SIZE = 32
-export const THREAD_GUTTER = 'flex w-8 shrink-0 justify-center'
-/** Avatar column (32px) + gap-2 (8px) — activity under a bubble lines up with meta. */
-export const THREAD_INDENT = 'pl-10'
+export const CHAT_AVATAR_SIZE = 40
+export const THREAD_GUTTER = 'flex w-10 shrink-0 justify-center'
+/** Avatar column (40px) + gap-2 (8px) — activity under a bubble lines up with meta. */
+export const THREAD_INDENT = 'pl-12'
 
 const ROW = cn(
   'flex min-h-7 min-w-0 items-center gap-2',

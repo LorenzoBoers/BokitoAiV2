@@ -156,62 +156,91 @@ async function request<T>(
   return readJsonResponse<T>(res, path);
 }
 
+type HttpVerb = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
+
+/** One REST client per base path. `anonymous` verbs skip the local token check (the server still enforces auth). */
+function createClient(base: string, anonymous: readonly HttpVerb[] = []) {
+  const open = new Set<HttpVerb>(anonymous)
+  const requireAuth = (method: HttpVerb) => !open.has(method)
+  return {
+    get<T>(path: string, token?: string): Promise<T> {
+      return request<T>(base, path, 'GET', { token, requireAuth: requireAuth('GET') })
+    },
+    post<T>(path: string, body: object, token?: string): Promise<T> {
+      return request<T>(base, path, 'POST', { body, token, requireAuth: requireAuth('POST') })
+    },
+    patch<T>(path: string, body: object, token?: string): Promise<T> {
+      return request<T>(base, path, 'PATCH', { body, token, requireAuth: requireAuth('PATCH') })
+    },
+    put<T>(path: string, body: object, token?: string): Promise<T> {
+      return request<T>(base, path, 'PUT', { body, token, requireAuth: requireAuth('PUT') })
+    },
+    delete<T = unknown>(path: string, token?: string): Promise<T | void> {
+      return request<T>(base, path, 'DELETE', { token, requireAuth: requireAuth('DELETE') })
+    },
+  }
+}
+
+const appApi = createClient(APP_API_BASE, ['POST'])
+const appScopedApi = createClient(APP_SCOPED_API_BASE, ['POST'])
+const workforceApi = createClient(WORKFORCE_API_BASE, ['POST', 'PATCH', 'PUT'])
+const foldersApi = createClient(FOLDERS_API_BASE, ['POST', 'PATCH'])
+const settingsApi = createClient(SETTINGS_API_BASE)
+const staffApi = createClient(STAFF_API_BASE)
+const authApi = createClient(AUTH_API_BASE, ['POST'])
+
 // ── app base (`/api`) ────────────────────────────────────────────────
 
-export async function apiGet<T>(path: string, token?: string): Promise<T> {
-  return request<T>(APP_API_BASE, path, 'GET', { token });
+export function apiGet<T>(path: string, token?: string): Promise<T> {
+  return appApi.get(path, token)
 }
 
-export async function apiPost<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(APP_API_BASE, path, 'POST', { body, token, requireAuth: false });
+export function apiPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return appApi.post(path, body, token)
 }
 
-export async function apiPatch<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(APP_API_BASE, path, 'PATCH', { body, token });
+export function appScopedGet<T>(path: string, token?: string): Promise<T> {
+  return appScopedApi.get(path, token)
 }
 
-export async function apiPut<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(APP_API_BASE, path, 'PUT', { body, token });
+export function appScopedPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return appScopedApi.post(path, body, token)
 }
 
-export async function apiDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
-  return request<T>(APP_API_BASE, path, 'DELETE', { token });
+export function appScopedPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return appScopedApi.patch(path, body, token)
 }
 
-// ── app-scoped base (`/api/app`) ─────────────────────────────────────
-
-export async function appScopedGet<T>(path: string, token?: string): Promise<T> {
-  return request<T>(APP_SCOPED_API_BASE, path, 'GET', { token });
+export function appScopedDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return appScopedApi.delete(path, token)
 }
 
-export async function appScopedPost<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(APP_SCOPED_API_BASE, path, 'POST', { body, token, requireAuth: false });
+export function workforceGet<T>(path: string, token?: string): Promise<T> {
+  return workforceApi.get(path, token)
 }
 
-export async function appScopedPatch<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(APP_SCOPED_API_BASE, path, 'PATCH', { body, token });
+export function workforcePost<T>(path: string, body: object, token?: string): Promise<T> {
+  return workforceApi.post(path, body, token)
 }
 
-export async function appScopedDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
-  return request<T>(APP_SCOPED_API_BASE, path, 'DELETE', { token });
+export function workforcePatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return workforceApi.patch(path, body, token)
 }
 
-// ── workforce base (`/api/workforce`) ────────────────────────────────
-
-export async function workforceGet<T>(path: string, token?: string): Promise<T> {
-  return request<T>(WORKFORCE_API_BASE, path, 'GET', { token });
+export function workforcePut<T>(path: string, body: object, token?: string): Promise<T> {
+  return workforceApi.put(path, body, token)
 }
 
-export async function workforcePost<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(WORKFORCE_API_BASE, path, 'POST', { body, token, requireAuth: false });
+export function apiPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return appApi.patch(path, body, token)
 }
 
-export async function workforcePatch<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(WORKFORCE_API_BASE, path, 'PATCH', { body, token, requireAuth: false });
+export function apiPut<T>(path: string, body: object, token?: string): Promise<T> {
+  return appApi.put(path, body, token)
 }
 
-export async function workforcePut<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(WORKFORCE_API_BASE, path, 'PUT', { body, token, requireAuth: false });
+export function apiDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return appApi.delete(path, token)
 }
 
 export async function workforceDelete<T = unknown>(
@@ -232,16 +261,16 @@ export async function workforceDelete<T = unknown>(
 
 // ── folders base (`/api/folders`) ────────────────────────────────────
 
-export async function foldersGet<T>(path: string, token?: string): Promise<T> {
-  return request<T>(FOLDERS_API_BASE, path, 'GET', { token });
+export function foldersGet<T>(path: string, token?: string): Promise<T> {
+  return foldersApi.get(path, token)
 }
 
-export async function foldersPost<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(FOLDERS_API_BASE, path, 'POST', { body, token, requireAuth: false });
+export function foldersPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return foldersApi.post(path, body, token)
 }
 
-export async function foldersPatch<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(FOLDERS_API_BASE, path, 'PATCH', { body, token, requireAuth: false });
+export function foldersPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return foldersApi.patch(path, body, token)
 }
 
 export async function foldersDelete<T = unknown>(
@@ -262,38 +291,38 @@ export async function foldersDelete<T = unknown>(
 
 // ── settings base (`/api/settings`) ──────────────────────────────────
 
-export async function settingsGet<T>(path: string, token?: string): Promise<T> {
-  return request<T>(SETTINGS_API_BASE, path, 'GET', { token });
+export function settingsGet<T>(path: string, token?: string): Promise<T> {
+  return settingsApi.get(path, token)
 }
 
-export async function settingsPost<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(SETTINGS_API_BASE, path, 'POST', { body, token });
+export function settingsPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return settingsApi.post(path, body, token)
 }
 
-export async function settingsPatch<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(SETTINGS_API_BASE, path, 'PATCH', { body, token });
+export function settingsPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return settingsApi.patch(path, body, token)
 }
 
-export async function settingsDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
-  return request<T>(SETTINGS_API_BASE, path, 'DELETE', { token });
+export function settingsDelete<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return settingsApi.delete(path, token)
 }
 
 // ── staff base (`/api/staff`) ────────────────────────────────────────
 
-export async function staffGet<T>(path: string, token?: string): Promise<T> {
-  return request<T>(STAFF_API_BASE, path, 'GET', { token });
+export function staffGet<T>(path: string, token?: string): Promise<T> {
+  return staffApi.get(path, token)
 }
 
-export async function staffPost<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(STAFF_API_BASE, path, 'POST', { body, token });
+export function staffPost<T>(path: string, body: object, token?: string): Promise<T> {
+  return staffApi.post(path, body, token)
 }
 
-export async function staffPatch<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(STAFF_API_BASE, path, 'PATCH', { body, token });
+export function staffPatch<T>(path: string, body: object, token?: string): Promise<T> {
+  return staffApi.patch(path, body, token)
 }
 
-export async function staffPut<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(STAFF_API_BASE, path, 'PUT', { body, token });
+export function staffPut<T>(path: string, body: object, token?: string): Promise<T> {
+  return staffApi.put(path, body, token)
 }
 
 export async function staffDelete<T = unknown>(
@@ -306,20 +335,20 @@ export async function staffDelete<T = unknown>(
 
 // ── auth base (`/api/auth`) ──────────────────────────────────────────
 
-export async function apiPostAuth<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(AUTH_API_BASE, path, 'POST', { body, token, requireAuth: false });
+export function apiPostAuth<T>(path: string, body: object, token?: string): Promise<T> {
+  return authApi.post(path, body, token)
 }
 
-export async function apiGetAuth<T>(path: string, token?: string): Promise<T> {
-  return request<T>(AUTH_API_BASE, path, 'GET', { token });
+export function apiGetAuth<T>(path: string, token?: string): Promise<T> {
+  return authApi.get(path, token)
 }
 
-export async function apiDeleteAuth<T = unknown>(path: string, token?: string): Promise<T | void> {
-  return request<T>(AUTH_API_BASE, path, 'DELETE', { token });
+export function apiDeleteAuth<T = unknown>(path: string, token?: string): Promise<T | void> {
+  return authApi.delete(path, token)
 }
 
-export async function apiPatchAuth<T>(path: string, body: object, token?: string): Promise<T> {
-  return request<T>(AUTH_API_BASE, path, 'PATCH', { body, token });
+export function apiPatchAuth<T>(path: string, body: object, token?: string): Promise<T> {
+  return authApi.patch(path, body, token)
 }
 
 // ── auth session flows ───────────────────────────────────────────────

@@ -2,8 +2,9 @@
 
 Four layers, left to right: ``input`` (channels), ``executor`` (agents and
 people, grouped in department zones), ``work`` (flows) and ``result`` (reply,
-folders with their Works in items, knowledge, and two sinks). Paths come from
-conversations whose last message falls inside the period; no new tables.
+folders with their Works in items, connections written without a folder,
+knowledge, and two sinks). Paths come from conversations whose last message
+falls inside the period; no new tables.
 
 A folder node is a top folder: work in a subfolder counts there, and the node
 lists its subfolders with their own counts.
@@ -12,9 +13,8 @@ The result of a conversation, in this order:
 1. its ``delivered`` events in the period;
 2. otherwise (``estimated``) its folder, else an outbound message as a reply;
 3. still open: the sink "still open";
-4. closed with "no reply needed" or "handled outside Bokito": no result, only
-   a count on the closed sink;
-5. closed without any of these: the sink "closed without result".
+4. closed: the sink "done". Closing is done; the sink also says how many
+   closed on purpose ("no reply needed", "handled outside Bokito").
 
 The label of a conversation is its flow label, else the free label set first.
 
@@ -47,13 +47,14 @@ REPLY = "result:reply"
 KNOWLEDGE = "result:knowledge"
 SINK_OPEN = "result:open"
 SINK_CLOSED = "result:closed_without_result"
+CONNECTION_RESULT = "result:connection:"
 UNASSIGNED = "executor:unassigned"
 NO_LABEL = "none"
 # An executor is overloaded above this many open conversations, or above
 # OVERLOAD_MEDIAN_FACTOR times the median of executors that hold open work.
 OVERLOAD_OPEN = 15
 OVERLOAD_MEDIAN_FACTOR = 2
-# Closed on purpose: these do not count as "closed without result".
+# Closed on purpose: counted separately on the done sink.
 CLOSED_ON_PURPOSE = ("no_reply", "handled_externally")
 # Free labels have no mark; the Grid still tells them apart.
 FREE_LABEL_PALETTE = ("teal", "violet", "orange", "emerald", "pink", "rose", "sky", "info", "warning", "accent")
@@ -156,7 +157,6 @@ def _node(node_id: str, kind: str, layer: str, label: str, href: str | None = No
 
 
 async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | None, *, days: int = 7) -> dict[str, Any]:
-    from app.models.audit import AuditEvent
     from app.modules.catalog import get_module
     from app.services.ai_handling import resolve_ai_handling, resolve_for_signal, widget_account
     from app.services.org_graph import channel_href
@@ -295,9 +295,13 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
         if flows_by_id
         else {}
     )
+    from app.services.department_overview import latest_scorecards
+
+    scorecards = await latest_scorecards(session, tenant.id, [str(t.id) for t in flow_tags.values() if t is not None])
     for flow in flows:
         module = get_module(flow.module_slug) if flow.module_slug else None
         flow_tag = flow_tags.get(flow.id)
+        card = scorecards.get(str(flow_tag.id)) if flow_tag else None
         nodes[f"flow:{flow.id}"] = _node(
             f"flow:{flow.id}",
             "flow",
@@ -308,7 +312,10 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
             color=flow_label_color(flow_tag.color if flow_tag else None) or FLOW_LABEL_COLOR,
             icon=(flow_tag.icon if flow_tag else "") or FLOW_LABEL_ICON,
             done=0,
+            autonomous_pct=card.get("autonomous_pct") if card else None,
         )
+        # A flow sits in the lane of its department; All's flows run in the free lane.
+        nodes[f"flow:{flow.id}"]["zones"] = [str(flow.department_id)] if flow.department_id in departments else []
 
     tag_ids = {s.ticket_tag_id for s in signals if s.ticket_tag_id}
     links = (
@@ -423,6 +430,7 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
             folder_node(_uuid(data.get("folder_id")))
 
     reply_channels: set[str] = set()
+    connection_labels: dict[str, str] = {}
     replies: Counter[str] = Counter()
     closed_counts: Counter[str] = Counter()
     estimated = False
@@ -445,6 +453,10 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
                     out.append(node_id)
                     if folder_id != root_of[folder_id]:
                         subs.add(folder_id)
+                elif data.get("connection_id"):
+                    node_id = f"{CONNECTION_RESULT}{data['connection_id']}"
+                    connection_labels.setdefault(node_id, str(data.get("title") or data.get("provider") or ""))
+                    out.append(node_id)
             elif kind == "knowledge":
                 out.append(KNOWLEDGE)
         for sub in subs:
@@ -469,7 +481,6 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
         reason = on_purpose.get(signal.id)
         if reason:
             closed_counts[reason] += 1
-            return []
         return [SINK_CLOSED]
 
     # Department per conversation decides an executor's main zone.
@@ -545,6 +556,11 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
                 ensure(SINK_OPEN, lambda: _node(SINK_OPEN, "sink_open", "result", "", "/communication"))
             elif result_id == SINK_CLOSED:
                 ensure(SINK_CLOSED, lambda: _node(SINK_CLOSED, "sink_closed_without_result", "result", "", None))
+            elif result_id.startswith(CONNECTION_RESULT):
+                ensure(
+                    result_id,
+                    lambda rid=result_id: _node(rid, "connection", "result", connection_labels.get(rid, ""), "/integrations"),
+                )
 
         # Open counts on the nodes that hold the conversation now.
         if is_open:
@@ -628,7 +644,7 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
         {
             "id": str(d.id),
             "label": d.name,
-            "href": "/workforce?tab=departments",
+            "href": f"/departments/{d.id}",
             "hint": "agent_first" if d.pickup == "agent_first" else "people",
         }
         for d in sorted(departments.values(), key=lambda d: d.name.lower())
@@ -719,36 +735,36 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
     if used.get(NO_LABEL):
         labels.append({"id": None, "name": "", "color": NO_LABEL_COLOR, "icon": None, "flow_id": None})
 
+    # Bottlenecks per department, addressed to its lead. Unassigned work is All's.
+    from app.services.department_access import department_leads
+    from app.services.teams import all_department
+
+    root = await all_department(session, tenant_id)
+    lead_names: dict[UUID, str | None] = {}
+
+    async def lead_of(dept_id: UUID) -> str | None:
+        if dept_id not in lead_names:
+            lead_id = (await department_leads(session, tenant_id, dept_id))["lead_agent_id"]
+            lead = agents.get(lead_id) if lead_id else None
+            lead_names[dept_id] = lead.name if lead else None
+        return lead_names[dept_id]
+
     issues: list[dict[str, Any]] = []
     for node in nodes.values():
         for issue in node["issues"]:
+            zone = (node.get("zones") or [None])[0]
+            dept_id = UUID(zone) if zone and zone != ZONE_NONE else root.id
             issues.append(
                 {
                     "severity": "warning" if issue in ("overloaded", "unassigned") else "info",
                     "node_id": node["id"],
                     "message_key": issue,
                     "params": {"name": node["label"], "count": node["open"]},
+                    "department_id": str(dept_id),
+                    "department": departments[dept_id].name if dept_id in departments else root.name,
+                    "lead": await lead_of(dept_id),
                 }
             )
-    orphan_writes = (
-        await session.execute(
-            select(AuditEvent).where(
-                AuditEvent.tenant_id == tenant_id,
-                AuditEvent.action == "delivery:connection_without_folder",
-                AuditEvent.created_at >= since,
-            )
-        )
-    ).scalars().all()
-    for resource_id in sorted({row.resource_id for row in orphan_writes}):
-        issues.append(
-            {
-                "severity": "warning",
-                "node_id": None,
-                "message_key": "connection_without_folder",
-                "params": {"connection_id": resource_id},
-                "href": "/integrations",
-            }
-        )
 
     return {
         "days": days,

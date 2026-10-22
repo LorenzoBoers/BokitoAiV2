@@ -180,12 +180,12 @@ def verify_mailbox_sync(creds: dict[str, Any]) -> dict[str, Any]:
             try:
                 imap_client.logout()
             except Exception:
-                pass
+                logger.debug("imap logout after verify failed", exc_info=True)
         if smtp_client is not None:
             try:
                 smtp_client.quit()
             except Exception:
-                pass
+                logger.debug("smtp quit after verify failed", exc_info=True)
     normalized["verified_at"] = datetime.now(timezone.utc).isoformat()
     return normalized
 
@@ -430,9 +430,7 @@ def list_imap_folders_sync(creds: dict[str, Any]) -> list[dict[str, Any]]:
         try:
             client.logout()
         except Exception:
-            pass
-
-
+            logger.debug("imap logout after list folders failed", exc_info=True)
 def fetch_mailbox_since_sync(
     creds: dict[str, Any],
     uid_cursor: str,
@@ -504,9 +502,7 @@ def fetch_mailbox_since_sync(
         try:
             client.logout()
         except Exception:
-            pass
-
-
+            logger.debug("imap logout after fetch failed", exc_info=True)
 def fetch_inbox_since_sync(
     creds: dict[str, Any],
     uid_cursor: str,
@@ -567,9 +563,7 @@ def fetch_inbox_since_sync(
         try:
             client.logout()
         except Exception:
-            pass
-
-
+            logger.debug("imap logout after mark seen failed", exc_info=True)
 async def fetch_inbox_since(
     account: ChannelAccount,
     uid_cursor: str,
@@ -751,9 +745,7 @@ def _append_to_sent(creds: dict[str, Any], msg: EmailMessage) -> None:
             try:
                 client.logout()
             except Exception:
-                pass
-
-
+                logger.debug("imap logout after append failed", exc_info=True)
 def send_smtp_sync(
     creds: dict[str, Any],
     *,
@@ -799,7 +791,7 @@ def send_smtp_sync(
         try:
             client.quit()
         except Exception:
-            pass
+            logger.debug("smtp quit after send failed", exc_info=True)
     _append_to_sent(creds, msg)
 
 

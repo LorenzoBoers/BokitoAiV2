@@ -415,6 +415,7 @@ export async function getSignalThread(
     sessions?: unknown[]
     participants?: unknown[]
     active_turn?: unknown
+    handoff_session?: unknown
     csat?: { score?: unknown; comment?: unknown; created_at?: unknown } | null
     has_older?: unknown
     oldest_message_id?: unknown
@@ -1765,7 +1766,7 @@ export type PersonalAssistantThread = {
 
 export async function bokitoCreateConversation(
   token: string,
-  title = 'New conversation',
+  title = 'New chat',
   agentId?: string | null,
   options?: {
     /** Ground the conversation in a customer thread (Ask assistant). */
@@ -1777,11 +1778,14 @@ export async function bokitoCreateConversation(
     message?: string
     /** Files / pasted images on that opener. */
     attachments?: unknown[]
+    /** File the new conversation in this folder (canvas setup from a folder). */
+    folderId?: string
   },
 ) {
   const body: Record<string, unknown> = { title }
   if (agentId) body.agent_id = agentId
   if (options?.contextSignalId) body.context_signal_id = options.contextSignalId
+  if (options?.folderId) body.folder_id = options.folderId
   const opener = options?.message?.trim()
   if (opener) body.message = opener
   if (options?.attachments?.length) body.attachments = options.attachments
@@ -1905,6 +1909,8 @@ export async function bokitoStreamMessage(
      * appending a duplicate user bubble.
      */
     continuePending?: boolean
+    /** Onboarding setup: the agent speaks first. No user bubble is stored. */
+    speakFirst?: boolean
     /** Full speech bubbles from the turn. Replaces the assembled delta. */
     onParts?: (parts: string[]) => void
   },
@@ -1912,7 +1918,8 @@ export async function bokitoStreamMessage(
   const payload: Record<string, unknown> = { content }
   if (options?.pageContext) payload.page_context = options.pageContext
   if (options?.attachments?.length) payload.attachments = options.attachments
-  if (options?.continuePending) payload.continue_pending = true
+  if (options?.speakFirst) payload.speak_first = true
+  else if (options?.continuePending) payload.continue_pending = true
   const res = await fetch(
     `${APP_API_BASE}${appRoutes.signals.conversationStream(conversationId)}`,
     {

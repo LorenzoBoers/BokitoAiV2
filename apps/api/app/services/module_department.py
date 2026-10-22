@@ -47,6 +47,54 @@ def doc_in_agent_scope(
     return False
 
 
+MODULE_ICONS = {
+    "accounting": "calculator",
+    "banking": "landmark",
+    "investing": "trending-up",
+    "documents": "folder-open",
+    "accountant": "briefcase",
+}
+ADOPTED = "module_adopted"
+
+
+def _settings(dept: Department) -> dict:
+    try:
+        data = json.loads(dept.settings_json or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _stamp_icon(dept: Department, slug: str) -> None:
+    from app.data.platform_icons import PLATFORM_ICON_IDS
+
+    data = _settings(dept)
+    icon = MODULE_ICONS.get(slug)
+    if not data.get("icon") and icon in PLATFORM_ICON_IDS:
+        data["icon"] = icon
+        dept.settings_json = json.dumps(data)
+
+
+async def adopt_department(
+    session: AsyncSession, tenant_id: UUID, slug: str, department_id: UUID
+) -> Department:
+    """Install into an existing department: it becomes the module's origin. Flushes."""
+    dept = await session.get(Department, department_id)
+    if dept is None or dept.tenant_id != tenant_id or dept.deleted_at is not None or is_root_department(dept):
+        raise ValueError("Pick an existing department other than All")
+    if dept.origin_module_slug and dept.origin_module_slug != slug:
+        raise ValueError("That department already comes from another module")
+    if dept.origin_module_slug != slug:
+        dept.origin_module_slug = slug
+        data = _settings(dept)
+        data[ADOPTED] = True
+        dept.settings_json = json.dumps(data)
+    _stamp_icon(dept, slug)
+    session.add(dept)
+    await session.flush()
+    return dept
+
+
 async def ensure_module_department(
     session: AsyncSession,
     tenant_id: UUID,
@@ -74,6 +122,7 @@ async def ensure_module_department(
     ).scalar_one_or_none()
     if named is not None and not is_root_department(named):
         named.origin_module_slug = slug
+        _stamp_icon(named, slug)
         session.add(named)
         await session.flush()
         return named
@@ -85,24 +134,42 @@ async def ensure_module_department(
         description=module.description[:300],
     )
     created.origin_module_slug = slug
+    _stamp_icon(created, slug)
     session.add(created)
     await session.flush()
     return created
 
 
 async def _add_agent_member(
-    session: AsyncSession, tenant_id: UUID, department_id: UUID, agent_id: UUID
+    session: AsyncSession,
+    tenant_id: UUID,
+    department_id: UUID,
+    agent_id: UUID,
+    *,
+    lead: bool | None = None,
 ) -> None:
-    existing = (
+    """The specialist leads a department without a lead; otherwise it joins as a member.
+
+    ``lead=True`` makes it lead and moves the current lead agent to member.
+    """
+    agents = (
         await session.execute(
-            select(DepartmentMember.id).where(
+            select(DepartmentMember).where(
                 DepartmentMember.department_id == department_id,
                 DepartmentMember.member_kind == "agent",
-                DepartmentMember.agent_id == agent_id,
             )
         )
-    ).scalar_one_or_none()
+    ).scalars().all()
+    current_lead = next((m for m in agents if m.duty == "primary" and m.agent_id != agent_id), None)
+    takes_lead = lead is True or (lead is None and current_lead is None)
+    existing = next((m for m in agents if m.agent_id == agent_id), None)
+    if takes_lead and current_lead is not None:
+        current_lead.duty = "member"
+        session.add(current_lead)
     if existing is not None:
+        if takes_lead and existing.duty != "primary":
+            existing.duty = "primary"
+            session.add(existing)
         return
     position = int(
         (
@@ -121,10 +188,57 @@ async def _add_agent_member(
             department_id=department_id,
             member_kind="agent",
             agent_id=agent_id,
-            duty="primary",
+            duty="primary" if takes_lead else "member",
             position=position,
         )
     )
+
+
+async def set_accountable(
+    session: AsyncSession, tenant_id: UUID, department_id: UUID, user_id: UUID | None
+) -> UUID | None:
+    """The person accountable (user duty primary). Without a pick: keep one, else All's. Flushes."""
+    from app.services.department_access import department_leads
+    from app.services.teams import all_department
+
+    current = (await department_leads(session, tenant_id, department_id))["accountable_user_id"]
+    if user_id is None:
+        if current is not None:
+            return current
+        root = await all_department(session, tenant_id)
+        user_id = (await department_leads(session, tenant_id, root.id))["accountable_user_id"]
+        if user_id is None:
+            return None
+    users = (
+        await session.execute(
+            select(DepartmentMember).where(
+                DepartmentMember.department_id == department_id,
+                DepartmentMember.member_kind == "user",
+            )
+        )
+    ).scalars().all()
+    for member in users:
+        if member.user_id != user_id and member.duty == "primary":
+            member.duty = "backup"
+            session.add(member)
+    mine = next((m for m in users if m.user_id == user_id), None)
+    if mine is None:
+        last = max((m.position for m in users), default=-1)
+        session.add(
+            DepartmentMember(
+                tenant_id=tenant_id,
+                department_id=department_id,
+                member_kind="user",
+                user_id=user_id,
+                duty="primary",
+                position=last + 1,
+            )
+        )
+    elif mine.duty != "primary":
+        mine.duty = "primary"
+        session.add(mine)
+    await session.flush()
+    return user_id
 
 
 async def _copy_skill_once(
@@ -239,7 +353,6 @@ async def _create_folder_once(
     from app.models.auth import Tenant
     from app.models.integration import IntegrationConnection
     from app.models.project import Project
-    from app.models.project_canvas import OWNER_PROJECT
     from app.modules.catalog import MODULE_BY_SLUG, get_module_package
     from app.services import works_in
     from app.services.project_canvas import create_canvas
@@ -301,8 +414,8 @@ async def _create_folder_once(
     await create_canvas(
         session,
         tenant_id,
-        owner_kind=OWNER_PROJECT,
-        owner_id=folder_id,
+        new_thread=True,
+        folder_id=folder_id,
         title=template.canvas_name(language),
         updated_by_type="system",
         updated_by_id="module_install",
@@ -317,6 +430,7 @@ async def bind_module_department(
     slug: str,
     *,
     agent_id: UUID | None = None,
+    specialist_leads: bool | None = None,
 ) -> Department:
     """One-time materialize: create origin dept + missing seeds/tags/flows/skill.
 
@@ -326,7 +440,7 @@ async def bind_module_department(
     department = await ensure_module_department(session, tenant_id, slug)
     require_one_scope(department_id=department.id, agent_id=None)
     if agent_id is not None:
-        await _add_agent_member(session, tenant_id, department.id, agent_id)
+        await _add_agent_member(session, tenant_id, department.id, agent_id, lead=specialist_leads)
 
     sources = (
         await session.execute(
@@ -370,12 +484,42 @@ async def bind_module_department(
 
 
 async def archive_module_department(
-    session: AsyncSession, tenant_id: UUID, slug: str
-) -> None:
-    """Soft-delete the origin department (module de-install)."""
+    session: AsyncSession, tenant_id: UUID, slug: str, *, specialist_ids: list[str] | None = None
+) -> str | None:
+    """De-install. A department the module created goes to the bin.
+
+    A department that existed before keeps its labels, flows and work: only the
+    origin and the specialist leave. Returns "archived", "kept" or None.
+    """
     from app.services.teams import delete_team
 
     department = await get_module_department(session, tenant_id, slug)
     if department is None or is_root_department(department):
-        return
-    await delete_team(session, department, permanent=False)
+        return None
+    data = _settings(department)
+    if not data.get(ADOPTED):
+        await delete_team(session, department, permanent=False)
+        return "archived"
+    data.pop(ADOPTED, None)
+    department.settings_json = json.dumps(data)
+    department.origin_module_slug = None
+    session.add(department)
+    ids = []
+    for raw in specialist_ids or []:
+        try:
+            ids.append(UUID(str(raw)))
+        except ValueError:
+            continue
+    if ids:
+        for member in (
+            await session.execute(
+                select(DepartmentMember).where(
+                    DepartmentMember.department_id == department.id,
+                    DepartmentMember.member_kind == "agent",
+                    DepartmentMember.agent_id.in_(ids),
+                )
+            )
+        ).scalars().all():
+            await session.delete(member)
+    await session.flush()
+    return "kept"

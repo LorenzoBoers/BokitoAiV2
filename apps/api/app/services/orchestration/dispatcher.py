@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -98,7 +100,7 @@ async def create_agent_task(
 
     scheduled_for = _naive_utc(scheduled_for)
     is_human = assignee_kind == "human"
-    is_dormant = scheduled_for is not None and scheduled_for > datetime.utcnow()
+    is_dormant = scheduled_for is not None and scheduled_for > utcnow()
     # A planned look for a person is a date on the conversation: the thread
     # comes back at that moment. The task row stays only as a settled record.
     # Agent tasks that are scheduled stay queued until the scheduler tick.
@@ -201,7 +203,7 @@ async def process_due_scheduled_tasks(
     (``thread_schedule.wake_due_threads``), not a task. Called from the
     scheduler tick, next to trigger firing.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     conditions = [
         AgentTask.status == "queued",
         AgentTask.assignee_kind != "human",
@@ -267,7 +269,7 @@ async def complete_agent_task(session: AsyncSession, tenant_id: UUID, task_id: U
             status_code=400,
             detail=f"Cannot complete a task in status {task.status}",
         )
-    now = datetime.utcnow()
+    now = utcnow()
     task.status = "completed"
     task.completed_at = now
     task.updated_at = now
@@ -298,7 +300,7 @@ async def cancel_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
     ).scalars().all()
     for run in runs:
         run.status = "cancelled"
-        run.completed_at = datetime.utcnow()
+        run.completed_at = utcnow()
         run.pause_reason = "cancelled"
         session.add(run)
         child_runs = (
@@ -308,11 +310,11 @@ async def cancel_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
         ).scalars().all()
         for child in child_runs:
             child.status = "cancelled"
-            child.completed_at = datetime.utcnow()
+            child.completed_at = utcnow()
             session.add(child)
 
     task.status = "cancelled"
-    task.completed_at = datetime.utcnow()
+    task.completed_at = utcnow()
     session.add(task)
     await session.commit()
     await session.refresh(task)

@@ -17,6 +17,8 @@ export interface ProjectRow {
   child_count?: number
   ancestors?: { id: string; name: string; display_name: string; tag_ids?: string[]; tag_names?: string[] }[]
   children?: ProjectChild[]
+  /** Who works here: the home department first, then departments with open tickets below. Detail read only. */
+  departments?: Array<{ id: string; name: string; icon: string; home: boolean; open: number; href: string }>
   /** Present on list and detail reads; create and patch responses omit them. */
   open_count?: number
   closed_count?: number

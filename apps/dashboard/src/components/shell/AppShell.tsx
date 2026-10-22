@@ -17,6 +17,7 @@ import { recordRecentPage, recentLocationKey } from '../../lib/recent-pages'
 import TwoFactorBanner from './TwoFactorBanner'
 import PersonalAssistantWidget from './PersonalAssistantWidget'
 import AgentCallOverlay from './AgentCallOverlay'
+import ChatStack from '../chat-stack/ChatStack'
 import { TourProvider } from '../tour/TourContext'
 import { TicketStageGateProvider } from '../inbox/TicketStageGate'
 import { isTypingTarget } from '../../hooks/useInboxListShortcuts'
@@ -79,6 +80,7 @@ function isFullBleed(pathname: string): boolean {
     pathname.startsWith('/agenda') ||
     pathname.startsWith('/folders') ||
     pathname.startsWith('/projects') ||
+    pathname.startsWith('/workforce') ||
     pathname === GRID_PATH ||
     pathname === WORKFLOW_PATH
   )
@@ -98,7 +100,8 @@ function contentEnterKey(pathname: string): string {
   if (pathname.startsWith('/ai/')) return pathname.split('/').slice(0, 3).join('/') || 'ai'
   if (pathname.startsWith('/agenda')) return 'agenda'
   if (pathname.startsWith('/folders') || pathname.startsWith('/projects')) return 'folders'
-  if (pathname === GRID_PATH || pathname === WORKFLOW_PATH) return 'grid'
+  if (pathname.startsWith('/workforce') || pathname === GRID_PATH || pathname === WORKFLOW_PATH)
+    return 'workforce'
   // Document pages already animate via PageContent — avoid a second remount.
   return 'document'
 }
@@ -259,6 +262,7 @@ export default function AppShell() {
             section there hands its threads to this one widget instead of
             rendering a second chat surface. */}
           <PersonalAssistantWidget />
+          <ChatStack />
           {user?.agentCallsEnabled ? <AgentCallOverlay /> : null}
           </TicketStageGateProvider>
           </TourProvider>

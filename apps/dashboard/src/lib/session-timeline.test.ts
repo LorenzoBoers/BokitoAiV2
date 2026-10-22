@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { collapseRecentUserEchoes, sessionChatToInboxMessage } from './session-timeline'
+import type { ChatMessage } from './signals-api'
 
 describe('collapseRecentUserEchoes', () => {
   it('drops a second operator bubble with the same text a moment later', () => {
@@ -47,7 +48,7 @@ describe('sessionChatToInboxMessage', () => {
           rows: [{ label_key: 'activity.generatedImage', count: 1 }],
           frames: [{ status: 'ready', src: 'https://cdn.example/a.png' }],
         },
-      },
+      } as unknown as ChatMessage,
       { id: 's1', agentId: null },
       null,
     )

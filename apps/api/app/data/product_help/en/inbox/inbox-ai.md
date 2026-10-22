@@ -43,7 +43,7 @@ A conversation exception lasts until the conversation closes. Channel exceptions
 6. Set the **Bounce limit**: how often per day a conversation may move between the agent and people. After that, people keep it until someone hands it back explicitly, and the thread shows a note from the agent. 0 turns the limit off.
 7. Changes save automatically.
 
-A flow can keep its tickets on review: turn on **Always review** on the flow page (see [Flows](/docs/ai/flows)). Replies on those tickets become a draft, even when the conversation is Autonomous.
+A flow can keep its tickets on review: set **Autonomy** to **Assisted** on the flow page (see [Flows](/docs/ai/flows)). Replies on those tickets become a draft, even when the conversation is Autonomous.
 
 The timeline shows a line such as **Drafted instead of sent** with the reason whenever a safeguard applies. The same line appears with **the agent does not own this conversation** when a person or team owns it (the agent then drafts for them) and with **a colleague is typing a reply** when someone is writing in the composer at that moment.
 
@@ -73,7 +73,7 @@ When the agent hands a conversation to people, it picks the owner in this order:
 
 - **Manual** is in effect somewhere in the chain, or a teammate took over the conversation.
 - A person or team owns the conversation (for example after **Stays with the person**): the agent drafts for them instead of sending.
-- The Autonomy dial sits on Assisted or Manual, or the flow of the ticket is on **Always review**.
+- The Autonomy dial sits on Assisted or Manual, or the flow of the ticket is on Assisted or Manual.
 - **Privacy** keeps AI away from message bodies; Autonomy then shows Manual.
 - The channel's circuit breaker tripped after unusual activity; the channel runs Assisted until someone resumes it.
 - The mailbox still needs setup or reconnect. The thread gets an **Internal note** pointing to **Settings → Channels** instead of a draft.
@@ -84,7 +84,7 @@ The **Why** button in the conversation header lists every reason in one place, e
 
 1. Open a conversation and click **Why** in the header.
 2. The first line names the agent: who wrote the last reply, owns the conversation, or is addressed.
-3. The next lines show the Autonomy setting and where it comes from (workspace, channel or this conversation), followed by everything that keeps it lower: the dial, Privacy, the breaker, the agent's own level or a flow on **Always review**.
+3. The next lines show the Autonomy setting and where it comes from (workspace, channel or this conversation), followed by everything that keeps it lower: the dial, Privacy, the breaker, the agent's own level or the flow's own Autonomy.
 4. Below that are the knowledge documents the last reply read, the folder the conversation sits in (and whether its label comes from the conversation, the contact or the company), and the flow with its current stage.
 5. The last lines show where the work was delivered: replies per channel, the folder and its **Works in** place (a connection, canvas or the board), and a correction kept as an example.
 6. Click a line to open that setting or place. Replies from before this panel existed show no documents.
@@ -97,7 +97,7 @@ Not every mail wants an answer. Receipts, deploy notices and other automated mai
 2. Each read of a message ends in one card. Labels and other steps of that read sit in the card's activity line (**Worked for 3s · 3 actions**), not as separate lines. A newer read replaces an open card; the old one shrinks to **Replaced by a newer read**.
 3. The people who own the conversation get one notification, after the read: **Draft ready**, **Needs a choice** or **No reply needed**, with the sender as title. No reply needed lands quietly in For you, with no pop-up or push. When the read takes longer than 20 seconds, the plain **New message from** notification goes out instead.
 4. The AI keeps one reply proposal per person. When the same person also writes on another channel, the older conversation's proposal is set aside (**Set aside: a newer conversation with this person**) and the newest conversation carries the live one.
-5. A proposal that no longer answers the latest message is set aside as well: when the customer writes again before you send (**customer wrote again**), when a colleague replied from their own mailbox (**a teammate replied**), or when someone logged **Already handled outside Bokito**. A run that finishes after a newer message arrived does not post its draft.
+5. A proposal that no longer answers the latest message is set aside as well: when the customer writes again before you send (**customer wrote again**), or when a colleague replied from their own mailbox (**a teammate replied**). A run that finishes after a newer message arrived does not post its draft.
 6. The composer tells you when a stored draft is outdated and offers **Propose again**; see [Communication](/docs/inbox/communication).
 7. While you stay on the conversation and the agent finishes a draft, that text lands in the reply composer. The timeline shows **Suggested a reply**: open the chevron to read it, or choose **Use draft** / **In composer** to put it in the input again after you opened another chat. Team-only notes from the model never fill the customer draft.
 8. On a mailbox with **Archive automated mail** turned on, that card is skipped: the thread closes on arrival and gets the `#automated` tag. Set it per mailbox under [Channels](/docs/inbox/channels).

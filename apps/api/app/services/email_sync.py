@@ -19,6 +19,8 @@ are skipped; smtp_imap requires verified credentials instead.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import base64
 import json
 import logging
@@ -272,7 +274,7 @@ def ensure_ai_live_since(settings: dict[str, Any]) -> dict[str, Any]:
     if settings.get("ai_live_since"):
         return settings
     settings = dict(settings)
-    settings["ai_live_since"] = datetime.utcnow().isoformat()
+    settings["ai_live_since"] = utcnow().isoformat()
     return settings
 
 
@@ -394,7 +396,7 @@ async def _record_sync_error(
     auto_paused = False
     if error_count >= SYNC_AUTO_PAUSE_AFTER and account.is_enabled:
         account.is_enabled = False
-        settings["auto_paused_at"] = datetime.utcnow().isoformat()
+        settings["auto_paused_at"] = utcnow().isoformat()
         settings["auto_paused_reason"] = (
             f"Paused after {error_count} consecutive sync failures: {message}"[:500]
         )
@@ -409,12 +411,12 @@ async def _record_sync_error(
     if should_alert and last_alert_raw and not auto_paused:
         try:
             last_alert = datetime.fromisoformat(str(last_alert_raw))
-            if datetime.utcnow() - last_alert < timedelta(hours=24):
+            if utcnow() - last_alert < timedelta(hours=24):
                 should_alert = False
         except ValueError:
             pass
     if should_alert:
-        settings["last_ops_alert_at"] = datetime.utcnow().isoformat()
+        settings["last_ops_alert_at"] = utcnow().isoformat()
 
     account.settings_json = json.dumps(settings)
     session.add(account)
@@ -1397,7 +1399,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
             if not isinstance(settings, dict):
                 settings = {}
             settings = ensure_ai_live_since(settings)
-            settings["last_sync_at"] = datetime.utcnow().isoformat()
+            settings["last_sync_at"] = utcnow().isoformat()
             clear_sync_pause(settings)
             account.settings_json = json.dumps(settings)
             session.add(account)
@@ -1427,7 +1429,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
         else {}
     )
     window_days = account_sync_window_days(settings)
-    since = datetime.utcnow() - timedelta(days=window_days) if window_days > 0 else None
+    since = utcnow() - timedelta(days=window_days) if window_days > 0 else None
     backfill_cursors: dict[str, str] = (
         dict(settings.get("backfill_cursors"))
         if isinstance(settings.get("backfill_cursors"), dict)
@@ -1609,7 +1611,7 @@ async def sync_account(session: AsyncSession, account: ChannelAccount) -> dict[s
     settings = json.loads(account.settings_json or "{}")
     if not isinstance(settings, dict):
         settings = {}
-    settings["last_sync_at"] = datetime.utcnow().isoformat()
+    settings["last_sync_at"] = utcnow().isoformat()
     settings["messages_synced"] = int(settings.get("messages_synced") or 0) + ingested
     settings["sync_cursors"] = cursors
     settings["backfill_cursors"] = backfill_cursors

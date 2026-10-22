@@ -18,7 +18,7 @@ Agents are the AI workers for this workspace. Every agent has one shape: name, d
 
 1. Open **Agents**. Company agents appear as cards. Each card can show **open** conversations (the agent's detail, **Open conversations**) and threads that **need a decision** (**For you**, filtered to that agent). Search and the pills **All** and **Working** narrow the grid. An agent that leads a folder shows that folder as a folder chip on its card; click it to open the folder. Above the cards, **Activity** is a now-centered timeline of even-sized points. Each point has an icon for the action type (chat, scheduled wake, heartbeat, and so on). When several actions sit close together, the point shows a number; hover to see them stacked. Sessions of two minutes or less show one clock time, not a from–to range. Choose a point to open the run, conversation or Agenda item. The same timeline sits on each agent page for that agent alone.
 2. Choose **New agent**. Enter a **Name**, a required **Job title** (max 32 characters), an optional **Description**, select a **Model**, add **Instructions**, then choose **Create agent**. The job title sits under the name; the description is a longer optional blurb. Instructions are the brief the agent follows.
-3. Open a card. The gear at the top right opens **Settings**: instructions, model, rules, signature, chat access and tools. Use **New conversation** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (Autonomy, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
+3. Open a card. The gear at the top right opens **Settings**: instructions, model, rules, signature, chat access and tools. Use **New chat** to start an internal thread. Agenda and conversations are quiet links under the centered profile header. Related settings (Autonomy, Knowledge, Govern) sit as links at the bottom of the page, not in the header.
 
 Members can open an agent to read it. They see **You can read this agent. Ask an admin to change settings.** They can still chat from Communication.
 
@@ -26,7 +26,7 @@ In a chat with an agent, the side panel shows the function under the name, in th
 
 Real decisions live in each conversation (and under **Open conversations** on the agent). Tip cards for automated mail do not inflate those counts.
 
-New conversations in Communication require a **company agent**. If none are available for you, the composer shows **No agents available**. Open **Agents** or the setup guide to add one.
+New chats in Communication require a **company agent**. If none are available for you, the composer shows **No agents available**. Open **Agents** or the setup guide to add one.
 
 ## Brief an agent
 
@@ -57,6 +57,14 @@ The **Definition** card limits an agent further than its tool list, and decides 
 3. Set **Prompt**: **Add to Bokito's prompt** keeps Bokito's working rules and adds the instructions; **Own prompt only** uses the instructions alone.
 4. Fill in **Blocked tools** (blocked even when the tool list includes them), **Skills** (workspace doc paths the agent reads when they apply), **Must end with** (the agent is reminded until it calls one of these tools, at most 8 times per turn) and **MCP servers**.
 5. Choose **Save**. Agents that answer customer mail always end a turn with a draft reply, a no-reply note, a decision or a sent reply.
+
+## Choose how much the agent thinks
+
+**Thinking** sets how hard the agent thinks before and between its actions. The agent decides per step whether to think, answer or act; this setting is the ceiling.
+
+1. Open the agent, choose the gear, and find **Definition**.
+2. Set **Thinking**: **Light** for fast short answers, **Normal** for most work, or **Thorough** for analysis and long tasks.
+3. Choose **Save**. A greeting or a thank-you always gets a fast answer. On a longer task the agent first says in one sentence what it will do, then does it and ends with the result.
 
 ## Let an agent hand off a subtask
 
@@ -114,7 +122,7 @@ Some agents belong to a module (for example a hired Accounting specialist, or a 
 1. Open a company agent.
 2. Hover the **name**: it becomes a pill with a pencil. A click opens the same dialog as the pencil on the agent mark (or **Edit** from the ··· menu).
 3. Change the **name**, fill in the required **Job title** (max 32 characters; shown under the name in the mark color), optionally add a longer **Description**, then pick **Initials** or **Bot**. For **Bot**, choose a **shape** and a **color** for the animated face (quick picks: purple, the workspace accent, and gray; open **More colors** for the rest), then save. The Claude and Cursor bodies keep their original colors, so the color picker is hidden for them. Instructions live in the gear; they are not this description.
-4. Under **Preview motion**, try the moods (**Idle**, **Listening**, **Thinking**, **Typing**, **Working**, **Searching**, **Writing**, **Sending**, **Sleeping**) and the short reactions (**Yes**, **No**, **Alert**, **Jump**, **Done**, **Leave**). In live chats the face follows the turn: it listens while you type, thinks while it reasons, searches while it looks things up, writes while it prepares a proposal, sends while it hands work to a colleague, and types while text streams. When the turn ends it shows done, leaves after a handoff, or shows an alert after an error. Busy moods and reactions glow in the mood color. While idle the face looks at your cursor and leans a little toward it.
+4. Under **Preview motion**, try the moods (**Idle**, **Listening**, **Thinking**, **Working**, **Searching**, **Writing**, **Sending**, **Sleeping**) and the short reactions (**Yes**, **No**, **Alert**, **Jump**, **Done**, **Leave**). In live chats the face follows the turn: it listens while you type, thinks while it reasons, searches while it looks things up, writes while text streams or a proposal is prepared, and sends while it hands work to a colleague. When the turn ends it shows done, leaves after a handoff, or shows an alert after an error. Only while the agent is busy (thinking, searching, writing, sending or working) does a soft orb in the agent's own color light up behind it, well beyond the mark, growing and shrinking with the work. Orbits and badges around the mark stay AI purple. While idle the face looks at your cursor and leans a little toward it.
 
 The same look shows on the Agents library, agent detail, Communication, and the webchat header bubble for the answering agent.
 

@@ -139,8 +139,8 @@ async def test_conversation_and_project_bin_restore_purge(client: AsyncClient, s
 
 
 @pytest.mark.asyncio
-async def test_restored_project_canvas_carries_project_hint(client: AsyncClient):
-    """Restore answers with `restore_hint.project_id` so the dashboard can open the canvas on its folder."""
+async def test_restored_canvas_carries_folder_hint(client: AsyncClient):
+    """Restore answers with the folder of the canvas's conversation so the dashboard can open it there."""
     headers = await _login(client)
     proj = await client.post(
         "/api/folders",
@@ -157,9 +157,10 @@ async def test_restored_project_canvas_carries_project_hint(client: AsyncClient)
     canvas = await client.post(
         "/api/workforce/canvases",
         headers=headers,
-        json={"owner_kind": "project", "owner_id": project_id, "title": "Board"},
+        json={"new_thread": True, "folder_id": project_id, "title": "Board"},
     )
     assert canvas.status_code == 200, canvas.text
+    assert canvas.json()["folder_id"] == project_id
     canvas_id = canvas.json()["id"]
     gone = await client.delete(f"/api/workforce/canvases/{canvas_id}", headers=headers)
     assert gone.status_code == 200, gone.text
@@ -168,7 +169,9 @@ async def test_restored_project_canvas_carries_project_hint(client: AsyncClient)
     entry = next(i for i in bin_list.json()["items"] if i["resource_id"] == canvas_id)
     restored = await client.post(f"/api/trash/{entry['id']}/restore", headers=headers)
     assert restored.status_code == 200, restored.text
-    assert restored.json()["restore_hint"]["project_id"] == project_id
+    hint = restored.json()["restore_hint"]
+    assert hint["folder_id"] == project_id
+    assert hint["project_id"] == project_id
 
 
 @pytest.mark.asyncio

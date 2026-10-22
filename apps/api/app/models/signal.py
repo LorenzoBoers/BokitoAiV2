@@ -144,10 +144,8 @@ class Signal(SQLModel, table=True):
     # (subset of: close, assign, look_at).
     suggested_actions_json: str = Field(default="[]")
 
-    category: Optional[str] = Field(default=None, index=True)
     urgency: Optional[int] = None
     impact: Optional[int] = None
-    intent: Optional[str] = None
     sentiment: Optional[str] = None
     summary: str = ""
     certainty: Optional[int] = None
@@ -198,6 +196,11 @@ class Signal(SQLModel, table=True):
     # Checklist state keyed by item key: {"status": done | proposed, "by_type",
     # "by_id", "at", "message_id"}. Items are defined on the flow's stages.
     ticket_checklist_json: str = Field(default="{}")
+    # Outcome of the latest closed episode (services/deliveries.settle_outcome):
+    # {"kind", "destinations", "flow_id", "autonomy_used", "corrections",
+    # "rejected_decisions", "duration_s", "closed_at"}. Each episode also
+    # leaves one ``outcome`` SignalEvent.
+    outcome_json: str = Field(default="{}")
 
     last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)

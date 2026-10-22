@@ -527,6 +527,7 @@ async def _team_presence_payload(session: AsyncSession, team: Team, members: lis
 
 
 async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
+    from app.services.department_overview import department_icon
     from app.services.team_avatar import avatar_payload
 
     members = await team_members(session, team)
@@ -552,6 +553,7 @@ async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
         "avatar_icon": avatar["avatar_icon"],
         "avatar_color": avatar["avatar_color"],
         "avatar_image_url": avatar["avatar_image_url"],
+        "icon": department_icon(team),
     }
 
 

@@ -76,6 +76,7 @@ function RootNavigator() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="thread/[id]" options={{ title: t('thread.screenTitle') }} />
       <Stack.Screen name="notifications" options={{ title: t('notifications.title') }} />
+      <Stack.Screen name="call/[id]" options={{ title: t('call.title'), presentation: 'modal' }} />
       </Stack>
     </NavigationThemeProvider>
   )

@@ -12,7 +12,11 @@ from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import UserPreference
 from app.services.language import platform_default_ui_language
-from app.services.operator_prefs import close_email_on_send
+from app.services.operator_prefs import (
+    DEFAULT_LANDINGS,
+    close_email_on_send,
+    normalize_default_landing,
+)
 from app.services.personal_agents import allowed_company_agents, get_user_preference
 from app.services.user_memory import clear_user_memory, delete_user_memory, list_user_memory
 
@@ -33,7 +37,9 @@ class PreferencesPatch(BaseModel):
     #   "channel_defaults": {"team:<uuid>": "for_you"},
     # }
     inbox_folders: dict | None = None
-    # Post-login / home landing: communication (default) or overview (/cockpit).
+    # Post-login / home landing: new (default) | inbox | agenda | today.
+    # Legacy writes ``chat`` / ``communication`` / ``overview`` are accepted
+    # and normalized to new / inbox / today.
     default_landing: str | None = None
     # Numeric EmailConnection / ChannelAccount id used as From: when starting
     # outbound mail. Null clears the preference.
@@ -51,11 +57,15 @@ class PreferencesPatch(BaseModel):
 
 # Matches SUB_QUEUES in apps/dashboard/src/lib/messages-paths.ts.
 INBOX_SUB_QUEUES = ("for_you", "open", "unassigned", "closed")
-DEFAULT_LANDINGS = ("chat", "communication", "overview")
+_LEGACY_LANDINGS = {
+    "chat": "new",
+    "communication": "inbox",
+    "overview": "today",
+}
+
 
 def _default_landing_state(stored: dict) -> str:
-    raw = stored.get("default_landing")
-    return raw if raw in DEFAULT_LANDINGS else "chat"
+    return normalize_default_landing(stored.get("default_landing"))
 
 
 def _outbound_connection_id(stored: dict) -> int | None:
@@ -315,12 +325,13 @@ async def patch_my_preferences(
             "channel_defaults": cleaned_defaults,
         }
     if body.default_landing is not None:
-        if body.default_landing not in DEFAULT_LANDINGS:
+        allowed = set(DEFAULT_LANDINGS) | set(_LEGACY_LANDINGS)
+        if body.default_landing not in allowed:
             raise HTTPException(
                 status_code=400,
-                detail="default_landing must be chat, communication, or overview",
+                detail="default_landing must be new, inbox, agenda, or today",
             )
-        stored["default_landing"] = body.default_landing
+        stored["default_landing"] = normalize_default_landing(body.default_landing)
     if "default_outbound_connection_id" in body.model_fields_set:
         if body.default_outbound_connection_id is None:
             stored.pop("default_outbound_connection_id", None)

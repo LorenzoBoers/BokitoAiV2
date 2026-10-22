@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,8 +28,11 @@ class WorkstreamPatchBody(BaseModel):
     description: str | None = None
     tag_ids: list[UUID] | None = None
     stages: list[dict[str, Any]] | None = None
-    # A person confirms before this flow's tickets send. Caps them at Assisted.
-    always_review: bool | None = None
+    # This flow's mode: "" follows channel and workspace. Stricter than the
+    # workspace applies now; looser waits for approval in Govern.
+    autonomy: str | None = None
+    # The department that runs this flow (its lead orients on it); null clears it.
+    department_id: UUID | None = None
     # How an agent may place a ticket in a stage: first_stage | propose |
     # auto_above; "" follows the workspace ticket policy.
     stage_entry_policy: str | None = None
@@ -38,6 +41,14 @@ class WorkstreamPatchBody(BaseModel):
     # "Delivers to": null clears it; the key must be one of that folder's Works in items.
     deliver_folder_id: UUID | None = None
     deliver_works_in_key: str | None = None
+    # The recipe: the working method, tools / connection:{id} it may use, and
+    # what done produces (free text).
+    instructions: str | None = None
+    capabilities: list[str] | None = None
+    expected_outcome: str | None = None
+    # True keeps one open and one done stage (handled in the conversation, no board);
+    # false gives the flow a waiting stage back.
+    direct: bool | None = None
 
 
 class RunStartBody(BaseModel):
@@ -288,23 +299,18 @@ async def patch_workstream(
         ws.name = str(patch["name"]).strip()
     if "description" in patch and patch["description"] is not None:
         ws.description = str(patch["description"])
-    if patch.get("always_review") is not None and bool(patch["always_review"]) != bool(ws.always_review):
-        from app.services.audit import record_audit
+    if "department_id" in patch:
+        if patch["department_id"] is not None:
+            from app.models.team import Department
 
-        ws.always_review = bool(patch["always_review"])
-        await record_audit(
-            session,
-            auth.tenant.id,
-            action="govern:flow_always_review",
-            actor_type="user",
-            actor_id=str(auth.user.id),
-            resource_type="workstream",
-            resource_id=str(ws.id),
-            outcome="applied",
-            summary=f"Always review on {ws.name}: {'on' if ws.always_review else 'off'}",
-            before={"always_review": not ws.always_review},
-            after={"always_review": ws.always_review},
-            commit=False,
+            dept = await session.get(Department, patch["department_id"])
+            if dept is None or dept.tenant_id != auth.tenant.id or dept.deleted_at is not None:
+                raise HTTPException(status_code=404, detail="Department not found")
+        ws.department_id = patch["department_id"]
+    pending_change_id: str | None = None
+    if patch.get("autonomy") is not None and str(patch["autonomy"]) != (ws.autonomy or ""):
+        pending_change_id = await svc.set_flow_autonomy(
+            session, auth.tenant, ws, str(patch["autonomy"]), user_id=auth.user.id
         )
     if patch.get("stage_entry_policy") is not None or patch.get("stage_entry_threshold") is not None:
         from app.services.workstreams import apply_stage_entry
@@ -326,14 +332,34 @@ async def patch_workstream(
         else:
             await validate_flow_destination(session, auth.tenant.id, folder_id, key)
             ws.deliver_folder_id, ws.deliver_works_in_key = folder_id, key
-    stages_changed = False
+    stages_before = ws.stages_json
+    if any(field in patch for field in svc.RECIPE_FIELDS):
+        from app.services.audit import record_audit
+
+        before = svc.recipe_of(ws)
+        if await svc.apply_recipe(session, ws, patch):
+            await record_audit(
+                session,
+                auth.tenant.id,
+                action="govern:flow_recipe",
+                actor_type="user",
+                actor_id=str(auth.user.id),
+                resource_type="workstream",
+                resource_id=str(ws.id),
+                outcome="applied",
+                summary=f"Recipe of {ws.name} updated",
+                before=before,
+                after=svc.recipe_of(ws),
+                commit=False,
+            )
+    stages_changed = ws.stages_json != stages_before
     if patch.get("stages") is not None:
         from app.services.stage_checkups import validate_stage_owners
         from app.services.tickets import validate_stages
 
         stages_json = validate_stages(patch["stages"])
         await validate_stage_owners(session, auth.tenant.id, stages_json)
-        stages_changed = stages_json != ws.stages_json
+        stages_changed = stages_changed or stages_json != ws.stages_json
         ws.stages_json = stages_json
     if patch.get("tag_ids") is not None:
         await _set_playbook_tags(session, auth.tenant.id, ws, patch["tag_ids"])
@@ -347,7 +373,9 @@ async def patch_workstream(
         await resync_flow(session, ws)
     await session.commit()
     await session.refresh(ws)
-    return await svc.serialize_workstream_full(session, ws)
+    out = await svc.serialize_workstream_full(session, ws)
+    out["pending_change_id"] = pending_change_id
+    return out
 
 
 async def _set_playbook_tags(

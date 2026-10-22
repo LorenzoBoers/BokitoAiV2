@@ -443,6 +443,11 @@ class TurnRecorder:
             self._speech_id = f"seg-{uuid.uuid4().hex[:10]}"
         self._speech_text = text
 
+    async def rewrite_open_speech(self, text: str) -> None:
+        """Replace the open bubble, including a live message.part when it shrinks."""
+        self._speech_text = text or ""
+        await self._sync_speech_parts()
+
     async def say(self, text: str) -> None:
         """A finished bubble the operator can read while the turn continues."""
         cleaned = (text or "").strip()

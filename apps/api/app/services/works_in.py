@@ -20,7 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
-from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
+from app.models.project_canvas import ProjectCanvas
 from app.models.project_work import ProjectResource
 from app.models.signal import Signal, SignalMessage
 
@@ -78,12 +78,14 @@ def resource_item(resource: ProjectResource) -> dict[str, Any]:
 
 
 def canvas_item(canvas: ProjectCanvas, project_id: UUID) -> dict[str, Any]:
+    content_kind = (getattr(canvas, "kind", None) or "dashboard").strip() or "dashboard"
     return {
         "key": canvas_key(canvas.id),
         "kind": "canvas",
         "origin": ORIGIN_BOKITO,
         "label": canvas.title or "Canvas",
         "detail": "",
+        "canvas_kind": content_kind,
         "href": folder_href(project_id, "canvas", canvas=str(canvas.id)),
         "status": "active",
         "count": None,
@@ -151,13 +153,18 @@ async def works_in_items(session: AsyncSession, tenant_id: UUID, project_id: UUI
                 "count": files,
             }
         )
+    from app.services import folders as folder_svc
+
+    catalog = await folder_svc.load_catalog(session, tenant_id)
+    folder_ids = folder_svc.folder_subtree_ids(catalog, project_id)
     canvases = (
         await session.execute(
             select(ProjectCanvas)
+            .join(Signal, Signal.id == ProjectCanvas.signal_id)
             .where(
                 ProjectCanvas.tenant_id == tenant_id,
-                ProjectCanvas.owner_kind == OWNER_PROJECT,
-                ProjectCanvas.owner_id == project_id,
+                Signal.tenant_id == tenant_id,
+                Signal.project_id.in_(folder_ids),
                 ProjectCanvas.deleted_at.is_(None),
             )
             .order_by(ProjectCanvas.created_at)
@@ -283,8 +290,8 @@ async def add_item(
         created = await create_canvas(
             session,
             tenant_id,
-            owner_kind=OWNER_PROJECT,
-            owner_id=project_id,
+            new_thread=True,
+            folder_id=project_id,
             title=title or "Canvas",
             managing_agent_id=managing_agent_id,
             updated_by_type="user",

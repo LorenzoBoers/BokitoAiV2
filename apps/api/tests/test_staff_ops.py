@@ -2,7 +2,7 @@
 
 import pytest
 from httpx import AsyncClient
-from jose import jwt
+import jwt
 
 from app.config import get_settings
 from app.models.auth import User

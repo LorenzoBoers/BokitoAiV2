@@ -4,9 +4,10 @@ import {
   type AgentAvatarIconKey,
 } from './agent-avatar'
 import { getAvatarColor } from './avatar'
+import { platformIcon } from './platform-icons'
 import type { LucideIcon } from 'lucide-react'
 
-/** Same curated Lucide keys as agents — teams share the picker allow-list. */
+/** Same Lucide catalog as agents — teams share the picker allow-list. */
 export const TEAM_AVATAR_ICON_KEYS = AGENT_AVATAR_ICON_KEYS
 export type TeamAvatarIconKey = AgentAvatarIconKey
 export const TEAM_AVATAR_ICONS = AGENT_AVATAR_ICONS
@@ -23,9 +24,7 @@ export type TeamAvatarProps = {
 }
 
 export function resolveTeamAvatarIcon(key: string | null | undefined): LucideIcon | null {
-  if (!key) return null
-  const normalized = key.trim().toLowerCase() as TeamAvatarIconKey
-  return TEAM_AVATAR_ICONS[normalized] ?? null
+  return platformIcon(key)
 }
 
 /** Normalize API snake_case (or camelCase) into TeamAvatar props. */

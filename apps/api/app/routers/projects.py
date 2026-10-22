@@ -764,10 +764,13 @@ async def list_project_canvases(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
+    """Canvases whose home conversation is filed in this folder or below."""
     from app.services import project_canvas as canvas_svc
 
     return {
-        "items": await canvas_svc.list_project_canvases(session, auth.tenant.id, project_id)
+        "items": await canvas_svc.list_canvases_for_folder(
+            session, auth.tenant.id, project_id
+        )
     }
 
 
@@ -778,14 +781,15 @@ async def create_project_canvas(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from app.services.project_canvas import OWNER_PROJECT, create_canvas
+    """Open a home conversation in this folder and create a canvas on it."""
+    from app.services.project_canvas import create_canvas
 
     auth.require_role("owner", "admin")
     return await create_canvas(
         session,
         auth.tenant.id,
-        owner_kind=OWNER_PROJECT,
-        owner_id=project_id,
+        new_thread=True,
+        folder_id=project_id,
         title=body.title,
         slug=body.slug,
         managing_agent_id=body.managing_agent_id,
@@ -798,61 +802,3 @@ async def create_project_canvas(
     )
 
 
-@router.get("/{project_id}/canvases/{slug}")
-async def get_project_canvas(
-    project_id: UUID,
-    slug: str,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import project_canvas as canvas_svc
-
-    return await canvas_svc.get_canvas(
-        session, auth.tenant.id, project_id=project_id, slug=slug
-    )
-
-
-@router.patch("/{project_id}/canvases/{slug}")
-async def patch_project_canvas_meta(
-    project_id: UUID,
-    slug: str,
-    body: CanvasMetaBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import project_canvas as canvas_svc
-
-    auth.require_role("owner", "admin")
-    current = await canvas_svc.get_canvas(
-        session, auth.tenant.id, project_id=project_id, slug=slug
-    )
-    return await canvas_svc.patch_canvas_meta(
-        session,
-        auth.tenant.id,
-        UUID(current["id"]),
-        title=body.title,
-        slug=body.slug,
-        managing_agent_id=body.managing_agent_id,
-        refresh_minutes=body.refresh_minutes,
-        refresh_cadence=body.refresh_cadence,
-        refresh_cron=body.refresh_cron,
-        notes=body.notes,
-    )
-
-
-@router.delete("/{project_id}/canvases/{slug}")
-async def delete_project_canvas(
-    project_id: UUID,
-    slug: str,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import project_canvas as canvas_svc
-
-    auth.require_role("owner", "admin")
-    current = await canvas_svc.get_canvas(
-        session, auth.tenant.id, project_id=project_id, slug=slug
-    )
-    return await canvas_svc.delete_canvas(
-        session, auth.tenant.id, UUID(current["id"]), user_id=auth.user.id if auth.user else None
-    )

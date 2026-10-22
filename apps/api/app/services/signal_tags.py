@@ -1,3 +1,4 @@
+from app.core.time import utcnow
 """Hashtags: the workspace vocabulary for finding and grouping conversations.
 
 A free tag is a label linked per conversation (`SignalTagLink`). A tag with a
@@ -19,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.data.platform_icons import PLATFORM_ICON_IDS as LABEL_ICONS
 from app.models.channel import Contact
 from app.models.signal import CompanyTagLink, ContactTagLink, Signal, SignalTag, SignalTagLink
 
@@ -423,48 +425,6 @@ LABEL_COLORS = frozenset(
     }
 )
 
-# Curated Lucide names operators can put on a label. The dashboard binds the same ids.
-LABEL_ICONS = frozenset(
-    {
-        "bug",
-        "shield",
-        "flask-conical",
-        "git-branch",
-        "route",
-        "siren",
-        "life-buoy",
-        "headset",
-        "message-circle",
-        "phone",
-        "user-plus",
-        "calendar",
-        "map-pin",
-        "wrench",
-        "package",
-        "truck",
-        "file-text",
-        "receipt",
-        "credit-card",
-        "user",
-        "bot",
-        "refresh-cw",
-        "plug",
-        "download",
-        "zap",
-        "sparkles",
-        "phone-call",
-        "star",
-        "clock",
-        "megaphone",
-        "pen-line",
-        "briefcase",
-        "heart",
-        "flag",
-        "tag",
-    }
-)
-
-
 # A flow label is always a colored pill. Empty mark → sky wash + route icon.
 FLOW_LABEL_COLOR = "sky"
 FLOW_LABEL_ICON = "route"
@@ -566,7 +526,7 @@ async def create_tag(
         row.icon = ""
     if show_in_nav:
         row.show_in_nav = True
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     if commit:
         await session.commit()
     else:
@@ -607,7 +567,7 @@ async def update_tag(
                 ws = await session.get(Workstream, row.workstream_id)
                 if ws is not None and ws.tenant_id == tenant_id and ws.deleted_at is None:
                     ws.name = clean[:120]
-                    ws.updated_at = datetime.utcnow()
+                    ws.updated_at = utcnow()
                     session.add(ws)
             from app.models.project import Project, ProjectTagLink
 
@@ -623,7 +583,7 @@ async def update_tag(
                 await session.execute(
                     update(Project)
                     .where(Project.id.in_(list(single_tag_projects)), Project.deleted_at.is_(None))
-                    .values(name=clean, slug=clean, updated_at=datetime.utcnow())
+                    .values(name=clean, slug=clean, updated_at=utcnow())
                 )
     if description is not None:
         row.description = description.strip()[:300]
@@ -641,7 +601,7 @@ async def update_tag(
         row.show_in_nav = bool(show_in_nav)
     if ai_auto_tag is not None:
         row.ai_auto_tag = bool(ai_auto_tag)
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.flush()
     if commit:
@@ -688,7 +648,7 @@ async def _rewrite_rule_labels(session: AsyncSession, source: SignalTag, target:
             if isinstance(name, str) and name and name not in nxt:
                 nxt.append(name)
         rule.labels_json = json.dumps(nxt)
-        rule.updated_at = datetime.utcnow()
+        rule.updated_at = utcnow()
         session.add(rule)
         moved += 1
     return moved
@@ -769,7 +729,7 @@ async def _merge_into(session: AsyncSession, source: SignalTag, target: SignalTa
         target.description = source.description
     if source.show_in_nav:
         target.show_in_nav = True
-    target.updated_at = datetime.utcnow()
+    target.updated_at = utcnow()
     session.add(target)
     await session.flush()
     await session.delete(source)
@@ -903,7 +863,7 @@ async def set_tag_playbook(
         row.show_in_nav = False
         row.color = ""
         row.icon = ""
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     if commit:
         await session.commit()
@@ -938,13 +898,13 @@ async def promote_tag(
         workstream_id = ws.id
     await set_tag_playbook(session, tenant_id, row.id, workstream_id=workstream_id, commit=False)
     row.show_in_nav = True
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     # Keep the flow title in sync with the primary action tag.
     ws = await session.get(Workstream, workstream_id)
     if ws is not None and ws.tenant_id == tenant_id:
         ws.name = row.name[:120]
-        ws.updated_at = datetime.utcnow()
+        ws.updated_at = utcnow()
         session.add(ws)
     await session.commit()
     return row
@@ -1078,7 +1038,7 @@ async def set_contact_tags(
 
     wanted = await ensure_tags(session, tenant_id, names, user_id=user_id)
     await session.execute(delete(ContactTagLink).where(ContactTagLink.contact_id == contact_id))
-    now = datetime.utcnow()
+    now = utcnow()
     for row in wanted.values():
         session.add(ContactTagLink(contact_id=contact_id, tag_id=row.id, tenant_id=tenant_id, created_at=now))
     await session.flush()
@@ -1101,7 +1061,7 @@ async def set_company_tags(
 
     wanted = await ensure_tags(session, tenant_id, names, user_id=user_id)
     await session.execute(delete(CompanyTagLink).where(CompanyTagLink.company_id == company_id))
-    now = datetime.utcnow()
+    now = utcnow()
     for row in wanted.values():
         session.add(CompanyTagLink(company_id=company_id, tag_id=row.id, tenant_id=tenant_id, created_at=now))
     await session.flush()

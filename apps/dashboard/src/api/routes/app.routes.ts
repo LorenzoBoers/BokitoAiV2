@@ -58,6 +58,7 @@ export const appRoutes = {
     conversationCancel: (conversationId: string) =>
       `/signals/conversations/${encodeURIComponent(conversationId)}/cancel`,
     thread: (threadId: string) => `/signals/${threadId}`,
+    threadUx: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/ux`,
     threadWhy: (threadId: string) => `/signals/${encodeURIComponent(threadId)}/why`,
     threadSubagent: (threadId: string, runId: string) =>
       `/signals/${encodeURIComponent(threadId)}/subagents/${encodeURIComponent(runId)}`,
@@ -74,7 +75,6 @@ export const appRoutes = {
     threadDraft: (threadId: string) => `/signals/${threadId}/draft`,
     /** Draft composer text when there is no thread yet (teammate chat). */
     composeDraft: '/signals/compose',
-    threadHandledExternally: (threadId: string) => `/signals/${threadId}/handled-externally`,
     threadNotes: (threadId: string) => `/signals/${threadId}/notes`,
     threadInvokeAgent: (threadId: string) => `/signals/${threadId}/invoke-agent`,
     /** Give an agent the floor (participant turn) — @ mention / Ask parity. */
@@ -100,6 +100,10 @@ export const appRoutes = {
       `/signals/${threadId}/messages/${messageId}/resolve`,
     decisionsResolveBundle: (threadId: string) => `/signals/${threadId}/decisions/resolve-bundle`,
     pins: '/signals/pins',
+    stack: (params: URLSearchParams) => {
+      const qs = params.toString()
+      return qs ? `/signals/stack?${qs}` : '/signals/stack'
+    },
     members: '/signals/members',
     badgeCounts: '/signals/badge-counts',
     dismissNoReplySuggestions: '/signals/dismiss-no-reply-suggestions',
@@ -181,8 +185,14 @@ export const appRoutes = {
   teams: {
     list: '/departments',
     overview: '/departments/overview',
+    nav: '/departments/nav',
     byId: (id: string) => `/departments/${id}`,
     members: (id: string) => `/departments/${id}/members`,
+    departmentOverview: (id: string) => `/departments/${id}/overview`,
+    domainQuestions: (id: string) => `/departments/${id}/domain/questions`,
+    domainQuestion: (id: string, key: string) =>
+      `/departments/${id}/domain/questions/${encodeURIComponent(key)}`,
+    awareness: (id: string) => `/departments/${id}/awareness`,
     myAway: '/departments/me/away',
     room: (id: string) => `/departments/${id}/room`,
     graph: '/org/graph',

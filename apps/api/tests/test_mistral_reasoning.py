@@ -3,12 +3,17 @@ from types import SimpleNamespace
 from app.services.agent.llm import _reasoning_extra_body, _split_content_chunks
 
 
-def test_reasoning_requested_only_for_mistral_hybrid_models_with_budget():
-    assert _reasoning_extra_body("mistral", "mistral-medium-latest", 1024) == {"reasoning_effort": "high"}
-    assert _reasoning_extra_body("mistral", "mistral-small-latest", 1024) == {"reasoning_effort": "high"}
-    assert _reasoning_extra_body("mistral", "mistral-medium-latest", 0) is None
-    assert _reasoning_extra_body("mistral", "mistral-large-4", 1024) is None
-    assert _reasoning_extra_body("openai", "mistral-medium-latest", 1024) is None
+def test_reasoning_requested_only_for_mistral_hybrid_models_with_effort():
+    assert _reasoning_extra_body("mistral", "mistral-medium-latest", "high") == {
+        "reasoning_effort": "high"
+    }
+    assert _reasoning_extra_body("mistral", "mistral-small-latest", "medium") == {
+        "reasoning_effort": "high"
+    }
+    assert _reasoning_extra_body("mistral", "mistral-medium-latest", "low") is None
+    assert _reasoning_extra_body("mistral", "mistral-medium-latest", None) is None
+    assert _reasoning_extra_body("mistral", "mistral-large-4", "high") is None
+    assert _reasoning_extra_body("openai", "mistral-medium-latest", "high") is None
 
 
 def test_split_plain_string_is_answer_text():

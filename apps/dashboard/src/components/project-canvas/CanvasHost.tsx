@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { Code2, MoreHorizontal, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
 import { CANVAS_ICON, ENTITY_ICONS } from '../../lib/entity-icons'
 import { AgentMark } from '../ui/AgentMark'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
+import { DropdownMenuItem } from '../ui/dropdown-menu'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -34,8 +29,10 @@ import {
   type ProjectCanvas,
   type RefreshCadence,
 } from '../../lib/project-canvas-api'
+import { CanvasKindBody } from './CanvasKindBody'
+import { CanvasWindow } from './CanvasWindow'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
-import { isEmptyCanvasTree } from '../../lib/project-canvas/types'
+import { canvasIsPending, canvasKindOf } from '../../lib/project-canvas/types'
 import { agentChatPath, inboxPath } from '../../lib/messages-paths'
 import { formatAppDateTime } from '../../lib/app-locale'
 import { listAgents } from '../../lib/agents-api'
@@ -75,7 +72,6 @@ export function CanvasHost({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showSource, setShowSource] = useState(false)
   const [adding, setAdding] = useState(false)
   const [agents, setAgents] = useState<RuntimeAgent[]>([])
   const [pickedAgentId, setPickedAgentId] = useState('')
@@ -152,8 +148,7 @@ export function CanvasHost({
 
   function setupOpener(): string {
     const place = ownerLabel?.trim() || t('projects.canvas.ownerFolderFallback')
-    const ownerLine = `project_id=${ownerId}`
-    return t('projects.canvas.setupOpener', { place, ownerLine })
+    return t('projects.canvas.setupOpener', { place })
   }
 
   async function onStartSetup() {
@@ -166,7 +161,10 @@ export function CanvasHost({
       const title = t('projects.canvas.setupThreadTitle', {
         place: ownerLabel?.trim() || t('projects.canvas.ownerFolderFallback'),
       })
-      const created = await bokitoCreateConversation(token, title, agent, { message: content })
+      const created = await bokitoCreateConversation(token, title, agent, {
+        message: content,
+        folderId: ownerId,
+      })
       const path = agentChatPath(agent, created.id)
       setAdding(false)
       if (created.has_opener) {
@@ -260,7 +258,7 @@ export function CanvasHost({
         {items.length > 0 ? (
           <TabsList className="h-auto min-h-9 w-full flex-wrap justify-start overflow-visible">
             {items.map((row) => {
-              const pending = Boolean(row.empty || isEmptyCanvasTree(row.tree))
+              const pending = canvasIsPending(row)
               return (
                 <TabsTrigger
                   key={row.id}
@@ -321,7 +319,7 @@ export function CanvasHost({
                         className="inline-flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                         title={t('projects.canvas.ownerAgent')}
                       >
-                        <AgentMark agent={row.managing_agent} size={28} mode="static" />
+                        <AgentMark agent={row.managing_agent} size={32} mode="static" />
                         <span className="truncate text-sm font-medium text-text-primary">
                           {row.managing_agent.name}
                         </span>
@@ -334,7 +332,7 @@ export function CanvasHost({
                         })}
                       </p>
                     ) : null}
-                    {canEdit ? (
+                    {canEdit && canvasKindOf(row.kind) === 'dashboard' ? (
                       <Select
                         value={shownCadence(row)}
                         disabled={busy}
@@ -352,7 +350,7 @@ export function CanvasHost({
                         </SelectContent>
                       </Select>
                     ) : null}
-                    {canEdit && shownCadence(row) === 'custom' ? (
+                    {canEdit && canvasKindOf(row.kind) === 'dashboard' && shownCadence(row) === 'custom' ? (
                       <Input
                         value={cronDraft[row.id] ?? row.refresh_cron ?? ''}
                         onChange={(e) => setCronDraft((prev) => ({ ...prev, [row.id]: e.target.value }))}
@@ -363,73 +361,45 @@ export function CanvasHost({
                         disabled={busy}
                       />
                     ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 px-0 text-text-muted"
-                      onClick={() => void load()}
-                      aria-label={t('projects.detail.refresh')}
-                      title={t('projects.detail.refresh')}
-                    >
-                      <RotateCcw size={14} aria-hidden />
-                    </Button>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" size="sm" variant="secondary" asChild>
-                      <Link to={threadHref(row)}>
-                        <ENTITY_ICONS.conversation size={14} className="mr-1.5 shrink-0" aria-hidden />
-                        {row.thread?.title || t('projects.canvas.openThread')}
-                      </Link>
-                    </Button>
-                    {canEdit ? (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowSource((v) => !v)}>
-                        <Code2 size={14} className="mr-1.5" />
-                        {showSource ? t('projects.canvas.hideSource') : t('projects.canvas.showSource')}
-                      </Button>
-                    ) : null}
-                    {canEdit ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="h-8 w-8 px-0 text-text-muted"
-                            aria-label={t('projects.canvas.moreActions')}
-                            disabled={busy}
-                          >
-                            <MoreHorizontal size={16} aria-hidden />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="min-w-[180px]">
-                          <DropdownMenuItem
-                            className="gap-2 text-status-error"
-                            disabled={busy}
-                            onClick={() => void onDelete(row.id)}
-                          >
-                            <Trash2 size={14} />
-                            {t('projects.canvas.delete')}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : null}
-                  </div>
+                  <Button type="button" size="sm" variant="secondary" asChild>
+                    <Link to={threadHref(row)}>
+                      <ENTITY_ICONS.conversation size={14} className="mr-1.5 shrink-0" aria-hidden />
+                      {row.thread?.title || t('projects.canvas.openThread')}
+                    </Link>
+                  </Button>
                 </div>
 
-                {row.empty || isEmptyCanvasTree(row.tree) ? (
-                  <div className="rounded-lg border border-border/60 bg-bg-input/30 px-4 py-8 text-center">
-                    <p className="text-sm text-text-secondary">{t('projects.canvas.writing')}</p>
-                  </div>
-                ) : (
-                  <div className="min-h-[12rem]">{renderCanvasTree(row.tree)}</div>
-                )}
-
-                {showSource && canEdit ? (
-                  <pre className="overflow-auto rounded-lg border border-border/60 bg-bg-input/40 p-3 text-xs text-text-secondary">
-                    {row.source}
-                  </pre>
-                ) : null}
+                <CanvasWindow
+                  canvas={canvasIsPending(row) ? null : row}
+                  title={row.title}
+                  kind={canvasKindOf(row.kind)}
+                  allowSource={canEdit}
+                  muted={canvasIsPending(row)}
+                  status={canvasIsPending(row) ? t('projects.canvas.writing') : undefined}
+                  onRefresh={() => void load()}
+                  menu={
+                    canEdit ? (
+                      <DropdownMenuItem
+                        className="gap-2 text-status-error"
+                        disabled={busy}
+                        onClick={() => void onDelete(row.id)}
+                      >
+                        <Trash2 size={14} />
+                        {t('projects.canvas.delete')}
+                      </DropdownMenuItem>
+                    ) : undefined
+                  }
+                  bodyClassName="min-h-[24rem]"
+                >
+                  {canvasIsPending(row) ? (
+                    <p className="py-8 text-center text-sm text-text-secondary">{t('projects.canvas.writing')}</p>
+                  ) : canvasKindOf(row.kind) === 'dashboard' ? (
+                    <div className="min-h-[12rem]">{renderCanvasTree(row.tree)}</div>
+                  ) : (
+                    <CanvasKindBody canvas={row} />
+                  )}
+                </CanvasWindow>
               </div>
             ) : null}
           </TabsContent>

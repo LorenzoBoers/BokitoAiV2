@@ -15,7 +15,12 @@ import { listWorkLogs, type WorkLogRow } from '../../lib/work-logs-api'
 import { listWorkstreamRuns, type WorkstreamRunRow } from '../../lib/flows-api'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { openEntityPath } from '../../lib/open-entity'
-import { bokitoGetCockpitSummary, bokitoGetUsageBreakdown, type UsageBreakdown } from '../../lib/bokito-api'
+import {
+  bokitoGetCockpitSummary,
+  bokitoGetUsageBreakdown,
+  type CockpitImprovement,
+  type UsageBreakdown,
+} from '../../lib/bokito-api'
 import { bulkUpdateSignalThreads } from '../../lib/signals-api'
 import { Button } from '../ui/button'
 import { RecurringWakeBanner } from './RecurringWakeBanner'
@@ -37,6 +42,7 @@ type QuietThread = {
 type OverviewData = {
   needsYou: InboxThread[]
   quiet: QuietThread[]
+  improvements: CockpitImprovement[]
   categories: CategoryRow[]
   playbookRuns: WorkstreamRunRow[]
   jobs: WorkLogRow[]
@@ -48,6 +54,7 @@ type OverviewData = {
 const EMPTY: OverviewData = {
   needsYou: [],
   quiet: [],
+  improvements: [],
   categories: [],
   playbookRuns: [],
   jobs: [],
@@ -170,8 +177,10 @@ export default function OverviewFourBlocks() {
     ])
     const value = <T,>(index: number, fallback: T): T =>
       settled[index]?.status === 'fulfilled' ? (settled[index] as PromiseFulfilledResult<T>).value : fallback
+    const summary = value(6, null as Awaited<ReturnType<typeof bokitoGetCockpitSummary>> | null)
     setData({
       needsYou: value(0, null as Awaited<ReturnType<typeof listThreads>> | null)?.items ?? [],
+      improvements: summary?.improvements ?? [],
       categories: value(1, [] as CategoryRow[]),
       playbookRuns: value(2, [] as WorkstreamRunRow[]),
       jobs: value(3, [] as WorkLogRow[]),
@@ -345,6 +354,29 @@ export default function OverviewFourBlocks() {
       </div>
 
       <AiHandlingMetricsBlock />
+
+      {data.improvements.length > 0 ? (
+        <Block title={copy('improved')} hint={copy('improvedHint')} index={1}>
+          {data.improvements.map((row) => (
+            <Metric
+              key={row.change_id}
+              label={row.flow}
+              value={row.autonomous_pct_now != null ? `${Math.round(row.autonomous_pct_now)}%` : '—'}
+              detail={
+                row.autonomous_pct_before != null
+                  ? copy('improvedDetail', {
+                      mode: t(`aiHandling.modes.${row.autonomy}.label`, { ns: 'common', defaultValue: row.autonomy }),
+                      before: Math.round(row.autonomous_pct_before),
+                    })
+                  : copy('improvedDetailNew', {
+                      mode: t(`aiHandling.modes.${row.autonomy}.label`, { ns: 'common', defaultValue: row.autonomy }),
+                    })
+              }
+              to={workstreamPath(row.workstream_id)}
+            />
+          ))}
+        </Block>
+      ) : null}
 
       <p className="px-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">{copy('moreContext')}</p>
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">

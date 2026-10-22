@@ -60,7 +60,6 @@ SHOTS: list[tuple[str, str, str]] = [
     ("/projects", "projects", "project"),
     ("/projects", "projects", "boards"),
     ("/flows", "workstreams", "board"),
-    ("/flows", "flows", "always-review"),
     ("/knowledge", "knowledge", "add-doc"),
     ("/settings/govern?tab=policy", "govern", "posture"),
     ("/settings/govern", "govern", "drafts"),
@@ -185,10 +184,6 @@ PREPARE: dict[tuple[str, str], list[tuple[str, str]]] = {
     ],
     ("autonomy", "dial"): [
         ("wait", '[data-testid="autonomy-dial"]'),
-    ],
-    ("flows", "always-review"): [
-        ("click", "main >> text=/^(klacht|complaint)$/"),
-        ("wait", '[data-testid="flow-always-review"]'),
     ],
     ("contacts", "link-conversation"): [
         (

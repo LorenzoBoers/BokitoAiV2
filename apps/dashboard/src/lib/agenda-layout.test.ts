@@ -39,7 +39,7 @@ describe('layerOf', () => {
     expect(layerOf(item({ kind: 'checkup' }))).toBe('tasks')
     expect(layerOf(item({ kind: 'wake', trigger_kind: 'heartbeat' }))).toBe('tasks')
     expect(layerOf(item({ kind: 'wake', trigger_kind: 'once' }))).toBe('tasks')
-    expect(layerOf(item({ kind: 'session', run_type: 'email' }))).toBe('activity')
+    expect(layerOf(item({ kind: 'session', run_type: 'email' }))).toBe('tasks')
     expect(layerOf(item({ kind: 'activity' }))).toBe('activity')
   })
 })

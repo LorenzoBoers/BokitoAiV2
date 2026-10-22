@@ -65,7 +65,6 @@ import {
   replyProposalFromMessage,
 } from './DecisionRequestMessage'
 import RelatedConversationBanner from './RelatedConversationBanner'
-import { HandledExternallyDialog } from './HandledExternallyForm'
 import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
 import ThreadTimeline, {
@@ -87,6 +86,7 @@ import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import {
   isInternalThread,
   resolveComposerSurface,
+  threadFace,
   type ComposerMode,
 } from '../../lib/message-composer'
 import { useThreadLog } from '../../hooks/useThreadLog'
@@ -106,6 +106,8 @@ import {
   type LiveTurn,
 } from '../../lib/agentActivity'
 import { publishBotOrbPulse, useAgentOrbDrive } from '../../hooks/useBotOrbPulse'
+import { useDebugDom } from '../../lib/debug-dom'
+import { useThreadUx } from '../../lib/thread-ux'
 import { closingOrbPulse } from '../../lib/bot-orb-motion'
 import {
   bokitoListMessages,
@@ -218,9 +220,11 @@ type Props = {
   onPlan?: () => void
   /** Trailing unread inbound messages briefly flash when the thread opens. */
   unreadHighlightIds?: string[]
+  /** `floating`: the chat-stack window draws its own compact header. */
+  chrome?: 'page' | 'floating'
 }
 
-export default function ThreadDetail({ detail: detailProp, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [] }: Props) {
+export default function ThreadDetail({ detail: detailProp, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [], chrome = 'page' }: Props) {
   const detail =
     detailProp && threadId && String(detailProp.thread.id) === String(threadId) ? detailProp : null
   const { t, i18n } = useTranslation('communication')
@@ -273,7 +277,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   const [searchParams, setSearchParams] = useSearchParams()
   // Card targeted by a `?message=` deep link; highlighted for a few seconds.
   const [focusedMessageId, setFocusedMessageId] = useState<string | null>(null)
-  const [handledExternallyOpen, setHandledExternallyOpen] = useState(false)
   const [composerDraft, setComposerDraft] = useState<{
     body: string
     subject?: string
@@ -511,7 +514,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         (team): MentionItem => ({
           type: 'team',
           id: team.id,
-          name: team.kind === 'custom' ? team.name : t(`teamPage.system.${team.kind}`, { ns: 'nav' }),
+          name:
+            team.kind === 'custom'
+              ? team.name
+              : t(`teamPage.system.${team.kind}`, { ns: 'nav', defaultValue: team.name }),
           presence: team.presence,
           avatarKind: team.avatarKind,
           avatarIcon: team.avatarIcon,
@@ -1293,14 +1299,15 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     async (
       bodyText: string,
       attachments?: MessageAttachment[],
-      opts?: { continuePending?: boolean },
+      opts?: { continuePending?: boolean; speakFirst?: boolean },
     ): Promise<boolean> => {
       if (!token || !threadIdString) return false
       const continuePending = Boolean(opts?.continuePending)
+      const speakFirst = Boolean(opts?.speakFirst)
       // The text keeps its @chips: the server routes on them (nobody tagged
       // means the whole team, and the server picks who answers).
       const text = bodyText.trim()
-      if (!continuePending && !stripMentionMarkup(text).trim() && !attachments?.length) return false
+      if (!continuePending && !speakFirst && !stripMentionMarkup(text).trim() && !attachments?.length) return false
       let prepared: Awaited<ReturnType<typeof prepareThreadAsk>>
       try {
         prepared = await prepareThreadAsk(token, threadIdString, {
@@ -1327,9 +1334,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       }
       if (!sessionId) return false
       try {
-        const sendPromise = sendAgentSessionMessage(sessionId, text || ' ', {
+        const sendPromise = sendAgentSessionMessage(sessionId, speakFirst ? '' : text || ' ', {
           attachments,
           continuePending,
+          speakFirst,
           onFinished: async () => {
             if (!prepared.talksDirect) await loadSessionMessages(sessionId)
             // Quiet: keep bubbles on screen; never flash the thread skeleton.
@@ -1337,8 +1345,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             window.setTimeout(() => timelineRef.current?.pinToEnd(), 120)
           },
         })
-        // One follow. Extra snaps during the bubble enter read as a stutter.
-        window.requestAnimationFrame(() => timelineRef.current?.pinToEnd())
+        // Sending resumes the tail. The row arrives after this frame; the
+        // second snap catches it, and the live cloud follows on its own.
+        pinToLatest('smooth')
+        window.setTimeout(() => timelineRef.current?.pinToEnd(), 140)
         return (await sendPromise) !== false
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''
@@ -1367,6 +1377,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       stopAgentSessionStream,
       loadSessionMessages,
       onRefresh,
+      pinToLatest,
       t,
     ],
   )
@@ -1380,27 +1391,30 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     const state = (location.state as {
       autoSend?: unknown
       continuePending?: unknown
+      speakFirst?: unknown
     } | null) ?? null
     const stateContinue = state?.continuePending === true
+    const stateSpeak = state?.speakFirst === true
     const stateDraft =
       typeof state?.autoSend === 'string' ? state.autoSend.trim() : ''
     // sessionStorage survives Communication remounts that wipe location.state.
     const stashed = takeChatContinue(threadIdString)
-    const continuePending = stateContinue || stashed?.mode === 'continue'
+    const speakFirst = stateSpeak || stashed?.mode === 'speak'
+    const continuePending = !speakFirst && (stateContinue || stashed?.mode === 'continue')
     const draft =
       stateDraft || (stashed?.mode === 'send' ? stashed.text : '') || ''
     const stashAttachments =
       stashed?.mode === 'send' && Array.isArray(stashed.attachments)
         ? (stashed.attachments as MessageAttachment[])
         : undefined
-    if (!continuePending && !draft && !stashAttachments?.length) return
+    if (!continuePending && !speakFirst && !draft && !stashAttachments?.length) return
 
     autoSentThreads.add(threadIdString)
     // Clear navigation state only after we know we will attempt the kick-off.
-    if (stateContinue || stateDraft) {
+    if (stateContinue || stateDraft || stateSpeak) {
       navigate(`${location.pathname}${location.search}`, { replace: true, state: {} })
     }
-    void handleAgentMessage(draft, stashAttachments, { continuePending }).then((ok) => {
+    void handleAgentMessage(draft, stashAttachments, { continuePending, speakFirst }).then((ok) => {
       if (!ok) {
         // Allow a retry if the stream never started (busy / no session).
         autoSentThreads.delete(threadIdString)
@@ -1688,6 +1702,17 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     return []
   }, [shownLiveTurns, agentStreaming, shownFloor])
   const threadLiveTurn = threadLiveTurns.length ? threadLiveTurns[threadLiveTurns.length - 1] : null
+  useThreadUx({
+    token,
+    signalId: threadIdString,
+    turns: threadLiveTurns,
+    streaming: Boolean(agentStreaming),
+  })
+  useDebugDom({
+    token,
+    signalId: threadIdString,
+    feature: 'communication',
+  })
   const liveOrbAgentId =
     threadLiveTurn?.author?.id ??
     floorAgentId ??
@@ -1709,13 +1734,21 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       if (drive && agentId) publishBotOrbPulse(agentId, drive)
     }
   }, [logTurns, liveOrbAgentId])
-  // Turns whose words the reader already saw. Only those saved bubbles skip
-  // the enter animation. A seat that only showed "Bezig" has not been read,
-  // so the finished reply still arrives as a sentence, then the cards.
-  const spokeTurnIdsRef = useRef<Set<string>>(new Set())
+  // Turns whose words the reader already saw — plus turns that just settled
+  // out of the live overlay. Saved bubbles for those must land still; a second
+  // enter + height remount is what the DOM logs show as the end-of-turn jump.
+  const [spokeTurnIds, setSpokeTurnIds] = useState<Set<string>>(() => new Set())
   const handleLiveSpeech = useCallback((streamId: string) => {
-    spokeTurnIdsRef.current.add(streamId)
+    setSpokeTurnIds((prev) => (prev.has(streamId) ? prev : new Set(prev).add(streamId)))
   }, [])
+  // Merge in the same render as settle so the first paint of saved bubbles
+  // already skips enter (a latched enter cannot turn off later).
+  const quietTurnIds = useMemo(() => {
+    if (settledTurnIds.size === 0) return spokeTurnIds
+    const next = new Set(spokeTurnIds)
+    for (const id of settledTurnIds) next.add(id)
+    return next
+  }, [spokeTurnIds, settledTurnIds])
   // Whether the live turn joins the last saved agent bubble's run (no avatar
   // or author line, flattened top corner), as the saved bubble will.
   const liveContinuesRun = useMemo(
@@ -2087,6 +2120,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       <SyncLiveAgentFocus
         agentId={threadLiveTurn ? liveOrbAgentId ?? liveSeatAgentId : liveOrbAgentId}
       />
+      {chrome === 'floating' ? null : (
       <ThreadHeader
         thread={thread}
         csat={detail.csat}
@@ -2121,6 +2155,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         }}
         folder={folder}
       />
+      )}
 
       {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
         <Callout tone="warning" className="mx-3 mt-2" role="status">
@@ -2208,7 +2243,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             anchorToBottomRef.current = atBottom
             if (atBottom) setUnseenNew(0)
           }}
-          quietTurnIds={spokeTurnIdsRef.current}
+          quietTurnIds={quietTurnIds}
           liveTrace={
             threadLiveTurns.length ? (
               <div className="space-y-1.5">
@@ -2356,7 +2391,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           mode={composerMode}
           onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}
-          agentModeName={activeSession?.agentName ?? thread.agentName ?? null}
+          agentModeName={activeSession?.agentName ?? threadFace(thread).name ?? null}
           onAskTabFocus={handleAskTabFocus}
           onMentionInserted={handleMentionInserted}
           saving={saving || agentStreaming}
@@ -2440,23 +2475,8 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           suggestedCc={suggestedCc}
           mentionExtras={mentionExtras}
           onPromoteEmailEdit={messageLayout === 'email' ? handlePromoteEmailEdit : undefined}
-          onHandledExternally={
-            mode === 'customer' && thread.status !== 'closed' && thread.status !== 'spam'
-              ? () => setHandledExternallyOpen(true)
-              : undefined
-          }
         />
       ) : null}
-      <HandledExternallyDialog
-        open={handledExternallyOpen}
-        onOpenChange={setHandledExternallyOpen}
-        threadId={thread.id}
-        onDone={() => {
-          setComposerDraft(null)
-          appliedProposalRef.current = null
-          onRefresh()
-        }}
-      />
       <Dialog
         open={closeSignalsPrompt != null}
         onOpenChange={(open) => {

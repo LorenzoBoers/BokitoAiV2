@@ -58,7 +58,7 @@ def test_most_specific_layer_wins():
     assert handling.inherited == "manual"
     assert handling.own is None
     assert handling.until_close is False
-    assert [layer["source"] for layer in handling.layers] == ["workspace", "channel", "conversation"]
+    assert [layer["source"] for layer in handling.layers] == ["workspace", "channel", "flow", "conversation"]
 
     signal.ai_handling = "assisted"
     signal.ai_handling_reason = "operator"
@@ -89,10 +89,9 @@ def test_agent_and_flow_cap_the_conversation():
     assert handling.effective == "manual"
     assert handling.clamped_by == "agent"
 
-    handling = svc.resolve_ai_handling(tenant, None, signal, flow_always_review=True)
-    assert handling.effective == "assisted"
-    assert handling.clamped_by == "flow"
-    assert {"cap": "assisted", "reason": "flow"} in handling.ceilings
+    handling = svc.resolve_ai_handling(tenant, None, None, flow_mode="manual", flow_label="Shoot")
+    assert handling.effective == "manual"
+    assert handling.source == "flow" and handling.source_label == "Shoot"
 
 
 def test_scope_reports_own_and_inherited():
@@ -352,6 +351,21 @@ async def _email_account(session: AsyncSession, tenant: Tenant) -> ChannelAccoun
             )
         )
     ).scalars().first()
+
+
+@pytest.mark.asyncio
+async def test_overview_lists_flow_dials(client: AsyncClient, session_override: AsyncSession):
+    from app.models.orchestra import Workstream
+
+    tenant = await _seed_tenant(session_override)
+    session_override.add_all([
+        Workstream(tenant_id=tenant.id, name="Complaints", autonomy="manual"),
+        Workstream(tenant_id=tenant.id, name="Billing"),
+    ])
+    await session_override.commit()
+    headers = await _headers(client)
+    body = (await client.get("/api/ai-handling", headers=headers)).json()
+    assert [(row["label"], row["mode"]) for row in body["exceptions"]["flows"]] == [("Complaints", "manual")]
 
 
 @pytest.mark.asyncio

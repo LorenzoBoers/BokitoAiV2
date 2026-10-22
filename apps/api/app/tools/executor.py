@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import Tenant
 from app.services.audit import record_audit
-from app.tools.decision_copy import format_policy_decision
+from app.tools.decision_copy import format_policy_decision, schedule_intent_key
 from app.tools.policy import resolve_tool_mode
 from app.tools.registry import (
     ToolContext,
@@ -251,6 +251,9 @@ async def _execute_tool(
     if tool_name in _EXTERNAL_PASSPORT_BYPASS and trust == "external":
         allowed_set = None
     if tool_name in core_tool_names(trust):
+        allowed_set = None
+    # Department leads ask domain questions; the handler checks the lead duty.
+    if tool_name == "ask_domain_question" and trust != "external":
         allowed_set = None
     # Image generation is a default Bokito tool. A narrow passport does not
     # remove it; the tenant turns it off with image_generation=off.
@@ -511,6 +514,16 @@ async def _execute_tool(
             asked = await _create_policy_decision(ctx, tool_name, tool_input, reason=reason)
         if review is not None and review.verdict is not None:
             await _attach_review(session, tenant_id, asked, review.verdict)
+        if isinstance(asked, dict) and asked.get("status") in ("awaiting_human", "already_open"):
+            asked = {
+                **asked,
+                "ok": True,
+                "message": asked.get("message")
+                or (
+                    "Waiting for the operator to approve this. "
+                    "Do not call the tool again. Tell them the proposal is waiting."
+                ),
+            }
         return asked
 
     result = await _invoke_handler(session, spec, ctx, tool_input)
@@ -527,7 +540,7 @@ async def _execute_tool(
                     tool_name=tool_name,
                     tool_input=tool_input,
                     result=result,
-                    agent_id=getattr(agent, "id", None),
+                    agent_id=agent_id,
                     user_id=user_id if agent is None else None,
                 )
             except Exception:
@@ -672,6 +685,46 @@ async def _create_policy_decision(
         },
         {"id": "reject", "label": "Reject", "action_type": "reject"},
     ]
+    intent = schedule_intent_key(tool_name, tool_input)
+    if intent and ctx.signal_id is not None:
+        from app.models.notification import DecisionRequest
+        from app.services.signal_decisions import _options_of, primary_option_key
+
+        open_rows = (
+            await ctx.session.execute(
+                select(DecisionRequest).where(
+                    DecisionRequest.tenant_id == ctx.tenant_id,
+                    DecisionRequest.signal_id == ctx.signal_id,
+                    DecisionRequest.status == "awaiting_human",
+                    DecisionRequest.platform_change_id.is_(None),
+                )
+            )
+        ).scalars().all()
+        for row in open_rows:
+            action, _payload_key = primary_option_key(_options_of(row))
+            if action != tool_name:
+                continue
+            approve = next(
+                (
+                    opt
+                    for opt in _options_of(row)
+                    if str(opt.get("action_type") or "") == tool_name
+                ),
+                None,
+            )
+            existing_input = approve.get("payload") if approve and isinstance(approve.get("payload"), dict) else {}
+            if schedule_intent_key(tool_name, existing_input) != intent:
+                continue
+            return {
+                "decision_request_id": str(row.id),
+                "status": "already_open",
+                "ok": True,
+                "message": (
+                    "This schedule is already waiting for approval. "
+                    "Do not call the tool again. Tell the operator the proposal is waiting."
+                ),
+            }
+
     title, summary = format_policy_decision(tool_name, tool_input)
     if rule_text:
         summary = f"{summary}\n\nAsked because of rule: {rule_text}".strip()

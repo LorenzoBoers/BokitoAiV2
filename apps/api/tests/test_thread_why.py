@@ -83,14 +83,14 @@ async def test_channel_source_agent_cap_and_knowledge(session_override: AsyncSes
     assert body["agent"] == {"id": str(agent.id), "name": "Desk", "via": "reply"}
     assert _kinds(body) == ["agent_reply", "handling_channel", "cap_agent", "knowledge_doc"]
     assert _line(body, "handling_channel")["params"]["mode"] == "autonomous"
-    assert _line(body, "cap_agent")["params"] == {"mode": "manual", "agent": "Desk", "flow": ""}
+    assert _line(body, "cap_agent")["params"] == {"mode": "manual", "agent": "Desk"}
     assert _line(body, "cap_agent")["href"] == f"/agents/{agent.id}"
     assert _line(body, "knowledge_doc") == {
         "kind": "knowledge_doc",
         "params": {"title": "Prices"},
         "href": f"/knowledge/{doc}",
     }
-    assert [layer["source"] for layer in body["ai_handling"]["layers"]] == ["workspace", "channel", "conversation"]
+    assert [layer["source"] for layer in body["ai_handling"]["layers"]] == ["workspace", "channel", "flow", "conversation"]
 
 
 @pytest.mark.asyncio
@@ -130,7 +130,7 @@ async def test_workspace_source_without_caps(session_override: AsyncSession):
 @pytest.mark.asyncio
 async def test_flow_and_folder_via_contact_label(session_override: AsyncSession):
     tenant = await _tenant(session_override)
-    flow = Workstream(tenant_id=tenant.id, name="Complaints", always_review=True)
+    flow = Workstream(tenant_id=tenant.id, name="Complaints", autonomy="assisted")
     session_override.add(flow)
     await session_override.flush()
     action = SignalTag(tenant_id=tenant.id, name="complaint", workstream_id=flow.id)
@@ -154,13 +154,14 @@ async def test_flow_and_folder_via_contact_label(session_override: AsyncSession)
     await session_override.commit()
 
     body = await explain_thread(session_override, tenant, signal.id)
-    assert _kinds(body) == ["agent_none", "handling_workspace", "cap_flow", "folder_contact", "flow"]
-    assert _line(body, "cap_flow")["href"] == f"/flows/{flow.id}"
+    assert _kinds(body) == ["agent_none", "handling_flow", "folder_contact", "flow"]
+    assert _line(body, "handling_flow")["href"] == f"/flows/{flow.id}"
+    assert _line(body, "handling_flow")["params"]["source"] == "Complaints"
     folder = _line(body, "folder_contact")
     assert folder["params"] == {"folder": "Key accounts", "tag": "vip"}
     assert folder["href"] == f"/contacts/{contact.id}"
     assert _line(body, "flow")["params"] == {"flow": "Complaints", "label": "complaint", "stage": "Not started"}
-    assert body["placement"]["flow"]["always_review"] is True
+    assert body["placement"]["flow"]["autonomy"] == "assisted"
 
 
 @pytest.mark.asyncio

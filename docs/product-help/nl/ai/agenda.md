@@ -48,6 +48,23 @@ Elk agenda-item is een gesprek met een datum. Met een herhaling wordt het een te
 
 Vanuit een gesprek plan je op dezelfde manier: kies **Plannen** in het gespreksmenu. Zie [Communicatie](/docs/inbox/communication). Agents plannen ook werk: vraag er een in een gesprek om "dit vrijdag opnieuw te bekijken" of "stuur me elke maandag een overzicht van open offertes". Afhankelijk van je [autonomiehouding](/docs/govern/autonomy) wordt het plan direct aangemaakt of komt het eerst als beslissing in Communicatie.
 
+## Krijg een ochtendbriefing per afdeling
+
+De leidende agent van elke afdeling kijkt elke werkdag naar het werk en zegt wat aandacht vraagt.
+
+1. Zet de check-in aan: in de [setupgids](/docs/getting-started/setup-guide) heeft **Laat de assistent waken** de knop **Check-in aanzetten**, of vraag het de assistent. Elke afdeling met een **Leidende agent** krijgt dan een oriëntatie in plaats van de uurlijkse check-in: werkdagen om 07:30 in het afdelingsgesprek.
+2. De briefing noemt tickets over hun deadline, tickets die langer op een klant wachten dan de check-up van de fase, verplichte velden of checklistpunten die nog open staan, mensen die boven hun **Uren per week** zijn ingepland, en koppelingen die opnieuw verbonden moeten worden.
+3. Op maandag kijkt de briefing ook hoe de scorekaarten van de flows bewogen en noemt een verbetering om te proberen.
+4. De oriëntatie staat in de **Agenda** onder routines en in het afdelingsgesprek als volgende wake.
+
+## Krijg trends per klant
+
+Een afdeling die naar buiten kijkt, zoals Research, kijkt in plaats daarvan eens per week buiten.
+
+1. Op maandag om 08:00 leest de leider van Research de klantmappen met een doc **Profiel**, en zoekt op het web wat er voor die klanten veranderde.
+2. Voor elke klant waarbij een trend past, opent die een intern gesprek met label `#trend` in de map van die klant: voor wie, waarom, hoe je het inzet, en de bronnen.
+3. Open de map in [Communicatie](/docs/inbox/communication) of filter op `#trend` om ze te lezen. Reageer in het gesprek om er werk van te maken, of sluit het.
+
 ## Toon je Google- of Outlook-agenda's
 
 1. Kies het plusje naast **Agenda's**. Dat opent **Koppelingen** gefilterd op agenda's. Kies onder **Agenda-accounts** **Google Calendar koppelen** of **Outlook Calendar koppelen**.

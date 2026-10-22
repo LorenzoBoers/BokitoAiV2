@@ -276,7 +276,6 @@ export function turnHasWork(turn: LiveTurn | null | undefined): boolean {
 const SURFACE_MOTIONS = new Set<BotOrbMotion>([
   'idle',
   'thinking',
-  'typing',
   'working',
   'searching',
   'writing',
@@ -290,10 +289,10 @@ export function liveTurnOrbMotion(turn: LiveTurn | null | undefined): BotOrbMoti
   if (turnPreparesProposal(turn)) return 'writing'
   const blocks = liveBlocks(turn)
   const last = blocks[blocks.length - 1]
-  if (last?.type === 'speech') return 'typing'
+  if (last?.type === 'speech') return 'writing'
   if (last?.type === 'activity') {
     const running = last.items.filter((item) => item.status === 'running')
-    if (running.some((item) => item.label === 'typing')) return 'typing'
+    if (running.some((item) => item.label === 'typing')) return 'writing'
     if (running.some((item) => item.kind === 'work')) return 'working'
   }
   // Tools already ran: the next model call is still the job, not a new think.

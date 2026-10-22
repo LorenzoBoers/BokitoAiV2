@@ -53,6 +53,11 @@ class ModuleEnableBody(BaseModel):
 
     action: str | None = None  # install | complete_setup | uninstall
     enabled: bool | None = None
+    # Install: an existing department instead of a new one, the person
+    # accountable, and whether the specialist leads a department that has a lead.
+    department_id: UUID | None = None
+    accountable_user_id: UUID | None = None
+    specialist_leads: bool | None = None
 
 
 class ModulePrefsBody(BaseModel):
@@ -80,6 +85,8 @@ class McpInstallBody(BaseModel):
     use_mock: bool = False
     # When set, attach the new registration to this module (must allow the provider).
     module_slug: str | None = None
+    # Preset connections: the values for the provider's listed ``fields``.
+    fields: dict[str, str] = Field(default_factory=dict)
 
 
 class ModuleConnectionRenameBody(BaseModel):
@@ -155,7 +162,13 @@ async def patch_module(
     try:
         if action == "install":
             row = await install_module(
-                session, auth.tenant.id, slug, actor_id=auth.user.id
+                session,
+                auth.tenant.id,
+                slug,
+                actor_id=auth.user.id,
+                department_id=body.department_id,
+                accountable_user_id=body.accountable_user_id,
+                specialist_leads=body.specialist_leads,
             )
         elif action == "complete_setup":
             row = await complete_module_setup(
@@ -181,6 +194,20 @@ async def patch_module(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"module": row}
+
+
+@router.get("/modules/{slug}/install-plan")
+async def get_module_install_plan(
+    slug: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Add department: what the module brings, which department it could join, who is accountable."""
+    from app.modules.catalog import get_module, module_install_plan
+
+    if get_module(slug) is None:
+        raise HTTPException(status_code=404, detail="Unknown module")
+    return await module_install_plan(session, auth.tenant.id, slug)
 
 
 @router.get("/modules/{slug}/templates")
@@ -1391,6 +1418,7 @@ async def post_mcp_install(
         auth=body.auth or None,
         use_mock=bool(body.use_mock),
         module_slug=body.module_slug,
+        fields=body.fields or None,
     )
     from app.services.audit import record_audit
 

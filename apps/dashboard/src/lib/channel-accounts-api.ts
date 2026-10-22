@@ -3,10 +3,10 @@
 import { appRoutes } from '../api/routes/app.routes'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
-export type ChannelAccessKind = 'user' | 'agent' | 'team'
+export type ChannelAccessKind = 'user' | 'agent' | 'department'
 export type ChannelAccessLevel = 'view' | 'handle'
 
-/** One grant on a channel. System teams use their kind as id: `people` or `agents`. */
+/** One grant on a channel. Everyone is the All department id. */
 export type ChannelAccessEntry = {
   kind: ChannelAccessKind
   id: string
@@ -38,9 +38,9 @@ export function normalizeAccess(rawEntries: unknown, rawDefault: unknown): Chann
     for (const item of rawEntries) {
       if (!item || typeof item !== 'object') continue
       const row = item as Record<string, unknown>
-      const kind = row.kind
+      const kind = row.kind === 'team' ? 'department' : row.kind
       const level = row.level === 'view' ? 'view' : 'handle'
-      if ((kind === 'user' || kind === 'agent' || kind === 'team') && typeof row.id === 'string' && row.id) {
+      if ((kind === 'user' || kind === 'agent' || kind === 'department') && typeof row.id === 'string' && row.id) {
         entries.push({ kind, id: row.id, level })
       }
     }

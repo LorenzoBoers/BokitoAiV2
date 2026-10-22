@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - name: Install API dependencies
         working-directory: apps/api
         run: pip install -e ".[dev]"
@@ -41,6 +41,10 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci
+      - name: Typecheck dashboard
+        run: npx tsc --noEmit -p apps/dashboard
+      - name: Test dashboard
+        run: npm test -w bokito-dashboard
       - name: Build dashboard
         run: npm run build:dashboard
         env:
@@ -85,7 +89,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

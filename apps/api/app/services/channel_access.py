@@ -127,13 +127,20 @@ async def _accounts(session: AsyncSession, tenant_id: UUID) -> list[ChannelAccou
 async def visible_channel_account_ids(
     session: AsyncSession, tenant_id: UUID, *, user_id: UUID, role: str
 ) -> set[UUID] | None:
-    """Channels the user may see. None means unrestricted (owner/admin)."""
+    """Channels the user may see. None means unrestricted (owner/admin).
+
+    A member scoped to departments gets a ``ConversationAccess`` set that also
+    carries the department rule (services/department_access.py).
+    """
     if role in UNRESTRICTED_ROLES:
         return None
+    from app.services.department_access import scoped_access
+
     principal = await user_principal(
         session, tenant_id, user_id, role, include_system=False
     )
-    return {a.id for a in await _accounts(session, tenant_id) if access_level(a, principal)}
+    ids = {a.id for a in await _accounts(session, tenant_id) if access_level(a, principal)}
+    return await scoped_access(session, tenant_id, user_id, ids)
 
 
 async def handled_channel_account_ids(

@@ -6,6 +6,8 @@ no longer writes `os_canvas_*` rows.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime
@@ -20,7 +22,14 @@ from app.models.agent import Agent
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.orchestra import Workstream
 from app.models.platform_change import PlatformChange
-from app.services.os_graph import OS_GRAPH_RETIRED
+
+OS_GRAPH_RETIRED = {
+    "status": "retired",
+    "hint": (
+        "The OS graph overlay is gone. Create or change an Agent, Playbook, "
+        "or Connection; open Agents or a project canvas. Overlay nodes are not used."
+    ),
+}
 
 
 def _slugify(name: str) -> str:
@@ -58,7 +67,7 @@ async def apply_agent_change(
             raise HTTPException(status_code=404, detail="Agent not found")
         agent.is_active = False
         agent.runtime_status = "standby"
-        agent.updated_at = datetime.utcnow()
+        agent.updated_at = utcnow()
         await session.flush()
         return {"agent_id": str(agent.id), "status": "deactivated"}
 
@@ -104,7 +113,7 @@ async def apply_agent_change(
             agent.tools_json = json.dumps(after["tools"])
         if "permission_scopes" in after:
             agent.permission_scopes_json = json.dumps(after["permission_scopes"])
-        agent.updated_at = datetime.utcnow()
+        agent.updated_at = utcnow()
         await session.flush()
         restored = bool(after.get("restore")) or (
             before.get("kind") == "archived" and agent.kind == "company"
@@ -179,7 +188,14 @@ async def apply_workstream_change(
             ws.name = after["name"]
         if "description" in after:
             ws.description = after["description"]
-        # steps retired — stages-only playbooks
+        if "autonomy" in after:
+            from app.services.workstreams import FLOW_AUTONOMY
+
+            if str(after["autonomy"] or "") in FLOW_AUTONOMY:
+                ws.autonomy = str(after["autonomy"] or "")
+        from app.services.workstreams import apply_recipe
+
+        await apply_recipe(session, ws, after)
         await session.flush()
         return {
             "workstream_id": str(ws.id),
@@ -193,6 +209,9 @@ async def apply_workstream_change(
         name=name,
         description=after.get("description", ""),
     )
+    from app.services.workstreams import apply_recipe
+
+    await apply_recipe(session, ws, after)
     session.add(ws)
     await session.flush()
     canvas = await sync_entity_to_canvas(
@@ -321,7 +340,7 @@ async def _track_run_section_write(
     del tenant_id, run_id
     if section.status != "draft":
         return
-    now = datetime.utcnow()
+    now = utcnow()
     section.status = "review"
     section.status_changed_at = now
     section.status_changed_by_type = "system"
@@ -618,8 +637,23 @@ async def apply_category_change(
     if after.get("description"):
         row.description = str(after["description"]).strip()[:300]
     apply_category_config(row, after)
+    department_id = _as_uuid(after.get("department_id"))
+    if department_id is not None and ws.department_id is None:
+        from app.models.team import Department
+
+        dept = await session.get(Department, department_id)
+        if dept is not None and dept.tenant_id == tenant_id:
+            ws.department_id = dept.id
+            session.add(ws)
     session.add(row)
     await session.flush()
+    if after.get("backlog_key"):
+        from app.models.auth import Tenant
+        from app.services.signal_catalog import dismiss_backlog_entry
+
+        tenant = await session.get(Tenant, tenant_id)
+        if tenant is not None:
+            await dismiss_backlog_entry(session, tenant, str(after["backlog_key"]), commit=False)
     after["tag_id"] = str(row.id)
     return serialize_category(row)
 

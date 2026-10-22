@@ -101,21 +101,20 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
     from app.models.orchestra import Workstream
     from app.services.folders import folder_path_label, load_catalog, matching_folders
     from app.services.tickets import list_categories
-
     from app.services.vocabulary import vocabulary_block
+    from app.services.workstreams import recipe_of
 
     shape = "\n\n".join(part for part in (PLATFORM_SHAPE, vocabulary_block()) if part)
     categories = await list_categories(session, tenant_id)
     if not categories:
         return shape
     shown = categories[:MAX_CATEGORY_MAP_LINES]
-    ws_names = dict(
-        (
-            await session.execute(
-                select(Workstream.id, Workstream.name).where(Workstream.tenant_id == tenant_id)
-            )
-        ).all()
-    )
+    flows = {
+        row.id: row
+        for row in (
+            await session.execute(select(Workstream).where(Workstream.tenant_id == tenant_id))
+        ).scalars().all()
+    }
     catalog = await load_catalog(session, tenant_id)
     lines: list[str] = []
     for tag in shown:
@@ -125,7 +124,10 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
             if tag.id in f.tag_set
         ]
         where = f"; folders: {', '.join(folders)}" if folders else ""
-        lines.append(f"#{tag.name} -> flow {ws_names.get(tag.workstream_id, '?')}{where}")
+        flow = flows.get(tag.workstream_id)
+        direct = "; handled directly" if flow and recipe_of(flow)["direct"] else ""
+        what = f"; {tag.description.strip()[:160]}" if tag.description.strip() else ""
+        lines.append(f"#{tag.name} -> flow {flow.name if flow else '?'}{what}{direct}{where}")
     return (
         f"{shape}\n\n"
         "## Categories\n"
@@ -134,7 +136,8 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
         "a second request is a split. Use list_categories then file_ticket. The folder "
         "follows from the conversation's labels (own, the label with a flow, contact). "
         "Add or remove a label that has no flow with set_thread_tags instead of guessing "
-        "a folder.\n"
+        "a folder. The label is the kind of work: its description says which "
+        "conversations it takes, and its flow is the approach.\n"
         + "\n".join(lines)
     )
 

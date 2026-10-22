@@ -8,6 +8,7 @@ import {
   type AgentAvatarKind,
 } from '../../lib/agent-avatar'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
+import { snapMarkSize } from '../../lib/mark-scale'
 import { cn } from '../../lib/utils'
 import { BotOrbAvatar, type BotOrbMode } from './BotOrbAvatar'
 import { PresenceCorner } from './PresenceCorner'
@@ -107,19 +108,20 @@ export function AiAvatar({
   stackOutline = false,
 }: AiAvatarProps) {
   const displayName = name?.trim() || 'Agent'
+  const box = snapMarkSize(size)
   const initials = getInitials(displayName)
   const resolved = resolveKind(kind, icon, imageUrl)
   const Icon = resolved === 'icon' ? resolveAgentAvatarIcon(icon) : null
   const orbColor = resolveAgentAvatarColor(color)
   const orbShape = resolveAgentAvatarShape(shape)
   const orbMotion = resolveOrbMotion(motion, activity)
-  const fontSize = Math.round(size * 0.36)
-  const iconSize = Math.round(size * 0.5)
-  const borderRadius = Math.round(size / 2)
-  const halo = Math.max(2, Math.round(size * 0.1))
+  const fontSize = Math.round(box * 0.36)
+  const iconSize = Math.round(box * 0.5)
+  const borderRadius = Math.round(box / 2)
+  const halo = Math.max(2, Math.round(box * 0.1))
   const style = {
-    width: size,
-    height: size,
+    width: box,
+    height: box,
     borderRadius,
     fontSize,
     '--ai-halo': `${halo}px`,
@@ -135,7 +137,7 @@ export function AiAvatar({
       <BotOrbAvatar
         color={orbColor}
         shape={orbShape}
-        size={size}
+        size={box}
         motion={orbMotion}
         pulseId={pulseId}
         baseMotion={baseMotion ?? (activity === 'working' ? 'working' : 'idle')}
@@ -187,7 +189,7 @@ export function AiAvatar({
   return (
     <span className={cn('relative inline-flex shrink-0', className)}>
       {face}
-      <PresenceCorner status={activity} size={size} />
+      <PresenceCorner status={activity} size={box} />
     </span>
   )
 }

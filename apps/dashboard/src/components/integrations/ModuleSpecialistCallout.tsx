@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { useTranslation, type TFunction } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { AgentMark } from '../ui/AgentMark'
@@ -92,11 +93,11 @@ export function ModuleSpecialistCallout({
 
   const portrait = (
     <div className="flex min-w-0 items-center justify-center gap-4">
-      <div className="relative shrink-0" style={{ width: 120, height: 120 }}>
+      <div className="relative shrink-0" style={{ width: 128, height: 128 }}>
         <AgentGlow color={titleColor} />
         <AgentMark
           agent={avatar}
-          size={120}
+          size={128}
           mode="live"
           decorative
           spawnKey={spawnKey}

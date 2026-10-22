@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { chatRunCloses, chatRunLeads, type BubbleStack } from '../../lib/chat-layout'
 import { THREAD_GUTTER } from './ThreadMeta'
@@ -145,6 +145,56 @@ type ShellProps = {
   /** Agent orb color. The bubble edge shines in this and fades inward. */
   accent?: string | null
   onClick?: () => void
+  /** Streaming body: ease to each measured height so a new line slides in. */
+  growing?: boolean
+  /**
+   * Drop the default max-w-[85%] when the parent already caps width (live turn
+   * column). Nested 85% made the live cloud narrower than the saved bubble.
+   */
+  fillWidth?: boolean
+}
+
+/**
+ * CSS cannot transition `height: auto` when only the content changes, so
+ * the body is measured and the wrapper animates between pixel heights.
+ * The first measure lands instantly (no 0→full ease) so a remount after the
+ * live overlay does not replay a height jump.
+ */
+function GrowBox({ children }: { children: ReactNode }) {
+  const inner = useRef<HTMLDivElement | null>(null)
+  const box = useRef<HTMLDivElement | null>(null)
+  const [height, setHeight] = useState<number | null>(null)
+  const primed = useRef(false)
+  useLayoutEffect(() => {
+    const el = inner.current
+    if (!el) return
+    const apply = (next: number) => {
+      if (!primed.current) {
+        primed.current = true
+        const shell = box.current
+        if (shell) shell.style.transition = 'none'
+        setHeight(next)
+        requestAnimationFrame(() => {
+          if (shell) shell.style.transition = ''
+        })
+        return
+      }
+      setHeight(next)
+    }
+    apply(el.offsetHeight)
+    const ro = new ResizeObserver(() => apply(el.offsetHeight))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <div
+      ref={box}
+      className="bubble-grow-box"
+      style={height == null ? undefined : { height }}
+    >
+      <div ref={inner}>{children}</div>
+    </div>
+  )
 }
 
 /**
@@ -164,6 +214,8 @@ export function ChatBubbleShell({
   bubbleClassName,
   accent,
   onClick,
+  growing = false,
+  fillWidth = false,
 }: ShellProps) {
   const lead = leadsRun(stack)
   const showMeta = meta != null && closesRun(stack)
@@ -173,7 +225,9 @@ export function ChatBubbleShell({
   return (
     <div
       className={cn(
-        'group/bubble relative flex min-w-0 max-w-[85%] flex-col',
+        'group/bubble relative flex min-w-0 flex-col',
+        fillWidth ? 'w-full max-w-full' : 'max-w-[85%]',
+        variant === 'agent' && 'bubble-grow',
         side === 'right' ? 'items-end' : 'items-start',
       )}
     >
@@ -185,7 +239,7 @@ export function ChatBubbleShell({
             : undefined
         }
         className={cn(
-          'relative w-full px-3.5 py-2 text-base leading-relaxed',
+          'relative w-full px-3.5 py-2 text-[15.5px] leading-relaxed',
           variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
           shapeFor(side, stack),
           TONE[variant],
@@ -194,7 +248,7 @@ export function ChatBubbleShell({
         )}
       >
         {lead ? header : null}
-        {body}
+        {growing && body ? <GrowBox>{body}</GrowBox> : body}
         {showFooter ? (
           <div
             className={cn(

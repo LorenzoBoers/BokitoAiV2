@@ -55,6 +55,7 @@
       "default": "de platformstandaard",
       "workspace": "de workspace-standaard",
       "channel": "het kanaal",
+      "flow": "de flow",
       "conversation": "dit gesprek"
     },
     "follows": "Volgt {{source}}",
@@ -71,8 +72,7 @@
       "govern": "De Autonomie-dial begrenst gesprekken op {{mode}}.",
       "privacy": "Privacy-instellingen houden AI weg van berichtinhoud.",
       "breaker": "Autonoom gepauzeerd na ongebruikelijke activiteit. Alleen concepten tot iemand het hervat.",
-      "agent": "Deze agent staat op {{mode}} en gaat daarom niet verder.",
-      "flow": "Deze flow staat op Altijd controle, dus een mens verstuurt."
+      "agent": "Deze agent staat op {{mode}} en gaat daarom niet verder."
     },
     "reasons": {
       "assigned": "Toegewezen aan een persoon",

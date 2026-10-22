@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.services import workforce_runtime as svc
-from app.services.os_graph import os_graph_retired_response
 
 router = APIRouter(prefix="/workforce", tags=["workforce"])
 
@@ -97,48 +96,6 @@ class WorkforceConfigPatch(BaseModel):
 
 class DeferBody(BaseModel):
     days: int = 7
-
-
-# --- AI OS graph (retired overlay) ---
-
-
-@router.get("/os/graph")
-async def os_workspace_graph_retired() -> None:
-    return os_graph_retired_response()
-
-
-@router.get("/os/graph/{project_id}")
-async def os_project_graph_retired(project_id: UUID) -> None:
-    del project_id
-    return os_graph_retired_response()
-
-
-@router.post("/os/nodes")
-async def os_create_node_retired() -> None:
-    return os_graph_retired_response()
-
-
-@router.patch("/os/nodes/{node_id}")
-async def os_patch_node_retired(node_id: UUID) -> None:
-    del node_id
-    return os_graph_retired_response()
-
-
-@router.delete("/os/nodes/{node_id}")
-async def os_delete_node_retired(node_id: UUID) -> None:
-    del node_id
-    return os_graph_retired_response()
-
-
-@router.post("/os/edges")
-async def os_create_edge_retired() -> None:
-    return os_graph_retired_response()
-
-
-@router.delete("/os/edges/{edge_id}")
-async def os_delete_edge_retired(edge_id: UUID) -> None:
-    del edge_id
-    return os_graph_retired_response()
 
 
 # --- Work logs ---
@@ -459,6 +416,7 @@ class AgentDefinitionOut(BaseModel):
     disallowed_tools: list[str]
     capability_mode: str  # read-only | read-write | all
     prompt_mode: str  # extend | full
+    effort: str  # low | medium | high
     skills: list[str]
     completion_requirement: dict[str, Any]
     mcp_inheritance: dict[str, Any]
@@ -468,6 +426,7 @@ class AgentDefinitionBody(BaseModel):
     disallowed_tools: list[str] | None = None
     capability_mode: str | None = None
     prompt_mode: str | None = None
+    effort: str | None = None
     skills: list[str] | None = None
     completion_requirement: dict[str, Any] | None = None
     mcp_inheritance: dict[str, Any] | None = None
@@ -479,7 +438,7 @@ async def get_agent_definition(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Denylist, capability mode, prompt mode, skills, completion requirement and MCP inheritance."""
+    """Denylist, capability mode, prompt mode, effort, skills, completion requirement and MCP inheritance."""
     from app.services.agent_definition import serialize_definition
 
     _, agent = await _tenant_agent(session, auth, agent_id)

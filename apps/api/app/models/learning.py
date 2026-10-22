@@ -83,7 +83,7 @@ class EvalScore(SQLModel, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    scope: str = Field(default="tenant", index=True)  # tenant | agent | run | signal
+    scope: str = Field(default="tenant", index=True)  # tenant | agent | run | signal | flow
     scope_id: str = Field(default="", index=True)
     metric: str = Field(default="", index=True)  # autonomy_rate | resolution_quality | csat | escalation_rate
     value: float = 0.0

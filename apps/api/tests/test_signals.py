@@ -105,10 +105,9 @@ async def test_apply_thread_read_persists_scores(client: AsyncClient, session_ov
         signal.id,
         summary="Billing issue needs a fix today",
         certainty=80,
-        category="billing",
         priority="high",
     )
-    assert result.get("category")
+    assert "work_kind" not in result
     assert result.get("summary")
     row = (
         await session_override.execute(select(Signal).where(Signal.id == signal.id))

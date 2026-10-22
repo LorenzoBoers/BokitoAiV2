@@ -14,6 +14,7 @@ import {
   Hash,
   Link2,
   Mail,
+  Minimize2,
   MoreHorizontal,
   OctagonAlert,
   PanelRightOpen,
@@ -41,7 +42,7 @@ import { setThreadExample } from '../../lib/signals-api'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
 import { humanizeContactName, isGenericVisitorName, isPlaceholderContactAddress } from '../../lib/contact-label'
-import { isInternalThread, threadCounterpartyName, threadHubPath } from '../../lib/message-composer'
+import { isInternalThread, threadCounterpartyName, threadFace, threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
 import { threadStatusLabel } from '../../lib/status-labels'
 import {
@@ -65,6 +66,9 @@ import AiHandlingPicker from '../ai/AiHandlingPicker'
 import { AI_HANDLING_CHANNELS, type AiHandlingMode } from '../../lib/ai-handling'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { PRIORITY_META } from './ConversationWorkSection'
+import { Button } from '../ui/button'
+import { requestMinimizeToStack } from '../../lib/chat-stack'
+import { cn } from '../../lib/utils'
 
 const HEADER_ICON = THREAD_HEADER_ICON_CLASS
 const FolderIcon = ENTITY_ICONS.project
@@ -76,7 +80,7 @@ type Props = {
   loading: boolean
   /** Number of earlier conversations with this contact (links to the panel). */
   previousCount: number
-  onPatch: (input: PatchThreadInput) => Promise<void>
+  onPatch: (input: PatchThreadInput) => Promise<boolean | void>
   /** Close flow that first asks about still-open Signals. */
   onRequestClose: () => void | Promise<void>
   /** File this conversation in a project folder. */
@@ -186,7 +190,7 @@ export default function ThreadHeader({
     (isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail)
 
   return (
-    <div className={THREAD_HEADER_CLASS}>
+    <div className={THREAD_HEADER_CLASS} data-thread-header>
       {onBack ? (
         <button
           type="button"
@@ -277,6 +281,7 @@ export default function ThreadHeader({
           participants={participants}
           owner={thread.owner}
           activeTurn={activeTurn}
+          faceId={threadFace(thread).id}
           waitingLabel={t('threadChrome.waitingOnParticipant', {
             defaultValue: 'Waiting on {{name}}',
             name: '{{name}}',
@@ -329,12 +334,37 @@ export default function ThreadHeader({
           owner={thread.owner}
           currentAssigneeId={thread.assignedToUserId}
           disabled={saving}
-          onAssign={(assignee) =>
-            assignee.kind === 'team' && (assignee.id == null || assignee.id === '')
-              ? onPatch({ assignee: { kind: 'team', id: null }, assignedToUserId: 0 })
-              : onPatch({ assignee })
-          }
+          onAssign={(assignee) => {
+            void onPatch(
+              assignee.kind === 'team' && (assignee.id == null || assignee.id === '')
+                ? { assignee: { kind: 'team', id: null }, assignedToUserId: 0 }
+                : { assignee },
+            )
+          }}
         />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="iconSm"
+              aria-label={t('chatStack.minimizeToStack')}
+              className={cn(HEADER_ICON, 'hidden md:inline-flex')}
+              data-testid="thread-minimize"
+              onClick={(event) => {
+                const header = event.currentTarget.closest('[data-thread-header]')
+                requestMinimizeToStack(
+                  String(thread.id),
+                  header ? header.getBoundingClientRect() : null,
+                  translateDecisionText(thread.emailSubject, t) || contactDisplayName,
+                )
+              }}
+            >
+              <Minimize2 size={14} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{t('chatStack.minimizeToStack')}</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <button

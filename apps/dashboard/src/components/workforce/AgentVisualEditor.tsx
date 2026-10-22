@@ -24,7 +24,6 @@ const PREVIEW_MOTION_IDS: PreviewMotionId[] = [
   'idle',
   'listening',
   'thinking',
-  'typing',
   'working',
   'searching',
   'writing',
@@ -282,7 +281,7 @@ function ShapeButton({
         selected ? 'border-ai/50 bg-ai/10' : 'border-border/60 bg-bg-input/30 hover:border-ai/30',
       )}
     >
-      <BotOrbAvatar color={color} shape={shapeKey} size={28} mode="static" decorative />
+      <BotOrbAvatar color={color} shape={shapeKey} size={32} mode="static" decorative />
     </button>
   )
 }

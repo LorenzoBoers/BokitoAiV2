@@ -108,7 +108,7 @@ async def test_connection_write_lands_in_its_folder(session_override):
 
 
 @pytest.mark.asyncio
-async def test_connection_without_folder_raises_issue(session_override):
+async def test_connection_without_folder_is_its_own_destination(session_override):
     tenant, _folder, signal = await _setup(session_override)
     connection = IntegrationConnection(tenant_id=tenant.id, provider="moneybird", display_name="Moneybird", instance_key="1")
     session_override.add(connection)
@@ -123,16 +123,78 @@ async def test_connection_without_folder_raises_issue(session_override):
         result={"ok": True},
     )
     await session_override.commit()
-    assert row is None
-    assert await _events(session_override, signal.id) == []
+    assert row is not None
+    (event,) = await _events(session_override, signal.id)
+    assert event["works_in_key"] == f"connection:{connection.id}"
+    assert event["connection_id"] == str(connection.id)
+    assert event["title"] == "Moneybird" and "folder_id" not in event
     issues = (
-        await session_override.execute(
-            select(AuditEvent).where(
-                AuditEvent.tenant_id == tenant.id, AuditEvent.action == "delivery:connection_without_folder"
-            )
+        await session_override.execute(select(AuditEvent).where(AuditEvent.tenant_id == tenant.id))
+    ).scalars().all()
+    assert not [i for i in issues if i.action.startswith("delivery:")]
+
+    body = await explain_thread(session_override, tenant, signal.id)
+    line = next(line for line in body["lines"] if line["kind"] == "delivered_connection")
+    assert line["params"] == {"connection": "Moneybird"}
+
+
+async def _outcome_events(session, signal_id) -> list[dict]:
+    rows = (
+        await session.execute(
+            select(SignalEvent).where(SignalEvent.signal_id == signal_id, SignalEvent.event_type == "outcome")
         )
     ).scalars().all()
-    assert len(issues) == 1
+    return [json.loads(row.payload_json or "{}") for row in rows]
+
+
+@pytest.mark.asyncio
+async def test_outcome_on_close_names_the_destination(session_override):
+    from app.services.tickets import settle_ticket_on_close
+
+    tenant, folder, signal = await _setup(session_override)
+    await deliveries.record_delivery(session_override, tenant.id, signal.id, target_kind="folder", folder_id=folder.id)
+    signal.status = "closed"
+    session_override.add(signal)
+    await settle_ticket_on_close(session_override, signal, actor_type="user", actor_id="1")
+    await session_override.commit()
+
+    outcome = json.loads(signal.outcome_json)
+    assert outcome["kind"] == "recorded"
+    assert outcome["autonomy_used"] == "manual"
+    assert len(await _outcome_events(session_override, signal.id)) == 1
+
+    # A second close without new work is the same episode.
+    await deliveries.settle_outcome(session_override, signal)
+    await session_override.commit()
+    assert len(await _outcome_events(session_override, signal.id)) == 1
+
+
+@pytest.mark.asyncio
+async def test_outcome_kinds(session_override):
+    tenant, _folder, signal = await _setup(session_override)
+    connection = IntegrationConnection(tenant_id=tenant.id, provider="moneybird", display_name="Moneybird", instance_key="2")
+    session_override.add(connection)
+    await session_override.commit()
+    await deliveries.record_connection_write(
+        session_override, tenant.id, signal.id, tool_name="x", tool_input={"connection_id": str(connection.id)}, result={}
+    )
+    await deliveries.record_delivery(session_override, tenant.id, signal.id, target_kind="reply", ref="m1")
+    assert await deliveries.settle_outcome(session_override, signal) is None
+    signal.status = "closed"
+    outcome = await deliveries.settle_outcome(session_override, signal)
+    assert outcome is not None and outcome["kind"] == "changed"
+
+    quiet = Signal(tenant_id=tenant.id, channel="email", status="closed")
+    session_override.add(quiet)
+    await session_override.flush()
+    session_override.add(SignalEvent(signal_id=quiet.id, tenant_id=tenant.id, event_type="no_reply_noted", payload_json="{}"))
+    await session_override.flush()
+    assert (await deliveries.settle_outcome(session_override, quiet))["kind"] == "no_action"
+
+    bare = Signal(tenant_id=tenant.id, channel="email", status="closed")
+    session_override.add(bare)
+    await session_override.flush()
+    assert (await deliveries.settle_outcome(session_override, bare))["kind"] == "done"
 
 
 @pytest.mark.asyncio
@@ -180,6 +242,38 @@ async def test_done_stage_delivers_to_flow_destination(session_override):
 
 
 @pytest.mark.asyncio
+async def test_label_scorecard_from_outcomes(session_override):
+    from app.models.learning import EvalScore
+    from app.services.learning import LABEL_SCORECARD, NO_LABEL, compute_label_scorecards
+
+    tenant, folder, loose = await _setup(session_override)
+    flow, signal = await _flow_ticket(session_override, tenant, folder)
+    await deliveries.record_delivery(
+        session_override, tenant.id, signal.id, target_kind="reply", ref="m1", agent_id=uuid4()
+    )
+    for row in (signal, loose):
+        row.status = "closed"
+        await deliveries.settle_outcome(session_override, row)
+    await session_override.commit()
+    assert json.loads(signal.outcome_json)["flow_id"] == str(flow.id)
+    label_id = str(signal.ticket_tag_id)
+
+    cards = {row.scope_id: row for row in await compute_label_scorecards(session_override, tenant.id)}
+    assert set(cards) == {label_id, NO_LABEL}
+    card = json.loads(cards[label_id].details_json)
+    assert card["volume"] == 1 and card["autonomous_pct"] == 100.0 and card["share_pct"] == 50.0
+    assert card["kinds"] == {"answered": 1} and card["flow_id"] == str(flow.id)
+
+    await compute_label_scorecards(session_override, tenant.id)
+    rows = (
+        await session_override.execute(
+            select(EvalScore).where(EvalScore.tenant_id == tenant.id, EvalScore.metric == LABEL_SCORECARD)
+        )
+    ).scalars().all()
+    assert len(rows) == 2
+
+
+@pytest.mark.asyncio
 async def test_done_stage_skips_when_already_delivered(session_override):
     from app.services.tickets import move_ticket_stage
 
@@ -204,7 +298,7 @@ async def test_patch_flow_validates_destination(client, session_override):
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     folder = await client.post("/api/folders", headers=headers, json={"name": "Administratie", "slug": "adm", "tags": ["adm"]})
     folder_id = folder.json()["id"]
-    created = await client.post("/api/categories", headers=headers, json={"name": "vat"})
+    created = await client.post("/api/labels", headers=headers, json={"name": "vat"})
     ws_id = created.json()["workstream_id"]
 
     bad_key = await client.patch(

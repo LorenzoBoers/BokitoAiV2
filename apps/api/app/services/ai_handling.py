@@ -7,11 +7,11 @@ One layered setting replaces the old channel-type modes, mailbox ``ai_config.mod
 - ``assisted`` drafts replies and proposes actions; read-only tools only.
 - ``manual`` does not act unprompted; on-demand AI stays available.
 
-Resolution: workspace default -> channel (ChannelAccount) -> conversation.
-The most specific non-null layer wins. The result is capped by a ceiling:
-the Autonomy dial (``settings_json.ai_handling.ceiling``), privacy-off (manual),
-a tripped channel breaker (assisted), the handling agent's level and a flow on
-Always review (assisted).
+Resolution: workspace default -> channel (ChannelAccount) -> the flow of the
+conversation's ticket label (``Workstream.autonomy``) -> conversation. The most
+specific non-null layer wins. The result is capped by a ceiling: the Autonomy
+dial (``settings_json.ai_handling.ceiling``), privacy-off (manual), a tripped
+channel breaker (assisted) and the handling agent's level.
 
 Conversation overrides are temporary: closing clears them, Take over sets
 manual (reason ``operator_takeover``), hand back clears them. Assigning a
@@ -25,6 +25,8 @@ conversation, and the bounce limit between agent and people.
 """
 
 from __future__ import annotations
+
+from app.core.time import utcnow
 
 import json
 from dataclasses import asdict, dataclass, field
@@ -328,13 +330,15 @@ def resolve_ai_handling(
     *,
     scope: str = "conversation",
     agent: Any = None,
-    flow_always_review: bool = False,
+    flow_mode: str | None = None,
+    flow_label: str = "",
 ) -> AiHandling:
     """Effective AI handling for the most specific target given.
 
-    Layers: workspace default, channel, conversation. The most specific value
-    wins. Caps: privacy, the workspace ceiling, a tripped channel breaker, the
-    answering agent's ceiling and a flow set to Always review.
+    Layers: workspace default, channel, the conversation's flow, conversation.
+    The most specific value wins; a flow without a dial follows the channel.
+    Caps: privacy, the workspace ceiling, a tripped channel breaker and the
+    answering agent's ceiling.
 
     ``scope`` names the layer the payload describes: ``own`` is that layer's
     value and ``inherited`` is what it would follow without one.
@@ -342,9 +346,10 @@ def resolve_ai_handling(
     layers: list[tuple[str, str | None, str]] = [
         ("workspace", workspace_mode(tenant), tenant.name if tenant else ""),
         ("channel", channel_mode(account), (account.display_name or account.address) if account else ""),
+        ("flow", normalize_mode(flow_mode), flow_label),
         ("conversation", conversation_mode(signal), ""),
     ]
-    scope_index = {"workspace": 0, "channel": 1, "conversation": 2}.get(scope, 2)
+    scope_index = {"workspace": 0, "channel": 1, "flow": 2, "conversation": 3}.get(scope, 3)
     relevant = layers[: scope_index + 1]
 
     requested, source, source_label = DEFAULT_WORKSPACE_MODE, "workspace", ""
@@ -369,8 +374,6 @@ def resolve_ai_handling(
         from app.services.agent_rules import normalize_autonomy
 
         caps.append({"cap": normalize_autonomy(getattr(agent, "autonomy_level", None)), "reason": "agent"})
-    if flow_always_review:
-        caps.append({"cap": "assisted", "reason": "flow"})
 
     ceiling, clamped_by = base, base_reason
     for row in caps[1:]:
@@ -427,12 +430,12 @@ async def widget_account(session: AsyncSession, tenant_id: UUID) -> ChannelAccou
     ).scalars().first()
 
 
-async def flow_always_review_for(
+async def flow_dial_for(
     session: AsyncSession, signal: Signal, *, cache: dict[str, Any] | None = None
-) -> bool:
-    """True when the conversation's ticket label sits on a flow set to Always review."""
+) -> tuple[str | None, str]:
+    """(mode, flow name) of the flow on the conversation's ticket label; mode None without a dial."""
     if not signal.ticket_tag_id:
-        return False
+        return None, ""
     from app.models.orchestra import Workstream
     from app.models.signal import SignalTag
 
@@ -444,12 +447,14 @@ async def flow_always_review_for(
         tags[signal.ticket_tag_id] = tag if tag is not None and tag.tenant_id == signal.tenant_id else None
     tag = tags[signal.ticket_tag_id]
     if tag is None or not tag.workstream_id:
-        return False
+        return None, ""
     if tag.workstream_id not in flows:
         flow = await session.get(Workstream, tag.workstream_id)
         flows[tag.workstream_id] = flow if flow is not None and flow.tenant_id == signal.tenant_id else None
     flow = flows[tag.workstream_id]
-    return bool(flow is not None and getattr(flow, "always_review", False))
+    if flow is None:
+        return None, ""
+    return normalize_mode(flow.autonomy), flow.name or tag.name
 
 
 async def resolve_for_signal(
@@ -490,12 +495,9 @@ async def resolve_for_signal(
             agents[signal.agent_id] = await session.get(Agent, signal.agent_id)
         agent = agents[signal.agent_id]
 
+    flow_mode, flow_label = await flow_dial_for(session, signal, cache=store)
     return resolve_ai_handling(
-        tenant,
-        account,
-        signal,
-        agent=agent,
-        flow_always_review=await flow_always_review_for(session, signal, cache=store),
+        tenant, account, signal, agent=agent, flow_mode=flow_mode, flow_label=flow_label
     )
 
 
@@ -603,7 +605,7 @@ def hold_conversation(
         return False
     signal.ai_handling = "manual"
     signal.ai_handling_reason = reason
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         _event(
@@ -635,7 +637,7 @@ def release_conversation(
         return False
     signal.ai_handling = None
     signal.ai_handling_reason = None
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         _event(
@@ -822,7 +824,7 @@ async def set_ai_handling(
 
                 team_id = await resolve_assignee(session, tenant.id, signal, "department", None)
                 set_owner(signal, "department", team_id, by_user_id=actor_uuid)
-        signal.updated_at = datetime.utcnow()
+        signal.updated_at = utcnow()
         session.add(signal)
         affected = [signal]
         if mode == "manual":
@@ -910,7 +912,7 @@ async def evidence(
     """Last-N-days outcome numbers that back a raise to autonomous."""
     from app.models.notification import DecisionRequest
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     # Reply drafts are the "Suggested reply" cards; choosing "send" ships the
     # draft as written, "edit" means a person rewrote it first.
     drafts_stmt = select(DecisionRequest.status, DecisionRequest.chosen_option_id).where(
@@ -1079,7 +1081,7 @@ async def check_breaker(
         return False
     if resolve_ai_handling(tenant, account, scope="channel").effective != "autonomous":
         return False
-    since = datetime.utcnow() - timedelta(hours=1)
+    since = utcnow() - timedelta(hours=1)
     counts = await breaker_counts(session, tenant.id, account.id, since=since)
     reason = None
     if counts["autonomous_replies"] > cfg["max_autonomous_per_hour"]:
@@ -1103,7 +1105,7 @@ async def trip_breaker(
     from app.services.audit import record_audit
     from app.services.signal_decisions import create_decision
 
-    now = datetime.utcnow()
+    now = utcnow()
     _set_breaker(account, now.isoformat(), reason)
     session.add(account)
     label = account.display_name or account.address
@@ -1266,7 +1268,21 @@ async def list_exceptions(session: AsyncSession, tenant: Tenant) -> dict[str, li
         for s in signal_rows
         if conversation_mode(s)
     ]
-    return {"channels": channels, "conversations": conversations}
+    from app.models.orchestra import Workstream
+
+    flow_rows = (
+        await session.execute(
+            select(Workstream)
+            .where(Workstream.tenant_id == tenant.id, Workstream.autonomy != "")
+            .order_by(Workstream.name)
+        )
+    ).scalars().all()
+    flows = [
+        {"id": str(ws.id), "label": ws.name, "mode": normalize_mode(ws.autonomy)}
+        for ws in flow_rows
+        if normalize_mode(ws.autonomy)
+    ]
+    return {"channels": channels, "flows": flows, "conversations": conversations}
 
 
 async def autonomous_override_count(session: AsyncSession, tenant: Tenant) -> int:
@@ -1301,7 +1317,7 @@ async def metrics(session: AsyncSession, tenant: Tenant, *, days: int = 30) -> d
         handling = await resolve_for_signal(session, tenant, sig, cache=cache)
         by_mode[handling.effective] += 1
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     handoffs = int(
         (
             await session.execute(

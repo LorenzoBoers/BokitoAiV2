@@ -12,7 +12,6 @@ export type BotOrbMotion =
   | 'idle'
   | 'listening'
   | 'thinking'
-  | 'typing'
   | 'working'
   | 'searching'
   | 'writing'
@@ -35,7 +34,6 @@ export const BOT_ORB_LOOPS = [
   'idle',
   'listening',
   'thinking',
-  'typing',
   'working',
   'searching',
   'writing',
@@ -46,7 +44,7 @@ export const BOT_ORB_LOOPS = [
 export const BOT_ORB_ONE_SHOTS = ['yes', 'no', 'alert', 'jump', 'done', 'leave'] as const
 export type BotOrbOneShot = (typeof BOT_ORB_ONE_SHOTS)[number]
 
-const BUSY_LOOPS = new Set<BotOrbMotion>(['thinking', 'typing', 'working', 'searching', 'writing', 'sending'])
+const BUSY_LOOPS = new Set<BotOrbMotion>(['thinking', 'working', 'searching', 'writing', 'sending'])
 
 export function isBotOrbMotion(value: unknown): value is BotOrbMotion {
   return (

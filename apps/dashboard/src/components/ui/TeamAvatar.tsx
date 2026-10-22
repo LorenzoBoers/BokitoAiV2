@@ -1,4 +1,5 @@
 import { getInitials, getAvatarColor } from '../../lib/avatar'
+import { snapMarkSize } from '../../lib/mark-scale'
 import { resolveTeamAvatarIcon, type TeamAvatarKind } from '../../lib/team-avatar'
 import type { PresenceStatus } from '../../lib/teams-api'
 import { cn } from '../../lib/utils'
@@ -48,14 +49,15 @@ export function TeamAvatar({
   presence,
 }: TeamAvatarProps) {
   const displayName = name?.trim() || 'Team'
+  const box = snapMarkSize(size)
   const initials = getInitials(displayName)
   const resolved = resolveKind(kind, icon, imageUrl)
   const Icon = resolved === 'icon' ? resolveTeamAvatarIcon(icon) : null
   const palette = getAvatarColor(seed || displayName)
   const bg = color?.trim() || palette.bg
-  const fontSize = Math.round(size * 0.36)
-  const iconSize = Math.round(size * 0.48)
-  const borderRadius = Math.round(size * 0.5)
+  const fontSize = Math.round(box * 0.36)
+  const iconSize = Math.round(box * 0.48)
+  const borderRadius = Math.round(box * 0.5)
   const a11yProps = decorative
     ? { 'aria-hidden': true as const }
     : { 'aria-label': displayName, title: displayName }
@@ -63,7 +65,7 @@ export function TeamAvatar({
   const face =
     resolved === 'image' && imageUrl ? (
       <span
-        style={{ width: size, height: size, borderRadius }}
+        style={{ width: box, height: box, borderRadius }}
         className={cn('inline-flex shrink-0 overflow-hidden border border-border/50', presence ? '' : className)}
         {...a11yProps}
       >
@@ -72,8 +74,8 @@ export function TeamAvatar({
     ) : (
       <span
         style={{
-          width: size,
-          height: size,
+          width: box,
+          height: box,
           borderRadius,
           fontSize,
           background: bg,
@@ -93,7 +95,7 @@ export function TeamAvatar({
   return (
     <span className={cn('relative inline-flex shrink-0', className)}>
       {face}
-      <PresenceCorner status={presence} size={size} />
+      <PresenceCorner status={presence} size={box} />
     </span>
   )
 }

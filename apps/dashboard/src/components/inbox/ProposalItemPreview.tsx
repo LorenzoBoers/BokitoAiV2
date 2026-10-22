@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, MouseEvent } from 'react'
 import { Skeleton } from '../ui/skeleton'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   BookOpen,
@@ -20,9 +20,11 @@ import {
 import type { ProposalItem } from '../../lib/inbox-api'
 import { CANVAS_ICON } from '../../lib/entity-icons'
 import { openEntityPath, type EntityRef } from '../../lib/open-entity'
-import { getCanvasById } from '../../lib/project-canvas-api'
+import { getCanvasById, type ProjectCanvas } from '../../lib/project-canvas-api'
+import { CanvasKindBody } from '../project-canvas/CanvasKindBody'
+import { CanvasWindow } from '../project-canvas/CanvasWindow'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
-import { isEmptyCanvasTree, type CanvasNode } from '../../lib/project-canvas/types'
+import { canvasIsPending, canvasKindOf, isEmptyCanvasTree, type CanvasNode } from '../../lib/project-canvas/types'
 import { agentProfileAccentColor, toAiAvatarProps } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
 import { BrandTile } from '../integrations/BrandMark'
@@ -294,9 +296,12 @@ export function CanvasShowcaseCard({
   compact?: boolean
 }) {
   const { t } = useTranslation(['communication', 'nav'])
+  const [, setSearchParams] = useSearchParams()
   const pending = Boolean(item.empty || item.missing)
   const [tree, setTree] = useState<CanvasNode | null>(item.preview ?? null)
+  const [loaded, setLoaded] = useState<ProjectCanvas | null>(null)
   const [emptyShell, setEmptyShell] = useState(Boolean(item.empty))
+  const [contentKind, setContentKind] = useState(canvasKindOf(item.canvasKind))
   const [settled, setSettled] = useState(pending || !item.id)
   useEffect(() => {
     if (item.missing || !item.id) return
@@ -304,8 +309,11 @@ export function CanvasShowcaseCard({
     getCanvasById(item.id)
       .then((canvas) => {
         if (cancel) return
-        setEmptyShell(Boolean(canvas.empty || isEmptyCanvasTree(canvas.tree)))
-        setTree(canvas.tree)
+        const kind = canvasKindOf(canvas.kind)
+        setContentKind(kind)
+        setLoaded(canvas)
+        setEmptyShell(canvasIsPending(canvas))
+        setTree(kind === 'dashboard' ? canvas.tree : null)
       })
       .catch(() => {
         /* Keep the snapshot stored on the message. */
@@ -317,73 +325,74 @@ export function CanvasShowcaseCard({
       cancel = true
     }
   }, [item.id, item.missing])
-  const preview = !emptyShell && tree && !isEmptyCanvasTree(tree) ? tree : null
+  const preview =
+    contentKind === 'dashboard' && !emptyShell && tree && !isEmptyCanvasTree(tree) ? tree : null
   const blocked = pending || emptyShell
-  const card = (
-    <div
-      className={cn(
-        'panel overflow-hidden text-left transition-opacity',
-        selected && !blocked && 'ring-1 ring-ai/50 border-ai/40',
-        blocked && 'opacity-55',
+  const path = blocked ? null : canvasHref(item)
+  const hasBody = Boolean(preview || (loaded && contentKind !== 'dashboard' && !emptyShell))
+  const thumbnail = compact || Boolean(onSelect)
+  const snapshot = preview ? renderCanvasTree(preview) : loaded ? <CanvasKindBody canvas={loaded} /> : null
+  const body = hasBody ? (
+    compact ? (
+      <div className="pointer-events-none origin-top-left" style={{ width: '160%', transform: 'scale(0.48)' }}>
+        {snapshot}
+      </div>
+    ) : (
+      snapshot
+    )
+  ) : settled ? (
+    <p className="text-xs text-text-muted">
+      {blocked && !item.missing ? t('projects.canvas.writing', { ns: 'nav' }) : t('proposal.canvasEmpty')}
+    </p>
+  ) : (
+    <Skeleton className="h-16" />
+  )
+  const frame = (
+    <CanvasWindow
+      canvas={blocked ? null : loaded}
+      title={item.title || t('proposal.itemType.canvas')}
+      kind={contentKind}
+      actions={!thumbnail}
+      onOpen={
+        !thumbnail && item.id
+          ? () =>
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev)
+                next.set('canvas', item.id)
+                return next
+              })
+          : undefined
+      }
+      muted={blocked}
+      status={blocked && !item.missing ? t('projects.canvas.writing', { ns: 'nav' }) : undefined}
+      className={cn(selected && !blocked && 'ring-1 ring-ai/50 border-ai/40')}
+      bodyClassName={cn(
+        'bg-bg-input/20',
+        hasBody ? (compact ? 'h-24 overflow-hidden' : 'h-[420px]') : undefined,
       )}
       data-testid="canvas-showcase"
-      data-canvas-pending={blocked ? 'true' : undefined}
-      aria-busy={blocked && !item.missing ? true : undefined}
     >
-      <div className="flex items-center gap-2 px-3 py-2">
-        <IconTile icon={CANVAS_ICON} tone={blocked ? 'neutral' : 'accent'} />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-text-primary">{item.title || t('proposal.itemType.canvas')}</p>
-          {(blocked && !item.missing) || item.subtitle ? (
-            <p className="truncate text-xs text-text-muted">
-              {blocked && !item.missing
-                ? t('projects.canvas.writing', { ns: 'nav' })
-                : item.subtitle}
-            </p>
-          ) : null}
-        </div>
+      <div data-testid={hasBody ? 'canvas-showcase-frame' : undefined} aria-busy={blocked && !item.missing ? true : undefined}>
+        {body}
       </div>
-      {preview ? (
-        <div
-          className={cn(
-            'relative overflow-hidden border-t border-border/50 bg-bg-input/30',
-            compact ? 'h-24' : 'h-36',
-          )}
-        >
-          <div
-            className="pointer-events-none origin-top-left p-3"
-            style={{ width: '160%', transform: compact ? 'scale(0.48)' : 'scale(0.62)' }}
-          >
-            {renderCanvasTree(preview)}
-          </div>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-bg-surface to-transparent" />
-        </div>
-      ) : settled ? (
-        <p className="border-t border-border/50 px-3 py-3 text-xs text-text-muted">
-          {blocked && !item.missing
-            ? t('projects.canvas.writing', { ns: 'nav' })
-            : t('proposal.canvasEmpty')}
-        </p>
-      ) : (
-        <Skeleton className="h-16 rounded-none border-t border-border/50" />
-      )}
-    </div>
+    </CanvasWindow>
   )
-  if (blocked) return card
+  if (blocked) return frame
   if (onSelect) {
     return (
       <button type="button" className="block w-full" onClick={() => onSelect(item)}>
-        {card}
+        {frame}
       </button>
     )
   }
-  const path = canvasHref(item)
-  if (!path) return card
-  return (
-    <Link to={path} className="block no-underline">
-      {card}
-    </Link>
-  )
+  if (compact && path) {
+    return (
+      <Link to={path} className="block no-underline">
+        {frame}
+      </Link>
+    )
+  }
+  return frame
 }
 
 function moduleInstallRow(item: ProposalItem): IntegrationModuleRow {

@@ -42,26 +42,41 @@ def test_hard_quota_detected_from_zero_limit_header():
     assert is_hard_quota_error(RuntimeError("boom")) is False
 
 
-def test_claude_5_uses_adaptive_thinking():
+def test_effort_maps_to_adaptive_or_budget():
     from app.services.agent.llm import AnthropicLLMProvider, _learn_adaptive_thinking
 
-    def build(model: str) -> dict:
+    def build(model: str, effort: str | None = "medium") -> dict:
         return AnthropicLLMProvider._create_kwargs(
             model=model, system="", chat_messages=[], tools=None,
-            thinking_budget=4096, max_tokens=None,
+            effort=effort, max_tokens=None,
         )
 
-    new = build("claude-sonnet-5-5")
-    assert new["thinking"] == {"type": "adaptive"}
-    assert new["output_config"] == {"effort": "medium"}
+    for model in ("claude-sonnet-5-5", "claude-opus-5-5", "claude-sonnet-4-6", "claude-opus-4-8"):
+        for effort in ("low", "medium", "high"):
+            kwargs = build(model, effort)
+            assert kwargs["thinking"] == {"type": "adaptive"}, model
+            assert kwargs["output_config"] == {"effort": effort}, model
+            assert kwargs["max_tokens"] >= 4096
 
-    old = build("claude-sonnet-4-6")
+    old = build("claude-haiku-4-5-20251001", "medium")
     assert old["thinking"] == {"type": "enabled", "budget_tokens": 4096}
     assert "output_config" not in old
+    assert old["max_tokens"] > 4096
+    assert build("claude-haiku-4-5-20251001", "high")["thinking"]["budget_tokens"] == 12000
+    assert "thinking" not in build("claude-haiku-4-5-20251001", "low")
+    assert "thinking" not in build("claude-sonnet-5-5", None)
 
     err = Exception('"thinking.type.enabled" is not supported for this model. Use "thinking.type.adaptive"')
-    assert _learn_adaptive_thinking(err, "claude-opus-4-8") is True
-    assert build("claude-opus-4-8")["thinking"] == {"type": "adaptive"}
+    assert _learn_adaptive_thinking(err, "claude-haiku-4-5-20251001") is True
+    assert build("claude-haiku-4-5-20251001")["thinking"] == {"type": "adaptive"}
+
+
+def test_mistral_reasons_from_effort():
+    from app.services.agent.llm import _reasoning_extra_body
+
+    assert _reasoning_extra_body("mistral", "mistral-medium-latest", "medium") == {"reasoning_effort": "high"}
+    assert _reasoning_extra_body("mistral", "mistral-medium-latest", "low") is None
+    assert _reasoning_extra_body("openai", "gpt-4o", "high") is None
 
 
 @pytest.mark.asyncio
@@ -202,7 +217,10 @@ async def test_agent_loop_finishes_turn_on_fallback(session_override, monkeypatc
     runner.model_override = None
     runner.task_hint = None
     runner.tools = []
-    runner.thinking_budget = 0
+    runner.effort = ""
+    runner._suppress_tools = False
+    runner._started = 0.0
+    runner.trace_steps = []
     runner.resolved_call = _call("mistral", "mi-dead")
     runner.llm = _Dead()
 

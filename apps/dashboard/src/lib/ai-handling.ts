@@ -3,10 +3,10 @@ import type { ComponentType } from 'react'
 import { AssistedModeIcon, AutonomousModeIcon } from './ai-handling-icons'
 
 /**
- * AI handling: one setting with three modes, resolved over three layers
- * (workspace, channel, conversation). The most specific layer wins; the
- * Autonomy dial, privacy, the channel breaker, the agent and a flow set to
- * Always review cap the result.
+ * AI handling: one setting with three modes, resolved over four layers
+ * (workspace, channel, the conversation's flow, conversation). The most
+ * specific layer wins; the Autonomy dial, privacy, the channel breaker and the
+ * agent cap the result.
  *
  * Autonomous and assisted are AI work and render violet; manual uses the
  * paper surface (card fill), not a heavy grey slab.
@@ -15,8 +15,9 @@ import { AssistedModeIcon, AutonomousModeIcon } from './ai-handling-icons'
  */
 export type AiHandlingMode = 'autonomous' | 'assisted' | 'manual'
 export type AiHandlingScope = 'workspace' | 'channel' | 'conversation'
-export type AiHandlingClamp = 'govern' | 'privacy' | 'breaker' | 'agent' | 'flow'
-export type AiHandlingLayer = { source: AiHandlingScope; label: string; mode: AiHandlingMode | null }
+export type AiHandlingSource = AiHandlingScope | 'flow'
+export type AiHandlingClamp = 'govern' | 'privacy' | 'breaker' | 'agent'
+export type AiHandlingLayer = { source: AiHandlingSource; label: string; mode: AiHandlingMode | null }
 export type AiHandlingCap = { cap: AiHandlingMode; reason: AiHandlingClamp }
 
 export const AI_HANDLING_MODES: readonly AiHandlingMode[] = ['autonomous', 'assisted', 'manual']
@@ -70,7 +71,7 @@ export type AiHandling = {
   effective: AiHandlingMode
   requested: AiHandlingMode
   /** Layer the requested value comes from. */
-  source: AiHandlingScope | 'default'
+  source: AiHandlingSource | 'default'
   sourceLabel: string
   ceiling: AiHandlingMode
   /** Why effective is below requested. */
@@ -81,7 +82,7 @@ export type AiHandling = {
   untilClose: boolean
   /** What this layer follows without its own value. */
   inherited: AiHandlingMode
-  inheritedSource: AiHandlingScope | 'default'
+  inheritedSource: AiHandlingSource | 'default'
   inheritedSourceLabel: string
   /** This layer's own value, or null when it follows the layer above. */
   own: AiHandlingMode | null
@@ -107,8 +108,8 @@ export function normalizeMode(value: unknown): AiHandlingMode | null {
   return value === 'autonomous' || value === 'assisted' || value === 'manual' ? value : null
 }
 
-const SCOPES = new Set(['workspace', 'channel', 'conversation', 'default'])
-const CLAMPS = new Set<AiHandlingClamp>(['govern', 'privacy', 'breaker', 'agent', 'flow'])
+const SCOPES = new Set(['workspace', 'channel', 'flow', 'conversation', 'default'])
+const CLAMPS = new Set<AiHandlingClamp>(['govern', 'privacy', 'breaker', 'agent'])
 
 export function normalizeClamp(value: unknown): AiHandlingClamp | null {
   return typeof value === 'string' && CLAMPS.has(value as AiHandlingClamp) ? (value as AiHandlingClamp) : null
@@ -119,7 +120,7 @@ function normalizeLayers(raw: unknown): AiHandlingLayer[] {
   return raw.flatMap((item) => {
     const row = (item ?? {}) as Record<string, unknown>
     const source = row.source
-    if (source !== 'workspace' && source !== 'channel' && source !== 'conversation') return []
+    if (source !== 'workspace' && source !== 'channel' && source !== 'flow' && source !== 'conversation') return []
     return [{ source, label: asText(row.label), mode: normalizeMode(row.mode) }]
   })
 }

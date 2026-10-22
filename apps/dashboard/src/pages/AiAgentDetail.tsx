@@ -63,7 +63,7 @@ import {
 } from '../components/ui/dialog'
 
 /** Profile hero mark — large enough to read as identity, not a form icon. */
-const HERO_MARK_SIZE = 120
+const HERO_MARK_SIZE = 128
 
 export default function AiAgentDetail() {
   const { t, i18n } = useTranslation(['nav', 'common'])

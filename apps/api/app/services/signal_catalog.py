@@ -161,6 +161,7 @@ def read_backlog(tenant: Tenant | None) -> list[dict[str, Any]]:
                 "first_seen": row.get("first_seen"),
                 "last_seen": row.get("last_seen"),
                 "ready": count >= threshold,
+                "agents": row.get("agents") if isinstance(row.get("agents"), dict) else {},
             }
         )
     items.sort(key=lambda row: (-row["count"], row["name"]))
@@ -168,7 +169,7 @@ def read_backlog(tenant: Tenant | None) -> list[dict[str, Any]]:
 
 
 async def _write_backlog(
-    session: AsyncSession, tenant: Tenant, rows: list[dict[str, Any]]
+    session: AsyncSession, tenant: Tenant, rows: list[dict[str, Any]], *, commit: bool = True
 ) -> None:
     settings = _tenant_settings(tenant)
     section = dict(_signals_section(settings))
@@ -176,8 +177,9 @@ async def _write_backlog(
     settings["signals"] = section
     tenant.settings_json = json.dumps(settings)
     session.add(tenant)
-    await session.commit()
-    await session.refresh(tenant)
+    if commit:
+        await session.commit()
+        await session.refresh(tenant)
 
 
 async def record_unknown(
@@ -187,8 +189,12 @@ async def record_unknown(
     name: str,
     sentence: str = "",
     example: str = "",
+    agent_id: UUID | None = None,
 ) -> dict[str, Any] | None:
     """Count one sighting of a pattern the catalog does not cover yet.
+
+    ``agent_id`` is the agent that read it; the cluster goes to that agent's
+    department lead as a proposal for a new flow (services/flow_proposals.py).
 
     Returns the stored entry, or ``None`` when the input is too thin to be
     useful (no name) or the pattern already matches an existing hashtag.
@@ -239,19 +245,25 @@ async def record_unknown(
     if quote and quote not in examples:
         examples.append(quote)
     entry["examples"] = examples[-MAX_EXAMPLES:]
+    if agent_id is not None:
+        agents = entry.get("agents") if isinstance(entry.get("agents"), dict) else {}
+        agents[str(agent_id)] = int(agents.get(str(agent_id)) or 0) + 1
+        entry["agents"] = agents
 
     rows.sort(key=lambda row: -int(row.get("count") or 0))
     await _write_backlog(session, tenant, rows)
     return entry
 
 
-async def dismiss_backlog_entry(session: AsyncSession, tenant: Tenant, key: str) -> bool:
+async def dismiss_backlog_entry(
+    session: AsyncSession, tenant: Tenant, key: str, *, commit: bool = True
+) -> bool:
     raw = _signals_section(_tenant_settings(tenant)).get("backlog")
     rows = [row for row in (raw if isinstance(raw, list) else []) if isinstance(row, dict)]
     kept = [row for row in rows if str(row.get("key")) != key]
     if len(kept) == len(rows):
         return False
-    await _write_backlog(session, tenant, kept)
+    await _write_backlog(session, tenant, kept, commit=commit)
     return True
 
 

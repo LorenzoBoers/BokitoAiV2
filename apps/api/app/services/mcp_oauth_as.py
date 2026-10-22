@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import base64
 import hashlib
 import json
@@ -310,7 +312,7 @@ async def create_auth_request(
         code_challenge=code_challenge,
         code_challenge_method=code_challenge_method or "S256",
         resource=normalize_resource(resource),
-        expires_at=datetime.utcnow() + timedelta(minutes=AUTH_REQUEST_TTL_MINUTES),
+        expires_at=utcnow() + timedelta(minutes=AUTH_REQUEST_TTL_MINUTES),
     )
     session.add(row)
     await session.flush()
@@ -324,7 +326,7 @@ async def get_auth_request(
         select(McpOAuthAuthRequest).where(McpOAuthAuthRequest.id == request_id)
     )
     row = result.scalar_one_or_none()
-    if not row or row.expires_at < datetime.utcnow():
+    if not row or row.expires_at < utcnow():
         return None
     return row
 
@@ -377,7 +379,7 @@ async def issue_authorization_code(
         code_challenge=auth_request.code_challenge,
         code_challenge_method=auth_request.code_challenge_method or "S256",
         resource=auth_request.resource or mcp_resource_url(),
-        expires_at=datetime.utcnow() + timedelta(minutes=AUTH_CODE_TTL_MINUTES),
+        expires_at=utcnow() + timedelta(minutes=AUTH_CODE_TTL_MINUTES),
     )
     session.add(row)
     await session.delete(auth_request)
@@ -427,7 +429,7 @@ async def exchange_authorization_code(
     if (
         not row
         or row.used_at is not None
-        or row.expires_at < datetime.utcnow()
+        or row.expires_at < utcnow()
         or row.client_id != client_id
         or row.redirect_uri != redirect_uri
     ):
@@ -437,7 +439,7 @@ async def exchange_authorization_code(
     if resource and not resource_matches(row.resource, resource):
         raise ValueError("invalid_target")
 
-    row.used_at = datetime.utcnow()
+    row.used_at = utcnow()
     session.add(row)
     tokens = await _mint_token_pair(
         session,
@@ -479,12 +481,12 @@ async def refresh_access_token(
         # Refresh-token reuse: kill the whole rotation family.
         await revoke_token_family(session, row.family_id)
         raise ValueError("invalid_grant")
-    if row.expires_at < datetime.utcnow():
+    if row.expires_at < utcnow():
         raise ValueError("invalid_grant")
     if resource and not resource_matches(row.resource, resource):
         raise ValueError("invalid_target")
 
-    row.revoked_at = datetime.utcnow()
+    row.revoked_at = utcnow()
     session.add(row)
     if row.access_token_id:
         access = (
@@ -495,7 +497,7 @@ async def refresh_access_token(
             )
         ).scalar_one_or_none()
         if access and access.revoked_at is None:
-            access.revoked_at = datetime.utcnow()
+            access.revoked_at = utcnow()
             session.add(access)
 
     tokens = await _mint_token_pair(
@@ -533,7 +535,7 @@ async def _mint_token_pair(
         tenant_id=tenant_id,
         scopes_json=scopes_json,
         resource=bound,
-        expires_at=datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_TTL_MINUTES),
+        expires_at=utcnow() + timedelta(minutes=ACCESS_TOKEN_TTL_MINUTES),
     )
     session.add(access)
     await session.flush()
@@ -546,7 +548,7 @@ async def _mint_token_pair(
         tenant_id=tenant_id,
         scopes_json=scopes_json,
         resource=bound,
-        expires_at=datetime.utcnow() + timedelta(days=REFRESH_TOKEN_TTL_DAYS),
+        expires_at=utcnow() + timedelta(days=REFRESH_TOKEN_TTL_DAYS),
     )
     session.add(refresh)
     scope_list = sorted(scopes_from_json(scopes_json))
@@ -571,7 +573,7 @@ async def lookup_access_token(
     if (
         not row
         or row.revoked_at is not None
-        or row.expires_at < datetime.utcnow()
+        or row.expires_at < utcnow()
     ):
         return None
     # Audience bind: token must be for this MCP resource.
@@ -581,7 +583,7 @@ async def lookup_access_token(
 
 
 async def revoke_token_family(session: AsyncSession, family_id: uuid.UUID) -> None:
-    now = datetime.utcnow()
+    now = utcnow()
     refresh_rows = (
         await session.execute(
             select(McpOAuthRefreshToken).where(
@@ -619,7 +621,7 @@ async def revoke_token(session: AsyncSession, token: str) -> None:
         )
     ).scalar_one_or_none()
     if access and access.revoked_at is None:
-        access.revoked_at = datetime.utcnow()
+        access.revoked_at = utcnow()
         session.add(access)
         # Also revoke refresh tokens pointing at this access token.
         linked = (
@@ -631,7 +633,7 @@ async def revoke_token(session: AsyncSession, token: str) -> None:
         ).scalars().all()
         for rt in linked:
             if rt.revoked_at is None:
-                rt.revoked_at = datetime.utcnow()
+                rt.revoked_at = utcnow()
                 session.add(rt)
     refresh = (
         await session.execute(
@@ -652,7 +654,7 @@ async def list_grants_for_user(
             select(McpOAuthRefreshToken).where(
                 McpOAuthRefreshToken.user_id == user_id,
                 McpOAuthRefreshToken.revoked_at.is_(None),
-                McpOAuthRefreshToken.expires_at > datetime.utcnow(),
+                McpOAuthRefreshToken.expires_at > utcnow(),
             )
         )
     ).scalars().all()
@@ -716,7 +718,7 @@ async def revoke_grant(
             )
         )
     ).scalars().all()
-    now = datetime.utcnow()
+    now = utcnow()
     for at in access_rows:
         at.revoked_at = now
         session.add(at)

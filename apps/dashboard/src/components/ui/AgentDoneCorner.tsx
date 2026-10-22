@@ -24,7 +24,7 @@ export function AgentDoneCorner({
       <span
         style={{ width: badge, height: badge }}
         className={cn(
-          'absolute -bottom-px -right-px inline-flex items-center justify-center rounded-full',
+          'absolute -bottom-px -right-px z-10 inline-flex items-center justify-center rounded-full',
           'bg-ai text-ai-fg ring-2 ring-cutout',
           enter && 'agent-done-corner--enter',
         )}

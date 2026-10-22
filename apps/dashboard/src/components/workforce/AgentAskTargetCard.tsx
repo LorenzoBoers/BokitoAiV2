@@ -62,7 +62,7 @@ export function AgentAskTargetCard({
     }
   }
 
-  const teams = (overview?.teams ?? []).filter((team) => team.kind !== 'agents')
+  const teams = (overview?.teams ?? []).filter((team) => (team.kind as string) !== 'agents')
   const people = overview?.people ?? []
 
   return (

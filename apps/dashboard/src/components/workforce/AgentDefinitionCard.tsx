@@ -12,6 +12,7 @@ import {
   saveAgentDefinition,
   type AgentDefinition,
   type CapabilityMode,
+  type Effort,
   type McpInheritanceMode,
   type PromptMode,
 } from '../../lib/agent-definition-api'
@@ -24,7 +25,7 @@ const splitList = (text: string) =>
 
 const joinList = (items: string[] | undefined) => (items ?? []).join(', ')
 
-/** Denylist, capability, prompt mode, skills, completion requirement and MCP inheritance. */
+/** Denylist, capability, prompt mode, thinking effort, skills, completion requirement and MCP inheritance. */
 export function AgentDefinitionCard({ agentId, canEdit }: { agentId: string; canEdit: boolean }) {
   const { t } = useTranslation('nav')
   const [definition, setDefinition] = useState<AgentDefinition | null>(null)
@@ -57,6 +58,7 @@ export function AgentDefinitionCard({ agentId, canEdit }: { agentId: string; can
         await saveAgentDefinition(agentId, {
           capability_mode: definition.capability_mode,
           prompt_mode: definition.prompt_mode,
+          effort: definition.effort,
           disallowed_tools: splitList(disallowed),
           skills: splitList(skills),
           completion_requirement: {
@@ -114,6 +116,23 @@ export function AgentDefinitionCard({ agentId, canEdit }: { agentId: string; can
             <SelectContent>
               <SelectItem value="extend">{t('workforce.agents.definition.promptExtend')}</SelectItem>
               <SelectItem value="full">{t('workforce.agents.definition.promptFull')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label>{t('workforce.agents.definition.effort')}</Label>
+          <Select
+            value={definition.effort}
+            onValueChange={(value) => setDefinition({ ...definition, effort: value as Effort })}
+            disabled={disabled}
+          >
+            <SelectTrigger className="h-8 text-xs" aria-label={t('workforce.agents.definition.effort')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">{t('workforce.agents.definition.effortLow')}</SelectItem>
+              <SelectItem value="medium">{t('workforce.agents.definition.effortMedium')}</SelectItem>
+              <SelectItem value="high">{t('workforce.agents.definition.effortHigh')}</SelectItem>
             </SelectContent>
           </Select>
         </div>

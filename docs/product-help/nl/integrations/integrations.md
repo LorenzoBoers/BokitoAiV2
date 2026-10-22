@@ -33,6 +33,23 @@ Koppelingen zijn partnerlogins. Een **module** is één pakket met hashtags, flo
 
 WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst je daarheen.
 
+## Koppel de tools van een contentbureau
+
+Notion, Canva, Google Drive en Sheets, Mailblue, Metricool en Zapier koppel je vanuit hetzelfde raster.
+
+1. Zoek de tool op **Koppelingen** en kies de kaart. **Notion** en **Canva** log je in bij de aanbieder. **Google Drive** dekt Drive en Sheets: agents zoeken en lezen bestanden en schrijven rijen naar een sheet.
+2. **Mailblue** vraagt de **Account-URL** en de **API-sleutel**. **Metricool** vraagt de **API-token**, de **Gebruikers-id** en, als je wilt, een **Standaard merk-id**. **Zapier** vraagt je **Persoonlijke MCP-server-URL**, met de acties die je in Zapier aanzette.
+3. Kies **Koppelen**. Bokito test de login meteen en toont een fout als een veld niet klopt.
+4. Gebruik de koppeling alleen voor één klant of afdeling met de sectie hieronder, en noem hem op een flow bij **Gebruikt** zodat de agents ermee werken.
+
+## Een koppeling opnieuw verbinden
+
+Bokito test elke koppeling een keer per dag.
+
+1. Antwoordt een koppeling niet meer of verloopt de login, dan verschijnt een gesprek **Connection {naam} needs attention** voor de afdeling die de koppeling heeft, of voor de werkruimte.
+2. Open **Koppelingen** en kies de tegel van de koppeling. Kies opnieuw **Koppelen** en rond de login af of vul de nieuwe sleutel in.
+3. De afdelingsleider noemt de koppeling ook in de ochtendbriefing tot hij weer werkt.
+
 ## Koppel een AI- of codingtool
 
 1. Kies de chip **AI-tools**. **AI-tool**-kaarten (Cursor, Claude Code, Claude Desktop, Codex CLI, VS Code, Windsurf, ChatGPT) gebruiken deze workspace via MCP; **Codingtool**-kaarten (Cursor Cloud Agents, Claude Managed Agents, Devin) nemen een bug of feature over uit een gesprek en brengen de pull request terug.
@@ -41,8 +58,8 @@ WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst
 ## Installeer een bedrijfsmodule
 
 1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modules staan in de strook **Verbonden**; gebruik de chip **Modules** om een preset te vinden die nog niet geïnstalleerd is.
-2. Open **Boekhouding** (of een andere live module) en kies **Installeren**. Dat maakt eenmalig het module-department (zichtbaar op Grid), neemt de specialist aan en kopieert hashtags, flows, bronnen en skill. De module is meteen **geïnstalleerd**; de catalog-kaart toont **Geïnstalleerd** met een vinkje en **Beheren**. Latere bewerkingen op dat department blijven van jou — Bokito overschrijft ze niet bij heropenen.
-3. De toast biedt **Praat met specialist**. Op de modulepagina kun je hun chat openen of een andere bedrijfsagent toewijzen. Markeer er één als **Standaard**. Alleen agents op de roster krijgen de tools van deze module. **Deïnstalleren** soft-verwijdert dat department (en archiveert de specialist); partnerlogins blijven op Koppelingen.
+2. Open **Boekhouding** (of een andere live module) en kies **Afdeling toevoegen**. Een module is een afdeling in een doos: een specialist-agent, labels en flows. Kies onder **Afdeling** een **Nieuwe afdeling** of een bestaande afdeling die al vergelijkbaar werk doet; Bokito stelt de beste match voor. Kies de **Eindverantwoordelijke**. Heeft de afdeling al een leider, vink dan **Laat de specialist leiden** aan om de specialist eerste te maken; anders sluit hij aan als lid. Bokito kopieert de hashtags, flows, bronnen en skill. De catalog-kaart toont **Geïnstalleerd** met een vinkje en **Beheren**. Latere bewerkingen op die afdeling blijven van jou.
+3. De toast biedt **Praat met specialist**. Op de modulepagina kun je hun chat openen of een andere bedrijfsagent toewijzen. Markeer er één als **Standaard**. Alleen agents op de roster krijgen de tools van deze module. **Deïnstalleren** archiveert de specialist. Een afdeling die de module zelf maakte wordt soft-verwijderd; een afdeling waar hij bij aansloot blijft met haar eigen werk. Partnerlogins blijven op Koppelingen.
 4. Bekijk **Wat agents kunnen doen**: elke actie toont een korte beschrijving, het pad (`accounting_list_companies`, …), **Lezen** of **Goedkeuring nodig**, en **Websitechat** wanneer de tool in de widget mag (aanzetten onder Overzicht). Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de ontdekte MCP-namen.
 5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om het modulepakket (Moneybird, KING of Bjorn Lunden) te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** wanneer er al een login bestaat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
 6. Koppel een partnerlogin wanneer je live data wilt. Tot die tijd is de module geïnstalleerd maar nog incompleet voor koppelingen; na koppelen is die **Gekoppeld**. Hashtags en draaiboeken blijven via hun bestaande schermen bereikbaar; de module voegt geen zijbalkitem toe.

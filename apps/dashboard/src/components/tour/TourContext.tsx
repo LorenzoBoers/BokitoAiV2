@@ -27,7 +27,7 @@ import { appScopedGet } from '../../lib/api'
 import { appRoutes } from '../../api/routes/app.routes'
 import { getTourState, patchTourState } from '../../lib/tour-api'
 import { consumeTourPendingAfterWizard } from '../../lib/tour-handoff'
-import { getOnboardingWizard, startOnboardingSetupThread } from '../../lib/onboarding-wizard-api'
+import { getOnboardingWizard } from '../../lib/onboarding-wizard-api'
 import { TOUR_STEPS, TOUR_VERSION, WELCOME_PILLARS } from './tour-steps'
 import { Button } from '../ui/button'
 
@@ -160,8 +160,15 @@ export function TourProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
-        const opened = await startOnboardingSetupThread(token)
-        navigate(`/communication/inbox/all/t/${opened.signal_id}`)
+        const wizard = await getOnboardingWizard(token)
+        const agentId = wizard.lead_agent?.id
+        if (!agentId) {
+          navigate('/communication/inbox/for_you')
+          return
+        }
+        navigate(
+          `/communication/new?intent=agent&agent=${encodeURIComponent(agentId)}&setup=1`,
+        )
       } catch {
         navigate('/communication/inbox/for_you')
       }
@@ -233,7 +240,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
     <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
       <TourStyles />
       <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
-        {/* Accent halo */}
+        {/* Accent halo */}
         <button
           type="button"
           onClick={onSkip}
@@ -528,7 +535,7 @@ function FinishScreen({
   return createPortal(
     <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
       <TourStyles />
-      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
+      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
         <div className="relative">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
             <Bot size={20} />

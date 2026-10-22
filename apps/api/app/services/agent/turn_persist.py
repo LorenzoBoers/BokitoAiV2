@@ -11,6 +11,8 @@ activity note so the team can still see it.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime, timedelta
@@ -309,7 +311,7 @@ async def touch_agent_activity(session: AsyncSession, agent_id: UUID | None) -> 
 
     agent = await session.get(Agent, agent_id)
     if agent is not None:
-        agent.last_active_at = datetime.utcnow()
+        agent.last_active_at = utcnow()
         session.add(agent)
 
 
@@ -382,6 +384,37 @@ def _message_time(row: SignalMessage) -> datetime:
     return row.received_at or row.created_at
 
 
+def _is_customer_reply(decision: DecisionRequest) -> bool:
+    """A suggested reply is the approve row on the customer thread, not a question in the session."""
+    try:
+        options = json.loads(decision.options_json or "[]")
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(options, list):
+        return False
+    return any(
+        isinstance(opt, dict) and str(opt.get("action_type") or "") == "send_reply"
+        for opt in options
+    )
+
+
+def _copy_turn_id(card: SignalMessage, bubbles: list[SignalMessage]) -> None:
+    """Keep the card on the same live turn as the speech, so it stays hidden
+    until that speech has landed and does not shove the bubbles aside."""
+    turn_id = ""
+    for bubble in reversed(bubbles):
+        turn_id = str(_json_meta(bubble).get("turn_id") or "").strip()
+        if turn_id:
+            break
+    if not turn_id:
+        return
+    meta = _json_meta(card)
+    if meta.get("turn_id") == turn_id:
+        return
+    meta["turn_id"] = turn_id
+    card.metadata_json = json.dumps(meta, default=str)
+
+
 async def place_turn_decisions(
     session: AsyncSession,
     signal: Signal,
@@ -413,7 +446,7 @@ async def place_turn_decisions(
         if tid:
             turn_ids.add(tid)
         # The card follows the whole explanation, not the tool bubble that raised it.
-        stamp = _message_time(turn_messages[-1]) or datetime.utcnow()
+        stamp = _message_time(turn_messages[-1]) or utcnow()
         for did in decision_ids_in_activity(meta):
             anchors[did] = stamp
 
@@ -446,13 +479,40 @@ async def place_turn_decisions(
         pending_q = None
     if pending_q is not None:
         pending_rows = (await session.execute(pending_q)).scalars().all()
-        last_stamp = _message_time(turn_messages[-1]) if turn_messages else datetime.utcnow()
+        last_stamp = _message_time(turn_messages[-1]) if turn_messages else utcnow()
         for decision in pending_rows:
-            if decision.signal_id != signal.id:
+            home_id = decision.signal_id
+            home = (
+                await session.get(Signal, home_id)
+                if home_id is not None and home_id != signal.id
+                else None
+            )
+            # A suggested reply stays on the customer thread, under the speech.
+            # Other cards raised against that thread still follow the session,
+            # where the question is read.
+            keep_home = (
+                home is not None
+                and not is_internal_channel(home.channel or "")
+                and _is_customer_reply(decision)
+            )
+            if home_id != signal.id and not keep_home:
                 decision.signal_id = signal.id
                 session.add(decision)
             await reveal_decision(session, signal.tenant_id, decision)
-            anchors.setdefault(str(decision.id), last_stamp or datetime.utcnow())
+            anchors.setdefault(str(decision.id), last_stamp or utcnow())
+            if keep_home and decision.message_id and turn_messages:
+                from app.services.message_seq import next_seq
+
+                card = await session.get(SignalMessage, decision.message_id)
+                if card is not None:
+                    # Strictly after the speech. The merged timeline orders a
+                    # host card and a session bubble by time, and an equal
+                    # time puts the card first.
+                    spoken = _message_time(turn_messages[-1]) or utcnow()
+                    card.received_at = spoken + timedelta(milliseconds=50)
+                    card.seq = await next_seq(session, home.id)
+                    _copy_turn_id(card, turn_messages)
+                    session.add(card)
 
     if not turn_messages:
         return
@@ -468,8 +528,8 @@ async def place_turn_decisions(
         return
     first_time = _message_time(turn_messages[0])
     last_time = _message_time(turn_messages[-1])
-    turn_window_start = (first_time or datetime.utcnow()) - timedelta(seconds=2)
-    turn_window_end = (last_time or datetime.utcnow()) + timedelta(seconds=2)
+    turn_window_start = (first_time or utcnow()) - timedelta(seconds=2)
+    turn_window_end = (last_time or utcnow()) + timedelta(seconds=2)
     for card in cards:
         did = str(card.decision_id) if card.decision_id else str(card.id)
         current = _message_time(card)
@@ -478,6 +538,7 @@ async def place_turn_decisions(
 
             card.received_at = anchors[did]
             card.seq = await next_seq(session, signal.id)
+            _copy_turn_id(card, turn_messages)
             continue
         # Heal cards an older bug dragged into a later turn: snap back to
         # created_at when the stamp clearly does not belong to this turn's work.
@@ -535,14 +596,6 @@ _CHOICE_WORD = re.compile(
     r"\b(welke|which|kies|pick one|what kind|wat voor)\b",
     re.IGNORECASE,
 )
-_OPTION_LINE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+(.+?)\s*$")
-_CATALOG_LEAD = re.compile(
-    r"^\s*(de beschikbare|the available|hier zijn|here are)\b.*:?\s*$",
-    re.IGNORECASE,
-)
-_RAISES_DECISION = frozenset({"propose_action", "create_decision_request"})
-
-
 def _is_choice_question(text: str) -> bool:
     body = text or ""
     return "?" in body and _CHOICE_WORD.search(body) is not None
@@ -573,138 +626,6 @@ def _items_in_entry(entry: dict[str, Any]) -> list[dict[str, Any]]:
         for row in _result_dict(entry).get("items") or []
         if isinstance(row, dict) and row.get("type")
     ]
-
-
-def tags_from_bubbles(bubbles: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Tag rows kept on ``list_tags`` activity (id, name, kind)."""
-    found: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for bubble in bubbles:
-        for entry in _activity_rows(bubble):
-            if entry.get("tool") != "list_tags":
-                continue
-            for row in _result_dict(entry).get("tags") or []:
-                if not isinstance(row, dict):
-                    continue
-                name = str(row.get("name") or "").strip()
-                tag_id = str(row.get("id") or "").strip()
-                if not name or not tag_id or tag_id in seen:
-                    continue
-                seen.add(tag_id)
-                found.append(
-                    {"id": tag_id, "name": name, "kind": str(row.get("kind") or "")}
-                )
-    return found
-
-
-def turn_has_decision(bubbles: list[dict[str, Any]]) -> bool:
-    for bubble in bubbles:
-        meta = {
-            "activity": bubble.get("activity") or [],
-            "activity_after": bubble.get("activity_after") or [],
-        }
-        if decision_ids_in_activity(meta):
-            return True
-        for entry in _activity_rows(bubble):
-            if entry.get("tool") in _RAISES_DECISION:
-                return True
-    return False
-
-
-def _bullet_labels(text: str) -> list[str]:
-    labels: list[str] = []
-    for line in (text or "").splitlines():
-        match = _OPTION_LINE.match(line)
-        if not match:
-            continue
-        raw = re.sub(r"\s*\([^)]*\)\s*$", "", match.group(1)).strip().lstrip("#").strip()
-        if raw:
-            labels.append(raw)
-    return labels
-
-
-def choice_options_from_tags(speech: str, tags: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Options for a choice the model asked in prose after ``list_tags``."""
-    if not tags or not _is_choice_question(speech):
-        return []
-    by_name = {str(tag["name"]).lower(): tag for tag in tags}
-    picked: list[dict[str, Any]] = []
-    for label in _bullet_labels(speech):
-        key = label.lower()
-        tag = by_name.get(key)
-        if tag is None:
-            head = key.split()[0] if key.split() else ""
-            tag = by_name.get(head)
-        if tag is not None and tag not in picked:
-            picked.append(tag)
-    if len(picked) >= 2:
-        return picked
-    named = [
-        tag
-        for tag in tags
-        if re.search(rf"(?<![\w]){re.escape(str(tag['name']))}(?![\w])", speech, flags=re.IGNORECASE)
-    ]
-    if len(named) >= 2:
-        return named
-    action = [tag for tag in tags if tag.get("kind") == "action_tag"]
-    if len(action) >= 2 and re.search(r"categor|ticket|tag|label", speech, flags=re.IGNORECASE):
-        return action[:8]
-    return []
-
-
-def choice_question_text(speech: str) -> str:
-    lines = [line.strip() for line in (speech or "").splitlines() if line.strip() and "?" in line]
-    if lines:
-        return lines[-1][:400]
-    return (speech or "").strip()[:400]
-
-
-def strip_option_catalog(text: str) -> str:
-    """Drop a bullet catalog once those choices are decision buttons."""
-    kept: list[str] = []
-    for line in (text or "").splitlines():
-        if _OPTION_LINE.match(line) or _CATALOG_LEAD.match(line):
-            continue
-        kept.append(line)
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
-
-
-def prepare_choice_repair(
-    bubbles: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """When a turn asks which tag and never calls propose_action, plan the buttons.
-
-    Returns the bubbles with the catalog lines removed, plus the tag options.
-    """
-    if not bubbles or turn_has_decision(bubbles):
-        return bubbles, []
-    speech = "\n".join(str(bubble.get("text") or "") for bubble in bubbles)
-    options = choice_options_from_tags(speech, tags_from_bubbles(bubbles))
-    if len(options) < 2:
-        return bubbles, []
-    cleaned: list[dict[str, Any]] = []
-    carry_activity: list[Any] = []
-    carry_after: list[Any] = []
-    for bubble in bubbles:
-        text = strip_option_catalog(str(bubble.get("text") or ""))
-        activity = [*carry_activity, *(bubble.get("activity") or [])]
-        after = [*carry_after, *(bubble.get("activity_after") or [])]
-        carry_activity, carry_after = [], []
-        if not text:
-            # A catalog-only bubble would render blank. Keep its tools on the next line.
-            carry_activity = activity
-            carry_after = after
-            continue
-        cleaned.append({**bubble, "text": text, "activity": activity, "activity_after": after})
-    if carry_activity or carry_after:
-        if not cleaned:
-            return bubbles, []
-        cleaned[-1]["activity_after"] = [
-            *(cleaned[-1].get("activity_after") or []),
-            *carry_activity,
-            *carry_after,
-        ]
-    return cleaned, options
 
 
 def assign_bubble_showcases(
@@ -772,54 +693,6 @@ def assign_bubble_showcases(
                 assigned.add(key)
                 out[target].append(item)
     return [group[:MAX_ITEMS] for group in out]
-
-
-async def _raise_tag_choice(
-    session: AsyncSession,
-    signal: Signal,
-    bubble: SignalMessage,
-    tags: list[dict[str, Any]],
-    *,
-    author_agent_id: UUID | None,
-    turn_id: str | None,
-) -> None:
-    """Soft decision for a category question the model asked without propose_action."""
-    from app.services.signal_decisions import create_decision
-
-    question = choice_question_text(bubble.body_text or "")
-    if not question:
-        return
-    options = [{"id": str(tag["id"]), "label": str(tag["name"])} for tag in tags if tag.get("id")]
-    if len(options) < 2:
-        return
-    decision, _ = await create_decision(
-        session,
-        signal.tenant_id,
-        title=question[:200],
-        question=question,
-        options=options,
-        agent_id=author_agent_id,
-        signal_id=signal.id,
-        source_type="agent",
-        source_id=str(author_agent_id) if author_agent_id else None,
-        selection="single",
-        bundle_id=turn_id or "",
-        reveal=False,
-    )
-    meta = _json_meta(bubble)
-    activity = list(meta.get("activity") or [])
-    activity.append(
-        {
-            "id": f"choice-{decision.id}",
-            "kind": "other",
-            "label": "decision",
-            "tool": "propose_action",
-            "status": "ok",
-            "result": {"decision_request_id": str(decision.id)},
-        }
-    )
-    meta["activity"] = activity
-    bubble.metadata_json = json.dumps(meta, default=str)
 
 
 def _attach_showcase_items(
@@ -1013,7 +886,7 @@ def _seal_activity_items(items: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     if not isinstance(items, list):
         return out
-    now = datetime.utcnow().isoformat() + "Z"
+    now = utcnow().isoformat() + "Z"
     for raw in items:
         if not isinstance(raw, dict):
             continue
@@ -1128,9 +1001,6 @@ async def persist_agent_turn(
     from app.services.agent.style import strip_emoji
 
     planned = plan_turn_messages(segments, reply_mode, fallback_text=fallback_text)
-    choice_options: list[dict[str, Any]] = []
-    if is_internal_channel(signal.channel or ""):
-        planned, choice_options = prepare_choice_repair(planned)
     if append_to_last and planned:
         planned[-1]["text"] = f"{planned[-1]['text']}{append_to_last}"
     planned = drop_redundant_rule_link(planned)
@@ -1175,15 +1045,6 @@ async def persist_agent_turn(
             seq=seq,
         )
         messages.append(msg)
-    if choice_options and messages:
-        await _raise_tag_choice(
-            session,
-            signal,
-            messages[-1],
-            choice_options,
-            author_agent_id=author_agent_id,
-            turn_id=turn_id,
-        )
     await place_turn_decisions(session, signal, messages)
     # Attach after place_turn_decisions so decision cards can also contribute items.
     if messages:

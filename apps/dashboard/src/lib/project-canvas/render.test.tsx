@@ -80,6 +80,21 @@ describe('renderCanvasTree', () => {
     expect(screen.getByText('Jan')).toBeTruthy()
   })
 
+  it('renders a pie chart from slices', () => {
+    const tree: CanvasNode = {
+      type: 'PieChart',
+      props: {
+        title: 'Verdeling',
+        slices: [
+          { name: 'Laag', value: 25 },
+          { name: 'Hoog', value: 75 },
+        ],
+      },
+    }
+    render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.getByText('Verdeling')).toBeTruthy()
+  })
+
   it('ignores unknown types and still renders children', () => {
     const tree: CanvasNode = {
       type: 'Iframe',

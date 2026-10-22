@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 import time
@@ -494,7 +496,7 @@ async def queue_idle_sources(
 ) -> int:
     """Mark idle pending (or stale indexing) rows as indexing and enqueue."""
     queued = 0
-    now = datetime.utcnow()
+    now = utcnow()
     for row in rows:
         if row.status == "disabled":
             continue
@@ -518,7 +520,7 @@ async def queue_source_index(
         return False
     row.status = "indexing"
     row.sync_error = ""
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
     from app.workers.tasks import enqueue_module_source_index
@@ -569,7 +571,7 @@ async def set_source_disabled(
     if row is None or row.tenant_id != tenant_id:
         raise ValueError("Source not found")
     row.status = "disabled" if disabled else ("ready" if row.workspace_doc_id else "pending")
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
     await session.refresh(row)
@@ -603,7 +605,7 @@ async def index_source(session: AsyncSession, source_id: UUID) -> ModuleSource:
 
     row.status = "indexing"
     row.sync_error = ""
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
 
@@ -667,13 +669,13 @@ async def index_source(session: AsyncSession, source_id: UUID) -> ModuleSource:
         row.metadata_json = json.dumps(meta)
         row.workspace_doc_id = doc.id
         row.status = "ready"
-        row.last_synced_at = datetime.utcnow()
+        row.last_synced_at = utcnow()
         row.sync_error = ""
     except Exception as exc:
         logger.exception("module source index failed for %s", source_id)
         row.status = "error"
         row.sync_error = str(exc)[:500]
-    row.updated_at = datetime.utcnow()
+    row.updated_at = utcnow()
     session.add(row)
     await session.commit()
     await session.refresh(row)
@@ -699,7 +701,7 @@ async def reindex_due_sources(session: AsyncSession, *, limit: int = 40) -> int:
     )
     rows = list(result.scalars().all())
     count = 0
-    now = datetime.utcnow()
+    now = utcnow()
     for row in rows:
         if row.status == "indexing" and row.updated_at and now - row.updated_at < STALE_INDEXING_AFTER:
             continue

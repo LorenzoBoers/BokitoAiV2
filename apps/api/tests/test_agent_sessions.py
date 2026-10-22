@@ -425,3 +425,97 @@ async def test_session_rejected_on_assistant_thread(
     conversation_id = r.json()["id"]
     r = await client.post(f"/api/signals/{conversation_id}/sessions", headers=headers, json={})
     assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_session_reply_lands_under_the_speech(
+    client: AsyncClient, session_override: AsyncSession
+):
+    """A draft raised mid-turn stays on the customer thread, after the chat line."""
+    await _login(client)
+    thread = await _customer_thread(session_override)
+    session_override.add(
+        SignalMessage(
+            signal_id=thread.id,
+            tenant_id=thread.tenant_id,
+            kind="user_message",
+            direction="inbound",
+            role="user",
+            body_text="We zijn maandag gesloten.",
+        )
+    )
+    ask = Signal(
+        tenant_id=thread.tenant_id,
+        channel="assistant",
+        source="agent_session",
+        subject="Ask",
+        context_signal_id=thread.id,
+        session_state="active",
+    )
+    session_override.add(ask)
+    await session_override.commit()
+
+    from app.models.agent import Agent
+    from app.models.notification import DecisionRequest
+    from app.services.agent.reply_mode import CHAT
+    from app.services.agent.turn_persist import persist_agent_turn
+    from app.tools import execute_tool
+
+    agent = (
+        await session_override.execute(
+            select(Agent).where(Agent.tenant_id == thread.tenant_id, Agent.kind == "company")
+        )
+    ).scalars().first()
+    result = await execute_tool(
+        session_override,
+        thread.tenant_id,
+        None,
+        "suggest_thread_reply",
+        {"body_text": "Hoi, maandag zijn jullie gesloten. We passen het aan."},
+        signal_id=ask.id,
+        agent=agent,
+        turn_id="turn-session",
+    )
+    assert result.get("ok") is True
+    assert result.get("message_id") is None
+
+    decision = (
+        await session_override.execute(
+            select(DecisionRequest).where(DecisionRequest.signal_id == thread.id)
+        )
+    ).scalars().first()
+    assert decision is not None
+    assert decision.message_id is None
+
+    bubbles = await persist_agent_turn(
+        session_override,
+        ask,
+        segments=[
+            {
+                "id": "s1",
+                "text": "Het concept staat klaar.",
+                "activity": [
+                    {
+                        "id": "tool-1",
+                        "tool": "suggest_thread_reply",
+                        "status": "ok",
+                        "decision_ids": [str(decision.id)],
+                    }
+                ],
+            }
+        ],
+        reply_mode=CHAT,
+        author_agent_id=agent.id,
+        turn_id="turn-session",
+    )
+    await session_override.commit()
+    await session_override.refresh(decision)
+    card = await session_override.get(SignalMessage, decision.message_id)
+    assert card is not None
+    assert card.signal_id == thread.id
+    assert card.kind == "decision_request"
+    assert bubbles[0].received_at < card.received_at
+    meta = json.loads(card.metadata_json or "{}")
+    assert meta.get("turn_id") == "turn-session"
+    assert meta.get("based_on_message_id")
+    assert decision.signal_id == thread.id

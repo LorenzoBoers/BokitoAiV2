@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime, timedelta
@@ -171,7 +173,7 @@ async def export_subject(
         memberships.extend(ms)
 
     package = {
-        "exported_at": datetime.utcnow().isoformat() + "Z",
+        "exported_at": utcnow().isoformat() + "Z",
         "tenant_id": str(tenant_id),
         "subject_email": needle,
         "contacts": [
@@ -364,9 +366,9 @@ async def purge_expired_for_tenant(
     session: AsyncSession, tenant: Tenant
 ) -> dict[str, int]:
     privacy = privacy_settings_from_tenant(tenant)
-    msg_cut = datetime.utcnow() - timedelta(days=privacy["retention_messages_days"])
-    cal_cut = datetime.utcnow() - timedelta(days=privacy["retention_calendar_days"])
-    audit_cut = datetime.utcnow() - timedelta(days=privacy["retention_audit_days"])
+    msg_cut = utcnow() - timedelta(days=privacy["retention_messages_days"])
+    cal_cut = utcnow() - timedelta(days=privacy["retention_calendar_days"])
+    audit_cut = utcnow() - timedelta(days=privacy["retention_audit_days"])
 
     msg_result = await session.execute(
         delete(SignalMessage).where(

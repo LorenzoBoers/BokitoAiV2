@@ -44,7 +44,7 @@ import { cn } from '../lib/utils'
 import { TextLink } from '../components/ui/text-link'
 
 /** Library card mark — readable face, not a dense list icon. */
-const LIBRARY_MARK_SIZE = 52
+const LIBRARY_MARK_SIZE = 48
 
 type AgentStatusFilter = 'all' | 'working' | 'deactivated'
 

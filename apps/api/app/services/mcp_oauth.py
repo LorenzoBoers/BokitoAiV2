@@ -319,6 +319,16 @@ def _token_auth_payload(tokens: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _refresh_context(context: dict[str, Any]) -> dict[str, Any]:
+    """What ``mcp_remote_client.ensure_fresh_token`` needs to refresh later."""
+    out = {
+        key: str(context[key])
+        for key in ("token_endpoint", "client_id", "client_secret", "resource")
+        if context.get(key)
+    }
+    return out
+
+
 async def complete_mcp_remote_oauth(
     session: AsyncSession,
     *,
@@ -370,7 +380,7 @@ async def complete_mcp_remote_oauth(
             {"integration_error": str(exc) or "token_exchange_failed", "provider": provider},
         )
 
-    auth_payload = _token_auth_payload(tokens)
+    auth_payload = {**_token_auth_payload(tokens), **_refresh_context(context)}
     mcp_url = str(context.get("mcp_url") or "")
     display_name = PROVIDER_BY_SLUG.get(provider, {}).get("name") or provider
     server, conn, binding = await register_mcp_server(
@@ -380,7 +390,7 @@ async def complete_mcp_remote_oauth(
         server_url=mcp_url,
         auth=auth_payload,
         provider=provider,
-        credentials=_token_auth_payload(tokens),
+        credentials=auth_payload,
         metadata={"mode": "remote_oauth", "mcp_remote_url": mcp_url},
     )
     binding_cfg = json.loads(binding.config_json or "{}")

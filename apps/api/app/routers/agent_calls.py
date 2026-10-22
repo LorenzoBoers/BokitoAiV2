@@ -42,6 +42,23 @@ async def ringing(
     return await agent_calls.list_ringing(session, auth.tenant.id, auth.user.id)
 
 
+class RequestCallBody(BaseModel):
+    decision_id: UUID
+
+
+@router.post("/request")
+async def request_call(
+    body: RequestCallBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[None, Depends(_require_calls)],
+):
+    """Call me: ring this person now about one waiting decision card."""
+    call = await agent_calls.request_call(session, auth.tenant.id, auth.user.id, body.decision_id)
+    await session.commit()
+    return agent_calls.serialize_call(call)
+
+
 @router.post("/{call_id}/accept")
 async def accept_call(
     call_id: UUID,

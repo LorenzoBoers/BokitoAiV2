@@ -145,16 +145,16 @@ async def test_flow_policy_dial(client: AsyncClient, session_override):
 @pytest.mark.asyncio
 async def test_workspace_policy_sets_the_default(client: AsyncClient, session_override):
     headers = await _login(client)
-    got = (await client.get("/api/categories/policy", headers=headers)).json()
+    got = (await client.get("/api/labels/policy", headers=headers)).json()
     assert got["stage_entry_policy"] == "propose" and got["due_soon_days"] == 7
     saved = await client.put(
-        "/api/categories/policy",
+        "/api/labels/policy",
         headers=headers,
         json={"stage_entry_policy": "auto_above", "stage_entry_threshold": 6, "due_soon_days": 14},
     )
     assert saved.status_code == 200, saved.text
     assert saved.json()["stage_entry_threshold"] == 6 and saved.json()["due_soon_days"] == 14
-    bad = await client.put("/api/categories/policy", headers=headers, json={"due_soon_days": 0})
+    bad = await client.put("/api/labels/policy", headers=headers, json={"due_soon_days": 0})
     assert bad.status_code == 400
 
 

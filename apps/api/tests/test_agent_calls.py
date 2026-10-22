@@ -15,10 +15,12 @@ from app.config import get_settings
 from app.services.agent_calls import (
     choice_action,
     decline_call,
+    end_call,
     expire_rings,
     match_option,
     maybe_ring_for_decision,
     miss_call,
+    run_call_tool,
 )
 from app.services.agent_call_voice import _TOOLS, voice_instructions
 from scripts.seed import TEST_EMAIL, TEST_PASSWORD
@@ -27,6 +29,8 @@ from scripts.seed import TEST_EMAIL, TEST_PASSWORD
 @pytest.fixture(autouse=True)
 def _calls_on(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(get_settings(), "agent_calls_enabled", True)
+    # Quiet hours (default 22:00-07:00) must not make these tests time-of-day flaky.
+    monkeypatch.setattr("app.services.reach.in_quiet_hours", lambda *_a, **_k: False)
 
 
 def test_choice_maps_reject_and_approve():
@@ -51,7 +55,8 @@ def test_voice_brief_names_options_and_hides_tools():
     assert "Send the invoice?" in text
     assert "id: approve" in text
     names = {tool["name"] for tool in _TOOLS}
-    assert names == {"consult_run", "confirm_choice"}
+    assert names == {"consult_run", "confirm_choice", "hang_up"}
+    assert "hang_up" in text
 
 
 async def _login(client: AsyncClient) -> dict[str, str]:
@@ -184,7 +189,7 @@ async def test_accept_without_voice_key_stays_ringing(client: AsyncClient, sessi
     )
     monkeypatch.setattr(
         "app.services.agent_call_voice.get_settings",
-        lambda: type("S", (), {"openai_api_key": "", "openai_realtime_model": "gpt-realtime", "openai_realtime_voice": "marin", "agent_call_ring_seconds": 25})(),
+        lambda: type("S", (), {"openai_api_key": "", "openai_realtime_model": "gpt-realtime-mini", "openai_realtime_voice": "marin", "agent_call_ring_seconds": 25})(),
     )
     decision = await _open_decision(session_override, user=user, tenant=tenant)
     call = await maybe_ring_for_decision(session_override, tenant.id, decision)
@@ -218,3 +223,52 @@ async def test_calls_stay_off_without_the_flag(client: AsyncClient, session_over
     me = await client.get("/api/auth/me", headers=headers)
     assert me.status_code == 200
     assert me.json()["agent_calls_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_hang_up_ends_the_live_call(client: AsyncClient, session_override):
+    await _login(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    decision = await _open_decision(session_override, user=user, tenant=tenant)
+    call = AgentCall(
+        tenant_id=tenant.id,
+        signal_id=decision.signal_id,
+        decision_id=decision.id,
+        user_id=user.id,
+        status="live",
+        answered_at=datetime.utcnow(),
+    )
+    session_override.add(call)
+    await session_override.commit()
+    await session_override.refresh(call)
+    result = await run_call_tool(
+        session_override,
+        tenant.id,
+        user.id,
+        call.id,
+        name="hang_up",
+        arguments={"transcript": [{"role": "assistant", "text": "Tot zo."}]},
+    )
+    await session_override.commit()
+    assert result["status"] == "ended"
+    await session_override.refresh(call)
+    assert call.status == "ended"
+    assert call.ended_at is not None
+    await end_call(
+        session_override,
+        tenant.id,
+        user.id,
+        call.id,
+        transcript=[{"role": "user", "text": "Doei."}],
+    )
+    await session_override.commit()
+    from app.models.signal import SignalMessage
+
+    lines = (
+        await session_override.execute(
+            select(SignalMessage.body_text).where(SignalMessage.signal_id == decision.signal_id)
+        )
+    ).scalars().all()
+    assert "Tot zo." in lines
+    assert "Doei." in lines

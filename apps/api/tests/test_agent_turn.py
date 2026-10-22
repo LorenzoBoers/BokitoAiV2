@@ -28,7 +28,6 @@ from app.services.agent.turn_persist import (
     message_activity,
     plan_customer_bubbles,
     plan_turn_messages,
-    prepare_choice_repair,
 )
 from app.services.chat_delivery import MAX_PAUSE_S, MIN_PAUSE_S, typing_pause
 from app.services.signal_threads import message_delivered_to_customer
@@ -1019,7 +1018,7 @@ async def test_place_turn_decisions_does_not_drag_old_cards_into_new_turn(
     assert "attached_to_message_id" not in json.loads(card.metadata_json or "{}")
 
 
-def test_choice_repair_turns_tag_bullets_into_options():
+def test_contact_showcase_stays_off_the_question():
     bubbles = [
         {
             "text": "Er is al een contact voor Lorenzo Boers (lorenzo_boers@outlook.com).",
@@ -1054,12 +1053,7 @@ def test_choice_repair_turns_tag_bullets_into_options():
         },
         {"text": "Welke categorie past het beste bij het issue?", "activity": []},
     ]
-    cleaned, options = prepare_choice_repair(bubbles)
-    assert [row["id"] for row in options] == ["t-bug", "t-feature"]
-    speech = "\n".join(row["text"] for row in cleaned)
-    assert "- bug" not in speech
-    assert "Welke categorie" in speech
-    groups = assign_bubble_showcases(cleaned)
+    groups = assign_bubble_showcases(bubbles)
     assert groups[0][0]["id"] == "c1"
     assert all(item.get("type") != "contact" for item in groups[-1])
 

@@ -11,6 +11,15 @@ export type NotificationPrefs = {
   sound: boolean
   /** Bump with `services/notify.py` PREFS_VERSION when defaults override stored rows. */
   version: number
+  /** How agents may reach you outside the app; the server fills its defaults. */
+  reach?: NotificationReach
+}
+
+export type NotificationReach = {
+  quiet_from: string | null
+  quiet_to: string | null
+  max_per_day: number
+  agents_may_call: boolean
 }
 
 /** Mirrors `services/notify.py` PREFS_VERSION — v2 turns new-message on by default. */
@@ -104,6 +113,7 @@ export function normalizeNotificationPrefs(raw: unknown): NotificationPrefs {
     tiers?: Record<string, unknown>
     rows?: Array<{ id?: unknown; channels?: unknown }>
     sound?: unknown
+    reach?: unknown
   }
   const storedVersion = typeof data.version === 'number' ? data.version : 1
   const tiers = { ...defaults.tiers }
@@ -123,6 +133,7 @@ export function normalizeNotificationPrefs(raw: unknown): NotificationPrefs {
     tiers,
     rows,
     sound: typeof data.sound === 'boolean' ? data.sound : defaults.sound,
+    ...(data.reach && typeof data.reach === 'object' ? { reach: data.reach as NotificationReach } : {}),
   }
 }
 

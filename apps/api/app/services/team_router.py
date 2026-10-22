@@ -91,19 +91,10 @@ async def _candidates(session: AsyncSession, signal: Signal) -> list[Agent]:
 
 
 async def _last_speaker(session: AsyncSession, signal_id: UUID, among: set[UUID]) -> UUID | None:
-    rows = (
-        await session.execute(
-            select(SignalMessage.author_agent_id)
-            .where(
-                SignalMessage.signal_id == signal_id,
-                SignalMessage.author_agent_id.is_not(None),
-                SignalMessage.kind == "agent_message",
-            )
-            .order_by(SignalMessage.seq.desc())
-            .limit(20)
-        )
-    ).scalars().all()
-    return next((agent_id for agent_id in rows if agent_id in among), None)
+    from app.services.signal_threads import last_agent_author
+
+    author = await last_agent_author(session, signal_id)
+    return author if author in among else None
 
 
 async def _recent(session: AsyncSession, signal_id: UUID, names: dict[UUID, str]) -> str:

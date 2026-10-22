@@ -146,7 +146,7 @@ async def _placement(session: AsyncSession, signal: Signal) -> dict[str, Any]:
                 "name": ws.name,
                 "label": tag.name if tag is not None else "",
                 "stage": {"key": stage["key"], "name": stage["name"]} if stage else None,
-                "always_review": bool(ws.always_review),
+                "autonomy": ws.autonomy or "",
             }
     return {"folder": folder, "flow": flow}
 
@@ -163,7 +163,15 @@ def _delivery_lines(deliveries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         lines.append(_line("delivered_reply", None, channel=channel, count=count))
     for row in deliveries:
         kind = row.get("target_kind")
-        if kind == "works_in":
+        if kind == "works_in" and not row.get("folder_id") and row.get("connection_id"):
+            lines.append(
+                _line(
+                    "delivered_connection",
+                    "/integrations",
+                    connection=row.get("title") or row.get("provider") or "",
+                )
+            )
+        elif kind == "works_in":
             lines.append(
                 _line(
                     "delivered_works_in",
@@ -183,7 +191,11 @@ def _delivery_lines(deliveries: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _handling_lines(handling, agent: Agent | None, flow: dict[str, Any] | None) -> list[dict[str, Any]]:
-    source_href = {"workspace": AUTONOMY_HREF, "channel": CHANNELS_HREF}.get(handling.source)
+    source_href = {
+        "workspace": AUTONOMY_HREF,
+        "channel": CHANNELS_HREF,
+        "flow": f"/flows/{flow['id']}" if flow else None,
+    }.get(handling.source)
     lines = [
         _line(
             f"handling_{handling.source}",
@@ -197,7 +209,6 @@ def _handling_lines(handling, agent: Agent | None, flow: dict[str, Any] | None) 
         "privacy": PRIVACY_HREF,
         "breaker": CHANNELS_HREF,
         "agent": f"/agents/{agent.id}" if agent is not None else None,
-        "flow": f"/flows/{flow['id']}" if flow else None,
     }
     for cap in handling.ceilings:
         if mode_rank(cap["cap"]) >= mode_rank(handling.requested):
@@ -209,7 +220,6 @@ def _handling_lines(handling, agent: Agent | None, flow: dict[str, Any] | None) 
                 cap_href.get(reason),
                 mode=cap["cap"],
                 agent=agent.name if agent is not None and reason == "agent" else "",
-                flow=flow["name"] if flow and reason == "flow" else "",
             )
         )
     return lines

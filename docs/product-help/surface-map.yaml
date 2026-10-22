@@ -121,10 +121,15 @@ team:
     - /workforce
     - /workforce/grid
     - /workforce/workflow
+    - /departments/:id
+    - /workforce/departments/:id
     - /settings/members
     - /settings/teams
   code_globs:
     - apps/dashboard/src/pages/TeamPage.tsx
+    - apps/dashboard/src/pages/DepartmentPage.tsx
+    - apps/api/app/services/department_overview.py
+    - apps/api/app/services/awareness.py
     - apps/dashboard/src/pages/OrgCanvasPage.tsx
     - apps/dashboard/src/pages/WorkflowPage.tsx
     - apps/dashboard/src/components/org/**
@@ -168,6 +173,11 @@ communication:
     - apps/api/app/services/related_conversations.py
     - apps/api/app/channels/base.py
     - apps/api/app/services/thread_schedule.py
+    - apps/dashboard/src/components/chat-stack/**
+    - apps/dashboard/src/hooks/useChatStack.ts
+    - apps/dashboard/src/hooks/usePinnedIds.ts
+    - apps/dashboard/src/lib/chat-stack.ts
+    - apps/dashboard/src/lib/chat-stack-follow.ts
   screenshots:
     - decision-card
     - open-queue
@@ -390,7 +400,6 @@ flows:
     - apps/api/app/services/deliveries.py
   screenshots:
     - board
-    - always-review
 
 categories:
   section: ai
@@ -426,6 +435,8 @@ agenda:
     - apps/api/app/services/time_items.py
     - apps/api/app/routers/calendars.py
     - apps/api/app/services/thread_schedule.py
+    - apps/api/app/services/recurring_tickets.py
+    - apps/api/app/services/trends.py
     - apps/dashboard/src/lib/thread-schedule.ts
     - apps/dashboard/src/components/inbox/PlanDialog.tsx
   screenshots:

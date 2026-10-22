@@ -360,6 +360,9 @@ async def get_project_detail(
         )
     children.sort(key=lambda row: row["display_name"].lower())
     payload["children"] = children
+    from app.services.department_overview import folder_departments
+
+    payload["departments"] = await folder_departments(session, tenant_id, project, [project.id, *child_ids])
     return payload
 
 
@@ -699,23 +702,9 @@ async def _trash_project(
     batch_id: UUID,
     commit: bool,
 ) -> None:
-    from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
-    from app.models.trigger import Trigger
     from app.models.workspace import WorkspaceDoc
     from app.services.trash import alive, move_to_bin
 
-    canvases = list(
-        (
-            await session.execute(
-                select(ProjectCanvas).where(
-                    ProjectCanvas.tenant_id == project.tenant_id,
-                    ProjectCanvas.owner_kind == OWNER_PROJECT,
-                    ProjectCanvas.owner_id == project.id,
-                    alive(ProjectCanvas),
-                )
-            )
-        ).scalars().all()
-    )
     docs = list(
         (
             await session.execute(
@@ -751,25 +740,9 @@ async def _trash_project(
         ).scalars().all()
     )
     children: list[tuple[str, Any]] = []
-    children.extend(("canvas", canvas) for canvas in canvases)
     children.extend(("knowledge", doc) for doc in docs)
     children.extend(("project_resource", resource) for resource in resources)
     children.extend(("queue_item", item) for item in queue_items)
-    for canvas in canvases:
-        if not canvas.refresh_trigger_id:
-            continue
-        trigger = (
-            await session.execute(
-                select(Trigger).where(
-                    Trigger.id == canvas.refresh_trigger_id,
-                    Trigger.tenant_id == project.tenant_id,
-                )
-            )
-        ).scalar_one_or_none()
-        if trigger and getattr(trigger, "enabled", False):
-            trigger.trash_was_enabled = True
-            trigger.enabled = False
-            session.add(trigger)
     await move_to_bin(
         session,
         tenant,
@@ -828,9 +801,7 @@ async def delete_project(
 
     from sqlalchemy import delete as sa_delete, update as sa_update
 
-    from app.models.project_canvas import OWNER_PROJECT, ProjectCanvas
     from app.models.project_work import TaskDocLink
-    from app.models.trigger import Trigger
     from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
     from app.models.agent import AgentRun
     from app.models.orchestration import TaskArtifact
@@ -864,25 +835,7 @@ async def delete_project(
     )
     await session.execute(sa_update(AgentTask).where(AgentTask.project_id == project_id).values(project_id=None))
     await session.execute(sa_delete(ProjectResource).where(ProjectResource.project_id == project_id))
-    canvases = (
-        await session.execute(
-            select(ProjectCanvas).where(
-                ProjectCanvas.tenant_id == tenant_id,
-                ProjectCanvas.owner_kind == OWNER_PROJECT,
-                ProjectCanvas.owner_id == project_id,
-            )
-        )
-    ).scalars().all()
-    trigger_ids = [c.refresh_trigger_id for c in canvases if c.refresh_trigger_id]
-    if trigger_ids:
-        await session.execute(sa_delete(Trigger).where(Trigger.id.in_(trigger_ids)))
-    await session.execute(
-        sa_delete(ProjectCanvas).where(
-            ProjectCanvas.tenant_id == tenant_id,
-            ProjectCanvas.owner_kind == OWNER_PROJECT,
-            ProjectCanvas.owner_id == project_id,
-        )
-    )
+    # Canvases stay with their conversations when a folder is removed.
     doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)
     await session.execute(sa_delete(DocChunk).where(DocChunk.doc_id.in_(doc_ids)))
     await session.execute(sa_delete(WorkspaceDoc).where(WorkspaceDoc.project_id == project_id))

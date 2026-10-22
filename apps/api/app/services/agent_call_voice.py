@@ -1,7 +1,8 @@
 """Realtime voice session for an agent call.
 
-The session carries two tools only: consult the running agent, or confirm
-the open decision. Audio stays between the browser and the voice provider.
+The session carries three tools: consult the running agent, confirm the
+open decision, or hang up. Audio stays between the browser and the voice
+provider.
 """
 
 from __future__ import annotations
@@ -35,6 +36,16 @@ _TOOLS: list[dict[str, Any]] = [
             },
             "required": ["question"],
         },
+    },
+    {
+        "type": "function",
+        "name": "hang_up",
+        "description": (
+            "End this call. Say one short goodbye in the same turn, then call "
+            "this. Use it when the person says goodbye, is done, or the "
+            "decision is settled and nothing is left to ask."
+        ),
+        "parameters": {"type": "object", "properties": {}},
     },
     {
         "type": "function",
@@ -82,6 +93,9 @@ def voice_instructions(
             "A message that starts with [Run update] is the agent run reporting back. "
             "Say that result in your own voice. Do not read the bracket label.",
             "When the person picks an option, call confirm_choice with its id, then confirm aloud.",
+            "When the person says goodbye, is done, or the decision is settled "
+            "and nothing is left to ask, say one short goodbye and call hang_up. "
+            "Do not ask another question after that.",
             "You cannot change the workspace yourself. Only the run can.",
         ]
     )

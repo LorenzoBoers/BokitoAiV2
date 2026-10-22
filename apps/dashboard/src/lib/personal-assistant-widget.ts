@@ -7,8 +7,57 @@
  * mounted by `PersonalAssistantWidget`.
  */
 
+/**
+ * The launcher sits bottom-right — exactly where an open conversation puts
+ * its send controls. Hide it while a thread or the new-conversation composer
+ * is on screen so it never covers a Send button; it returns on every other
+ * page (lists, Overview, settings, ...). Topbar Help force-opens the panel
+ * even while the launcher is hidden. The chat stack reads this too, to sit
+ * beside the launcher when it shows.
+ */
+export function launcherHiddenFor(pathname: string): boolean {
+  if (pathname === '/new' || pathname.startsWith('/new/')) return true
+  if (!pathname.startsWith('/communication')) return false
+  return pathname.includes('/t/') || pathname.startsWith('/communication/new')
+}
+
+/**
+ * A floating chat-stack thread takes the launcher's corner. While it is open
+ * the launcher (and its panel) step aside; opening the helper again asks the
+ * floating thread to minimize.
+ */
+let suppressed = false
+const suppressListeners = new Set<() => void>()
+const assistantOpenListeners = new Set<() => void>()
+
+export function launcherSuppressed(): boolean {
+  return suppressed
+}
+
+export function setLauncherSuppressed(next: boolean): void {
+  if (suppressed === next) return
+  suppressed = next
+  if (next) mounted?.close?.()
+  suppressListeners.forEach((fn) => fn())
+}
+
+export function onLauncherSuppressedChange(fn: () => void): () => void {
+  suppressListeners.add(fn)
+  return () => suppressListeners.delete(fn)
+}
+
+export function onAssistantOpen(fn: () => void): () => void {
+  assistantOpenListeners.add(fn)
+  return () => assistantOpenListeners.delete(fn)
+}
+
+function notifyAssistantOpen(): void {
+  assistantOpenListeners.forEach((fn) => fn())
+}
+
 type BokitoChatElement = HTMLElement & {
   open?: () => void
+  close?: () => void
   openThread?: (conversationId: string) => Promise<void> | void
   startThread?: () => Promise<void> | void
 }
@@ -20,6 +69,7 @@ let pendingOpen = false
 function showAndOpen(el: BokitoChatElement): void {
   // Communication may hide the host while a thread composer is on screen;
   // force-open from Help must still show the panel.
+  notifyAssistantOpen()
   el.style.display = ''
   el.open?.()
 }
@@ -56,6 +106,7 @@ export function openAssistant(): void {
 
 export function openAssistantThread(conversationId: string): void {
   if (!mounted) return
+  notifyAssistantOpen()
   mounted.style.display = ''
   if (mounted.openThread) void mounted.openThread(conversationId)
   else mounted.open?.()
@@ -63,6 +114,7 @@ export function openAssistantThread(conversationId: string): void {
 
 export function startAssistantThread(): void {
   if (!mounted) return
+  notifyAssistantOpen()
   mounted.style.display = ''
   if (mounted.startThread) void mounted.startThread()
   else mounted.open?.()

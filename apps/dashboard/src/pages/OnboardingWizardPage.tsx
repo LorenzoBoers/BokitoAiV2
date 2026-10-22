@@ -16,6 +16,7 @@ import {
 import { DEFAULT_BOT_ORB_COLOR } from '../lib/bot-orb-shapes'
 import { AgentVisualEditor } from '../components/workforce/AgentVisualEditor'
 import { applyUiLanguageLocally, persistUiLanguage } from '../lib/language-preference'
+import { setPref } from '../lib/preferences'
 import {
   defaultNotificationPrefs,
   NOTIFICATION_TIERS,
@@ -36,7 +37,6 @@ import AiHandlingPicker from '../components/ai/AiHandlingPicker'
 import type { AiHandling, AiHandlingMode } from '../lib/ai-handling'
 import { APP_API_BASE } from '../lib/api.config'
 import { policyRoutes } from '../api/routes/policy.routes'
-import { appRoutes } from '../api/routes/app.routes'
 import { cn } from '../lib/utils'
 import { markTourPendingAfterWizard } from '../lib/tour-handoff'
 
@@ -284,30 +284,31 @@ export default function OnboardingWizardPage() {
     }
   }
 
-  const completeAndEnterApp = async (dest: string) => {
+  const completeAndEnterApp = async (dest: string, opts?: { tour?: boolean }) => {
     if (!token) return
     if (isOwnerScope) {
       const next = await patchOnboardingWizard(token, { complete: true })
       setState(next)
     } else {
-      await fetch(`${APP_API_BASE}${appRoutes.me.preferences}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ personal_wizard_completed: true }),
-      })
+      await setPref('personal_wizard_completed', true, token)
     }
-    markTourPendingAfterWizard()
+    if (opts?.tour !== false) markTourPendingAfterWizard()
     navigate(dest, { replace: true })
   }
 
   const finish = async () => {
     setBusy(true)
     try {
-      await saveCurrentStep()
+      const saved = await saveCurrentStep()
+      if (!saved) return
+      const agentId = state?.lead_agent?.id
+      if (isOwnerScope && agentId) {
+        await completeAndEnterApp(
+          `/communication/new?intent=agent&agent=${encodeURIComponent(agentId)}&setup=1`,
+          { tour: false },
+        )
+        return
+      }
       await completeAndEnterApp('/communication/inbox/for_you')
     } catch {
       toast.error(t('saveError'))
@@ -508,7 +509,7 @@ export default function OnboardingWizardPage() {
               <AiAvatar
                 name={agentName || 'A'}
                 seed={state.lead_agent?.id || 'agent'}
-                size={104}
+                size={96}
                 kind={avatarKind}
                 icon={null}
                 color={avatarKind === 'orb' ? avatarColor : null}

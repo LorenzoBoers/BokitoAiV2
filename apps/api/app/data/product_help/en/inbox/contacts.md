@@ -57,7 +57,7 @@ The AI links on its own when a visitor gives an address. **Assisted** links only
 
 1. Open the contact on Contacts, or open the side panel in a conversation with them. Find the **Owner** row under the contact details.
 2. Pick a person or a team from the menu; **No fixed owner** clears it.
-3. New conversations from this contact go to that owner when the AI is silent (Manual). On Autonomous or Assisted the agent picks the conversation up first and hands it to the contact owner as soon as a person is needed, before it falls back to the channel team.
+3. New chats from this contact go to that owner when the AI is silent (Manual). On Autonomous or Assisted the agent picks the conversation up first and hands it to the contact owner as soon as a person is needed, before it falls back to the channel team.
 
 Account managers and key accounts are the usual case: the agent handles the routine mail and the owner gets everything the agent cannot finish. See [Handovers](/docs/inbox/inbox-ai#set-handovers-between-agent-and-people).
 

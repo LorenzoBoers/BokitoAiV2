@@ -48,7 +48,24 @@ export function useDocsLang(): [string, (next: 'en' | 'nl') => void] {
 /** UI copy for the public docs site, keyed to the docs language switcher (not the app locale). */
 export function useDocsT(lang: string) {
   const { i18n } = useTranslation()
-  return useMemo(() => i18n.getFixedT(helpLang(lang), 'nav'), [i18n, lang])
+  const target = helpLang(lang)
+  // Locales load per language; fetch the docs language if the app runs in the other one.
+  const [loaded, setLoaded] = useState(() => i18n.hasResourceBundle(target, 'nav'))
+  useEffect(() => {
+    if (i18n.hasResourceBundle(target, 'nav')) {
+      setLoaded(true)
+      return
+    }
+    let alive = true
+    setLoaded(false)
+    void i18n.loadLanguages(target).then(() => {
+      if (alive) setLoaded(true)
+    })
+    return () => {
+      alive = false
+    }
+  }, [i18n, target])
+  return useMemo(() => i18n.getFixedT(target, 'nav'), [i18n, target, loaded])
 }
 
 type DocsHeaderProps = {

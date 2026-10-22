@@ -335,6 +335,9 @@ async def claim_handover(session: AsyncSession, signal: Signal, body_text: str) 
     widget.last_message_at = now
     widget.updated_at = now
     session.add(widget)
+    from app.services.deliveries import settle_outcome
+
+    await settle_outcome(session, widget)
     await session.commit()
     await publish_signal_message(widget, note)
     await publish_signal_message(signal, reply)

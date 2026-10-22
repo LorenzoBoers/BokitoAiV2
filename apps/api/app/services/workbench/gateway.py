@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import secrets
 from dataclasses import asdict, dataclass
@@ -180,8 +182,8 @@ async def dispatch(
     except Exception as exc:
         job.state = "failed"
         job.summary = f"Failed to start: {exc}"[:500]
-        job.finished_at = datetime.utcnow()
-        job.updated_at = datetime.utcnow()
+        job.finished_at = utcnow()
+        job.updated_at = utcnow()
         session.add(job)
         await revoke_job_token(session, job)
         await publish_events(
@@ -195,8 +197,8 @@ async def dispatch(
     job.external_id = handle.external_id or handle.external_ids.get("agent_id") or handle.external_ids.get("session_id")
     job.external_ids_json = json.dumps(handle.external_ids)
     job.state = "running"
-    job.last_event_at = datetime.utcnow()
-    job.updated_at = datetime.utcnow()
+    job.last_event_at = utcnow()
+    job.updated_at = utcnow()
     session.add(job)
     await publish_events(
         session,
@@ -252,8 +254,8 @@ async def follow_up(
     await adapter.follow_up(handle, text, creds, images=images)
     job.external_ids_json = json.dumps(handle.external_ids)
     job.state = "running"
-    job.last_event_at = datetime.utcnow()
-    job.updated_at = datetime.utcnow()
+    job.last_event_at = utcnow()
+    job.updated_at = utcnow()
     session.add(job)
     await publish_events(
         session,
@@ -262,7 +264,7 @@ async def follow_up(
             NormalizedEvent(
                 kind="progress",
                 summary="Follow-up sent",
-                external_event_id=f"follow-up:{job.id}:{datetime.utcnow().isoformat()}",
+                external_event_id=f"follow-up:{job.id}:{utcnow().isoformat()}",
             )
         ],
     )
@@ -310,7 +312,7 @@ async def cancel(
             NormalizedEvent(
                 kind="cancelled",
                 summary="Cancelled by operator",
-                external_event_id=f"cancel:{job.id}:{datetime.utcnow().isoformat()}",
+                external_event_id=f"cancel:{job.id}:{utcnow().isoformat()}",
             )
         ],
     )
@@ -359,7 +361,7 @@ async def ingest(
                     await _link_project_artifact(session, job, art)
         elif event.kind in TERMINAL:
             job.state = event.kind
-            job.finished_at = datetime.utcnow()
+            job.finished_at = utcnow()
             if event.summary:
                 job.summary = event.summary[:500]
             if event.kind in ("failed", "cancelled") and not job.outcome:
@@ -391,8 +393,8 @@ async def ingest(
 
     job.artifacts_json = json.dumps(artifacts)
     job.seen_event_ids_json = json.dumps(seen[-200:])
-    job.last_event_at = datetime.utcnow()
-    job.updated_at = datetime.utcnow()
+    job.last_event_at = utcnow()
+    job.updated_at = utcnow()
     session.add(job)
 
     await publish_events(session, job, applied)
@@ -421,7 +423,7 @@ async def ingest(
 
 def _upsert_artifact(artifacts: list[Any], art: dict[str, Any]) -> list[Any]:
     external_id = str(art.get("external_id") or art.get("url") or "")
-    now = datetime.utcnow().isoformat() + "Z"
+    now = utcnow().isoformat() + "Z"
     art = {**art, "created_at": art.get("created_at") or now}
     if external_id:
         for i, existing in enumerate(artifacts):
@@ -450,12 +452,12 @@ async def refresh(session: AsyncSession, job: WorkJob) -> None:
     try:
         events = await adapter.poll(handle, creds)
     except WorkbenchHttpError as exc:
-        job.last_polled_at = datetime.utcnow()
+        job.last_polled_at = utcnow()
         session.add(job)
         # Lost contact after budget + 30 min.
         budget = _parse_json(job.budget_json, {})
         max_minutes = int(budget.get("max_minutes") or 60) if isinstance(budget, dict) else 60
-        if job.last_event_at and job.last_event_at < datetime.utcnow() - timedelta(minutes=max_minutes + 30):
+        if job.last_event_at and job.last_event_at < utcnow() - timedelta(minutes=max_minutes + 30):
             await ingest(
                 session,
                 job,
@@ -471,7 +473,7 @@ async def refresh(session: AsyncSession, job: WorkJob) -> None:
         return
 
     job.external_ids_json = json.dumps(handle.external_ids)
-    job.last_polled_at = datetime.utcnow()
+    job.last_polled_at = utcnow()
     session.add(job)
     await ingest(session, job, events)
     await session.commit()
@@ -572,7 +574,7 @@ async def _link_project_artifact(
 
 async def poll_active_jobs(session: AsyncSession) -> int:
     """Cron entry: refresh jobs that need polling."""
-    now = datetime.utcnow()
+    now = utcnow()
     result = await session.execute(
         select(WorkJob).where(WorkJob.state.in_(("queued", "running", "needs_input")))
     )

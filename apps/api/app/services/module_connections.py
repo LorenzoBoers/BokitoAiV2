@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -19,6 +20,8 @@ from app.modules.catalog import (
     get_module_prefs,
     update_module_prefs,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
@@ -463,7 +466,7 @@ async def verify_connection(
                         identity = str(admins[0].get("name") or admins[0].get("id") or identity)
                         instance_key = instance_key_for("moneybird", administrations=admins)
                 except Exception:
-                    pass
+                    logger.warning("Moneybird administration lookup on verify failed", exc_info=True)
             else:
                 error = str(check.get("error") or check.get("note") or "Moneybird verification failed")
     else:

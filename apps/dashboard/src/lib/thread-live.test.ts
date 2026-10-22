@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GatewayEvent } from './gateway'
+import type { AiHandling } from './ai-handling'
 import type { InboxThread, ThreadFilters } from './inbox-api'
 import {
   extractLiveMessage,
@@ -236,6 +237,24 @@ describe('upsertThreadRow', () => {
     expect(next[0].emailSubject).toBe('Hoe gaat het?')
   })
 
+  it('keeps the last speaker when a live row omits it', () => {
+    const speaker = {
+      id: 'extra',
+      name: 'Extra test agent',
+      kind: 'assistant',
+      avatarKind: 'orb',
+      avatarIcon: null,
+      avatarColor: '#ff263c',
+      avatarShape: 'wedge',
+      avatarImageUrl: null,
+    }
+    const existing = thread({ agentId: 'orch', agentName: 'Orchestrator', speaker })
+    const incoming = thread({ emailSubject: 'Grap', speaker: undefined })
+    const next = upsertThreadRow([existing], incoming)
+    expect(next[0].speaker?.name).toBe('Extra test agent')
+    expect(next[0].agentName).toBe('Orchestrator')
+  })
+
   it('moves a thread to the top when its status changes', () => {
     const older = thread({ id: 'sig-old' })
     const existing = thread({ id: 'sig-1', status: 'open' })
@@ -245,7 +264,7 @@ describe('upsertThreadRow', () => {
   })
 
   it('keeps AI handling when the live row carries none', () => {
-    const handling = {
+    const handling: AiHandling = {
       effective: 'manual',
       requested: 'manual',
       source: 'conversation',
@@ -260,7 +279,7 @@ describe('upsertThreadRow', () => {
       own: 'manual',
       layers: [],
       ceilings: [],
-    } as const
+    }
     const existing = thread({ aiHandling: handling })
     const next = upsertThreadRow([existing], thread({ aiHandling: null }))
     expect(next[0].aiHandling?.effective).toBe('manual')

@@ -1,5 +1,4 @@
-import { appRoutes } from '../api/routes/app.routes'
-import { apiGet, apiPatch } from './api'
+import { loadPreferences, patchPreferences, type Preferences } from './preferences'
 
 /** Server-persisted first-run tour state (per user, `User.settings_json.tour`). */
 export type TourState = {
@@ -9,17 +8,15 @@ export type TourState = {
   version?: number
 }
 
-type PreferencesResponse = {
-  ui_language?: string
-  tour?: TourState
+function tourOf(prefs: Preferences): TourState {
+  const tour = prefs.tour
+  return tour && typeof tour === 'object' ? (tour as TourState) : {}
 }
 
 export async function getTourState(token: string): Promise<TourState> {
-  const res = await apiGet<PreferencesResponse>(appRoutes.me.preferences, token)
-  return res.tour ?? {}
+  return tourOf(await loadPreferences(token))
 }
 
 export async function patchTourState(token: string, tour: TourState): Promise<TourState> {
-  const res = await apiPatch<PreferencesResponse>(appRoutes.me.preferences, { tour }, token)
-  return res.tour ?? {}
+  return tourOf(await patchPreferences({ tour }, token))
 }

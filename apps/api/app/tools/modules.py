@@ -296,7 +296,7 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
         "ok": True,
         "connection_id": str(conn.id),
         "display_name": conn.display_name,
-        "projects": [{"id": p, "name": names.get(p, "")} for p in after_projects],
+        "folders": [{"id": p, "name": names.get(p, "")} for p in after_projects],
         "access_default": is_default_access(conn),
         "access": after_access,
     }

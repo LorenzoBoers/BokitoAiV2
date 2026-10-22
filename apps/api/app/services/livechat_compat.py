@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from jose import jwt
+import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +16,8 @@ from app.dependencies import tenant_settings
 from app.models.auth import Tenant, User
 from app.services.auth import decode_access_token
 from app.services.tenant_bootstrap import resolve_brand_color
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -346,7 +349,7 @@ async def resolve_tenant_for_livechat(
             if tenant and user:
                 return tenant, user
         except Exception:
-            pass
+            logger.debug("livechat bearer token resolve failed", exc_info=True)
 
     explicit_slug = (tenant_subdomain or "").strip().lower()
     if explicit_slug:

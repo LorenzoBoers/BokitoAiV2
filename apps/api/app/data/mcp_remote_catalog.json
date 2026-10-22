@@ -612,6 +612,30 @@
       "initials": "AL",
       "description": "US stocks, ETFs, crypto, and options via the Alpaca Trading API.",
       "logo_domain": "alpaca.markets"
+    },
+    {
+      "slug": "zapier",
+      "name": "Zapier",
+      "brand_color": "#ff4f00",
+      "initials": "ZP",
+      "description": "Zapier actions as MCP tools.",
+      "logo_domain": "zapier.com"
+    },
+    {
+      "slug": "mailblue",
+      "name": "Mailblue",
+      "brand_color": "#1d6ff2",
+      "initials": "MB",
+      "description": "Mailblue e-mail marketing.",
+      "logo_domain": "mailblue.nl"
+    },
+    {
+      "slug": "metricool",
+      "name": "Metricool",
+      "brand_color": "#2a3cff",
+      "initials": "MC",
+      "description": "Metricool social media statistics and planning.",
+      "logo_domain": "metricool.com"
     }
   ],
   "providers": [
@@ -1524,6 +1548,100 @@
       "mcp_remote_url": "",
       "mcp_transport": "streamable_http",
       "status": "coming_soon"
+    },
+    {
+      "slug": "zapier_mcp",
+      "static_id": "zapier",
+      "host_slug": "zapier",
+      "name": "Zapier",
+      "description": "Run the Zapier actions you enabled on your personal MCP server.",
+      "category": "Productivity",
+      "category_nl": "Productiviteit",
+      "auth_type": "fields",
+      "mcp_remote_url": "",
+      "mcp_transport": "streamable_http",
+      "status": "available",
+      "url_template": "{server_url}",
+      "fields": [
+        {
+          "key": "server_url",
+          "label": "Personal MCP server URL",
+          "label_nl": "Persoonlijke MCP-server-URL",
+          "secret": true,
+          "target": "url",
+          "pattern": "^https://",
+          "placeholder": "https://mcp.zapier.com/api/mcp/..."
+        }
+      ]
+    },
+    {
+      "slug": "mailblue",
+      "static_id": "mailblue",
+      "host_slug": "mailblue",
+      "name": "Mailblue",
+      "description": "Mailing lists, contacts and campaign results.",
+      "category": "Marketing",
+      "category_nl": "Marketing",
+      "auth_type": "fields",
+      "mcp_remote_url": "",
+      "mcp_transport": "streamable_http",
+      "status": "available",
+      "url_template": "native://mailblue",
+      "fields": [
+        {
+          "key": "account_url",
+          "label": "Account URL",
+          "label_nl": "Account-URL",
+          "secret": false,
+          "target": "auth:account_url",
+          "placeholder": "https://youraccount.api-us1.com"
+        },
+        {
+          "key": "api_key",
+          "label": "API key",
+          "label_nl": "API-sleutel",
+          "secret": true,
+          "target": "auth:api_key"
+        }
+      ]
+    },
+    {
+      "slug": "metricool",
+      "static_id": "metricool",
+      "host_slug": "metricool",
+      "name": "Metricool",
+      "description": "Brands, statistics per network and planned posts (Advanced plan).",
+      "category": "Marketing",
+      "category_nl": "Marketing",
+      "auth_type": "fields",
+      "mcp_remote_url": "",
+      "mcp_transport": "streamable_http",
+      "status": "available",
+      "url_template": "native://metricool",
+      "fields": [
+        {
+          "key": "token",
+          "label": "API token",
+          "label_nl": "API-token",
+          "secret": true,
+          "target": "auth:token"
+        },
+        {
+          "key": "user_id",
+          "label": "User id",
+          "label_nl": "Gebruikers-id",
+          "secret": false,
+          "target": "auth:user_id"
+        },
+        {
+          "key": "blog_id",
+          "label": "Default brand id",
+          "label_nl": "Standaard merk-id",
+          "secret": false,
+          "target": "auth:blog_id",
+          "required": false
+        }
+      ]
     }
   ]
 }

@@ -43,7 +43,7 @@ Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op k
 6. Stel de **Pingpong-limiet** in: hoe vaak per dag een gesprek tussen de agent en mensen mag wisselen. Daarna blijft het bij mensen tot iemand het expliciet teruggeeft, en toont het gesprek een notitie van de agent. 0 zet de limiet uit.
 7. Wijzigingen worden automatisch opgeslagen.
 
-Een flow kan zijn tickets op controle houden: zet **Altijd controle** aan op de flowpagina (zie [Flows](/docs/ai/flows)). Antwoorden op die tickets worden een concept, ook als het gesprek Autonoom is.
+Een flow kan zijn tickets op controle houden: zet **Autonomie** op **Geassisteerd** op de flowpagina (zie [Flows](/docs/ai/flows)). Antwoorden op die tickets worden een concept, ook als het gesprek Autonoom is.
 
 De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt. Dezelfde regel verschijnt met **de agent is geen eigenaar van dit gesprek** wanneer een medewerker of team het gesprek bezit (de agent maakt dan een concept voor hen) en met **een collega typt een antwoord** wanneer iemand op dat moment in de composer schrijft.
 
@@ -73,7 +73,7 @@ Wanneer de agent een gesprek aan mensen overdraagt, kiest hij de eigenaar in dez
 
 - Ergens in de keten staat **Handmatig**, of een collega heeft het gesprek overgenomen.
 - Een medewerker of team bezit het gesprek (bijvoorbeeld na **Blijft bij de medewerker**): de agent maakt dan een concept voor hen in plaats van te versturen.
-- De Autonomie-dial staat op Geassisteerd of Handmatig, of de flow van het ticket staat op **Altijd controle**.
+- De Autonomie-dial staat op Geassisteerd of Handmatig, of de flow van het ticket staat op Geassisteerd of Handmatig.
 - **Privacy** houdt AI weg van berichtinhoud; Autonomie toont dan Handmatig.
 - De noodrem van het kanaal is geactiveerd na ongewone activiteit; het kanaal draait Geassisteerd tot iemand het hervat.
 - De mailbox moet nog ingesteld of opnieuw gekoppeld worden. Het gesprek krijgt dan een **Interne notitie** met een verwijzing naar **Instellingen → Kanalen** in plaats van een concept.
@@ -84,7 +84,7 @@ De knop **Waarom** in de kop van het gesprek zet alle redenen op één plek, elk
 
 1. Open een gesprek en klik in de kop op **Waarom**.
 2. De eerste regel noemt de agent: wie het laatste antwoord schreef, eigenaar is of wordt aangesproken.
-3. Daarna volgen de Autonomie-instelling en waar die vandaan komt (werkruimte, kanaal of dit gesprek), en alles wat hem lager houdt: de dial, Privacy, de noodrem, het eigen niveau van de agent of een flow op **Altijd controle**.
+3. Daarna volgen de Autonomie-instelling en waar die vandaan komt (werkruimte, kanaal of dit gesprek), en alles wat hem lager houdt: de dial, Privacy, de noodrem, het eigen niveau van de agent of de eigen Autonomie van de flow.
 4. Daaronder staan de kennisdocumenten die het laatste antwoord las, de werkmap waar het gesprek in zit (en of het label van het gesprek, het contact of het bedrijf komt) en de flow met de huidige fase.
 5. De laatste regels tonen waar het werk is opgeleverd: antwoorden per kanaal, de werkmap en de plek onder **Werkt in** (een koppeling, canvas of het bord), en een correctie die als voorbeeld is bewaard.
 6. Klik op een regel om die instelling of plek te openen. Antwoorden van vóór dit paneel tonen geen documenten.
@@ -97,7 +97,7 @@ Niet elke mail wil een antwoord. Bonnetjes, deploy-meldingen en andere automatis
 2. Elke lezing van een bericht eindigt in één kaart. Labels en andere stappen van die lezing staan in de activiteitsregel van de kaart (**Gewerkt voor 3s · 3 acties**), niet als losse regels. Een nieuwere lezing vervangt een open kaart; de oude krimpt tot **Vervangen door een nieuwere lezing**.
 3. De mensen die het gesprek bezitten krijgen één melding, na de lezing: **Concept klaar**, **Vraagt een keuze** of **Geen antwoord nodig**, met de afzender als titel. Geen antwoord nodig komt stil in Voor jou, zonder pop-up of push. Duurt de lezing langer dan 20 seconden, dan gaat de gewone melding **Nieuw bericht van** uit.
 4. De AI houdt per persoon één antwoordvoorstel. Schrijft dezelfde persoon ook op een ander kanaal, dan gaat het voorstel van het oudere gesprek opzij (**Opzijgezet: nieuwer gesprek met deze persoon**) en draagt het nieuwste gesprek het actuele voorstel.
-5. Een voorstel dat het laatste bericht niet meer beantwoordt gaat ook opzij: als de klant opnieuw schrijft voordat je verstuurt (**klant schreef opnieuw**), als een collega vanuit de eigen mailbox antwoordde (**een collega antwoordde**), of als iemand **Al afgehandeld buiten Bokito** vastlegde. Een run die klaar is nadat een nieuwer bericht binnenkwam plaatst zijn concept niet.
+5. Een voorstel dat het laatste bericht niet meer beantwoordt gaat ook opzij: als de klant opnieuw schrijft voordat je verstuurt (**klant schreef opnieuw**), of als een collega vanuit de eigen mailbox antwoordde (**een collega antwoordde**). Een run die klaar is nadat een nieuwer bericht binnenkwam plaatst zijn concept niet.
 6. De composer vertelt wanneer een bewaard concept verouderd is en biedt **Opnieuw voorstellen**; zie [Communicatie](/docs/inbox/communication).
 7. Blijf je in het gesprek terwijl de agent een concept afrondt, dan komt die tekst in de reply-composer. In de tijdlijn staat **Antwoord voorgesteld**: open de chevron om te lezen, of kies **Overnemen** / **In de invoer** om hem opnieuw in de invoer te zetten nadat je een ander gesprek hebt geopend. Teamnotities van het model vullen nooit het klantconcept.
 8. Op een mailbox met **Automatische mail archiveren** aan wordt die kaart overgeslagen: het gesprek sluit bij binnenkomst en krijgt de tag `#automated`. Stel het per mailbox in onder [Kanalen](/docs/inbox/channels).

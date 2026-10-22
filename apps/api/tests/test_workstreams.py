@@ -255,3 +255,21 @@ async def test_flow_board_groups_tickets_into_project_lanes(client: AsyncClient,
     row = next(r for r in rows if r["id"] == flow["id"])
     assert sum(row["ticket_counts"].values()) == 2
     assert row["last_activity_at"] is None or isinstance(row["last_activity_at"], str)
+
+
+@pytest.mark.asyncio
+async def test_patch_sets_and_clears_the_department(client: AsyncClient, session_override):
+    from app.services.teams import create_team
+
+    headers = await _login(client)
+    tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
+    team = await create_team(session_override, tenant.id, name="Content", description="", pickup="people", members=[])
+    await session_override.commit()
+    ws_id = (await client.post(API, headers=headers, json={"name": "#maandcontent"})).json()["id"]
+
+    set_ = await client.patch(f"{API}/{ws_id}", headers=headers, json={"department_id": str(team.id)})
+    assert set_.status_code == 200 and set_.json()["department_id"] == str(team.id)
+    cleared = await client.patch(f"{API}/{ws_id}", headers=headers, json={"department_id": None})
+    assert cleared.json()["department_id"] is None
+    missing = await client.patch(f"{API}/{ws_id}", headers=headers, json={"department_id": str(tenant.id)})
+    assert missing.status_code == 404

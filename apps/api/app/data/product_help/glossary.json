@@ -59,7 +59,7 @@
       "nl": "Label",
       "en": "Label",
       "code": "SignalTag",
-      "api": "/api/categories",
+      "api": "/api/labels",
       "slug": "/settings/labels",
       "forbidden": []
     },
@@ -102,6 +102,19 @@
         "AI-afhandeling",
         "AI handling",
         "AI-handling"
+      ]
+    },
+    {
+      "id": "effort",
+      "nl": "Denkwerk",
+      "en": "Thinking",
+      "code": "effort",
+      "api": "/api/workforce/agents/{id}/definition",
+      "slug": "/agents",
+      "forbidden": [
+        "Denkbudget",
+        "thinking budget",
+        "Thinking budget"
       ]
     },
     {

@@ -16,6 +16,7 @@ export type OrgFlowNodeKind =
   | 'reply'
   | 'folder'
   | 'knowledge'
+  | 'connection'
   | 'sink_open'
   | 'sink_closed_without_result'
 
@@ -57,6 +58,8 @@ export type OrgFlowNode = {
   color?: string
   icon?: string
   done?: number
+  /** Flow nodes: autonomous share from the flow label's latest scorecard. */
+  autonomous_pct?: number | null
   channels?: string[]
   works_in?: OrgFlowWorksIn[]
   children?: number
@@ -81,6 +84,11 @@ export type OrgFlowWorkspaceIssue = {
   message_key: string
   params: Record<string, string | number>
   href?: string
+  /** The department the bottleneck belongs to; unassigned work is All's. */
+  department_id?: string
+  department?: string
+  /** Lead agent of that department, who is expected to act on it. */
+  lead?: string | null
 }
 
 export type OrgFlow = {

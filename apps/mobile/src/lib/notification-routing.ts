@@ -2,7 +2,8 @@ import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { useEffect } from 'react'
 import { Linking } from 'react-native'
 import { router } from 'expo-router'
-import type { AppNotification } from './api'
+import { approveDecision, rejectDecision, requestCall, type AppNotification } from './api'
+import { DECISION_ACTIONS } from './push'
 import { WEB_APP_URL } from './config'
 import {
   resolveNotificationRoute,
@@ -53,6 +54,29 @@ function openFromData(data: NotificationData | undefined) {
   openNotificationRoute(resolveNotificationRoute(data))
 }
 
+/** Approve and Reject resolve in place; Call me rings this phone about the card. */
+async function handleResponse(actionId: string, data: NotificationData | undefined) {
+  const decisionId = data?.decision_id
+  if (decisionId && actionId === DECISION_ACTIONS.approve) {
+    await approveDecision(decisionId).catch(() => openFromData(data))
+    return
+  }
+  if (decisionId && actionId === DECISION_ACTIONS.reject) {
+    await rejectDecision(decisionId).catch(() => openFromData(data))
+    return
+  }
+  if (decisionId && actionId === DECISION_ACTIONS.call) {
+    try {
+      const call = await requestCall(decisionId)
+      router.push({ pathname: '/call/[id]', params: { id: call.call_id, signal: call.signal_id } })
+    } catch {
+      openFromData(data)
+    }
+    return
+  }
+  openFromData(data)
+}
+
 /**
  * Deep-link when the user taps a push notification (foreground, background, or cold start).
  */
@@ -66,7 +90,7 @@ export function useNotificationRouting() {
       const Notifications = await import('expo-notifications')
       const last = await Notifications.getLastNotificationResponseAsync()
       if (!cancelled && last) {
-        openFromData(last.notification.request.content.data as NotificationData)
+        void handleResponse(last.actionIdentifier, last.notification.request.content.data as NotificationData)
       }
     })()
 
@@ -74,7 +98,7 @@ export function useNotificationRouting() {
     void import('expo-notifications').then((Notifications) => {
       if (cancelled) return
       subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-        openFromData(response.notification.request.content.data as NotificationData)
+        void handleResponse(response.actionIdentifier, response.notification.request.content.data as NotificationData)
       })
     })
 

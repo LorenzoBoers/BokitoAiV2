@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -212,7 +214,7 @@ async def recently_declined_decision(
     """
     from datetime import timedelta
 
-    since = datetime.utcnow() - timedelta(days=within_days)
+    since = utcnow() - timedelta(days=within_days)
     return (
         await session.execute(
             select(DecisionRequest)
@@ -297,12 +299,12 @@ async def dismiss_decisions(
         conditions.append(DecisionRequest.signal_id.is_(None))
     if older_than_days is not None:
         conditions.append(
-            DecisionRequest.created_at <= datetime.utcnow() - timedelta(days=older_than_days)
+            DecisionRequest.created_at <= utcnow() - timedelta(days=older_than_days)
         )
     rows = (await session.execute(select(DecisionRequest).where(*conditions))).scalars().all()
     if not rows:
         return 0
-    now = datetime.utcnow()
+    now = utcnow()
     notification_ids = [row.notification_id for row in rows if row.notification_id]
     for row in rows:
         row.status = "deferred"
@@ -375,7 +377,7 @@ async def get_or_create_internal_thread(
         has_unread=True,
         project_id=project_id,
         assigned_user_id=assigned_user_id,
-        last_message_at=datetime.utcnow(),
+        last_message_at=utcnow(),
     )
     session.add(signal)
     await session.flush()
@@ -448,16 +450,16 @@ async def append_decision_to_signal(
         body_text=body,
         body_preview=clip_with_ellipsis(body, 200) or (decision.title or "")[:200],
         decision_id=decision.id,
-        received_at=datetime.utcnow(),
+        received_at=utcnow(),
         metadata_json=json.dumps(card_meta, default=str) if card_meta else "{}",
     )
     session.add(message)
     await session.flush()
     decision.message_id = message.id
     decision.signal_id = signal.id
-    signal.last_message_at = datetime.utcnow()
+    signal.last_message_at = utcnow()
     signal.has_unread = True
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         SignalEvent(
@@ -523,10 +525,10 @@ async def append_workforce_message(
         subject=subject,
         body_text=body,
         body_preview=body[:200],
-        received_at=datetime.utcnow(),
+        received_at=utcnow(),
     )
     session.add(message)
-    signal.last_message_at = datetime.utcnow()
+    signal.last_message_at = utcnow()
     signal.has_unread = True
     session.add(signal)
     await session.flush()
@@ -562,6 +564,7 @@ async def create_decision(
     bundle_id: str = "",
     reveal: bool = True,
     announce: bool = True,
+    message_meta: dict[str, Any] | None = None,
 ) -> tuple[DecisionRequest, SignalMessage | None]:
     """The single write path for human decisions.
 
@@ -620,6 +623,7 @@ async def create_decision(
         "project_id": str(project_id) if project_id else None,
         "bell_status": bell_status,
         "notification_payload": bell_payload,
+        "message_meta": message_meta or {},
     }
     # Pending rows stay out of unread / push until reveal_decision flips them.
     notification = Notification(
@@ -792,6 +796,17 @@ async def reveal_decision(
         question=str(pending["question"]) if pending.get("question") else None,
         selection=str(pending["selection"]) if pending.get("selection") else None,
     )
+    extra = pending.get("message_meta")
+    if message is not None and isinstance(extra, dict) and extra:
+        try:
+            meta = json.loads(message.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        meta.update(extra)
+        message.metadata_json = json.dumps(meta, default=str)
+        session.add(message)
     if notification is not None:
         bell_status = str(pending.get("bell_status") or "unread")
         notif_payload = pending.get("notification_payload")

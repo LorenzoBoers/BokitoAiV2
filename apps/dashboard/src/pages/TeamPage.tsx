@@ -1,16 +1,13 @@
-import { GRID_PATH } from '../lib/navigation'
+import { departmentPath, GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { asAgentStatus } from '../lib/presence'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
-import { ENTITY_ICONS } from '../lib/entity-icons'
-import { openEntityPath } from '../lib/open-entity'
+import { Building2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
-import { WorkforceSectionTabs } from '../components/shell/SectionTabs'
 import { TeamCardsSkeleton } from '../components/ui/skeleton'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -19,9 +16,10 @@ import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { AgentMark } from '../components/ui/AgentMark'
 import { AvatarStack } from '../components/ui/AvatarStack'
-import { TeamFacepile } from '../components/ui/TeamFacepile'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { resolveTeamStackMembers } from '../lib/team-facepile'
+import { platformIcon } from '../lib/platform-icons'
+import { cn } from '../lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import {
   Dialog,
@@ -46,8 +44,6 @@ import {
   type TeamPickup,
 } from '../lib/teams-api'
 import { useAgentLive, agentPresenceOf } from '../hooks/useAgentPresence'
-
-const ConversationIcon = ENTITY_ICONS.conversation
 
 function memberKey(ref: TeamMemberRef): string {
   return `${ref.kind}:${ref.id}`
@@ -75,7 +71,6 @@ export default function TeamPage() {
   const { hash } = useLocation()
   const [overview, setOverview] = useState<TeamOverview | null>(null)
   const [teamsLoading, setTeamsLoading] = useState(true)
-  const [editing, setEditing] = useState<Team | null>(null)
   const [creating, setCreating] = useState(false)
   const showDepartments = params.get('tab') === 'departments'
 
@@ -148,8 +143,6 @@ export default function TeamPage() {
 
   return (
     <PageContent width="xl" className="space-y-6">
-      <WorkforceSectionTabs />
-
       {showDepartments ? null : (
         <MemberManagement
           metaByUuid={metaByUuid}
@@ -177,81 +170,72 @@ export default function TeamPage() {
           {teamsLoading && !overview ? <TeamCardsSkeleton /> : null}
           {(overview?.teams ?? []).map((team) => {
             const stack = overview ? resolveTeamMembers(team, overview) : []
-            return (
-              <Card key={team.id} className="px-4 py-3">
-                {/* Fixed facepile column so names line up regardless of avatar count. */}
-                <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto]">
-                  <div className="flex h-8 w-[5.75rem] shrink-0 items-center justify-center">
-                    {stack.length > 0 ? (
-                      <AvatarStack members={stack} size={32} linkAgents={false} />
-                    ) : (
-                      <TeamFacepile
-                        team={team}
-                        size={32}
-                        linkAgents={false}
-                        presence={team.presence?.status}
-                      />
-                    )}
-                  </div>
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-text-heading">
-                      {team.system ? (
-                        <span className="truncate-fade">{teamNames[team.id]}</span>
-                      ) : (
-                        <Link
-                          to={openEntityPath({ type: 'team', id: team.id })}
-                          className="truncate-fade hover:text-accent hover:underline"
-                          title={t('teamPage.openFolder', { name: teamNames[team.id] })}
-                          data-testid="team-folder-link"
-                        >
-                          {teamNames[team.id]}
-                        </Link>
-                      )}
-                      {team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
-                    </p>
-                    <p className="truncate-fade text-xs text-text-muted">
-                      {team.system
-                        ? t('teamPage.systemHint.all')
-                        : team.description || t('teamPage.noDescription')}
-                    </p>
-                    <p className="truncate-fade text-xs text-text-secondary">
-                      {team.system ? null : (
-                        <>
-                          {t(`teamPage.pickup.${team.pickup}`)}
-                          <span className="text-text-muted">{' · '}</span>
-                        </>
-                      )}
-                      <span className="text-text-muted" data-testid="team-metrics">
-                        {t('teamPage.metrics', {
-                          questions: team.metrics.questions,
-                          answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
-                          pickedUp: team.metrics.picked_up,
-                        })}
-                      </span>
-                      {stack.length === 0 ? (
-                        <>
-                          <span className="text-text-muted">{' · '}</span>
-                          {t('teamPage.memberCount', { count: team.member_count })}
-                        </>
-                      ) : null}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                    {team.system ? null : (
-                      <Button size="sm" variant="ghost" className="shrink-0" asChild>
-                        <Link to={openEntityPath({ type: 'team', id: team.id })}>
-                          <ConversationIcon size={13} aria-hidden />
-                          {t('teamPage.openConversations')}
-                        </Link>
-                      </Button>
-                    )}
-                    {canManage && !team.system ? (
-                      <Button size="sm" variant="secondary" className="shrink-0" onClick={() => setEditing(team)}>
-                        {t('teamPage.edit')}
-                      </Button>
-                    ) : null}
-                  </div>
+            const Icon = platformIcon(team.icon) ?? Building2
+            const canOpen = !team.system && !team.root
+            const body = (
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-bg-hover text-accent"
+                  aria-hidden
+                >
+                  <Icon size={16} strokeWidth={2} />
                 </div>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-text-heading">
+                    <span className="truncate-fade">{teamNames[team.id]}</span>
+                    {team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
+                  </p>
+                  <p className="truncate-fade text-xs text-text-muted">
+                    {team.system
+                      ? t('teamPage.systemHint.all')
+                      : team.description || t('teamPage.noDescription')}
+                  </p>
+                  <p className="truncate-fade text-xs text-text-secondary">
+                    {team.system ? null : (
+                      <>
+                        {t(`teamPage.pickup.${team.pickup}`)}
+                        <span className="text-text-muted">{' · '}</span>
+                      </>
+                    )}
+                    <span className="text-text-muted" data-testid="team-metrics">
+                      {t('teamPage.metrics', {
+                        questions: team.metrics.questions,
+                        answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
+                        pickedUp: team.metrics.picked_up,
+                      })}
+                    </span>
+                    {stack.length === 0 ? (
+                      <>
+                        <span className="text-text-muted">{' · '}</span>
+                        {t('teamPage.memberCount', { count: team.member_count })}
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                {stack.length > 0 ? (
+                  <AvatarStack members={stack} size={32} linkAgents={false} className="shrink-0" />
+                ) : null}
+              </div>
+            )
+            const cardClass = cn(
+              'px-4 py-3',
+              canOpen && 'transition-colors hover:border-border-light hover:bg-bg-hover/40',
+            )
+            if (canOpen) {
+              return (
+                <Link
+                  key={team.id}
+                  to={departmentPath(team.id)}
+                  className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  data-testid="open-department"
+                >
+                  <Card className={cardClass}>{body}</Card>
+                </Link>
+              )
+            }
+            return (
+              <Card key={team.id} className={cardClass}>
+                {body}
               </Card>
             )
           })}
@@ -259,16 +243,12 @@ export default function TeamPage() {
       </section>
       ) : null}
 
-      {overview && (editing || creating) ? (
+      {overview && creating ? (
         <TeamDialog
-          team={editing}
+          team={null}
           overview={overview}
-          onClose={() => {
-            setEditing(null)
-            setCreating(false)
-          }}
+          onClose={() => setCreating(false)}
           onSaved={() => {
-            setEditing(null)
             setCreating(false)
             void reload()
           }}

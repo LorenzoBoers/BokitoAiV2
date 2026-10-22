@@ -25,7 +25,8 @@ import asyncio
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta
+from app.core.time import utcnow
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -172,7 +173,7 @@ async def post_episode_stop(session: AsyncSession, signal: Signal, episode_id: U
         return
     lang = resolve_workspace_language(await session.get(Tenant, signal.tenant_id))
     line = _stop_copy(lang)
-    now = datetime.utcnow()
+    now = utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,
@@ -464,7 +465,7 @@ async def cancel_turns(
     """Cancel open turns, except those of ``keep_episode``. Caller commits."""
     q = select(AgentTurn).where(AgentTurn.signal_id == signal.id, AgentTurn.status.in_(statuses))
     rows = list((await session.execute(q)).scalars().all())
-    now = datetime.utcnow()
+    now = utcnow()
     hit: list[AgentTurn] = []
     for row in rows:
         if keep_episode is not None and row.episode_id == keep_episode:
@@ -517,7 +518,7 @@ async def claim_next(session: AsyncSession, signal_id: UUID) -> AgentTurn | None
     if row is None:
         await session.rollback()
         return None
-    now = datetime.utcnow()
+    now = utcnow()
     row.status = "running"
     row.started_at = now
     row.lease_until = now + timedelta(seconds=LEASE_S)
@@ -564,7 +565,7 @@ async def _fail_turn(session: AsyncSession, turn_id: UUID, outcome: str) -> None
         return
     row.status = "failed"
     row.outcome = outcome
-    row.finished_at = datetime.utcnow()
+    row.finished_at = utcnow()
     row.lease_until = None
     session.add(row)
     signal = await session.get(Signal, row.signal_id)
@@ -672,8 +673,18 @@ async def _turn_brief(session: AsyncSession, turn: AgentTurn, agent: Agent) -> t
     return text_, attachments
 
 
-def _history_tail_is_assistant(history: list[dict[str, Any]]) -> bool:
-    return bool(history) and history[-1].get("role") == "assistant"
+def close_on_brief(history: list[dict[str, Any]], brief: str) -> tuple[list[dict[str, Any]], str]:
+    """A model answers a conversation that ends on the human side.
+
+    A wake with no new human line (an answered card, an ask, a handoff) closes
+    on its brief instead; the providers reject a request that ends on the
+    agent's own message. Returns the history and the brief still to pass as
+    context ("" when it became the closing line).
+    """
+    if history and history[-1].get("role") != "assistant":
+        return history, brief
+    line = brief or "It is your turn in this conversation."
+    return [*history, {"role": "user", "content": line}], ""
 
 
 async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]:
@@ -747,8 +758,7 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     )
     loop.agent_turn_id = turn.id
     history = await signal_chat_history(session, signal.id, compact=True, for_agent_id=agent.id)
-    if not history or _history_tail_is_assistant(history):
-        history = [*history, {"role": "user", "content": brief}]
+    history, _ = close_on_brief(history, brief)
 
     previous_text = await _last_text_by(session, signal.id, agent.id)
     done: dict[str, Any] = {}
@@ -776,7 +786,10 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     outcome = "spoke"
     if error is not None:
         outcome = "error"
-        await _seal_failed_turn(session, loop, signal, agent)
+        already = "Your previous turn stopped" in (turn.prompt or "")
+        await _seal_failed_turn(
+            session, loop, signal, agent, exc=error, recover=not already
+        )
     elif cancelled:
         outcome = "cancelled"
         reason = (
@@ -803,7 +816,7 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
         )
 
     run.status = {"error": "failed", "cancelled": "cancelled"}.get(outcome, "completed")
-    run.completed_at = datetime.utcnow()
+    run.completed_at = utcnow()
     run.tokens_input = int(tokens.get("input_tokens") or 0)
     run.tokens_output = int(tokens.get("output_tokens") or 0)
     session.add(run)
@@ -814,7 +827,7 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     if row is not None:
         row.outcome = outcome if row.outcome != "stopped" else row.outcome
         row.tokens = spent
-        row.finished_at = datetime.utcnow()
+        row.finished_at = utcnow()
         row.lease_until = None
         session.add(row)
     await session.flush()
@@ -890,14 +903,58 @@ async def _close_live_turn(loop: Any, outcome: str) -> None:
         logger.debug("closing live turn failed", exc_info=True)
 
 
-async def _seal_failed_turn(session: AsyncSession, loop: Any, signal: Signal, agent: Agent) -> None:
+def recovery_prompt(brief: str) -> str:
+    """What the agent hears after its own turn died, so it can speak or try once more."""
+    return (
+        "Your previous turn stopped before you could finish. "
+        f"What failed: {brief}. "
+        "Tell the operator in one or two sentences, in their language, that it did not work. "
+        "If a simpler tool call can still do what they asked, try that once and then say what you did. "
+        "If you cannot, say what they can try. "
+        "Do not paste internal errors, class names, or stack traces. Do not pass."
+    )
+
+
+async def _queue_recovery(
+    session: AsyncSession, signal: Signal, agent: Agent, brief: str
+) -> bool:
+    """One recovery per thread per minute. A second crash in that minute does not loop."""
+    stamp = utcnow().strftime("%Y%m%d%H%M")
+    try:
+        queued = await enqueue_turn(
+            session,
+            signal,
+            agent_id=agent.id,
+            cause_kind="system",
+            prompt=recovery_prompt(brief),
+            requested_by_kind="system",
+            idempotency_key=f"recover:{signal.id}:{stamp}",
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("queue recovery after a failed turn failed for %s", signal.id)
+        return False
+    return bool(queued.get("ok"))
+
+
+async def _seal_failed_turn(
+    session: AsyncSession,
+    loop: Any,
+    signal: Signal,
+    agent: Agent,
+    *,
+    exc: BaseException | None = None,
+    recover: bool = True,
+) -> None:
     from app.services.assistant_threads import append_signal_chat_message
+    from app.services.run_errors import failure_brief
 
     error_text = (
         "The assistant encountered an error while generating a reply. "
         "Please try again in a moment."
     )
     await _close_live_turn(loop, "error")
+    if recover and await _queue_recovery(session, signal, agent, failure_brief(exc)):
+        return
     try:
         if loop.turn is not None and (loop.turn.segments or loop.turn.all_activity()):
             await loop.persist_turn(
@@ -938,7 +995,7 @@ async def _answer_ask(
     ask.status = "answered" if answered else "cancelled"
     ask.answer_text = "\n\n".join(spoken)[:8000]
     ask.answer_json = json.dumps(parts)
-    ask.answered_at = datetime.utcnow()
+    ask.answered_at = utcnow()
     session.add(ask)
     await session.flush()
     if outcome in ("cancelled", "error") and not answered:
@@ -990,7 +1047,7 @@ async def begin_inline_turn(
         async with _Session(bind=bind, expire_on_commit=False) as side:
             await side.execute(text("SET LOCAL lock_timeout = '1500ms'"))
             episode = await latest_human_message_id(side, signal_id)
-            now = datetime.utcnow()
+            now = utcnow()
             row = AgentTurn(
                 tenant_id=tenant_id,
                 signal_id=signal_id,
@@ -1040,7 +1097,7 @@ async def end_inline_turn(
             row.status = "done"
             row.outcome = outcome
             row.tokens = tokens
-            row.finished_at = datetime.utcnow()
+            row.finished_at = utcnow()
             row.lease_until = None
             side.add(row)
             await side.flush()
@@ -1062,7 +1119,7 @@ async def extend_lease(session: AsyncSession, turn_id: UUID | None, *, inline: b
     await session.execute(
         update(AgentTurn)
         .where(AgentTurn.id == turn_id, AgentTurn.status == "running")
-        .values(lease_until=datetime.utcnow() + timedelta(seconds=seconds))
+        .values(lease_until=utcnow() + timedelta(seconds=seconds))
     )
 
 
@@ -1141,7 +1198,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
     """Expired leases go back to the queue (or fail); lost bells ring again."""
     from app.services.agent.turn_persist import end_dead_turns
 
-    now = datetime.utcnow()
+    now = utcnow()
     stats = {"requeued": 0, "failed": 0, "rung": 0, "dropped": 0}
     expired = (
         await session.execute(

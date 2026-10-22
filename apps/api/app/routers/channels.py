@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 from typing import Annotated, Any
 from uuid import UUID
@@ -39,6 +40,8 @@ from app.services.channel_access import (
 from app.services.signal_threads import serialize_thread
 from app.services.signals import _is_anonymous_contact_identity, _is_unnamed_visitor
 from app.workers.tasks import enqueue_signal_processing
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/channels", tags=["channels"])
 
@@ -235,7 +238,7 @@ async def create_account(
         try:
             await remove_demo_threads(session, auth.tenant.id)
         except Exception:  # noqa: BLE001 — cleanup must never break connect
-            pass
+            logger.warning("remove demo threads after channel connect failed", exc_info=True)
     data = _serialize_account(account)
     # Revealed once so the caller can configure the provider webhook.
     data["inbound_secret"] = inbound_secret
@@ -893,7 +896,7 @@ async def create_email_relay(
     try:
         await remove_demo_threads(session, auth.tenant.id)
     except Exception:  # noqa: BLE001 — cleanup must never break create
-        pass
+        logger.warning("remove demo threads after channel create failed", exc_info=True)
     return ChannelRow(**await _row(session, auth, account))
 
 
