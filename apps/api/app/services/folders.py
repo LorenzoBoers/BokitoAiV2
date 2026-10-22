@@ -9,8 +9,6 @@ labels — nesting does not rewrite them.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from dataclasses import dataclass, field
 from typing import Any, Iterable
@@ -19,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.channel import Contact
 from app.models.project import Project, ProjectTagLink
 from app.models.signal import (

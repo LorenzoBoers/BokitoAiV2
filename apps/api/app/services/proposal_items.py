@@ -9,12 +9,16 @@ or renamed objects still render as proposed. Unresolved refs come back with
 
 from __future__ import annotations
 
+import logging
 import json
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+logger = logging.getLogger(__name__)
 
 MAX_ITEMS = 10
 
@@ -514,8 +518,8 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         ).scalar_one_or_none() if row_id else None
         if not row:
             return _missing(item_type, ref)
-        from app.services.works_in import GENERAL_FOLDER_NAMES, folder_href
         from app.services.project_canvas import _thread_path, canvas_on_thread, serialize_canvas
+        from app.services.works_in import GENERAL_FOLDER_NAMES, folder_href
 
         signal = await session.get(Signal, row.signal_id) if row.signal_id else None
         folder_id = None
@@ -757,6 +761,7 @@ def _resolve_image(ref: dict[str, Any]) -> dict[str, Any]:
     try:
         host = (urlparse(url).hostname or "").removeprefix("www.")
     except Exception:
+        logger.debug('proposal image host parse failed', exc_info=True)
         host = ""
     title = _clip(ref.get("title") or ref.get("name") or host or "Image", 120)
     return {

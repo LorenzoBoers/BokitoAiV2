@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 _RETRYABLE = {408, 425, 429, 500, 502, 503, 504}
 
@@ -50,6 +54,7 @@ async def request_json(
                 try:
                     detail = resp.json()
                 except Exception:
+                    logger.warning('workbench http error body read failed', exc_info=True)
                     detail = (resp.text or "")[:500]
                 raise WorkbenchHttpError(
                     f"Provider HTTP {resp.status_code}",

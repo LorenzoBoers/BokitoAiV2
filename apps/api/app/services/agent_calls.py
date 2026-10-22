@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from app.core.time import utcnow
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -18,6 +17,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.agent import Agent
 from app.models.agent_call import AgentCall
 from app.models.auth import User
@@ -284,7 +285,7 @@ async def request_call(
         or decision.status != "awaiting_human"
         or decision.signal_id is None
     ):
-        raise HTTPException(status_code=404, detail="Decision not found")
+        raise NotFoundError("Decision not found")
     open_call = (
         await session.execute(
             select(AgentCall).where(
@@ -330,11 +331,10 @@ async def _load_owned(
     user_id: UUID,
     call_id: UUID,
 ) -> AgentCall:
-    from fastapi import HTTPException
 
     call = await session.get(AgentCall, call_id)
     if call is None or call.tenant_id != tenant_id or call.user_id != user_id:
-        raise HTTPException(status_code=404, detail="Call not found")
+        raise NotFoundError("Call not found")
     return call
 
 
@@ -530,7 +530,7 @@ async def run_call_tool(
     if name == "consult_run":
         question = str(arguments.get("question") or "").strip()
         if not question:
-            raise HTTPException(status_code=400, detail="question is required")
+            raise AppError("question is required", code="app_error", status_code=400)
         _schedule_consult(call.id, question)
         return {
             "status": "looking",
@@ -548,7 +548,7 @@ async def run_call_tool(
             transcript=raw if isinstance(raw, list) else None,
         )
         return {"status": "ended"}
-    raise HTTPException(status_code=400, detail="Unknown call tool")
+    raise AppError("Unknown call tool", code="app_error", status_code=400)
 
 
 async def _confirm_choice(
@@ -556,13 +556,12 @@ async def _confirm_choice(
     call: AgentCall,
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
-    from fastapi import HTTPException
 
     from app.services.signal_threads import resolve_message_decision
 
     decision = await session.get(DecisionRequest, call.decision_id)
     if decision is None or decision.signal_id is None or decision.message_id is None:
-        raise HTTPException(status_code=404, detail="Decision not found")
+        raise NotFoundError("Decision not found")
     if decision.status != "awaiting_human":
         return {"status": "already_resolved", "decision_status": decision.status}
     option = match_option(
@@ -571,7 +570,7 @@ async def _confirm_choice(
         label=str(arguments.get("label") or "") or None,
     )
     if option is None:
-        raise HTTPException(status_code=400, detail="Option not found")
+        raise AppError("Option not found", code="app_error", status_code=400)
     action = choice_action(option)
     await resolve_message_decision(
         session,

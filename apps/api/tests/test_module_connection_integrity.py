@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +30,7 @@ async def _tenant(session: AsyncSession) -> Tenant:
 @pytest.mark.asyncio
 async def test_king_install_without_credentials_rejected(session_override: AsyncSession):
     tenant = await _tenant(session_override)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await install_mcp(
             session_override,
             tenant.id,

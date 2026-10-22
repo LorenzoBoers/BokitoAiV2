@@ -6,6 +6,7 @@ import json
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 
 from app.services.tickets import (
     missing_required_stage_fields,
@@ -38,7 +39,7 @@ def test_parse_stages_defaults_auto_close_false():
 
 
 def test_validate_stages_rejects_not_started_after_active():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         validate_stages(
             [
                 {"name": "Busy", "kind": "waiting"},
@@ -50,7 +51,7 @@ def test_validate_stages_rejects_not_started_after_active():
 
 
 def test_validate_stages_rejects_done_before_active():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         validate_stages(
             [
                 {"name": "Klaar", "kind": "done"},
@@ -76,13 +77,13 @@ def test_waiting_stage_progress_splits_the_ring():
 
 
 def test_validate_stages_requires_done():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         validate_stages([{"name": "Only open", "kind": "open"}])
     assert exc.value.status_code == 400
 
 
 def test_validate_stages_requires_first_not_started():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         validate_stages(
             [
                 {"name": "Busy", "kind": "waiting"},
@@ -94,7 +95,7 @@ def test_validate_stages_requires_first_not_started():
 
 
 def test_validate_stages_rejects_extra_not_started():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         validate_stages(
             [
                 {"name": "Start", "kind": "open"},

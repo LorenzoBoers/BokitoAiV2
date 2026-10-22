@@ -11,8 +11,6 @@ brief and the role go into every run (``aware_context``).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime
 from typing import Any
@@ -21,6 +19,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 
 # Followable kinds and the SignalEvent types behind each.

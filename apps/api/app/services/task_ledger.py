@@ -9,13 +9,12 @@ marks the run as work without minting an ``AgentTask``. Queue items
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import AgentRun
 from app.models.orchestration import AgentTask
 

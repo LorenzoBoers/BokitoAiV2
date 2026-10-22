@@ -26,8 +26,6 @@ conversation, and the bounce limit between agent and people.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
@@ -38,6 +36,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent
@@ -737,13 +737,13 @@ async def set_ai_handling(
     from app.services.audit import record_audit
 
     if scope not in AI_HANDLING_SCOPES:
-        raise HTTPException(status_code=400, detail="Unknown scope")
+        raise AppError("Unknown scope", code="app_error", status_code=400)
     if mode is not None:
         mode = normalize_mode(mode)
         if mode is None:
-            raise HTTPException(status_code=400, detail="Unknown mode")
+            raise AppError("Unknown mode", code="app_error", status_code=400)
     if scope == "workspace" and mode is None:
-        raise HTTPException(status_code=400, detail="Workspace default needs a mode")
+        raise AppError("Workspace default needs a mode", code="app_error", status_code=400)
 
     signal: Signal | None = None
     account: ChannelAccount | None = None
@@ -754,7 +754,7 @@ async def set_ai_handling(
         try:
             return UUID(str(value))
         except ValueError as exc:
-            raise HTTPException(status_code=404, detail="Not found") from exc
+            raise NotFoundError("Not found") from exc
 
     if scope == "workspace":
         before = workspace_mode(tenant)
@@ -762,13 +762,13 @@ async def set_ai_handling(
     elif scope == "channel":
         account = await session.get(ChannelAccount, _uuid(target_id))
         if account is None or account.tenant_id != tenant.id:
-            raise HTTPException(status_code=404, detail="Channel not found")
+            raise NotFoundError("Channel not found")
         before = channel_mode(account)
         inherited_effective = None
     else:
         signal = await session.get(Signal, _uuid(target_id))
         if signal is None or signal.tenant_id != tenant.id:
-            raise HTTPException(status_code=404, detail="Conversation not found")
+            raise NotFoundError("Conversation not found")
         account, _contact = await load_layers(session, tenant.id, signal)
         before = conversation_mode(signal)
         inherited_effective = resolve_ai_handling(tenant, account, scope="channel").effective

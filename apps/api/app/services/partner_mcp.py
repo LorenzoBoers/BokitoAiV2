@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.exceptions import UnauthorizedError
 from app.models.integration import McpServer
 
 PARTNER_KING = "king"
@@ -84,7 +85,7 @@ async def resolve_partner_server(
 ) -> McpServer:
     token = (bearer_token or "").strip()
     if not token:
-        raise HTTPException(status_code=401, detail="Missing bearer token")
+        raise UnauthorizedError("Missing bearer token")
     result = await session.execute(select(McpServer).where(McpServer.is_active.is_(True)))
     for server in result.scalars().all():
         if not _server_matches_partner(server.server_url, partner_slug):
@@ -93,7 +94,7 @@ async def resolve_partner_server(
         stored = str(auth.get("partner_access_token") or auth.get("bearer_token") or "").strip()
         if stored and secrets.compare_digest(stored, token):
             return server
-    raise HTTPException(status_code=401, detail="Invalid or unknown partner MCP token")
+    raise UnauthorizedError("Invalid or unknown partner MCP token")
 
 
 async def call_partner_tool(
@@ -103,8 +104,8 @@ async def call_partner_tool(
     arguments: dict[str, Any] | None,
 ) -> dict[str, Any]:
     if partner_slug == PARTNER_KING:
-        from app.services.king_finance import call_king_tool, has_king_credentials
         from app.config import get_settings
+        from app.services.king_finance import call_king_tool, has_king_credentials
 
         if (
             tool_name != "list_companies"

@@ -13,14 +13,13 @@ leaves the conversation with the team, as with pickup ``people``.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal, SignalEvent
 from app.models.team import Team
 

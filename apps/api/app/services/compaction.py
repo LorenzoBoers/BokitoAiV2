@@ -20,8 +20,6 @@ complete.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 from dataclasses import dataclass
@@ -31,6 +29,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal
 
 logger = logging.getLogger(__name__)
@@ -94,6 +93,7 @@ async def context_window_for(session: AsyncSession, model_slug: str | None = Non
     try:
         window = (await session.execute(stmt.limit(1))).scalar_one_or_none()
     except Exception:
+        logger.debug('compaction window load failed', exc_info=True)
         window = None
     return int(window or 0) or FALLBACK_CONTEXT_WINDOW
 

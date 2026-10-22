@@ -9,8 +9,6 @@ connects, and it never feeds learning (see `_record_no_reply_outcome`).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 from datetime import timedelta
@@ -20,6 +18,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Membership, Tenant, User
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalThreadPin

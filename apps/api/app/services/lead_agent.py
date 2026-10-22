@@ -8,14 +8,14 @@ mental model: binding on the item wins, otherwise the lead agent.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.models.agent import Agent
 
 # Titles the wizard used before the company assistant had a fixed function name.
@@ -94,7 +94,7 @@ async def set_lead_agent(
     )
     agent = result.scalar_one_or_none()
     if not agent or agent.kind != "company":
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     if agent.acts_for_user:
         raise HTTPException(status_code=409, detail="The Bokito helper cannot be the lead agent")
     if not agent.is_active:

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.gateway.publish import publish_signal_message
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.models.workbench import WorkJob

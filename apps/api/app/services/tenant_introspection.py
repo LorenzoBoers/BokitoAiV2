@@ -7,8 +7,6 @@ and cockpit helpers.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime
 from typing import Any
@@ -16,6 +14,8 @@ from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.time import utcnow
 
 
 def _iso(value: datetime | None) -> str | None:

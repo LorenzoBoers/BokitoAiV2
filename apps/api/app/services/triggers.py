@@ -8,8 +8,7 @@ Signal thread so humans see it.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import json
 import re
 import secrets
@@ -22,9 +21,14 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.agent import Agent, AgentRun
 from app.models.auth import Tenant
 from app.models.trigger import TRIGGER_KINDS, Trigger
+
+
+logger = logging.getLogger(__name__)
 
 HEARTBEAT_OK = "HEARTBEAT_OK"
 
@@ -174,7 +178,7 @@ async def rotate_webhook_secret(
 ) -> tuple[Trigger, str]:
     trigger = await get_trigger(session, tenant_id, trigger_id)
     if trigger.kind != "webhook":
-        raise HTTPException(status_code=400, detail="Only webhook triggers have secrets")
+        raise AppError("Only webhook triggers have secrets", code="app_error", status_code=400)
     new_secret = secrets.token_urlsafe(24)
     trigger.webhook_secret = new_secret
     trigger.updated_at = utcnow()
@@ -189,9 +193,9 @@ async def test_webhook_trigger(
 ) -> dict[str, Any]:
     trigger = await get_trigger(session, tenant_id, trigger_id)
     if trigger.kind != "webhook":
-        raise HTTPException(status_code=400, detail="Only webhook triggers can be tested")
+        raise AppError("Only webhook triggers can be tested", code="app_error", status_code=400)
     if not trigger.webhook_secret:
-        raise HTTPException(status_code=400, detail="Webhook secret is not configured")
+        raise AppError("Webhook secret is not configured", code="app_error", status_code=400)
     result = await fire_trigger(
         session,
         trigger,
@@ -216,7 +220,7 @@ async def get_trigger(
     result = await session.execute(query)
     row = result.scalar_one_or_none()
     if not row:
-        raise HTTPException(status_code=404, detail="Trigger not found")
+        raise NotFoundError("Trigger not found")
     return row
 
 
@@ -251,7 +255,7 @@ async def create_trigger(
     if kind not in TRIGGER_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid trigger kind: {kind}")
     if kind == "cron" and next_cron_run(cron_expr, utcnow()) is None:
-        raise HTTPException(status_code=400, detail="Invalid cron expression")
+        raise AppError("Invalid cron expression", code="app_error", status_code=400)
     if kind in ("once", "event") and run_at is None:
         raise HTTPException(status_code=400, detail=f"run_at is required for kind={kind}")
     trigger = Trigger(
@@ -273,7 +277,7 @@ async def create_trigger(
         title_template=title_template[:200],
     )
     if purpose == "recurring_ticket" and workstream_id is None:
-        raise HTTPException(status_code=400, detail="A recurring ticket needs a flow")
+        raise AppError("A recurring ticket needs a flow", code="app_error", status_code=400)
     if kind in ("once", "event"):
         trigger.next_run_at = run_at
     else:
@@ -544,7 +548,11 @@ async def fire_trigger(
     ``manual`` (Run now) keeps the schedule: the next moment stays where it was.
     """
     from app.gateway.publish import publish_thread_update
-    from app.services.thread_schedule import convert_event_trigger, ensure_trigger_thread, mirror_next_at
+    from app.services.thread_schedule import (
+        convert_event_trigger,
+        ensure_trigger_thread,
+        mirror_next_at,
+    )
 
     now = utcnow()
 
@@ -566,8 +574,8 @@ async def fire_trigger(
         return await fire_recurring_ticket(session, trigger, manual=manual)
 
     # Soft-deleted canvases used to leave refresh cron enabled.
-    from app.services.project_canvas import is_canvas_refresh_trigger
     from app.models.project_canvas import ProjectCanvas
+    from app.services.project_canvas import is_canvas_refresh_trigger
 
     if is_canvas_refresh_trigger(trigger.name, trigger.instructions or ""):
         canvas = (
@@ -889,6 +897,7 @@ async def process_due_triggers(session: AsyncSession, tenant_id: UUID | None = N
             await fire_trigger(session, trigger)
             count += 1
         except Exception as exc:  # noqa: BLE001 - isolate per-trigger failures
+            logger.warning('trigger run failed', exc_info=True)
             await session.rollback()
             trigger.last_status = "error"
             trigger.next_run_at = compute_next_run(trigger, now)

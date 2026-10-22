@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import base64
 import re
+
+logger = logging.getLogger(__name__)
 
 # Incoming upload ceiling (FE compresses; this is a safety net).
 MAX_AVATAR_UPLOAD_BYTES = 2_000_000
@@ -71,6 +74,7 @@ def decode_raster_avatar(url: str | None) -> tuple[str, bytes] | None:
     try:
         data = base64.b64decode(re.sub(r"\s+", "", match.group(2)))
     except Exception:
+        logger.warning("profile avatar load failed", exc_info=True)
         return None
     if not data or len(data) > MAX_AVATAR_STORED_BYTES:
         return None

@@ -25,7 +25,6 @@ import asyncio
 import json
 import logging
 import uuid
-from app.core.time import utcnow
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -34,6 +33,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent, AgentRun
 from app.models.agent_turn import AgentAsk, AgentTurn
 from app.models.signal import Signal, SignalMessage

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import contextvars
 import json
@@ -17,6 +15,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.agent import Agent
 from app.models.project import Project
 from app.models.project_canvas import (
@@ -26,6 +26,7 @@ from app.models.project_canvas import (
     ProjectCanvas,
 )
 from app.models.signal import Signal
+from app.models.trigger import Trigger
 from app.services.canvas_content import (
     CanvasContentError,
     content_is_empty,
@@ -33,7 +34,6 @@ from app.services.canvas_content import (
     normalize_kind,
     prepare_content,
 )
-from app.models.trigger import Trigger
 from app.services.project_canvas_compile import (
     EMPTY_SOURCE,
     EMPTY_TREE,
@@ -189,14 +189,14 @@ async def _require_project(session: AsyncSession, tenant_id: UUID, project_id: U
     )
     project = result.scalar_one_or_none()
     if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise NotFoundError("Project not found")
     return project
 
 
 async def _require_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> Signal:
     signal = await session.get(Signal, signal_id)
     if signal is None or signal.tenant_id != tenant_id or signal.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise NotFoundError("Conversation not found")
     return signal
 
 
@@ -282,7 +282,7 @@ async def resolve_managing_agent(
             )
         ).scalar_one_or_none()
         if row is None:
-            raise HTTPException(status_code=400, detail="Managing agent not found")
+            raise AppError("Managing agent not found", code="app_error", status_code=400)
         return row.id
     from app.services.lead_agent import get_lead_agent
 
@@ -561,7 +561,7 @@ async def get_canvas_row(
         await session.execute(query)
     ).scalar_one_or_none()
     if canvas is None:
-        raise HTTPException(status_code=404, detail="Canvas not found")
+        raise NotFoundError("Canvas not found")
     return canvas
 
 
@@ -709,10 +709,10 @@ async def get_canvas(
         canvas = await get_canvas_row(session, tenant_id, canvas_id)
     else:
         if signal_id is None:
-            raise HTTPException(status_code=400, detail="canvas_id or signal_id required")
+            raise AppError("canvas_id or signal_id required", code="app_error", status_code=400)
         canvas = await find_canvas(session, tenant_id, signal_id=signal_id, slug=slug)
         if canvas is None:
-            raise HTTPException(status_code=404, detail="Canvas not found")
+            raise NotFoundError("Canvas not found")
     if await _bind_home(session, tenant_id, canvas):
         await session.commit()
         await session.refresh(canvas)
@@ -830,10 +830,10 @@ async def sync_refresh_trigger(
             detail="Custom refresh needs a five-field cron expression",
         )
     if key == "custom" and trigger_svc.next_cron_run(cron, utcnow()) is None:
-        raise HTTPException(status_code=400, detail="Invalid cron expression")
+        raise AppError("Invalid cron expression", code="app_error", status_code=400)
     schedule = cadence_schedule(key, cron)
     if key == "custom" and schedule is None:
-        raise HTTPException(status_code=400, detail="Invalid cron expression")
+        raise AppError("Invalid cron expression", code="app_error", status_code=400)
     if schedule is None:
         if existing:
             await session.delete(existing)
@@ -990,7 +990,7 @@ async def _open_canvas_thread(
                 actor_id=actor_id or "",
             )
         except LookupError as exc:
-            raise HTTPException(status_code=404, detail="Folder not found") from exc
+            raise NotFoundError("Folder not found") from exc
     return signal
 
 
@@ -1024,7 +1024,7 @@ async def create_canvas(
     one instead, filed in ``folder_id`` when given.
     """
     if signal_id is None and not new_thread:
-        raise HTTPException(status_code=400, detail="signal_id or new_thread required")
+        raise AppError("signal_id or new_thread required", code="app_error", status_code=400)
     if folder_id is not None:
         await _require_project(session, tenant_id, folder_id)
     home = None if new_thread else await _require_signal(session, tenant_id, signal_id)
@@ -1348,11 +1348,11 @@ async def put_canvas_source(
         canvas = await get_canvas_row(session, tenant_id, canvas_id)
     if canvas is None:
         if signal_id is None:
-            raise HTTPException(status_code=400, detail="canvas_id or signal_id required")
+            raise AppError("canvas_id or signal_id required", code="app_error", status_code=400)
         canvas = await find_canvas(session, tenant_id, signal_id=signal_id, slug=slug)
         if canvas is None:
             if not create_if_missing:
-                raise HTTPException(status_code=404, detail="Canvas not found")
+                raise NotFoundError("Canvas not found")
             created = await create_canvas(
                 session,
                 tenant_id,
@@ -1375,7 +1375,7 @@ async def put_canvas_source(
 
     content_kind = (canvas.kind or KIND_DASHBOARD).strip() or KIND_DASHBOARD
     if canvas_refresh_wake.get() and content_kind != KIND_DASHBOARD:
-        raise HTTPException(status_code=400, detail="A refresh wake only updates a dashboard.")
+        raise AppError("A refresh wake only updates a dashboard.", code="app_error", status_code=400)
     await ensure_canvas_thread(session, tenant_id, canvas)
 
     if reset:
@@ -1396,11 +1396,11 @@ async def put_canvas_source(
         canvas.notes = "Cleared canvas"
     elif content_kind == KIND_DASHBOARD:
         if source is None and tree is None:
-            raise HTTPException(status_code=400, detail="Provide source or tree.")
+            raise AppError("Provide source or tree.", code="app_error", status_code=400)
         compiled_source, compiled_tree = await _compile_payload_async(source=source, tree=tree)
     else:
         if source is None and not (image_prompt or "").strip() and not (image_url or "").strip():
-            raise HTTPException(status_code=400, detail="Provide source for this canvas.")
+            raise AppError("Provide source for this canvas.", code="app_error", status_code=400)
         try:
             if content_kind == KIND_IMAGE and (
                 (image_prompt or "").strip() or (image_url or "").strip()
@@ -1467,7 +1467,7 @@ async def apply_canvas_document(
     if change_kind == "delete":
         canvas_id = str(after.get("canvas_id") or after.get("id") or "").strip()
         if not canvas_id:
-            raise HTTPException(status_code=400, detail="canvas_id required")
+            raise AppError("canvas_id required", code="app_error", status_code=400)
         return await delete_canvas(session, tenant_id, UUID(canvas_id))
     if change_kind == "create":
         signal_raw = str(after.get("signal_id") or "").strip()
@@ -1502,7 +1502,7 @@ async def apply_canvas_document(
     signal_raw = str(after.get("signal_id") or "").strip()
     slug = str(after.get("slug") or "").strip().lower()
     if not canvas_id_raw and not (signal_raw and slug):
-        raise HTTPException(status_code=400, detail="canvas_id, or signal_id and slug, required")
+        raise AppError("canvas_id, or signal_id and slug, required", code="app_error", status_code=400)
     signal_id = UUID(signal_raw) if signal_raw else None
     agent_id = str(after.get("agent_id") or after.get("updated_by_id") or "")
     has_document = (

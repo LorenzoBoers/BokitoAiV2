@@ -12,8 +12,6 @@ reach ladder: the person accountable, then the backup, then the other members.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 import uuid
@@ -23,6 +21,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal, SignalTag
 from app.models.team import Department, DepartmentMember
 

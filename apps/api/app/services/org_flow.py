@@ -24,22 +24,28 @@ decided here.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
-from statistics import median
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
+from statistics import median
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Tenant, User
 from app.models.channel import ChannelAccount, Contact
 from app.models.project import Project
-from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag, SignalTagLink, is_internal_channel
+from app.models.signal import (
+    Signal,
+    SignalEvent,
+    SignalMessage,
+    SignalTag,
+    SignalTagLink,
+    is_internal_channel,
+)
 from app.models.team import Department, DepartmentMember, is_root_department
 from app.services.agent_avatar import avatar_payload
 

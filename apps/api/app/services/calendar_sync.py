@@ -18,8 +18,6 @@ production only.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 from dataclasses import dataclass
@@ -32,6 +30,7 @@ import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.calendar import CalendarEvent
 from app.models.integration import IntegrationConnection
 from app.services import oauth_providers
@@ -248,6 +247,7 @@ def _error_text(exc: Exception) -> str:
         try:
             body = exc.response.text or ""
         except Exception:
+            logger.debug('calendar error body read failed', exc_info=True)
             body = ""
         if exc.response.status_code == 403 and (
             "accessNotConfigured" in body or "SERVICE_DISABLED" in body

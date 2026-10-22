@@ -1,8 +1,12 @@
+import logging
 from fastapi import APIRouter, Response, status
 from sqlalchemy import text
 
 from app.config import get_settings
 from app.db.session import engine
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 settings = get_settings()
@@ -25,6 +29,7 @@ async def health_ready(response: Response):
             await conn.execute(text("SELECT 1"))
         checks["postgres"] = "ok"
     except Exception as exc:  # noqa: BLE001 — report, don't crash the probe
+        logger.warning('health postgres check failed', exc_info=True)
         ok = False
         checks["postgres"] = f"error: {type(exc).__name__}"
 
@@ -38,6 +43,7 @@ async def health_ready(response: Response):
         finally:
             await client.aclose()
     except Exception as exc:  # noqa: BLE001
+        logger.warning('health redis check failed', exc_info=True)
         ok = False
         checks["redis"] = f"error: {type(exc).__name__}"
 

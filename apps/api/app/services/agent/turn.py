@@ -22,6 +22,7 @@ Gateway events (topic ``signal:{id}``), numbered by ``services/thread_log``:
 
 from __future__ import annotations
 
+import logging
 import json
 import re
 import uuid
@@ -29,6 +30,9 @@ from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from app.services.agent.turn_persist import slim_activity_item
+
+
+logger = logging.getLogger(__name__)
 
 Publisher = Callable[[str, dict[str, Any]], Awaitable[None]]
 SeqReserver = Callable[[], Awaitable[int | None]]
@@ -124,6 +128,7 @@ def _compact(value: Any) -> Any:
     try:
         text = value if isinstance(value, str) else json.dumps(value, default=str)
     except Exception:  # noqa: BLE001
+        logger.debug('turn value json serialize failed', exc_info=True)
         text = str(value)
     if len(text) <= _MAX_PAYLOAD_CHARS:
         return value
@@ -501,6 +506,7 @@ class TurnRecorder:
             try:
                 seq = await self._reserve_seq()
             except Exception:  # noqa: BLE001
+                logger.debug('turn sequence parse failed', exc_info=True)
                 seq = None
         if seq is not None:
             self._seqs[seg_id] = seq

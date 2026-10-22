@@ -6,8 +6,6 @@ when a visual hitch needs the actual focus, animation, and size events.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import uuid
 from typing import Any
@@ -15,6 +13,8 @@ from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.time import utcnow
 
 FEATURES = frozenset({"communication", "canvas"})
 _NAMES = frozenset({"focus", "key", "anim", "resize", "node"})

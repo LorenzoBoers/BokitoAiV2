@@ -20,10 +20,10 @@ from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection
 from app.models.module_agent import AgentScope
 from app.models.module_source import ModuleSource
-from app.models.team import Department
 from app.models.project import Project, ProjectTagLink
 from app.models.project_work import ProjectResource
 from app.models.signal import SignalTag
+from app.models.team import Department
 from app.models.workspace import WorkspaceDoc
 from app.services.access_list import normalize_entries
 from app.services.agent_avatar import avatar_payload

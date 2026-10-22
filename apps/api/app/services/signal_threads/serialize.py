@@ -14,22 +14,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
-from app.services.addressee import addressee_payload
-from app.services.agent.reply_mode import INTERNAL_CHANNELS
-from app.services.ownership import (
-    owner_payload,
-    turn_payload,
-)
 from app.models.channel import ChannelAccount
 from app.models.notification import DecisionRequest
-from app.services.signal_decisions import decision_provenance
 from app.models.signal import (
     Signal,
     SignalEvent,
     SignalMessage,
     is_internal_channel,
 )
-
+from app.services.addressee import addressee_payload
+from app.services.agent.reply_mode import INTERNAL_CHANNELS
+from app.services.ownership import (
+    owner_payload,
+    turn_payload,
+)
+from app.services.signal_decisions import decision_provenance
 
 logger = logging.getLogger(__name__)
 

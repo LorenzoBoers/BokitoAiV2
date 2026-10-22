@@ -26,8 +26,6 @@ subject in 30 days, whatever the answer was; a rejection is also kept as
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -36,6 +34,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.orchestra import Workstream
 from app.models.platform_change import PlatformChange
 from app.models.signal import SignalEvent

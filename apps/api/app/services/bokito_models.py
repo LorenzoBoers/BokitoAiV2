@@ -240,4 +240,5 @@ def bill_prices_for_slug(slug: str) -> tuple[int, int] | None:
         cout = int(getattr(settings, fields[1]))
         return max(0, cin), max(0, cout)
     except Exception:
+        logger.debug('bokito models settings import failed', exc_info=True)
         return _DEFAULT_LIST_PRICES.get(key)

@@ -7,8 +7,6 @@ time saved. Weights live in ``platform_settings`` (staff Ops) with code defaults
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -17,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import AgentRun
 from app.models.notification import DecisionRequest
 from app.models.signal import SignalEvent, SignalMessage

@@ -6,8 +6,7 @@ no longer writes `os_canvas_*` rows.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import json
 import re
 from datetime import datetime
@@ -18,10 +17,15 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.agent import Agent
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.orchestra import Workstream
 from app.models.platform_change import PlatformChange
+
+
+logger = logging.getLogger(__name__)
 
 OS_GRAPH_RETIRED = {
     "status": "retired",
@@ -58,13 +62,13 @@ async def apply_agent_change(
     if change_kind == "delete":
         agent_id = after.get("agent_id") or before.get("agent_id")
         if not agent_id:
-            raise HTTPException(status_code=400, detail="agent_id required for delete")
+            raise AppError("agent_id required for delete", code="app_error", status_code=400)
         result = await session.execute(
             select(Agent).where(Agent.id == UUID(str(agent_id)), Agent.tenant_id == tenant_id)
         )
         agent = result.scalar_one_or_none()
         if not agent:
-            raise HTTPException(status_code=404, detail="Agent not found")
+            raise NotFoundError("Agent not found")
         agent.is_active = False
         agent.runtime_status = "standby"
         agent.updated_at = utcnow()
@@ -74,13 +78,13 @@ async def apply_agent_change(
     if change_kind == "update":
         agent_id = after.get("agent_id") or before.get("agent_id")
         if not agent_id:
-            raise HTTPException(status_code=400, detail="agent_id required for update")
+            raise AppError("agent_id required for update", code="app_error", status_code=400)
         result = await session.execute(
             select(Agent).where(Agent.id == UUID(str(agent_id)), Agent.tenant_id == tenant_id)
         )
         agent = result.scalar_one_or_none()
         if not agent:
-            raise HTTPException(status_code=404, detail="Agent not found")
+            raise NotFoundError("Agent not found")
         if after.get("restore") or (
             after.get("kind") == "company" and agent.kind == "archived"
         ):
@@ -161,7 +165,7 @@ async def apply_workstream_change(
         )
         ws = result.scalar_one_or_none()
         if not ws:
-            raise HTTPException(status_code=404, detail="Workstream not found")
+            raise NotFoundError("Workstream not found")
         from app.services.trash import load_tenant, move_to_bin
 
         tenant = await load_tenant(session, tenant_id)
@@ -183,7 +187,7 @@ async def apply_workstream_change(
         )
         ws = result.scalar_one_or_none()
         if not ws:
-            raise HTTPException(status_code=404, detail="Workstream not found")
+            raise NotFoundError("Workstream not found")
         if "name" in after:
             ws.name = after["name"]
         if "description" in after:
@@ -241,7 +245,7 @@ async def apply_mcp_server_change(
         )
         mcp = result.scalar_one_or_none()
         if not mcp:
-            raise HTTPException(status_code=404, detail="MCP server not found")
+            raise NotFoundError("MCP server not found")
         if change_kind == "delete":
             mcp.is_active = False
         else:
@@ -285,7 +289,7 @@ async def apply_integration_change(
         )
         conn = result.scalar_one_or_none()
         if not conn:
-            raise HTTPException(status_code=404, detail="Integration not found")
+            raise NotFoundError("Integration not found")
         if change_kind == "delete":
             conn.status = "inactive"
         else:
@@ -358,7 +362,7 @@ async def apply_workspace_doc_change(
     path = after.get("path")
     content = after.get("content", "")
     if not path:
-        raise HTTPException(status_code=400, detail="after_json missing path")
+        raise AppError("after_json missing path", code="app_error", status_code=400)
     mode = after.get("mode", "append")
     section = str(after.get("section") or "").strip()
     project_id = UUID(str(after["project_id"])) if after.get("project_id") else None
@@ -581,7 +585,7 @@ async def apply_category_change(
     if change_kind == "delete":
         tag_id = _as_uuid(after.get("tag_id") or before.get("tag_id"))
         if tag_id is None:
-            raise HTTPException(status_code=400, detail="tag_id required for delete")
+            raise AppError("tag_id required for delete", code="app_error", status_code=400)
         try:
             await delete_tag(session, tenant_id, tag_id, commit=False)
         except LookupError as exc:
@@ -592,7 +596,7 @@ async def apply_category_change(
         tag_id = _as_uuid(after.get("tag_id") or before.get("tag_id"))
         row = await session.get(SignalTag, tag_id) if tag_id else None
         if row is None or row.tenant_id != tenant_id:
-            raise HTTPException(status_code=404, detail="Category not found")
+            raise NotFoundError("Category not found")
         if "workstream_id" in after:
             try:
                 await set_tag_playbook(
@@ -613,7 +617,7 @@ async def apply_category_change(
 
     name = normalize_tag(str(after.get("name") or ""))
     if not name:
-        raise HTTPException(status_code=400, detail="name is required")
+        raise AppError("name is required", code="app_error", status_code=400)
     row = (
         await session.execute(
             select(SignalTag).where(SignalTag.tenant_id == tenant_id, SignalTag.name == name)
@@ -631,7 +635,7 @@ async def apply_category_change(
     else:
         ws = await session.get(Workstream, workstream_id)
         if ws is None or ws.tenant_id != tenant_id:
-            raise HTTPException(status_code=404, detail="Playbook not found")
+            raise NotFoundError("Playbook not found")
     row.workstream_id = workstream_id
     row.show_in_nav = True
     if after.get("description"):
@@ -687,7 +691,7 @@ async def apply_ai_handling_channel_change(
 ) -> dict[str, Any]:
     """Apply a learning-proposed channel AI handling (earned autonomy)."""
     from app.models.channel import ChannelAccount
-    from app.services.ai_handling import set_account_mode, normalize_mode
+    from app.services.ai_handling import normalize_mode, set_account_mode
 
     mode = normalize_mode(after.get("mode"))
     try:
@@ -745,6 +749,7 @@ async def apply_project_change(
         except HTTPException as exc:
             return {"status": "error", "error": str(exc.detail)}
         except Exception as exc:  # noqa: BLE001 — surface to Govern
+            logger.warning('platform apply failed', exc_info=True)
             return {"status": "error", "error": str(exc)}
         return {"deleted": True, "project_id": str(project_id), **(result if isinstance(result, dict) else {})}
 
@@ -787,6 +792,7 @@ async def apply_project_change(
             sort_order=int(after.get("sort_order") or 0),
         )
     except Exception as exc:  # noqa: BLE001 — surface to Govern
+        logger.warning('platform apply failed', exc_info=True)
         return {"status": "error", "error": str(exc)}
     after["project_id"] = row.get("id") if isinstance(row, dict) else None
     return row if isinstance(row, dict) else {"status": "applied", "project": row}
@@ -846,6 +852,7 @@ async def apply_trigger_change(
             run_at=run_at,
         )
     except Exception as exc:  # noqa: BLE001
+        logger.warning('platform apply failed', exc_info=True)
         return {"status": "error", "error": str(exc)}
     after["trigger_id"] = str(getattr(trigger, "id", "") or "")
     return serialize_trigger(trigger)

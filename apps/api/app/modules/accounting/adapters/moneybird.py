@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.modules.accounting.schema import (
+
     Account,
     BankMutation,
     Company,
@@ -16,6 +18,9 @@ from app.modules.accounting.schema import (
     ok_result,
 )
 from app.services import moneybird
+
+
+logger = logging.getLogger(__name__)
 
 VENDOR = "moneybird"
 
@@ -250,6 +255,7 @@ async def call(
     except RuntimeError as exc:
         return {"ok": False, "code": "credentials", "message": str(exc)}
     except Exception as exc:
+        logger.warning('Moneybird vendor API error', exc_info=True)
         return {"ok": False, "code": "vendor_error", "message": f"Moneybird API error: {exc}"}
 
     return {

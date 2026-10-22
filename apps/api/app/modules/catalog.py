@@ -1437,6 +1437,7 @@ async def install_module(
                 open_setup_chat=False,
             )
         except Exception:  # noqa: BLE001
+            logger.warning('module hire payload parse failed', exc_info=True)
             hire = {}
 
     tags = module_tag_templates(slug)

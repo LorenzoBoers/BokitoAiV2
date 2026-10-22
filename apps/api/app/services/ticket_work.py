@@ -25,8 +25,6 @@ Proposals are ordinary ``DecisionRequest`` rows in the thread
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -36,6 +34,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError
 from app.models.signal import Signal, SignalEvent, SignalTag
 
 ENTRY_POLICIES = ("first_stage", "propose", "auto_above")
@@ -139,7 +139,7 @@ def resolve_target(
     if stage_key:
         target = next((s for s in stages if s["key"] == stage_key), None)
         if target is None:
-            raise HTTPException(status_code=400, detail="Unknown stage for this ticket")
+            raise AppError("Unknown stage for this ticket", code="app_error", status_code=400)
         return target
     if status:
         current = next((s for s in stages if s["key"] == current_key), None)
@@ -274,7 +274,7 @@ def parse_due_input(raw: Any) -> datetime | None:
     try:
         return normalize_due(datetime.fromisoformat(text))
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="due_at must be an ISO date or date-time") from exc
+        raise AppError("due_at must be an ISO date or date-time", code="app_error", status_code=400) from exc
 
 
 def due_state(due_at: datetime | None, now: datetime, soon_days: int) -> str:
@@ -471,7 +471,7 @@ def apply_checklist(
     for key, raw in changes.items():
         wanted = str(raw or "").strip().lower()
         if wanted not in ("done", "open"):
-            raise HTTPException(status_code=400, detail="Checklist values are 'done' or 'open'")
+            raise AppError("Checklist values are 'done' or 'open'", code="app_error", status_code=400)
         current = (state.get(key) or {}).get("status") or "open"
         if wanted == "open":
             if current == "open" or (agent and current == "done"):

@@ -17,8 +17,6 @@ cooldown plus period-specific titles.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 import time
@@ -28,6 +26,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.exceptions import AppError
 from app.models.auth import Tenant
 from app.models.usage import UsageLedger

@@ -20,9 +20,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services import bokito_models
+from app.services import bokito_models, tenant_models
 from app.services import model_catalog as catalog_svc
-from app.services import tenant_models
 
 AUTOMATIC = "automatic"
 INHERIT = "inherit"

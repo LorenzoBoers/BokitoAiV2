@@ -29,7 +29,6 @@ reason ``bounce_limit``: people keep it until someone hands it back explicitly.
 from __future__ import annotations
 
 import json
-from app.core.time import utcnow
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -37,6 +36,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.gateway.publish import publish_signal_message
 from app.models.auth import Tenant
 from app.models.signal import Signal, SignalEvent, SignalMessage

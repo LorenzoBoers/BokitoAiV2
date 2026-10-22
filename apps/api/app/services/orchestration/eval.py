@@ -6,6 +6,7 @@ The runner records results in the canonical ``RunEvent`` log. The legacy
 
 from __future__ import annotations
 
+import logging
 import json
 import re
 from dataclasses import dataclass
@@ -14,6 +15,9 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+
+
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class EvalResult:
@@ -100,6 +104,7 @@ async def run_eval_checkpoint(
                 passed = "true" in text.lower() and "false" not in text.lower()
                 result["reason"] = text[:500]
         except Exception as exc:
+            logger.warning('orchestration eval score failed', exc_info=True)
             passed = len(output_text.strip()) > 20
             result["reason"] = f"judge_fallback: {exc}"
 

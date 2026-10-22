@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -13,12 +11,8 @@ from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
-from app.services.ownership import (
-    for_you_clause,
-    turn_is_mine_clause,
-    unassigned_predicate,
-)
 from app.models.channel import ChannelAccount, Contact
 from app.models.notification import DecisionRequest
 from app.models.signal import (
@@ -28,7 +22,11 @@ from app.models.signal import (
     SignalMessage,
     is_internal_channel,
 )
-
+from app.services.ownership import (
+    for_you_clause,
+    turn_is_mine_clause,
+    unassigned_predicate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -311,7 +309,6 @@ async def nav_badge_counts(
 
     from app.models.team import Team
     from app.services.time_items import due_for_user
-
     from app.services.trash import alive as team_alive
 
     # Custom departments (not the All root) are Communication folders.
@@ -528,9 +525,8 @@ async def list_threads(
     from app.services.signal_threads.pins import _pinned_ids
     from app.services.signal_threads.serialize import _user_map, resolve_email_account_by_numeric_id
     pinned = await _pinned_ids(session, tenant_id, user_id)
-    from app.services.trash import alive
-
     from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
+    from app.services.trash import alive
 
     query = select(Signal).where(
         Signal.tenant_id == tenant_id,
@@ -833,7 +829,11 @@ async def _present_thread_rows(
     threads: list[Signal],
     pinned: set,
 ) -> list[dict[str, Any]]:
-    from app.services.signal_threads.serialize import _latest_message_previews, floor_speaker_id, serialize_thread
+    from app.services.signal_threads.serialize import (
+        _latest_message_previews,
+        floor_speaker_id,
+        serialize_thread,
+    )
     previews, speaker_ids = await _latest_message_previews(session, tenant_id, [t.id for t in threads])
     face_ids = set(speaker_ids.values())
     for thread in threads:
@@ -951,7 +951,19 @@ async def get_thread(
     client whether another page exists above the returned window.
     """
     from app.services.signal_threads.pins import _pinned_ids
-    from app.services.signal_threads.serialize import _active_turn_payload, _resolve_thread_agent, _user_display_names, _user_map, conversation_speaker, mention_names, message_bundle_ids, message_proposal_ids, serialize_event, serialize_message, serialize_thread
+    from app.services.signal_threads.serialize import (
+        _active_turn_payload,
+        _resolve_thread_agent,
+        _user_display_names,
+        _user_map,
+        conversation_speaker,
+        mention_names,
+        message_bundle_ids,
+        message_proposal_ids,
+        serialize_event,
+        serialize_message,
+        serialize_thread,
+    )
     query = select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)
     acl = _visibility_predicate(visible_account_ids)
     if acl is not None:
@@ -1272,7 +1284,12 @@ async def get_message(
     visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any] | None:
     """Full message payload (HTML + agent_trace) for lazy expand on the timeline."""
-    from app.services.signal_threads.serialize import _user_display_names, message_bundle_ids, message_proposal_ids, serialize_message
+    from app.services.signal_threads.serialize import (
+        _user_display_names,
+        message_bundle_ids,
+        message_proposal_ids,
+        serialize_message,
+    )
     signal = (
         await session.execute(
             select(Signal).where(Signal.id == signal_id, Signal.tenant_id == tenant_id)

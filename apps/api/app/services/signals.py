@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.auth import Membership, User, user_numeric_id
 from app.models.channel import ChannelAccount, Contact
@@ -321,7 +320,7 @@ async def get_signal_detail(
     )
     signal = result.scalar_one_or_none()
     if not signal:
-        raise HTTPException(status_code=404, detail="Signal not found")
+        raise NotFoundError("Signal not found")
     msg_result = await session.execute(
         select(SignalMessage)
         .where(SignalMessage.signal_id == signal_id)
@@ -359,7 +358,7 @@ async def get_triage_context(
     )
     signal = result.scalar_one_or_none()
     if not signal:
-        raise HTTPException(status_code=404, detail="Signal not found")
+        raise NotFoundError("Signal not found")
     msg_result = await session.execute(
         select(SignalMessage)
         .where(SignalMessage.signal_id == signal_id)
@@ -645,7 +644,7 @@ async def apply_triage(
     )
     signal = result.scalar_one_or_none()
     if not signal:
-        raise HTTPException(status_code=404, detail="Signal not found")
+        raise NotFoundError("Signal not found")
     signal.urgency = max(0, min(100, urgency))
     signal.impact = max(0, min(100, impact))
     signal.summary = summary

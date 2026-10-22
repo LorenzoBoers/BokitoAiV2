@@ -1,4 +1,3 @@
-from app.core.time import utcnow
 import json
 import logging
 from typing import Any
@@ -8,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.gateway.publish import publish_decision, publish_signal_message
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalMessage
@@ -152,6 +152,7 @@ async def resolve_decision(
                 session, tenant_id, decision.platform_change_id, user_id, commit=False
             )
         except HTTPException:
+            logger.warning("reject platform change on decision failed", exc_info=True)
             pass
 
     if decision.notification_id:

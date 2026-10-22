@@ -9,7 +9,6 @@ host thread's timeline as a collapsed, expandable block.
 """
 
 import json
-from app.core.time import utcnow
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -18,6 +17,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import ForbiddenError, NotFoundError
 from app.models.agent import Agent
 from app.models.auth import User
 from app.models.notification import DecisionRequest, Notification
@@ -121,7 +122,7 @@ async def _load_host_thread(session: AsyncSession, tenant_id: UUID, thread_id: U
     )
     thread = result.scalar_one_or_none()
     if thread is None:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise NotFoundError("Thread not found")
     if is_internal_channel(thread.channel):
         raise HTTPException(
             status_code=400,
@@ -372,7 +373,7 @@ async def resolve_session_agent(
             if stale is None or not stale.is_active:
                 wanted = candidates[0]["id"]
             else:
-                raise HTTPException(status_code=403, detail="Agent not available on this thread")
+                raise ForbiddenError("Agent not available on this thread")
         else:
             wanted = candidates[0]["id"]
 
@@ -382,7 +383,7 @@ async def resolve_session_agent(
         )
     ).scalar_one_or_none()
     if agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     return agent
 
 
@@ -484,7 +485,7 @@ async def _load_session(
         await session.execute(select(Signal).where(*filters))
     ).scalar_one_or_none()
     if conversation is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise NotFoundError("Session not found")
     return conversation
 
 

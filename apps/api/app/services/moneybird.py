@@ -12,10 +12,14 @@ accounting module router.
 
 from __future__ import annotations
 
+import logging
 import json
 from typing import Any
 
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 MB_NATIVE_URL = "native://moneybird"
 MB_BASE_URL = "https://moneybird.com/api/v2"
@@ -79,6 +83,7 @@ async def validate_credentials(credentials: dict[str, Any]) -> dict[str, Any]:
     try:
         await _get(token, "/administrations.json")
     except Exception as exc:
+        logger.warning('Moneybird authentication failed', exc_info=True)
         return {"ok": False, "error": f"Moneybird authentication failed: {exc}"}
     return {"ok": True}
 

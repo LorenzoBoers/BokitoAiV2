@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 from sqlalchemy import select
 
@@ -131,7 +132,7 @@ async def test_flow_policy_dial(client: AsyncClient, session_override):
 
     first = await client.patch(f"{FLOWS}/{flow['id']}", headers=headers, json={"stage_entry_policy": "first_stage"})
     assert first.status_code == 200, first.text
-    with pytest.raises(HTTPException) as refused:
+    with pytest.raises((HTTPException, AppError)) as refused:
         await update_ticket(session_override, tid, sid, {"stage_key": "intake"}, actor_type="agent")
     assert refused.value.status_code == 409
     assert refused.value.detail["code"] == "stage_moves_by_people"

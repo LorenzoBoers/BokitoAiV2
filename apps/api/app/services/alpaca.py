@@ -19,9 +19,13 @@ Default trading endpoint is paper (``paper=true``).
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 ALPACA_NATIVE_URL = "native://alpaca"
 ALPACA_PAPER_BASE = "https://paper-api.alpaca.markets"
@@ -223,6 +227,7 @@ async def validate_credentials(auth: dict[str, Any]) -> dict[str, Any]:
             response.raise_for_status()
             body = response.json()
     except Exception as exc:
+        logger.warning('Alpaca authentication failed', exc_info=True)
         return {"ok": False, "error": f"Alpaca authentication failed: {exc}"}
     identity = str(
         body.get("account_number")
@@ -271,6 +276,7 @@ async def _request(
         detail = exc.response.text[:400] if exc.response is not None else str(exc)
         return {"error": f"Alpaca API error ({exc.response.status_code}): {detail}"}
     except Exception as exc:
+        logger.warning('Alpaca API request failed', exc_info=True)
         return {"error": f"Alpaca API request failed: {exc}"}
 
 

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.signal import Signal
 from app.models.signal_participant import SignalParticipant

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import json
 from datetime import datetime
 from typing import Any
@@ -13,11 +12,16 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.models.agent import Agent
-from app.models.orchestration import AgentTask, TaskArtifact
 from app.models.orchestra import Workstream
+from app.models.orchestration import AgentTask, TaskArtifact
 from app.services.signal_decisions import get_or_create_internal_thread
 
+
+
+logger = logging.getLogger(__name__)
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
     try:
@@ -67,7 +71,7 @@ async def create_agent_task(
             )
         ).scalar_one_or_none()
         if not ws:
-            raise HTTPException(status_code=404, detail="Workstream not found")
+            raise NotFoundError("Workstream not found")
 
     if signal_id is not None:
         from app.models.signal import Signal
@@ -78,7 +82,7 @@ async def create_agent_task(
             )
         ).scalar_one_or_none()
         if owned is None:
-            raise HTTPException(status_code=404, detail="Thread not found")
+            raise NotFoundError("Thread not found")
     elif not signal_id:
         agent_name = "Agent"
         if agent_id:
@@ -233,6 +237,7 @@ async def process_due_scheduled_tasks(
                 await run_agent_task_segment(session, task.tenant_id, task.id)
             except Exception:
                 # Restore a due stamp so the next scheduler tick retries.
+                logger.warning('orchestration dispatch task failed', exc_info=True)
                 task = (
                     await session.execute(
                         select(AgentTask).where(AgentTask.id == task.id)
@@ -256,7 +261,7 @@ async def complete_agent_task(session: AsyncSession, tenant_id: UUID, task_id: U
         )
     ).scalar_one_or_none()
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise NotFoundError("Task not found")
     if task.status in ("completed", "cancelled", "rejected"):
         return task
     if task.assignee_kind != "human":
@@ -285,7 +290,7 @@ async def cancel_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
         await session.execute(select(AgentTask).where(AgentTask.id == task_id, AgentTask.tenant_id == tenant_id))
     ).scalar_one_or_none()
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise NotFoundError("Task not found")
 
     from app.models.agent import AgentRun
 
@@ -326,7 +331,7 @@ async def resume_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
         await session.execute(select(AgentTask).where(AgentTask.id == task_id, AgentTask.tenant_id == tenant_id))
     ).scalar_one_or_none()
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise NotFoundError("Task not found")
     if task.assignee_kind == "human":
         raise HTTPException(
             status_code=400,

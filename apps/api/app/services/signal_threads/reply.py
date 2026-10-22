@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 import re
@@ -15,6 +13,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.auth import User
 from app.models.channel import ChannelAccount
@@ -23,7 +23,6 @@ from app.models.signal import (
     SignalEvent,
     SignalMessage,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +41,8 @@ async def _rebind_email_account_for_reply(
     Cross-channel hops (WhatsApp/widget) are refused. Visibility and send
     capability are enforced so members cannot escape ACL via reply.
     """
-    from app.services.channel_registry import account_can_send
     from app.services.channel_access import can_handle_account
+    from app.services.channel_registry import account_can_send
 
     if signal.channel != "email":
         raise HTTPException(
@@ -61,9 +60,9 @@ async def _rebind_email_account_for_reply(
     if account is None or not await can_handle_account(
         session, account, user_id=user_id, role=actor_role
     ):
-        raise HTTPException(status_code=404, detail="Channel not found")
+        raise NotFoundError("Channel not found")
     if account.channel != "email":
-        raise HTTPException(status_code=400, detail="Selected channel is not an email mailbox")
+        raise AppError("Selected channel is not an email mailbox", code="app_error", status_code=400)
     if not account.is_enabled or not account_can_send(account):
         raise HTTPException(status_code=409, detail="Selected mailbox cannot send")
 
@@ -512,8 +511,8 @@ async def notify_mentions(
     author_name: str = "",
 ) -> list[UUID]:
     """Notify @[Name](user:id) mentions in a message (tier 1). Returns the people mentioned."""
-    from app.services.signal_threads.serialize import _user_map
     from app.services.notify import TIER_NOW, notify
+    from app.services.signal_threads.serialize import _user_map
 
     mention_nums = {int(num) for _, num in MENTION_PATTERN.findall(body_text or "")}
     if not mention_nums:
@@ -633,12 +632,15 @@ async def _generate_agent_reply(
     (agent.turn / agent.activity / message.delta / message) keep the open
     thread live; each chat bubble arrives as its own message.
     """
-    from app.services.signal_threads.decisions import _decision_outcome_brief, _fill_silent_decision_follow_up
-    from app.services.signal_threads.serialize import _resolve_thread_agent
     from app.services.agent_turns import close_on_brief
     from app.services.assistant_threads import signal_chat_history
     from app.services.chat_runtime import build_agent_loop
     from app.services.participants import ensure_participant
+    from app.services.signal_threads.decisions import (
+        _decision_outcome_brief,
+        _fill_silent_decision_follow_up,
+    )
+    from app.services.signal_threads.serialize import _resolve_thread_agent
 
     signal_id = signal.id
     agent = None

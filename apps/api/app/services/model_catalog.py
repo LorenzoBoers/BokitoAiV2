@@ -8,13 +8,12 @@ rows; agents reference a row by ``slug`` (legacy agents may still store a raw
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.model_catalog import ModelCatalog, PlatformSetting
 
 MARKUP_SETTING_KEY = "token_markup_multiplier"

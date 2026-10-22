@@ -7,6 +7,7 @@ in that module's ``provider_slugs`` and an ``IntegrationBinding`` of type
 
 from __future__ import annotations
 
+import logging
 import json
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -16,8 +17,12 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError, NotFoundError
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.modules.catalog import MODULE_BY_SLUG, module_for_provider
+
+
+logger = logging.getLogger(__name__)
 
 MODULE_BINDING = "module"
 RESERVED_MODULE_PATHS = frozenset({"connected", "marketplace", "tools"})
@@ -49,6 +54,7 @@ def module_slug_from_return_url(return_url: str) -> str | None:
         parsed = urlparse(return_url)
         query = parse_qs(parsed.query)
     except Exception:
+        logger.debug('module attach return_url parse failed', exc_info=True)
         return None
     raw = (query.get("bokito_module") or [""])[0].strip()
     if raw in MODULE_BY_SLUG:
@@ -134,7 +140,7 @@ async def resolve_integration_connection_id(
         return conn.id
     server = await session.get(McpServer, connection_id)
     if server is None or server.tenant_id != tenant_id:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise NotFoundError("Connection not found")
     result = await session.execute(
         select(IntegrationBinding).where(
             IntegrationBinding.tenant_id == tenant_id,
@@ -144,7 +150,7 @@ async def resolve_integration_connection_id(
     for binding in result.scalars().all():
         if str(_parse_json(binding.config_json).get("mcp_server_id") or "") == str(server.id):
             return binding.connection_id
-    raise HTTPException(status_code=404, detail="Connection not found")
+    raise NotFoundError("Connection not found")
 
 
 async def attach_connection_to_module(
@@ -156,13 +162,13 @@ async def attach_connection_to_module(
     commit: bool = True,
 ) -> IntegrationBinding:
     if MODULE_BY_SLUG.get(module_slug) is None:
-        raise HTTPException(status_code=404, detail="Unknown module")
+        raise NotFoundError("Unknown module")
     ic_id = await resolve_integration_connection_id(session, tenant_id, connection_id)
     conn = await session.get(IntegrationConnection, ic_id)
     if conn is None or conn.tenant_id != tenant_id:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise NotFoundError("Connection not found")
     if conn.status == "revoked":
-        raise HTTPException(status_code=400, detail="Cannot attach a revoked connection")
+        raise AppError("Cannot attach a revoked connection", code="app_error", status_code=400)
     if not provider_allowed_for_module(conn.provider, module_slug):
         raise HTTPException(
             status_code=400,
@@ -197,7 +203,7 @@ async def detach_connection_from_module(
     module_slug: str,
 ) -> dict[str, Any]:
     if MODULE_BY_SLUG.get(module_slug) is None:
-        raise HTTPException(status_code=404, detail="Unknown module")
+        raise NotFoundError("Unknown module")
     ic_id = await resolve_integration_connection_id(session, tenant_id, connection_id)
     removed = False
     for row in await list_module_bindings(session, tenant_id, module_slug):
@@ -205,7 +211,7 @@ async def detach_connection_from_module(
             await session.delete(row)
             removed = True
     if not removed:
-        raise HTTPException(status_code=404, detail="Connection is not attached to this module")
+        raise NotFoundError("Connection is not attached to this module")
     from app.services.module_connections import _clear_module_default_if_needed
 
     await session.flush()
@@ -252,7 +258,7 @@ async def list_eligible_connections(
     """Active registrations this module may attach (defined providers, not yet attached)."""
     spec = MODULE_BY_SLUG.get(module_slug)
     if spec is None:
-        raise HTTPException(status_code=404, detail="Unknown module")
+        raise NotFoundError("Unknown module")
     attached = await attached_connection_ids(session, tenant_id, module_slug)
     result = await session.execute(
         select(IntegrationConnection).where(

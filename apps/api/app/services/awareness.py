@@ -16,8 +16,6 @@ gets a weekly trend orientation instead (``services/trends.py``).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -26,6 +24,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Membership, User
 from app.models.integration import IntegrationConnection
 from app.models.orchestra import Workstream

@@ -6,10 +6,10 @@ import json
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import NotFoundError
 from app.models.notification import DecisionRequest
 from app.services.notifications import resolve_decision
 
@@ -105,7 +105,7 @@ async def resolve_decision_message(
     )
     decision = result.scalar_one_or_none()
     if not decision:
-        raise HTTPException(status_code=404, detail="Decision not found")
+        raise NotFoundError("Decision not found")
 
     options = json.loads(decision.options_json or "[]")
     if option_id:

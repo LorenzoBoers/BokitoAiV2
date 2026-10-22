@@ -8,7 +8,11 @@ triage and the mailbox ``ai_config`` reader used by the language policy.
 from __future__ import annotations
 
 from app.models.auth import Tenant
-from app.services.ai_handling import DEFAULT_CERTAINTY_THRESHOLD, account_ai_config, workspace_settings
+from app.services.ai_handling import (
+    DEFAULT_CERTAINTY_THRESHOLD,
+    account_ai_config,
+    workspace_settings,
+)
 
 __all__ = ["DEFAULT_CERTAINTY_THRESHOLD", "account_ai_config", "inbox_policy"]
 

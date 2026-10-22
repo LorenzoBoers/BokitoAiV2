@@ -21,8 +21,6 @@ so a laptop or phone can show an OS notification even with the dashboard open.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import timedelta
 from typing import Any, Iterable
@@ -31,6 +29,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import User
 from app.models.notification import Notification, UserNotificationPreference
 

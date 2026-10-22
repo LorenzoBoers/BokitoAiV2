@@ -8,8 +8,7 @@ plain tasks: queue workflow wakes, delegation, trigger wakes, ad-hoc jobs.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import json
 from typing import Any
 from uuid import UUID
@@ -17,16 +16,20 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.gateway.publish import publish_run_event, publish_signal_message
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.orchestration import AgentTask
+from app.models.signal import Signal, SignalMessage
 from app.services.chat_runtime import build_agent_loop
 from app.services.orchestration.dispatcher import add_task_artifact
 from app.services.orchestration.eval import run_eval_checkpoint
 from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
 from app.services.orchestration.queue import enqueue_agent_task_segment
-from app.gateway.publish import publish_run_event, publish_signal_message
-from app.models.signal import Signal, SignalMessage
 
+
+
+logger = logging.getLogger(__name__)
 
 def _parse_json(raw: str | None) -> dict[str, Any]:
     try:
@@ -350,6 +353,7 @@ async def run_agent_task_segment(session: AsyncSession, tenant_id: UUID, task_id
             segment_index=segment_index,
         )
     except Exception as exc:  # noqa: BLE001 - never leave the task stuck on "running"
+        logger.warning('orchestration runner failed', exc_info=True)
         await session.rollback()
         task = (
             await session.execute(

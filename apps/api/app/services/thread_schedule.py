@@ -12,8 +12,6 @@ lasts until its next moment; pausing turns the rule off.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any, Iterable
@@ -23,6 +21,8 @@ from fastapi import HTTPException
 from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.models.agent import Agent
 from app.models.signal import Signal, SignalEvent
 from app.models.trigger import Trigger
@@ -395,7 +395,7 @@ async def apply_thread_schedule(
             )
         ).scalar_one_or_none()
         if agent is None:
-            raise HTTPException(status_code=404, detail="Agent not found")
+            raise NotFoundError("Agent not found")
 
     if signal is None:
         if not (title or "").strip():
@@ -526,7 +526,7 @@ async def set_rule_enabled(session: AsyncSession, signal: Signal, enabled: bool)
 
     rule = await thread_rule(session, signal.id)
     if rule is None:
-        raise HTTPException(status_code=404, detail="This thread has no repeat")
+        raise NotFoundError("This thread has no repeat")
     rule.enabled = enabled
     if not enabled:
         rule.next_run_at = None

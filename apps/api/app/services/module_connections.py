@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import NotFoundError
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.modules.catalog import (
     MODULE_BY_SLUG,
@@ -91,9 +92,8 @@ async def _generic_rows(
     rows: list[dict[str, Any]] = []
     for conn in await active_module_connections(session, tenant_id, module_slug):
         meta = _parse_json(conn.metadata_json)
-        from app.services.moneybird import has_moneybird_credentials
-
         from app.services.crypto import get_connection_credentials
+        from app.services.moneybird import has_moneybird_credentials
         creds = get_connection_credentials(conn)
         has_creds = bool(creds) and (
             has_moneybird_credentials(creds)
@@ -331,7 +331,7 @@ async def disconnect_module_connection(
         await _clear_module_default_if_needed(session, tenant_id, module_slug, cid)
         return {"ok": True, "id": cid, "kind": "mcp"}
 
-    raise HTTPException(status_code=404, detail="Connection not found")
+    raise NotFoundError("Connection not found")
 
 
 async def verify_module_connection(
@@ -435,7 +435,7 @@ async def verify_connection(
 
     conn = await session.get(IntegrationConnection, connection_id)
     if conn is None or conn.tenant_id != tenant_id or conn.status == "revoked":
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise NotFoundError("Connection not found")
 
     meta = _parse_json(conn.metadata_json)
     from app.services.crypto import get_connection_credentials
@@ -549,6 +549,7 @@ def oauth_create_new_from_return_url(return_url: str) -> bool:
     try:
         query = parse_qs(urlparse(return_url).query)
     except Exception:
+        logger.debug('module connection return_url parse failed', exc_info=True)
         return False
     raw = (query.get("bokito_create_new") or query.get("create_new") or [""])[0]
     return str(raw).strip().lower() in ("1", "true", "yes")
@@ -558,6 +559,7 @@ def oauth_connection_id_from_return_url(return_url: str) -> UUID | None:
     try:
         query = parse_qs(urlparse(return_url).query)
     except Exception:
+        logger.debug('module connection return_url parse failed', exc_info=True)
         return None
     raw = (query.get("bokito_connection_id") or query.get("connection_id") or [""])[0]
     try:

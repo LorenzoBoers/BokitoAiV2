@@ -16,10 +16,13 @@ provider package (see app/modules/dispatch.py).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.modules.catalog import MODULES, ModuleToolCard
 from app.tools.registry import ToolContext, ToolSpec, register_tool
+
+logger = logging.getLogger(__name__)
 
 _COMMON_PROPS: dict[str, Any] = {
     "connection_id": {
@@ -82,6 +85,7 @@ async def _company_label(
             agent_id=_agent_id(ctx), project_id=ctx.project_id,
         )
     except Exception:
+        logger.warning("module tools company list failed", exc_info=True)
         return ""
     for company in outcome.get("companies") or []:
         if isinstance(company, dict) and str(company.get("id")) == company_id:
@@ -153,6 +157,7 @@ def _customer_read_handler(slug: str, verb: str):
                 agent_id=_agent_id(ctx), project_id=ctx.project_id,
             )
         except Exception as exc:
+            logger.warning('module tools documents lookup failed', exc_info=True)
             return {"documents": [], "note": str(exc)}
         parties = parties_out.get("parties") or parties_out.get("items") or []
         party_id = ""
@@ -182,6 +187,7 @@ def _customer_read_handler(slug: str, verb: str):
                 agent_id=_agent_id(ctx), project_id=ctx.project_id,
             )
         except Exception as exc:
+            logger.warning('module tools documents lookup failed', exc_info=True)
             return {"documents": [], "note": str(exc)}
         documents = docs_out.get("documents") or docs_out.get("items") or []
         if not isinstance(documents, list):

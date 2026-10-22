@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import base64
 import json
 import re
@@ -15,9 +13,16 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.exceptions import AppError
-from app.models.auth import Invite, Membership, Tenant, User
-from app.models.auth import canonical_workspace_role, user_numeric_id
+from app.models.auth import (
+    Invite,
+    Membership,
+    Tenant,
+    User,
+    canonical_workspace_role,
+    user_numeric_id,
+)
 from app.services.auth import create_invite_token
 from app.services.tenant_bootstrap import (
     bootstrap_tenant,
@@ -283,7 +288,8 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
     Cross-table cycles (decision_requests ↔ platform_changes ↔ signals) are
     broken by nulling FKs first — SQLAlchemy cannot topologically sort those.
     """
-    from sqlalchemy import delete as sa_delete, text
+    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import text
     from sqlmodel import SQLModel
 
     tenant_id = tenant.id

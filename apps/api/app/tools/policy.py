@@ -21,6 +21,7 @@ then weighs the agent's ``certainty`` and cited judgement rule.
 
 from __future__ import annotations
 
+import logging
 import json
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Literal
@@ -33,6 +34,8 @@ from app.dependencies import tenant_settings
 from app.models.auth import Tenant
 from app.tools import permission_rules as prules
 from app.tools.registry import TOOL_CATEGORIES, ToolSpec
+
+logger = logging.getLogger(__name__)
 
 AllowanceMode = Literal["deny", "ask", "allow"]
 ALLOWANCE_MODES = ("deny", "ask", "allow")
@@ -210,6 +213,7 @@ async def _run_pre_tool_use_hooks(
         try:
             outcome = await hook(spec=spec, tool_input=tool_input, tenant=tenant, agent=agent, trust=trust)
         except Exception:
+            logger.warning("pre-tool-use hook failed", exc_info=True)
             continue
         if not outcome:
             continue

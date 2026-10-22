@@ -87,22 +87,23 @@ async def test_install_mcp_refuses_mock_in_prod(
 
     # Bjorn Lunden without credentials is refused in production.
     from fastapi import HTTPException
+    from app.exceptions import AppError
 
-    with pytest.raises(HTTPException) as missing:
+    with pytest.raises((HTTPException, AppError)) as missing:
         await install_mcp(
             session_override, tenant.id, provider="bjorn_lunden_mcp", api_key=""
         )
     assert missing.value.status_code == 400
 
     # Providers without a native integration or URL -> 422 asking for one.
-    with pytest.raises(HTTPException) as no_url:
+    with pytest.raises((HTTPException, AppError)) as no_url:
         await install_mcp(
             session_override, tenant.id, provider="custom_mcp", api_key="k"
         )
     assert no_url.value.status_code == 422
 
     # Explicit mock URL -> refused.
-    with pytest.raises(HTTPException) as mock_url:
+    with pytest.raises((HTTPException, AppError)) as mock_url:
         await install_mcp(
             session_override,
             tenant.id,
@@ -115,7 +116,7 @@ async def test_install_mcp_refuses_mock_in_prod(
     # The low-level register path (used by seed) refuses mock URLs too.
     from app.services.integrations_platform import register_mcp_server
 
-    with pytest.raises(HTTPException) as seeded:
+    with pytest.raises((HTTPException, AppError)) as seeded:
         await register_mcp_server(
             session_override, tenant.id, name="mock-tools", server_url="mock://local"
         )

@@ -15,8 +15,6 @@ the other actions are added too.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from typing import Any
@@ -25,6 +23,7 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.learning import InboxRule
 from app.services.audit import record_audit
 
@@ -505,14 +504,13 @@ async def raise_rule_decision(
     Returns the created decision id, or None when the question is already
     on the table or was declined recently.
     """
+    from app.models.auth import Tenant
+    from app.services.language import resolve_workspace_language
     from app.services.signal_decisions import (
         create_decision,
         find_open_duplicate_decision,
         recently_declined_decision,
     )
-
-    from app.models.auth import Tenant
-    from app.services.language import resolve_workspace_language
 
     tenant = await session.get(Tenant, tenant_id)
     lang = resolve_workspace_language(tenant)

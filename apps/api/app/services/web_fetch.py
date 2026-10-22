@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import ipaddress
 import socket
 from typing import Any
@@ -10,6 +11,8 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 MAX_MARKDOWN_CHARS = 80_000
 FETCH_TIMEOUT_S = 45.0
@@ -36,6 +39,7 @@ def _host(url: str) -> str:
     try:
         return (urlparse(url).hostname or "").removeprefix("www.")
     except Exception:
+        logger.warning("web fetch failed", exc_info=True)
         return ""
 
 
@@ -47,6 +51,7 @@ def assert_public_http_url(url: str) -> str | None:
     try:
         parsed = urlparse(raw)
     except Exception:
+        logger.warning("web fetch URL validate failed", exc_info=True)
         return "url_invalid"
     if parsed.scheme not in ("http", "https"):
         return "url_scheme_blocked"

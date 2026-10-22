@@ -1,7 +1,5 @@
 """Integrations platform service (marketplace, connections, MCP, OAuth mock)."""
 
-from app.core.time import utcnow
-
 import json
 import logging
 from typing import Any
@@ -13,14 +11,16 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
-from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug, provider_id
 from app.services.crypto import (
     encrypt_credentials_blob,
     get_connection_credentials,
     set_connection_credentials,
 )
+from app.services.integrations_catalog import PROVIDER_BY_SLUG, canonical_provider_slug, provider_id
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +231,7 @@ async def revoke_connection(session: AsyncSession, tenant_id: UUID, connection_i
     )
     conn = result.scalar_one_or_none()
     if not conn:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise NotFoundError("Connection not found")
     conn.status = "revoked"
     session.add(conn)
     bindings = await session.execute(
@@ -267,7 +267,7 @@ async def create_api_key_connection(
     display_name: str | None = None,
 ) -> dict[str, Any]:
     if provider not in PROVIDER_BY_SLUG:
-        raise HTTPException(status_code=400, detail="Unknown provider")
+        raise AppError("Unknown provider", code="app_error", status_code=400)
     conn = IntegrationConnection(
         tenant_id=tenant_id,
         provider=provider,
@@ -412,7 +412,11 @@ async def _require_native_mcp_credentials(
         return _stamp_verify_meta(auth_payload, ok=True, identity=identity)
 
     if provider == "bjorn_lunden_mcp":
-        from app.services.bjorn_lunden import has_bl_credentials, parse_bl_credentials, validate_credentials
+        from app.services.bjorn_lunden import (
+            has_bl_credentials,
+            parse_bl_credentials,
+            validate_credentials,
+        )
 
         if not has_bl_credentials(auth_payload):
             raise HTTPException(
@@ -493,9 +497,9 @@ async def install_mcp(
     if provider not in PROVIDER_BY_SLUG:
         await ensure_catalog_fresh(session)
     if provider not in PROVIDER_BY_SLUG:
-        raise HTTPException(status_code=400, detail="Unknown provider")
+        raise AppError("Unknown provider", code="app_error", status_code=400)
     if PROVIDER_BY_SLUG[provider].get("status") == "coming_soon":
-        raise HTTPException(status_code=400, detail="This integration is not available yet.")
+        raise AppError("This integration is not available yet.", code="app_error", status_code=400)
     preset = preset_for(provider)
     if preset is not None and not use_mock:
         server_url, preset_auth, preset_key = build_from_fields(provider, fields or {})
@@ -624,6 +628,7 @@ async def install_mcp(
     try:
         discovery = await test_mcp_server(session, tenant_id, server.id)
     except Exception:
+        logger.warning('MCP discovery after connect failed', exc_info=True)
         discovery = None
     from app.modules.catalog import enable_module_for_provider
 
@@ -653,11 +658,11 @@ async def ensure_oauth_connection(
     instead of inventing a second account.
     """
     if provider not in PROVIDER_BY_SLUG:
-        raise HTTPException(status_code=400, detail="Unknown provider")
+        raise AppError("Unknown provider", code="app_error", status_code=400)
     if connection_id is not None:
         existing = await session.get(IntegrationConnection, connection_id)
         if existing is None or existing.tenant_id != tenant_id:
-            raise HTTPException(status_code=404, detail="Connection not found")
+            raise NotFoundError("Connection not found")
         if display_name:
             existing.display_name = display_name
             session.add(existing)
@@ -786,7 +791,7 @@ async def test_mcp_server(
     )
     server = result.scalar_one_or_none()
     if not server:
-        raise HTTPException(status_code=404, detail="MCP server not found")
+        raise NotFoundError("MCP server not found")
 
     if server.server_url.startswith("native://king-accountancy"):
         from app.services.king_finance import KING_NATIVE_TOOLS
@@ -833,7 +838,8 @@ async def test_mcp_server(
         return payload
 
     if server.server_url.startswith("native://alpaca"):
-        from app.services.alpaca import ALPACA_NATIVE_TOOLS, validate_credentials as validate_alpaca
+        from app.services.alpaca import ALPACA_NATIVE_TOOLS
+        from app.services.alpaca import validate_credentials as validate_alpaca
 
         auth_data = _parse_json(server.auth_json)
         check = await validate_alpaca(auth_data if isinstance(auth_data, dict) else {})

@@ -6,8 +6,6 @@ retired; attribution for agent work uses ``AgentRun.workstream_id``.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime
 from typing import Any
@@ -17,6 +15,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.agent import AgentRun
 from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
@@ -150,7 +150,12 @@ async def apply_recipe(session: AsyncSession, ws: Workstream, patch: dict[str, A
         ws.capabilities_json = json.dumps(caps)
     if patch.get("direct") is not None and bool(patch["direct"]) != before["direct"]:
         from app.models.auth import Tenant
-        from app.services.tickets import direct_stages_json, staged_json, workspace_language, workstream_stages
+        from app.services.tickets import (
+            direct_stages_json,
+            staged_json,
+            workspace_language,
+            workstream_stages,
+        )
 
         language = workspace_language(await session.get(Tenant, ws.tenant_id))
         stages = workstream_stages(ws)
@@ -275,7 +280,7 @@ async def apply_stage_entry(
         ws.stage_entry_policy = policy
     if threshold is not None:
         if threshold != -1 and not 0 <= threshold <= 10:
-            raise HTTPException(status_code=400, detail="stage_entry_threshold must be 0-10, or -1 to follow the workspace")
+            raise AppError("stage_entry_threshold must be 0-10, or -1 to follow the workspace", code="app_error", status_code=400)
         ws.stage_entry_threshold = None if threshold == -1 else threshold
     after = {"stage_entry_policy": ws.stage_entry_policy or "", "stage_entry_threshold": ws.stage_entry_threshold}
     if before == after:
@@ -444,7 +449,7 @@ async def get_workstream(
         )
     ).scalar_one_or_none()
     if not ws:
-        raise HTTPException(status_code=404, detail="Workstream not found")
+        raise NotFoundError("Workstream not found")
     return ws
 
 
@@ -594,7 +599,7 @@ async def delete_workstream(
         )
     ).scalar_one_or_none()
     if not ws:
-        raise HTTPException(status_code=404, detail="Workstream not found")
+        raise NotFoundError("Workstream not found")
     from app.models.signal import SignalTag
     from app.services.signal_tags import set_tag_playbook
 
@@ -625,7 +630,7 @@ async def install_template(
 
     template = get_workstream_template(module_slug, template_slug)
     if template is None:
-        raise HTTPException(status_code=404, detail="Unknown workstream template")
+        raise NotFoundError("Unknown workstream template")
     problems = await check_template_requirements(session, tenant_id, template)
     if problems:
         raise HTTPException(

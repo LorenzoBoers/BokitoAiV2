@@ -6,8 +6,6 @@ through Postgres so staff can add OAuth/URL presets without a deploy.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import time
 from typing import Any
 
@@ -15,6 +13,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.integration_catalog import IntegrationCatalogHost, IntegrationCatalogProvider
 from app.services.mcp_remote_catalog import catalog_hosts, catalog_providers
 
@@ -279,7 +279,7 @@ async def upsert_host(
 ) -> IntegrationCatalogHost:
     slug = slug.strip()
     if not slug:
-        raise HTTPException(status_code=400, detail="slug is required")
+        raise AppError("slug is required", code="app_error", status_code=400)
     row = await get_catalog_host(session, slug)
     now = utcnow()
     if row is None:
@@ -314,7 +314,7 @@ async def upsert_host(
 async def delete_host(session: AsyncSession, slug: str) -> None:
     row = await get_catalog_host(session, slug)
     if not row:
-        raise HTTPException(status_code=404, detail="Host not found")
+        raise NotFoundError("Host not found")
     linked = await session.execute(
         select(IntegrationCatalogProvider.slug).where(
             IntegrationCatalogProvider.host_slug == slug
@@ -333,7 +333,7 @@ async def delete_host(session: AsyncSession, slug: str) -> None:
 async def create_provider(session: AsyncSession, body: dict[str, Any]) -> IntegrationCatalogProvider:
     slug = str(body.get("slug") or "").strip()
     if not slug:
-        raise HTTPException(status_code=400, detail="slug is required")
+        raise AppError("slug is required", code="app_error", status_code=400)
     _reject_core_slug(slug)
     if await get_catalog_provider(session, slug):
         raise HTTPException(status_code=409, detail="Provider slug already exists")
@@ -374,7 +374,7 @@ async def update_provider(
 ) -> IntegrationCatalogProvider:
     row = await get_catalog_provider(session, slug)
     if not row:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        raise NotFoundError("Provider not found")
     if "host_slug" in body and body["host_slug"] is not None:
         host_slug = str(body["host_slug"]).strip() or "custom"
         if not await get_catalog_host(session, host_slug):
@@ -412,7 +412,7 @@ async def update_provider(
 async def delete_provider(session: AsyncSession, slug: str) -> None:
     row = await get_catalog_provider(session, slug)
     if not row:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        raise NotFoundError("Provider not found")
     await session.delete(row)
     await session.commit()
     invalidate_catalog_cache()

@@ -7,12 +7,16 @@ settings. Callers fall back to the dev mock flow when not configured.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
 
 from app.config import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 GITHUB = "github"
 GOOGLE = "gmail"
@@ -263,6 +267,7 @@ async def fetch_identity(provider: str, access_token: str) -> dict[str, Any]:
                     )
                     email = primary.get("email", "") if primary else ""
                 except Exception:
+                    logger.debug('oauth profile email extract failed', exc_info=True)
                     email = ""
             return {
                 "email": email,

@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.auth import User
 from app.models.channel import Contact

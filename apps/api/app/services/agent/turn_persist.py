@@ -11,8 +11,6 @@ activity note so the team can still see it.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from datetime import datetime, timedelta
@@ -22,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage, is_internal_channel
 from app.services.agent.reply_mode import CHAT, MAX_CHAT_MESSAGES, split_chat_messages
@@ -996,9 +995,9 @@ async def persist_agent_turn(
     Each bubble keeps the ``seq`` its speech item reserved and names it in
     ``segment_id``, so the live item and the saved row are the same object.
     Caller commits."""
-    from app.services.assistant_threads import append_signal_chat_message
     from app.services.agent.mention_repair import repair_mentions
     from app.services.agent.style import strip_emoji
+    from app.services.assistant_threads import append_signal_chat_message
 
     planned = plan_turn_messages(segments, reply_mode, fallback_text=fallback_text)
     if append_to_last and planned:

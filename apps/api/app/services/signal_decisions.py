@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 from uuid import UUID
@@ -11,11 +9,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.gateway.publish import publish_decision, publish_signal_message
-from app.services.automated_mail import clip_with_ellipsis
 from app.models.agent import Agent
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage
+from app.services.automated_mail import clip_with_ellipsis
 
 
 def decision_provenance(decision: DecisionRequest) -> dict[str, Any] | None:

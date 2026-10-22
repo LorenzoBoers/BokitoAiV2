@@ -359,6 +359,7 @@ def _provider_message_id(res: httpx.Response) -> str:
     try:
         data = res.json()
     except Exception:  # noqa: BLE001 — empty 202 bodies and test doubles
+        logger.debug('email html convert failed', exc_info=True)
         return ""
     if isinstance(data, dict):
         return str(data.get("id") or "")

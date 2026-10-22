@@ -25,6 +25,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.workspace import (
     DOC_KINDS,
     DOC_SECTION_STATUSES,
@@ -504,9 +505,9 @@ def serialize_doc(doc: WorkspaceDoc, *, include_content: bool = True) -> dict[st
 def _normalize_path(path: str) -> str:
     cleaned = path.strip().strip("/").replace("\\", "/")
     if not cleaned:
-        raise HTTPException(status_code=400, detail="Doc path required")
+        raise AppError("Doc path required", code="app_error", status_code=400)
     if ".." in cleaned:
-        raise HTTPException(status_code=400, detail="Invalid doc path")
+        raise AppError("Invalid doc path", code="app_error", status_code=400)
     if not cleaned.endswith(".md"):
         cleaned = f"{cleaned}.md"
     return cleaned
@@ -855,10 +856,10 @@ async def update_section(
     """Patch one section by id; the anchor stays stable across heading edits."""
     section = await get_section(session, tenant_id, section_id)
     if not section:
-        raise HTTPException(status_code=404, detail="Section not found")
+        raise NotFoundError("Section not found")
     doc = await get_doc(session, tenant_id, section.doc_id)
     if doc is None:
-        raise HTTPException(status_code=404, detail="Doc not found")
+        raise NotFoundError("Doc not found")
     now = utcnow()
     content_changed = False
     if heading is not None and heading != section.heading:
@@ -919,7 +920,7 @@ async def delete_section(
 ) -> None:
     section = await get_section(session, tenant_id, section_id)
     if not section:
-        raise HTTPException(status_code=404, detail="Section not found")
+        raise NotFoundError("Section not found")
     doc = await get_doc(session, tenant_id, section.doc_id)
     await _delete_section_rows(session, [section.id])
     if doc is not None:
@@ -947,7 +948,7 @@ async def set_section_status(
         raise HTTPException(status_code=400, detail=f"Invalid section status: {status}")
     section = await get_section(session, tenant_id, section_id)
     if not section:
-        raise HTTPException(status_code=404, detail="Section not found")
+        raise NotFoundError("Section not found")
     previous = section.status
     now = utcnow()
     section.status = status
@@ -1017,7 +1018,7 @@ async def delete_doc(
 ) -> None:
     doc = await get_doc(session, tenant_id, doc_id, include_deleted=permanent)
     if not doc:
-        raise HTTPException(status_code=404, detail="Doc not found")
+        raise NotFoundError("Doc not found")
     if not permanent:
         from app.services.trash import load_tenant, move_to_bin
 

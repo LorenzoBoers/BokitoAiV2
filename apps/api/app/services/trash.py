@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -14,6 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.models.auth import Tenant
 from app.models.trash import RESOURCE_TYPES, TrashEntry
 from app.services.audit import record_audit
@@ -52,7 +52,7 @@ def alive(model: type) -> Any:
 async def load_tenant(session: AsyncSession, tenant_id: UUID) -> Tenant:
     row = (await session.execute(select(Tenant).where(Tenant.id == tenant_id))).scalar_one_or_none()
     if row is None:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+        raise NotFoundError("Workspace not found")
     return row
 
 
@@ -318,7 +318,7 @@ async def get_entry(session: AsyncSession, tenant_id: UUID, entry_id: UUID) -> T
         )
     ).scalar_one_or_none()
     if row is None:
-        raise HTTPException(status_code=404, detail="Bin item not found")
+        raise NotFoundError("Bin item not found")
     return row
 
 
@@ -664,9 +664,10 @@ async def _purge_conversation(session: AsyncSession, tenant_id: UUID, resource_i
 
 
 async def _purge_contact(session: AsyncSession, tenant_id: UUID, resource_id: UUID) -> None:
+    from sqlalchemy import update
+
     from app.models.channel import Contact
     from app.models.signal import Signal
-    from sqlalchemy import update
 
     contact = (
         await session.execute(
@@ -684,8 +685,9 @@ async def _purge_contact(session: AsyncSession, tenant_id: UUID, resource_id: UU
 
 
 async def _purge_company(session: AsyncSession, tenant_id: UUID, resource_id: UUID) -> None:
-    from app.models.channel import Company, Contact
     from sqlalchemy import update
+
+    from app.models.channel import Company, Contact
 
     company = (
         await session.execute(

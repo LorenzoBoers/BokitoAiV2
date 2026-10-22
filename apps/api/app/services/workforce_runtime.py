@@ -1,7 +1,5 @@
 """Workforce runtime service (agents, work logs, messages, graph controls)."""
 
-from app.core.time import utcnow
-
 import json
 import logging
 import re
@@ -13,6 +11,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, ForbiddenError, NotFoundError
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal
@@ -71,7 +71,7 @@ async def assert_unique_agent_name(
     """
     clean = normalize_agent_name(name)
     if not clean:
-        raise HTTPException(status_code=400, detail="Agent name is required")
+        raise AppError("Agent name is required", code="app_error", status_code=400)
     stmt = select(Agent.id).where(
         Agent.tenant_id == tenant_id,
         Agent.is_active.is_(True),
@@ -96,7 +96,7 @@ def normalize_agent_job_title(raw: str | None, *, required: bool = False) -> str
     """Trim and cap job title. When required, empty after trim raises 400."""
     clean = (raw or "").strip()[:MAX_AGENT_JOB_TITLE]
     if required and not clean:
-        raise HTTPException(status_code=400, detail="Agent job title is required")
+        raise AppError("Agent job title is required", code="app_error", status_code=400)
     return clean
 
 
@@ -484,7 +484,7 @@ async def get_runtime_agent(
     )
     agent = result.scalar_one_or_none()
     if agent is None:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     runs_result = await session.execute(
         select(AgentRun)
         .where(AgentRun.tenant_id == tenant_id, AgentRun.agent_id == agent.id)
@@ -582,13 +582,13 @@ async def update_agent_runtime_status(
     Operators no longer pause or wake agents. Hide an agent with archive.
     """
     if status not in ("standby", "working", "error"):
-        raise HTTPException(status_code=400, detail="Invalid status")
+        raise AppError("Invalid status", code="app_error", status_code=400)
     result = await session.execute(
         select(Agent).where(Agent.id == agent_id, Agent.tenant_id == tenant_id)
     )
     agent = result.scalar_one_or_none()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     await mark_agent_activity(session, agent, status=status)
     return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
 
@@ -606,7 +606,7 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     )
     agent = result.scalar_one_or_none()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     if agent.acts_for_user:
         raise HTTPException(
             status_code=409,
@@ -644,14 +644,14 @@ async def restore_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     )
     agent = result.scalar_one_or_none()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     if agent.acts_for_user:
         raise HTTPException(
             status_code=409,
             detail="The Bokito system agent cannot be deactivated.",
         )
     if agent.kind not in ("company", "archived"):
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     await assert_unique_agent_name(session, tenant_id, agent.name, exclude_id=agent.id)
     agent.kind = "company"
     agent.is_active = True
@@ -666,7 +666,8 @@ async def update_agent_model(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID, model_slug: str
 ) -> dict[str, Any]:
     """Set an agent's chat model or mode (inherit / automatic / managed / BYOK)."""
-    from app.services import model_policy, provider_connections, tenant_model_catalog as tmc
+    from app.services import model_policy, provider_connections
+    from app.services import tenant_model_catalog as tmc
     from app.services.model_catalog import get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
@@ -675,7 +676,7 @@ async def update_agent_model(
     )
     agent = result.scalar_one_or_none()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
 
     mode = model_policy.normalize_agent_mode(model_slug)
     if mode == model_policy.INHERIT:
@@ -710,20 +711,20 @@ async def update_agent_model(
                 slug = catalog.slug
                 provider_type = "bokito"
             else:
-                raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+                raise AppError("Unknown or unavailable chat model", code="app_error", status_code=400)
         else:
             conn = await provider_connections.get_connection(session, tenant_id, model.connection_id)
             if not conn or not conn.enabled:
-                raise HTTPException(status_code=400, detail="Provider connection unavailable")
+                raise AppError("Provider connection unavailable", code="app_error", status_code=400)
             provider_type = conn.provider_type
             slug = model.slug
     else:
         model = await get_model(session, mode)
         if not model or model.kind != "chat" or not model.enabled:
-            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+            raise AppError("Unknown or unavailable chat model", code="app_error", status_code=400)
         prefs = await get_tenant_model_prefs(session, tenant_id)
         if not is_chat_model_allowed(prefs, model.slug):
-            raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+            raise ForbiddenError("Model not permitted for this workspace")
         provider_type = model.provider
         slug = model.slug
 
@@ -753,7 +754,8 @@ async def create_agent(
     chat_access: str = "everyone",
 ) -> dict[str, Any]:
     """Create a company worker agent, with its model validated against tenant models."""
-    from app.services import model_policy, provider_connections, tenant_model_catalog as tmc
+    from app.services import model_policy, provider_connections
+    from app.services import tenant_model_catalog as tmc
     from app.services.model_catalog import get_model
     from app.services.tenant_models import get_tenant_model_prefs, is_chat_model_allowed
 
@@ -785,16 +787,16 @@ async def create_agent(
         if not slug:
             model = await get_model(session, mode)
             if not model or model.kind != "chat" or not model.enabled:
-                raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+                raise AppError("Unknown or unavailable chat model", code="app_error", status_code=400)
             slug = model.slug
             provider_type = model.provider
     else:
         prefs = await get_tenant_model_prefs(session, tenant_id)
         model = await get_model(session, mode)
         if not model or model.kind != "chat" or not model.enabled:
-            raise HTTPException(status_code=400, detail="Unknown or unavailable chat model")
+            raise AppError("Unknown or unavailable chat model", code="app_error", status_code=400)
         if not is_chat_model_allowed(prefs, model.slug):
-            raise HTTPException(status_code=403, detail="Model not permitted for this workspace")
+            raise ForbiddenError("Model not permitted for this workspace")
         slug = model.slug
         provider_type = model.provider
 
@@ -856,7 +858,7 @@ async def update_agent(
     )
     agent = result.scalar_one_or_none()
     if not agent or agent.kind != "company":
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     if name is not None:
         agent.name = await assert_unique_agent_name(
             session, tenant_id, name, exclude_id=agent.id
@@ -901,7 +903,7 @@ async def update_agent(
             else:
                 signature = html_signature_to_plain_text(email_signature_html or "")
             if len(signature) > MAX_SIGNATURE_LENGTH:
-                raise HTTPException(status_code=400, detail="Signature too long")
+                raise AppError("Signature too long", code="app_error", status_code=400)
             if signature:
                 stored[SIGNATURE_TEXT_KEY] = signature
             else:
@@ -913,9 +915,7 @@ async def update_agent(
 
             value = reply_send_as.strip().lower()
             if value not in SEND_AS_CHOICES:
-                raise HTTPException(
-                    status_code=400, detail="reply_send_as must be 'user' or 'agent'"
-                )
+                raise AppError("reply_send_as must be 'user' or 'agent'", code="app_error", status_code=400)
             stored["reply_send_as"] = value
         if any(
             value is not None
@@ -943,7 +943,7 @@ async def update_agent(
         if kind != "auto":
             target = await parse_target(session, tenant_id, ask_target)
             if target is None:
-                raise HTTPException(status_code=400, detail="Ask target not found")
+                raise AppError("Ask target not found", code="app_error", status_code=400)
         try:
             set_agent_ask_target(agent, kind, UUID(target["id"]) if target else None)
         except ValueError as exc:
@@ -1005,7 +1005,7 @@ async def get_work_log_events(
     )
     run = run_result.scalar_one_or_none()
     if not run:
-        raise HTTPException(status_code=404, detail="Work log not found")
+        raise NotFoundError("Work log not found")
     events_result = await session.execute(
         select(RunEvent)
         .where(RunEvent.run_id == run.id, RunEvent.tenant_id == tenant_id)
@@ -1202,7 +1202,7 @@ async def update_workforce_config(
         await session.execute(select(Tenant).where(Tenant.id == tenant_id))
     ).scalar_one_or_none()
     if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
+        raise NotFoundError("Tenant not found")
     settings = json.loads(tenant.settings_json or "{}")
     stored = settings.get("workforce_config")
     if not isinstance(stored, dict):
@@ -1231,7 +1231,7 @@ async def trigger_agent(
     )
     agent = agent_result.scalar_one_or_none()
     if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     from app.services.orchestration.dispatcher import create_agent_task
     from app.services.orchestration.queue import enqueue_agent_task_segment
     from app.services.orchestration.runner import run_agent_task_segment
@@ -1277,7 +1277,7 @@ async def complete_activity(
     )
     run = result.scalar_one_or_none()
     if not run:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise NotFoundError("Activity not found")
     run.status = "failed" if outcome == "failed" else "completed" if outcome == "completed" else "completed"
     if outcome == "cancelled":
         run.status = "failed"

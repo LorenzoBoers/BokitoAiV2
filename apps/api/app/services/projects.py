@@ -5,8 +5,6 @@ filterset. Nesting sets parent; labels stay independent. Filing and trash call
 into ``services.folders``.
 """
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime
 from typing import Any
@@ -16,6 +14,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectTagLink
 from app.models.project_work import ProjectResource
@@ -231,7 +231,7 @@ async def get_project_row(
     result = await session.execute(query)
     project = result.scalar_one_or_none()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise NotFoundError("Project not found")
     return project, None
 
 
@@ -769,7 +769,7 @@ async def delete_project(
 ) -> dict[str, bool]:
     project, _ = await get_project_row(session, tenant_id, project_id, include_deleted=permanent)
     if confirm_name.strip() != project.name:
-        raise HTTPException(status_code=400, detail="Confirmation name does not match")
+        raise AppError("Confirmation name does not match", code="app_error", status_code=400)
     if not permanent:
         from uuid import uuid4
 
@@ -801,12 +801,13 @@ async def delete_project(
             await session.commit()
         return {"deleted": True}
 
-    from sqlalchemy import delete as sa_delete, update as sa_update
+    from sqlalchemy import delete as sa_delete
+    from sqlalchemy import update as sa_update
 
-    from app.models.project_work import TaskDocLink
-    from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
     from app.models.agent import AgentRun
     from app.models.orchestration import TaskArtifact
+    from app.models.project_work import TaskDocLink
+    from app.models.workspace import DocChunk, DocSection, WorkspaceDoc
 
     await session.execute(sa_delete(ProjectTagLink).where(ProjectTagLink.project_id == project_id))
     project_doc_ids = select(WorkspaceDoc.id).where(WorkspaceDoc.project_id == project_id)

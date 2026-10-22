@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import timedelta
 from typing import Any, Optional
@@ -13,6 +11,8 @@ from fastapi import HTTPException
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.platform_change import (
@@ -362,7 +362,7 @@ async def accept_platform_change(
     )
     change = result.scalar_one_or_none()
     if not change:
-        raise HTTPException(status_code=404, detail="Change not found")
+        raise NotFoundError("Change not found")
     if change.status not in ("draft", "pending_review"):
         raise HTTPException(status_code=400, detail=f"Cannot accept status {change.status}")
     if change.resource_type == "agent_rule":
@@ -427,7 +427,7 @@ async def reject_platform_change(
     )
     change = result.scalar_one_or_none()
     if not change:
-        raise HTTPException(status_code=404, detail="Change not found")
+        raise NotFoundError("Change not found")
     if change.status not in ("draft", "pending_review"):
         raise HTTPException(status_code=400, detail=f"Cannot reject status {change.status}")
 
@@ -468,7 +468,7 @@ async def rollback_platform_change(
     )
     change = result.scalar_one_or_none()
     if not change:
-        raise HTTPException(status_code=404, detail="Change not found")
+        raise NotFoundError("Change not found")
     if change.status not in ("accepted", "applied_yolo"):
         raise HTTPException(status_code=400, detail=f"Cannot rollback status {change.status}")
     applied_at = change.resolved_at or change.created_at

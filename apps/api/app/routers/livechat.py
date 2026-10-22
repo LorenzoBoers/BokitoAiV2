@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from typing import Annotated, Any
 from uuid import UUID
@@ -21,6 +22,7 @@ from app.models.auth import Tenant, User
 from app.models.signal import Signal, SignalMessage
 from app.services.agent_avatar import avatar_payload
 from app.services.livechat_compat import (
+
     SURFACE_IN_APP,
     SURFACE_SITE,
     channel_account_id_from_widget_token,
@@ -38,6 +40,9 @@ from app.services.livechat_stream import (
     widget_stream_events,
 )
 from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/livechat", tags=["livechat"])
 
@@ -195,6 +200,7 @@ async def session_identify(
     try:
         customer_id = decode_widget_session_token(token).get("customer_id")
     except Exception:
+        logger.debug('livechat widget token decode failed', exc_info=True)
         customer_id = None
     if not customer_id:
         raise HTTPException(status_code=400, detail="No visitor session")
@@ -220,6 +226,7 @@ async def session_identify(
     try:
         meta = _json.loads(contact.metadata_json or "{}")
     except Exception:
+        logger.debug('livechat contact metadata parse failed', exc_info=True)
         meta = {}
     if not isinstance(meta, dict):
         meta = {}
@@ -281,6 +288,7 @@ def _widget_viewer_key(user: User | None, token: str) -> str:
     try:
         customer_id = decode_widget_session_token(token).get("customer_id")
     except Exception:
+        logger.debug('livechat widget token decode failed', exc_info=True)
         customer_id = None
     return f"customer:{customer_id}" if customer_id else ""
 
@@ -431,6 +439,7 @@ async def customer_conversations(
     try:
         customer_id = decode_widget_session_token(token).get("customer_id")
     except Exception:
+        logger.debug('livechat widget token decode failed', exc_info=True)
         customer_id = None
     if not customer_id:
         return {"items": [], "conversations": [], "per_page": per_page}
@@ -504,6 +513,7 @@ async def _get_owned_conversation(
     try:
         customer_id = decode_widget_session_token(token).get("customer_id")
     except Exception:
+        logger.debug('livechat widget token decode failed', exc_info=True)
         customer_id = None
     if customer_id and signal.contact_id:
         from app.models.channel import Contact
@@ -688,6 +698,7 @@ async def conversation_messages(
         try:
             attachments = _json.loads(m.attachments_json or "[]")
         except Exception:
+            logger.debug('livechat attachments parse failed', exc_info=True)
             attachments = []
         created = m.received_at or m.created_at
         if m.direction == "inbound":
@@ -709,6 +720,7 @@ async def conversation_messages(
             try:
                 meta = _json.loads(m.metadata_json or "{}")
             except Exception:
+                logger.debug('livechat message metadata parse failed', exc_info=True)
                 meta = {}
             if isinstance(meta, dict) and isinstance(meta.get("ai_disclosure"), str):
                 item["ai_disclosure"] = meta["ai_disclosure"]
@@ -732,6 +744,7 @@ def _user_widget_prefs(user: User | None) -> dict[str, Any]:
     try:
         stored = _json.loads(user.settings_json or "{}").get("widget_preferences")
     except Exception:
+        logger.debug('livechat widget settings parse failed', exc_info=True)
         stored = None
     if not isinstance(stored, dict):
         stored = {}
@@ -770,6 +783,7 @@ async def patch_user_preferences(
         try:
             stored = _json.loads(user.settings_json or "{}")
         except Exception:
+            logger.debug('livechat widget settings parse failed', exc_info=True)
             stored = {}
         if not isinstance(stored, dict):
             stored = {}
@@ -796,6 +810,7 @@ async def create_conversation(
         try:
             customer_id = decode_widget_session_token(token).get("customer_id")
         except Exception:
+            logger.debug('livechat widget token decode failed', exc_info=True)
             customer_id = None
     signal = await get_or_create_widget_thread(
         session,

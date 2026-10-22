@@ -15,10 +15,10 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError, NotFoundError
 from app.models.project import Project
 from app.models.project_canvas import ProjectCanvas
 from app.models.project_work import ProjectResource
@@ -95,7 +95,7 @@ def canvas_item(canvas: ProjectCanvas, project_id: UUID) -> dict[str, Any]:
 async def _folder(session: AsyncSession, tenant_id: UUID, project_id: UUID) -> Project:
     project = await session.get(Project, project_id)
     if project is None or project.tenant_id != tenant_id or project.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Folder not found")
+        raise NotFoundError("Folder not found")
     return project
 
 
@@ -287,7 +287,7 @@ async def add_item(
 
     await _folder(session, tenant_id, project_id)
     if kind not in ADD_KINDS:
-        raise HTTPException(status_code=422, detail=f"Unknown Works in kind: {kind}")
+        raise AppError(f"Unknown Works in kind: {kind}", code="validation_error", status_code=422)
     actor = str(user_id) if user_id else ""
     if kind == "canvas":
         created = await create_canvas(

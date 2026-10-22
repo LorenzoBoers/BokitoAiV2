@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError, ForbiddenError
 from app.models.agent import Agent
 from app.models.auth import Tenant
 
@@ -47,7 +48,7 @@ def parse_autonomy_level(value: Any) -> str:
         return "assisted"
     mapped = LEGACY_AUTONOMY.get(raw, raw)
     if mapped not in AUTONOMY_MODES:
-        raise HTTPException(status_code=400, detail="Invalid autonomy_level")
+        raise AppError("Invalid autonomy_level", code="app_error", status_code=400)
     return mapped
 
 
@@ -136,7 +137,7 @@ def check_can_grant(rule: dict[str, Any], previous: dict[str, Any] | None, role:
         return
     if previous is not None and previous.get("mode") == "autonomous":
         return
-    raise HTTPException(status_code=403, detail="Only owners and admins can let an agent act on its own")
+    raise ForbiddenError("Only owners and admins can let an agent act on its own")
 
 
 async def set_rules(
@@ -379,7 +380,7 @@ async def learn_from_decision(
             agent_id = None
     agent = await session.get(Agent, agent_id) if agent_id else None
     if option is None or agent is None or agent.tenant_id != tenant.id:
-        raise HTTPException(status_code=400, detail="This decision has nothing to learn from")
+        raise AppError("This decision has nothing to learn from", code="app_error", status_code=400)
     tool = str(option["learn"].get("tool") or option.get("action_type") or "")
     payload = option.get("payload") if isinstance(option.get("payload"), dict) else {}
     title, _ = format_policy_decision(tool, payload)

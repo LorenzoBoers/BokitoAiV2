@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any
 from uuid import UUID
 
@@ -11,6 +9,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.provider import ProviderConnection
 from app.services.crypto import decrypt_secret, encrypt_secret
 from app.services.model_regions import provider_region

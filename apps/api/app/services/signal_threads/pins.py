@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import logging
 from typing import Any
 from uuid import UUID
@@ -11,13 +9,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.auth import Membership, User, user_numeric_id
 from app.models.signal import (
     Signal,
     SignalThreadPin,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -89,11 +87,15 @@ async def list_stack(
     when the user dismisses or unpins. Personal-assistant threads stay out.
     Each card lists the agents in the thread, working ones first.
     """
-    from app.services.signal_threads.queries import _visibility_predicate
-    from app.services.signal_threads.serialize import _iso, _latest_message_previews, floor_speaker_id
     from app.services.pass_stick import viewer_unread_ids
     from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
     from app.services.presence import WORKING, agent_status
+    from app.services.signal_threads.queries import _visibility_predicate
+    from app.services.signal_threads.serialize import (
+        _iso,
+        _latest_message_previews,
+        floor_speaker_id,
+    )
 
     pinned = await _pinned_ids_in_order(session, tenant_id, user_id)
     pinned_set = set(pinned)

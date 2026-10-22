@@ -126,7 +126,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
         try:
             connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
         except Exception:  # noqa: BLE001
-            logger.warning('swallowed exception in sqlite_converge.py', exc_info=True)
+            logger.warning("sqlite drop retired step column failed", exc_info=True)
     if inspector.has_table("signals"):
         signal_cols = {c["name"] for c in inspector.get_columns("signals")}
         for column in _RETIRED_SIGNAL_OWNER_COLUMNS:
@@ -135,7 +135,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
             try:
                 connection.execute(text(f"ALTER TABLE signals DROP COLUMN {column}"))
             except Exception:  # noqa: BLE001
-                logger.warning('swallowed exception in sqlite_converge.py', exc_info=True)
+                logger.warning("sqlite drop retired signal owner column failed", exc_info=True)
     inspector = inspect(connection)
     for table, retired in _RETIRED_COLUMNS.items():
         if not inspector.has_table(table):
@@ -149,7 +149,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
                 try:
                     connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
                 except Exception:  # noqa: BLE001
-                    logger.warning('swallowed exception in sqlite_converge.py', exc_info=True)
+                    logger.warning("sqlite drop retired column failed", exc_info=True)
 
 
 def _message_seq(connection: Connection) -> None:

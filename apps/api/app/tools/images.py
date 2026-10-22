@@ -6,11 +6,15 @@ the workspace image model, then ``bokito-image``.
 
 from __future__ import annotations
 
+import logging
 import base64
 from typing import Any
 
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
+
+
+logger = logging.getLogger(__name__)
 
 def _image_bytes(image) -> tuple[bytes, str, str] | None:
     raw = getattr(image, "b64", None) or ""
@@ -21,6 +25,7 @@ def _image_bytes(image) -> tuple[bytes, str, str] | None:
     try:
         payload = base64.b64decode(raw)
     except Exception:
+        logger.debug('image base64 decode failed', exc_info=True)
         return None
     if payload.startswith(b"\x89PNG"):
         return payload, "image/png", "png"

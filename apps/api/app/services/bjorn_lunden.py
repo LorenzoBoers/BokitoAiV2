@@ -14,10 +14,14 @@ Auth model (see https://developer.bjornlunden.se):
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any
 
 import httpx
+
+
+logger = logging.getLogger(__name__)
 
 BL_NATIVE_URL = "native://bjorn-lunden"
 BL_BASE_URL = "https://apigateway.blinfo.se/bla-api/v1/sp"
@@ -120,6 +124,7 @@ async def validate_credentials(auth: dict[str, Any]) -> dict[str, Any]:
     try:
         await _get_access_token(creds["client_id"], creds["client_secret"], token_url)
     except Exception as exc:
+        logger.warning('Bjorn Lunden authentication failed', exc_info=True)
         return {"ok": False, "error": f"Björn Lundén authentication failed: {exc}"}
     return {"ok": True}
 
@@ -206,6 +211,7 @@ async def call_bl_tool(
     try:
         token = await _get_access_token(creds["client_id"], creds["client_secret"], token_url)
     except Exception as exc:
+        logger.warning('Bjorn Lunden authentication failed', exc_info=True)
         return {"error": f"Björn Lundén authentication failed: {exc}"}
 
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
@@ -226,6 +232,7 @@ async def call_bl_tool(
         detail = exc.response.text[:300] if exc.response is not None else str(exc)
         return {"error": f"Björn Lundén API error ({exc.response.status_code}): {detail}"}
     except Exception as exc:
+        logger.warning('Bjorn Lunden API request failed', exc_info=True)
         return {"error": f"Björn Lundén API request failed: {exc}"}
 
     if tool_name in ("search_customers", "list_customers"):

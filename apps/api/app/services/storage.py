@@ -7,6 +7,7 @@ API and worker both talk to the same object store.
 
 from __future__ import annotations
 
+import logging
 import asyncio
 import mimetypes
 import uuid
@@ -17,6 +18,8 @@ from pathlib import Path
 import httpx
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -261,5 +264,6 @@ async def fetch_attachment_bytes(url: str) -> bytes | None:
             if res.status_code == 200:
                 return res.content
     except Exception:
+        logger.warning("storage object resolve failed", exc_info=True)
         return None
     return None

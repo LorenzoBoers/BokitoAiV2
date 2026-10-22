@@ -235,9 +235,9 @@ def set_widget_favicon(account: ChannelAccount, data_url: str) -> None:
 async def widget_payload(
     session: AsyncSession, tenant: Tenant, account: ChannelAccount
 ) -> dict[str, Any]:
+    from app.models.channel import ChannelAccount as AccountModel
     from app.services.livechat_compat import team_is_reachable
     from app.services.whatsapp_handover import account_number, handover_target
-    from app.models.channel import ChannelAccount as AccountModel
 
     cfg = handover_from_account(tenant, account)
     wa = None

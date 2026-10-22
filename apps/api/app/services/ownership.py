@@ -18,8 +18,6 @@ conversation, its messages or its decisions (``recompute``), stored for fast
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 from uuid import UUID, uuid4
@@ -28,6 +26,7 @@ from sqlalchemy import and_, event, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, attributes
 
+from app.core.time import utcnow
 from app.models.notification import DecisionRequest
 from app.models.signal import EXTERNAL_CHANNELS, Signal, SignalMessage
 from app.models.team import ALL_DEPARTMENT_NAME, TEAM_KIND_CUSTOM, Team

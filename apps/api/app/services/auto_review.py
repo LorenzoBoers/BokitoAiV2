@@ -15,8 +15,6 @@ The reviewer may refuse, but never silently approves what must ask.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import json
 import logging
@@ -28,6 +26,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Tenant
 from app.tools.registry import ToolSpec
 
@@ -144,6 +143,7 @@ async def _conversation(session: AsyncSession, signal_id: UUID | None) -> str:
     try:
         return await context_thread_transcript(session, signal_id, max_chars=3000) or "(empty)"
     except Exception:  # noqa: BLE001
+        logger.warning("auto-review preview unavailable", exc_info=True)
         return "(unavailable)"
 
 

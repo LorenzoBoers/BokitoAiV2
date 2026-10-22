@@ -7,9 +7,11 @@ behind the platform + tenant write switches (checked in the module router).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.modules.accounting.schema import (
+
     Account,
     Company,
     JournalEntry,
@@ -19,6 +21,9 @@ from app.modules.accounting.schema import (
     ok_result,
 )
 from app.services.king_finance import call_king_tool, public_companies
+
+
+logger = logging.getLogger(__name__)
 
 VENDOR = "king"
 
@@ -233,6 +238,7 @@ async def call(
         try:
             payload = PartyUpsert(**{k: v for k, v in args.items() if k in PartyUpsert.model_fields})
         except Exception as exc:
+            logger.warning('KING accounting payload invalid', exc_info=True)
             return {"ok": False, "code": "invalid_payload", "message": str(exc)}
         fields = _party_fields(payload)
         if payload.party_id.strip():
@@ -260,6 +266,7 @@ async def call(
         try:
             entry = JournalEntry(**{k: v for k, v in args.items() if k in JournalEntry.model_fields})
         except Exception as exc:
+            logger.warning('KING accounting payload invalid', exc_info=True)
             return {"ok": False, "code": "invalid_payload", "message": str(exc)}
         rows = _booking_rows(entry)
         if isinstance(rows, str):

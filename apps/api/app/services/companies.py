@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.channel import Company, Contact
 
 # Consumer mail providers never form a company; extend as needed.

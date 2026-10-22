@@ -258,6 +258,7 @@ async def head(signal_id: Any) -> str:
     try:
         rows = await redis.xrevrange(_stream_key(sid), count=1)
     except Exception:  # noqa: BLE001
+        logger.debug('thread log redis head failed', exc_info=True)
         return memory.head(sid)
     if not rows:
         return ""
@@ -312,6 +313,7 @@ async def live(signal_id: Any) -> list[dict[str, Any]]:
         try:
             raw = await redis.hgetall(_live_key(sid))
         except Exception:  # noqa: BLE001
+            logger.debug('thread log redis live_all failed', exc_info=True)
             raw = memory.live_all(sid)
     out: list[dict[str, Any]] = []
     for value in raw.values():

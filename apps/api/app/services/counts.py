@@ -13,14 +13,13 @@ reuses the word "open".
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal
 from app.services.folders import FolderCatalog, load_catalog
 

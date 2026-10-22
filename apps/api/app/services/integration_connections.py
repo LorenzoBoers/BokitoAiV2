@@ -15,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import NotFoundError
 from app.models.integration import IntegrationConnection, McpServer
 
 
@@ -186,14 +187,13 @@ async def get_tenant_connection(
     session: AsyncSession, tenant_id: UUID, connection_id: UUID
 ) -> IntegrationConnection:
     """IntegrationConnection by its id or by its native McpServer id (404 otherwise)."""
-    from fastapi import HTTPException
-
+    
     from app.services.module_attach import resolve_integration_connection_id
 
     ic_id = await resolve_integration_connection_id(session, tenant_id, connection_id)
     conn = await session.get(IntegrationConnection, ic_id)
     if conn is None or conn.tenant_id != tenant_id or conn.status != "active":
-        raise HTTPException(status_code=404, detail="Connection not found")
+        raise NotFoundError("Connection not found")
     return conn
 
 

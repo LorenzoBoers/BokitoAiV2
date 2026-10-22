@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import logging
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import User
 from app.models.user_identity import UserIdentity
 from app.services import oauth_providers

@@ -17,14 +17,13 @@ Legacy ``kind=personal_assistant`` rows are normalized on startup.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from uuid import UUID
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 
 PERSONAL_ASSISTANT_KIND = "personal_assistant"

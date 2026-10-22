@@ -6,18 +6,17 @@ this entry point so hub, widget, and A2A paths stay aligned.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import logging
 from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent, AgentRun
 from app.models.signal import Signal, SignalMessage
-from app.services.assistant_threads import append_signal_chat_message
 from app.services.agent.loop import AgentLoop
+from app.services.assistant_threads import append_signal_chat_message
 
 logger = logging.getLogger(__name__)
 

@@ -8,8 +8,7 @@ project-scoped `search_repo` agent tool retrieve real repository content.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import base64
 import json
 from typing import Any
@@ -19,7 +18,11 @@ import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.workspace import DocChunk
+
+
+logger = logging.getLogger(__name__)
 
 # Indexing caps keep embedding cost and runtime bounded on large repos.
 MAX_FILES = 150
@@ -222,6 +225,7 @@ async def index_project_repo(
             "removed": len(stale_ids),
         }
     except Exception as exc:  # noqa: BLE001 — status must reflect any failure
+        logger.warning('repo index failed', exc_info=True)
         await session.rollback()
         repo.sync_status = "error"
         repo.sync_error = str(exc)[:500]

@@ -1,7 +1,5 @@
 """Cockpit KPI aggregation."""
 
-from app.core.time import utcnow
-
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -9,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import RunEvent
 from app.models.audit import AuditEvent
 from app.models.auth import User

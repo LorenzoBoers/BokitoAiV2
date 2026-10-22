@@ -133,9 +133,10 @@ async def test_agent_model_validates_tenant_model(session_override):
     await tenant_model_catalog.update_model(session_override, tenant.id, opus.id, enabled=False)
 
     from fastapi import HTTPException
+    from app.exceptions import AppError
     from app.services.workforce_runtime import update_agent_model
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises((HTTPException, AppError)) as exc_info:
         await update_agent_model(session_override, tenant.id, agent.id, "claude-opus-4-8")
     assert exc_info.value.status_code == 400
 

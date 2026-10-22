@@ -4,6 +4,7 @@ Mounted under /api/integrations/* to match the dashboard INTEGRATIONS_API_BASE.
 Marketplace paths are served at /api/integrations/* (router prefix only).
 """
 
+import logging
 from typing import Annotated
 from uuid import UUID
 
@@ -34,6 +35,8 @@ from app.services.integrations_platform import (
     test_mcp_server,
 )
 from app.services.oauth_flow import complete_oauth, start_real_oauth
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 settings = get_settings()
@@ -1300,6 +1303,7 @@ async def platform_oauth_start(
                 try:
                     creds = get_connection_credentials(conn)
                 except Exception:
+                    logger.warning("integration credentials parse failed", exc_info=True)
                     creds = {}
                 if not creds.get("access_token"):
                     from app.services.calendar_sync import apply_default_access

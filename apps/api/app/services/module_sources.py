@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 import time
@@ -19,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.module_source import ModuleSource
 from app.modules.catalog import get_module
 
@@ -181,6 +180,7 @@ def _pdf_text(raw: bytes) -> str:
         try:
             parts.append(page.extract_text() or "")
         except Exception:  # noqa: BLE001
+            logger.warning("PDF page text extract failed", exc_info=True)
             continue
     return "\n".join(parts)
 
@@ -244,6 +244,7 @@ class _RobotsCache:
                 parser.parse(text.splitlines())
                 self._parser_by_host[host_key] = parser
             except Exception:  # noqa: BLE001
+                logger.warning('module source readability parser init failed', exc_info=True)
                 self._parser_by_host[host_key] = None
         parser = self._parser_by_host.get(host_key)
         if parser is None:
@@ -251,6 +252,7 @@ class _RobotsCache:
         try:
             return bool(parser.can_fetch(USER_AGENT, url))
         except Exception:  # noqa: BLE001
+            logger.warning('module source robots allow check failed', exc_info=True)
             return True
 
 
@@ -259,6 +261,7 @@ def _parse_html(raw: bytes, url: str) -> tuple[str, str, list[str]]:
     try:
         parser.feed(raw.decode("utf-8", errors="replace"))
     except Exception:  # noqa: BLE001
+        logger.warning('module source page decode failed', exc_info=True)
         text = raw.decode("utf-8", errors="replace")[:PAGE_CHAR_CAP]
         return url, text, []
     title = parser.title or url
@@ -276,12 +279,14 @@ def fetch_page(url: str) -> dict[str, Any]:
     try:
         raw, content_type, final = _http_get(url)
     except Exception as exc:  # noqa: BLE001
+        logger.warning('module source fetch failed', exc_info=True)
         return {"url": url, "title": url, "text": "", "links": [], "error": str(exc)[:300]}
     final = _normalize_url(final) or url
     if "pdf" in content_type or url.lower().endswith(".pdf"):
         try:
             text = _pdf_text(raw)[:PAGE_CHAR_CAP]
         except Exception as exc:  # noqa: BLE001
+            logger.warning('module source pdf extract failed', exc_info=True)
             return {"url": final, "title": url, "text": "", "links": [], "error": str(exc)[:300]}
         return {"url": final, "title": url.rsplit("/", 1)[-1], "text": text, "links": [], "error": ""}
     is_html = (
@@ -718,9 +723,8 @@ async def search_module_sources(
     *,
     top_k: int = 5,
 ) -> list[dict[str, Any]]:
-    from app.services.workspace import hybrid_search
-
     from app.services.module_origin import get_module_department
+    from app.services.workspace import hybrid_search
 
     origin = await get_module_department(session, tenant_id, module_slug)
     source_filter = [

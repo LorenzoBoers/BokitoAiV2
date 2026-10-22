@@ -9,8 +9,6 @@ dashboard URL to redirect the browser back to.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 import secrets
@@ -22,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.models.integration import IntegrationConnection
 from app.models.oauth_state import OAuthState
 from app.services import oauth_providers

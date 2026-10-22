@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError, ForbiddenError
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.services.workspaces_portal import parse_settings, save_settings
@@ -137,9 +138,8 @@ async def patch_wizard_state(
 
     if intake is not None:
         if role not in ("owner", "admin"):
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=403, detail="Only owners can set intake")
+            
+            raise ForbiddenError("Only owners can set intake")
         current = serialize_intake(block)
         source = str(intake.get("source", current["source"])).strip()
         org_size = str(intake.get("org_size", current["org_size"])).strip()
@@ -158,46 +158,39 @@ async def patch_wizard_state(
 
     if ai_workspace_language is not None:
         if role not in ("owner", "admin"):
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=403, detail="Only owners can set workspace language")
+            raise ForbiddenError("Only owners can set workspace language")
         from app.services.language import WORKSPACE_LANGUAGE_CHOICES
 
         if ai_workspace_language not in WORKSPACE_LANGUAGE_CHOICES:
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=400, detail="Invalid ai_workspace_language")
+            raise AppError("Invalid ai_workspace_language", code="app_error", status_code=400)
         settings["ai_workspace_language"] = ai_workspace_language
 
     if autonomy_posture is not None:
         if role not in ("owner", "admin"):
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=403, detail="Only owners can set posture")
+            raise ForbiddenError("Only owners can set posture")
         from app.tools.policy import AUTONOMY_POSTURES
 
         if autonomy_posture not in AUTONOMY_POSTURES:
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=400, detail="Invalid autonomy_posture")
+            raise AppError("Invalid autonomy_posture", code="app_error", status_code=400)
         settings["autonomy_posture"] = autonomy_posture
 
     if lead_agent is not None:
         if role not in ("owner", "admin"):
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=403, detail="Only owners can create the first agent")
+            raise ForbiddenError("Only owners can create the first agent")
         await _upsert_first_agent(session, tenant, settings, block, lead_agent)
 
     if complete:
         if role not in ("owner", "admin"):
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=403, detail="Only owners can complete the wizard")
+            raise ForbiddenError("Only owners can complete the wizard")
         if await lead_assistant_row(session, tenant.id) is None:
-            from fastapi import HTTPException
 
-            raise HTTPException(status_code=400, detail="Create your first agent before finishing")
+            raise AppError("Create your first agent before finishing", code="app_error", status_code=400)
         block["wizard_completed_at"] = datetime.now(timezone.utc).isoformat()
         block["wizard_required"] = False
         await _append_intake_to_lead_prompt(session, tenant.id, serialize_intake(block))
@@ -220,17 +213,19 @@ async def _upsert_first_agent(
     payload: dict[str, Any],
 ) -> None:
     """Create the company lead, or rename the one this wizard already made."""
-    from fastapi import HTTPException
 
-    from app.services.lead_agent import company_assistant_job_title, set_lead_agent
-    from app.services.lead_agent import LEGACY_LEAD_JOB_TITLES
+    from app.services.lead_agent import (
+        LEGACY_LEAD_JOB_TITLES,
+        company_assistant_job_title,
+        set_lead_agent,
+    )
     from app.services.onboarding_setup import starter_system_prompt
     from app.services.workforce_runtime import create_agent, update_agent
     from app.tools.policy import AUTONOMY_POSTURES
 
     name = str(payload.get("name") or "").strip()
     if not name:
-        raise HTTPException(status_code=400, detail="Agent name is required")
+        raise AppError("Agent name is required", code="app_error", status_code=400)
     avatar_kind = str(payload.get("avatar_kind") or "orb").strip().lower()
     if avatar_kind not in ("orb", "initials", "icon"):
         avatar_kind = "orb"
@@ -252,7 +247,7 @@ async def _upsert_first_agent(
         job_title = company_assistant_job_title(language)
     job_title = job_title[:32]
     if not job_title:
-        raise HTTPException(status_code=400, detail="Agent job title is required")
+        raise AppError("Agent job title is required", code="app_error", status_code=400)
     description = str(payload.get("description") or "").strip()[:280]
     existing = await lead_assistant_row(session, tenant.id)
     if existing is None:

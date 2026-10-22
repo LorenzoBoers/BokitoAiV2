@@ -18,8 +18,6 @@ changes assurance.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from dataclasses import dataclass, field
@@ -29,6 +27,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Tenant
 from app.models.channel import Contact
 from app.models.signal import Signal, SignalEvent, SignalMessage

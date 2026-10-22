@@ -11,8 +11,6 @@ tickets and attaches the latest label scorecard (services/learning.py).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -21,6 +19,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.auth import Membership, User
 from app.models.learning import EvalScore

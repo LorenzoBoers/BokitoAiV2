@@ -8,8 +8,6 @@ push subscription. Which events push, and when, is decided in
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import json
 import logging
@@ -21,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.models.auth import Membership
 from app.models.usage import PushSubscription
 
@@ -75,6 +74,7 @@ def _send_web_push(sub: PushSubscription, title: str, body: str, payload: dict |
         )
         return True
     except Exception:
+        logger.warning("web push delivery failed", exc_info=True)
         return False
 
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 from datetime import timedelta
@@ -14,6 +12,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.gateway.publish import publish_signal_message
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import (
@@ -22,7 +22,6 @@ from app.models.signal import (
     SignalMessage,
     SignalTag,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -48,12 +47,12 @@ async def resolve_message_decision(
     source: str | None = None,
     messages: list[str] | None = None,
 ) -> dict[str, Any]:
+    from app.services.decisions import resolve_decision_message
     from app.services.signal_threads.mutations import _defer_open_reply_suggestions
     from app.services.signal_threads.reply import _generate_agent_reply, _schedule_agent_reply
-    from app.services.decisions import resolve_decision_message
 
     if send_as is not None and send_as not in ("user", "agent"):
-        raise HTTPException(status_code=400, detail="send_as must be 'user' or 'agent'")
+        raise AppError("send_as must be 'user' or 'agent'", code="app_error", status_code=400)
     chosen_ids = [str(x) for x in (option_ids or []) if str(x).strip()]
     if option_id and str(option_id) not in chosen_ids:
         chosen_ids.insert(0, str(option_id))
@@ -68,7 +67,7 @@ async def resolve_message_decision(
     )
     message = msg_result.scalar_one_or_none()
     if not message or not message.decision_id:
-        raise HTTPException(status_code=404, detail="Decision message not found")
+        raise NotFoundError("Decision message not found")
 
     payload_override: dict[str, Any] = {}
     if body is not None:
@@ -85,7 +84,7 @@ async def resolve_message_decision(
     if messages is not None:
         bubbles = [m.strip() for m in messages if isinstance(m, str) and m.strip()]
         if not bubbles:
-            raise HTTPException(status_code=400, detail="messages must contain text")
+            raise AppError("messages must contain text", code="app_error", status_code=400)
         payload_override["messages"] = bubbles
         if body is None:
             body = "\n\n".join(bubbles)
@@ -494,8 +493,8 @@ async def resolve_decision_bundle(
     execute exactly as a single Approve would; one failing action leaves the
     others resolved and comes back as ``error`` on its row. The decision cloud
     shows who resolved; chat threads get an agent follow-up, not a user bubble."""
-    from app.services.signal_threads.serialize import bundle_entry_payload
     from app.services.decisions import resolve_decision_message
+    from app.services.signal_threads.serialize import bundle_entry_payload
 
     rows = list(
         (
@@ -509,7 +508,7 @@ async def resolve_decision_bundle(
         ).scalars().all()
     )
     if not rows:
-        raise HTTPException(status_code=404, detail="No decisions found for this bundle")
+        raise NotFoundError("No decisions found for this bundle")
     by_id = {str(d.id): d for d in rows}
     ordered_ids = [str(did) for did in decision_ids if str(did) in by_id]
     approve_ids = ordered_ids if approve == "all" else [str(x) for x in approve if str(x) in by_id]

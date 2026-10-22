@@ -7,6 +7,7 @@ from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 
 from app.services.canvas_content import (
@@ -273,7 +274,7 @@ async def test_kinds_share_one_thread_and_reject_a_refresh_of_a_document(
 
     token = canvas_refresh_wake.set(True)
     try:
-        with pytest.raises(HTTPException) as denied:
+        with pytest.raises((HTTPException, AppError)) as denied:
             await put_canvas_source(
                 session_override,
                 tenant.id,
@@ -284,7 +285,7 @@ async def test_kinds_share_one_thread_and_reject_a_refresh_of_a_document(
     finally:
         canvas_refresh_wake.reset(token)
 
-    with pytest.raises(HTTPException) as brand:
+    with pytest.raises((HTTPException, AppError)) as brand:
         await create_canvas(
             session_override,
             tenant.id,

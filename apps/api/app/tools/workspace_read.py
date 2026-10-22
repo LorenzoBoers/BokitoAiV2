@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import json
 from typing import Any
 from uuid import UUID
@@ -10,10 +11,14 @@ from sqlalchemy import select
 
 from app.models.auth import Tenant
 from app.tools._common import (
+
     _parse_when,
 )
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
+
+
+logger = logging.getLogger(__name__)
 
 # ── workspace / knowledge ────────────────────────────────────────
 
@@ -632,6 +637,7 @@ async def _get_tenant_overview(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     try:
         usage = await cockpit_summary(ctx.session, ctx.tenant_id)
     except Exception:
+        logger.debug('cockpit usage summary failed', exc_info=True)
         usage = {}
     return {
         **snapshot,

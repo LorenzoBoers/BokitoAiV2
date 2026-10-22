@@ -24,8 +24,6 @@ parent with an ``AgentTurn(cause_kind="subagent_result")`` when it ends.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import json
 import logging
@@ -35,6 +33,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.time import utcnow
 from app.models.agent import Agent, AgentRun
 from app.models.agent_context import SubagentMessage
 from app.models.signal import Signal, SignalMessage
@@ -210,8 +209,8 @@ async def _refresh_row(session: AsyncSession, run: AgentRun) -> None:
 
 async def spawn(ctx: Any, tool_input: dict[str, Any]) -> dict[str, Any]:
     from app.models.auth import Tenant
-    from app.services.agent_definition import resolve_subagent_seat
     from app.services.agent.style import strip_emoji
+    from app.services.agent_definition import resolve_subagent_seat
 
     session: AsyncSession = ctx.session
     prompt = str(tool_input.get("prompt") or "").strip()
@@ -498,7 +497,10 @@ async def _mark_background(session: AsyncSession, run_id: UUID) -> None:
 
 
 def _runtime_agent(agent: Agent, meta: dict[str, Any]) -> Agent:
-    from app.services.orchestration.profiles import apply_snapshot_to_agent, resolve_runtime_snapshot
+    from app.services.orchestration.profiles import (
+        apply_snapshot_to_agent,
+        resolve_runtime_snapshot,
+    )
 
     snapshot = resolve_runtime_snapshot(agent)
     if meta.get("model"):

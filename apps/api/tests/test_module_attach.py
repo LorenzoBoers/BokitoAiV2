@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.auth import Tenant
@@ -95,7 +96,7 @@ async def test_cannot_attach_wrong_provider(session_override: AsyncSession):
     session_override.add(conn)
     await session_override.commit()
     await session_override.refresh(conn)
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await attach_connection_to_module(session_override, tenant.id, conn.id, "accounting")
     assert exc.value.status_code == 400
 

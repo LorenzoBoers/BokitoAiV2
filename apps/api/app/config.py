@@ -1,7 +1,11 @@
+import logging
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
+
+logger = logging.getLogger(__name__)
 
 DEV_JWT_SECRETS = {"dev-jwt-secret", "dev-jwt-secret-change-in-production"}
 
@@ -352,6 +356,7 @@ def _ensure_dev_vapid_keys(settings: Settings) -> Settings:
             update={"vapid_public_key": public_key, "vapid_private_key": private_key}
         )
     except Exception:
+        logger.debug('vapid key generate failed; using settings', exc_info=True)
         return settings
 
 

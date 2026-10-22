@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from app.core.time import utcnow
 
 import json
@@ -13,12 +14,16 @@ from sqlalchemy import select
 from app.models.auth import Tenant
 from app.services.addressee import parse_target
 from app.tools._common import (
+
     TO_TARGET_SCHEMA,
     _resolve_messaging_signal,
     _target_signal_id,
 )
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
+
+
+logger = logging.getLogger(__name__)
 
 # ── messaging / decisions ────────────────────────────────────────
 
@@ -793,6 +798,7 @@ async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
             commit=True,
         )
     except Exception as exc:  # noqa: BLE001 — surface as tool error
+        logger.warning('messaging tool failed', exc_info=True)
         from fastapi import HTTPException
 
         if isinstance(exc, HTTPException):
@@ -1064,6 +1070,7 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         ctx_row = await get_triage_context(ctx.session, ctx.tenant_id, signal_id)
         body_quote = str(ctx_row.get("body") or "")[:200]
     except Exception:  # noqa: BLE001
+        logger.warning('messaging tool failed', exc_info=True)
         msg = (
             await ctx.session.execute(
                 select(SignalMessage)
@@ -1103,6 +1110,7 @@ async def _record_thread_read(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             run_id=ctx.run_id,
         )
     except Exception as exc:  # noqa: BLE001
+        logger.warning('messaging tool failed', exc_info=True)
         return {"error": str(exc)}
     verdict_out = None
     verdict = str(tool_input.get("verdict") or "").strip()

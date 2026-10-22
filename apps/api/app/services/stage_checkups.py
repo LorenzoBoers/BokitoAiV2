@@ -19,8 +19,6 @@ it has passed (``ticket_work.checkup_next_at``).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import timedelta
 from typing import Any
@@ -29,6 +27,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.orchestra import Workstream
 from app.models.signal import Signal, SignalEvent, SignalTag
 from app.models.trigger import Trigger

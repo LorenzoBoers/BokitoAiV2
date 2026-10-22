@@ -6,8 +6,6 @@ preference rows (email channel). Sent by the arq cron `send_tenant_digests_job`.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import logging
 from datetime import timedelta
 from typing import Any
@@ -17,6 +15,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.models.agent import AgentRun
 from app.models.auth import Membership, Tenant, User
 from app.models.notification import DecisionRequest

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 
 from app.services.project_canvas_compile import (
@@ -341,7 +342,7 @@ async def test_window_prose_applies_and_session_stays_usable(client: AsyncClient
     still = (await session_override.execute(select(Tenant))).scalar_one()
     assert still.id == tenant.id
 
-    with pytest.raises(HTTPException) as bad:
+    with pytest.raises((HTTPException, AppError)) as bad:
         await apply_canvas_document(
             session_override,
             tenant.id,
@@ -435,7 +436,7 @@ export default function Canvas() {
     stats = [n for n in next_body["tree"]["children"] if n["type"] == "Stat"]
     assert stats and stats[0]["props"]["value"] == "72"
 
-    with pytest.raises(HTTPException) as conflict:
+    with pytest.raises((HTTPException, AppError)) as conflict:
         await put_canvas_source(
             session_override,
             tenant.id,
@@ -543,7 +544,7 @@ async def test_default_location_and_forbidden_source(client: AsyncClient, sessio
     missing = await client.get("/api/workforce/canvases", headers=headers)
     assert missing.status_code == 400
 
-    with pytest.raises(HTTPException) as bad:
+    with pytest.raises((HTTPException, AppError)) as bad:
         await apply_canvas_document(
             session_override,
             tenant.id,
@@ -731,7 +732,7 @@ async def test_create_canvas_uses_current_thread_or_opens_new(client, session_ov
     assert other["thread"]["id"] == other["signal_id"]
     assert other["folder_id"] == project_id
 
-    with pytest.raises(HTTPException) as homeless:
+    with pytest.raises((HTTPException, AppError)) as homeless:
         await create_canvas(session_override, tenant.id, title="Nowhere", kick=False)
     assert homeless.value.status_code == 400
 
@@ -919,7 +920,7 @@ async def test_brand_kind_is_rejected(client: AsyncClient, session_override):
 
     await _auth_headers(client)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    with pytest.raises(HTTPException) as direct:
+    with pytest.raises((HTTPException, AppError)) as direct:
         await create_canvas(
             session_override,
             tenant.id,
@@ -929,7 +930,7 @@ async def test_brand_kind_is_rejected(client: AsyncClient, session_override):
             kick=False,
         )
     assert direct.value.status_code == 400
-    with pytest.raises(HTTPException) as applied:
+    with pytest.raises((HTTPException, AppError)) as applied:
         await apply_canvas_document(
             session_override,
             tenant.id,

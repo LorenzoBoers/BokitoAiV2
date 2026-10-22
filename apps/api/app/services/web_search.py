@@ -6,12 +6,15 @@ Fallback: Brave Search API when SearXNG is unset and ``BRAVE_SEARCH_API_KEY`` is
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlparse
 
 import httpx
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 BRAVE_WEB = "https://api.search.brave.com/res/v1/web/search"
 BRAVE_IMAGES = "https://api.search.brave.com/res/v1/images/search"
@@ -22,6 +25,7 @@ def _host(url: str) -> str:
     try:
         return (urlparse(url).hostname or "").removeprefix("www.")
     except Exception:
+        logger.warning("web search failed", exc_info=True)
         return ""
 
 

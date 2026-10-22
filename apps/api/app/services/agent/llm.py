@@ -57,6 +57,7 @@ def _retry_after_seconds(exc: BaseException) -> float | None:
     try:
         raw = headers.get("retry-after") or headers.get("Retry-After")
     except Exception:  # noqa: BLE001 — header maps vary by SDK
+        logger.debug('llm retry-after header read failed', exc_info=True)
         raw = None
     if raw is None:
         return None
@@ -75,6 +76,7 @@ def is_hard_quota_error(exc: BaseException) -> bool:
     try:
         limit = headers.get("x-ratelimit-limit-req-minute")
     except Exception:  # noqa: BLE001 — header maps vary by SDK
+        logger.debug('llm rate-limit header read failed', exc_info=True)
         return False
     return limit is not None and str(limit).strip() == "0"
 

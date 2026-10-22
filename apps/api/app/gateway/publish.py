@@ -90,6 +90,7 @@ async def _row_extras(signal: "Signal") -> dict[str, Any]:
                 "speaker": await conversation_speaker(session, signal),
             }
     except Exception:  # noqa: BLE001 - publishing never breaks business logic
+        logger.warning("thread publish enrichment failed", exc_info=True)
         return {}
 
 
@@ -107,6 +108,7 @@ async def _handling_payload(signal: "Signal") -> dict[str, Any] | None:
             agent = await session.get(Agent, signal.agent_id) if signal.agent_id else None
             return (await resolve_for_signal(session, tenant, signal, agent=agent)).to_payload()
     except Exception:  # noqa: BLE001 — publishing never breaks business logic
+        logger.warning("handling payload for publish failed", exc_info=True)
         return None
 
 

@@ -12,7 +12,7 @@ available person > working agent > away person > standby agent > offline.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 from uuid import UUID
@@ -20,8 +20,11 @@ from uuid import UUID
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.auth import Membership, User
+
+logger = logging.getLogger(__name__)
 
 ONLINE_WINDOW = timedelta(minutes=3)
 TOUCH_INTERVAL = timedelta(seconds=60)
@@ -90,6 +93,7 @@ def connected_user_ids_for(tenant_id: UUID | str) -> set[str]:
     try:
         from app.gateway.manager import manager
     except Exception:
+        logger.warning("gateway manager import for presence failed", exc_info=True)
         return set()
     return manager.user_ids(str(tenant_id))
 

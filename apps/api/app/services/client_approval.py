@@ -13,14 +13,13 @@ request as a correction on the label scorecard (services/deliveries.py).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal, SignalEvent
 
 VERDICTS = ("approved", "changes_requested")

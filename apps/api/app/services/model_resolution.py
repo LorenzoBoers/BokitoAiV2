@@ -28,15 +28,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.usage import UsageLedger
-from app.services import bokito_models
-from app.services import model_catalog as catalog_svc
 from app.services import (
+    bokito_models,
     platform_secrets,
     provider_connections,
     provider_health,
     tenant_model_catalog,
     tenant_secrets,
 )
+from app.services import model_catalog as catalog_svc
 from app.services.model_regions import REGION_EU, infer_provider, provider_region
 
 settings = get_settings()

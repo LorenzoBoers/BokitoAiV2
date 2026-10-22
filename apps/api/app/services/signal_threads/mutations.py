@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 from typing import Any
@@ -13,15 +11,11 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.gateway.publish import publish_thread_update
 from app.models.agent import Agent
 from app.models.auth import User, user_numeric_id
-from app.services.ownership import (
-    owner_payload,
-    picked_up_event,
-    resolve_assignee,
-    set_owner,
-)
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import (
     Signal,
@@ -29,7 +23,12 @@ from app.models.signal import (
     SignalMessage,
     SignalThreadPin,
 )
-
+from app.services.ownership import (
+    owner_payload,
+    picked_up_event,
+    resolve_assignee,
+    set_owner,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +219,7 @@ async def patch_thread(
                 session, signal, project_id, user_id=user_id, actor_type="user", actor_id=str(user_id)
             )
         except LookupError as exc:
-            raise HTTPException(status_code=404, detail="Folder not found") from exc
+            raise NotFoundError("Folder not found") from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     signal.updated_at = utcnow()
@@ -390,9 +389,7 @@ async def _notify_assignment(
     actor_id: UUID,
 ) -> None:
     """Tell a teammate a conversation is theirs now (tier 1)."""
-    from app.services.notify import TIER_NOW, notify
-
-    from app.services.notify import from_user
+    from app.services.notify import TIER_NOW, from_user, notify
 
     actor_result = await session.execute(select(User).where(User.id == actor_id))
     actor = actor_result.scalar_one_or_none()
@@ -464,12 +461,12 @@ async def bulk_update_threads(
         user_map = await _user_map(session, tenant_id)
         assignee_uuid = user_map.get(assignee_id) if assignee_id else None
         if not assignee_uuid:
-            raise HTTPException(status_code=404, detail="Assignee not found")
+            raise NotFoundError("Assignee not found")
     if action == "file":
         from app.models.project import Project
 
         if project_id is None:
-            raise HTTPException(status_code=400, detail="Choose a folder")
+            raise AppError("Choose a folder", code="app_error", status_code=400)
         folder = (
             await session.execute(
                 select(Project).where(
@@ -480,7 +477,7 @@ async def bulk_update_threads(
             )
         ).scalar_one_or_none()
         if folder is None:
-            raise HTTPException(status_code=404, detail="Folder not found")
+            raise NotFoundError("Folder not found")
 
     result = await session.execute(
         select(Signal).where(

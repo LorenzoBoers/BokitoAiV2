@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import json
 from datetime import datetime
 from typing import Any
@@ -11,9 +12,12 @@ from fastapi import HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import NotFoundError
 from app.models.agent import Agent
 from app.models.module_agent import ModuleAgent
 from app.modules.catalog import MODULE_BY_SLUG, MODULE_TOOL_PREFIXES, get_module
+
+logger = logging.getLogger(__name__)
 
 
 def _iso(value: datetime | None) -> str:
@@ -77,7 +81,7 @@ def _serialize(row: ModuleAgent, agent: Agent | None) -> dict[str, Any]:
 
 def _require_module(slug: str) -> None:
     if get_module(slug) is None:
-        raise HTTPException(status_code=404, detail="Unknown module")
+        raise NotFoundError("Unknown module")
 
 
 async def list_module_agents(
@@ -238,7 +242,7 @@ async def add_module_agent(
         )
     ).scalar_one_or_none()
     if not agent or agent.kind != "company":
-        raise HTTPException(status_code=404, detail="Agent not found")
+        raise NotFoundError("Agent not found")
     existing = (
         await session.execute(
             select(ModuleAgent).where(
@@ -285,7 +289,7 @@ async def set_module_agent_default(
         )
     ).scalar_one_or_none()
     if not row:
-        raise HTTPException(status_code=404, detail="Agent is not on this module")
+        raise NotFoundError("Agent is not on this module")
     if is_default:
         await _clear_default(session, tenant_id, module_slug)
         row.is_default = True
@@ -328,7 +332,7 @@ async def update_module_agent_access(
         )
     ).scalar_one_or_none()
     if not row:
-        raise HTTPException(status_code=404, detail="Agent is not on this module")
+        raise NotFoundError("Agent is not on this module")
     if clear_company_scope:
         row.company_ids_json = ""
     elif company_ids is not None:
@@ -391,7 +395,7 @@ async def remove_module_agent(
         )
     ).scalar_one_or_none()
     if not row:
-        raise HTTPException(status_code=404, detail="Agent is not on this module")
+        raise NotFoundError("Agent is not on this module")
 
     count = await module_agent_count(session, tenant_id, module_slug)
     states = await tenant_module_install_states(session, tenant_id)
@@ -468,6 +472,7 @@ async def soft_archive_module_specialists(
             await archive_agent(session, tenant_id, agent.id)
             archived.append(str(agent.id))
         except Exception:  # noqa: BLE001
+            logger.warning("module agent archive failed", exc_info=True)
             continue
     return archived
 

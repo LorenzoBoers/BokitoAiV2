@@ -15,6 +15,7 @@ from app.services.integration_catalog_store import (
 from app.services.integrations_catalog import CORE_PROVIDER_SLUGS, PROVIDER_BY_SLUG
 from app.services.integrations_platform import list_providers
 from fastapi import HTTPException
+from app.exceptions import AppError
 
 
 async def _tenant(session: AsyncSession) -> Tenant:
@@ -90,7 +91,7 @@ async def test_oauth_without_url_forced_coming_soon(session_override: AsyncSessi
 async def test_core_slug_collision_rejected(session_override: AsyncSession):
     await ensure_seeded(session_override)
     reserved = next(iter(CORE_PROVIDER_SLUGS))
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await create_provider(
             session_override,
             {

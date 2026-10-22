@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import json
 import secrets
 from dataclasses import asdict, dataclass
@@ -15,16 +14,28 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.models.integration import IntegrationConnection
 from app.models.usage import UsageLedger
 from app.models.workbench import WorkJob
 from app.services.audit import record_audit
 from app.services.crypto import get_connection_credentials
-from app.services.workbench import Budget, JobHandle, JobSpec, McpAttach, NormalizedEvent, get_adapter
+from app.services.workbench import (
+
+    Budget,
+    JobHandle,
+    JobSpec,
+    McpAttach,
+    NormalizedEvent,
+    get_adapter,
+)
 from app.services.workbench.capabilities import PHASE1_PROVIDERS, capability
 from app.services.workbench.http_util import WorkbenchHttpError
 from app.services.workbench.job_tokens import mint_job_token, revoke_job_token
 from app.services.workbench.publisher import publish_events
+
+
+logger = logging.getLogger(__name__)
 
 TERMINAL = frozenset({"finished", "failed", "cancelled"})
 
@@ -180,6 +191,7 @@ async def dispatch(
     try:
         handle = await adapter.start(spec, creds)
     except Exception as exc:
+        logger.warning('workbench job start failed', exc_info=True)
         job.state = "failed"
         job.summary = f"Failed to start: {exc}"[:500]
         job.finished_at = utcnow()
@@ -591,6 +603,7 @@ async def poll_active_jobs(session: AsyncSession) -> int:
             await refresh(session, job)
             count += 1
         except Exception:
+            logger.warning('workbench job refresh failed', exc_info=True)
             await session.rollback()
             continue
     return count

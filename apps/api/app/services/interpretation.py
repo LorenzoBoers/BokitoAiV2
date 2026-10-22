@@ -8,8 +8,6 @@ and the unknown-signal backlog with the same certainty thresholds as before.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 from typing import Any, Optional
@@ -17,6 +15,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Tenant
 from app.services.channel_ai import inbox_policy
 from app.services.signals import apply_triage

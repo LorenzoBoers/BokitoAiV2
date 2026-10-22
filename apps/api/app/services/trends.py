@@ -11,8 +11,6 @@ per week.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from datetime import datetime
@@ -22,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.project import Project
 from app.models.signal import Signal
 from app.models.team import Department
@@ -137,8 +136,8 @@ async def post_trend(
     agent_id: UUID | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    from app.services.folders import folder_tag_ids
     from app.services.chat_runtime import post_message
+    from app.services.folders import folder_tag_ids
     from app.services.ownership import apply_owner
     from app.services.signal_tags import add_signal_tag_ids, add_signal_tags
 

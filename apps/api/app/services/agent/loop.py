@@ -13,14 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.services.agent.llm import get_chat_provider, get_llm_provider
-from app.services.agent.turn import TurnRecorder
 from app.services.agent.tools import (
     execute_tool,
     filter_tools_for_agent,
     get_tool_definitions,
 )
-from app.tools.registry import audience_for_trust, filter_tools_for_audience
+from app.services.agent.turn import TurnRecorder
 from app.services.workspace import build_workspace_context, hybrid_search
+from app.tools.registry import audience_for_trust, filter_tools_for_audience
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,7 @@ def _truncate_trace_value(value: Any, max_chars: int = 480) -> Any:
         else:
             text = str(value)
     except Exception:
+        logger.debug('tool result json serialize failed', exc_info=True)
         text = str(value)
     if len(text) <= max_chars:
         return value
@@ -499,6 +500,7 @@ class AgentLoop:
             try:
                 status = self.run.status
             except Exception:
+                logger.debug('agent run status read failed', exc_info=True)
                 status = "running"
         await publish_run_event(
             self.tenant_id,
@@ -752,6 +754,7 @@ class AgentLoop:
             for sid, name in servers:
                 providers[name] = by_server.get(str(sid), "")
         except Exception:  # noqa: BLE001 - icons are cosmetic
+            logger.debug('provider health json parse failed', exc_info=True)
             providers = {}
         self._mcp_providers = providers
         return providers
@@ -811,6 +814,7 @@ class AgentLoop:
         try:
             now = datetime.now(ZoneInfo(tz_name))
         except Exception:
+            logger.debug('timezone resolve failed; using UTC', exc_info=True)
             now = datetime.now(ZoneInfo("UTC"))
             tz_name = "UTC"
         stamp = f"{now.strftime('%A')} {now.day} {now.strftime('%B %Y, %H:%M')}"

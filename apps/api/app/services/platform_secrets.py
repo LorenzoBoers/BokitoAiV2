@@ -7,13 +7,12 @@ fallback (see resolve_model_call).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.model_catalog import PlatformSecret
 from app.services.crypto import decrypt_secret, encrypt_secret
 from app.services.provider_spec import platform_provider_types

@@ -6,8 +6,7 @@ only when a Contact or accounting party matches the given email.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import hashlib
 import json
 import secrets
@@ -18,11 +17,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.channel import Contact
 from app.models.customer_verify import CustomerVerifyToken
+from app.models.signal import Signal
 from app.models.team import Department
 from app.services.module_origin import MODULES_SETTINGS_KEY
-from app.models.signal import Signal
+
+logger = logging.getLogger(__name__)
 
 ASSURANCE_NONE = "none"
 ASSURANCE_VERIFIED = "verified"
@@ -155,6 +157,7 @@ async def _accounting_party_exists(
             agent_id=None,
         )
     except Exception:
+        logger.warning("customer verify check failed", exc_info=True)
         return False
     if not isinstance(outcome, dict) or outcome.get("error"):
         return False

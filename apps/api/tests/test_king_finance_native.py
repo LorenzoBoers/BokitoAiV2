@@ -126,8 +126,9 @@ async def test_prod_install_defaults_to_native_and_discovers_tools(
 
     # Empty credentials are refused in production; use_mock is also refused.
     from fastapi import HTTPException
+    from app.exceptions import AppError
 
-    with pytest.raises(HTTPException) as missing:
+    with pytest.raises((HTTPException, AppError)) as missing:
         await install_mcp(
             session_override, tenant.id, provider="king_accountancy", api_key=""
         )

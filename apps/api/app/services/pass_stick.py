@@ -9,8 +9,6 @@ Mentioned people get a ping either way.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import logging
 import re
@@ -20,11 +18,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.signal import Signal, SignalMessage
 from app.models.signal_participant import SignalParticipant
-from app.services.participant_turns import _parse_active
 from app.services.addressing import _PLURAL
+from app.services.participant_turns import _parse_active
 from app.services.thread_dispatch import plain_mentions
 
 logger = logging.getLogger(__name__)
@@ -425,8 +424,8 @@ async def pass_stick(
 ) -> dict[str, Any]:
     """Queue the turns a saved message asks for and ping mentioned people."""
     from app.models.auth import Tenant
-    from app.services.agent_turns import cancel_turns, enqueue_turn, latest_human_message_id
     from app.models.signal import is_internal_channel
+    from app.services.agent_turns import cancel_turns, enqueue_turn, latest_human_message_id
     from app.services.language import resolve_workspace_language
 
     tenant = await session.get(Tenant, signal.tenant_id)

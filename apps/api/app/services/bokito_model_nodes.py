@@ -9,13 +9,12 @@ Bokito or Kong.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.provider import ProviderConnection, TenantModel
 from app.services.provider_presets import MISTRAL_BASE_URL
 

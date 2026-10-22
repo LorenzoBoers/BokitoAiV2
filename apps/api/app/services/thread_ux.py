@@ -6,8 +6,6 @@ There is no screen. Read the rows when someone says a moment felt rough.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import uuid
 from typing import Any
@@ -16,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal
 
 _NAMES = frozenset({"live_shown", "live_label", "live_held", "live_cleared", "stream_open", "stream_close"})

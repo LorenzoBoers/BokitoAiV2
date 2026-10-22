@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 from sqlalchemy import select
 
@@ -146,7 +147,7 @@ async def test_rollback_rejects_changes_older_than_30_days(client: AsyncClient, 
     session_override.add(change)
     await session_override.commit()
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await rollback_platform_change(session_override, tenant.id, change.id, user.id)
     assert exc.value.status_code == 409
     assert "30 days" in str(exc.value.detail)

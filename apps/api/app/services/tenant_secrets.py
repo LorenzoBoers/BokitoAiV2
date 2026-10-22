@@ -8,14 +8,13 @@ one implicit connection per base provider (anthropic / openai).
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.provider import ProviderConnection
 from app.services.crypto import decrypt_secret, encrypt_secret
 from app.services.provider_spec import llm_provider_types

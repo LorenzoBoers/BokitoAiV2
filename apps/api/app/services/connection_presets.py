@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from app.exceptions import AppError
 from app.services.mcp_remote_catalog import catalog_providers
 
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
@@ -46,7 +47,7 @@ def build_from_fields(provider: str, values: dict[str, Any]) -> tuple[str, dict[
     """Validate the filled fields. Returns (server_url, auth extras, api_key)."""
     preset = preset_for(provider)
     if preset is None:
-        raise HTTPException(status_code=400, detail="This connection has no fields to fill.")
+        raise AppError("This connection has no fields to fill.", code="app_error", status_code=400)
     clean: dict[str, str] = {}
     for field in preset["fields"]:
         value = str((values or {}).get(field["key"]) or "").strip()

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
@@ -11,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.calendar import CalendarEvent, CalendarTagLink, TenantCalendar
 from app.models.integration import IntegrationConnection
 from app.models.signal import SignalTag

@@ -2,6 +2,7 @@
 
 from app.core.time import utcnow
 
+import logging
 import json
 from typing import Annotated, Any
 from uuid import UUID
@@ -23,6 +24,8 @@ from app.services.integrations_platform import ensure_email_account, mock_author
 from app.services.oauth_flow import start_real_oauth
 from app.services.signals import create_inbound_signal
 from app.workers.tasks import enqueue_signal_processing
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/email", tags=["email"])
 
@@ -580,6 +583,7 @@ async def list_connection_folders(
         try:
             discovered = await list_imap_folders(account)
         except Exception:
+            logger.warning("IMAP folder discovery failed", exc_info=True)
             discovered = []
     last_sync_at = settings.get("last_sync_at")
     folders = []

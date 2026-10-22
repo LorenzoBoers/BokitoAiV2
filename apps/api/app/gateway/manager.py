@@ -108,6 +108,7 @@ class ConnectionManager:
         try:
             await connection.send(frame)
         except Exception:
+            logger.warning("gateway send failed; unregistering connection", exc_info=True)
             self.unregister(connection)
 
     async def dispatch(self, envelope: dict[str, Any]) -> None:

@@ -9,14 +9,13 @@ client workspaces.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import re
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.user_memory import UserAssistantMemory
 
 MAX_ENTRIES = 24

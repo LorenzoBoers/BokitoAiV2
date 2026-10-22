@@ -259,8 +259,8 @@ async def dispatch_to(
         agent = await _active_agent(session, tenant_id, target_id)
         if agent is None or not await agent_can_handle(session, account, agent.id):
             return {"kind": "agent", "id": str(target_id), "dispatched": False}
-        from app.services.participants import ensure_participant
         from app.services.participant_turns import request_participant_turn
+        from app.services.participants import ensure_participant
 
         await ensure_participant(
             session,

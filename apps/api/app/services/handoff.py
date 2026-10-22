@@ -11,8 +11,6 @@ addressee: the person or the people in the team the question goes to
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 from uuid import UUID
@@ -20,6 +18,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.auth import Tenant
 from app.models.signal import Signal, SignalEvent
 from app.services.language import resolve_workspace_language

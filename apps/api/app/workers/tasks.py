@@ -18,6 +18,8 @@ from app.models.channel import ChannelAccount
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.orchestration.runner import run_agent_task_segment
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
 
 
@@ -618,6 +620,7 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
             if snippet:
                 project_context = f"{snippet}\n"
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
+            logger.warning("project context enrichment failed", exc_info=True)
             project_context = ""
 
         filing_context = ""
@@ -628,6 +631,7 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
             if brief:
                 filing_context = f"{brief}\n"
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
+            logger.warning("filing context enrichment failed", exc_info=True)
             filing_context = ""
 
         # Same person on another channel this week (WhatsApp after email, a
@@ -641,6 +645,7 @@ async def _process_inbound_signal(ctx, tenant_id: str, signal_id: str, state: di
             if block:
                 related_context = f"{block}\n"
         except Exception:  # noqa: BLE001 — context enrichment must never block replies
+            logger.warning("related context enrichment failed", exc_info=True)
             related_context = ""
 
         read_contract = (
@@ -1133,6 +1138,7 @@ async def sync_email_account_job(ctx, account_id: str):
         try:
             return await sync_account(session, account)
         except Exception as exc:  # noqa: BLE001 — isolate per-account failures
+            logger.warning('email sync account failed', exc_info=True)
             return {
                 "account_id": account_id,
                 "synced": 0,
@@ -1236,6 +1242,7 @@ async def sync_calendar_connections_job(ctx):
                 else:
                     synced += 1
             except Exception:
+                logger.warning("calendar connection sync failed", exc_info=True)
                 errors += 1
         return {"connections": synced, "errors": errors}
 
@@ -1267,6 +1274,7 @@ async def purge_retention_job(ctx):
                 totals["calendar_deleted"] += out.get("calendar_deleted", 0)
                 totals["tenants"] += 1
             except Exception:
+                logger.warning("tenant privacy/trash purge failed", exc_info=True)
                 continue
         return totals
 
@@ -1336,6 +1344,7 @@ async def _get_arq_pool():
         try:
             _arq_pool = await create_pool(redis_settings)
         except Exception:
+            logger.warning('arq pool create failed', exc_info=True)
             _arq_pool_unavailable = True
             raise
     return _arq_pool

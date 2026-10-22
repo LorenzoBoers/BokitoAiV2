@@ -11,8 +11,6 @@ the channel together with every conversation on it.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from uuid import UUID
 
@@ -22,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.channel import ChannelAccount
 from app.models.signal import Signal
 from app.services.audit import record_audit

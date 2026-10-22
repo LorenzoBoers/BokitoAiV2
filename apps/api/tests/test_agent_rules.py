@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 from sqlalchemy import select
 
@@ -60,13 +61,13 @@ def test_vocabulary_and_grant_rules():
     assert normalize_autonomy("weird") == "assisted"
     assert parse_autonomy_level("auto") == "autonomous"
     assert parse_autonomy_level("approval") == "assisted"
-    with pytest.raises(HTTPException) as invalid:
+    with pytest.raises((HTTPException, AppError)) as invalid:
         parse_autonomy_level("yolo")
     assert invalid.value.status_code == 400
     rule = {"mode": "autonomous"}
     check_can_grant(rule, None, "owner")
     check_can_grant(rule, {"mode": "autonomous"}, "member")
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         check_can_grant(rule, {"mode": "assisted"}, "member")
     assert exc.value.status_code == 403
     check_can_grant({"mode": "manual"}, None, "member")

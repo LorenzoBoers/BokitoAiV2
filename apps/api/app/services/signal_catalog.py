@@ -20,14 +20,14 @@ instead, so the vocabulary only grows through a human decision.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.auth import Tenant
 
 ACCEPT_ROLES = ("admins", "members")
@@ -106,15 +106,15 @@ async def update_signal_policy(
     from app.services.ticket_work import ENTRY_POLICIES
 
     if accept_roles is not None and accept_roles not in ACCEPT_ROLES:
-        raise HTTPException(status_code=400, detail="accept_roles must be 'admins' or 'members'")
+        raise AppError("accept_roles must be 'admins' or 'members'", code="app_error", status_code=400)
     if backlog_threshold is not None and not 1 <= int(backlog_threshold) <= 10:
-        raise HTTPException(status_code=400, detail="backlog_threshold must be 1-10")
+        raise AppError("backlog_threshold must be 1-10", code="app_error", status_code=400)
     if stage_entry_policy is not None and stage_entry_policy not in ENTRY_POLICIES:
         raise HTTPException(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
     if stage_entry_threshold is not None and not 0 <= int(stage_entry_threshold) <= 10:
-        raise HTTPException(status_code=400, detail="stage_entry_threshold must be 0-10")
+        raise AppError("stage_entry_threshold must be 0-10", code="app_error", status_code=400)
     if due_soon_days is not None and not 1 <= int(due_soon_days) <= 60:
-        raise HTTPException(status_code=400, detail="due_soon_days must be 1-60")
+        raise AppError("due_soon_days must be 1-60", code="app_error", status_code=400)
 
     settings = _tenant_settings(tenant)
     section = dict(_signals_section(settings))
@@ -283,7 +283,7 @@ async def promote_backlog_entry(
 
     entry = next((row for row in read_backlog(tenant) if row["key"] == key), None)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Backlog entry not found")
+        raise NotFoundError("Backlog entry not found")
     try:
         tag = await create_tag(
             session,

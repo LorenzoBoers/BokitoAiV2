@@ -16,11 +16,10 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from app.core.time import utcnow
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import Signal, SignalEvent, SignalMessage
 
 logger = logging.getLogger(__name__)

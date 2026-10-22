@@ -24,14 +24,13 @@ Adding a channel type means writing one resolver and registering it in
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, Callable
 from uuid import UUID
 
+from app.core.time import utcnow
 from app.models.auth import Tenant, user_numeric_id
 from app.models.channel import ChannelAccount
 

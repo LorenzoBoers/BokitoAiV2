@@ -10,8 +10,6 @@ inbox rules only apply names the registry already has. Tags in an exclusive
 group replace each other on a conversation.
 """
 
-from app.core.time import utcnow
-
 import re
 from collections.abc import Iterable
 from typing import Any
@@ -20,6 +18,7 @@ from uuid import UUID
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.data.platform_icons import PLATFORM_ICON_IDS as LABEL_ICONS
 from app.models.channel import Contact
 from app.models.signal import CompanyTagLink, ContactTagLink, Signal, SignalTag, SignalTagLink

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from datetime import datetime
@@ -13,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.channels.outbound import deliver_outbound
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.assistant_threads import append_signal_chat_message
@@ -21,7 +20,6 @@ from app.services.suggestion_format import (
     format_customer_email_body,
     split_suggestion,
 )
-
 
 _SKIP_REPLIES = frozenset({"", "Done.", "HEARTBEAT_OK"})
 

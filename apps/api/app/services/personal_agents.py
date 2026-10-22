@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import ForbiddenError
 from app.models.agent import Agent, AgentChatUser
 from app.models.auth import User, UserPreference
 
@@ -103,7 +104,7 @@ async def resolve_chat_target(
     by_id = {a.id: a for a in company}
     agent = by_id.get(agent_id)
     if agent is None:
-        raise HTTPException(status_code=403, detail="Agent not available for chat")
+        raise ForbiddenError("Agent not available for chat")
     return agent
 
 

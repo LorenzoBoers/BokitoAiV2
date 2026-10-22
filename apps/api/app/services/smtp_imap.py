@@ -18,7 +18,7 @@ import ssl
 from datetime import datetime, timezone
 from email.header import decode_header, make_header
 from email.message import EmailMessage
-from email.utils import formataddr, parsedate_to_datetime, parseaddr
+from email.utils import formataddr, parseaddr, parsedate_to_datetime
 from typing import Any
 
 from app.models.channel import ChannelAccount
@@ -108,6 +108,7 @@ def _decode_header_value(value: str | None) -> str:
     try:
         return str(make_header(decode_header(value)))
     except Exception:
+        logger.debug('imap header decode failed', exc_info=True)
         return value
 
 
@@ -202,6 +203,7 @@ def _iter_mime_leaves(part: email.message.Message, *, inside_rfc822: bool = Fals
         try:
             children = list(part.iter_parts())
         except Exception:
+            logger.debug('mime iter_parts failed', exc_info=True)
             children = []
         for child in children:
             yield from _iter_mime_leaves(child, inside_rfc822=child_inside)
@@ -216,6 +218,7 @@ def _part_text(part: email.message.Message) -> str:
             content = str(content)
         return content
     except Exception:
+        logger.debug('mime part get_content failed', exc_info=True)
         payload = part.get_payload(decode=True) or b""
         charset = part.get_content_charset() or "utf-8"
         return payload.decode(charset, errors="replace")
@@ -245,6 +248,7 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
                 received_at = received_at.replace(tzinfo=timezone.utc)
             received_at = received_at.astimezone(timezone.utc).replace(tzinfo=None)
         except Exception:
+            logger.debug('imap Date header parse failed', exc_info=True)
             received_at = None
 
     body_text = ""
@@ -309,6 +313,7 @@ def _parse_mime_bytes(raw: bytes, *, uid: str) -> dict[str, Any] | None:
             if not isinstance(content, str):
                 content = str(content)
         except Exception:
+            logger.debug('mime message get_content failed', exc_info=True)
             payload = msg.get_payload(decode=True) or b""
             charset = msg.get_content_charset() or "utf-8"
             content = payload.decode(charset, errors="replace")
@@ -380,6 +385,7 @@ def _find_flagged_mailbox(client: imaplib.IMAP4, flags: tuple[str, ...]) -> str 
     try:
         typ, data = client.list()
     except Exception:
+        logger.debug('imap LIST failed', exc_info=True)
         return None
     if typ != "OK" or not data:
         return None
@@ -688,6 +694,7 @@ def _find_sent_mailbox(client: imaplib.IMAP4) -> str | None:
     try:
         typ, data = client.list()
     except Exception:
+        logger.debug('imap LIST failed', exc_info=True)
         return None
     if typ != "OK" or not data:
         return None

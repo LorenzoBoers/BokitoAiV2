@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import base64
 import hashlib
 import json
 import logging
+import os
 import re
 import secrets
 from dataclasses import dataclass
@@ -16,14 +15,14 @@ from typing import Any
 from urllib.parse import urlencode, urlparse, urlunparse
 from uuid import UUID
 
-import os
-
 import httpx
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
+from app.exceptions import AppError
 from app.models.oauth_state import OAuthState
 from app.services.integrations_catalog import PROVIDER_BY_SLUG
 from app.services.integrations_platform import (
@@ -94,6 +93,7 @@ async def _fetch_as_metadata(client: httpx.AsyncClient, issuer: str) -> dict[str
         try:
             return await _fetch_json(client, f"{base}{path}")
         except Exception:
+            logger.warning("MCP OAuth AS metadata fetch failed", exc_info=True)
             continue
     raise ValueError(f"No authorization-server metadata at {issuer}")
 
@@ -220,7 +220,7 @@ async def start_mcp_remote_oauth(
     await ensure_catalog_fresh(session)
     row = PROVIDER_BY_SLUG.get(provider)
     if not row or row.get("auth_type") != "mcp_remote_oauth":
-        raise HTTPException(status_code=400, detail="Provider does not support remote MCP OAuth.")
+        raise AppError("Provider does not support remote MCP OAuth.", code="app_error", status_code=400)
     mcp_url = str(row.get("mcp_remote_url") or "").strip()
     if not mcp_url:
         raise HTTPException(status_code=422, detail="This provider has no MCP server URL configured.")

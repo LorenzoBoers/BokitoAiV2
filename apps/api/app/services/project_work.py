@@ -11,8 +11,6 @@ born from a thread echo progress back into that thread as SignalEvents.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime
 from typing import Any
@@ -22,6 +20,8 @@ from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.orchestration import (
     QUEUE_ITEM_KINDS,
     TASK_PRIORITIES,
@@ -147,7 +147,7 @@ async def get_queue_item(
         )
     ).scalar_one_or_none()
     if not item:
-        raise HTTPException(status_code=404, detail="Queue item not found")
+        raise NotFoundError("Queue item not found")
     return item
 
 
@@ -262,9 +262,9 @@ async def link_item_to_doc(
         )
     ).scalar_one_or_none()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise NotFoundError("Document not found")
     if doc.project_id and item.project_id and doc.project_id != item.project_id:
-        raise HTTPException(status_code=400, detail="Document belongs to another project")
+        raise AppError("Document belongs to another project", code="app_error", status_code=400)
     existing = (
         await session.execute(
             select(TaskDocLink).where(
@@ -509,14 +509,18 @@ async def create_queue_item(
     ``fields`` (date, channel, caption, image) make a ``post`` a content
     calendar entry; the folder's Sheet follows (services/content_calendar.py).
     """
-    from app.services.content_calendar import mirror_after_change, normalize_calendar_fields, set_item_fields
+    from app.services.content_calendar import (
+        mirror_after_change,
+        normalize_calendar_fields,
+        set_item_fields,
+    )
 
     if kind not in QUEUE_ITEM_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
     if priority not in TASK_PRIORITIES:
         raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
     if not title.strip():
-        raise HTTPException(status_code=400, detail="Title is required")
+        raise AppError("Title is required", code="app_error", status_code=400)
 
     from app.models.project import Project
 
@@ -530,7 +534,7 @@ async def create_queue_item(
         )
     ).scalar_one_or_none()
     if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
+        raise NotFoundError("Project not found")
 
     now = utcnow()
     item = AgentTask(
@@ -745,7 +749,11 @@ async def update_queue_item(
         item.priority = priority
     if assigned_agent_id is not None:
         item.assignee_agent_id = assigned_agent_id
-    from app.services.content_calendar import mirror_after_change, normalize_calendar_fields, set_item_fields
+    from app.services.content_calendar import (
+        mirror_after_change,
+        normalize_calendar_fields,
+        set_item_fields,
+    )
 
     calendar = normalize_calendar_fields(fields)
     if calendar:
@@ -783,10 +791,10 @@ async def link_item_to_section(
         )
     ).first()
     if not row:
-        raise HTTPException(status_code=404, detail="Doc section not found")
+        raise NotFoundError("Doc section not found")
     section, section_doc = row
     if section_doc.project_id and item.project_id and section_doc.project_id != item.project_id:
-        raise HTTPException(status_code=400, detail="Section belongs to another project")
+        raise AppError("Section belongs to another project", code="app_error", status_code=400)
     existing = (
         await session.execute(
             select(TaskDocLink).where(
@@ -919,7 +927,7 @@ async def create_resource(
 
         conn = await session.get(IntegrationConnection, connection_id) if connection_id else None
         if conn is None or conn.tenant_id != tenant_id or conn.status != "active":
-            raise HTTPException(status_code=404, detail="Connection not found")
+            raise NotFoundError("Connection not found")
         duplicate = (
             await session.execute(
                 select(ProjectResource.id).where(
@@ -985,7 +993,7 @@ async def patch_resource(
         )
     ).scalar_one_or_none()
     if not resource:
-        raise HTTPException(status_code=404, detail="Resource not found")
+        raise NotFoundError("Resource not found")
     if label is not None:
         resource.label = label
     if external_ref is not None:
@@ -1014,7 +1022,7 @@ async def delete_resource(session: AsyncSession, tenant_id: UUID, resource_id: U
         )
     ).scalar_one_or_none()
     if not resource:
-        raise HTTPException(status_code=404, detail="Resource not found")
+        raise NotFoundError("Resource not found")
     from app.services.trash import load_tenant, move_to_bin
 
     tenant = await load_tenant(session, tenant_id)

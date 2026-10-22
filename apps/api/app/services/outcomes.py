@@ -7,14 +7,13 @@ introspection no longer query a side table.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.signal import SignalEvent
 
 OUTCOME_KINDS = ("trade_closed", "session_summary", "setup_skipped", "error")

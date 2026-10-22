@@ -5,6 +5,7 @@ import json
 import httpx
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from sqlalchemy import select
 
 from app.models.auth import Tenant
@@ -22,7 +23,7 @@ def test_build_from_fields_validates_and_routes_targets():
     fields = public_fields("mailblue")
     assert [f["key"] for f in fields] == ["account_url", "api_key"]
     assert "target" not in fields[0]
-    with pytest.raises(HTTPException) as missing:
+    with pytest.raises((HTTPException, AppError)) as missing:
         build_from_fields("mailblue", {"account_url": "https://acme.api-us1.com"})
     assert missing.value.status_code == 422
 
@@ -33,7 +34,7 @@ def test_build_from_fields_validates_and_routes_targets():
     assert auth == {"account_url": "https://acme.api-us1.com", "api_key": "k-1", "auth_type": "fields"}
     assert api_key == ""
 
-    with pytest.raises(HTTPException):
+    with pytest.raises((HTTPException, AppError)):
         build_from_fields("zapier_mcp", {"server_url": "http://not-https.example"})
     url, _, _ = build_from_fields("zapier_mcp", {"server_url": "https://mcp.zapier.com/api/mcp/s/abc"})
     assert url == "https://mcp.zapier.com/api/mcp/s/abc"

@@ -13,14 +13,13 @@ agent see every connection.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from typing import Any, Iterable
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.integration import IntegrationConnection
 from app.models.project import Project
 from app.models.project_work import ProjectResource

@@ -12,8 +12,6 @@ on the plain email address for threads that were never linked.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -21,6 +19,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.channel import Contact
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage

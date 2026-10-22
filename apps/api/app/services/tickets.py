@@ -14,8 +14,6 @@ conversation as a ``ticket_stage_changed`` event.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 import re
 from datetime import datetime, timedelta
@@ -26,6 +24,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.models.signal import (
@@ -404,16 +404,16 @@ def normalize_ticket_fields(
 def validate_stages(raw: Any) -> str:
     """Normalize an operator-edited stage list to ``stages_json``."""
     if not isinstance(raw, list) or not raw:
-        raise HTTPException(status_code=400, detail="A pipeline needs at least one stage")
+        raise AppError("A pipeline needs at least one stage", code="app_error", status_code=400)
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in raw:
         if not isinstance(item, dict):
-            raise HTTPException(status_code=400, detail="Invalid stage")
+            raise AppError("Invalid stage", code="app_error", status_code=400)
         name = str(item.get("name") or "").strip()
         kind = str(item.get("kind") or "")
         if not name or kind not in TICKET_STAGE_KINDS:
-            raise HTTPException(status_code=400, detail="Each stage needs a name and a kind")
+            raise AppError("Each stage needs a name and a kind", code="app_error", status_code=400)
         key = slugify(str(item.get("key") or name))
         if key in seen:
             raise HTTPException(status_code=400, detail=f"Duplicate stage '{name}'")
@@ -446,7 +446,7 @@ def validate_stages(raw: Any) -> str:
 
     validate_checklist_keys(out)
     if not any(s["kind"] == "done" for s in out):
-        raise HTTPException(status_code=400, detail="A pipeline needs at least one done stage")
+        raise AppError("A pipeline needs at least one done stage", code="app_error", status_code=400)
     if out[0]["kind"] != "open":
         raise HTTPException(
             status_code=400,
@@ -594,7 +594,7 @@ async def list_categories(session: AsyncSession, tenant_id: UUID) -> list[Signal
 async def get_category(session: AsyncSession, tenant_id: UUID, tag_id: UUID) -> SignalTag:
     row = await session.get(SignalTag, tag_id)
     if row is None or row.tenant_id != tenant_id:
-        raise HTTPException(status_code=404, detail="Category not found")
+        raise NotFoundError("Category not found")
     if row.workstream_id is None:
         raise HTTPException(
             status_code=400,
@@ -632,7 +632,7 @@ def apply_category_config(row: SignalTag, patch: dict[str, Any]) -> None:
     if "create_mode" in patch and patch["create_mode"] is not None:
         mode = str(patch["create_mode"])
         if mode not in CATEGORY_CREATE_MODES:
-            raise HTTPException(status_code=400, detail="Invalid create_mode")
+            raise AppError("Invalid create_mode", code="app_error", status_code=400)
         row.create_mode = mode
     for key in ("ask_threshold", "auto_threshold"):
         if key in patch and patch[key] is not None:
@@ -697,7 +697,7 @@ async def install_tag_template(
 
     template = get_tag_template(module_slug, template_slug)
     if template is None:
-        raise HTTPException(status_code=404, detail="Tag template not found")
+        raise NotFoundError("Tag template not found")
     name = normalize_tag(template.name)
     rows = (
         await session.execute(
@@ -770,7 +770,7 @@ async def _signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) -> Si
         )
     ).scalar_one_or_none()
     if row is None:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise NotFoundError("Thread not found")
     return row
 
 
@@ -786,10 +786,9 @@ async def ticket_payload(
     ws = await session.get(Workstream, tag.workstream_id) if tag.workstream_id else None
     stages = workstream_stages(ws)
     field_defs = all_stage_fields(stages)
-    from app.services.signal_tags import label_mark
-
     from app.models.auth import Tenant
     from app.services.signal_catalog import signal_policy
+    from app.services.signal_tags import label_mark
     from app.services.ticket_work import checklist_rows, entry_policy, next_step, proposals_payload
 
     live = ws is not None and ws.deleted_at is None
@@ -907,7 +906,7 @@ async def move_ticket_stage(
     if stage_key is not None:
         target = next((s for s in stages if s["key"] == stage_key), None)
         if target is None:
-            raise HTTPException(status_code=400, detail="Unknown stage for this ticket")
+            raise AppError("Unknown stage for this ticket", code="app_error", status_code=400)
     elif status is not None:
         if current is not None and current["kind"] == status:
             target = current
@@ -1309,7 +1308,7 @@ async def file_ticket(
                 session, signal, project_id, user_id=user_id, actor_type=created_by_type, actor_id=created_by_id
             )
         except LookupError as exc:
-            raise HTTPException(status_code=404, detail="Folder not found") from exc
+            raise NotFoundError("Folder not found") from exc
     else:
         await refile(session, signal, actor_type=created_by_type, actor_id=created_by_id)
 
@@ -1442,10 +1441,10 @@ async def update_ticket(
 
     signal = await _signal(session, tenant_id, signal_id)
     if signal.ticket_tag_id is None:
-        raise HTTPException(status_code=404, detail="This conversation has no ticket")
+        raise NotFoundError("This conversation has no ticket")
     tag = await session.get(SignalTag, signal.ticket_tag_id)
     if tag is None or tag.workstream_id is None:
-        raise HTTPException(status_code=400, detail="This category no longer has a playbook")
+        raise AppError("This category no longer has a playbook", code="app_error", status_code=400)
     pending = signal.ticket_status == "proposed" or (signal.ticket_status == "waiting" and not signal.stage_key)
     status = str(patch.get("status") or "")
 
@@ -1481,9 +1480,9 @@ async def update_ticket(
                 actor_id=actor_id,
             )
         except LookupError as exc:
-            raise HTTPException(status_code=404, detail="Folder not found") from exc
+            raise NotFoundError("Folder not found") from exc
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail="project_id must be a folder id or null") from exc
+            raise AppError("project_id must be a folder id or null", code="app_error", status_code=400) from exc
 
     agent = actor_type == "agent"
     agent_id = _uuid_or_none(actor_id) if agent else None
@@ -1494,7 +1493,7 @@ async def update_ticket(
 
     if patch.get("checklist"):
         if not isinstance(patch["checklist"], dict):
-            raise HTTPException(status_code=400, detail="checklist maps item keys to 'done' or 'open'")
+            raise AppError("checklist maps item keys to 'done' or 'open'", code="app_error", status_code=400)
         work.apply_checklist(
             session,
             signal,
@@ -1539,10 +1538,10 @@ async def update_ticket(
 
     stage_key = str(patch.get("stage_key") or "") or None
     if status and not stage_key and status not in TICKET_STAGE_KINDS:
-        raise HTTPException(status_code=400, detail="Invalid status")
+        raise AppError("Invalid status", code="app_error", status_code=400)
     if stage_key or status:
         if pending:
-            raise HTTPException(status_code=400, detail="Accept the ticket before moving it")
+            raise AppError("Accept the ticket before moving it", code="app_error", status_code=400)
         move_status = None if stage_key else status
         if agent:
             made.extend(
@@ -1833,7 +1832,7 @@ async def workstream_board(
         )
     ).scalar_one_or_none()
     if ws is None:
-        raise HTTPException(status_code=404, detail="Flow not found")
+        raise NotFoundError("Flow not found")
     stages = workstream_stages(ws)
     tags = list(
         (

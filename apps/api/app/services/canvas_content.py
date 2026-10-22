@@ -17,6 +17,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project_canvas import (
+    CANVAS_KINDS,
     KIND_CODE,
     KIND_DIAGRAM,
     KIND_DOCUMENT,
@@ -24,7 +25,6 @@ from app.models.project_canvas import (
     KIND_EMAIL,
     KIND_IMAGE,
     KIND_SHEET,
-    CANVAS_KINDS,
 )
 from app.services.storage import storage_key_from_url
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import json
 import logging
@@ -13,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.gateway.publish import publish_signal_message
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.compaction import KEEP_RECENT, maybe_compact

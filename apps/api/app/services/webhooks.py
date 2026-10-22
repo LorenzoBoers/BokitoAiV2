@@ -12,8 +12,6 @@ Signature scheme (documented for receivers):
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import hashlib
 import hmac
@@ -28,6 +26,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.webhook import WebhookDelivery, WebhookEndpoint
 from app.services.crypto import decrypt_secret, encrypt_secret
 
@@ -224,6 +223,7 @@ async def perform_delivery(session: AsyncSession, delivery: WebhookDelivery) -> 
                 break
             last_error = f"HTTP {status_code}"
         except Exception as exc:  # noqa: BLE001
+            logger.warning('webhook delivery attempt failed', exc_info=True)
             last_error = str(exc)[:500]
         if attempt < _MAX_ATTEMPTS - 1:
             await asyncio.sleep(_RETRY_DELAYS_S[attempt])

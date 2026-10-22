@@ -11,12 +11,12 @@ import logging
 from typing import Any, Literal
 from uuid import UUID
 
-from app.core.time import utcnow
-
 from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.agent import Agent
 from app.models.auth import User
 from app.models.learning import Feedback
@@ -74,7 +74,7 @@ def canonicalize_kind(kind: str | None) -> str:
 def normalize_kind(kind: str | None, *, actor_type: ActorType) -> ReactionKind:
     value = canonicalize_kind(kind)
     if value not in REACTION_KINDS:
-        raise HTTPException(status_code=400, detail="Unknown reaction kind")
+        raise AppError("Unknown reaction kind", code="app_error", status_code=400)
     if actor_type == "user" and value in AGENT_ONLY_KINDS:
         raise HTTPException(
             status_code=403,
@@ -95,7 +95,7 @@ async def _load_message(
         )
     ).scalar_one_or_none()
     if message is None:
-        raise HTTPException(status_code=404, detail="Message not found")
+        raise NotFoundError("Message not found")
     return message
 
 

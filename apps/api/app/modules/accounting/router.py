@@ -15,6 +15,7 @@ the ``MODULE_WRITES_ENABLED`` env + the tenant department
 
 from __future__ import annotations
 
+import logging
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -30,11 +31,15 @@ from app.modules.accounting.adapters import king as king_adapter
 from app.modules.accounting.adapters import moneybird as mb_adapter
 from app.modules.accounting.capabilities import capability_for_verb, vendor_supports
 from app.modules.accounting.schema import (
+
     WRITE_PAYLOADS,
     module_error,
     ok_result,
     unsupported,
 )
+
+
+logger = logging.getLogger(__name__)
 
 VENDOR_LABELS = {
     "king": "KING Accountancy",
@@ -451,6 +456,7 @@ async def call_accounting_verb(
             try:
                 validated = payload_model(**payload_fields)
             except Exception as exc:
+                logger.warning('accounting module payload invalid', exc_info=True)
                 return module_error("invalid_payload", f"Invalid {verb} payload: {exc}")
             args = {**args, **validated.model_dump()}
 

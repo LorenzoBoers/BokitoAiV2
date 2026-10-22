@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import base64
 import hashlib
 import json
@@ -19,15 +18,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.models.auth import Membership, Tenant, User
 from app.models.oauth_as import (
     McpOAuthAccessToken,
-    McpOAuthAuthRequest,
     McpOAuthAuthorizationCode,
+    McpOAuthAuthRequest,
     McpOAuthClient,
     McpOAuthRefreshToken,
 )
 from app.tools.registry import TOOL_CATEGORIES
+
+logger = logging.getLogger(__name__)
 
 ACCESS_TOKEN_PREFIX = "bok_oa_"
 REFRESH_TOKEN_PREFIX = "bok_or_"
@@ -126,6 +128,7 @@ def is_loopback_redirect(uri: str) -> bool:
     try:
         parsed = urlparse(uri)
     except Exception:
+        logger.warning("MCP OAuth redirect URI parse failed", exc_info=True)
         return False
     if parsed.scheme not in ("http", "https"):
         return False
@@ -148,6 +151,7 @@ def redirect_uri_allowed(uri: str, registered: list[str]) -> bool:
             try:
                 a, b = urlparse(uri), urlparse(reg)
             except Exception:
+                logger.warning("MCP OAuth redirect URI compare failed", exc_info=True)
                 continue
             if (a.hostname or "").lower() == (b.hostname or "").lower() and a.path == b.path:
                 return True
@@ -244,6 +248,7 @@ async def _fetch_client_id_metadata(
                 return None
             doc = res.json()
     except Exception:
+        logger.warning("MCP OAuth client metadata fetch failed", exc_info=True)
         return None
     if not isinstance(doc, dict):
         return None

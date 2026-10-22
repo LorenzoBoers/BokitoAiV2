@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import base64
 import hashlib
 import json
@@ -13,6 +12,10 @@ from typing import Any
 from cryptography.fernet import Fernet, InvalidToken
 
 from app.config import get_settings
+from app.core.time import utcnow
+
+
+logger = logging.getLogger(__name__)
 
 # Prefix distinguishes Fernet ciphertext from legacy plaintext JSON.
 _CRED_PREFIX = "enc:v1:"
@@ -35,6 +38,7 @@ def _credentials_fernet() -> Fernet:
         try:
             return Fernet(raw.encode() if isinstance(raw, str) else raw)
         except Exception:
+            logger.debug('fernet key parse failed; using sha256 digest', exc_info=True)
             key = hashlib.sha256(raw.encode()).digest()
             return Fernet(base64.urlsafe_b64encode(key))
     return _jwt_derived_fernet()
@@ -52,6 +56,7 @@ def decrypt_secret(value: str) -> str:
     try:
         return _jwt_derived_fernet().decrypt(value.encode()).decode()
     except Exception:
+        logger.debug('fernet decrypt failed; returning raw', exc_info=True)
         return value
 
 

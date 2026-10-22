@@ -30,8 +30,6 @@ agenda item opens its thread.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime
 from typing import Any, Iterable
@@ -40,6 +38,7 @@ from uuid import UUID
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent, AgentRun
 from app.models.signal import Signal
 from app.models.trigger import Trigger

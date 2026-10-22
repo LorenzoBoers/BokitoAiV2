@@ -499,6 +499,7 @@ async def validate_credentials(auth: dict[str, Any]) -> dict[str, Any]:
     try:
         await _login(partner_key, admins[0]["omgevingscode"], base_url)
     except Exception as exc:
+        logger.warning('KING Finance authentication failed', exc_info=True)
         return {"ok": False, "error": f"KING Finance authentication failed: {exc}"}
     return {"ok": True}
 
@@ -536,6 +537,7 @@ async def call_king_tool(
     try:
         session_id = await _login(partner_key, admin["omgevingscode"], base_url)
     except Exception as exc:
+        logger.warning('KING Finance authentication failed', exc_info=True)
         return {"error": f"KING Finance authentication failed: {exc}"}
 
     session_fields = {
@@ -737,6 +739,7 @@ async def call_king_tool(
             detail = f"(empty body, status={exc.response.status_code})"
         return {"error": f"KING Finance API error ({exc.response.status_code}): {detail}"}
     except Exception as exc:
+        logger.warning('KING Finance API request failed', exc_info=True)
         return {"error": f"KING Finance API request failed: {exc}"}
 
     return {"error": f"Unknown KING Accountancy tool: {tool_name}"}

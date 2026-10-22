@@ -10,8 +10,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import timedelta
 from statistics import median
@@ -21,6 +19,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.notification import DecisionRequest
 from app.models.signal import SignalEvent
 

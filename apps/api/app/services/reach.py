@@ -16,8 +16,7 @@ timeline, the department page and Govern read those events.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
+import logging
 import json
 from datetime import datetime, time, timedelta
 from typing import Any
@@ -26,8 +25,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalEvent
+
+
+logger = logging.getLogger(__name__)
 
 REACH_EVENT = "reach_attempt"
 URGENT = 0.6
@@ -75,6 +78,7 @@ def _local(now: datetime) -> datetime:
 
         return now.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(REACH_TIMEZONE)).replace(tzinfo=None)
     except Exception:  # noqa: BLE001 — no tz database: UTC
+        logger.debug('reach timezone resolve failed', exc_info=True)
         return now
 
 

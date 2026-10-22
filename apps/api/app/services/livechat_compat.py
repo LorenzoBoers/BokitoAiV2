@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import logging
 from datetime import timedelta
 from typing import Any
@@ -14,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.dependencies import tenant_settings
 from app.models.auth import Tenant, User
 from app.services.auth import decode_access_token
@@ -314,6 +313,7 @@ def channel_account_id_from_widget_token(token: str) -> UUID | None:
         raw = decode_widget_session_token(token).get("channel_account_id")
         return UUID(str(raw)) if raw else None
     except Exception:
+        logger.warning("livechat channel account from widget token failed", exc_info=True)
         return None
 
 
@@ -322,6 +322,7 @@ def surface_from_widget_token(token: str) -> str:
     try:
         return normalize_surface(decode_widget_session_token(token).get("surface"))
     except Exception:
+        logger.warning("livechat surface from widget token failed", exc_info=True)
         return SURFACE_SITE
 
 

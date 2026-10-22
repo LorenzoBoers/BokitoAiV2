@@ -52,6 +52,7 @@ def verify_svix_signature(
     try:
         key = base64.b64decode(raw_secret)
     except Exception:
+        logger.debug('inbound webhook secret decode failed', exc_info=True)
         return False
     signed = f"{msg_id}.{timestamp}.".encode() + body
     expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()

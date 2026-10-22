@@ -7,8 +7,6 @@ a member of a child is treated as a member of every ancestor up to All.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -16,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.auth import Membership, User
 from app.models.signal import Signal

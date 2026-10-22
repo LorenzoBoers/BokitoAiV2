@@ -14,8 +14,8 @@ from app.models.auth import Tenant, User
 from app.models.channel import Contact
 from app.models.signal import Signal
 from app.services.assistant_context import page_context_block
-from app.services.chat_runtime import build_agent_loop, post_message
 from app.services.assistant_threads import signal_chat_history
+from app.services.chat_runtime import build_agent_loop, post_message
 from app.services.livechat_compat import SURFACE_IN_APP, SURFACE_SITE, normalize_surface
 from app.services.personal_assistant import (
     PERSONAL_THREAD_SOURCE,

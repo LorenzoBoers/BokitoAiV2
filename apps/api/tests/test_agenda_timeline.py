@@ -201,8 +201,10 @@ async def test_create_agent_task_accepts_aware_scheduled_for(session_override: A
 @pytest.mark.asyncio
 async def test_complete_rejects_agent_tasks(session_override: AsyncSession):
     from app.models.signal import Signal
-    from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
     from fastapi import HTTPException
+
+    from app.exceptions import AppError
+    from app.services.orchestration.dispatcher import complete_agent_task, create_agent_task
 
     tenant, agent = await _tenant_and_agent(session_override)
     signal = Signal(
@@ -224,11 +226,9 @@ async def test_complete_rejects_agent_tasks(session_override: AsyncSession):
         assignee_kind="agent",
         auto_start=False,
     )
-    try:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await complete_agent_task(session_override, tenant.id, task.id)
-        raise AssertionError("expected HTTPException")
-    except HTTPException as exc:
-        assert exc.status_code == 400
+    assert exc.value.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -272,11 +272,13 @@ async def test_human_follow_up_skips_system_note(session_override: AsyncSession)
 async def test_create_task_rejects_foreign_signal(session_override: AsyncSession):
     from uuid import uuid4
 
-    from app.services.orchestration.dispatcher import create_agent_task
     from fastapi import HTTPException
 
+    from app.exceptions import AppError
+    from app.services.orchestration.dispatcher import create_agent_task
+
     tenant, _agent = await _tenant_and_agent(session_override)
-    try:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await create_agent_task(
             session_override,
             tenant.id,
@@ -285,9 +287,7 @@ async def test_create_task_rejects_foreign_signal(session_override: AsyncSession
             assignee_kind="human",
             auto_start=False,
         )
-        raise AssertionError("expected HTTPException")
-    except HTTPException as exc:
-        assert exc.status_code == 404
+    assert exc.value.status_code == 404
 
 
 @pytest.mark.asyncio

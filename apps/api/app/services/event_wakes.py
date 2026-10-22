@@ -11,8 +11,6 @@ agent caused itself, and never past the agent's daily cost cap.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import asyncio
 import logging
 import os
@@ -23,6 +21,7 @@ from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.models.signal import Signal, SignalEvent
 
 logger = logging.getLogger(__name__)
@@ -92,7 +91,12 @@ async def _run(event_ids: list[UUID]) -> None:
 async def wake_for_events(session: AsyncSession, events: list[SignalEvent]) -> list[dict[str, Any]]:
     """Queue a turn for the first agent that follows each event. Caller commits."""
     from app.models.agent import Agent
-    from app.services.agent_awareness import EVENT_KIND, awareness_config, event_window_key, spent_today_cents
+    from app.services.agent_awareness import (
+        EVENT_KIND,
+        awareness_config,
+        event_window_key,
+        spent_today_cents,
+    )
     from app.services.agent_turns import enqueue_turn
     from app.services.department_access import department_leads
     from app.services.department_domain import department_of_signal

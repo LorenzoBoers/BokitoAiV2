@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from app.core.time import utcnow
 
 import json
@@ -11,10 +12,14 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.tools._common import (
+
     PROPOSAL_ITEMS_SCHEMA,
 )
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
+
+
+logger = logging.getLogger(__name__)
 
 async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     from datetime import timedelta
@@ -441,6 +446,7 @@ async def _dispatch_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
             approved_by=ctx.user_id,
         )
     except Exception as exc:  # noqa: BLE001 — surface provider errors to the agent
+        logger.warning('work tool failed', exc_info=True)
         return {"error": str(exc)}
     return {
         "job_id": str(job.id),
@@ -506,6 +512,7 @@ async def _follow_up_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[
     try:
         await follow_up(ctx.session, job, text, actor=ctx.user_id)
     except Exception as exc:  # noqa: BLE001
+        logger.warning('work tool failed', exc_info=True)
         return {"error": str(exc)}
     return {"job_id": str(job.id), "state": job.state}
 
@@ -545,6 +552,7 @@ async def _cancel_work(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     try:
         await cancel(ctx.session, job, actor=ctx.user_id)
     except Exception as exc:  # noqa: BLE001
+        logger.warning('work tool failed', exc_info=True)
         return {"error": str(exc)}
     return {"job_id": str(job.id), "state": job.state}
 

@@ -6,13 +6,12 @@ here; the SOP may turn it on only after an explicit yes.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import NotFoundError
 from app.models.auth import Tenant
 from app.models.signal import Signal
 
@@ -165,7 +164,7 @@ async def open_lead_setup_thread(
 
     lead = await get_lead_agent(session, tenant.id)
     if lead is None or lead.acts_for_user:
-        raise HTTPException(status_code=404, detail="Create your first agent before the tour")
+        raise NotFoundError("Create your first agent before the tour")
 
     signal = Signal(
         tenant_id=tenant.id,

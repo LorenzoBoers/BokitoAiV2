@@ -4,6 +4,7 @@ import io
 
 import pytest
 from fastapi import HTTPException
+from app.exceptions import AppError
 from httpx import AsyncClient
 
 from app.services.doc_ingest import extract_text
@@ -80,13 +81,13 @@ def test_extract_docx_text():
 
 
 def test_extract_rejects_unsupported_type():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         extract_text("photo.png", b"\x89PNG....")
     assert exc.value.status_code == 415
 
 
 def test_extract_rejects_unreadable_pdf():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         extract_text("broken.pdf", b"not a pdf at all")
     assert exc.value.status_code == 422
 

@@ -10,8 +10,6 @@ fire in the same period returns the one that exists.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -20,6 +18,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError
 from app.models.signal import Signal, SignalTag
 from app.models.trigger import Trigger
 
@@ -56,7 +56,7 @@ def period_key(trigger: Trigger, now: datetime) -> str:
 
 async def flow_label(session: AsyncSession, trigger: Trigger) -> SignalTag:
     if trigger.workstream_id is None:
-        raise HTTPException(status_code=400, detail="A recurring ticket needs a flow")
+        raise AppError("A recurring ticket needs a flow", code="app_error", status_code=400)
     label = (
         await session.execute(
             select(SignalTag).where(
@@ -66,7 +66,7 @@ async def flow_label(session: AsyncSession, trigger: Trigger) -> SignalTag:
         )
     ).scalars().first()
     if label is None:
-        raise HTTPException(status_code=400, detail="The flow has no label")
+        raise AppError("The flow has no label", code="app_error", status_code=400)
     return label
 
 
@@ -152,7 +152,12 @@ async def upsert_recurring_ticket(
     """One rule per flow and folder: a second call with the same pair updates it."""
     from app.services.projects import resolve_folder_ref
     from app.services.tickets import find_category
-    from app.services.triggers import compute_next_run, create_trigger, next_cron_run, serialize_trigger
+    from app.services.triggers import (
+        compute_next_run,
+        create_trigger,
+        next_cron_run,
+        serialize_trigger,
+    )
 
     label = await find_category(session, tenant_id, flow)
     if label is None or label.workstream_id is None:

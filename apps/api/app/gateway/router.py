@@ -57,6 +57,7 @@ def _decode_principal(token: str) -> dict | None:
     try:
         payload = decode_widget_session_token(token)  # accepts widget_session and access
     except Exception:
+        logger.debug('gateway widget token decode failed', exc_info=True)
         return None
     tenant_id = payload.get("tenant_id")
     if not tenant_id:
@@ -222,6 +223,7 @@ async def _presence_status(session: AsyncSession, connection: GatewayConnection)
             return None
         await session.refresh(user)
     except Exception:
+        logger.debug('gateway user resolve failed', exc_info=True)
         return None
     connected = connection.user_id in _connected_user_ids(connection.tenant_id)
     return visible_user_status(user, connected=connected)
@@ -260,6 +262,7 @@ async def _send_presence_snapshot(
                 {"type": "event", "event": event, "topics": topics, "data": data}
             )
         except Exception:
+            logger.debug("gateway presence event send failed", exc_info=True)
             return
 
 

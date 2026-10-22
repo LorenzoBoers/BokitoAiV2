@@ -19,8 +19,6 @@ are skipped; smtp_imap requires verified credentials instead.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import base64
 import json
 import logging
@@ -40,6 +38,7 @@ from app.channels.base import (
     UnknownRecipientError,
     ingest_inbound,
 )
+from app.core.time import utcnow
 from app.models.channel import ChannelAccount
 from app.services import oauth_providers
 
@@ -358,6 +357,7 @@ def html_to_text(html: str) -> str:
         parser.feed(raw)
         parser.close()
     except Exception:
+        logger.debug('html strip parser failed', exc_info=True)
         stripped = re.sub(r"(?is)<(style|script|head|title)[^>]*>.*?</\1>", " ", raw)
         stripped = re.sub(r"(?s)<!--.*?-->", " ", stripped)
         return re.sub(r"<[^>]+>", " ", stripped).strip()
@@ -523,6 +523,7 @@ def _decode_gmail_body_data(data: str | None) -> str:
     try:
         return base64.urlsafe_b64decode(data + "===").decode("utf-8", "replace")
     except Exception:
+        logger.debug('email body base64 decode failed', exc_info=True)
         return ""
 
 
@@ -800,6 +801,7 @@ async def _gmail_fetch_part_data(
             "utf-8", "replace"
         )
     except Exception:
+        logger.debug('gmail message data decode failed', exc_info=True)
         return ""
 
 
@@ -1143,6 +1145,7 @@ async def _hydrate_outlook_attachments(
         try:
             data = base64.b64decode(content)
         except Exception:
+            logger.warning("outlook attachment base64 decode failed", exc_info=True)
             continue
         if not data or len(data) > MAX_ATTACHMENT_BYTES:
             continue
@@ -1187,6 +1190,7 @@ async def _hydrate_gmail_attachments(
         try:
             data = base64.urlsafe_b64decode((resp.json().get("data") or "") + "===")
         except Exception:
+            logger.warning("gmail attachment base64 decode failed", exc_info=True)
             continue
         if not data:
             continue

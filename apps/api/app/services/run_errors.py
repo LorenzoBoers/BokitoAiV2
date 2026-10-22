@@ -8,12 +8,11 @@ message, and inbound processing stops instead of retrying.
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from datetime import datetime, timedelta
 from typing import Any
 
+from app.core.time import utcnow
 from app.exceptions import AppError
 
 BLOCK_SPEND_CAP = "spend_cap"

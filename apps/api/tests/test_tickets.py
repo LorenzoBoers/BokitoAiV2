@@ -282,8 +282,9 @@ async def test_one_category_per_conversation(client: AsyncClient, session_overri
     assert "functieverzoek" not in thread.get("tags", [])
 
     from fastapi import HTTPException
+    from app.exceptions import AppError
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises((HTTPException, AppError)) as exc:
         await file_ticket(
             session_override, tenant.id, signal_id=signal.id, tag_id=UUID(bug["id"]),
             certainty=10, actor="agent",

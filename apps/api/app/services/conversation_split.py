@@ -13,8 +13,6 @@ away, assisted asks with an inline decision, manual leaves it to a person
 
 from __future__ import annotations
 
-from app.core.time import utcnow
-
 import json
 from typing import Any
 from uuid import UUID
@@ -23,6 +21,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
+from app.exceptions import AppError, NotFoundError
 from app.models.auth import Tenant
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag
@@ -79,9 +79,9 @@ async def _load_signal(session: AsyncSession, tenant_id: UUID, signal_id: UUID) 
         )
     ).scalar_one_or_none()
     if signal is None or signal.deleted_at is not None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise NotFoundError("Conversation not found")
     if signal.channel in UNSPLITTABLE_CHANNELS:
-        raise HTTPException(status_code=400, detail="Only customer conversations can be split")
+        raise AppError("Only customer conversations can be split", code="app_error", status_code=400)
     return signal
 
 
@@ -91,7 +91,7 @@ async def _anchor_message(
     if from_message_id is not None:
         message = await session.get(SignalMessage, from_message_id)
         if message is None or message.signal_id != signal.id:
-            raise HTTPException(status_code=404, detail="Message not found in this conversation")
+            raise NotFoundError("Message not found in this conversation")
         return message
     message = (
         await session.execute(
@@ -102,7 +102,7 @@ async def _anchor_message(
         )
     ).scalar_one_or_none()
     if message is None:
-        raise HTTPException(status_code=400, detail="No customer message to split from")
+        raise AppError("No customer message to split from", code="app_error", status_code=400)
     return message
 
 

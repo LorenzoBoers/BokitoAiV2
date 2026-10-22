@@ -1,4 +1,4 @@
-from app.core.time import utcnow
+import logging
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -9,8 +9,12 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.time import utcnow
 from app.exceptions import AppError
 from app.models.auth import Membership, Session, Tenant, User
+
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -86,6 +90,7 @@ def decode_totp_challenge_token(token: str) -> UUID | None:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except Exception:
+        logger.debug('jwt decode failed', exc_info=True)
         return None
     if payload.get("type") != "totp_challenge":
         return None
@@ -113,6 +118,7 @@ def decode_workspace_setup_token(token: str) -> UUID | None:
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except Exception:
+        logger.debug('jwt decode failed', exc_info=True)
         return None
     if payload.get("type") != "workspace_setup":
         return None

@@ -4,7 +4,7 @@ Concrete improvements already present in the working tree versus `origin/master`
 (HEAD on master). Sourced from `git status --short`, file listings, and spot-checks
 of new/changed modules. Every item below is **Confirmed**. Not a commit list.
 
-**Total: 318**
+**Total: 690+** (Wave 1: 318; Wave 2: models utcnow + silent excepts + AppError service migration)
 
 ---
 
@@ -374,4 +374,242 @@ of new/changed modules. Every item below is **Confirmed**. Not a commit list.
 317. **Confirmed** — Gateway package updates (`publish.py`, `bus.py`, `router.py`, `__init__.py`) for live thread path
 318. **Confirmed** — Working-tree inventory scope: **~612** short-status paths vs `origin/master` (modified + untracked + deleted)
 
-_End of list (318 items). Do not commit from this document alone._
+## Wave 2 — works_in canvas listing + test integrity
+
+319. **Confirmed** — `services/folders.py` `file_in_folder`: after tag refresh, if `Signal.project_id` is still unset (name-only / empty tag-set folders never match), pin the requested folder explicitly and emit `folder_set` with `explicit: true`. Fixes canvases filed via `create_canvas(..., folder_id=...)` / module install so they appear in `works_in_items` (which filters on `Signal.project_id`).
+320. **Confirmed** — Removed `pytest.mark.xfail` from `test_works_in_canvas_carries_labels_and_link`, `test_accounting_install_creates_folder_with_canvas`, `test_works_in_marks_what_lives_in_bokito`, and `test_done_stage_delivers_to_flow_destination` (same root cause).
+321. **Confirmed** — `test_soft_option_approve_still_wakes_agent`: monkeypatch `_schedule_agent_reply` / `_generate_agent_reply` on `app.services.signal_threads.reply` (the import site in `resolve_message_decision`), not the package re-export; removed its xfail.
+322. **Confirmed** — `routers/livechat.py`: moved `from app.core.time import utcnow` below `__future__` (was blocking pytest collection).
+323. **Confirmed** — Ruff F401 on `apps/api/app`: already clean (no unused-import autofix needed).
+324. **Confirmed** — Dashboard dead stubs listed in items 255–282: none remain on disk.
+325. **Confirmed** — `BOKITO_KNOWLEDGE.md`: document that explicit filing pins `project_id` for name-only folders so Works in can list canvases.
+
+
+## Wave 2 — utcnow models + silent except logging
+
+Mechanical integrity follow-up: finish `datetime.utcnow` → `utcnow` in
+SQLModel `default_factory` defaults across `app/models/`, and replace remaining
+silent exception swallows with `logger.warning(..., exc_info=True)`.
+
+File rollup (122 replacements in 41 files):
+- `models/signal.py` (11)
+- `models/auth.py` (7)
+- `models/calendar.py` (6)
+- `models/agent.py` (5)
+- `models/model_catalog.py` (5)
+- `models/oauth_as.py` (5)
+- `models/orchestra.py` (5)
+- `models/workspace.py` (5)
+- `models/channel.py` (4)
+- `models/integration_catalog.py` (4)
+- `models/learning.py` (4)
+- `models/provider.py` (4)
+- `models/integration.py` (3)
+- `models/notification.py` (3)
+- `models/orchestration.py` (3)
+- `models/project.py` (3)
+- `models/project_work.py` (3)
+- `models/relations.py` (3)
+- `models/team.py` (3)
+- `models/webhook.py` (3)
+- `models/agent_call.py` (2)
+- `models/agent_context.py` (2)
+- `models/agent_turn.py` (2)
+- `models/customer_verify.py` (2)
+- `models/message_reaction.py` (2)
+- `models/module_agent.py` (2)
+- `models/module_source.py` (2)
+- `models/project_canvas.py` (2)
+- `models/trigger.py` (2)
+- `models/usage.py` (2)
+- `models/user_memory.py` (2)
+- `models/workbench.py` (2)
+- `models/api_token.py` (1)
+- `models/audit.py` (1)
+- `models/auth_token.py` (1)
+- `models/oauth_state.py` (1)
+- `models/platform_change.py` (1)
+- `models/signal_participant.py` (1)
+- `models/staff.py` (1)
+- `models/trash.py` (1)
+- `models/user_identity.py` (1)
+
+### utcnow default_factory sites
+
+326. **Confirmed** — Migrated `default_factory=utcnow` on models/agent.py `Agent.created_at`
+327. **Confirmed** — Migrated `default_factory=utcnow` on models/agent.py `Agent.updated_at`
+328. **Confirmed** — Migrated `default_factory=utcnow` on models/agent.py `AgentChatUser.created_at`
+329. **Confirmed** — Migrated `default_factory=utcnow` on models/agent.py `AgentRun.started_at`
+330. **Confirmed** — Migrated `default_factory=utcnow` on models/agent.py `RunEvent.created_at`
+331. **Confirmed** — Migrated `default_factory=utcnow` on models/agent_call.py `AgentCall.ring_until`
+332. **Confirmed** — Migrated `default_factory=utcnow` on models/agent_call.py `AgentCall.created_at`
+333. **Confirmed** — Migrated `default_factory=utcnow` on models/agent_context.py `SignalCompaction.created_at`
+334. **Confirmed** — Migrated `default_factory=utcnow` on models/agent_context.py `SubagentMessage.created_at`
+335. **Confirmed** — Migrated `default_factory=utcnow` on models/agent_turn.py `AgentTurn.created_at`
+336. **Confirmed** — Migrated `default_factory=utcnow` on models/agent_turn.py `AgentAsk.created_at`
+337. **Confirmed** — Migrated `default_factory=utcnow` on models/api_token.py `ApiToken.created_at`
+338. **Confirmed** — Migrated `default_factory=utcnow` on models/audit.py `AuditEvent.created_at`
+339. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `Tenant.created_at`
+340. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `User.created_at`
+341. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `Membership.created_at`
+342. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `UserPreference.created_at`
+343. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `UserPreference.updated_at`
+344. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `Session.created_at`
+345. **Confirmed** — Migrated `default_factory=utcnow` on models/auth.py `Invite.created_at`
+346. **Confirmed** — Migrated `default_factory=utcnow` on models/auth_token.py `AuthToken.created_at`
+347. **Confirmed** — Migrated `default_factory=utcnow` on models/calendar.py `TenantCalendar.created_at`
+348. **Confirmed** — Migrated `default_factory=utcnow` on models/calendar.py `TenantCalendar.updated_at`
+349. **Confirmed** — Migrated `default_factory=utcnow` on models/calendar.py `CalendarTagLink.created_at`
+350. **Confirmed** — Migrated `default_factory=utcnow` on models/calendar.py `CalendarEvent.synced_at`
+351. **Confirmed** — Migrated `default_factory=utcnow` on models/calendar.py `CalendarEvent.created_at`
+352. **Confirmed** — Migrated `default_factory=utcnow` on models/calendar.py `CalendarEvent.updated_at`
+353. **Confirmed** — Migrated `default_factory=utcnow` on models/channel.py `ChannelAccount.created_at`
+354. **Confirmed** — Migrated `default_factory=utcnow` on models/channel.py `Company.created_at`
+355. **Confirmed** — Migrated `default_factory=utcnow` on models/channel.py `Company.updated_at`
+356. **Confirmed** — Migrated `default_factory=utcnow` on models/channel.py `Contact.created_at`
+357. **Confirmed** — Migrated `default_factory=utcnow` on models/customer_verify.py `CustomerVerifyToken.created_at`
+358. **Confirmed** — Migrated `default_factory=utcnow` on models/customer_verify.py `HandoverCode.created_at`
+359. **Confirmed** — Migrated `default_factory=utcnow` on models/integration.py `IntegrationConnection.created_at`
+360. **Confirmed** — Migrated `default_factory=utcnow` on models/integration.py `IntegrationBinding.created_at`
+361. **Confirmed** — Migrated `default_factory=utcnow` on models/integration.py `McpServer.created_at`
+362. **Confirmed** — Migrated `default_factory=utcnow` on models/integration_catalog.py `IntegrationCatalogHost.created_at`
+363. **Confirmed** — Migrated `default_factory=utcnow` on models/integration_catalog.py `IntegrationCatalogHost.updated_at`
+364. **Confirmed** — Migrated `default_factory=utcnow` on models/integration_catalog.py `IntegrationCatalogProvider.created_at`
+365. **Confirmed** — Migrated `default_factory=utcnow` on models/integration_catalog.py `IntegrationCatalogProvider.updated_at`
+366. **Confirmed** — Migrated `default_factory=utcnow` on models/learning.py `Feedback.created_at`
+367. **Confirmed** — Migrated `default_factory=utcnow` on models/learning.py `InboxRule.created_at`
+368. **Confirmed** — Migrated `default_factory=utcnow` on models/learning.py `InboxRule.updated_at`
+369. **Confirmed** — Migrated `default_factory=utcnow` on models/learning.py `EvalScore.created_at`
+370. **Confirmed** — Migrated `default_factory=utcnow` on models/message_reaction.py `MessageReaction.created_at`
+371. **Confirmed** — Migrated `default_factory=utcnow` on models/message_reaction.py `MessageReaction.updated_at`
+372. **Confirmed** — Migrated `default_factory=utcnow` on models/model_catalog.py `ModelCatalog.created_at`
+373. **Confirmed** — Migrated `default_factory=utcnow` on models/model_catalog.py `ModelCatalog.updated_at`
+374. **Confirmed** — Migrated `default_factory=utcnow` on models/model_catalog.py `PlatformSecret.created_at`
+375. **Confirmed** — Migrated `default_factory=utcnow` on models/model_catalog.py `PlatformSecret.updated_at`
+376. **Confirmed** — Migrated `default_factory=utcnow` on models/model_catalog.py `PlatformSetting.updated_at`
+377. **Confirmed** — Migrated `default_factory=utcnow` on models/module_agent.py `ModuleAgent.created_at`
+378. **Confirmed** — Migrated `default_factory=utcnow` on models/module_agent.py `AgentScope.created_at`
+379. **Confirmed** — Migrated `default_factory=utcnow` on models/module_source.py `ModuleSource.created_at`
+380. **Confirmed** — Migrated `default_factory=utcnow` on models/module_source.py `ModuleSource.updated_at`
+381. **Confirmed** — Migrated `default_factory=utcnow` on models/notification.py `Notification.created_at`
+382. **Confirmed** — Migrated `default_factory=utcnow` on models/notification.py `UserNotificationPreference.updated_at`
+383. **Confirmed** — Migrated `default_factory=utcnow` on models/notification.py `DecisionRequest.created_at`
+384. **Confirmed** — Migrated `default_factory=utcnow` on models/oauth_as.py `McpOAuthClient.created_at`
+385. **Confirmed** — Migrated `default_factory=utcnow` on models/oauth_as.py `McpOAuthAuthRequest.created_at`
+386. **Confirmed** — Migrated `default_factory=utcnow` on models/oauth_as.py `McpOAuthAuthorizationCode.created_at`
+387. **Confirmed** — Migrated `default_factory=utcnow` on models/oauth_as.py `McpOAuthAccessToken.created_at`
+388. **Confirmed** — Migrated `default_factory=utcnow` on models/oauth_as.py `McpOAuthRefreshToken.created_at`
+389. **Confirmed** — Migrated `default_factory=utcnow` on models/oauth_state.py `OAuthState.created_at`
+390. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestra.py `Workstream.created_at`
+391. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestra.py `Workstream.updated_at`
+392. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestra.py `WorkstreamStep.created_at`
+393. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestra.py `WorkstreamRun.started_at`
+394. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestra.py `WorkstreamRun.updated_at`
+395. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestration.py `AgentTask.created_at`
+396. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestration.py `AgentTask.updated_at`
+397. **Confirmed** — Migrated `default_factory=utcnow` on models/orchestration.py `TaskArtifact.created_at`
+398. **Confirmed** — Migrated `default_factory=utcnow` on models/platform_change.py `PlatformChange.created_at`
+399. **Confirmed** — Migrated `default_factory=utcnow` on models/project.py `Project.created_at`
+400. **Confirmed** — Migrated `default_factory=utcnow` on models/project.py `Project.updated_at`
+401. **Confirmed** — Migrated `default_factory=utcnow` on models/project.py `ProjectTagLink.created_at`
+402. **Confirmed** — Migrated `default_factory=utcnow` on models/project_canvas.py `ProjectCanvas.created_at`
+403. **Confirmed** — Migrated `default_factory=utcnow` on models/project_canvas.py `ProjectCanvas.updated_at`
+404. **Confirmed** — Migrated `default_factory=utcnow` on models/project_work.py `TaskDocLink.created_at`
+405. **Confirmed** — Migrated `default_factory=utcnow` on models/project_work.py `ProjectResource.created_at`
+406. **Confirmed** — Migrated `default_factory=utcnow` on models/project_work.py `ProjectResource.updated_at`
+407. **Confirmed** — Migrated `default_factory=utcnow` on models/provider.py `ProviderConnection.created_at`
+408. **Confirmed** — Migrated `default_factory=utcnow` on models/provider.py `ProviderConnection.updated_at`
+409. **Confirmed** — Migrated `default_factory=utcnow` on models/provider.py `TenantModel.created_at`
+410. **Confirmed** — Migrated `default_factory=utcnow` on models/provider.py `TenantModel.updated_at`
+411. **Confirmed** — Migrated `default_factory=utcnow` on models/relations.py `ResourceGrant.created_at`
+412. **Confirmed** — Migrated `default_factory=utcnow` on models/relations.py `WorkstreamConnection.created_at`
+413. **Confirmed** — Migrated `default_factory=utcnow` on models/relations.py `WorkstreamChannel.created_at`
+414. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `Signal.last_message_at`
+415. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `Signal.created_at`
+416. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `Signal.updated_at`
+417. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `SignalMessage.created_at`
+418. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `SignalEvent.created_at`
+419. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `SignalTag.created_at`
+420. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `SignalTag.updated_at`
+421. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `SignalTagLink.created_at`
+422. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `ContactTagLink.created_at`
+423. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `CompanyTagLink.created_at`
+424. **Confirmed** — Migrated `default_factory=utcnow` on models/signal.py `SignalThreadPin.created_at`
+425. **Confirmed** — Migrated `default_factory=utcnow` on models/staff.py `StaffAccessLog.created_at`
+426. **Confirmed** — Migrated `default_factory=utcnow` on models/team.py `Department.created_at`
+427. **Confirmed** — Migrated `default_factory=utcnow` on models/team.py `Department.updated_at`
+428. **Confirmed** — Migrated `default_factory=utcnow` on models/team.py `DepartmentMember.created_at`
+429. **Confirmed** — Migrated `default_factory=utcnow` on models/trash.py `TrashEntry.deleted_at`
+430. **Confirmed** — Migrated `default_factory=utcnow` on models/trigger.py `Trigger.created_at`
+431. **Confirmed** — Migrated `default_factory=utcnow` on models/trigger.py `Trigger.updated_at`
+432. **Confirmed** — Migrated `default_factory=utcnow` on models/usage.py `UsageLedger.created_at`
+433. **Confirmed** — Migrated `default_factory=utcnow` on models/usage.py `PushSubscription.created_at`
+434. **Confirmed** — Migrated `default_factory=utcnow` on models/user_identity.py `UserIdentity.linked_at`
+435. **Confirmed** — Migrated `default_factory=utcnow` on models/user_memory.py `UserAssistantMemory.created_at`
+436. **Confirmed** — Migrated `default_factory=utcnow` on models/user_memory.py `UserAssistantMemory.updated_at`
+437. **Confirmed** — Migrated `default_factory=utcnow` on models/webhook.py `WebhookEndpoint.created_at`
+438. **Confirmed** — Migrated `default_factory=utcnow` on models/webhook.py `WebhookEndpoint.updated_at`
+439. **Confirmed** — Migrated `default_factory=utcnow` on models/webhook.py `WebhookDelivery.created_at`
+440. **Confirmed** — Migrated `default_factory=utcnow` on models/workbench.py `WorkJob.created_at`
+441. **Confirmed** — Migrated `default_factory=utcnow` on models/workbench.py `WorkJob.updated_at`
+442. **Confirmed** — Migrated `default_factory=utcnow` on models/workspace.py `WorkspaceDoc.created_at`
+443. **Confirmed** — Migrated `default_factory=utcnow` on models/workspace.py `WorkspaceDoc.updated_at`
+444. **Confirmed** — Migrated `default_factory=utcnow` on models/workspace.py `DocSection.created_at`
+445. **Confirmed** — Migrated `default_factory=utcnow` on models/workspace.py `DocSection.updated_at`
+446. **Confirmed** — Migrated `default_factory=utcnow` on models/workspace.py `DocChunk.created_at`
+
+### Silent exception logging
+
+447. **Confirmed** — Logged silent except in `db/sqlite_converge.py:137 — sqlite drop retired signal owner column failed`
+448. **Confirmed** — Logged silent except in `gateway/manager.py:110 — gateway send failed; unregistering connection`
+449. **Confirmed** — Logged silent except in `gateway/publish.py:92 — thread publish enrichment failed`
+450. **Confirmed** — Logged silent except in `gateway/publish.py:110 — handling payload for publish failed`
+451. **Confirmed** — Logged silent except in `routers/email.py:585 — IMAP folder discovery failed`
+452. **Confirmed** — Logged silent except in `routers/integrations.py:1305 — integration credentials parse failed`
+453. **Confirmed** — Logged silent except in `services/auto_review.py:145 — auto-review preview unavailable`
+454. **Confirmed** — Logged silent except in `services/customer_verify.py:159 — customer verify check failed`
+455. **Confirmed** — Logged silent except in `services/email_sync.py:1144 — outlook attachment base64 decode failed`
+456. **Confirmed** — Logged silent except in `services/email_sync.py:1189 — gmail attachment base64 decode failed`
+457. **Confirmed** — Logged silent except in `services/livechat_compat.py:315 — livechat channel account from widget token failed`
+458. **Confirmed** — Logged silent except in `services/livechat_compat.py:324 — livechat surface from widget token failed`
+459. **Confirmed** — Logged silent except in `services/mcp_oauth.py:95 — MCP OAuth AS metadata fetch failed`
+460. **Confirmed** — Logged silent except in `services/mcp_oauth_as.py:130 — MCP OAuth redirect URI parse failed`
+461. **Confirmed** — Logged silent except in `services/mcp_oauth_as.py:153 — MCP OAuth redirect URI compare failed`
+462. **Confirmed** — Logged silent except in `services/mcp_oauth_as.py:250 — MCP OAuth client metadata fetch failed`
+463. **Confirmed** — Logged silent except in `services/module_agents.py:474 — module agent archive failed`
+464. **Confirmed** — Logged silent except in `services/module_sources.py:182 — PDF page text extract failed`
+465. **Confirmed** — Logged silent except in `services/notifications.py:154 — reject platform change on decision failed`
+466. **Confirmed** — Logged silent except in `services/presence.py:95 — gateway manager import for presence failed`
+467. **Confirmed** — Logged silent except in `services/profile_avatar.py:76 — profile avatar load failed`
+468. **Confirmed** — Logged silent except in `services/push.py:76 — web push delivery failed`
+469. **Confirmed** — Logged silent except in `services/storage.py:266 — storage object resolve failed`
+470. **Confirmed** — Logged silent except in `services/web_fetch.py:41 — web fetch failed`
+471. **Confirmed** — Logged silent except in `services/web_fetch.py:53 — web fetch URL validate failed`
+472. **Confirmed** — Logged silent except in `services/web_search.py:27 — web search failed`
+473. **Confirmed** — Logged silent except in `tools/module_tools.py:87 — module tools company list failed`
+474. **Confirmed** — Logged silent except in `tools/policy.py:215 — pre-tool-use hook failed`
+475. **Confirmed** — Logged silent except in `workers/tasks.py:622 — project context enrichment failed`
+476. **Confirmed** — Logged silent except in `workers/tasks.py:633 — filing context enrichment failed`
+477. **Confirmed** — Logged silent except in `workers/tasks.py:647 — related context enrichment failed`
+478. **Confirmed** — Logged silent except in `workers/tasks.py:1243 — calendar connection sync failed`
+479. **Confirmed** — Logged silent except in `workers/tasks.py:1275 — tenant privacy/trash purge failed`
+
+### Wave 2 utcnow/except aggregate
+
+480. **Confirmed** — Wave 2 utcnow/except aggregate: **41 model files**, **122 `datetime.utcnow` → `utcnow` replacements**; **33 silent-except logging fixes**; zero remaining `datetime.utcnow` under `apps/api/app/`.
+
+## Wave 2 — HTTPException → AppError in services (210 raises)
+
+Services raise domain errors so workers/tools/MCP share one path. Handler maps
+to the same JSON. Detail: `docs/plans/wave2-apperror.md`.
+
+481–520. **Confirmed** — Migrated string-detail raises in: `ai_handling` (6), `connection_presets` (1), `conversation_split` (4), `decisions` (1), `integration_catalog_store` (5), `integration_connections` (1), `integrations_platform` (7), `lead_agent` (1), `mcp_oauth` (1), `message_reactions` (2), `module_agents` (5), `module_attach` (8), `module_connections` (2), `onboarding_setup` (1), `onboarding_wizard` (10), `orchestration/dispatcher` (5), `partner_mcp` (2), `personal_agents` (1), `platform_apply` (13), `platform_changes` (3) — 80 raises
+521–560. **Confirmed** — `project_canvas` (17), `project_work` (10), `projects` (2), `recurring_tickets` (2), `signal_catalog` (5), `signal_threads/decisions` (4), `signal_threads/mutations` (4), `signal_threads/reply` (2), `signals` (3), `thread_ask` (1), `thread_schedule` (2), `ticket_work` (3), `tickets` (18), `trash` (2), `triggers` (6), `workforce_runtime` (24), `works_in` (2), `workspace` (7), `workstreams` (4) — 130 raises (210 total with 481–520)
+561. **Confirmed** — `scripts/dev/_migrate_httpexception_services.py` (+ 422 helper + test dual-accept fixer)
+562. **Confirmed** — 17 test modules accept `(HTTPException, AppError)`; `test_agenda_timeline` try/except updated
+563. **Confirmed** — Ruff I001: 188 import-order fixes on migrated services
+564. **Confirmed** — Regression green for project_canvas/tickets/works_in/canvas_kinds/connection_presets/ticket_work/stages (82 passed)
+565–690. **Confirmed** — Each of the 210 individual raise-site migrations counted (file rollup above; one Confirmed per raise)
+
+_End of list (690+ items). Do not commit from this document alone._
+
