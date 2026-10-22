@@ -7,9 +7,11 @@ import { tailwindFontFamily, webFontSize } from '../src/typography.ts'
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repoRoot = path.resolve(packageRoot, '../..')
-const cssOut = path.join(repoRoot, 'apps/dashboard/src/styles/tokens.generated.css')
-const presetOut = path.join(packageRoot, 'tailwind-preset.generated.cjs')
-const themeOut = path.join(packageRoot, 'src/theme.generated.ts')
+const outFlag = process.argv.indexOf('--out')
+const outRoot = outFlag === -1 ? repoRoot : path.resolve(process.argv[outFlag + 1])
+const cssOut = path.join(outRoot, 'apps/dashboard/src/styles/tokens.generated.css')
+const presetOut = path.join(outRoot, 'packages/ui-tokens/tailwind-preset.generated.cjs')
+const themeOut = path.join(outRoot, 'packages/ui-tokens/src/theme.generated.ts')
 
 function cssBlock(selector, mode) {
   const lines = Object.values(colorTokens).map(
@@ -123,7 +125,9 @@ export { radius } from './radius'
 export { spacing } from './spacing'
 `
 
-mkdirSync(path.dirname(cssOut), { recursive: true })
+for (const file of [cssOut, presetOut, themeOut]) {
+  mkdirSync(path.dirname(file), { recursive: true })
+}
 writeFileSync(cssOut, css)
 writeFileSync(presetOut, preset)
 writeFileSync(themeOut, themeTs)
