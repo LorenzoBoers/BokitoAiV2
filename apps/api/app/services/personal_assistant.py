@@ -148,6 +148,8 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "update_queue_item_status",
     "link_queue_item_to_doc",
     "propose_folder_resource",
+    "edit_canvas",
+    "finish_canvas",
     "update_folder_canvas",
     "create_canvas",
     "delete_canvas",

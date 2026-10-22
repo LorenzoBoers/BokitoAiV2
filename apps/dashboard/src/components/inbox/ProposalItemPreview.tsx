@@ -301,6 +301,7 @@ export function CanvasShowcaseCard({
   const [tree, setTree] = useState<CanvasNode | null>(item.preview ?? null)
   const [loaded, setLoaded] = useState<ProjectCanvas | null>(null)
   const [emptyShell, setEmptyShell] = useState(Boolean(item.empty))
+  const [gone, setGone] = useState(Boolean(item.missing))
   const [contentKind, setContentKind] = useState(canvasKindOf(item.canvasKind))
   const [settled, setSettled] = useState(pending || !item.id)
   useEffect(() => {
@@ -316,7 +317,8 @@ export function CanvasShowcaseCard({
         setTree(kind === 'dashboard' ? canvas.tree : null)
       })
       .catch(() => {
-        /* Keep the snapshot stored on the message. */
+        // Deleted or never finished — do not leave a permanent "writing" card.
+        if (!cancel) setGone(true)
       })
       .finally(() => {
         if (!cancel) setSettled(true)
@@ -325,6 +327,10 @@ export function CanvasShowcaseCard({
       cancel = true
     }
   }, [item.id, item.missing])
+  // Claude-style integrity: incomplete artifacts are not sticky chat cards.
+  if (settled && (gone || emptyShell || item.empty || item.missing)) {
+    return null
+  }
   const preview =
     contentKind === 'dashboard' && !emptyShell && tree && !isEmptyCanvasTree(tree) ? tree : null
   const blocked = pending || emptyShell
@@ -341,9 +347,7 @@ export function CanvasShowcaseCard({
       snapshot
     )
   ) : settled ? (
-    <p className="text-xs text-text-muted">
-      {blocked && !item.missing ? t('projects.canvas.writing', { ns: 'nav' }) : t('proposal.canvasEmpty')}
-    </p>
+    <p className="text-xs text-text-muted">{t('proposal.canvasEmpty')}</p>
   ) : (
     <Skeleton className="h-16" />
   )

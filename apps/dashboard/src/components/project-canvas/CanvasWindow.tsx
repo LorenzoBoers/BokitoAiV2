@@ -11,7 +11,7 @@ import {
   FileText,
   ImageIcon,
   Mail,
-  Maximize2,
+  Minimize2,
   MoreHorizontal,
   PenTool,
   RotateCcw,
@@ -28,9 +28,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { SegmentedControl } from '../ui/segmented-control'
 
 type IconComponent = ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>
 
@@ -143,6 +143,8 @@ type Props = {
   /** Opens the canvas beside the conversation instead of leaving the thread. */
   onOpen?: () => void
   onRefresh?: () => void
+  /** Collapses the open canvas pane (window chrome). */
+  onMinimize?: () => void
   onClose?: () => void
   /** Extra items at the bottom of the more menu (for example Delete). */
   menu?: ReactNode
@@ -165,6 +167,7 @@ export function CanvasWindow({
   openHref,
   onOpen,
   onRefresh,
+  onMinimize,
   onClose,
   menu,
   status,
@@ -184,6 +187,10 @@ export function CanvasWindow({
   const source = canvas?.source || ''
   const showActions = actions && Boolean(canvas)
   const showCode = view === 'code' && allowSource && Boolean(source)
+  const hasSourceToggle = allowSource && Boolean(source)
+  const hasMoreMenu =
+    showActions &&
+    (hasSourceToggle || Boolean(source) || downloads.length > 0 || Boolean(onRefresh) || Boolean(menu))
 
   useEffect(
     () => () => {
@@ -266,96 +273,9 @@ export function CanvasWindow({
             heading
           )}
         </div>
-        {showActions ? (
+        {showActions || onMinimize || onClose ? (
           <div className="flex shrink-0 items-center gap-1">
-            {allowSource && source ? (
-              <SegmentedControl
-                size="sm"
-                value={view}
-                onChange={setView}
-                aria-label={t('projects.canvas.viewLabel')}
-                options={[
-                  { value: 'preview', label: <span className="sr-only sm:not-sr-only">{t('projects.canvas.preview')}</span>, icon: <Eye size={13} aria-hidden /> },
-                  { value: 'code', label: <span className="sr-only sm:not-sr-only">{t('projects.canvas.code')}</span>, icon: <Code2 size={13} aria-hidden /> },
-                ]}
-              />
-            ) : null}
-            {source ? (
-              <Button
-                type="button"
-                size="iconSm"
-                variant="ghost"
-                className="text-text-secondary"
-                onClick={() => void onCopy()}
-                aria-label={copied ? t('projects.canvas.copied') : t('projects.canvas.copy')}
-                title={copied ? t('projects.canvas.copied') : t('projects.canvas.copy')}
-              >
-                {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
-              </Button>
-            ) : null}
-            {downloads.length > 0 ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    size="iconSm"
-                    variant="ghost"
-                    className="text-text-secondary"
-                    disabled={busy}
-                    aria-label={t('projects.canvas.download')}
-                    title={t('projects.canvas.download')}
-                  >
-                    <Download size={14} aria-hidden />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[180px]">
-                  {downloads.map((option) => (
-                    <DropdownMenuItem key={option.key} disabled={busy} onClick={() => void runDownload(option)}>
-                      {option.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-            {onRefresh ? (
-              <Button
-                type="button"
-                size="iconSm"
-                variant="ghost"
-                className="text-text-secondary"
-                onClick={onRefresh}
-                aria-label={t('projects.detail.refresh')}
-                title={t('projects.detail.refresh')}
-              >
-                <RotateCcw size={14} aria-hidden />
-              </Button>
-            ) : null}
-            {onOpen ? (
-              <Button
-                type="button"
-                size="iconSm"
-                variant="ghost"
-                className="text-text-secondary"
-                onClick={onOpen}
-                aria-label={t('projects.canvas.openFull')}
-                title={t('projects.canvas.openFull')}
-              >
-                <Maximize2 size={14} aria-hidden />
-              </Button>
-            ) : openHref ? (
-              <Button
-                type="button"
-                size="iconSm"
-                variant="ghost"
-                className="text-text-secondary"
-                asChild
-              >
-                <Link to={openHref} aria-label={t('projects.canvas.openFull')} title={t('projects.canvas.openFull')}>
-                  <Maximize2 size={14} aria-hidden />
-                </Link>
-              </Button>
-            ) : null}
-            {menu ? (
+            {hasMoreMenu ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -369,10 +289,72 @@ export function CanvasWindow({
                     <MoreHorizontal size={14} aria-hidden />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[180px]">
-                  {menu}
+                <DropdownMenuContent align="end" className="min-w-[200px]">
+                  {hasSourceToggle ? (
+                    <>
+                      <DropdownMenuItem
+                        disabled={view === 'preview'}
+                        onClick={() => setView('preview')}
+                      >
+                        <Eye size={14} className="mr-2" aria-hidden />
+                        {t('projects.canvas.preview')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={view === 'code'} onClick={() => setView('code')}>
+                        <Code2 size={14} className="mr-2" aria-hidden />
+                        {t('projects.canvas.code')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : null}
+                  {source ? (
+                    <DropdownMenuItem onClick={() => void onCopy()}>
+                      {copied ? (
+                        <Check size={14} className="mr-2" aria-hidden />
+                      ) : (
+                        <Copy size={14} className="mr-2" aria-hidden />
+                      )}
+                      {copied ? t('projects.canvas.copied') : t('projects.canvas.copy')}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {downloads.map((option) => (
+                    <DropdownMenuItem
+                      key={option.key}
+                      disabled={busy}
+                      onClick={() => void runDownload(option)}
+                    >
+                      <Download size={14} className="mr-2" aria-hidden />
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                  {onRefresh ? (
+                    <DropdownMenuItem onClick={onRefresh}>
+                      <RotateCcw size={14} className="mr-2" aria-hidden />
+                      {t('projects.detail.refresh')}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {menu ? (
+                    <>
+                      {(hasSourceToggle || Boolean(source) || downloads.length > 0 || Boolean(onRefresh)) && (
+                        <DropdownMenuSeparator />
+                      )}
+                      {menu}
+                    </>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
+            ) : null}
+            {onMinimize ? (
+              <Button
+                type="button"
+                size="iconSm"
+                variant="ghost"
+                className="text-text-secondary"
+                onClick={onMinimize}
+                aria-label={t('projects.canvas.minimize')}
+                title={t('projects.canvas.minimize')}
+              >
+                <Minimize2 size={14} aria-hidden />
+              </Button>
             ) : null}
             {onClose ? (
               <Button

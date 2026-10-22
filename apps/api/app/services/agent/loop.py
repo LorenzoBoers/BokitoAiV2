@@ -189,10 +189,17 @@ class AgentLoop:
         self._showcase_items: list[dict[str, Any]] = []
         # One sheet create per turn. Further calls were a multi-minute loop
         # that pasted the table into the chat bubble.
-        self._canvas_placed = False
+        self._canvas_placed = False  # body written via edit_canvas this turn
+        self._canvas_opened = False  # empty create_canvas already ran this turn
+        self._canvas_finished = False
+        self._canvas_finish_asked = False
+        self._canvas_edit_asked = False
+        self._canvas_edit_failures = 0
         self._canvas_caption_asked = False
         self._canvas_nudged = False
         self._suppress_tools = False
+        # Empty create ids this turn — bin if edit never landed (no writing ghosts).
+        self._canvas_empty_ids: list[str] = []
         # Membership role of the session user; explicit when the caller has an
         # AuthContext (staff sessions map to admin there), else resolved from
         # the membership row on first tool call. Autonomous runs stay None.
@@ -263,27 +270,119 @@ class AgentLoop:
         return all(not text or is_progress_filler(text) for text in texts)
 
     _STRUCTURE_LINE_RE = re.compile(r"^\s*(#{1,6}\s|[-*\u2022]\s|\d+[.)]\s|\*\*[^*]+:\*\*|\|)")
+    _CANVAS_FENCE_RE = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
+    _CANVAS_MARKUP_RE = re.compile(
+        r"<\s*(?:BarChart|LineChart|PieChart|Stat|Stack|Grid|Row|Card|Table|Callout|"
+        r"ScatterPlot|BoxPlot|Heatmap|bokito-canvas)\b"
+        r"(?:\s*/?>|\s+[A-Za-z]{1,24}=)"
+        r"|['\"]bokito/canvas['\"]"
+        r"|from\s+['\"]bokito/canvas['\"]"
+        r"|export\s+default\s+function\s+Canvas\b"
+        r"|import\s*\{[^}]{0,200}\b(?:BarChart|LineChart|PieChart|Stat|Stack|Card)\b",
+        re.IGNORECASE,
+    )
+    _CANVAS_CODE_LINE_RE = re.compile(
+        r"^\s*(?:import\s|export\s|const\s|function\s|return\s*\(|<>|</?[A-Za-z])",
+        re.IGNORECASE,
+    )
+    _CANVAS_WRITE_TOOLS = frozenset(
+        {"create_canvas", "edit_canvas", "update_folder_canvas", "finish_canvas"}
+    )
+
+    def _canvas_markup(self, text: str) -> bool:
+        """JSX or an SVG the operator should see on the canvas, not in the bubble."""
+        body = text or ""
+        return bool(self._CANVAS_MARKUP_RE.search(body) or "<svg" in body.lower())
+
+    def _canvas_body_in_text(self, text: str) -> bool:
+        """True when the bubble contains canvas source (JSX, import, or SVG)."""
+        body = text or ""
+        if not body.strip():
+            return False
+        if self._canvas_markup(body) or "<svg" in body.lower():
+            return True
+        return bool(
+            re.search(r"(?i)export\s+default\s+function\s+Canvas\b", body)
+            or re.search(r"(?i)from\s+['\"]bokito/canvas['\"]", body)
+        )
+
+    def _canvas_chat_opening(self, text: str) -> str:
+        """At most one short prose sentence. Never keep fences or JSX."""
+        body = (text or "").strip()
+        if not body:
+            return ""
+        cleaned = self._CANVAS_FENCE_RE.sub("", body).strip()
+        if not cleaned:
+            return ""
+        first = cleaned.split("\n\n", 1)[0].strip()
+        lines: list[str] = []
+        for line in first.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                if lines:
+                    break
+                continue
+            if (
+                self._canvas_markup(stripped)
+                or self._CANVAS_CODE_LINE_RE.match(stripped)
+                or stripped.startswith("```")
+            ):
+                break
+            lines.append(stripped)
+            if len(" ".join(lines)) > 200:
+                break
+        opening = " ".join(lines).strip()
+        if (
+            not opening
+            or len(opening) > 240
+            or self._STRUCTURE_LINE_RE.match(opening)
+            or self._canvas_body_in_text(opening)
+        ):
+            return ""
+        return opening
 
     def _canvas_in_chat(self, text: str) -> bool:
         """The reply is a canvas body: code, SVG, or a long layout spec. No canvas was made."""
-        if self._canvas_placed or self._canvas_nudged or self.trust != "operator":
+        if self._canvas_nudged or self.trust != "operator":
             return False
-        if not any(t.get("name") == "create_canvas" for t in self.tools or []):
+        names = {t.get("name") for t in self.tools or []}
+        if not (names & self._CANVAS_WRITE_TOOLS):
             return False
         body = text or ""
-        if "```" in body or "<svg" in body.lower():
+        # A canvas already written this turn can still leak its source afterwards.
+        if self._canvas_placed or self._canvas_opened:
+            return self._canvas_body_in_text(body)
+        if "```" in body or self._canvas_body_in_text(body):
             return True
         structure = sum(1 for line in body.splitlines() if self._STRUCTURE_LINE_RE.match(line))
         return structure >= 8
 
+    async def _strip_canvas_speech(self) -> str:
+        """Keep at most one short sentence in the bubble; drop every canvas body."""
+        turn = self.turn
+        if turn is None:
+            return ""
+        raw = turn.open_speech_text
+        if not raw and turn.segments:
+            raw = str(turn.segments[-1].get("text") or "")
+        opening = self._canvas_chat_opening(raw)
+        if turn.has_open_speech or raw:
+            if turn.has_open_speech or opening:
+                await turn.rewrite_open_speech(opening)
+            elif hasattr(turn, "discard_open_speech"):
+                turn.discard_open_speech()
+        for seg in turn.segments:
+            cleaned = self._canvas_chat_opening(str(seg.get("text") or ""))
+            if cleaned != str(seg.get("text") or "").strip():
+                seg["text"] = cleaned
+        return opening
+
     async def _move_to_canvas(self, llm_messages: list[dict[str, Any]], content: list[dict[str, Any]], text: str) -> None:
-        """Keep the opening sentence; the rest goes into a canvas on the next round."""
+        """Strip the bubble; the body goes into create/edit on the next round."""
         self._canvas_nudged = True
-        opening = (text or "").strip().split("\n\n", 1)[0].strip()
-        if len(opening) > 240 or self._STRUCTURE_LINE_RE.match(opening) or "```" in opening:
-            opening = ""
-        if self.turn is not None and self.turn.has_open_speech:
-            await self.turn.rewrite_open_speech(opening)
+        opening = await self._strip_canvas_speech()
+        if not opening:
+            opening = self._canvas_chat_opening(text or "")
         llm_messages.append(
             {"role": "assistant", "content": content or [{"type": "text", "text": text or "(draft)"}]}
         )
@@ -291,13 +390,17 @@ class AgentLoop:
             {
                 "role": "user",
                 "content": (
-                    "<system-reminder>\nThat belongs in a canvas, not in the message. If this "
-                    "conversation already lists a canvas, call update_folder_canvas with that "
-                    "canvas_id. Otherwise call create_canvas with the finished content in "
-                    "source (dashboard = Stat, BarChart, LineChart, PieChart inside <> or "
-                    "<Stack>; drawing = one <svg>; diagram = Mermaid; sheet = columns and "
-                    "rows; document = markdown). The operator only sees your first sentence. "
-                    "After the tool, say in one sentence what you made.\n</system-reminder>"
+                    "<system-reminder>\nThat belongs on the canvas, not in the message. "
+                    "Do not write import, JSX, BarChart, Stat, code fences, or source in "
+                    "chat. First tool call now: if this conversation already lists a "
+                    "canvas, edit_canvas with that canvas_id and the full source, then "
+                    "finish_canvas. Otherwise create_canvas (empty — title and kind only, "
+                    "no source), then edit_canvas with the full source, then "
+                    "finish_canvas. Dashboard = Stat/BarChart/LineChart/PieChart inside "
+                    "<> or <Stack>; drawing = one <svg>; diagram = Mermaid; sheet = "
+                    "columns and rows; document = markdown. The operator only sees one "
+                    "short sentence (or none). finish_canvas is the done confirmation — "
+                    "do not also announce finished in chat.\n</system-reminder>"
                 ),
             }
         )
@@ -327,7 +430,7 @@ class AgentLoop:
         return True
 
     async def _settle_canvas_speech(self) -> None:
-        """The sentence stays in the bubble. The sheet leaves it."""
+        """The sentence stays in the bubble. Sheet and JSX leave it."""
         turn = self.turn
         if turn is None:
             return
@@ -336,26 +439,94 @@ class AgentLoop:
         changed = False
         for seg in turn.segments:
             raw = str(seg.get("text") or "")
-            cleaned = detach_sheet_speech(raw)
+            cleaned = self._canvas_chat_opening(detach_sheet_speech(raw))
             if cleaned != raw.strip():
                 seg["text"] = cleaned
                 changed = True
         open_text = turn.open_speech_text
-        cleaned_open = detach_sheet_speech(open_text)
+        cleaned_open = self._canvas_chat_opening(detach_sheet_speech(open_text))
         if cleaned_open == open_text and not changed:
             return
         await turn.rewrite_open_speech(cleaned_open)
 
-    async def _canvas_turn_done(self, llm_messages: list[dict[str, Any]]) -> bool:
-        """End after the canvas, unless the operator still needs a real sentence.
+    async def _bin_empty_canvases_this_turn(self) -> None:
+        """Soft-delete empty shells created this turn when edit never landed."""
+        if not self._canvas_empty_ids or self.session is None or not self.tenant_id:
+            return
+        from uuid import UUID as _UUID
 
-        The English fallback is not a message. One round without tools lets the
-        agent say, in the operator's language, what it just made.
+        from app.services.canvas_content import content_is_empty
+        from app.services.project_canvas import delete_canvas, get_canvas
+
+        kept: list[str] = []
+        for cid in list(self._canvas_empty_ids):
+            try:
+                row = await get_canvas(self.session, self.tenant_id, canvas_id=_UUID(cid))
+            except Exception:
+                continue
+            kind = str((row or {}).get("kind") or "dashboard")
+            if not content_is_empty(kind, (row or {}).get("source")):
+                kept.append(cid)
+                continue
+            try:
+                await delete_canvas(self.session, self.tenant_id, _UUID(cid))
+            except Exception:
+                logger.exception("bin empty canvas %s failed", cid)
+                kept.append(cid)
+        self._canvas_empty_ids = kept
+        try:
+            await self.session.commit()
+        except Exception:
+            logger.exception("commit after binning empty canvases failed")
+
+    async def _canvas_turn_done(self, llm_messages: list[dict[str, Any]]) -> bool:
+        """End after the canvas, unless finish or a short caption is still missing.
+
+        finish_canvas is the done confirmation (activity trail). Chat stays the
+        short opening sentence only — not a second \"it's finished\" line.
         """
+        if self._canvas_opened and not self._canvas_placed:
+            # Empty create without a successful edit. Keep nudging; never leave a
+            # permanent "writing" card. After a few failed edits, stop clean.
+            await self._strip_canvas_speech()
+            if self._canvas_edit_failures >= 3:
+                await self._bin_empty_canvases_this_turn()
+                return True
+            self._canvas_edit_asked = True
+            llm_messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "The empty canvas is open. Call edit_canvas now with that "
+                        "canvas_id and the full source (no HTML comments like <!-- -->), "
+                        "then finish_canvas. Do not describe the dashboard in chat. "
+                        "Do not create another. Do not reply Done until edit_canvas succeeds."
+                    ),
+                }
+            )
+            return False
         if not self._canvas_placed:
             return False
         await self._settle_canvas_speech()
         text = (self.turn.bubble_text() if self.turn is not None else "").strip()
+        if self._canvas_markup(text) and not self._canvas_nudged:
+            return False
+        if self._canvas_finished:
+            return True
+        names = {t.get("name") for t in self.tools or []}
+        if "finish_canvas" in names and not self._canvas_finish_asked:
+            self._canvas_finish_asked = True
+            llm_messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        "The canvas body is written. Call finish_canvas with that "
+                        "canvas_id now. That call is the done confirmation — do not "
+                        "also write that it is finished in the chat message."
+                    ),
+                }
+            )
+            return False
         if text and text != "The sheet is beside this message.":
             return True
         if self._canvas_caption_asked:
@@ -367,8 +538,8 @@ class AgentLoop:
                 "role": "user",
                 "content": (
                     "The canvas is already beside this message. "
-                    "Write one or two sentences in the operator's language about what you made. "
-                    "Do not call a tool. Do not paste JSON or a table."
+                    "Write one short sentence in the operator's language about what you made. "
+                    "Do not call a tool. Do not paste JSON or a table. Do not say it is finished."
                 ),
             }
         )
@@ -838,9 +1009,9 @@ class AgentLoop:
                 "the results. Never say you cannot browse, and never send the operator "
                 "to a website to look it up themselves."
             )
-        if "create_canvas" in names or "update_folder_canvas" in names:
+        if "create_canvas" in names or "edit_canvas" in names or "update_folder_canvas" in names:
             here = ""
-            if self.signal_id and "update_folder_canvas" in names:
+            if self.signal_id and ("edit_canvas" in names or "update_folder_canvas" in names):
                 from app.services.project_canvas import list_canvases_for_signal
 
                 listed = await list_canvases_for_signal(
@@ -854,18 +1025,26 @@ class AgentLoop:
                     )
                     here = (
                         f"\nCanvases already on this conversation: {rows}. "
-                        "A change, extra chart, or tweak is update_folder_canvas "
-                        "with that canvas_id. Do not call create_canvas to edit one. "
-                        "create_canvas with force_new is only when they asked for a "
-                        "separate canvas."
+                        "A change, extra chart, or tweak is edit_canvas with that "
+                        "canvas_id, then finish_canvas. Do not call create_canvas "
+                        "to edit one. create_canvas with force_new is only when they "
+                        "asked for a separate canvas."
                     )
             lines.append(
                 "## Canvases\n"
-                "Anything they want to look at, keep or export is a canvas, not chat text. "
-                "A follow-up on a canvas already here is update_folder_canvas with its "
-                "canvas_id and the full new source. create_canvas is for the first canvas, "
-                "or a separate one (force_new) when they asked for another.\n"
-                "Call the tool once with the finished content in source:\n"
+                "Anything they want to look at, keep or export is a canvas, not chat text.\n"
+                "Hard rule: never write canvas source in the chat message — no import, "
+                "no export default function Canvas, no JSX, no ``` fences, no BarChart/"
+                "Stat/Stack markup, no SVG, no Mermaid, no JSON tables. The body belongs "
+                "only in edit_canvas.\n"
+                "New canvas — first action is the create_canvas tool call (empty: title "
+                "and kind only). Optionally one short sentence before that tool, nothing "
+                "else. Then edit_canvas with the full source, then finish_canvas.\n"
+                "Existing canvas on this conversation — first action is edit_canvas, then "
+                "finish_canvas. Do not call create_canvas.\n"
+                "finish_canvas is the done confirmation in the activity trail — do not "
+                "also write that it is finished in chat.\n"
+                "Source kinds (only inside edit_canvas):\n"
                 "- dashboard, grafieken, statistieken, cijfers: kind=dashboard. Root is "
                 "<> or <Stack>. Use Stat, BarChart, LineChart, PieChart, Card, Table, "
                 "Heading. A chart on a dashboard is not an SVG and not generate_image.\n"
@@ -876,9 +1055,7 @@ class AgentLoop:
                 "- report, plan, uitleg to keep: kind=document with markdown.\n"
                 "\"Put this in a design\" after an earlier canvas means a new drawing built "
                 "from that canvas's data, with force_new. A chart is not generate_image.\n"
-                "Write one sentence first, then call the tool in the same response. The card "
-                "sits beside your message. Never write the SVG, Mermaid, JSON, a table or a "
-                "layout description in the message."
+                "The card sits beside your message."
                 + here
             )
         return "\n".join(lines)
@@ -1835,14 +2012,16 @@ class AgentLoop:
                                 {
                                     "error": (
                                         "This wake only updates the snapshot. "
-                                        "Call update_folder_canvas, then reply HEARTBEAT_OK."
+                                        "Call edit_canvas or update_folder_canvas, then reply HEARTBEAT_OK."
                                     )
                                 }
                             ),
                         }
                     )
                     continue
-            if tool_use["name"] == "create_canvas" and self._canvas_placed:
+            if tool_use["name"] == "create_canvas" and (
+                self._canvas_placed or self._canvas_opened or self._canvas_finished
+            ):
                 tool_results.append(
                     {
                         "type": "tool_result",
@@ -1850,8 +2029,9 @@ class AgentLoop:
                         "content": json.dumps(
                             {
                                 "message": (
-                                    "The canvas is already beside the message. "
-                                    "Stop. Do not paste the sheet."
+                                    "A canvas is already open this turn. "
+                                    "Call edit_canvas with that canvas_id, then "
+                                    "finish_canvas. Do not create another."
                                 ),
                                 "status": "done",
                             }
@@ -1937,11 +2117,34 @@ class AgentLoop:
                 result["posted"] = posted
                 if not posted:
                     result["skipped"] = "too_soon_or_recent"
-            if tool_use["name"] in ("create_canvas", "update_folder_canvas") and isinstance(result, dict):
-                if not result.get("error"):
-                    self._canvas_placed = True
+            if tool_use["name"] in (
+                "create_canvas",
+                "edit_canvas",
+                "update_folder_canvas",
+                "finish_canvas",
+            ) and isinstance(result, dict):
+                if result.get("error") or result.get("status") == "invalid":
+                    if tool_use["name"] in ("edit_canvas", "update_folder_canvas"):
+                        self._canvas_edit_failures += 1
+                elif not result.get("error"):
+                    if tool_use["name"] == "create_canvas":
+                        self._canvas_opened = True
+                        cid = str(result.get("canvas_id") or "")
+                        canvas = result.get("canvas") if isinstance(result.get("canvas"), dict) else {}
+                        if cid and (canvas.get("empty") is not False):
+                            self._canvas_empty_ids.append(cid)
+                    elif tool_use["name"] in ("edit_canvas", "update_folder_canvas"):
+                        self._canvas_placed = True
+                        self._canvas_edit_failures = 0
+                        cid = str(result.get("canvas_id") or "")
+                        if cid and cid in self._canvas_empty_ids:
+                            self._canvas_empty_ids = [x for x in self._canvas_empty_ids if x != cid]
+                    elif tool_use["name"] == "finish_canvas":
+                        self._canvas_finished = True
+                        self._canvas_placed = True
                 for row in result.get("items") or []:
-                    if isinstance(row, dict):
+                    # Empty shells must not land as chat cards ("writing" forever).
+                    if isinstance(row, dict) and not row.get("empty"):
                         self._showcase_items.append(row)
             tool_results.append(
                 {
@@ -2038,8 +2241,15 @@ class AgentLoop:
                 if await self._is_cancelled():
                     self.stop_reason = "user_interrupt"
                     break
+                joined_tools = "\n".join(text_blocks)
+                canvas_tools = any(
+                    (tu.get("name") or "") in self._CANVAS_WRITE_TOOLS for tu in tool_uses
+                )
                 if text_blocks and all(is_progress_filler(t) for t in text_blocks):
                     turn.discard_open_speech()
+                elif canvas_tools or self._canvas_body_in_text(joined_tools):
+                    # Never leave JSX / fences in the bubble next to canvas tools.
+                    await self._strip_canvas_speech()
                 llm_messages.append({"role": "assistant", "content": content})
                 tool_results = await self._execute_tool_loop(llm_messages, tool_uses)
                 llm_messages.append({"role": "user", "content": tool_results})
@@ -2200,10 +2410,22 @@ class AgentLoop:
                 if await self._is_cancelled():
                     cancelled = True
                     break
+                joined_tools = "\n".join(text_blocks) if text_blocks else turn.open_speech_text
+                canvas_tools = any(
+                    (tu.get("name") or "") in self._CANVAS_WRITE_TOOLS for tu in tool_uses
+                )
                 if (text_blocks and all(is_progress_filler(t) for t in text_blocks)) or (
                     turn.has_open_speech and is_progress_filler(turn.open_speech_text)
                 ):
                     turn.discard_open_speech()
+                elif canvas_tools or self._canvas_body_in_text(joined_tools or ""):
+                    await self._strip_canvas_speech()
+                    yield {
+                        "type": "delta",
+                        "text": "",
+                        "segment_id": turn.current_segment_id,
+                        "parts": turn.speech_parts(),
+                    }
                 llm_messages.append({"role": "assistant", "content": response_content})
                 tool_results = await self._execute_tool_loop(
                     llm_messages, tool_uses, stream_id=stream_id
@@ -2242,13 +2464,54 @@ class AgentLoop:
                 joined or "",
                 rounds_left=self.max_loops - loop_idx - 1,
             ):
+                # Nudge may have stripped JSX from the open bubble — push that.
+                yield {
+                    "type": "delta",
+                    "text": "",
+                    "segment_id": turn.current_segment_id,
+                    "parts": turn.speech_parts(),
+                }
                 continue
+            if self._canvas_opened or self._canvas_placed or self._canvas_finished:
+                await self._strip_canvas_speech()
+                yield {
+                    "type": "delta",
+                    "text": "",
+                    "segment_id": turn.current_segment_id,
+                    "parts": turn.speech_parts(),
+                }
             self.stop_reason = self._stop_gate.stop_reason()
             break
         if cancelled:
             self.stop_reason = "user_interrupt"
 
         if (
+            not cancelled
+            and self._canvas_opened
+            and not self._canvas_placed
+        ):
+            await self._bin_empty_canvases_this_turn()
+            await self._strip_canvas_speech()
+            yield {
+                "type": "delta",
+                "text": "",
+                "segment_id": turn.current_segment_id,
+                "parts": turn.speech_parts(),
+            }
+        elif (
+            not cancelled
+            and (self._canvas_opened or self._canvas_placed or self._canvas_finished)
+        ):
+            # Never invent a second long bubble after canvas tools — that is how
+            # operators saw a different chat cloud plus a writing ghost card.
+            await self._strip_canvas_speech()
+            yield {
+                "type": "delta",
+                "text": "",
+                "segment_id": turn.current_segment_id,
+                "parts": turn.speech_parts(),
+            }
+        elif (
             not cancelled
             and not (turn.final_text or "").strip()
             and turn.all_activity()

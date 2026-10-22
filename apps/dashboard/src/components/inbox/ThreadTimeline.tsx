@@ -654,7 +654,7 @@ const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElemen
           ...style,
           overflowX: 'hidden',
           overflowY: 'auto',
-          // Pin the footer ourselves. Browser overflow-anchor plus a
+          // Pin the tail ourselves. Browser overflow-anchor plus a
           // programmatic pin bounce the thread up and down.
           overflowAnchor: 'none',
         }}
@@ -717,11 +717,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const scrollerNode = useRef<HTMLDivElement | null>(null)
   const bottomTimersRef = useRef<number[]>([])
   const flushRafRef = useRef(0)
-  /** Ease toward the latest pixel. One loop; each frame reads the live height. */
-  const followRafRef = useRef(0)
-  const pinFrameRef = useRef(0)
   /** True after the operator scrolls away from the latest row. */
   const readingHistoryRef = useRef(false)
+  /** Scroll events caused by a tail flush. They are not the operator leaving. */
+  const followWriteUntilRef = useRef(0)
   const atBottomRef = useRef(true)
   /** Wheel-down shortly before a scroll means the operator returned to the end. */
   const userWheelDownUntilRef = useRef(0)
@@ -775,14 +774,6 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       window.cancelAnimationFrame(flushRafRef.current)
       flushRafRef.current = 0
     }
-    if (followRafRef.current) {
-      window.cancelAnimationFrame(followRafRef.current)
-      followRafRef.current = 0
-    }
-    if (pinFrameRef.current) {
-      window.cancelAnimationFrame(pinFrameRef.current)
-      pinFrameRef.current = 0
-    }
     for (const id of bottomTimersRef.current) window.clearTimeout(id)
     bottomTimersRef.current = []
   }, [])
@@ -807,63 +798,19 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     [noteWheel, releaseFollow],
   )
 
-  const snapScrollerToEnd = useCallback(() => {
+  /**
+   * Put the tail on the last pixel. One write per growth, not a chase:
+   * easing toward a list that is still growing is the air under new rows.
+   */
+  const flushTail = useCallback(() => {
     if (readingHistoryRef.current) return
     const el = scrollerNode.current
     if (!el) return
-    const dest = Math.max(0, el.scrollHeight - el.clientHeight)
-    const delta = dest - el.scrollTop
-    // Already on the last pixel, or past it. Writing scrollTop here makes
-    // Virtuoso correct the other way, and the next follow pulls back.
-    if (delta < 1) return
-    el.scrollTop = dest
+    const max = Math.max(0, el.scrollHeight - el.clientHeight)
+    if (el.scrollTop >= max - 1) return
+    followWriteUntilRef.current = performance.now() + 64
+    el.scrollTop = max
   }, [])
-
-  /**
-   * Glide downward to the latest pixel. Never pulls upward: that correction
-   * and Virtuoso's item measure bounce the thread until the operator scrolls.
-   * Soft follow for live typing and live→saved handoff — hard snaps read as
-   * a jump in the DOM resize log.
-   */
-  const glideScrollerToEnd = useCallback(() => {
-    if (readingHistoryRef.current) return
-    if (followRafRef.current) return
-    let frames = 0
-    const tick = () => {
-      frames += 1
-      if (readingHistoryRef.current || frames > 36) {
-        followRafRef.current = 0
-        return
-      }
-      const el = scrollerNode.current
-      if (!el) {
-        followRafRef.current = 0
-        return
-      }
-      const dest = Math.max(0, el.scrollHeight - el.clientHeight)
-      const delta = dest - el.scrollTop
-      if (delta < 1) {
-        followRafRef.current = 0
-        return
-      }
-      // Ease more gently on large gaps (handoff remount) so the thread does
-      // not leap a full bubble height in one frame.
-      const step = delta > 80 ? delta * 0.18 : Math.max(1, delta * 0.35)
-      el.scrollTop += step
-      followRafRef.current = window.requestAnimationFrame(tick)
-    }
-    followRafRef.current = window.requestAnimationFrame(tick)
-  }, [])
-
-  /** One follow per frame. Prefer glide so growth tracks the typing. */
-  const pinScrollerToEnd = useCallback(() => {
-    if (readingHistoryRef.current) return
-    if (pinFrameRef.current) return
-    pinFrameRef.current = window.requestAnimationFrame(() => {
-      pinFrameRef.current = 0
-      glideScrollerToEnd()
-    })
-  }, [glideScrollerToEnd])
 
   const attachFooter = useCallback(
     (node: HTMLDivElement | null) => {
@@ -876,20 +823,15 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         const next = node.offsetHeight
         const grew = next - lastFooterHeightRef.current
         lastFooterHeightRef.current = next
-        // The live cloud lives in this footer, under the last message.
-        // A reader on the tail follows that growth. If their own message
-        // already sat below the fold, this is the moment the whole gap closes.
-        if (grew < 1 || readingHistoryRef.current) return
-        const el = scrollerNode.current
-        if (!el) return
-        const gap = el.scrollHeight - el.scrollTop - el.clientHeight
-        if (gap <= 2) return
-        el.scrollTop += gap > grew + 8 ? gap : grew
+        // The live cloud grows in this footer. Close the whole gap; adding
+        // only the footer box leaves the margin under the newest row.
+        if (grew < 1) return
+        flushTail()
       })
       footerRoRef.current = ro
       ro.observe(node)
     },
-    [],
+    [flushTail],
   )
 
   const scrollToAbsoluteBottom = useCallback(
@@ -898,20 +840,15 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       atBottomRef.current = true
       stopSettling()
       // Footer holds the live bubble. Index-snap on the last message hides
-      // it and fights the quiet pin — only move the scroller.
-      // A per-frame loop here bounces against Virtuoso after the last bubble
-      // lands. A few measure beats are enough, then the follow stops.
-      // One snap now, and one after the new row has a height. A frame
-      // loop here bounces against Virtuoso. Later beats no-op if the
-      // reader has scrolled up (snapScrollerToEnd checks that).
-      snapScrollerToEnd()
+      // it. One flush now, and one after the new row has a height.
+      flushTail()
       if (settleMs <= 0) return
       settleUntilRef.current = Date.now() + settleMs
       bottomTimersRef.current = [100]
         .filter((ms) => ms <= settleMs)
-        .map((ms) => window.setTimeout(snapScrollerToEnd, ms))
+        .map((ms) => window.setTimeout(flushTail, ms))
     },
-    [snapScrollerToEnd, stopSettling],
+    [flushTail, stopSettling],
   )
 
   // Cleanup only: a stopSettling() here would run after the layout effect
@@ -946,12 +883,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     const next = virtuosoData.length
     const grew = next > rowCountRef.current
     rowCountRef.current = next
-    if (!grew || readingHistoryRef.current) return
-    const el = scrollerNode.current
-    if (!el) return
-    const gap = el.scrollHeight - el.scrollTop - el.clientHeight
-    if (gap > 2) el.scrollTop += gap
-  }, [virtuosoData.length])
+    if (!grew) return
+    flushTail()
+  }, [virtuosoData.length, flushTail])
 
   useEffect(() => {
     const el = scrollerNode.current
@@ -988,65 +922,60 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     const onPointerUp = () => {
       pointerDown = false
     }
-    // One compensation, not a chase. When the tail grows by N pixels and
-    // the reader is on it, move scrollTop by those same N pixels before
-    // paint. Re-targeting the absolute bottom every frame is the shake.
-    let lastHeight = el.scrollHeight
+    // Virtuoso's first child is a fixed viewport. The list sizer is the
+    // element whose height is the thread. Follow that, and close the whole
+    // gap when it grows. Adding only part of the growth is the air under
+    // a new row. A frame loop that retargets every tick is the shake.
+    const listEl = () => el.querySelector<HTMLElement>('[data-testid="virtuoso-item-list"]')
+    let lastList = listEl()?.offsetHeight ?? el.scrollHeight
     let lastClient = el.clientHeight
-    const stickToGrowth = () => {
-      const nextHeight = el.scrollHeight
+    const compensateGrowth = () => {
+      const nextList = listEl()?.offsetHeight ?? el.scrollHeight
       const nextClient = el.clientHeight
-      const grew = nextHeight - lastHeight
+      const grew = nextList - lastList
       const viewportShrunk = lastClient - nextClient
-      lastHeight = nextHeight
+      lastList = nextList
       lastClient = nextClient
-      if (readingHistoryRef.current) return
-      const add = (grew > 0 ? grew : 0) + (viewportShrunk > 0 ? viewportShrunk : 0)
-      if (add < 1) return
-      const gap = nextHeight - el.scrollTop - nextClient
-      if (gap <= 2) return
-      // Flush: move by the new pixels only. Already short (the sent
-      // message landed under the fold): close the whole gap once.
-      el.scrollTop += gap > add + 8 ? gap : add
+      if (grew <= 1 && viewportShrunk <= 1) return
+      flushTail()
       lastTop = el.scrollTop
     }
-    const contentRo = new ResizeObserver(stickToGrowth)
+    const contentRo = new ResizeObserver(compensateGrowth)
     contentRo.observe(el)
-    const contentRoot = el.firstElementChild
-    if (contentRoot) {
-      for (const child of contentRoot.children) contentRo.observe(child)
-    }
+    const listMo = new MutationObserver(() => {
+      const list = listEl()
+      if (!list) return
+      contentRo.observe(list)
+      listMo.disconnect()
+    })
+    const initialList = listEl()
+    if (initialList) contentRo.observe(initialList)
+    else listMo.observe(el, { childList: true, subtree: true })
     const onScroll = () => {
       const top = el.scrollTop
       const delta = top - lastTop
       lastTop = top
+      // Our own flush. Do not treat it as the operator leaving or returning.
+      if (performance.now() < followWriteUntilRef.current) return
       const userUp = pointerDown || Date.now() < wheelUpUntilRef.current
-      // The operator is moving up. Let go before the tail glue pulls back.
       if (userUp && delta < -1) {
         userLeavingTail()
         return
       }
-      // A one-pixel pull from item measurement is noise. Correcting it
-      // every time is the shake. Only a real jump, once, gets put back.
-      if (!readingHistoryRef.current && delta < -24) {
-        const gap = el.scrollHeight - el.scrollTop - el.clientHeight
-        if (gap > 24) {
-          el.scrollTop += gap
-          lastTop = el.scrollTop
-        }
-      }
-      // A snap-to-end also increases scrollTop. Only a recent wheel-down
-      // means the operator came back and wants new rows to follow again.
-      const nearBottom = el.scrollHeight - top - el.clientHeight < 72
-      if (
-        delta > 6 &&
-        nearBottom &&
-        Date.now() < userWheelDownUntilRef.current &&
-        readingHistoryRef.current
-      ) {
+      // Back on the last pixels (wheel or scrollbar): follow again, and
+      // sit flush. "Near the end" is not the end.
+      const gap = el.scrollHeight - top - el.clientHeight
+      const cameBack =
+        readingHistoryRef.current &&
+        delta > 2 &&
+        gap <= 8 &&
+        (pointerDown || Date.now() < userWheelDownUntilRef.current)
+      if (cameBack) {
         readingHistoryRef.current = false
         atBottomRef.current = true
         onAtBottomChange?.(true)
+        flushTail()
+        lastTop = el.scrollTop
       }
     }
     el.addEventListener('wheel', onWheel, { passive: true })
@@ -1070,8 +999,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       el.removeEventListener('keydown', onKeyDown)
       el.removeEventListener('scroll', onScroll)
       contentRo.disconnect()
+      listMo.disconnect()
     }
-  }, [threadId, virtuosoData.length, noteWheel, releaseFollow, onAtBottomChange])
+  }, [threadId, virtuosoData.length, noteWheel, releaseFollow, onAtBottomChange, flushTail])
 
   useEffect(() => () => footerRoRef.current?.disconnect(), [])
 
@@ -1088,10 +1018,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         // the fight they feel while the agent is still typing.
         if (readingHistoryRef.current) return
         atBottomRef.current = true
-        const node = scrollerNode.current
-        if (!node) return
-        const gap = node.scrollHeight - node.scrollTop - node.clientHeight
-        if (gap > 2) node.scrollTop += gap
+        flushTail()
       },
       land: (behavior: 'auto' | 'smooth' = 'auto') => {
         if (readingHistoryRef.current) return landing
@@ -1110,7 +1037,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         return landing
       },
     }),
-    [landing, snapScrollerToEnd, scrollToAbsoluteBottom, stopSettling],
+    [landing, flushTail, scrollToAbsoluteBottom, stopSettling],
   )
 
   // Deep link from a notification: land on that card instead of the bottom.

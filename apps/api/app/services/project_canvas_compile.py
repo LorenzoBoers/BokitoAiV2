@@ -188,7 +188,10 @@ def _is_brace_noise(text: str) -> bool:
 
 
 def _strip_comments(source: str) -> str:
-    stripped = re.sub(r"\{/\*.*?\*/\}", "", source, flags=re.DOTALL)
+    # Models often paste HTML comments; ``<!--`` is not a component and used
+    # to raise "Expected a component name" mid-dashboard.
+    stripped = re.sub(r"<!--.*?-->", "", source, flags=re.DOTALL)
+    stripped = re.sub(r"\{/\*.*?\*/\}", "", stripped, flags=re.DOTALL)
     stripped = re.sub(r"/\*.*?\*/", "", stripped, flags=re.DOTALL)
     return re.sub(r"//.*?$", "", stripped, flags=re.MULTILINE)
 

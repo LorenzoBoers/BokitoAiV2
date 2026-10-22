@@ -560,6 +560,16 @@
         "done": "Created {{object}}",
         "error": "Could not create {{object}}"
       },
+      "edit": {
+        "running": "Editing {{object}}",
+        "done": "Edited {{object}}",
+        "error": "Could not edit {{object}}"
+      },
+      "finish": {
+        "running": "Finishing {{object}}",
+        "done": "Finished {{object}}",
+        "error": "Could not finish {{object}}"
+      },
       "update": {
         "running": "Updating {{object}}",
         "done": "Updated {{object}}",

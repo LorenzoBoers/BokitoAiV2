@@ -334,7 +334,13 @@ def _mode_stage(tenant: Tenant, agent: Any | None, spec: ToolSpec) -> tuple[str,
     # Snapshot writes apply under Assisted and Autonomous so the owner can
     # refresh without a daily approval card. Manual (workspace or agent) still
     # asks. Delete stays on the projects slider.
-    if spec.name in ("create_canvas", "update_folder_canvas", "delete_canvas"):
+    if spec.name in (
+        "create_canvas",
+        "edit_canvas",
+        "update_folder_canvas",
+        "finish_canvas",
+        "delete_canvas",
+    ):
         from app.services.agent_rules import normalize_autonomy
 
         posture = resolve_posture(tenant)
@@ -344,7 +350,10 @@ def _mode_stage(tenant: Tenant, agent: Any | None, spec: ToolSpec) -> tuple[str,
         if posture == "manual" or level == "manual":
             if mode == "allow":
                 mode, reason = "ask", "canvas_manual"
-        elif spec.name in ("create_canvas", "update_folder_canvas") and mode == "ask":
+        elif (
+            spec.name in ("create_canvas", "edit_canvas", "update_folder_canvas")
+            and mode == "ask"
+        ):
             mode, reason = "allow", "canvas_snapshot"
     return mode, reason
 

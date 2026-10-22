@@ -5024,6 +5024,7 @@
       "cronHint": "Five fields, UTC.",
       "cronInvalid": "Enter a five-field cron expression.",
       "writing": "The managing agent is writing this canvas.",
+      "incomplete": "This canvas was not finished. Ask the agent to edit it again.",
       "buildingBadge": "Building",
       "download": "Download",
       "exportCsv": "CSV",
@@ -5055,6 +5056,7 @@
       "copyFailed": "Could not copy this canvas.",
       "downloadAs": "Download as {{type}}",
       "openFull": "Expand",
+      "minimize": "Minimize",
       "close": "Close",
       "version": "Version {{n}}"
     },

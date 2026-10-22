@@ -39,8 +39,12 @@ mkdir -p /root/bokito-dev-assets
 if [[ -f /root/bokito-dev-assets/docker-compose.dev-remote.yml ]]; then
   cp /root/bokito-dev-assets/docker-compose.dev-remote.yml "$ROOT/docker-compose.dev-remote.yml"
 fi
+# The repo's vite.config.ts now covers the public dev host itself (see
+# VITE_DEV_PUBLIC_HOST below) and carries the server.fs allow/deny hardening.
+# Copying an unversioned override on top of it silently drifts the deployed
+# config away from git, so the override is refused and only reported.
 if [[ -f /root/bokito-dev-assets/vite.config.ts ]]; then
-  cp /root/bokito-dev-assets/vite.config.ts "$ROOT/apps/dashboard/vite.config.ts"
+  echo "note: ignoring /root/bokito-dev-assets/vite.config.ts; the repo config is used." >&2
 fi
 
 install -m 600 /dev/null "$ROOT/.env.dev-remote"

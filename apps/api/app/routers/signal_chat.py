@@ -1246,17 +1246,22 @@ def _should_reclaim_chat_run(conversation_id: UUID, started: datetime) -> bool:
 
 async def reclaim_orphaned_chat_runs() -> int:
     """Finalize leftover chat runs after API boot (in-process turns die with uvicorn)."""
-    from sqlalchemy import inspect
+    from sqlalchemy import inspect, text
 
     from app.services.agent.run_cancel import clear_cancel
     from app.services.agent.turn_persist import end_dead_turns
 
     async with async_session_factory() as session:
+        # run_sync receives a sync Session, not a Connection — inspect the bind.
         has_runs = await session.run_sync(
-            lambda sync_conn: inspect(sync_conn).has_table("agent_runs")
+            lambda sync_session: inspect(sync_session.connection()).has_table("agent_runs")
         )
         if not has_runs:
-            return 0
+            # Fallback for dialects where inspect is awkward: try a cheap probe.
+            try:
+                await session.execute(text("select 1 from agent_runs limit 1"))
+            except Exception:
+                return 0
         result = await session.execute(
             select(AgentRun).where(
                 AgentRun.trigger_type == "chat",
@@ -1282,12 +1287,48 @@ async def reclaim_orphaned_chat_runs() -> int:
                 ),
                 older_than=DEAD_TURN_AFTER,
             )
+            # Empty create_canvas shells left "writing" cards when the turn died
+            # before edit_canvas. Bin those unfinished dashboards.
+            await _bin_empty_canvases_for_signal(session, signal)
         for agent_id in agent_ids:
             agent = await session.get(Agent, agent_id)
             await _set_chat_agent_live(session, agent, status="standby")
         if runs:
             await session.commit()
         return len(runs)
+
+
+async def _bin_empty_canvases_for_signal(session, signal: Signal) -> int:
+    """Soft-delete empty dashboards on a conversation after an orphaned chat run."""
+    from sqlalchemy import select
+
+    from app.models.project_canvas import ProjectCanvas
+    from app.services.canvas_content import content_is_empty
+    from app.services.project_canvas import delete_canvas
+    from app.services.project_canvas_compile import is_empty_tree
+
+    rows = (
+        await session.execute(
+            select(ProjectCanvas).where(
+                ProjectCanvas.tenant_id == signal.tenant_id,
+                ProjectCanvas.signal_id == signal.id,
+                ProjectCanvas.deleted_at.is_(None),
+            )
+        )
+    ).scalars().all()
+    removed = 0
+    for row in rows:
+        kind = str(getattr(row, "kind", None) or "dashboard")
+        if kind != "dashboard":
+            continue
+        empty = content_is_empty(kind, row.source)
+        if not empty and is_empty_tree(getattr(row, "tree_json", None)):
+            empty = content_is_empty(kind, None)
+        if not empty:
+            continue
+        await delete_canvas(session, signal.tenant_id, row.id)
+        removed += 1
+    return removed
 
 
 async def _ensure_session_idle(
@@ -1322,6 +1363,7 @@ async def _ensure_session_idle(
                 author_agent_id=busy.agent_id,
                 older_than=DEAD_TURN_AFTER,
             )
+            await _bin_empty_canvases_for_signal(session, signal)
         await session.commit()
         clear_cancel(busy.id)
         _cancel_live_chat_turn(conversation_id)

@@ -560,6 +560,16 @@
         "done": "{{object}} gemaakt",
         "error": "{{object}} maken mislukt"
       },
+      "edit": {
+        "running": "{{object}} bewerken",
+        "done": "{{object}} bewerkt",
+        "error": "{{object}} bewerken mislukt"
+      },
+      "finish": {
+        "running": "{{object}} afronden",
+        "done": "{{object}} afgerond",
+        "error": "{{object}} afronden mislukt"
+      },
       "update": {
         "running": "{{object}} bijwerken",
         "done": "{{object}} bijgewerkt",

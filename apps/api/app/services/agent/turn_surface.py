@@ -162,6 +162,8 @@ _VERB_TOKENS = (
     "get",
     "write",
     "create",
+    "edit",
+    "finish",
     "update",
     "delete",
     "set",

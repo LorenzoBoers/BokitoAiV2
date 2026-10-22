@@ -67,7 +67,9 @@ def test_narrow_passport_still_gets_canvas_tools():
 
     refresh = {tool["name"] for tool in with_platform_core(narrowed, trust="operator", refresh=True)}
     assert "update_folder_canvas" in refresh
+    assert "edit_canvas" in refresh
     assert "create_canvas" not in refresh
+    assert "finish_canvas" not in refresh
     assert "update_progress" not in refresh
 
 
@@ -87,7 +89,7 @@ def test_module_seat_keeps_workspace_core():
 
 
 def test_revision_canvas_edits_the_only_one_of_that_kind():
-    from app.tools.project_work import revision_canvas
+    from app.tools.project_work import existing_canvas_of_kind, revision_canvas
 
     listed = [
         {"id": "dash", "kind": "dashboard", "title": "Random Cijfers"},
@@ -98,6 +100,8 @@ def test_revision_canvas_edits_the_only_one_of_that_kind():
     assert revision_canvas(listed, {**body, "force_new": True}) is None
     assert revision_canvas(listed, {**body, "kind": "document"})["id"] == "note"
     assert revision_canvas(listed, {"kind": "dashboard", "title": "Leeg"}) is None
+    assert existing_canvas_of_kind(listed, {"kind": "dashboard", "title": "Leeg"})["id"] == "dash"
+    assert existing_canvas_of_kind(listed, {"kind": "dashboard", "force_new": True}) is None
     two = listed + [{"id": "dash-2", "kind": "dashboard", "title": "Andere"}]
     assert revision_canvas(two, body) is None
 

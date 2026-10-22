@@ -141,6 +141,51 @@ async def test_update_require_2fa_and_delete(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_delete_workspace_with_decision_project_fk(session_override):
+    """Decisions that point at a project must not block the tenant purge.
+
+    SQLAlchemy cannot sort the decision_requests ↔ platform_changes cycle, so
+    the sorter ignores those FK edges. Without deleting decisions first, the
+    sweep hits projects while decision_requests.project_id still references them.
+    """
+    from uuid import uuid4
+
+    from sqlalchemy import select
+
+    from app.models.auth import Membership, Tenant, User
+    from app.models.notification import DecisionRequest
+    from app.models.project import Project
+    from app.services.workspaces_portal import delete_workspace
+
+    tenant = Tenant(name="Purge Me", slug=f"purge-{uuid4().hex[:8]}")
+    user = User(email=f"purge-{uuid4().hex[:8]}@example.com", display_name="Purger")
+    session_override.add(tenant)
+    session_override.add(user)
+    await session_override.flush()
+    session_override.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+    project = Project(tenant_id=tenant.id, name="Folder", slug="folder")
+    session_override.add(project)
+    await session_override.flush()
+    session_override.add(
+        DecisionRequest(
+            tenant_id=tenant.id,
+            title="Approve?",
+            status="awaiting_human",
+            project_id=project.id,
+        )
+    )
+    await session_override.commit()
+    tenant_id = tenant.id
+
+    await delete_workspace(session_override, tenant)
+
+    gone = (
+        await session_override.execute(select(Tenant).where(Tenant.id == tenant_id))
+    ).scalar_one_or_none()
+    assert gone is None
+
+
+@pytest.mark.asyncio
 async def test_branding_appearance_json(client: AsyncClient):
     token, tenant_id = await _login(client)
     headers = _auth(token)

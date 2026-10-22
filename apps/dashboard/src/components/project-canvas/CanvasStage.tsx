@@ -31,6 +31,8 @@ export function CanvasStage({ canvasId, onClose }: { canvasId: string; onClose: 
 
   const kind = canvasKindOf(canvas?.kind)
   const pending = canvas ? canvasIsPending(canvas) : false
+  // Empty shells only mean "writing" while the agent turn is still live.
+  // A stuck empty canvas after the turn is incomplete, not forever writing.
   const tree = canvas && kind === 'dashboard' && !pending && !isEmptyCanvasTree(canvas.tree) ? canvas.tree : null
 
   return (
@@ -39,16 +41,25 @@ export function CanvasStage({ canvasId, onClose }: { canvasId: string; onClose: 
       title={canvas?.title || t('projects.canvas.loading')}
       kind={kind}
       allowSource={Boolean(canvas)}
+      onMinimize={onClose}
       onClose={onClose}
       muted={pending}
-      status={pending ? t('projects.canvas.writing') : failed ? t('projects.canvas.loadError') : undefined}
+      status={
+        pending
+          ? t('projects.canvas.incomplete')
+          : failed
+            ? t('projects.canvas.loadError')
+            : undefined
+      }
       className="h-full rounded-none border-0"
       bodyClassName="flex-1"
       data-testid="canvas-stage"
     >
       {!canvas && !failed ? <Skeleton className="h-40" /> : null}
       {failed ? <p className="text-sm text-text-muted">{t('projects.canvas.loadError')}</p> : null}
-      {canvas && pending ? <p className="py-8 text-center text-sm text-text-secondary">{t('projects.canvas.writing')}</p> : null}
+      {canvas && pending ? (
+        <p className="py-8 text-center text-sm text-text-secondary">{t('projects.canvas.incomplete')}</p>
+      ) : null}
       {tree ? <div className="min-h-[12rem]">{renderCanvasTree(tree)}</div> : null}
       {canvas && !pending && !tree && kind !== 'dashboard' ? <CanvasKindBody canvas={canvas} /> : null}
     </CanvasWindow>

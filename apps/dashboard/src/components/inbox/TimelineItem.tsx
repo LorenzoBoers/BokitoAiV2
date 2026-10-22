@@ -1,4 +1,36 @@
-import { AlertCircle, BookOpen, Check, CircleDot, Copy, EyeOff, Flag, Forward, Hash, Layers, Loader2, Mail, Maximize2, Minimize2, PackageCheck, Pencil, Phone, Reply, ReplyAll, ShieldAlert, Trash2, User, Users, X as XIcon } from 'lucide-react'
+import {
+  AlertCircle,
+  Bell,
+  BellOff,
+  BellRing,
+  BookOpen,
+  Check,
+  CircleDot,
+  Copy,
+  EyeOff,
+  Flag,
+  Forward,
+  Hash,
+  Layers,
+  Loader2,
+  Mail,
+  Maximize2,
+  Minimize2,
+  PackageCheck,
+  Pencil,
+  Phone,
+  PhoneCall,
+  PhoneMissed,
+  PhoneOff,
+  PhoneOutgoing,
+  Reply,
+  ReplyAll,
+  ShieldAlert,
+  Trash2,
+  User,
+  Users,
+  X as XIcon,
+} from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
@@ -1454,6 +1486,12 @@ function eventPresentation(
   if (eventType === 'delivered') {
     return { ai: typeof payload.agent_id === 'string', icon: <PackageCheck size={THREAD_ICON} /> }
   }
+  if (eventType === 'reach_attempt') {
+    return { ai: true, icon: reachAttemptIcon(payload) }
+  }
+  if (eventType === 'closed') {
+    return { ai: false, icon: <Check size={THREAD_ICON} /> }
+  }
   if (
     eventType === 'tag_added' ||
     eventType === 'tag_removed' ||
@@ -1482,6 +1520,23 @@ function eventPresentation(
     }
   }
   return { ai: false, icon: <CircleDot size={THREAD_ICON} /> }
+}
+
+/** Call and push attempts: a mark that matches the channel and how it landed. */
+function reachAttemptIcon(payload: Record<string, unknown>): ReactNode {
+  const status = typeof payload.status === 'string' ? payload.status : ''
+  if (payload.channel === 'call') {
+    if (status === 'missed') return <PhoneMissed size={THREAD_ICON} />
+    if (status === 'declined' || status === 'ended') return <PhoneOff size={THREAD_ICON} />
+    if (status === 'ringing' || status === 'live') return <PhoneCall size={THREAD_ICON} />
+    if (status === 'requested') return <PhoneOutgoing size={THREAD_ICON} />
+    return <Phone size={THREAD_ICON} />
+  }
+  if (status === 'quiet_hours' || status === 'daily_max' || status === 'no_device' || status === 'declined' || status === 'missed') {
+    return <BellOff size={THREAD_ICON} />
+  }
+  if (status === 'ringing' || status === 'requested') return <BellRing size={THREAD_ICON} />
+  return <Bell size={THREAD_ICON} />
 }
 
 function eventLabel(

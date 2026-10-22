@@ -117,10 +117,27 @@ export default defineConfig(({ mode }) => {
         : {}),
       proxy,
       fs: {
+        // The dev server is reachable on a public host (dev.app), so treat
+        // /@fs as hostile input: allow three directories, and refuse secrets
+        // and local databases even if `allow` is ever widened.
+        strict: true,
         allow: [
           path.resolve(__dirname),
           path.resolve(__dirname, '../api/app/data'),
           path.resolve(__dirname, '../../packages'),
+        ],
+        deny: [
+          '**/.env',
+          '**/.env.*',
+          '**/*.pem',
+          '**/*.key',
+          '**/*.crt',
+          '**/*.p12',
+          '**/*.db',
+          '**/*.sqlite',
+          '**/*.sqlite3',
+          '**/.git/**',
+          '**/node_modules/.vite/**',
         ],
       },
     },

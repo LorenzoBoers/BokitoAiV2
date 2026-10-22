@@ -5024,6 +5024,7 @@
       "cronHint": "Vijf velden, UTC.",
       "cronInvalid": "Vul een cron van vijf velden in.",
       "writing": "De beheeragent schrijft dit canvas.",
+      "incomplete": "Dit canvas is niet afgemaakt. Vraag de agent om het opnieuw te bewerken.",
       "buildingBadge": "Bezig",
       "download": "Downloaden",
       "exportCsv": "CSV",
@@ -5055,6 +5056,7 @@
       "copyFailed": "Dit canvas kon niet worden gekopieerd.",
       "downloadAs": "Downloaden als {{type}}",
       "openFull": "Vergroten",
+      "minimize": "Minimaliseren",
       "close": "Sluiten",
       "version": "Versie {{n}}"
     },

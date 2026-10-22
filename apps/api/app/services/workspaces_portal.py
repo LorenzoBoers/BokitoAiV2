@@ -286,7 +286,10 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
     All domain tables carry a `tenant_id` column, so we delete from each table
     that has one (children before parents) and finally the tenant itself.
     Cross-table cycles (decision_requests ↔ platform_changes ↔ signals) are
-    broken by nulling FKs first — SQLAlchemy cannot topologically sort those.
+    broken by nulling inbound FKs and deleting those two tables first —
+    SQLAlchemy cannot topologically sort the cycle, so a plain sorted_tables
+    sweep would delete projects (and departments, …) while decisions still
+    reference them.
     """
     from sqlalchemy import delete as sa_delete
     from sqlalchemy import text
@@ -298,14 +301,6 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
     # Break cycles that metadata.sorted_tables cannot order (FK constraints on
     # cyclic pairs are ignored by the sorter, so a plain tenant_id sweep fails).
     await session.execute(
-        text(
-            "UPDATE decision_requests "
-            "SET platform_change_id = NULL, signal_id = NULL, notification_id = NULL "
-            "WHERE tenant_id = :tid"
-        ),
-        {"tid": tid},
-    )
-    await session.execute(
         text("UPDATE platform_changes SET decision_id = NULL WHERE tenant_id = :tid"),
         {"tid": tid},
     )
@@ -316,8 +311,20 @@ async def delete_workspace(session: AsyncSession, tenant: Tenant) -> None:
         ),
         {"tid": tid},
     )
+    # Drop the cyclic pair before the sweep. Their outgoing FKs (project_id,
+    # signal_id, department_id, …) would otherwise block deletes of parents
+    # that the sorter schedules earlier because it ignores cycle edges.
+    await session.execute(
+        text("DELETE FROM decision_requests WHERE tenant_id = :tid"),
+        {"tid": tid},
+    )
+    await session.execute(
+        text("DELETE FROM platform_changes WHERE tenant_id = :tid"),
+        {"tid": tid},
+    )
+    skip = {"tenants", "decision_requests", "platform_changes"}
     for table in reversed(SQLModel.metadata.sorted_tables):
-        if table.name == "tenants":
+        if table.name in skip:
             continue
         if "tenant_id" in table.c:
             await session.execute(sa_delete(table).where(table.c.tenant_id == tenant_id))

@@ -867,7 +867,7 @@ ${FONT_IMPORT}
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider{background:var(--bk-primary);box-shadow:inset 0 1px 2px rgba(0,0,0,.1),0 0 0 1px color-mix(in srgb,var(--bk-primary) 20%,transparent);}
 .bk-settings-toggle input:checked+.bk-settings-toggle-slider::after{transform:translateX(22px);box-shadow:0 2px 8px rgba(0,0,0,.15);}
 .bk-chat-view{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;z-index:1;}
-.bk-messages{flex:1;overflow-y:auto;padding:14px 12px 16px;display:flex;flex-direction:column;gap:0;scroll-behavior:smooth;}
+.bk-messages{flex:1;overflow-y:auto;overflow-anchor:none;padding:14px 12px 16px;display:flex;flex-direction:column;gap:0;}
 .bk-messages::-webkit-scrollbar{width:4px;}
 .bk-messages::-webkit-scrollbar-track{background:transparent;}
 .bk-messages::-webkit-scrollbar-thumb{background:var(--bk-border);border-radius:4px;}
@@ -1327,6 +1327,10 @@ class BokitoChatWidget extends HTMLElement {
   #streamPaintSource = null;
   #scrollPinnedToBottom = true;
   #scrollRaf = null;
+  /** Writes from the tail flush. The scroll listener must not treat them as a user leave. */
+  #followWriteAt = 0;
+  #tailResizeObserver = null;
+  #tailListObserver = null;
   #ssePaintRaf = null;
   #ssePaintState = null;
   #ssePaintSendMeta = null;
@@ -1825,6 +1829,10 @@ class BokitoChatWidget extends HTMLElement {
     this.#headerOrbLive?.destroy();
     this.#launcherOrbLive = null;
     this.#headerOrbLive = null;
+    this.#tailResizeObserver?.disconnect();
+    this.#tailListObserver?.disconnect();
+    this.#tailResizeObserver = null;
+    this.#tailListObserver = null;
   }
 
   #chromeLocale() {
@@ -2355,9 +2363,18 @@ class BokitoChatWidget extends HTMLElement {
     });
 
     this.#sendBtn.addEventListener('click', () => this.#sendMessage());
-    this.#messageList?.addEventListener('scroll', () => {
-      this.#scrollPinnedToBottom = this.#isScrolledNearBottom();
+    this.#messageList?.addEventListener('wheel', (event) => {
+      if (event.deltaY < -1) this.#scrollPinnedToBottom = false;
+      else if (event.deltaY > 1 && this.#isScrolledNearBottom(8)) {
+        this.#scrollPinnedToBottom = true;
+        this.#flushTail();
+      }
     }, { passive: true });
+    this.#messageList?.addEventListener('scroll', () => {
+      if (performance.now() - this.#followWriteAt < 80) return;
+      this.#scrollPinnedToBottom = this.#isScrolledNearBottom(8);
+    }, { passive: true });
+    this.#bindTailFollow();
     this.#recordStartBtn?.addEventListener('pointerdown', (e) => this.#onMicPointerDown(e));
     this.#recordStartBtn?.addEventListener('pointerup', (e) => this.#onMicPointerUp(e));
     this.#recordStartBtn?.addEventListener('pointercancel', (e) => this.#onMicPointerUp(e));
@@ -5583,15 +5600,37 @@ class BokitoChatWidget extends HTMLElement {
     return el.scrollHeight - el.scrollTop - el.clientHeight <= thresholdPx;
   }
 
+  #bindTailFollow() {
+    const el = this.#messageList;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    this.#tailResizeObserver?.disconnect();
+    this.#tailListObserver?.disconnect();
+    const ro = new ResizeObserver(() => this.#flushTail());
+    this.#tailResizeObserver = ro;
+    const watch = () => {
+      for (const child of el.children) ro.observe(child);
+      this.#flushTail();
+    };
+    watch();
+    const mo = new MutationObserver(watch);
+    this.#tailListObserver = mo;
+    mo.observe(el, { childList: true });
+  }
+
+  /** Sit the newest row on the bottom edge while the reader is still there. */
+  #flushTail() {
+    const el = this.#messageList;
+    if (!el || !this.#scrollPinnedToBottom) return;
+    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (el.scrollTop >= max - 1) return;
+    this.#followWriteAt = performance.now();
+    el.scrollTop = max;
+  }
+
   #scrollToBottom({ force = false } = {}) {
-    if (!force && !this.#scrollPinnedToBottom && !this.#isScrolledNearBottom()) return;
+    if (!force && !this.#scrollPinnedToBottom && !this.#isScrolledNearBottom(8)) return;
     this.#scrollPinnedToBottom = true;
-    if (this.#scrollRaf) return;
-    this.#scrollRaf = requestAnimationFrame(() => {
-      this.#scrollRaf = null;
-      if (!this.#messageList) return;
-      this.#messageList.scrollTop = this.#messageList.scrollHeight;
-    });
+    this.#flushTail();
   }
 
   /* ── CSAT (conversation rating) ─────────────────────────────── */

@@ -821,14 +821,24 @@ async def _propose_canvas_change(
     }
 
 
-async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+async def _edit_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Write the body onto an existing canvas. Alias of the edit step."""
+    return await _update_project_canvas(ctx, tool_input, tool_name="edit_canvas")
+
+
+async def _update_project_canvas(
+    ctx: ToolContext,
+    tool_input: dict[str, Any],
+    *,
+    tool_name: str = "edit_canvas",
+) -> dict[str, Any]:
     canvas_id = str(tool_input.get("canvas_id") or "").strip()
     slug = str(tool_input.get("slug") or "").strip().lower()
     if not canvas_id and not slug:
         return {
             "error": (
                 "Pass canvas_id from create_canvas, list_canvases, or get_folder_canvas. "
-                "A change updates that canvas. Do not create another one."
+                "Call edit_canvas on that id. Do not create another canvas."
             )
         }
     notes = str(tool_input.get("notes") or "").strip()
@@ -891,7 +901,7 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
         after=after,
         before={"canvas_id": canvas_id or None, "slug": slug or None},
         summary=summary,
-        tool_name="update_folder_canvas",
+        tool_name=tool_name,
     )
     canvas = result.get("canvas") if isinstance(result, dict) else None
     if isinstance(canvas, dict) and canvas.get("id"):
@@ -912,16 +922,19 @@ async def _update_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -
             )
             await ctx.session.commit()
         showcase = await _stash_canvas_showcase(ctx, canvas)
-        return _canvas_reply(result, showcase)
+        reply = _canvas_reply(result, showcase)
+        reply["next"] = "Call finish_canvas with this canvas_id. That is the done step."
+        return reply
     return result
 
 
-def revision_canvas(listed: list[dict[str, Any]], tool_input: dict[str, Any]) -> dict[str, Any] | None:
-    """The canvas a follow-up should edit.
+def existing_canvas_of_kind(
+    listed: list[dict[str, Any]], tool_input: dict[str, Any]
+) -> dict[str, Any] | None:
+    """The single canvas of this kind already on the conversation, if any.
 
-    One canvas of the requested kind on this conversation is that canvas.
     ``force_new`` or ``new_thread`` starts another. Several of the same kind
-    stay a real create: the model names which one with ``update_folder_canvas``.
+    leave create alone: the model picks one with ``edit_canvas``.
     """
     if tool_input.get("force_new") or tool_input.get("new_thread"):
         return None
@@ -930,12 +943,6 @@ def revision_canvas(listed: list[dict[str, Any]], tool_input: dict[str, Any]) ->
     try:
         kind = normalize_kind(str(tool_input.get("kind") or "") or None)
     except CanvasContentError:
-        return None
-    has_body = any(
-        str(tool_input.get(key) or "").strip()
-        for key in ("source", "image_prompt", "image_url")
-    )
-    if not has_body:
         return None
     same = [
         row
@@ -949,7 +956,19 @@ def revision_canvas(listed: list[dict[str, Any]], tool_input: dict[str, Any]) ->
     return same[0]
 
 
+def revision_canvas(listed: list[dict[str, Any]], tool_input: dict[str, Any]) -> dict[str, Any] | None:
+    """Back-compat name: one same-kind canvas when a body was passed on create."""
+    has_body = any(
+        str(tool_input.get(key) or "").strip()
+        for key in ("source", "image_prompt", "image_url")
+    )
+    if not has_body:
+        return None
+    return existing_canvas_of_kind(listed, tool_input)
+
+
 async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Span an empty canvas. The body belongs on a later edit_canvas call."""
     from uuid import UUID as _UUID
 
     title = str(tool_input.get("title") or "").strip()
@@ -966,6 +985,7 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         manager = named_owner
     else:
         manager = str(ctx.agent.id) if ctx.agent else None
+    # create_canvas only opens the empty pane. Source goes on edit_canvas next.
     after = {
         "title": title,
         "slug": str(tool_input.get("slug") or "") or None,
@@ -987,9 +1007,9 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         ),
         "canvas_kind": str(tool_input.get("kind") or "dashboard"),
         "language": str(tool_input.get("language") or "") or None,
-        "source": _canvas_source(tool_input.get("source")),
-        "image_prompt": str(tool_input.get("image_prompt") or "") or None,
-        "image_url": str(tool_input.get("image_url") or "") or None,
+        "source": None,
+        "image_prompt": None,
+        "image_url": None,
     }
     if ctx.signal_id and not tool_input.get("new_thread") and not tool_input.get("force_new"):
         from app.services import project_canvas as canvas_svc
@@ -997,24 +1017,27 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         listed = await canvas_svc.list_canvases_for_signal(
             ctx.session, ctx.tenant_id, ctx.signal_id
         )
-        existing = revision_canvas(listed, tool_input)
+        existing = existing_canvas_of_kind(listed, tool_input)
         if existing is not None:
-            revised = {
-                key: value
-                for key, value in tool_input.items()
-                if key not in ("title", "slug", "kind", "force_new", "new_thread")
+            canvas_id = str(existing["id"])
+            # Do not showcase an empty shell — that left "writing" ghosts when the
+            # turn died before edit_canvas. Point the model at edit instead.
+            body = {
+                "status": "exists",
+                "canvas_id": canvas_id,
+                "canvas": existing,
+                "path": _canvas_link(existing),
+                "message": (
+                    "This conversation already has that canvas. "
+                    "Call edit_canvas with this canvas_id and the full source, "
+                    "then finish_canvas. Do not call create_canvas again."
+                ),
+                "next": "edit_canvas then finish_canvas",
             }
-            revised["canvas_id"] = str(existing["id"])
-            result = await _update_project_canvas(ctx, revised)
-            if isinstance(result, dict) and not result.get("error"):
-                result["updated_existing"] = True
-                result["canvas_id"] = str(existing["id"])
-                result["message"] = (
-                    "Updated the canvas already on this conversation. "
-                    "A follow-up edits that canvas with update_folder_canvas. "
-                    "Pass force_new only when they asked for a separate canvas."
-                )
-            return result
+            if not existing.get("empty"):
+                showcase = await _stash_canvas_showcase(ctx, existing)
+                return _canvas_reply(body, showcase)
+            return body
     result = await _propose_canvas_change(
         ctx,
         change_kind="create",
@@ -1025,16 +1048,77 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     )
     canvas = result.get("canvas") if isinstance(result, dict) else None
     if isinstance(canvas, dict) and canvas.get("id"):
-        showcase = await _stash_canvas_showcase(ctx, canvas)
-        reply = _canvas_reply(result, showcase)
-        if canvas.get("reused"):
+        # Empty create only returns the id. edit_canvas / finish_canvas attach
+        # the card once there is something to show — no permanent writing ghost.
+        reply = {
+            **result,
+            "canvas_id": str(canvas["id"]),
+            "path": _canvas_link(canvas),
+            "next": (
+                "Call edit_canvas with this canvas_id and the full source, "
+                "then finish_canvas. Do not paste the source in chat."
+            ),
+        }
+        if canvas.get("reused") and not canvas.get("empty"):
+            showcase = await _stash_canvas_showcase(ctx, canvas)
+            reply = _canvas_reply(reply, showcase)
             reply["reused"] = True
             reply["message"] = (
-                "A canvas with this title already exists. Call update_folder_canvas "
-                "with this canvas_id. Do not call create_canvas again."
+                "A canvas with this title already exists. Call edit_canvas "
+                "with this canvas_id, then finish_canvas. Do not call create_canvas again."
             )
+            reply["next"] = "edit_canvas then finish_canvas"
+        elif canvas.get("reused"):
+            reply["reused"] = True
+            reply["message"] = (
+                "A canvas with this title already exists but is still empty. "
+                "Call edit_canvas with this canvas_id, then finish_canvas."
+            )
+            reply["next"] = "edit_canvas then finish_canvas"
         return reply
     return result
+
+
+async def _finish_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Mark the canvas done. This confirmation is the activity trail, not chat text."""
+    from uuid import UUID as _UUID
+
+    from fastapi import HTTPException
+
+    from app.services import project_canvas as canvas_svc
+
+    canvas_id = str(tool_input.get("canvas_id") or "").strip()
+    if not canvas_id:
+        return {"error": "Pass canvas_id from create_canvas or edit_canvas."}
+    try:
+        canvas = await canvas_svc.get_canvas(
+            ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id)
+        )
+    except HTTPException:
+        return {"error": "Canvas not found. Pass the canvas_id from edit_canvas."}
+    except Exception:
+        return {"error": "Canvas not found. Pass the canvas_id from edit_canvas."}
+    if canvas.get("empty"):
+        return {
+            "error": (
+                "The canvas is still empty. Call edit_canvas with the full source first, "
+                "then finish_canvas."
+            ),
+            "canvas_id": canvas_id,
+        }
+    showcase = await _stash_canvas_showcase(ctx, canvas)
+    return _canvas_reply(
+        {
+            "status": "finished",
+            "canvas_id": canvas_id,
+            "canvas": canvas,
+            "message": (
+                "Canvas finished. The operator sees this confirmation in the activity "
+                "trail. Do not also announce that it is done in the chat message."
+            ),
+        },
+        showcase,
+    )
 
 
 async def _delete_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -1150,48 +1234,67 @@ register_tool(
     )
 )
 
+_EDIT_CANVAS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "canvas_id": {"type": "string"},
+        "project_id": {"type": "string"},
+        "slug": {"type": "string"},
+        "source": {"type": "string"},
+        "tree": {"type": "object"},
+        "title": {"type": "string"},
+        "notes": {"type": "string"},
+        "reset": {"type": "boolean"},
+        "refresh_cadence": {
+            "type": "string",
+            "enum": ["manual", "hourly", "daily", "weekly", "monthly", "custom"],
+        },
+        "refresh_cron": {"type": "string"},
+        "managing_agent_id": {"type": "string"},
+        "language": {"type": "string"},
+        "image_prompt": {"type": "string"},
+        "image_url": {"type": "string"},
+    },
+}
+
+_EDIT_CANVAS_DESCRIPTION = (
+    "Edit step: write the full body onto one existing canvas. Pass canvas_id "
+    "from create_canvas or from the canvases already on this conversation. "
+    "While this runs the operator sees the writing animation on that pane. "
+    "It does not create another canvas. "
+    "dashboard source is bokito/canvas JSX (Stat, BarChart, LineChart, PieChart "
+    "inside <> or <Stack>). No HTML comments (<!-- -->), no ScatterPlot/Heatmap/"
+    "BoxPlot, no lowercase tags. document is markdown. diagram is mermaid. drawing "
+    "is one SVG. image takes image_prompt or image_url. code takes language and "
+    "source. email is JSON subject/preheader/body_html. sheet is JSON columns "
+    "and rows. If this returns an error, rewrite and call edit_canvas again "
+    "with the same canvas_id. After a successful edit, call finish_canvas."
+)
+
+register_tool(
+    ToolSpec(
+        name="edit_canvas",
+        description=_EDIT_CANVAS_DESCRIPTION,
+        category="projects",
+        input_schema=_EDIT_CANVAS_SCHEMA,
+        handler=_edit_canvas_tool,
+    )
+)
+
+async def _update_folder_canvas_alias(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    return await _update_project_canvas(ctx, tool_input, tool_name="update_folder_canvas")
+
+
 register_tool(
     ToolSpec(
         name="update_folder_canvas",
         description=(
-            "Replace one canvas, or change a dashboard's refresh and owner. "
-            "Pass canvas_id. A tweak updates that canvas; it does not create "
-            "another, and it does not open a second conversation. "
-            "dashboard source is bokito/canvas JSX (import only from bokito/canvas). "
-            "document source is markdown. diagram source is mermaid. drawing source "
-            "is one SVG; an image href may only be a file stored for this workspace. "
-            "image takes image_prompt (generated and stored) or image_url of a "
-            "workspace file. code takes language and source. email source is JSON "
-            "with subject, preheader, and body_html. sheet source is JSON with "
-            "columns and rows, or tabs of those. "
-            "If this returns an error, rewrite and call it again with the same "
-            "canvas_id. refresh_cadence applies only to a dashboard. "
-            "A preview card is attached when the write applies. Link its path inline."
+            "Same as edit_canvas (kept for canvas refresh wakes). Prefer "
+            "edit_canvas in operator chat. " + _EDIT_CANVAS_DESCRIPTION
         ),
         category="projects",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "canvas_id": {"type": "string"},
-                "project_id": {"type": "string"},
-                "slug": {"type": "string"},
-                "source": {"type": "string"},
-                "tree": {"type": "object"},
-                "title": {"type": "string"},
-                "notes": {"type": "string"},
-                "reset": {"type": "boolean"},
-                "refresh_cadence": {
-                    "type": "string",
-                    "enum": ["manual", "hourly", "daily", "weekly", "monthly", "custom"],
-                },
-                "refresh_cron": {"type": "string"},
-                "managing_agent_id": {"type": "string"},
-                "language": {"type": "string"},
-                "image_prompt": {"type": "string"},
-                "image_url": {"type": "string"},
-            },
-        },
-        handler=_update_project_canvas,
+        input_schema=_EDIT_CANVAS_SCHEMA,
+        handler=_update_folder_canvas_alias,
     )
 )
 
@@ -1199,27 +1302,21 @@ register_tool(
     ToolSpec(
         name="create_canvas",
         description=(
-            "Create a canvas on this conversation. "
-            "kind is dashboard (default, bokito/canvas, the only kind with a "
-            "refresh), document, diagram, drawing, image, code, email, "
-            "or sheet (JSON columns and rows; the operator exports CSV, Excel, "
-            "or Google Sheets). A dashboard chart uses Stat, BarChart, LineChart, "
-            "or PieChart inside <> or <Stack>. Drawing is one complete <svg> "
-            "document (a poster or illustration). Diagram is Mermaid "
-            "text; document is markdown. A design or drawing request is a canvas, "
-            "never a long chat message or a code block. "
-            "One canvas has one home conversation: this one, unless new_thread "
-            "is true. A conversation can hold several canvases. When this "
-            "conversation already has exactly one canvas of this kind, a call "
-            "with source updates that canvas. Pass force_new only when they "
-            "asked for a separate canvas. The same title returns the existing "
-            "canvas; update that id. Do not make a canvas "
-            "for a short answer. An image that should stay uses kind image with "
-            "image_prompt or image_url. Pass source on create when you already "
-            "have the body. refresh_cadence is only for a dashboard. "
-            "The canvas card appears beside the chat message, never inside it. "
-            "Say one or two sentences. Do not paste the sheet JSON or a markdown "
-            "table in the message. One create per turn."
+            "Create step: open an empty canvas on this conversation in one short "
+            "call (title, kind, optional refresh). Do not pass source, "
+            "image_prompt, or image_url here — that belongs on edit_canvas next. "
+            "kind is dashboard (default), document, diagram, drawing, image, "
+            "code, email, or sheet. A dashboard chart uses Stat, BarChart, "
+            "LineChart, or PieChart. Drawing is one <svg>; diagram is Mermaid; "
+            "document is markdown. "
+            "When this conversation already has exactly one canvas of this kind, "
+            "create_canvas returns that canvas_id — call edit_canvas then "
+            "finish_canvas; do not create another. Pass force_new only when they "
+            "asked for a separate canvas. "
+            "Order for a new canvas: one short sentence, create_canvas (empty), "
+            "edit_canvas (full source), finish_canvas. "
+            "Order for a change to an existing canvas: edit_canvas, finish_canvas. "
+            "Never paste the body into the chat message."
         ),
         category="projects",
         input_schema={
@@ -1251,13 +1348,33 @@ register_tool(
                     ],
                 },
                 "language": {"type": "string"},
-                "source": {"type": "string"},
-                "image_prompt": {"type": "string"},
-                "image_url": {"type": "string"},
             },
             "required": ["title"],
         },
         handler=_create_canvas_tool,
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="finish_canvas",
+        description=(
+            "Finish step: confirm the canvas is done after a successful "
+            "edit_canvas. Pass that canvas_id. This confirmation is its own "
+            "activity step — do not also write that it is finished in the chat "
+            "message. Call this once per canvas you edited in the turn."
+        ),
+        category="projects",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "canvas_id": {"type": "string"},
+            },
+            "required": ["canvas_id"],
+        },
+        handler=_finish_canvas_tool,
+        mutating=False,
+        gated=False,
     )
 )
 

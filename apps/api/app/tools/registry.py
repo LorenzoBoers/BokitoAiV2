@@ -215,6 +215,8 @@ CANVAS_OPERATOR_TOOLS = frozenset(
         "list_canvases",
         "get_folder_canvas",
         "create_canvas",
+        "edit_canvas",
+        "finish_canvas",
         "update_folder_canvas",
         "delete_canvas",
     }
@@ -226,6 +228,7 @@ CANVAS_REFRESH_TOOLS = frozenset(
     {
         "list_canvases",
         "get_folder_canvas",
+        "edit_canvas",
         "update_folder_canvas",
     }
 )
@@ -233,6 +236,7 @@ CANVAS_REFRESH_TOOLS = frozenset(
 CANVAS_WAKE_DENY = frozenset(
     {
         "create_canvas",
+        "finish_canvas",
         "delete_canvas",
         "create_decision_request",
         "propose_action",
@@ -320,7 +324,11 @@ def with_platform_core(
 ) -> list[dict[str, Any]]:
     """The passport's tools plus the platform core, so what a seat is offered is what it may run."""
     if refresh:
-        tools = [t for t in tools if t["name"] not in {"create_canvas", "delete_canvas"}]
+        tools = [
+            t
+            for t in tools
+            if t["name"] not in {"create_canvas", "finish_canvas", "delete_canvas"}
+        ]
     core = core_tool_names(trust, refresh=refresh)
     have = {t["name"] for t in tools}
     extra = [t for t in get_tool_definitions() if t["name"] in core and t["name"] not in have]

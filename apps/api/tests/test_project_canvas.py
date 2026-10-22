@@ -180,6 +180,21 @@ export default function C() {
     )
 
 
+def test_compile_drops_html_comments():
+    """Models paste <!-- ... -->; that used to raise Expected a component name."""
+    source = """
+<Stack>
+  <!-- Balkdiagram voor frequentie -->
+  <Card title="Frequentie">
+    <BarChart data={[{label: "1", value: 5}]} />
+  </Card>
+</Stack>
+"""
+    _source, tree = compile_canvas(source=source)
+    assert tree["type"] == "Stack"
+    assert tree["children"][0]["type"] == "Card"
+
+
 def test_compile_unrolls_const_map():
     source = """
 import { Stack, Stat, Card } from "bokito/canvas"
