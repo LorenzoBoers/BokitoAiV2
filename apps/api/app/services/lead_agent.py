@@ -8,7 +8,8 @@ mental model: binding on the item wins, otherwise the lead agent.
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -99,7 +100,7 @@ async def set_lead_agent(
     if not agent.is_active:
         raise HTTPException(status_code=409, detail="A paused agent cannot become the lead agent")
 
-    now = datetime.utcnow()
+    now = utcnow()
     current = await session.execute(
         select(Agent).where(
             Agent.tenant_id == tenant_id,

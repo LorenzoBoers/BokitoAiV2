@@ -7,7 +7,8 @@ fallback (see resolve_model_call).
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any
 
 from sqlalchemy import select
@@ -33,7 +34,7 @@ async def set_platform_secret(session: AsyncSession, provider: str, raw: str) ->
         select(PlatformSecret).where(PlatformSecret.provider == provider)
     )
     secret = result.scalar_one_or_none()
-    now = datetime.utcnow()
+    now = utcnow()
     if secret:
         secret.encrypted_value = encrypt_secret(raw)
         secret.last4 = _last4(raw)

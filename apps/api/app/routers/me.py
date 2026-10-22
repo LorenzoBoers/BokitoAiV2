@@ -1,6 +1,7 @@
 """Per-user settings: UI preferences and chat defaults."""
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Annotated
 from uuid import UUID
 
@@ -368,7 +369,7 @@ async def patch_my_preferences(
             pref = UserPreference(tenant_id=auth.tenant.id, user_id=auth.user.id)
             session.add(pref)
         pref.default_chat_agent_id = body.default_chat_agent_id
-        pref.updated_at = datetime.utcnow()
+        pref.updated_at = utcnow()
         default_chat_agent_id = str(body.default_chat_agent_id)
     else:
         pref = await get_user_preference(session, auth.tenant.id, auth.user.id)

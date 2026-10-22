@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import base64
 import hashlib
 import json
@@ -127,16 +129,14 @@ def stamp_credentials_ready(conn: Any, payload: dict[str, Any] | None = None) ->
 
         ready = is_connected(creds)
         if ready and not settings.get("verified_at"):
-            from datetime import datetime
 
-            settings["verified_at"] = datetime.utcnow().isoformat()
+            settings["verified_at"] = utcnow().isoformat()
     else:
         ready = bool(creds.get("access_token") or creds.get("mock"))
     settings["connected"] = ready
     if ready and not settings.get("credentials_ready_at"):
-        from datetime import datetime
 
-        settings["credentials_ready_at"] = datetime.utcnow().isoformat()
+        settings["credentials_ready_at"] = utcnow().isoformat()
     if not ready:
         settings.pop("credentials_ready_at", None)
     conn.settings_json = json.dumps(settings)

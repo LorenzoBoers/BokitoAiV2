@@ -14,10 +14,12 @@ public number when the account has not reported it yet.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from urllib.parse import quote
 from uuid import UUID
@@ -148,7 +150,7 @@ async def create_handover(
     account, number = await handover_target(session, tenant, widget_account=widget)
     if account is None:
         return {"error": "Continuing on WhatsApp is not switched on for this workspace"}
-    now = datetime.utcnow()
+    now = utcnow()
     lang = _lang(language)
     row = (
         await session.execute(
@@ -221,7 +223,7 @@ async def claim_handover(session: AsyncSession, signal: Signal, body_text: str) 
     codes = find_codes(body_text)
     if not codes:
         return False
-    now = datetime.utcnow()
+    now = utcnow()
     row = (
         await session.execute(
             select(HandoverCode).where(

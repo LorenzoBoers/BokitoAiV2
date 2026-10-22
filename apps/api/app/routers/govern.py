@@ -1,9 +1,10 @@
 """GOVERN & ASSURE endpoints: posture, allowance sliders, audit, passports, changes, API tokens."""
 
+from app.core.time import utcnow
+
 import hashlib
 import json
 import secrets
-from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -669,7 +670,7 @@ async def update_passport(
         changed["permission_scopes"] = body.permission_scopes
 
     if changed:
-        agent.updated_at = datetime.utcnow()
+        agent.updated_at = utcnow()
         session.add(agent)
         await record_audit(
             session,
@@ -861,7 +862,7 @@ async def revoke_token(
     token = result.scalar_one_or_none()
     if not token:
         raise HTTPException(status_code=404, detail="Token not found")
-    token.revoked_at = datetime.utcnow()
+    token.revoked_at = utcnow()
     session.add(token)
     await session.commit()
     return _serialize_token(token)

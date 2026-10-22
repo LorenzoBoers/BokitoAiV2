@@ -6,6 +6,8 @@ only when a Contact or accounting party matches the given email.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import hashlib
 import json
 import secrets
@@ -54,7 +56,7 @@ def hash_verify_token(raw: str) -> str:
 
 
 def _now() -> datetime:
-    return datetime.utcnow()
+    return utcnow()
 
 
 def thread_assurance_valid(signal: Signal | None) -> bool:

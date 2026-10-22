@@ -9,9 +9,11 @@ connects, and it never feeds learning (see `_record_no_reply_outcome`).
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -50,7 +52,7 @@ async def seed_demo_thread(session: AsyncSession, tenant_id: UUID) -> dict[str, 
     if existing:
         return {"signal_id": str(existing.id), "created": False}
 
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=tenant_id,
         channel="email",
@@ -157,7 +159,7 @@ async def send_channel_nudges(session: AsyncSession) -> int:
     from app.models.channel import ChannelAccount
     from app.services.transactional_mail import send_onboarding_channel_nudge
 
-    now = datetime.utcnow()
+    now = utcnow()
     cutoff = now - timedelta(hours=24)
     # Only recently created tenants: a deploy must not suddenly mail ancient
     # dormant workspaces.
@@ -206,7 +208,7 @@ async def send_channel_nudges(session: AsyncSession) -> int:
                 await send_onboarding_channel_nudge(email, tenant_name=tenant.name)
                 sent += 1
         # Mark even without owners/emails so the loop never retries forever.
-        tenant_settings[_NUDGE_SETTINGS_KEY] = datetime.utcnow().isoformat()
+        tenant_settings[_NUDGE_SETTINGS_KEY] = utcnow().isoformat()
         tenant.settings_json = json.dumps(tenant_settings)
         session.add(tenant)
         await session.commit()

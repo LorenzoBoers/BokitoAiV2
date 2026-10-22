@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -272,7 +274,7 @@ async def patch_team(
             settings.pop("icon", None)
         team.settings_json = json.dumps(settings)
     team.pinned = True
-    team.updated_at = datetime.utcnow()
+    team.updated_at = utcnow()
     session.add(team)
     await session.commit()
     return await teams_svc.serialize_team(session, team)
@@ -424,7 +426,7 @@ async def team_overview(
         ).all()
     )
 
-    now = datetime.utcnow()
+    now = utcnow()
     connected = presence.connected_user_ids_for(tenant_id)
     people_rows = (
         await session.execute(

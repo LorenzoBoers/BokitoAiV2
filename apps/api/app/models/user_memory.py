@@ -9,6 +9,8 @@ workspaces through this table.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -23,5 +25,5 @@ class UserAssistantMemory(SQLModel, table=True):
     # Short stable handle, e.g. "role", "working-style", "learning".
     key: str = Field(index=True)
     content: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

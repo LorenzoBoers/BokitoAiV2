@@ -11,10 +11,11 @@ agent caused itself, and never past the agent's daily cost cap.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import logging
 import os
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -97,7 +98,7 @@ async def wake_for_events(session: AsyncSession, events: list[SignalEvent]) -> l
     from app.services.department_domain import department_of_signal
 
     out: list[dict[str, Any]] = []
-    now = datetime.utcnow()
+    now = utcnow()
     for ev in events:
         kind = EVENT_KIND.get(ev.event_type)
         if kind is None:

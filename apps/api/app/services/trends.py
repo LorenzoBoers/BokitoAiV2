@@ -11,6 +11,8 @@ per week.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from datetime import datetime
@@ -140,7 +142,7 @@ async def post_trend(
     from app.services.ownership import apply_owner
     from app.services.signal_tags import add_signal_tag_ids, add_signal_tags
 
-    now = now or datetime.utcnow()
+    now = now or utcnow()
     title = (title or "").strip()[:200]
     sources = [s.strip() for s in (sources or []) if str(s).strip()][:10]
     if not title:

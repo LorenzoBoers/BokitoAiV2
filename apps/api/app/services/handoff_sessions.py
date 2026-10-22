@@ -7,10 +7,11 @@ conversations may still carry a handoff state, which a Send interrupts.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 import re
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -369,7 +370,7 @@ async def interrupt_handoff_session(
     updated = {
         **current,
         "status": "interrupted",
-        "interrupted_at": datetime.utcnow().isoformat(),
+        "interrupted_at": utcnow().isoformat(),
         "interrupted_by_message_id": str(by_message_id) if by_message_id else None,
         "interrupt_reason": reason,
     }

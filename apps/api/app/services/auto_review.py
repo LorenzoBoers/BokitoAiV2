@@ -15,6 +15,8 @@ The reviewer may refuse, but never silently approves what must ask.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import json
 import logging
@@ -287,11 +289,11 @@ async def record_agreement(
 
 async def agreement(session: AsyncSession, tenant_id: UUID, *, days: int = AGREEMENT_WINDOW_DAYS) -> dict[str, Any]:
     """Share of resolved decisions where the human matched the reviewer."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from app.models.learning import Feedback
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     rows = (
         await session.execute(
             select(Feedback.metadata_json).where(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -36,5 +38,5 @@ class MessageReaction(SQLModel, table=True):
     kind: str = Field(default="up", max_length=32, index=True)
     actor_type: str = Field(default="user", max_length=16)  # user | agent
     actor_id: uuid.UUID
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

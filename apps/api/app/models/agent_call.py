@@ -1,5 +1,7 @@
 """In-app call from an agent while a decision card is open."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -20,7 +22,7 @@ class AgentCall(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     # ringing | live | missed | declined | ended
     status: str = Field(default="ringing", index=True)
-    ring_until: datetime = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    ring_until: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     answered_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None

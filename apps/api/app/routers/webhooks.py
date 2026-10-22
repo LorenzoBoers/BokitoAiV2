@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Annotated
 from uuid import UUID
@@ -139,9 +141,8 @@ async def update_webhook(
         endpoint.events_json = json.dumps(_validate_events(body.events))
     if body.active is not None:
         endpoint.active = body.active
-    from datetime import datetime
 
-    endpoint.updated_at = datetime.utcnow()
+    endpoint.updated_at = utcnow()
     session.add(endpoint)
     await session.commit()
     await session.refresh(endpoint)

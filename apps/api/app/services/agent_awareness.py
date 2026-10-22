@@ -11,6 +11,8 @@ brief and the role go into every run (``aware_context``).
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -118,7 +120,7 @@ def set_awareness(agent: Agent, patch: dict[str, Any]) -> dict[str, Any]:
 async def spent_today_cents(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> int:
     from app.models.usage import UsageLedger
 
-    start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    start = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     total = (
         await session.execute(
             select(func.coalesce(func.sum(UsageLedger.cost_cents), 0)).where(
@@ -201,7 +203,7 @@ async def store_brief(
         } if snap else previous.get("bottlenecks"),
         "open_proposals": len(snap.get("proposals") or []) if snap else previous.get("open_proposals"),
         "open_questions": len(snap.get("domain_questions") or []) if snap else previous.get("open_questions"),
-        "at": datetime.utcnow().isoformat() + "Z",
+        "at": utcnow().isoformat() + "Z",
         "quiet": quiet,
     }
     current["brief"] = brief

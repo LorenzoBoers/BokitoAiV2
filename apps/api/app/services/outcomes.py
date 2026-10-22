@@ -7,8 +7,9 @@ introspection no longer query a side table.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -85,7 +86,7 @@ async def ingest_trading_report(
             },
             default=str,
         ),
-        created_at=datetime.utcnow(),
+        created_at=utcnow(),
     )
     session.add(event)
     await session.flush()

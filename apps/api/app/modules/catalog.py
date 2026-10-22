@@ -7,6 +7,8 @@ unless the tenant has more than one package connected.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 from dataclasses import dataclass
@@ -1496,7 +1498,6 @@ async def hire_module_agent(
     name: str | None = None,
 ) -> dict[str, Any]:
     """Create the module specialist once (no patch on existing active agents)."""
-    from datetime import datetime
 
     from app.models.auth import Tenant
     from app.models.signal import Signal
@@ -1571,7 +1572,7 @@ async def hire_module_agent(
 
     setup_signal_id: str | None = None
     if open_setup_chat and result.action == "created":
-        now = datetime.utcnow()
+        now = utcnow()
         steps = "\n".join(f"- {s}" for s in module.setup_steps) or "- Finish module setup"
         signal = Signal(
             tenant_id=tenant_id,

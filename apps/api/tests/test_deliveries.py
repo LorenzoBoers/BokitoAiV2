@@ -56,7 +56,6 @@ async def test_reply_is_recorded_once_per_message(session_override):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason='canvas folder refile after thread-only canvas; list via Signal.project_id not yet reliable', strict=False)
 async def test_works_in_canvas_carries_labels_and_link(session_override):
     tenant, folder, signal = await _setup(session_override)
     item = (await works_in.add_item(session_override, tenant.id, folder.id, kind="canvas", title="Cijfers")).get("item") or {}
@@ -222,7 +221,6 @@ async def _flow_ticket(session, tenant, folder, *, key=""):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason='known WIP flake: soft-option wake / flow destination delivery', strict=False)
 async def test_done_stage_delivers_to_flow_destination(session_override):
     from app.services.tickets import move_ticket_stage
 

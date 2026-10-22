@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Any
 from uuid import UUID
@@ -172,7 +174,6 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         # A newer identical ask supersedes the stale card: without this the
         # thread stacks duplicate pending decisions every time the customer
         # writes again before anyone resolved the previous draft.
-        from datetime import datetime
 
         stale_query = select(DecisionRequest).where(
             DecisionRequest.tenant_id == ctx.tenant_id,
@@ -187,7 +188,7 @@ async def _create_decision_request(ctx: ToolContext, tool_input: dict[str, Any])
         stale_result = await ctx.session.execute(stale_query)
         for stale in stale_result.scalars().all():
             stale.status = "deferred"
-            stale.resolved_at = datetime.utcnow()
+            stale.resolved_at = utcnow()
             stale.chosen_option_id = "superseded"
             ctx.session.add(stale)
             if stale.notification_id:

@@ -13,8 +13,9 @@ away, assisted asks with an inline decision, manual leaves it to a person
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -199,7 +200,7 @@ async def split_conversation(
         ).scalars()
     )
 
-    now = datetime.utcnow()
+    now = utcnow()
     child = Signal(
         tenant_id=tenant_id,
         subject=(anchor.subject or "").strip() or source.subject,

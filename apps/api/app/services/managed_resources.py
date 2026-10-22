@@ -7,6 +7,8 @@ reconcile proposes a PlatformChange (Decision) instead of reactivating.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -232,7 +234,7 @@ def _apply_fields(agent: Agent, fields: dict[str, Any]) -> None:
         agent.tools_json = fields["tools_json"]
     if "permission_scopes" in fields:
         agent.permission_scopes_json = json.dumps(fields["permission_scopes"] or [])
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
 
 
 async def _find_pack_agent(
@@ -278,7 +280,7 @@ async def _pending_restore(
 async def _recent_rejected_restore(
     session: AsyncSession, tenant_id: UUID, agent_id: UUID
 ) -> PlatformChange | None:
-    cutoff = datetime.utcnow() - RESTORE_REJECT_COOLDOWN
+    cutoff = utcnow() - RESTORE_REJECT_COOLDOWN
     result = await session.execute(
         select(PlatformChange)
         .where(

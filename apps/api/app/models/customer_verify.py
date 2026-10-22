@@ -1,5 +1,7 @@
 """Pending magic-link tokens for thread-scoped customer assurance."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -18,7 +20,7 @@ class CustomerVerifyToken(SQLModel, table=True):
     token_hash: str = Field(index=True)
     expires_at: datetime = Field(index=True)
     used_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class HandoverCode(SQLModel, table=True):
@@ -40,4 +42,4 @@ class HandoverCode(SQLModel, table=True):
     language: str = "en"
     expires_at: datetime = Field(index=True)
     used_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

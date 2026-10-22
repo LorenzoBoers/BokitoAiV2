@@ -11,9 +11,11 @@ rule in tenant settings ``routing_rules``; ``resolve_addressee`` applies it
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -97,7 +99,7 @@ async def learn_from_answer(session: AsyncSession, decision: DecisionRequest) ->
     current = rule_for_topic(tenant, topic)
     if current and current.get("user_id") == str(decision.resolved_by_user_id):
         return None
-    since = datetime.utcnow() - WINDOW
+    since = utcnow() - WINDOW
     rows = (
         await session.execute(
             select(DecisionRequest.resolved_by_user_id, func.count())

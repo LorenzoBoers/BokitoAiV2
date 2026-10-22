@@ -18,8 +18,9 @@ conversation, its messages or its decisions (``recompute``), stored for fast
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -53,7 +54,7 @@ def _all_department_id(connection: Any, tenant_id: UUID) -> UUID:
     if row:
         return row[0]
     team_id = uuid4()
-    now = datetime.utcnow()
+    now = utcnow()
     connection.execute(
         insert(Team.__table__).values(
             id=team_id,
@@ -792,7 +793,7 @@ async def assignee_candidates(session: AsyncSession, tenant_id: UUID, signal: Si
     account = (
         await session.get(ChannelAccount, signal.channel_account_id) if signal.channel_account_id else None
     )
-    now = datetime.utcnow()
+    now = utcnow()
     connected = connected_user_ids_for(tenant_id)
     people = []
     rows = await session.execute(

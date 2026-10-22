@@ -6,6 +6,8 @@ retired; attribution for agent work uses ``AgentRun.workstream_id``.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -678,7 +680,7 @@ async def start_run(
     if input_kind not in WORKSTREAM_INPUT_KINDS:
         raise HTTPException(status_code=400, detail=f"Invalid input kind: {input_kind}")
     ws = await get_workstream(session, tenant_id, workstream_id)
-    now = datetime.utcnow()
+    now = utcnow()
     return WorkstreamRun(
         tenant_id=tenant_id,
         workstream_id=ws.id,

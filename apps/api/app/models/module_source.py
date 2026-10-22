@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -41,5 +43,5 @@ class ModuleSource(SQLModel, table=True):
     last_synced_at: Optional[datetime] = None
     sync_error: str = ""
     metadata_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

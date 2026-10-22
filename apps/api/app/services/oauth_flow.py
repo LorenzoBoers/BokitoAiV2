@@ -9,10 +9,12 @@ dashboard URL to redirect the browser back to.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -116,7 +118,7 @@ def _token_credentials(tokens: dict[str, Any]) -> dict[str, Any]:
     expires_in = tokens.get("expires_in")
     if isinstance(expires_in, (int, float)) and expires_in > 0:
         creds["expires_at"] = (
-            datetime.utcnow() + timedelta(seconds=int(expires_in))
+            utcnow() + timedelta(seconds=int(expires_in))
         ).isoformat()
     return creds
 
@@ -493,7 +495,7 @@ async def complete_oauth(
 
     if error:
         return _error_redirect(return_url, flow, provider, error), None
-    if expires_at < datetime.utcnow():
+    if expires_at < utcnow():
         return _error_redirect(return_url, flow, provider, "expired_state"), None
     if not code:
         return _error_redirect(return_url, flow, provider, "missing_code"), None

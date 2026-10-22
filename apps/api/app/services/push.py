@@ -8,10 +8,11 @@ push subscription. Which events push, and when, is decided in
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import json
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -174,7 +175,7 @@ async def notify_decision(
         else None
     )
     agent = await decision_agent(session, decision, signal)
-    now = datetime.utcnow()
+    now = utcnow()
     score = urgency(decision, signal, now)
     urgent = score >= URGENT
     title = f"{agent.name} asks you to decide" if agent is not None else "Decision required"

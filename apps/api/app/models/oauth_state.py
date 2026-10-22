@@ -1,5 +1,7 @@
 """Short-lived OAuth state for the authorization-code flow (CSRF + context)."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional
@@ -8,7 +10,7 @@ from sqlmodel import Field, SQLModel
 
 
 def _default_expiry() -> datetime:
-    return datetime.utcnow() + timedelta(minutes=15)
+    return utcnow() + timedelta(minutes=15)
 
 
 class OAuthState(SQLModel, table=True):
@@ -29,5 +31,5 @@ class OAuthState(SQLModel, table=True):
     redirect_uri: str = ""
     # PKCE verifier, token endpoint, MCP resource URL, etc. for mcp_remote flows.
     context_json: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     expires_at: datetime = Field(default_factory=_default_expiry)

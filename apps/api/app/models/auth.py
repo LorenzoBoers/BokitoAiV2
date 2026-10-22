@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -35,7 +37,7 @@ class Tenant(SQLModel, table=True):
     name: str
     logo_url: Optional[str] = None
     settings_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class User(SQLModel, table=True):
@@ -70,7 +72,7 @@ class User(SQLModel, table=True):
     last_seen_at: Optional[datetime] = None
     away: bool = False
     away_until: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Membership(SQLModel, table=True):
@@ -86,7 +88,7 @@ class Membership(SQLModel, table=True):
     # workspace | departments (freelancer: only the work of their departments).
     scope: str = Field(default="workspace", max_length=16)
     hours_per_week: Optional[int] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class UserPreference(SQLModel, table=True):
@@ -98,8 +100,8 @@ class UserPreference(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     default_chat_agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class Session(SQLModel, table=True):
@@ -111,7 +113,7 @@ class Session(SQLModel, table=True):
     # unsalted digest is safe and enables O(1) lookup on refresh).
     refresh_token_hash: str = Field(index=True)
     expires_at: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Invite(SQLModel, table=True):
@@ -125,4 +127,4 @@ class Invite(SQLModel, table=True):
     invited_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     expires_at: datetime
     accepted_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

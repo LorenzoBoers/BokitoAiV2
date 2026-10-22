@@ -17,8 +17,9 @@ Legacy ``kind=personal_assistant`` rows are normalized on startup.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import or_, select
@@ -258,7 +259,7 @@ async def ensure_personal_assistant(
             agent.role = "assistant"
             changed = True
         if changed:
-            agent.updated_at = datetime.utcnow()
+            agent.updated_at = utcnow()
             session.add(agent)
     if commit:
         await session.commit()

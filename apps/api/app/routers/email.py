@@ -1,7 +1,8 @@
 """Email channel API backed by ChannelAccount + the unified Signal model."""
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -211,7 +212,7 @@ async def send_email(
     auth: Annotated[AuthContext, Depends(require_verified_email)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    now = datetime.utcnow()
+    now = utcnow()
     to_addresses = _parse_addresses(body.to_addresses)
 
     if body.thread_id is not None:

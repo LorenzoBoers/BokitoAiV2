@@ -1,5 +1,7 @@
 """Per-tenant LLM provider connections and model catalog."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -26,8 +28,8 @@ class ProviderConnection(SQLModel, table=True):
     enabled: bool = Field(default=True)
     # platform = seeded Bokito link (no tenant key). tenant = a key the workspace added.
     origin: str = Field(default="tenant")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class TenantModel(SQLModel, table=True):
@@ -58,5 +60,5 @@ class TenantModel(SQLModel, table=True):
     sort_order: int = Field(default=0)
     # platform = seeded Bokito model. tenant = a model the workspace added.
     origin: str = Field(default="tenant")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

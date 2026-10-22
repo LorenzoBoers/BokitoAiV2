@@ -6,6 +6,8 @@ maturity status, its own embedding chunk. `WorkspaceDoc.content` is a derived
 render cache (sections joined in order) so whole-doc readers keep working.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -47,8 +49,8 @@ class WorkspaceDoc(SQLModel, table=True):
     sort_order: int = 0
     created_by_type: str = Field(default="user")  # user | agent | system
     created_by_id: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
@@ -82,8 +84,8 @@ class DocSection(SQLModel, table=True):
     summary: str = ""
     edited_by_type: str = Field(default="user")  # user | agent | system
     edited_by_id: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class DocChunk(SQLModel, table=True):
@@ -108,4 +110,4 @@ class DocChunk(SQLModel, table=True):
     embedding_json: str = Field(default="[]")
     metadata_json: str = Field(default="{}")
     internal: bool = Field(default=True, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

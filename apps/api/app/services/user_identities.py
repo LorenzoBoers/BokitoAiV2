@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import logging
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -93,7 +94,7 @@ async def upsert_identity(
             raise ValueError("subject_taken")
         if email_norm:
             existing.email_at_link = email_norm
-        existing.linked_at = datetime.utcnow()
+        existing.linked_at = utcnow()
         session.add(existing)
         if commit:
             await session.commit()
@@ -111,7 +112,7 @@ async def upsert_identity(
         # Same user reconnecting with a new subject (rare IdP migration).
         row.subject = subject
         row.email_at_link = email_norm or row.email_at_link
-        row.linked_at = datetime.utcnow()
+        row.linked_at = utcnow()
         session.add(row)
         if commit:
             await session.commit()

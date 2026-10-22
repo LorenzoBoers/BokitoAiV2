@@ -618,7 +618,12 @@ async def file_in_folder(
     actor_type: str = "user",
     actor_id: str = "",
 ) -> FilterSet | None:
-    """Apply (or clear) a folder's tags on the conversation."""
+    """Apply (or clear) a folder's tags on the conversation.
+
+    Name-only folders have an empty tag set, so ``longest_match`` never homes
+    them. Explicit filing still pins ``Signal.project_id`` so canvases and
+    other thread-owned work show up in Works in.
+    """
     from app.services.signal_tags import add_signal_tag_ids, remove_signal_tag_ids
 
     del virtual_tag_ids
@@ -633,7 +638,32 @@ async def file_in_folder(
     if folder is None:
         raise LookupError("Folder not found")
     await add_signal_tag_ids(session, signal.tenant_id, signal.id, list(folder.tag_ids), user_id=user_id)
-    return await refresh_home(session, signal, catalog=catalog, actor_type=actor_type, actor_id=actor_id)
+    hit = await refresh_home(session, signal, catalog=catalog, actor_type=actor_type, actor_id=actor_id)
+    if signal.project_id is None:
+        signal.project_id = project_id
+        signal.updated_at = utcnow()
+        session.add(signal)
+        session.add(
+            SignalEvent(
+                signal_id=signal.id,
+                tenant_id=signal.tenant_id,
+                event_type="folder_set",
+                actor_type=actor_type or "system",
+                actor_id=actor_id or "",
+                payload_json=json.dumps(
+                    {
+                        "project_id": str(project_id),
+                        "previous": None,
+                        "path": folder.label(),
+                        "tags": list(folder.tag_names),
+                        "explicit": True,
+                    }
+                ),
+            )
+        )
+        await session.flush()
+        return folder
+    return hit
 
 
 async def _defer_folder_decisions(session: AsyncSession, signal: Signal) -> None:

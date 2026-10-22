@@ -30,6 +30,8 @@ agenda item opens its thread.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any, Iterable
@@ -325,7 +327,7 @@ async def due_for_user(session: AsyncSession, tenant_id: UUID, user_id: UUID) ->
 
     from app.models.signal import Signal, SignalEvent
 
-    now = datetime.utcnow()
+    now = utcnow()
     mine = (
         Signal.tenant_id == tenant_id,
         Signal.assignee_kind == "user",
@@ -415,7 +417,7 @@ async def list_time_items(
             except ValueError:
                 continue
     tag_filter = [str(x) for x in calendar_tags] if calendar_tags is not None else None
-    now = datetime.utcnow()
+    now = utcnow()
 
     agents = (await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))).scalars().all()
     names = await _names(session, tenant_id, agents)

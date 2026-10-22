@@ -8,6 +8,8 @@ platform learns from repeated operator choices on "No reply needed" cards
 (auto-close, auto-task, or mute AI for a sender/domain/list).
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -31,7 +33,7 @@ class Feedback(SQLModel, table=True):
     metadata_json: str = Field(default="{}")
     processed: bool = Field(default=False, index=True)
     processed_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class InboxRule(SQLModel, table=True):
@@ -71,8 +73,8 @@ class InboxRule(SQLModel, table=True):
     priority: int = 100
     assign_to_user_id: Optional[int] = None
     labels_json: str = Field(default="[]")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
@@ -91,4 +93,4 @@ class EvalScore(SQLModel, table=True):
     window_start: Optional[datetime] = None
     window_end: Optional[datetime] = None
     details_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

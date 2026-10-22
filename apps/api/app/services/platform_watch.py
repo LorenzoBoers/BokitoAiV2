@@ -10,7 +10,8 @@ heartbeats are never flipped on automatically.
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any
 from uuid import UUID
 
@@ -160,7 +161,7 @@ async def ensure_agent_channel(
         status="open",
         priority="normal",
         has_unread=False,
-        last_message_at=datetime.utcnow(),
+        last_message_at=utcnow(),
     )
     session.add(signal)
     await session.flush()

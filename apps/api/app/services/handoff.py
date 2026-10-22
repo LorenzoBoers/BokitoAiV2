@@ -11,8 +11,9 @@ addressee: the person or the people in the team the question goes to
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -164,7 +165,7 @@ async def request_callback(
     from app.services.ops_alerts import notify_tenant_admins
 
     signal.has_unread = True
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     session.add(
         SignalEvent(

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any
 from uuid import UUID
 
@@ -66,7 +67,7 @@ async def ensure_participant(
     if existing is not None:
         if existing.left_at is not None:
             existing.left_at = None
-            existing.joined_at = datetime.utcnow()
+            existing.joined_at = utcnow()
             existing.joined_via = joined_via or existing.joined_via
             existing.invited_by_kind = invited_by_kind or existing.invited_by_kind
             existing.invited_by_id = invited_by_id or existing.invited_by_id
@@ -111,7 +112,7 @@ async def leave_participant(
         return False
     if existing.role == "owner":
         raise ValueError("Cannot remove the conversation owner; reassign first")
-    existing.left_at = datetime.utcnow()
+    existing.left_at = utcnow()
     session.add(existing)
     return True
 

@@ -13,7 +13,8 @@ agent see every connection.
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -116,7 +117,7 @@ async def set_connection_projects(
         )
     ).scalars().all()
     kept: set[UUID] = set()
-    now = datetime.utcnow()
+    now = utcnow()
     for row in existing:
         if row.project_id in wanted and row.project_id not in kept:
             kept.add(row.project_id)

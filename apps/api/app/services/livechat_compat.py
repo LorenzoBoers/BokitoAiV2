@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -288,7 +290,7 @@ def create_widget_session_token(
     surface: str = SURFACE_SITE,
     channel_account_id: UUID | None = None,
 ) -> str:
-    expire = datetime.utcnow() + timedelta(hours=12)
+    expire = utcnow() + timedelta(hours=12)
     payload: dict[str, Any] = {
         "type": "widget_session",
         "tenant_id": str(tenant_id),

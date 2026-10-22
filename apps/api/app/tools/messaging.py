@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Any
 from uuid import UUID
@@ -27,7 +29,6 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     Email/Slack replies are delivered via the channel provider; widget/chat
     replies reach the visitor live via the gateway publish.
     """
-    from datetime import datetime
 
     from app.channels.outbound import deliver_outbound
     from app.gateway.publish import publish_signal_message
@@ -161,7 +162,7 @@ async def _send_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
             metadata["approved_by_user_id"] = str(ctx.user_id)
         if len(bubbles) > 1:
             metadata["bubble_index"] = index
-        now = datetime.utcnow()
+        now = utcnow()
         message = SignalMessage(
             signal_id=signal.id,
             tenant_id=ctx.tenant_id,
@@ -509,7 +510,6 @@ async def _handoff_to(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
 
 async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Start a peer conversation with another agent."""
-    from datetime import datetime
     from uuid import UUID
 
     from sqlalchemy import select
@@ -539,7 +539,7 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         return {"error": "Cannot start a peer chat with yourself"}
 
     title = str(tool_input.get("title") or f"{(ctx.agent.name if ctx.agent else 'Agent')} × {peer.name}")
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=ctx.tenant_id,
         channel="internal",
@@ -857,7 +857,6 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
     and this agent is pinned as the one that answers the next inbound
     message, so an operator can hand a conversation back mid-sparring.
     """
-    from datetime import datetime
 
     from app.gateway.publish import publish_thread_update
     from app.models.signal import Signal, SignalEvent
@@ -909,7 +908,7 @@ async def _take_over_conversation(ctx: ToolContext, tool_input: dict[str, Any]) 
     # send on its own (autonomous, channel can send). Otherwise the current
     # owner keeps the conversation and this agent drafts for them.
     signal.agent_id = ctx.agent.id
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     if conversation_mode(signal) == "manual":
         release_conversation(
             ctx.session,
@@ -972,7 +971,6 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     Used by approved action-suggestion decisions on automated/no-reply mail,
     and available to agents as a governed mutation.
     """
-    from datetime import datetime
 
     from app.gateway.publish import publish_thread_update
     from app.models.signal import Signal, SignalEvent
@@ -1022,7 +1020,7 @@ async def _close_thread(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         actor_type="agent" if ctx.agent else "user",
         actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
     )
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     ctx.session.add(signal)
     ctx.session.add(
         SignalEvent(
@@ -1269,7 +1267,6 @@ async def _request_customer_verify(ctx: ToolContext, tool_input: dict[str, Any])
 async def _assign_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
     """Hand the current conversation to another agent or a team, with an optional message."""
     import json as _json
-    from datetime import datetime
 
     from app.gateway.publish import publish_signal_message, publish_thread_update
     from app.models.signal import Signal, SignalEvent, SignalMessage
@@ -1331,7 +1328,7 @@ async def _assign_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> 
             body_preview=message_text[:200],
             body_html=f"<p>{message_text}</p>",
             metadata_json=_json.dumps({"agent_name": ctx.agent.name, "handover": True}),
-            received_at=datetime.utcnow(),
+            received_at=utcnow(),
         )
         ctx.session.add(note)
     await ctx.session.commit()

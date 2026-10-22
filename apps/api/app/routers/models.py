@@ -1,5 +1,7 @@
 """Tenant provider connections and per-tenant model catalog APIs."""
 
+from app.core.time import utcnow
+
 from typing import Annotated
 from uuid import UUID
 
@@ -407,14 +409,14 @@ async def _image_model_rows(session: AsyncSession, tenant_id: UUID, prefs: dict)
 
 async def _data_region_block(session: AsyncSession, tenant_id: UUID) -> dict:
     """Workspace data-region policy plus the EU share of the last 30 days."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from app.services.cockpit import usage_by_region
     from app.services.tenant_models import get_tenant_model_prefs
 
     prefs = await get_tenant_model_prefs(session, tenant_id)
     usage = await usage_by_region(
-        session, tenant_id, since=datetime.utcnow() - timedelta(days=30)
+        session, tenant_id, since=utcnow() - timedelta(days=30)
     )
     # Agents on a US-hosted platform model that the policy redirects.
     from app.models.agent import Agent
@@ -778,7 +780,6 @@ async def staff_update_model(
     model = result.scalar_one_or_none()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
-    from datetime import datetime
 
     for field in (
         "provider", "kind", "model_id", "display_name", "context_window",
@@ -788,7 +789,7 @@ async def staff_update_model(
         value = getattr(body, field)
         if value is not None:
             setattr(model, field, value)
-    model.updated_at = datetime.utcnow()
+    model.updated_at = utcnow()
     session.add(model)
     await session.commit()
     await session.refresh(model)
@@ -922,7 +923,6 @@ async def staff_set_bokito_backings(
 ):
     """Replace the staff override. Every step must be an existing non-Bokito chat model."""
     import json
-    from datetime import datetime
 
     from app.models.model_catalog import PlatformSetting
 
@@ -945,7 +945,7 @@ async def staff_set_bokito_backings(
     row = result.scalar_one_or_none()
     if row:
         row.value = value
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
     else:
         session.add(PlatformSetting(key=bokito_models.BACKINGS_SETTING_KEY, value=value))
     await session.commit()

@@ -10,8 +10,10 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from statistics import median
 from typing import Any
 from uuid import UUID
@@ -54,7 +56,7 @@ class _Bucket:
 
 async def overview_metrics(session: AsyncSession, tenant_id: UUID) -> dict[str, dict[str, dict[str, Any]]]:
     """``{"agents": {agent_id: metrics}, "teams": {team_id: metrics}}``."""
-    since = datetime.utcnow() - WINDOW
+    since = utcnow() - WINDOW
     agents: dict[str, _Bucket] = {}
     teams: dict[str, _Bucket] = {}
     decisions = (

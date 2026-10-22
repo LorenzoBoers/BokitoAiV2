@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Any
 from uuid import UUID
@@ -24,7 +26,6 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     label that arrives only through the contact or company, and never a
     catalog delete.
     """
-    from datetime import datetime
 
     from app.gateway.publish import publish_thread_update
     from app.models.signal import SignalEvent
@@ -152,7 +153,7 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
     tags = await signal_tag_names(ctx.session, signal.id)
     await ctx.session.refresh(signal)
     if added or replaced or removed:
-        signal.updated_at = datetime.utcnow()
+        signal.updated_at = utcnow()
         ctx.session.add(signal)
         payload: dict[str, Any] = {
             "tags": tags,

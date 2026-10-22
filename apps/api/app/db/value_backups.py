@@ -8,6 +8,8 @@ their type. ``column_name == "*"`` holds a whole row.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -48,7 +50,7 @@ def _encode(value: Any) -> str:
 def write_values(bind, revision: str, table: str, rows: list[tuple[Any, str, Any, Any]]) -> int:
     if not rows:
         return 0
-    now = datetime.utcnow()
+    now = utcnow()
     bind.execute(
         backups.insert(),
         [

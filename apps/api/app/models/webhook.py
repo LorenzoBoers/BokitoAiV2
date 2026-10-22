@@ -1,5 +1,7 @@
 """Outbound webhooks: tenant-configured endpoints + delivery log."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -27,8 +29,8 @@ class WebhookEndpoint(SQLModel, table=True):
     created_by_user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id")
     last_delivery_at: datetime | None = Field(default=None)
     last_status: str = Field(default="")  # "200" | "failed" | ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class WebhookDelivery(SQLModel, table=True):
@@ -45,5 +47,5 @@ class WebhookDelivery(SQLModel, table=True):
     status_code: int = Field(default=0)
     attempts: int = Field(default=0)
     error: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     delivered_at: datetime | None = Field(default=None)

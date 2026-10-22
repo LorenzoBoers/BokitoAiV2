@@ -1,5 +1,7 @@
 """Workforce API router (agents, work logs, messages, runtime controls)."""
 
+from app.core.time import utcnow
+
 import json
 from typing import Annotated, Any
 from uuid import UUID
@@ -346,7 +348,6 @@ async def put_agent_rules(
 
     Raising the ceiling or a rule to Autonomous needs an owner or admin.
     """
-    from datetime import datetime
 
     from app.services.agent_rules import (
         ADMIN_ROLES,
@@ -372,7 +373,7 @@ async def put_agent_rules(
         agent.autonomy_level = body.autonomy_level
     if body.rules is not None:
         await set_rules(session, tenant, agent, body.rules, role=auth.role, user_id=auth.user.id)
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
     session.add(agent)
     await record_audit(
         session,
@@ -453,7 +454,6 @@ async def put_agent_definition(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Update the agent definition. Owner or admin."""
-    from datetime import datetime
 
     from app.services.agent_definition import serialize_definition, validate_definition
     from app.services.audit import record_audit
@@ -463,7 +463,7 @@ async def put_agent_definition(
     before = serialize_definition(agent)
     for column, value in validate_definition(body.model_dump(exclude_unset=True)).items():
         setattr(agent, column, value)
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
     session.add(agent)
     after = serialize_definition(agent)
     await record_audit(
@@ -757,7 +757,6 @@ async def patch_agent_chat_access(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    from datetime import datetime
 
     from fastapi import HTTPException
     from sqlalchemy import delete, select
@@ -770,7 +769,7 @@ async def patch_agent_chat_access(
         raise HTTPException(status_code=400, detail="Invalid chat access mode")
     agent = await _company_agent_or_404(session, auth.tenant.id, agent_id)
     agent.chat_access = body.mode
-    agent.updated_at = datetime.utcnow()
+    agent.updated_at = utcnow()
 
     await session.execute(
         delete(AgentChatUser).where(

@@ -12,6 +12,8 @@ on the plain email address for threads that were never linked.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -149,7 +151,7 @@ async def recent_contact_context(
     session: AsyncSession, signal: Signal, *, days: int = 7, limit: int = 4
 ) -> str:
     """Prompt block: recent contact with this person on other channels."""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     others = await sibling_signals(session, signal, since=since, limit=limit)
     if not others:
         return ""

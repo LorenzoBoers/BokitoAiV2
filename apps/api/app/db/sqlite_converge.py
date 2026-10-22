@@ -11,15 +11,19 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
+import logging
 import json
 import uuid
 from collections import Counter
-from datetime import datetime
 
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 
 from app.services.signal_tags import normalize_tag
+
+logger = logging.getLogger(__name__)
 
 
 _DROPPED_TABLES = (
@@ -122,7 +126,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
         try:
             connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
         except Exception:  # noqa: BLE001
-            pass
+            logger.warning('swallowed exception in sqlite_converge.py', exc_info=True)
     if inspector.has_table("signals"):
         signal_cols = {c["name"] for c in inspector.get_columns("signals")}
         for column in _RETIRED_SIGNAL_OWNER_COLUMNS:
@@ -131,7 +135,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
             try:
                 connection.execute(text(f"ALTER TABLE signals DROP COLUMN {column}"))
             except Exception:  # noqa: BLE001
-                pass
+                logger.warning('swallowed exception in sqlite_converge.py', exc_info=True)
     inspector = inspect(connection)
     for table, retired in _RETIRED_COLUMNS.items():
         if not inspector.has_table(table):
@@ -145,7 +149,7 @@ def converge_sqlite_schema(connection: Connection) -> None:
                 try:
                     connection.execute(text(f"ALTER TABLE {table} DROP COLUMN {column}"))
                 except Exception:  # noqa: BLE001
-                    pass
+                    logger.warning('swallowed exception in sqlite_converge.py', exc_info=True)
 
 
 def _message_seq(connection: Connection) -> None:
@@ -212,7 +216,7 @@ def _tenant_calendars(connection: Connection) -> None:
         )
     if not inspector.has_table("tenant_calendars"):
         return
-    now = datetime.utcnow().isoformat(sep=" ")
+    now = utcnow().isoformat(sep=" ")
     rows = connection.execute(
         text(
             "SELECT id, tenant_id, provider, metadata_json FROM integration_connections "
@@ -288,7 +292,7 @@ def _tags_to_links(connection: Connection) -> None:
         (row["tenant_id"], row["name"]): row["id"]
         for row in connection.execute(text("SELECT id, tenant_id, name FROM signal_tags")).mappings()
     }
-    now = datetime.utcnow()
+    now = utcnow()
     rows = connection.execute(
         text(
             "SELECT id, tenant_id, tags_json FROM signals "
@@ -433,7 +437,7 @@ def _cases_to_tickets(connection: Connection) -> None:
     inspector = inspect(connection)
     if not inspector.has_table("case_types"):
         return
-    now = datetime.utcnow()
+    now = utcnow()
     types = connection.execute(
         text("SELECT * FROM case_types WHERE deleted_at IS NULL ORDER BY sort_order")
     ).mappings().all()

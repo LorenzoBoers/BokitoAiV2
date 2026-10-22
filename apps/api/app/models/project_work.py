@@ -12,6 +12,8 @@ project operates on (repo, drive, notion, vibecode tools). Connectors land
 later; the slot, provider, and optional integration connection exist now.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -57,7 +59,7 @@ class TaskDocLink(SQLModel, table=True):
     relation: str = Field(default="touches")
     created_by_type: str = Field(default="agent")
     created_by_id: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class ProjectResource(SQLModel, table=True):
@@ -91,8 +93,8 @@ class ProjectResource(SQLModel, table=True):
     # Last synced ref: commit sha for repos, change cursor for drives later.
     sync_ref: Optional[str] = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)

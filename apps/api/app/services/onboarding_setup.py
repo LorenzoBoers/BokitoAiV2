@@ -6,7 +6,8 @@ here; the SOP may turn it on only after an explicit yes.
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -175,7 +176,7 @@ async def open_lead_setup_thread(
         owner_user_id=user_id,
         agent_id=lead.id,
         has_unread=False,
-        last_message_at=datetime.utcnow(),
+        last_message_at=utcnow(),
     )
     set_owner(signal, "user", user_id, by_user_id=user_id)
     session.add(signal)

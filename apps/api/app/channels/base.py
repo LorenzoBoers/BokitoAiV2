@@ -19,6 +19,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent, SignalMessage
 from app.services.signal_threads import clean_message_preview
@@ -160,7 +161,7 @@ async def _resolve_contact(
     )
     contact = result.scalars().first()
     if contact:
-        contact.last_seen_at = datetime.utcnow()
+        contact.last_seen_at = utcnow()
         if inbound.sender_name and not contact.display_name:
             contact.display_name = inbound.sender_name
         session.add(contact)
@@ -190,7 +191,7 @@ async def _resolve_contact(
         address=inbound.sender_address,
         display_name=inbound.sender_name,
         status="pending" if require_pairing else "approved",
-        last_seen_at=datetime.utcnow(),
+        last_seen_at=utcnow(),
     )
     person = await _existing_person(session, tenant_id, inbound)
     if person is not None:
@@ -287,7 +288,7 @@ async def _find_by_subject_sender(
     norm = normalize_email_subject(inbound.subject)
     if not norm:
         return None
-    since = datetime.utcnow() - _SUBJECT_THREAD_LOOKBACK
+    since = utcnow() - _SUBJECT_THREAD_LOOKBACK
     filters = [
         Signal.tenant_id == tenant_id,
         Signal.channel == "email",
@@ -384,7 +385,7 @@ async def ingest_inbound(
             signal = sig.scalar_one()
             return signal, False
 
-    now = datetime.utcnow()
+    now = utcnow()
     # Prefer the provider's delivery time; clamp future values (clock skew).
     received = inbound.received_at if inbound.received_at and inbound.received_at <= now else now
     signal = await _find_existing_thread(session, tenant_id, inbound)
@@ -761,7 +762,7 @@ async def _ingest_outbound_copy(
     signal = await _find_existing_thread(session, tenant_id, inbound)
     contact: Contact | None = None
     created = False
-    now = datetime.utcnow()
+    now = utcnow()
     received = inbound.received_at if inbound.received_at and inbound.received_at <= now else now
     if signal is not None and await _is_copy_of_bokito_reply(session, signal, inbound, received):
         # The Sent folder also holds the mail Bokito itself delivered from

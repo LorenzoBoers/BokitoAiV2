@@ -1,3 +1,4 @@
+from app.core.time import utcnow
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -276,9 +277,8 @@ async def insert_workstream_stage(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    from datetime import datetime
 
-    ws.updated_at = datetime.utcnow()
+    ws.updated_at = utcnow()
     session.add(ws)
     await session.commit()
     await session.refresh(ws)
@@ -363,9 +363,8 @@ async def patch_workstream(
         ws.stages_json = stages_json
     if patch.get("tag_ids") is not None:
         await _set_playbook_tags(session, auth.tenant.id, ws, patch["tag_ids"])
-    from datetime import datetime
 
-    ws.updated_at = datetime.utcnow()
+    ws.updated_at = utcnow()
     session.add(ws)
     if stages_changed:
         from app.services.stage_checkups import resync_flow
@@ -387,7 +386,6 @@ async def _set_playbook_tags(
     The stored ``name`` is the operator title and stays independent. Only seed
     it from the tag when the title is still empty.
     """
-    from datetime import datetime
 
     from fastapi import HTTPException
     from sqlalchemy import select
@@ -429,7 +427,7 @@ async def _set_playbook_tags(
         ).scalars().all()
         if linked:
             ws.name = str(linked[0])[:120]
-            ws.updated_at = datetime.utcnow()
+            ws.updated_at = utcnow()
             session.add(ws)
 
 

@@ -5,6 +5,8 @@ widget, webhook, integration, or internal agent communication). It replaces the
 previously split inbox/email/conversation stacks.
 """
 
+from app.core.time import utcnow
+
 import json
 import uuid
 from datetime import datetime
@@ -202,9 +204,9 @@ class Signal(SQLModel, table=True):
     # leaves one ``outcome`` SignalEvent.
     outcome_json: str = Field(default="{}")
 
-    last_message_at: Optional[datetime] = Field(default_factory=datetime.utcnow, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_message_at: Optional[datetime] = Field(default_factory=utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
     # Thread-scoped customer assurance (magic-link). Empty level = none.
     assurance_level: str = ""
@@ -456,7 +458,7 @@ class SignalMessage(SQLModel, table=True):
     send_after: Optional[datetime] = Field(default=None, index=True)
 
     received_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SignalEvent(SQLModel, table=True):
@@ -469,7 +471,7 @@ class SignalEvent(SQLModel, table=True):
     actor_type: str = "system"
     actor_id: str = ""
     payload_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SignalTag(SQLModel, table=True):
@@ -514,8 +516,8 @@ class SignalTag(SQLModel, table=True):
     template_slug: str = ""
     sort_order: int = 0
     created_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class SignalTagLink(SQLModel, table=True):
@@ -526,7 +528,7 @@ class SignalTagLink(SQLModel, table=True):
     signal_id: uuid.UUID = Field(foreign_key="signals.id", primary_key=True)
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class ContactTagLink(SQLModel, table=True):
@@ -538,7 +540,7 @@ class ContactTagLink(SQLModel, table=True):
     contact_id: uuid.UUID = Field(foreign_key="contacts.id", primary_key=True)
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class CompanyTagLink(SQLModel, table=True):
@@ -549,7 +551,7 @@ class CompanyTagLink(SQLModel, table=True):
     company_id: uuid.UUID = Field(foreign_key="companies.id", primary_key=True)
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SignalThreadPin(SQLModel, table=True):
@@ -559,4 +561,4 @@ class SignalThreadPin(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     signal_id: uuid.UUID = Field(foreign_key="signals.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

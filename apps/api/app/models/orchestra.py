@@ -4,6 +4,8 @@ A Workstream is a tenant-owned playbook: a stage pipeline for tickets.
 Runs are retained for history; the ordered step engine is retired.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -74,8 +76,8 @@ class Workstream(SQLModel, table=True):
     # Ticket pipeline: [{"key", "name", "kind": open|waiting|done}]; "[]" means
     # the default Open / Waiting / Done.
     stages_json: str = Field(default="[]")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
@@ -101,7 +103,7 @@ class WorkstreamStep(SQLModel):
     knowledge_section_ids_json: str = "[]"
     config_json: str = "{}"
     stage_key: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class WorkstreamRun(SQLModel):
@@ -127,6 +129,6 @@ class WorkstreamRun(SQLModel):
     context_json: str = "{}"
     triggered_by_type: str = "user"
     triggered_by_id: str = ""
-    started_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     completed_at: Optional[datetime] = None

@@ -20,8 +20,9 @@ instead, so the vocabulary only grows through a human decision.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -224,7 +225,7 @@ async def record_unknown(
 
     raw = _signals_section(_tenant_settings(tenant)).get("backlog")
     rows = [row for row in (raw if isinstance(raw, list) else []) if isinstance(row, dict)]
-    now = datetime.utcnow().isoformat()
+    now = utcnow().isoformat()
     entry = next((row for row in rows if str(row.get("key")) == key), None)
     if entry is None:
         entry = {

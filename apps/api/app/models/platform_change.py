@@ -5,6 +5,8 @@ can be proposed as a PlatformChange. Users accept or reject drafts unless
 yolo mode applies (direct apply without draft queue).
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -67,5 +69,5 @@ class PlatformChange(SQLModel, table=True):
     run_id: Optional[uuid.UUID] = Field(default=None, index=True)
     decision_id: Optional[uuid.UUID] = Field(default=None, foreign_key="decision_requests.id")
     resolved_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
     resolved_at: Optional[datetime] = None

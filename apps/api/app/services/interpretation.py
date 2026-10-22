@@ -8,6 +8,8 @@ and the unknown-signal backlog with the same certainty thresholds as before.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 from typing import Any, Optional
@@ -109,7 +111,7 @@ async def _propose_file_tag(
     agent_id: UUID | None,
 ) -> None:
     """Ask once, in the thread, to file a confident read that is not auto-tagged."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from sqlalchemy import and_, or_, select
 
@@ -125,7 +127,7 @@ async def _propose_file_tag(
         if lang == "nl"
         else f"File as #{category.name}"
     )
-    since = datetime.utcnow() - timedelta(days=7)
+    since = utcnow() - timedelta(days=7)
     existing = (
         await session.execute(
             select(DecisionRequest.id).where(

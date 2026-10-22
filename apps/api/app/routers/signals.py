@@ -1,5 +1,7 @@
 """Unified SENSING endpoints (Signal model) with inbox-parity for Messages hub."""
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Annotated, Literal
@@ -104,7 +106,7 @@ async def _start_whatsapp(session: AsyncSession, auth: AuthContext, body: StartT
     if account is None:
         raise HTTPException(status_code=400, detail="No WhatsApp account can send")
 
-    now = datetime.utcnow()
+    now = utcnow()
     existing = (
         await session.execute(
             select(Signal)
@@ -206,7 +208,7 @@ async def _start_ticket(session: AsyncSession, auth: AuthContext, body: StartThr
     if body.tag_id is None:
         raise HTTPException(status_code=400, detail="A label with a flow is required")
 
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="internal",
@@ -273,7 +275,7 @@ async def _start_note(session: AsyncSession, auth: AuthContext, body: StartThrea
         raise HTTPException(status_code=400, detail="A note is required")
     subject = (body.subject or "").strip() or text.split("\n", 1)[0][:80] or "Note"
 
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="internal",
@@ -348,7 +350,7 @@ async def _start_chat(session: AsyncSession, auth: AuthContext, body: StartThrea
 
     name = (teammate.display_name or "").strip() or teammate.email
     subject = (body.subject or "").strip() or text.split("\n", 1)[0][:80] or name
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=auth.tenant.id,
         channel="internal",
@@ -1483,7 +1485,7 @@ async def set_composing(
     signal = await session.get(Signal, signal_id)
     if signal is None or signal.tenant_id != auth.tenant.id:
         raise HTTPException(status_code=404, detail="Signal not found")
-    until = (datetime.utcnow() + timedelta(seconds=body.seconds)) if body.active else None
+    until = (utcnow() + timedelta(seconds=body.seconds)) if body.active else None
     signal.human_composing_until = until
     session.add(signal)
     await session.commit()

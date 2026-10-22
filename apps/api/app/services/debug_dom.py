@@ -6,9 +6,10 @@ when a visual hitch needs the actual focus, animation, and size events.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import uuid
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -94,7 +95,7 @@ async def record_debug_dom(
     if not kept:
         await session.commit()
         return 0
-    now = datetime.utcnow()
+    now = utcnow()
     for row in kept:
         await session.execute(
             text(

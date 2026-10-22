@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -38,7 +40,7 @@ class UsageLedger(SQLModel, table=True):
         default=None, foreign_key="workstreams.id", index=True
     )
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class PushSubscription(SQLModel, table=True):
@@ -49,4 +51,4 @@ class PushSubscription(SQLModel, table=True):
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     endpoint: str
     keys_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

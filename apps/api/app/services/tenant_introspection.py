@@ -7,6 +7,8 @@ and cockpit helpers.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -674,7 +676,7 @@ async def list_threads_summary(
     cutoff = None
     if older_than_days is not None:
         days = max(1, min(int(older_than_days), 3650))
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = utcnow() - timedelta(days=days)
         filters.append(_signal_activity_expr() < cutoff)
 
     tag_names: list[str] = []

@@ -9,8 +9,9 @@ client workspaces.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import re
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -68,7 +69,7 @@ async def upsert_user_memory(
             else:
                 await session.flush()
         return None
-    now = datetime.utcnow()
+    now = utcnow()
     if existing is not None:
         existing.content = text
         existing.updated_at = now

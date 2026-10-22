@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -143,7 +144,7 @@ async def _add_message(
     text: str,
     metadata: dict[str, Any],
 ) -> SignalMessage:
-    now = datetime.utcnow()
+    now = utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,

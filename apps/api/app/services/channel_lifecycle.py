@@ -11,8 +11,9 @@ the channel together with every conversation on it.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -72,7 +73,7 @@ async def archive_channel(
     account.settings_json = json.dumps(settings)
     set_connection_credentials(account, {})
     account.is_enabled = False
-    account.archived_at = datetime.utcnow()
+    account.archived_at = utcnow()
     session.add(account)
     await record_audit(
         session,

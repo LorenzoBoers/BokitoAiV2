@@ -12,10 +12,11 @@ reach ladder: the person accountable, then the backup, then the other members.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 import uuid
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -104,7 +105,7 @@ async def ask_domain_question(
         "answer": "",
         "status": OPEN,
         "asked_by_agent_id": str(agent_id) if agent_id else None,
-        "asked_at": datetime.utcnow().isoformat() + "Z",
+        "asked_at": utcnow().isoformat() + "Z",
         "answered_at": None,
         "answered_by_user_id": None,
         "signal_id": str(room.id),
@@ -136,7 +137,7 @@ async def answer_domain_question(
         raise LookupError("Question not found")
     row["answer"] = text
     row["status"] = ANSWERED if text else OPEN
-    row["answered_at"] = datetime.utcnow().isoformat() + "Z" if text else None
+    row["answered_at"] = utcnow().isoformat() + "Z" if text else None
     row["answered_by_user_id"] = str(user_id) if (user_id and text) else None
     _save_questions(dept, rows)
     session.add(dept)

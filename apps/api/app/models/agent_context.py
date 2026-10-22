@@ -12,6 +12,8 @@ running child; ``queue`` waits for a later segment.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -32,7 +34,7 @@ class SignalCompaction(SQLModel, table=True):
     trigger: str = "auto"  # auto | manual
     tokens_before: int = 0
     context_window: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class SubagentMessage(SQLModel, table=True):
@@ -46,5 +48,5 @@ class SubagentMessage(SQLModel, table=True):
     body: str = ""
     delivery: str = "steer"  # steer | queue | interject
     status: str = Field(default="pending", index=True)  # pending | delivered | dropped
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     delivered_at: Optional[datetime] = None

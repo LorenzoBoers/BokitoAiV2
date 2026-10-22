@@ -6,6 +6,8 @@ this entry point so hub, widget, and A2A paths stay aligned.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import logging
 from typing import Any, Literal
 from uuid import UUID
@@ -41,13 +43,12 @@ async def post_message(
     meta.setdefault("trust", trust)
     if kind == "internal_note" or (kind is None and role == "system"):
         # Team-only note path used by post_thread_message / post_internal_note.
-        from datetime import datetime
         import json
 
         from app.gateway.publish import publish_signal_message
         from app.models.signal import SignalMessage as SM
 
-        now = datetime.utcnow()
+        now = utcnow()
         message = SM(
             signal_id=signal.id,
             tenant_id=signal.tenant_id,

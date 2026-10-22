@@ -12,6 +12,8 @@ Each channel account may select one default agent. A conversation-level agent
 pin takes precedence.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -47,7 +49,7 @@ class ChannelAccount(SQLModel, table=True):
     # Archived channels keep their conversations and access list but never
     # sync, receive or send; see services/channel_lifecycle.py.
     archived_at: Optional[datetime] = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class Company(SQLModel, table=True):
@@ -61,8 +63,8 @@ class Company(SQLModel, table=True):
     domain: str = Field(default="", index=True)  # lowercase, e.g. "acme.com"
     website: str = ""
     notes: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
@@ -97,7 +99,7 @@ class Contact(SQLModel, table=True):
         default=None, foreign_key="contacts.id", index=True
     )
     last_seen_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)

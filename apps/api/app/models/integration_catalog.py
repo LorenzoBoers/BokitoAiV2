@@ -6,6 +6,8 @@ Hosts and providers mirror ``mcp_remote_catalog.json``. Native core adapters
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 from datetime import datetime
 
 from sqlmodel import Field, SQLModel
@@ -21,8 +23,8 @@ class IntegrationCatalogHost(SQLModel, table=True):
     logo_domain: str = Field(default="", max_length=255)
     simpleicons: str = Field(default="", max_length=64)
     description: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class IntegrationCatalogProvider(SQLModel, table=True):
@@ -42,5 +44,5 @@ class IntegrationCatalogProvider(SQLModel, table=True):
     module: str | None = Field(default=None, max_length=64)
     sort_order: int = Field(default=100)
     enabled: bool = Field(default=True, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

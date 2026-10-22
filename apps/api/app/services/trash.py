@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -146,7 +148,7 @@ def unstamp_row(row: Any) -> None:
         row.enabled = bool(row.trash_was_enabled)
         row.trash_was_enabled = None
     if hasattr(row, "updated_at"):
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
 
 
 async def _entry_for_resource(
@@ -220,7 +222,7 @@ async def move_to_bin(
         existing = await _entry_for_resource(session, tenant.id, resource_type, row.id)
         if existing:
             return existing
-    now = datetime.utcnow()
+    now = utcnow()
     ttl = trash_settings_from_tenant(tenant)["effective_days"]
     purge_after = now + timedelta(days=ttl)
     batch_id = batch_id or uuid4()
@@ -611,7 +613,7 @@ async def empty_bin(
 
 
 async def purge_expired_trash(session: AsyncSession, tenant: Tenant) -> int:
-    now = datetime.utcnow()
+    now = utcnow()
     rows = list(
         (
             await session.execute(

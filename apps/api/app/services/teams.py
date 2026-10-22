@@ -7,8 +7,9 @@ a member of a child is treated as a member of every ancestor up to All.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -418,7 +419,7 @@ async def set_team_members(session: AsyncSession, team: Team, members: list[dict
         )
         seen.add(key)
         position += 1
-    team.updated_at = datetime.utcnow()
+    team.updated_at = utcnow()
     session.add(team)
 
 
@@ -447,7 +448,7 @@ async def delete_team(session: AsyncSession, team: Team, *, permanent: bool = Fa
     await session.execute(
         update(Team)
         .where(Team.tenant_id == team.tenant_id, Team.parent_id == team.id)
-        .values(parent_id=fallback.id, updated_at=datetime.utcnow())
+        .values(parent_id=fallback.id, updated_at=utcnow())
     )
     await session.execute(
         update(Signal)
@@ -592,7 +593,7 @@ async def get_or_create_team_room(session: AsyncSession, tenant_id: UUID, team: 
             existing.turn_reason = ""
         return existing
 
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=tenant_id,
         channel="internal",

@@ -9,7 +9,8 @@ Bokito or Kong.
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from uuid import UUID
 
 from sqlalchemy import select
@@ -42,7 +43,7 @@ def _label(provider_type: str) -> str:
 
 async def ensure_default_model_nodes(session: AsyncSession, tenant_id: UUID) -> None:
     """Insert missing platform links. Safe to call every time the models page opens."""
-    now = datetime.utcnow()
+    now = utcnow()
     connections: dict[str, ProviderConnection] = {}
     for provider_type, _slug, _model_id, _name, _kind, _sort, base_url in DEFAULT_BOKITO_NODES:
         if provider_type in connections:

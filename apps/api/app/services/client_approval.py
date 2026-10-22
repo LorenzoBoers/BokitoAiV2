@@ -13,8 +13,9 @@ request as a correction on the label scorecard (services/deliveries.py).
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -54,9 +55,9 @@ async def record_agreement(session: AsyncSession, signal: Signal, feedback: str,
     doc = await _agreements_doc(session, signal)
     if doc is None or not feedback.strip():
         return None
-    heading = f"## {datetime.utcnow().date().isoformat()} {signal.subject or 'Feedback'}".strip()
+    heading = f"## {utcnow().date().isoformat()} {signal.subject or 'Feedback'}".strip()
     doc.content = (doc.content or "").rstrip() + f"\n\n{heading}\n\n{feedback.strip()}\n"
-    doc.updated_at = datetime.utcnow()
+    doc.updated_at = utcnow()
     session.add(doc)
     return str(doc.id)
 

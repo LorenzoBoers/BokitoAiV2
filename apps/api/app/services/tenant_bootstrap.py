@@ -1,11 +1,14 @@
 """Tenant bootstrap defaults on signup."""
 
+from __future__ import annotations
+
 import json
 import re
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.time import utcnow
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount
@@ -74,7 +77,6 @@ async def purge_front_desk_agents(session: AsyncSession, *, commit: bool = False
     Clears channel defaults that pointed at them and drops the lead flag.
     History stays; they disappear from the working roster.
     """
-    from datetime import datetime
 
     from sqlalchemy import select, update
 
@@ -90,7 +92,7 @@ async def purge_front_desk_agents(session: AsyncSession, *, commit: bool = False
     )
     if not rows:
         return 0
-    now = datetime.utcnow()
+    now = utcnow()
     for agent in rows:
         await session.execute(
             update(ChannelAccount)

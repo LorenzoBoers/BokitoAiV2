@@ -6,8 +6,10 @@ preference rows (email channel). Sent by the arq cron `send_tenant_digests_job`.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -30,7 +32,7 @@ async def build_tenant_digest(
 ) -> dict[str, Any]:
     """Aggregate the digest numbers for one tenant."""
     window = timedelta(days=7 if period == "weekly" else 1)
-    since = datetime.utcnow() - window
+    since = utcnow() - window
 
     async def _count(query) -> int:
         return int((await session.execute(query)).scalar_one() or 0)

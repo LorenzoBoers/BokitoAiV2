@@ -5,6 +5,8 @@ records an AuditEvent so the trail is searchable across actors, resources and
 outcomes from one place.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -29,4 +31,4 @@ class AuditEvent(SQLModel, table=True):
     before_json: str = Field(default="{}")
     after_json: str = Field(default="{}")
     payload_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)

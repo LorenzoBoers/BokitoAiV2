@@ -7,8 +7,9 @@ external systems can push work into the inbox.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -244,7 +245,7 @@ async def create_signal(
     if body.priority not in ("low", "normal", "high", "urgent"):
         raise HTTPException(status_code=400, detail=f"Unknown priority: {body.priority}")
 
-    now = datetime.utcnow()
+    now = utcnow()
     signal = Signal(
         tenant_id=token.tenant_id,
         channel="api",

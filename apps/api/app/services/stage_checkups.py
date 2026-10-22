@@ -19,8 +19,10 @@ it has passed (``ticket_work.checkup_next_at``).
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
@@ -78,7 +80,7 @@ async def sync_checkup(
             await session.delete(row)
             await session.flush()
         return None
-    now = datetime.utcnow()
+    now = utcnow()
     name = f"Check-up #{tag.name} · {stage.get('name') or stage['key']}"
     if row is None:
         row = Trigger(
@@ -270,7 +272,7 @@ async def _note(session: AsyncSession, signal: Signal, text: str, *, agent_id: U
     from app.gateway.publish import publish_signal_message
     from app.models.signal import SignalMessage
 
-    now = datetime.utcnow()
+    now = utcnow()
     note = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,
@@ -296,7 +298,7 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
     from app.gateway.publish import publish_thread_update
     from app.services.tickets import workstream_stages
 
-    now = datetime.utcnow()
+    now = utcnow()
     signal = await session.get(Signal, trigger.signal_id) if trigger.signal_id else None
     tag = await session.get(SignalTag, signal.ticket_tag_id) if signal and signal.ticket_tag_id else None
     ws = await session.get(Workstream, tag.workstream_id) if tag and tag.workstream_id else None
@@ -356,7 +358,7 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
             )
             text, _tokens = await loop.run_chat([{"role": "user", "content": _brief(signal, tag, stage)}])
             run.status = "completed"
-            run.completed_at = datetime.utcnow()
+            run.completed_at = utcnow()
             trigger.last_status = "reported"
             session.add(run)
             session.add(trigger)

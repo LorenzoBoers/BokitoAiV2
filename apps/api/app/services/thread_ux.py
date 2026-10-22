@@ -6,9 +6,10 @@ There is no screen. Read the rows when someone says a moment felt rough.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import uuid
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -59,7 +60,7 @@ async def record_thread_ux(
         return -1
     rows = [clean_event(item) for item in events[:20]]
     kept = [row for row in rows if row is not None]
-    now = datetime.utcnow()
+    now = utcnow()
     for row in kept:
         await session.execute(
             text(

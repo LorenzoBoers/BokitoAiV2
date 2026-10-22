@@ -18,10 +18,11 @@ changes assurance.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -205,7 +206,7 @@ async def _system_message(session: AsyncSession, signal: Signal, text: str, meta
         metadata_json=json.dumps(meta),
     )
     session.add(message)
-    signal.last_message_at = datetime.utcnow()
+    signal.last_message_at = utcnow()
     return message
 
 
@@ -271,7 +272,7 @@ async def apply_link(
     if proposal.outcome not in ("link", "create"):
         raise ValueError(f"Cannot apply outcome {proposal.outcome}")
     tenant_id = signal.tenant_id
-    now = datetime.utcnow()
+    now = utcnow()
     previous_id = signal.contact_id
     previous_basis = signal.contact_basis or ""
     current = await session.get(Contact, previous_id) if previous_id else None

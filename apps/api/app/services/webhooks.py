@@ -12,6 +12,8 @@ Signature scheme (documented for receivers):
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import hashlib
 import hmac
@@ -19,7 +21,6 @@ import json
 import logging
 import secrets as pysecrets
 import time
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -219,7 +220,7 @@ async def perform_delivery(session: AsyncSession, delivery: WebhookDelivery) -> 
                 delivery.status_code = status_code
                 delivery.attempts = attempt + 1
                 delivery.error = ""
-                delivery.delivered_at = datetime.utcnow()
+                delivery.delivered_at = utcnow()
                 break
             last_error = f"HTTP {status_code}"
         except Exception as exc:  # noqa: BLE001
@@ -232,7 +233,7 @@ async def perform_delivery(session: AsyncSession, delivery: WebhookDelivery) -> 
         delivery.attempts = _MAX_ATTEMPTS
         delivery.error = last_error
 
-    endpoint.last_delivery_at = datetime.utcnow()
+    endpoint.last_delivery_at = utcnow()
     endpoint.last_status = str(delivery.status_code) if delivery.status == "delivered" else "failed"
     session.add(delivery)
     session.add(endpoint)

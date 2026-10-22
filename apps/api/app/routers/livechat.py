@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy import select as sa_select
 
+from app.core.time import utcnow
 from app.db.session import get_session
 from app.middleware.rate_limit import rate_limit
 from app.models.auth import Tenant, User
@@ -288,7 +289,6 @@ async def _mark_widget_seen(session: AsyncSession, signal: Signal, viewer_key: s
     """Upsert the viewer's `widget_seen` event so unread counts reset on read."""
     if not viewer_key:
         return
-    from datetime import datetime
 
     from app.models.signal import SignalEvent
 
@@ -301,7 +301,7 @@ async def _mark_widget_seen(session: AsyncSession, signal: Signal, viewer_key: s
     )
     event = result.scalars().first()
     if event:
-        event.created_at = datetime.utcnow()
+        event.created_at = utcnow()
     else:
         session.add(
             SignalEvent(
@@ -590,7 +590,6 @@ async def submit_conversation_csat(
     up (eval scores, digests, cockpit). One rating per conversation: rating
     again updates the earlier entry.
     """
-    from datetime import datetime
 
     from app.models.learning import Feedback
 
@@ -616,7 +615,7 @@ async def submit_conversation_csat(
         existing.comment = comment
         existing.processed = False
         existing.processed_at = None
-        existing.created_at = datetime.utcnow()
+        existing.created_at = utcnow()
         session.add(existing)
     else:
         session.add(

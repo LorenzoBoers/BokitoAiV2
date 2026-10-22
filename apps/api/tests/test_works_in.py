@@ -98,7 +98,6 @@ async def _module_folder(session, tenant_id) -> Project | None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason='canvas folder refile after thread-only canvas; list via Signal.project_id not yet reliable', strict=False)
 async def test_accounting_install_creates_folder_with_canvas(client: AsyncClient, session_override):
     from app.modules.catalog import install_module
 

@@ -5,6 +5,8 @@ filterset. Nesting sets parent; labels stay independent. Filing and trash call
 into ``services.folders``.
 """
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime
 from typing import Any
@@ -574,7 +576,7 @@ async def create_project(
     slug_norm = normalize_tag(slug_seed) or (str(resolved[0])[:8] if resolved else "folder")
     if await _slug_in_use(session, tenant_id, slug_norm):
         slug_norm = f"{slug_norm}-{(str(resolved[0])[:8] if resolved else str(uuid4())[:8])}"
-    now = datetime.utcnow()
+    now = utcnow()
     project = Project(
         tenant_id=tenant_id,
         name=clean_name,
@@ -619,7 +621,7 @@ async def nest_folder(
         if await _would_create_cycle(session, tenant_id, project.id, onto_folder_id):
             raise HTTPException(status_code=422, detail="Cannot nest a folder under its own descendant")
     project.parent_id = onto_folder_id
-    project.updated_at = datetime.utcnow()
+    project.updated_at = utcnow()
     session.add(project)
     await session.commit()
     await session.refresh(project)
@@ -679,7 +681,7 @@ async def patch_project(
     if next_ids is not None:
         tags_changed = frozenset(next_ids) != frozenset(before_tags)
         await set_folder_tags(session, tenant_id, project.id, next_ids)
-    project.updated_at = datetime.utcnow()
+    project.updated_at = utcnow()
     session.add(project)
     await session.flush()
     if tags_changed:

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from uuid import UUID
 
 from sqlalchemy import or_, select
@@ -79,7 +80,7 @@ async def retarget_archived_handler(session: AsyncSession, signal: Signal) -> bo
                 continue
             if row.role == "owner" and signal.assignee_id == row.ref_id:
                 continue
-            row.left_at = datetime.utcnow()
+            row.left_at = utcnow()
             if row.role == "owner":
                 row.role = "member"
             session.add(row)

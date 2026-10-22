@@ -4,6 +4,8 @@ A Workbench is a Connection of kind workbench. WorkJob is one dispatched job
 on a signal/project. Provider adapters implement the shared interface.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -65,6 +67,6 @@ class WorkJob(SQLModel, table=True):
     budget_json: str = Field(default="{}")
     progress_message_id: Optional[uuid.UUID] = Field(default=None)
     seen_event_ids_json: str = Field(default="[]")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     finished_at: Optional[datetime] = None

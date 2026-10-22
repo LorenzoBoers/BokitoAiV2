@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -33,8 +35,8 @@ class Project(SQLModel, table=True):
     )
     # Sibling order under the same parent.
     sort_order: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
@@ -50,4 +52,4 @@ class ProjectTagLink(SQLModel, table=True):
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     sort_order: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

@@ -11,6 +11,8 @@ Excel, or a Google Sheet.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -74,8 +76,8 @@ class ProjectCanvas(SQLModel, table=True):
     refresh_trigger_id: Optional[uuid.UUID] = Field(default=None, foreign_key="triggers.id")
     updated_by_type: str = Field(default="system", max_length=32)
     updated_by_id: str = Field(default="", max_length=64)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     notes: Optional[str] = Field(default=None)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")

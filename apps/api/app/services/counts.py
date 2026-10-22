@@ -13,7 +13,8 @@ reuses the word "open".
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any
 from uuid import UUID
 
@@ -57,7 +58,7 @@ async def status_counts(
         func.count().filter(Signal.status == OPEN),
         func.count().filter(Signal.status == CLOSED),
         func.count().filter(*open_ticket),
-        func.count().filter(*open_ticket, Signal.due_at.is_not(None), Signal.due_at < datetime.utcnow()),
+        func.count().filter(*open_ticket, Signal.due_at.is_not(None), Signal.due_at < utcnow()),
     ).where(*scope, *predicates)
     open_n, closed_n, tickets_n, overdue_n = (await session.execute(stmt)).one()
     return {

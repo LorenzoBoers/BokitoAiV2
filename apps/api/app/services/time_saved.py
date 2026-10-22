@@ -7,6 +7,8 @@ time saved. Weights live in ``platform_settings`` (staff Ops) with code defaults
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -146,7 +148,7 @@ async def save_action_minutes(
         session.add(PlatformSetting(key=WEIGHTS_SETTING_KEY, value=payload))
     else:
         row.value = payload
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
         session.add(row)
     await session.commit()
     return merged
@@ -379,7 +381,7 @@ def bucket_action_mix_series(
 ) -> list[dict[str, Any]]:
     """Daily AI vs manual weighted minutes. Empty days stay in the list as zeros."""
     days = max(1, min(int(days), 90))
-    today = (end or datetime.utcnow()).date()
+    today = (end or utcnow()).date()
     start_day = today - timedelta(days=days - 1)
     buckets: dict[str, dict[str, int]] = {
         (start_day + timedelta(days=i)).isoformat(): {
@@ -414,7 +416,7 @@ async def compute_time_saved(
     """Sum action credits for the last ``days`` days, plus a daily mix series."""
     days = max(1, min(int(days), 90))
     series_days_n = max(days, min(int(series_days), 90)) if series_days is not None else days
-    now = datetime.utcnow()
+    now = utcnow()
     since = now - timedelta(days=series_days_n)
     minutes_each = await load_action_minutes(session)
     events = await collect_action_events(session, tenant_id, since=since)

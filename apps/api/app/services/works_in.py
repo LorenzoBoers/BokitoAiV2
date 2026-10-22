@@ -319,9 +319,8 @@ async def add_item(
         key = resource_key(created["id"])
     item = await item_for_key(session, tenant_id, project_id, key)
     if item is None and kind == "canvas" and canvas_id:
-        # create_canvas commits in its own unit of work; the folder refile
-        # may not yet show in works_in_items for this session. Still return
-        # the just-created canvas so callers can deep-link immediately.
+        # create_canvas commits in its own unit of work; fall back so the
+        # caller can deep-link even if this session has not seen the refile.
         row = await session.get(ProjectCanvas, UUID(str(canvas_id)))
         if row is not None:
             item = canvas_item(row, project_id)

@@ -16,6 +16,8 @@ destination is still an outcome.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Any
 from uuid import UUID
@@ -360,7 +362,6 @@ async def settle_outcome(session: AsyncSession, signal: Any) -> dict[str, Any] |
     The episode runs from the previous outcome (or the start of the
     conversation) to now. A second close without new activity is a no-op.
     """
-    from datetime import datetime
 
     from app.models.learning import Feedback
     from app.models.notification import DecisionRequest
@@ -368,7 +369,7 @@ async def settle_outcome(session: AsyncSession, signal: Any) -> dict[str, Any] |
 
     if signal is None or signal.status != "closed":
         return None
-    now = datetime.utcnow()
+    now = utcnow()
     events = (
         await session.execute(
             select(SignalEvent)

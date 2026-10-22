@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -43,7 +45,7 @@ class IntegrationConnection(SQLModel, table=True):
     status: str = Field(default="active")
     credentials_json: str = Field(default="{}")
     metadata_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class IntegrationBinding(SQLModel, table=True):
@@ -54,7 +56,7 @@ class IntegrationBinding(SQLModel, table=True):
     connection_id: uuid.UUID = Field(foreign_key="integration_connections.id", index=True)
     binding_type: str  # mcp_server | mailbox | repository
     config_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class McpServer(SQLModel, table=True):
@@ -69,4 +71,4 @@ class McpServer(SQLModel, table=True):
     # Cached tools/list discovery result: [{"name", "description"}, ...]
     tools_json: str = Field(default="[]")
     tools_synced_at: datetime | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

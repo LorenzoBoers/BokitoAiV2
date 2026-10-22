@@ -8,7 +8,8 @@ one implicit connection per base provider (anthropic / openai).
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any
 from uuid import UUID
 
@@ -51,7 +52,7 @@ async def set_secret(
     if not raw:
         raise ValueError("Secret value cannot be empty")
     conn = await _provider_row(session, tenant_id, provider)
-    now = datetime.utcnow()
+    now = utcnow()
     if conn:
         conn.encrypted_value = encrypt_secret(raw)
         conn.last4 = _last4(raw)

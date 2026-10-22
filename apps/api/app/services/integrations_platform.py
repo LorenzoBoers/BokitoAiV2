@@ -1,5 +1,7 @@
 """Integrations platform service (marketplace, connections, MCP, OAuth mock)."""
 
+from app.core.time import utcnow
+
 import json
 import logging
 from typing import Any
@@ -768,10 +770,9 @@ def _mock_discovery_tools(server_name: str) -> list[dict[str, str]]:
 async def _persist_discovered_tools(
     session: AsyncSession, server: McpServer, tools: list[dict[str, str]]
 ) -> None:
-    from datetime import datetime
 
     server.tools_json = json.dumps(tools)
-    server.tools_synced_at = datetime.utcnow()
+    server.tools_synced_at = utcnow()
     session.add(server)
     await session.commit()
 
@@ -1048,7 +1049,6 @@ def _seed_mock_creds_if_missing(
     """
     if get_settings().is_production:
         return
-    from datetime import datetime
 
     from app.services.email_sync import DEFAULT_SYNC_WINDOW_DAYS, clamp_sync_window_days
 
@@ -1071,7 +1071,7 @@ def _seed_mock_creds_if_missing(
     settings["sync_window_days"] = clamp_sync_window_days(
         sync_window_days if sync_window_days is not None else DEFAULT_SYNC_WINDOW_DAYS
     )
-    settings["last_sync_at"] = datetime.utcnow().isoformat()
+    settings["last_sync_at"] = utcnow().isoformat()
     settings.pop("last_error", None)
     settings.pop("sync_error_count", None)
     account.settings_json = json.dumps(settings)

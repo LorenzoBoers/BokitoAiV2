@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import base64
 import hashlib
 import json
@@ -357,7 +359,7 @@ async def complete_mcp_remote_oauth(
             return_url or get_settings().public_app_url,
             {"integration_error": error, "provider": provider},
         )
-    if expires_at < datetime.utcnow():
+    if expires_at < utcnow():
         return _append_query(
             return_url or get_settings().public_app_url,
             {"integration_error": "expired_state", "provider": provider},

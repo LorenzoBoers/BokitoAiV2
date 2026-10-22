@@ -9,6 +9,8 @@ marks the run as work without minting an ``AgentTask``. Queue items
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Any
 
@@ -118,10 +120,9 @@ async def settle_run_task(session: AsyncSession, run: AgentRun) -> None:
         return
     if task.status not in ("running", "queued"):
         return
-    from datetime import datetime
 
     task.status = "completed" if run.status == "completed" else run.status
-    task.completed_at = run.completed_at or datetime.utcnow()
-    task.updated_at = datetime.utcnow()
+    task.completed_at = run.completed_at or utcnow()
+    task.updated_at = utcnow()
     session.add(task)
     await session.commit()

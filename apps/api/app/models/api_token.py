@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -27,4 +29,4 @@ class ApiToken(SQLModel, table=True):
     tool_allowlist_json: str = Field(default="[]")
     last_used_at: datetime | None = Field(default=None)
     revoked_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

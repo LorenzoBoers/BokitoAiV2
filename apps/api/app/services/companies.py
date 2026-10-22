@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -162,4 +163,4 @@ def serialize_company(company: Company, *, contact_count: int | None = None) -> 
 
 
 def touch(company: Company) -> None:
-    company.updated_at = datetime.utcnow()
+    company.updated_at = utcnow()

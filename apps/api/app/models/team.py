@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -62,8 +64,8 @@ class Department(SQLModel, table=True):
     last_pick: str = ""
     # Legacy light prefs; module prefs live under settings_json.modules.
     settings_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)
@@ -91,7 +93,7 @@ class DepartmentMember(SQLModel, table=True):
     # Escalation: one primary person and one primary agent. Others walk by position.
     duty: str = Field(default="member", max_length=16)
     position: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 def is_root_department(team: Department) -> bool:

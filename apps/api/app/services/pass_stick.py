@@ -9,10 +9,11 @@ Mentioned people get a ping either way.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 import re
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -209,7 +210,7 @@ async def _ensure_members(
 async def _system_line(session: AsyncSession, signal: Signal, text: str) -> None:
     from app.gateway.publish import publish_signal_message
 
-    now = datetime.utcnow()
+    now = utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,

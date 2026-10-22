@@ -24,6 +24,8 @@ Adding a channel type means writing one resolver and registering it in
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -399,7 +401,7 @@ def resolve_channel(
         credentials=credentials,
         tenant=tenant,
         last_event_at=last_event_at,
-        now=now or datetime.utcnow(),
+        now=now or utcnow(),
     )
     kind = channel_kind(account)
     facts = _RESOLVERS.get(kind, _fallback_facts)(ctx)
@@ -591,7 +593,7 @@ async def list_channels(
         if is_configurable_channel(a) and (visible is None or a.id in visible)
     ]
     events = await last_event_by_account(session, tenant.id)
-    now = datetime.utcnow()
+    now = utcnow()
     widget_count = sum(1 for account in accounts if account.channel == "widget")
     return [
         resolve_channel(

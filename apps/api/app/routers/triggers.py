@@ -1,6 +1,8 @@
 """Triggers API: scheduled wakes (cron/interval/heartbeat/webhook/once/event)
 and agenda calendar occurrences."""
 
+from app.core.time import utcnow
+
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
@@ -97,7 +99,7 @@ async def agenda(
     """Time items in a window: agent sessions, planned wakes/stage follow-ups
     (Agenda Tasks layer), scheduled AgentTasks, calendar events per connection,
     and on request activity. Agenda and related surfaces all read this."""
-    now = datetime.utcnow()
+    now = utcnow()
     start = _naive_utc(from_) or now - timedelta(days=1)
     end = _naive_utc(to) or now + timedelta(days=14)
     if end <= start:

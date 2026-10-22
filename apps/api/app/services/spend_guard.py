@@ -17,10 +17,11 @@ cooldown plus period-specific titles.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 import time
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -120,7 +121,7 @@ async def get_spend_status(
         "monthly_customer_micros_cap": DEFAULT_MONTHLY_CUSTOMER_MICROS_CAP,
     }
 
-    now = datetime.utcnow()
+    now = utcnow()
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -195,7 +196,7 @@ async def check_and_send_spend_alerts(session: AsyncSession, tenant_id: UUID) ->
     from app.services.ops_alerts import notify_tenant_admins
 
     status = await get_spend_status(session, tenant_id)
-    now = datetime.utcnow()
+    now = utcnow()
     sent = 0
     checks = (
         (

@@ -4,6 +4,8 @@ Access grants and the binds from a flow to a channel or a connection. Flow
 stages and their owners live only in ``Workstream.stages_json``.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -40,7 +42,7 @@ class ResourceGrant(SQLModel, table=True):
         default=None, foreign_key="departments.id", index=True
     )
     level: str = Field(max_length=16)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class WorkstreamConnection(SQLModel, table=True):
@@ -54,7 +56,7 @@ class WorkstreamConnection(SQLModel, table=True):
     )
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     purpose: str = Field(default="read", max_length=16)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class WorkstreamChannel(SQLModel, table=True):
@@ -67,4 +69,4 @@ class WorkstreamChannel(SQLModel, table=True):
         foreign_key="channel_accounts.id", primary_key=True, index=True
     )
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

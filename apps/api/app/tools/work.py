@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from typing import Any
 from uuid import UUID
@@ -15,7 +17,7 @@ from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 
 async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from app.services.agent.style import strip_emoji
     from app.services.orchestration.dispatcher import create_agent_task
@@ -28,7 +30,7 @@ async def _create_task(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     # On a conversation without a playbook/peer: a human task on that thread
     # (Agenda). Same AgentTask ledger as agent jobs.
     if ctx.signal_id and not workstream_id and not peer:
-        when = datetime.utcnow() + timedelta(hours=4)
+        when = utcnow() + timedelta(hours=4)
         task = await create_agent_task(
             ctx.session,
             ctx.tenant_id,

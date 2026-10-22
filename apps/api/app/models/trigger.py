@@ -4,6 +4,8 @@ Replaces the legacy orchestra Task (orchestra_tasks), AutomationTemplate, and
 agenda orchestrator wake events with one schedulable entity.
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -60,8 +62,8 @@ class Trigger(SQLModel, table=True):
     last_run_at: Optional[datetime] = None
     next_run_at: Optional[datetime] = Field(default=None, index=True)
     last_status: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     trash_batch_id: Optional[uuid.UUID] = Field(default=None, index=True)

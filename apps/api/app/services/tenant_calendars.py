@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
@@ -53,7 +54,7 @@ async def ensure_from_snapshot(
 
     snapshot = calendars if calendars is not None else stored_calendars(conn)
     existing = {row.external_id: row for row in await rows_for_connection(session, conn.id)}
-    now = datetime.utcnow()
+    now = utcnow()
     out: list[TenantCalendar] = []
     for item in snapshot:
         external_id = str(item.get("id") or "")
@@ -150,7 +151,7 @@ async def set_selection(
         unknown = wanted - known
         if unknown:
             raise ValueError("Unknown calendar: " + ", ".join(sorted(unknown)))
-        now = datetime.utcnow()
+        now = utcnow()
         disabled_ext: list[str] = []
         for ext, row in by_ext.items():
             on = ext in wanted
@@ -291,7 +292,7 @@ async def set_calendar_tags(
         raise ValueError("Calendar not found")
     wanted = await ensure_tags(session, tenant_id, names, user_id=user_id)
     await session.execute(delete(CalendarTagLink).where(CalendarTagLink.calendar_id == calendar_id))
-    now = datetime.utcnow()
+    now = utcnow()
     for row in wanted.values():
         session.add(
             CalendarTagLink(
@@ -345,7 +346,7 @@ async def patch_calendar(
     if sync_enabled is not None:
         was = cal.sync_enabled
         cal.sync_enabled = bool(sync_enabled)
-        cal.updated_at = datetime.utcnow()
+        cal.updated_at = utcnow()
         session.add(cal)
         conn = await session.get(IntegrationConnection, cal.connection_id)
         if conn is not None:

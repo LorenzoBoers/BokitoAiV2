@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import json
 import logging
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -110,7 +111,7 @@ async def append_signal_chat_message(
     decision_id: UUID | None = None,
     seq: int | None = None,
 ) -> SignalMessage:
-    now = datetime.utcnow()
+    now = utcnow()
     message = SignalMessage(
         signal_id=signal.id,
         tenant_id=signal.tenant_id,

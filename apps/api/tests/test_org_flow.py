@@ -359,7 +359,6 @@ async def test_without_flow_label_the_first_free_label_counts(session_override):
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason='canvas folder refile after thread-only canvas; list via Signal.project_id not yet reliable', strict=False)
 async def test_works_in_marks_what_lives_in_bokito(session_override):
     d = await _seed(session_override)
     await works_in.add_item(session_override, d["tenant"].id, d["folder"].id, kind="canvas", title="Cijfers")

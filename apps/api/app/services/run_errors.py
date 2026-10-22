@@ -8,6 +8,8 @@ message, and inbound processing stops instead of retrying.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -108,14 +110,14 @@ def active_workspace_block(tenant: Any, *, now: datetime | None = None) -> dict[
         until = datetime.fromisoformat(str(until_raw)) if until_raw else None
     except ValueError:
         until = None
-    if until is None or (now or datetime.utcnow()) >= until:
+    if until is None or (now or utcnow()) >= until:
         return None
     return block
 
 
 def open_workspace_block(tenant: Any, *, kind: str, error: BaseException | str) -> dict[str, Any]:
     """Start (or extend) the block; caller adds the tenant to the session."""
-    now = datetime.utcnow()
+    now = utcnow()
     settings = _settings_of(tenant)
     previous = settings.get(LLM_BLOCK_SETTINGS_KEY)
     previous = previous if isinstance(previous, dict) else {}

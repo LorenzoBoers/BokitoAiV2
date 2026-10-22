@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -20,7 +22,7 @@ class Notification(SQLModel, table=True):
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
     # 1 = interrupt now (push), 2 = later (in-app + bell), 3 = digest.
     tier: int = Field(default=2, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class UserNotificationPreference(SQLModel, table=True):
@@ -30,7 +32,7 @@ class UserNotificationPreference(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     prefs_json: str = Field(default="[]")
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class DecisionRequest(SQLModel, table=True):
@@ -75,6 +77,6 @@ class DecisionRequest(SQLModel, table=True):
     bundle_id: str = Field(default="", index=True)
     # Auto-review verdict: {"mode", "decision", "reason", "confidence"}; "{}" = none.
     auto_review_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     resolved_at: Optional[datetime] = None
     resolved_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)

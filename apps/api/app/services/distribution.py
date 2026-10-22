@@ -13,8 +13,9 @@ leaves the conversation with the team, as with pickup ``people``.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -35,7 +36,7 @@ async def _eligible(session: AsyncSession, team: Team, signal: Signal):
     from app.services.teams import team_members
 
     account = await session.get(ChannelAccount, signal.channel_account_id) if signal.channel_account_id else None
-    now = datetime.utcnow()
+    now = utcnow()
     eligible = []
     for ref in await team_members(session, team):
         if ref.kind == "user":

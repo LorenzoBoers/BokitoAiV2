@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -35,8 +37,8 @@ class TenantCalendar(SQLModel, table=True):
     sync_enabled: bool = False
     # Same access_list shape as connections: use < manage. Empty = default.
     access_json: str = Field(default="[]")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class CalendarTagLink(SQLModel, table=True):
@@ -47,7 +49,7 @@ class CalendarTagLink(SQLModel, table=True):
     calendar_id: uuid.UUID = Field(foreign_key="tenant_calendars.id", primary_key=True)
     tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True, index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class CalendarEvent(SQLModel, table=True):
@@ -77,6 +79,6 @@ class CalendarEvent(SQLModel, table=True):
     metadata_json: str = Field(default="{}")
     # Set once someone opens the meeting as a conversation.
     signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
-    synced_at: datetime = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    synced_at: datetime = Field(default_factory=utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

@@ -15,6 +15,8 @@ Plain chat Q&A never creates a Task; queue/orchestration create Tasks when
 work is planned (see services/orchestration and services/project_work).
 """
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -111,8 +113,8 @@ class AgentTask(SQLModel, table=True):
     # Planned tasks: when set, the task is dormant until this moment.
     scheduled_for: Optional[datetime] = None
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
     completed_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = Field(default=None, index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
@@ -129,4 +131,4 @@ class TaskArtifact(SQLModel, table=True):
     name: str
     artifact_type: str = Field(default="text")  # text | json | file
     content_json: str = Field(default="{}")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

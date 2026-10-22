@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import re
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -172,7 +173,7 @@ async def create_model(
     if kind not in ("chat", "embedding", "image"):
         raise ValueError("Invalid model kind")
 
-    now = datetime.utcnow()
+    now = utcnow()
     if is_default_chat:
         await _clear_default_flags(session, tenant_id, "chat")
     if is_default_embedding:
@@ -220,7 +221,7 @@ async def bulk_enable_presets(
     existing = await list_models(session, tenant_id)
     by_slug = {m.slug: m for m in existing}
     created: list[TenantModel] = []
-    now = datetime.utcnow()
+    now = utcnow()
 
     for spec in preset["models"]:
         if spec["slug"] in by_slug:
@@ -278,7 +279,7 @@ async def update_model(
     if not model:
         raise ValueError("Model not found")
 
-    now = datetime.utcnow()
+    now = utcnow()
     if display_name is not None:
         model.display_name = display_name.strip() or model.model_id
     if enabled is not None:

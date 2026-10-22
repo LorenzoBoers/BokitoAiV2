@@ -24,6 +24,8 @@ decided here.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from statistics import median
 from collections import Counter, defaultdict
@@ -169,7 +171,7 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
 
     tenant_id = tenant.id
     days = max(1, min(int(days or 7), 90))
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
 
     # Conversations: the period's traffic plus everything still open.
     signals = [
@@ -834,7 +836,7 @@ async def unlabeled_sample(
 
     from app.services.ai_handling import widget_account
 
-    since = datetime.utcnow() - timedelta(days=max(1, min(int(days or 7), 90)))
+    since = utcnow() - timedelta(days=max(1, min(int(days or 7), 90)))
     widget = await widget_account(session, tenant_id)
     rows = (
         await session.execute(

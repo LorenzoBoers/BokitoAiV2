@@ -20,10 +20,11 @@ complete.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -142,7 +143,7 @@ async def _flush_facts_to_memory(session: AsyncSession, tenant_id: UUID, facts: 
     new_lines = [f"- {fact}" for fact in facts if fact not in existing]
     if not new_lines:
         return
-    stamp = datetime.utcnow().strftime("%Y-%m-%d")
+    stamp = utcnow().strftime("%Y-%m-%d")
     content = existing.rstrip() + f"\n\n## Conversation notes ({stamp})\n" + "\n".join(new_lines) + "\n"
     await upsert_doc(
         session,

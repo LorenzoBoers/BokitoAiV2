@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -11,4 +13,4 @@ class StaffAccessLog(SQLModel, table=True):
     staff_user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     action: str = Field(default="enter")  # enter | leave
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

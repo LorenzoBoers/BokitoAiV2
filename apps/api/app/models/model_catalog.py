@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -30,8 +32,8 @@ class ModelCatalog(SQLModel, table=True):
     is_default_chat: bool = False
     is_default_embedding: bool = False
     sort_order: int = 0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class PlatformSecret(SQLModel, table=True):
@@ -48,8 +50,8 @@ class PlatformSecret(SQLModel, table=True):
     provider: str = Field(index=True)  # anthropic | openai
     encrypted_value: str = Field(default="")
     last4: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class PlatformSetting(SQLModel, table=True):
@@ -61,4 +63,4 @@ class PlatformSetting(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     key: str = Field(index=True)
     value: str = Field(default="")
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -155,8 +157,8 @@ async def _calendar_list_events(ctx: ToolContext, tool_input: dict[str, Any]) ->
         return dict(NO_CALENDAR)
     days = int(tool_input.get("days") or 7)
     days = max(1, min(days, 60))
-    start = datetime.utcnow() - timedelta(hours=1)
-    end = datetime.utcnow() + timedelta(days=days)
+    start = utcnow() - timedelta(hours=1)
+    end = utcnow() + timedelta(days=days)
     items = await calendar_events_in_window(
         ctx.session, ctx.tenant_id, start=start, end=end, viewer=viewer
     )

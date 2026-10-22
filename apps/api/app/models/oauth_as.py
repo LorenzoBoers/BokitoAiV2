@@ -6,6 +6,8 @@ tokens and authorization codes are stored hashed; plaintext is never persisted.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -23,7 +25,7 @@ class McpOAuthClient(SQLModel, table=True):
     client_name: str = Field(default="")
     redirect_uris_json: str = Field(default="[]")
     token_endpoint_auth_method: str = Field(default="none")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class McpOAuthAuthRequest(SQLModel, table=True):
@@ -40,7 +42,7 @@ class McpOAuthAuthRequest(SQLModel, table=True):
     code_challenge_method: str = Field(default="S256")
     resource: str = Field(default="")
     expires_at: datetime = Field(index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class McpOAuthAuthorizationCode(SQLModel, table=True):
@@ -58,7 +60,7 @@ class McpOAuthAuthorizationCode(SQLModel, table=True):
     resource: str = Field(default="")
     expires_at: datetime = Field(index=True)
     used_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class McpOAuthAccessToken(SQLModel, table=True):
@@ -75,7 +77,7 @@ class McpOAuthAccessToken(SQLModel, table=True):
     expires_at: datetime = Field(index=True)
     revoked_at: datetime | None = Field(default=None)
     last_used_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class McpOAuthRefreshToken(SQLModel, table=True):
@@ -95,4 +97,4 @@ class McpOAuthRefreshToken(SQLModel, table=True):
     resource: str = Field(default="")
     expires_at: datetime = Field(index=True)
     revoked_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

@@ -1,5 +1,7 @@
 """Module agent roster: which agents may use a business module's tools."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -31,7 +33,7 @@ class ModuleAgent(SQLModel, table=True):
     # Write access: without this flag the agent only gets read tools;
     # propose/apply module tools are filtered out.
     can_write: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class AgentScope(SQLModel, table=True):
@@ -62,4 +64,4 @@ class AgentScope(SQLModel, table=True):
         default=None, foreign_key="integration_connections.id", index=True
     )
     can_write: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

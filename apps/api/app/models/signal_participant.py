@@ -7,6 +7,8 @@ and agent↔agent threads.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -38,7 +40,7 @@ class SignalParticipant(SQLModel, table=True):
     ref_id: uuid.UUID = Field(index=True)
     role: str = Field(default="member", max_length=16)  # owner | member | watcher
     joined_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utcnow,
         sa_column=Column(DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     )
     left_at: datetime | None = Field(default=None)

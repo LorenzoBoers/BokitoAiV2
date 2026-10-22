@@ -13,10 +13,11 @@ clients that probe those surfaces get useful shortcuts.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
@@ -256,7 +257,7 @@ async def get_mcp_auth(
     if plain.startswith(asvc.ACCESS_TOKEN_PREFIX) or not plain.startswith("bok_"):
         oauth = await asvc.lookup_access_token(session, plain)
         if oauth is not None:
-            oauth.last_used_at = datetime.utcnow()
+            oauth.last_used_at = utcnow()
             session.add(oauth)
             await session.flush()
             return McpPrincipal(
@@ -276,9 +277,9 @@ async def get_mcp_auth(
     token = result.scalar_one_or_none()
     if not token or token.revoked_at is not None:
         raise _unauthorized("Invalid or revoked token")
-    if getattr(token, "expires_at", None) and token.expires_at < datetime.utcnow():
+    if getattr(token, "expires_at", None) and token.expires_at < utcnow():
         raise _unauthorized("Token expired")
-    token.last_used_at = datetime.utcnow()
+    token.last_used_at = utcnow()
     session.add(token)
     await session.flush()
     allowlist = _api_token_allowlist(token)
@@ -308,7 +309,7 @@ async def get_api_token(
     token = result.scalar_one_or_none()
     if not token or token.revoked_at is not None:
         raise _unauthorized("Invalid or revoked token")
-    token.last_used_at = datetime.utcnow()
+    token.last_used_at = utcnow()
     session.add(token)
     await session.flush()
     return token

@@ -11,6 +11,8 @@ images in it go back to the agent that asked.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -54,7 +56,7 @@ class AgentTurn(SQLModel, table=True):
     run_id: Optional[uuid.UUID] = Field(default=None)
     tokens: int = 0
     idempotency_key: str = Field(default="", unique=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
 
@@ -74,5 +76,5 @@ class AgentAsk(SQLModel, table=True):
     # [{"type": "text", "text": ...} | {"type": "image", "url": ..., "mime": ...}]
     answer_json: str = Field(default="[]")
     episode_id: Optional[uuid.UUID] = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     answered_at: Optional[datetime] = None

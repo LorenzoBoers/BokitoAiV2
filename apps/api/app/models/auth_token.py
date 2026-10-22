@@ -1,5 +1,7 @@
 """Single-use auth tokens for password reset and email verification."""
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -18,4 +20,4 @@ class AuthToken(SQLModel, table=True):
     token: str = Field(index=True, unique=True)
     expires_at: datetime
     used_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

@@ -8,6 +8,8 @@ rows; agents reference a row by ``slug`` (legacy agents may still store a raw
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 from typing import Any
 
 from sqlalchemy import select
@@ -83,7 +85,6 @@ CATALOG_MODEL_ID_REFRESH: dict[str, tuple[str, str, str]] = {
 
 async def refresh_catalog_model_ids(session: AsyncSession) -> None:
     """Update legacy catalog rows to current provider model ids."""
-    from datetime import datetime
 
     changed = False
     for legacy_slug, (model_id, display_name, new_slug) in CATALOG_MODEL_ID_REFRESH.items():
@@ -104,7 +105,7 @@ async def refresh_catalog_model_ids(session: AsyncSession) -> None:
         row.model_id = model_id
         row.display_name = display_name
         row.slug = new_slug
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
         changed = True
     if changed:
         await session.commit()
@@ -179,7 +180,6 @@ async def _refresh_managed_virtual_rows(session: AsyncSession) -> None:
     List prices come from fixed env vars (see ``bokito_models.bill_prices_for_slug``),
     not from the silent backing family's provider costs.
     """
-    from datetime import datetime
 
     from app.services import bokito_models
 
@@ -207,7 +207,7 @@ async def _refresh_managed_virtual_rows(session: AsyncSession) -> None:
                 setattr(row, attr, value)
                 row_changed = True
         if row_changed:
-            row.updated_at = datetime.utcnow()
+            row.updated_at = utcnow()
             any_changed = True
     if any_changed:
         await session.commit()
@@ -215,7 +215,6 @@ async def _refresh_managed_virtual_rows(session: AsyncSession) -> None:
 
 async def _ensure_markup_default(session: AsyncSession) -> None:
     """Align legacy platform_settings markup with DEFAULT_MARKUP when still 1.3."""
-    from datetime import datetime
 
     result = await session.execute(
         select(PlatformSetting).where(PlatformSetting.key == MARKUP_SETTING_KEY)
@@ -231,7 +230,7 @@ async def _ensure_markup_default(session: AsyncSession) -> None:
         current = 0.0
     if abs(current - 1.3) < 1e-9:
         row.value = str(DEFAULT_MARKUP)
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
         await session.commit()
 
 
@@ -366,7 +365,6 @@ async def get_markup_multiplier(session: AsyncSession) -> float:
 
 async def set_markup_multiplier(session: AsyncSession, value: float) -> float:
     global _markup_cache
-    from datetime import datetime
 
     value = max(1.0, float(value))
     result = await session.execute(
@@ -375,7 +373,7 @@ async def set_markup_multiplier(session: AsyncSession, value: float) -> float:
     row = result.scalar_one_or_none()
     if row:
         row.value = str(value)
-        row.updated_at = datetime.utcnow()
+        row.updated_at = utcnow()
     else:
         session.add(PlatformSetting(key=MARKUP_SETTING_KEY, value=str(value)))
     await session.commit()

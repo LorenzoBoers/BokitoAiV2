@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -34,7 +36,7 @@ class TrashEntry(SQLModel, table=True):
     resource_id: uuid.UUID = Field(index=True)
     title: str = ""
     preview: str = ""
-    deleted_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    deleted_at: datetime = Field(default_factory=utcnow, index=True)
     purge_after: datetime = Field(index=True)
     deleted_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     batch_id: uuid.UUID = Field(index=True)

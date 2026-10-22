@@ -16,6 +16,8 @@ gets a weekly trend orientation instead (``services/trends.py``).
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -80,7 +82,7 @@ async def _scorecard_shift(session: AsyncSession, tenant_id: UUID, label_ids: li
                 EvalScore.scope == "label",
                 EvalScore.metric == LABEL_SCORECARD,
                 EvalScore.scope_id.in_(label_ids),
-                EvalScore.created_at >= datetime.utcnow() - timedelta(days=8),
+                EvalScore.created_at >= utcnow() - timedelta(days=8),
             )
             .order_by(EvalScore.created_at.asc())
         )
@@ -107,7 +109,7 @@ async def department_snapshot(
 ) -> dict[str, Any]:
     from app.services.tickets import workstream_stages
 
-    now = datetime.utcnow()
+    now = utcnow()
     dept = await session.get(Department, department_id)
     flows = (
         await session.execute(

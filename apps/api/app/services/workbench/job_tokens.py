@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +43,7 @@ async def mint_job_token(
 ) -> tuple[ApiToken, str]:
     """Create an ApiToken for this job. Returns (row, plaintext) — plaintext shown once."""
     lifetime = min(max(max_minutes + 30, 60), 12 * 60)
-    expires = datetime.utcnow() + timedelta(minutes=lifetime)
+    expires = utcnow() + timedelta(minutes=lifetime)
     allowlist = list(dict.fromkeys([*(extra_tools or []), *DEFAULT_JOB_TOOLS]))
     plain = f"bok_{secrets.token_urlsafe(32)}"
     token = ApiToken(
@@ -79,7 +81,7 @@ async def revoke_job_token(session: AsyncSession, job: WorkJob) -> None:
     token = await session.get(ApiToken, job.job_token_id)
     if token is None or token.revoked_at is not None:
         return
-    token.revoked_at = datetime.utcnow()
+    token.revoked_at = utcnow()
     session.add(token)
     await record_audit(
         session,
@@ -105,6 +107,6 @@ def token_allowlist(token: ApiToken) -> list[str]:
 def job_token_is_valid(token: ApiToken) -> bool:
     if token.revoked_at is not None:
         return False
-    if token.expires_at and token.expires_at < datetime.utcnow():
+    if token.expires_at and token.expires_at < utcnow():
         return False
     return token.job_id is not None

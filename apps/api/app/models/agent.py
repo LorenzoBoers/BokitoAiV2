@@ -1,3 +1,5 @@
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -72,8 +74,8 @@ class Agent(SQLModel, table=True):
     current_signal_id: Optional[uuid.UUID] = Field(default=None, index=True)
     # Last time the agent ran or replied; updated_at only tracks config edits.
     last_active_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
 
 
 class AgentChatUser(SQLModel, table=True):
@@ -85,7 +87,7 @@ class AgentChatUser(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     agent_id: uuid.UUID = Field(foreign_key="agents.id", index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
 class AgentRun(SQLModel, table=True):
@@ -119,7 +121,7 @@ class AgentRun(SQLModel, table=True):
     pause_reason: Optional[str] = None
     # end_turn | max_turns | no_progress | user_interrupt | permission_rejected | requirement_forced
     stop_reason: str = ""
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utcnow)
     completed_at: Optional[datetime] = None
 
 
@@ -134,4 +136,4 @@ class RunEvent(SQLModel, table=True):
     payload_json: str = Field(default="{}")
     sequence: int = 0
     detail_level: str = Field(default="summary")  # summary | full
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)

@@ -11,6 +11,8 @@ tickets and attaches the latest label scorecard (services/learning.py).
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -114,7 +116,7 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
     from app.services.presence import connected_user_ids_for, visible_user_status
 
     connected = connected_user_ids_for(tenant_id)
-    now = datetime.utcnow()
+    now = utcnow()
     cost = await _agent_costs(session, tenant_id, agent_ids, days=PERIOD_DAYS)
 
     def presence(user: User) -> str:
@@ -166,7 +168,7 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
     tag_ids = [t.id for t in tags.values()]
     counts: dict[UUID, dict[str, int]] = {}
     if tag_ids:
-        now = datetime.utcnow()
+        now = utcnow()
         rows = (
             await session.execute(
                 select(
@@ -399,7 +401,7 @@ async def _agent_costs(session: AsyncSession, tenant_id: UUID, agent_ids: list[U
             .where(
                 UsageLedger.tenant_id == tenant_id,
                 UsageLedger.agent_id.in_(agent_ids),
-                UsageLedger.created_at >= datetime.utcnow() - timedelta(days=days),
+                UsageLedger.created_at >= utcnow() - timedelta(days=days),
             )
             .group_by(UsageLedger.agent_id)
         )
@@ -552,7 +554,7 @@ async def _outcomes(
     """Accepted and rejected proposals, and corrections per flow over the last month."""
     from app.models.learning import Feedback
 
-    since = datetime.utcnow() - timedelta(days=30)
+    since = utcnow() - timedelta(days=30)
     per_flow = []
     for flow in flows:
         down = int(

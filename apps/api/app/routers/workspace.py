@@ -1,5 +1,7 @@
 """Workspace markdown docs API: memory, persona, skills, docs, daily logs."""
 
+from app.core.time import utcnow
+
 import asyncio
 import re
 from typing import Annotated
@@ -335,7 +337,6 @@ async def publish_workspace_doc(
     persona, memory, skills, and logs stay internal.
     """
     import json
-    from datetime import datetime
 
     from app.routers.help_center import article_slug, is_published
     from app.services.audit import record_audit
@@ -383,7 +384,7 @@ async def publish_workspace_doc(
         meta.pop("published", None)
 
     doc.frontmatter_json = json.dumps(meta)
-    doc.updated_at = datetime.utcnow()
+    doc.updated_at = utcnow()
     session.add(doc)
     await record_audit(
         session,

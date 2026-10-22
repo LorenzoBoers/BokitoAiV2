@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from app.core.time import utcnow
+
 from typing import Any
 from uuid import UUID
 
@@ -113,7 +114,7 @@ async def create_connection(
     if existing.scalar_one_or_none():
         raise ValueError("A provider with this label already exists")
 
-    now = datetime.utcnow()
+    now = utcnow()
     conn = ProviderConnection(
         tenant_id=tenant_id,
         provider_type=provider_type,
@@ -145,7 +146,7 @@ async def update_connection(
     if not conn:
         raise ValueError("Provider connection not found")
 
-    now = datetime.utcnow()
+    now = utcnow()
     if label is not None:
         clean_label = label.strip()
         if not clean_label:

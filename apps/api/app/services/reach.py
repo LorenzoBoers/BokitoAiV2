@@ -16,6 +16,8 @@ timeline, the department page and Govern read those events.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, time, timedelta
 from typing import Any
@@ -243,7 +245,7 @@ async def reach_summary(session: AsyncSession, tenant_id: UUID, department_id: U
     """Pushes and calls for one department: latest attempts and how often each person was disturbed."""
     from app.models.auth import User
 
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utcnow() - timedelta(days=days)
     rows = (
         await session.execute(
             select(SignalEvent, Signal.subject)

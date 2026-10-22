@@ -250,7 +250,6 @@ async def test_approve_delete_tag_removes_and_wakes_agent(
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(reason='known WIP flake: soft-option wake / flow destination delivery', strict=False)
 async def test_soft_option_approve_still_wakes_agent(
     client: AsyncClient, session_override, monkeypatch
 ):
@@ -307,10 +306,11 @@ async def test_soft_option_approve_still_wakes_agent(
     async def capture_generate(_session, _tenant_id, _user_id, sig, **_kwargs):
         wakes.append(sig.id)
 
-    import app.services.signal_threads as threads_svc
+    # resolve_message_decision imports these from reply, not the package re-export.
+    import app.services.signal_threads.reply as reply_svc
 
-    monkeypatch.setattr(threads_svc, "_schedule_agent_reply", capture_schedule)
-    monkeypatch.setattr(threads_svc, "_generate_agent_reply", capture_generate)
+    monkeypatch.setattr(reply_svc, "_schedule_agent_reply", capture_schedule)
+    monkeypatch.setattr(reply_svc, "_generate_agent_reply", capture_generate)
 
     resolve = await client.post(
         f"/api/signals/{signal.id}/messages/{msg.id}/resolve",

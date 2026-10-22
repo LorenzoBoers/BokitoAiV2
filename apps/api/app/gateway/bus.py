@@ -9,6 +9,8 @@ messages when they echo back from Redis.
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import asyncio
 import json
 import logging
@@ -16,7 +18,6 @@ import uuid
 from typing import Any, Awaitable, Callable
 
 from app.config import get_settings
-from app.core.time import utcnow
 
 logger = logging.getLogger(__name__)
 

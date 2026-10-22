@@ -25,6 +25,8 @@ Proposals are ordinary ``DecisionRequest`` rows in the thread
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import json
 from datetime import datetime, timedelta
 from typing import Any
@@ -179,7 +181,7 @@ async def _supersede(
     session: AsyncSession, signal: Signal, source_type: str, *, user_id: UUID | None = None, chosen: str = ""
 ) -> None:
     """Close open proposals of this kind. A person's own choice is recorded as a correction."""
-    now = datetime.utcnow()
+    now = utcnow()
     for row in await _open_proposals(session, signal, source_type):
         proposed = _option_payload(row)
         row.status = "deferred"
@@ -310,7 +312,7 @@ async def set_due(
     signal.due_at = due_at
     signal.due_source = source
     signal.due_basis = basis
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     _event(
         session,
@@ -464,7 +466,7 @@ def apply_checklist(
         raise HTTPException(status_code=400, detail=f"Unknown checklist item: {', '.join(unknown)}")
     state = checklist_state(signal)
     agent = actor_type == "agent"
-    now = datetime.utcnow().replace(microsecond=0).isoformat()
+    now = utcnow().replace(microsecond=0).isoformat()
     changed: list[dict[str, Any]] = []
     for key, raw in changes.items():
         wanted = str(raw or "").strip().lower()
@@ -488,7 +490,7 @@ def apply_checklist(
     if not changed:
         return []
     signal.ticket_checklist_json = json.dumps(state)
-    signal.updated_at = datetime.utcnow()
+    signal.updated_at = utcnow()
     session.add(signal)
     _event(session, signal, "ticket_checklist_changed", actor_type, actor_id, {"items": changed})
     return changed

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.core.time import utcnow
+
 import uuid
 from datetime import datetime
 
@@ -25,4 +27,4 @@ class UserIdentity(SQLModel, table=True):
     # Stable IdP subject (Google id/sub, Microsoft oid or Graph id).
     subject: str = Field(index=True)
     email_at_link: str = ""
-    linked_at: datetime = Field(default_factory=datetime.utcnow)
+    linked_at: datetime = Field(default_factory=utcnow)
