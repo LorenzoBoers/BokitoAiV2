@@ -61,7 +61,10 @@ async def test_notify_decision_sends_expo_push(client, session_override):
     )
     await session_override.commit()
 
-    with patch("app.services.push._send_expo_push", new_callable=AsyncMock) as mock_expo:
+    with (
+        patch("app.services.push._send_expo_push", new_callable=AsyncMock) as mock_expo,
+        patch("app.services.reach.in_quiet_hours", return_value=False),
+    ):
         mock_expo.return_value = True
         sent = await notify_decision(session_override, decision)
 

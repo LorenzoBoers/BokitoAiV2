@@ -243,7 +243,10 @@ async def test_schedule_agent_reply_returns_before_generate(monkeypatch):
         calls.append("generate_done")
         finished.set()
 
-    monkeypatch.setattr(threads_svc, "_generate_agent_reply", fake_generate)
+    monkeypatch.setattr(
+        "app.services.signal_threads.reply._generate_agent_reply",
+        fake_generate,
+    )
 
     class _FakeSession:
         async def __aenter__(self):
@@ -257,6 +260,7 @@ async def test_schedule_agent_reply_returns_before_generate(monkeypatch):
                 pass
 
             sig = _Sig()
+            sig.id = signal_id
             sig.tenant_id = tenant_id
             return sig
 
@@ -286,7 +290,10 @@ async def test_schedule_agent_reply_coalesces_bursts(monkeypatch):
         calls.append("generate")
         finished.set()
 
-    monkeypatch.setattr(threads_svc, "_generate_agent_reply", fake_generate)
+    monkeypatch.setattr(
+        "app.services.signal_threads.reply._generate_agent_reply",
+        fake_generate,
+    )
 
     class _FakeSession:
         async def __aenter__(self):
@@ -300,6 +307,7 @@ async def test_schedule_agent_reply_coalesces_bursts(monkeypatch):
                 pass
 
             sig = _Sig()
+            sig.id = signal_id
             sig.tenant_id = tenant_id
             return sig
 
@@ -308,7 +316,7 @@ async def test_schedule_agent_reply_coalesces_bursts(monkeypatch):
             return _FakeSession()
 
     monkeypatch.setattr("app.db.session.async_session_factory", _Factory())
-    monkeypatch.setattr(threads_svc, "_AGENT_REPLY_COALESCE_S", 0.05)
+    monkeypatch.setattr("app.services.signal_threads.reply._AGENT_REPLY_COALESCE_S", 0.05)
     threads_svc._schedule_agent_reply(tenant_id, user_id, signal_id)
     threads_svc._schedule_agent_reply(tenant_id, user_id, signal_id)
     threads_svc._schedule_agent_reply(tenant_id, user_id, signal_id)

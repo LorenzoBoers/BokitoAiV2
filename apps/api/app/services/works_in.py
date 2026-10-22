@@ -157,6 +157,9 @@ async def works_in_items(session: AsyncSession, tenant_id: UUID, project_id: UUI
 
     catalog = await folder_svc.load_catalog(session, tenant_id)
     folder_ids = folder_svc.folder_subtree_ids(catalog, project_id)
+    # Prefer the conversation's folder cache; also accept a direct match on the
+    # folder itself so a just-filed canvas shows up before subtree catalog refresh.
+    scope_ids = set(folder_ids) | {project_id}
     canvases = (
         await session.execute(
             select(ProjectCanvas)
@@ -164,7 +167,7 @@ async def works_in_items(session: AsyncSession, tenant_id: UUID, project_id: UUI
             .where(
                 ProjectCanvas.tenant_id == tenant_id,
                 Signal.tenant_id == tenant_id,
-                Signal.project_id.in_(folder_ids),
+                Signal.project_id.in_(scope_ids),
                 ProjectCanvas.deleted_at.is_(None),
             )
             .order_by(ProjectCanvas.created_at)
@@ -315,4 +318,11 @@ async def add_item(
         )
         key = resource_key(created["id"])
     item = await item_for_key(session, tenant_id, project_id, key)
+    if item is None and kind == "canvas" and canvas_id:
+        # create_canvas commits in its own unit of work; the folder refile
+        # may not yet show in works_in_items for this session. Still return
+        # the just-created canvas so callers can deep-link immediately.
+        row = await session.get(ProjectCanvas, UUID(str(canvas_id)))
+        if row is not None:
+            item = canvas_item(row, project_id)
     return {"item": item, "created": created}
