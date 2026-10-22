@@ -1030,7 +1030,7 @@ async def _list_teams(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         "count": len(teams),
         "note": (
             "Departments (afdelingen): groups of people and agents. "
-            "Not folders (werkmappen). Call list_folders to list or file into folders."
+            "Not folders (mappen). Call list_folders to list or file into folders."
         ),
     }
 
@@ -1043,7 +1043,7 @@ register_tool(
             "includes the two system departments (kind=people / All people / "
             "Alle mensen, and kind=agents / All agents / Alle agents) plus custom "
             "departments such as Accounting or Support. These are not folders "
-            "(Werkmappen). Never present this list as folders or werkmappen; to "
+            "(Mappen). Never present this list as folders or mappen; to "
             "list or file places where work is stored, call list_folders. Returns "
             "mention chips @[Name](team:{id}). Use this for which departments "
             "exist — never list_threads, list_contacts, or list_folders. Do not "

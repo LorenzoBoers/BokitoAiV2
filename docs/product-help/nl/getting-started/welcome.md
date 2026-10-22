@@ -1,7 +1,7 @@
 ---
 title: Welkom bij Bokito
 intro: De inbox, de agents en de goedkeuringen — eindelijk in een systeem.
-description: Bokito verenigt klantgesprekken, AI-agents en menselijke goedkeuringen in een operationele flow. Lees wat het platform doet en waar je begint.
+description: Bokito verenigt klantgesprekken, AI-agents en menselijke goedkeuringen in een operationele werk. Lees wat het platform doet en waar je begint.
 keywords: bokito, introductie, overzicht, ai operations, aan de slag
 sort: 10
 related: features,quickstart,tour,setup-guide
@@ -16,13 +16,13 @@ Bokito is een operations-platform voor afdelingen die AI echt werk willen laten 
 ![Bokito-zijbalk](/api/docs/assets/welcome/rail.png)
 *Eén zijbalk: Vandaag en Communicatie bovenaan, daarna Werk, AI en Organisatie.*
 
-- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [Autonomie](/docs/inbox/inbox-ai) bepaalt of de AI zelf antwoordt, concepten ter controle maakt of stil blijft. [Labels](/docs/ai/categories) zijn hashtags; een label met een flow maakt van een gesprek een ticket dat door de fasen van die flow gaat. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
-- [Agents](/docs/ai/agents) zijn collega's met een doel, kennis en tools. [Flows](/docs/ai/flows) zijn de faseborden waar tickets doorheen gaan.
+- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [Autonomie](/docs/inbox/inbox-ai) bepaalt of de AI zelf antwoordt, concepten ter controle maakt of stil blijft. [Labels](/docs/ai/categories) zijn hashtags; een label met een werk maakt van een gesprek een ticket dat door de fasen van dat werk gaat. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
+- [Agents](/docs/ai/agents) zijn collega's met een doel, kennis en tools. [Werken](/docs/ai/flows) zijn de faseborden waar tickets doorheen gaan.
 - Keuzekaarten verschijnen in het gesprek wanneer een stap oordeel vraagt. Structurele wijzigingen landen als concepten op Govern.
 
 ## Hoe een dag loopt
 
-Werk landt als gesprek. Een agent gebruikt [Kennis](/docs/ai/knowledge) en antwoordt, concept of vraagt. [Vandaag](/docs/getting-started/cockpit) toont wat jou nodig heeft. Inloggen onthoudt het laatste e-mailadres op dit apparaat. Spring met `Ctrl+K` — zoek **Nodig een teammate uit**, **Praat met een agent**, **Nieuwe werkmap**, of **Open mijn profiel**. In-app **Support** (Instellingen) en publieke **Docs** onthouden het laatste artikel dat je opende. Topbalk **Hulp** opent Bokito. Autonomie schroef je in de tijd op.
+Werk landt als gesprek. Een agent gebruikt [Kennis](/docs/ai/knowledge) en antwoordt, concept of vraagt. [Vandaag](/docs/getting-started/cockpit) toont wat jou nodig heeft. Inloggen onthoudt het laatste e-mailadres op dit apparaat. Spring met `Ctrl+K` — zoek **Nodig een teammate uit**, **Praat met een agent**, **Nieuwe map**, of **Open mijn profiel**. In-app **Support** (Instellingen) en publieke **Docs** onthouden het laatste artikel dat je opende. Topbalk **Hulp** opent Bokito. Autonomie schroef je in de tijd op.
 
 ## Waar je begint
 

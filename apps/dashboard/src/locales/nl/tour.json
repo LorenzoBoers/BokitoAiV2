@@ -10,7 +10,7 @@
       },
       "ai": {
         "title": "AI-workforce",
-        "body": "Agents met duidelijke rechten doen het werk. Werkmappen en Kennis geven ze context die meegroeit."
+        "body": "Agents met duidelijke rechten doen het werk. Mappen en Kennis geven ze context die meegroeit."
       },
       "automations": {
         "title": "Automatiseringen",
@@ -29,10 +29,10 @@
     "skip": "Nu overslaan"
   },
   "steps": {
-      "communication": {
-        "title": "Inbox",
-        "body": "Elk kanaal komt hier binnen: e-mail, websitechat en gesprekken met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
-      },
+    "communication": {
+      "title": "Inbox",
+      "body": "Elk kanaal komt hier binnen: e-mail, websitechat en gesprekken met je agents. AI handelt routine af en vraagt om jouw beslissing wanneer het ertoe doet."
+    },
     "ai": {
       "title": "Je AI-workforce",
       "body": "Agents zijn je digitale collega's. Kennis staat naast ze onder Agents, en Workforce toont mensen, afdelingen en de Grid."

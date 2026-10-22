@@ -25,7 +25,7 @@ export type ChatBlock =
   | { type: 'line'; inline: ChatInline[]; bold?: boolean; quote?: boolean }
   /** Consecutive bullet / numbered lines, rendered as one calm list. */
   | { type: 'list'; ordered: boolean; items: ChatInline[][] }
-  | { type: 'code'; text: string }
+  | { type: 'code'; text: string; lang: string }
   | { type: 'gap' }
 
 /** Optional map of lowercase tag name -> kind for bare #name resolution. */
@@ -300,7 +300,9 @@ export function parseChatText(
   let i = 0
   while (i < lines.length) {
     const line = lines[i]
-    if (/^\s*```/.test(line)) {
+    const fence = line.match(/^\s*```(.*)$/)
+    if (fence) {
+      const lang = fence[1].trim()
       const code: string[] = []
       i += 1
       while (i < lines.length && !/^\s*```/.test(lines[i])) {
@@ -308,7 +310,7 @@ export function parseChatText(
         i += 1
       }
       i += 1
-      blocks.push({ type: 'code', text: code.join('\n') })
+      blocks.push({ type: 'code', text: code.join('\n'), lang })
       continue
     }
     if (RULE_RE.test(line) || TABLE_SEP_RE.test(line)) {

@@ -148,10 +148,17 @@ const nlWordRes = glossary.nlWords.map((word) => ({
 }))
 
 function scanText(rel, text, { dutch }) {
+  // Strip links, code, icon tokens, EN gloss lines and related: slug lists so
+  // URL/API identifiers (e.g. /flows, {icon:flow}, **EN:** Flow) are not
+  // treated as Dutch operator copy.
   const visible = text
     .replace(/\]\([^)]+\)/g, ']')
     .replace(/\/docs\/[a-z0-9/_-]+/gi, '')
+    .replace(/\/api\/[a-z0-9/_?=&-]+/gi, '')
     .replace(/`[^`\n]*`/g, '')
+    .replace(/\{icon:[^}]+\}/g, '')
+    .replace(/\*\*EN:\*\*[^\n]*/g, '')
+    .replace(/^related:[^\n]*/gim, '')
   text = visible
   for (const phrase of glossary.badOutcomes) {
     if (text.includes(phrase)) errors.push(`${rel}: bad outcome "${phrase}"`)
@@ -193,10 +200,15 @@ if (fs.existsSync(mobileCopy)) {
   const nlKeys = keysOf(nlBlock || '')
   for (const key of enKeys) if (!nlKeys.has(key)) errors.push(`mobile nl missing ${key}`)
   for (const key of nlKeys) if (!enKeys.has(key)) errors.push(`mobile en missing ${key}`)
-  const literals = [...source.matchAll(/'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)"/g)]
-  literals.forEach((m, i) => {
-    scanText(`apps/mobile/src/lib/copy.ts#${i}`, m[1] ?? m[2] ?? '', { dutch: true })
-  })
+  // Values only (keys may keep English ids such as inbox.flows).
+  const valRe = /:\s*(?:'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)")/g
+  const scanBlock = (block, dutch, tag) => {
+    ;[...block.matchAll(valRe)].forEach((m, i) => {
+      scanText(`apps/mobile/src/lib/copy.ts#${tag}${i}`, m[1] ?? m[2] ?? '', { dutch })
+    })
+  }
+  scanBlock(enBlock || '', false, 'en')
+  scanBlock(nlBlock || '', true, 'nl')
 }
 
 const allowPath = path.join(here, 'copy-tsx-allowlist.txt')

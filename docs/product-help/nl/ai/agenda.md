@@ -19,7 +19,7 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 1. Open **Agenda**. Het hulp-icoon naast de titel in de bovenbalk opent deze gids. **Dag** is de standaard; wissel op dezelfde rij als **Nieuw** naar **Week**, **Maand** of **Lijst**, of druk op D, W, M of L.
 2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen. In **Lijst** begint de huidige dag bovenaan; scroll omhoog voor eerdere dagen, kies een datum op de minikalender onder **Wanneer**, of gebruik **Terug naar boven** na omlaag scrollen. De rail blijft zichtbaar terwijl de lijst scrollt.
 3. Links blijft de minikalender vast staan. Sleep daaronder de sectiekoppen (**Wat**, personen, agents, **Agenda's**) om de volgorde te wijzigen. **Wat** is dezelfde `#`-boom als Communicatie: één actieve tak filtert taken en activiteit die aan een gesprek hangen. Gekoppelde agenda's negeren die filter. Vink mensen en agents aan of uit zoals bij agenda's. Zet elke Google- of Outlook-agenda aan of uit onder **Agenda's**. Het plusje naast **Agenda's** opent Koppelingen gefilterd op agenda's.
-4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, de werkmap of de agent.
+4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, de map of de agent.
 
 ## Handel wat aandacht vraagt
 
@@ -28,11 +28,11 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 3. Open een taak om het gesprek, de eigenaar en het moment te zien. Bij een terugkerende fase-opvolging kies je **Nu checken** om hem direct te starten, of **Pauzeren** om hem te stoppen.
 4. Druk overal op Ctrl+K (Cmd+K op Mac) en kies **Openstaande taken**.
 
-## Volg tickets op vanuit een flow
+## Volg tickets op vanuit een werk
 
-1. Open een Flow en kies **Bewerken**. Elke fase heeft een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme (**Uit**, uren, dagen of een week).
+1. Open een Werk en kies **Bewerken**. Elke fase heeft een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme (**Uit**, uren, dagen of een week).
 2. Komt een ticket in die fase, dan maakt Agenda een terugkerende taak voor wie het gesprek bezit. Agents pakken hem op als wake; mensen zien hem in hun agenda en krijgen het gesprek ongelezen wanneer hij due is.
-3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Flow met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Flows](/docs/ai/flows).
+3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Werk met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Werken](/docs/ai/flows).
 4. Een ticket met een deadline staat op die datum als item voor de hele dag met **Deadline**, de bron en de eigenaar; een te late blijft gemarkeerd tot het ticket klaar is. Bij de deadline komt de check-up eerder: aan het begin van de periode waarin de deadline nadert, de dag ervoor en op de dag zelf, daarna dagelijks als de datum voorbij is.
 5. Op een contactpagina toont elk gesprek zijn label, fase en volgende geplande taak.
 
@@ -54,7 +54,7 @@ De leidende agent van elke afdeling kijkt elke werkdag naar het werk en zegt wat
 
 1. Zet de check-in aan: in de [setupgids](/docs/getting-started/setup-guide) heeft **Laat de assistent waken** de knop **Check-in aanzetten**, of vraag het de assistent. Elke afdeling met een **Leidende agent** krijgt dan een oriëntatie in plaats van de uurlijkse check-in: werkdagen om 07:30 in het afdelingsgesprek.
 2. De briefing noemt tickets over hun deadline, tickets die langer op een klant wachten dan de check-up van de fase, verplichte velden of checklistpunten die nog open staan, mensen die boven hun **Uren per week** zijn ingepland, en koppelingen die opnieuw verbonden moeten worden.
-3. Op maandag kijkt de briefing ook hoe de scorekaarten van de flows bewogen en noemt een verbetering om te proberen.
+3. Op maandag kijkt de briefing ook hoe de scorekaarten van de werken bewogen en noemt een verbetering om te proberen.
 4. De oriëntatie staat in de **Agenda** onder routines en in het afdelingsgesprek als volgende wake.
 
 ## Krijg trends per klant
@@ -77,4 +77,4 @@ De Google- of Outlook-koppeling houdt de aanmelding; elke workspace-agenda heeft
 
 ## Wat nu
 
-Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elke [werkmap](/docs/ai/folders) (een bewaarde tag-filterset) filtert Agenda op dezelfde manier als Communicatie.
+Afgeronde runs verschijnen onder [Agent-runs](/docs/inbox/agent-runs). Elke [map](/docs/ai/folders) (een bewaarde tag-filterset) filtert Agenda op dezelfde manier als Communicatie.

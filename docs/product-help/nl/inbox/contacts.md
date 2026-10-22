@@ -19,7 +19,7 @@ Iedereen die binnenkomt met een echte naam of adres landt hier. Open Contacten o
 1. Open een gesprek in [Communicatie](/docs/inbox/communication).
 2. Bij een bekende persoon klik je hun naam in het zijpaneel of de gespreksheader om hun contact te openen.
 3. Lees geschiedenis en andere gesprekken, en spring terug naar het open werk. In het zijpaneel staat het bedrijf op dezelfde regel als **Contact**. **Andere gesprekken** is een lijst van één regel (status, kanaal, onderwerp, tijd). Die omvat alle kanalen: iemand die op de website chat en ook mailt vanaf hetzelfde adres toont één gecombineerde geschiedenis.
-4. Op het contact labelt **Tags** de persoon. Die tags gelden voor elk gesprek van dit contact (gestippelde chips **via contact** op het gesprek). Bedrijfstags tonen als gestippelde chips **via bedrijf**. Wijzigen herborgt elk gesprek. Boven de gesprekken toont **In werkmappen** elke werkmap waarin die gesprekken landen. Klik op een werkmap om die te openen. Bedrijven tonen dezelfde rij voor al hun mensen samen.
+4. Op het contact labelt **Tags** de persoon. Die tags gelden voor elk gesprek van dit contact (gestippelde chips **via contact** op het gesprek). Bedrijfstags tonen als gestippelde chips **via bedrijf**. Wijzigen herborgt elk gesprek. Boven de gesprekken toont **In mappen** elke map waarin die gesprekken landen. Klik op een map om die te openen. Bedrijven tonen dezelfde rij voor al hun mensen samen.
 
 Onbekende websitebezoekers blijven in het gesprek als **Websitebezoeker**. Ze hebben geen **Profiel** en staan niet onder Contacten tot ze het [vooraf-formulier](/docs/inbox/widget) van de widget invullen of je [het gesprek koppelt](#een-gesprek-aan-een-contact-koppelen).
 

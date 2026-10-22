@@ -9,7 +9,7 @@ related: mcp,models,channels,govern,categories
 
 # Koppelingen
 
-Koppelingen zijn partnerlogins. Een **module** is één pakket met hashtags, flows en een afdeling, plus de tools voor toegestane partners. **Koppelingen** in de zijbalk op `/connections` is één pagina voor dit alles: wat verbonden is bovenaan, daaronder één grid met elke module, integratie en AI-tool. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
+Koppelingen zijn partnerlogins. Een **module** is één pakket met hashtags, werken en een afdeling, plus de tools voor toegestane partners. **Koppelingen** in de zijbalk op `/connections` is één pagina voor dit alles: wat verbonden is bovenaan, daaronder één grid met elke module, integratie en AI-tool. Een module installeren voegt nooit een zijbalkitem toe; open de module vanuit Koppelingen. Alleen koppelen geeft agents geen tools; installeer de module en wijs een agent toe.
 
 ## Zie wat gekoppeld is
 
@@ -27,9 +27,9 @@ Koppelingen zijn partnerlogins. Een **module** is één pakket met hashtags, flo
 
 1. Gebruik onder **Alles** de categorie-chips: **Communicatie**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** en **AI-tools**. Elke chip toont zijn aantal. Zoeken werkt op namen en beschrijvingen in elke categorie, en matcht ook een module wanneer je een partternaam typt (bijvoorbeeld **Moneybird** toont **Boekhouding**). De chip staat in de URL (`/connections?kind=mcp` voor Tools, `?kind=modules`, `?kind=ai_tools`), dus een link opent altijd de categorie die hij noemt.
 2. Kaarten vormen één platte lijst — nooit genest in een module, nooit gegroepeerd onder een vendor. Modulepakketten (Moneybird API, KING, Bjorn Lunden, en hetzelfde patroon voor Bankieren / Documenten wanneer die live gaan) krijgen **geen** eigen catalogkaart; die koppel je alleen vanuit de modulepagina. Hosted MCP-kaarten (bijvoorbeeld **Moneybird MCP**) blijven in het grid naast de module. Microsoft 365, Outlook Calendar en Microsoft Graph hebben elk een eigen kaart. Een modulekaart draagt het label **Module**. De specialist staat rechts, alleen zo breed als naam en functie, met een gloed in die kleur. Beschrijving, aantal tools en partnerlogo's vullen de rest. Coming-soon modules staan faded tot ze live gaan.
-3. Kies een **module**- of **integratiekaart**. Er opent een showcase-modal: modules openen met de expert (naam, functie, levende avatar) en drie voordelen met een vinkje, partners, Labels en flows (hashtags), en de namen van de agent-tools (de volledige lijst via Toon details, inclusief websitechat), met **Installeren** / **Module openen**; koppelingen tonen beschrijving, endpoint, mogelijkheden en **Koppelen**. Rond OAuth of setup af; je keert hier terug met de modal open. Een login blijft op Koppelingen tot je hem aan een module hangt.
+3. Kies een **module**- of **integratiekaart**. Er opent een showcase-modal: modules openen met de expert (naam, functie, levende avatar) en drie voordelen met een vinkje, partners, Labels en werken (hashtags), en de namen van de agent-tools (de volledige lijst via Toon details, inclusief websitechat), met **Installeren** / **Module openen**; koppelingen tonen beschrijving, endpoint, mogelijkheden en **Koppelen**. Rond OAuth of setup af; je keert hier terug met de modal open. Een login blijft op Koppelingen tot je hem aan een module hangt.
 4. Agents linken rechtstreeks naar deze modal: een kaart in een gesprek opent `/connections?connect=slack_mcp` met de Slack-modal al open. Een modulepakket-vermelding zoals Moneybird opent de pagina **Boekhouding**.
-5. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [werkmap](/docs/ai/folders). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Tools** of **Custom MCP-servers**. Zie [MCP](/docs/integrations/mcp).
+5. Communicatie-apps voegen wachtrijen toe (e-mail, WhatsApp). Code-apps hangen aan een [map](/docs/ai/folders). Agenda-apps syncen naar [Agenda](/docs/ai/agenda). Tool-apps landen onder **Tools** of **Custom MCP-servers**. Zie [MCP](/docs/integrations/mcp).
 
 WhatsApp zelf configureer je onder **Kanalen**, niet alleen hier. De kaart wijst je daarheen.
 
@@ -40,7 +40,7 @@ Notion, Canva, Google Drive en Sheets, Mailblue, Metricool en Zapier koppel je v
 1. Zoek de tool op **Koppelingen** en kies de kaart. **Notion** en **Canva** log je in bij de aanbieder. **Google Drive** dekt Drive en Sheets: agents zoeken en lezen bestanden en schrijven rijen naar een sheet.
 2. **Mailblue** vraagt de **Account-URL** en de **API-sleutel**. **Metricool** vraagt de **API-token**, de **Gebruikers-id** en, als je wilt, een **Standaard merk-id**. **Zapier** vraagt je **Persoonlijke MCP-server-URL**, met de acties die je in Zapier aanzette.
 3. Kies **Koppelen**. Bokito test de login meteen en toont een fout als een veld niet klopt.
-4. Gebruik de koppeling alleen voor één klant of afdeling met de sectie hieronder, en noem hem op een flow bij **Gebruikt** zodat de agents ermee werken.
+4. Gebruik de koppeling alleen voor één klant of afdeling met de sectie hieronder, en noem hem op een werk bij **Gebruikt** zodat de agents ermee werken.
 
 ## Een koppeling opnieuw verbinden
 
@@ -58,7 +58,7 @@ Bokito test elke koppeling een keer per dag.
 ## Installeer een bedrijfsmodule
 
 1. Open **Koppelingen** in de zijbalk onder **Organisatie**. Geïnstalleerde modules staan in de strook **Verbonden**; gebruik de chip **Modules** om een preset te vinden die nog niet geïnstalleerd is.
-2. Open **Boekhouding** (of een andere live module) en kies **Afdeling toevoegen**. Een module is een afdeling in een doos: een specialist-agent, labels en flows. Kies onder **Afdeling** een **Nieuwe afdeling** of een bestaande afdeling die al vergelijkbaar werk doet; Bokito stelt de beste match voor. Kies de **Eindverantwoordelijke**. Heeft de afdeling al een leider, vink dan **Laat de specialist leiden** aan om de specialist eerste te maken; anders sluit hij aan als lid. Bokito kopieert de hashtags, flows, bronnen en skill. De catalog-kaart toont **Geïnstalleerd** met een vinkje en **Beheren**. Latere bewerkingen op die afdeling blijven van jou.
+2. Open **Boekhouding** (of een andere live module) en kies **Afdeling toevoegen**. Een module is een afdeling in een doos: een specialist-agent, labels en werken. Kies onder **Afdeling** een **Nieuwe afdeling** of een bestaande afdeling die al vergelijkbaar werk doet; Bokito stelt de beste match voor. Kies de **Eindverantwoordelijke**. Heeft de afdeling al een leider, vink dan **Laat de specialist leiden** aan om de specialist eerste te maken; anders sluit hij aan als lid. Bokito kopieert de hashtags, werken, bronnen en skill. De catalog-kaart toont **Geïnstalleerd** met een vinkje en **Beheren**. Latere bewerkingen op die afdeling blijven van jou.
 3. De toast biedt **Praat met specialist**. Op de modulepagina kun je hun chat openen of een andere bedrijfsagent toewijzen. Markeer er één als **Standaard**. Alleen agents op de roster krijgen de tools van deze module. **Deïnstalleren** archiveert de specialist. Een afdeling die de module zelf maakte wordt soft-verwijderd; een afdeling waar hij bij aansloot blijft met haar eigen werk. Partnerlogins blijven op Koppelingen.
 4. Bekijk **Wat agents kunnen doen**: elke actie toont een korte beschrijving, het pad (`accounting_list_companies`, …), **Lezen** of **Goedkeuring nodig**, en **Websitechat** wanneer de tool in de widget mag (aanzetten onder Overzicht). Als partners gekoppeld zijn, toont **Tools van gekoppelde MCP-servers** de ontdekte MCP-namen.
 5. Bovenaan de modulepagina, onder **Koppelingen**, kies je **Nieuwe registratie** om het modulepakket (Moneybird, KING of Bjorn Lunden) te koppelen en toe te voegen, of **Bestaande koppeling gebruiken** wanneer er al een login bestaat. Geplande pakketten (Exact Online, SnelStart) blijven grijs. De overige tabs zijn **Overzicht**, **Bronnen** en **Setup**.
@@ -72,7 +72,7 @@ Bokito test elke koppeling een keer per dag.
 1. Open **Boekhouding** via de kaart op **Koppelingen**. Registraties staan bovenaan de modulepagina (niet op een aparte tab). De lijst toont alleen attached registraties, niet elke Moneybird-login in de workspace.
 2. Kies **Nieuwe registratie** om vanuit de module te koppelen (die login wordt automatisch attached), of **Deze koppeling gebruiken** voor een login die al op Koppelingen staat.
 3. Rond setup af met echte credentials (OAuth voor Moneybird, partner key plus administraties voor KING, client id/secret voor Bjorn Lunden, Trading API-key plus secret voor Alpaca). Alleen een willekeurige naam maakt geen werkende koppeling.
-4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, de werkmappen (of **Alle werkmappen**), en acties: **Verifiëren**, **Als standaard** (alleen als geverifieerd), **Hernoemen**, **Uit module halen** (de login blijft op Koppelingen), **Ontkoppelen** en **Beheren** voor werkmappen en toegang.
+4. Elke rij toont status (**Geverifieerd**, **Credentials nodig**, **Niet geverifieerd** of **Fout**), optionele provider-identiteit, de mappen (of **Alle mappen**), en acties: **Verifiëren**, **Als standaard** (alleen als geverifieerd), **Hernoemen**, **Uit module halen** (de login blijft op Koppelingen), **Ontkoppelen** en **Beheren** voor mappen en toegang.
 5. Elke administratie koppel je één keer. Dezelfde Moneybird-administratie of KING-omgeving opnieuw koppelen werkt de bestaande registratie bij en toont **Deze administratie was al gekoppeld**, in plaats van een tweede rij toe te voegen.
 6. Alleen agents die aan de module zijn toegewezen mogen de gedeelde boekhoud-toolset gebruiken. Propose-tools landen als een [beslissing](/docs/ai/decisions) die jij goedkeurt.
 
@@ -81,31 +81,31 @@ Bokito test elke koppeling een keer per dag.
 Losse catalog-logins (inbox, agenda, hosted MCP, custom tools) openen een providerpaneel. Modulepakketten zoals Moneybird API beheer je op de pagina **Boekhouding**.
 
 ![Providerkoppelingen](/api/docs/assets/integrations/provider-connections.png)
-*Het providerpaneel toont elke registratie met status, werkmappen en acties.*
+*Het providerpaneel toont elke registratie met status, mappen en acties.*
 
 1. Open **Koppelingen** en kies een losse providerkaart, bijvoorbeeld **Moneybird MCP** of **Slack**.
-2. Het paneel toont elke registratie met status, identiteit, administratienummer, werkmappen en de modules die hem gebruiken. Een badge **Beperkt** betekent dat alleen sommige mensen of agents hem mogen gebruiken.
+2. Het paneel toont elke registratie met status, identiteit, administratienummer, mappen en de modules die hem gebruiken. Een badge **Beperkt** betekent dat alleen sommige mensen of agents hem mogen gebruiken.
 3. Gebruik **Verifiëren**, **Hernoemen** of **Ontkoppelen** op een rij. Ontkoppelen haalt hem weg als modulestandaard en verwijdert zijn folderkoppelingen.
 4. Kies **Nog een registratie toevoegen** om een tweede account te koppelen. Dezelfde administratie twee keer werkt de bestaande rij bij.
 5. Voor Moneybird API, KING of Bjorn Lunden open je **Boekhouding** en beheer je registraties bovenaan die pagina.
 
 ## Gebruik een koppeling alleen voor één klant of afdeling
 
-Koppel een registratie aan werkmappen wanneer hij bij één klant of afdeling hoort.
+Koppel een registratie aan mappen wanneer hij bij één klant of afdeling hoort.
 
 1. Open de providerkaart op **Koppelingen** (of de modulepagina) en kies **Beheren** bij de registratie.
-2. Selecteer onder **Werkmappen** een of meer werkmappen en kies **Werkmappen opslaan**.
-3. Een gekoppelde registratie is exclusief: agents gebruiken hem alleen voor werk in die werkmappen (een gesprek in de werkmap, of een run met die werkmap). Daarbuiten is hij niet beschikbaar.
-4. Zonder geselecteerde werkmap toont de registratie **Alle werkmappen** en werkt hij overal. Binnen een werkmap kiezen agents de registratie van die werkmap vóór de modulestandaard.
+2. Selecteer onder **Mappen** een of meer mappen en kies **Mappen opslaan**.
+3. Een gekoppelde registratie is exclusief: agents gebruiken hem alleen voor werk in die mappen (een gesprek in de map, of een run met die map). Daarbuiten is hij niet beschikbaar.
+4. Zonder geselecteerde map toont de registratie **Alle mappen** en werkt hij overal. Binnen een map kiezen agents de registratie van die map vóór de modulestandaard.
 
-Je kunt ook koppelen vanaf de pagina van de werkmap; zie [Werkmappen](/docs/ai/folders). Het koppelingspaneel noemt die lijst **Werkmappen** en de knop **Werkmappen opslaan**.
+Je kunt ook koppelen vanaf de pagina van de map; zie [Mappen](/docs/ai/folders). Het koppelingspaneel noemt die lijst **Mappen** en de knop **Mappen opslaan**.
 
 ## Kies wie een koppeling mag gebruiken
 
 Bepaal welke mensen, agents en afdelingen een registratie mogen gebruiken of beheren.
 
 1. Kies **Beheren** bij de registratie en daarna de knop onder **Toegang** (standaard **Alle mensen en agents**).
-2. Kies per team, persoon of agent **Gebruiken** (de tools ervan draaien) of **Beheren** (verifiëren, hernoemen, werkmappen koppelen, toegang wijzigen). **Geen toegang** verbergt hem voor hen.
+2. Kies per team, persoon of agent **Gebruiken** (de tools ervan draaien) of **Beheren** (verifiëren, hernoemen, mappen koppelen, toegang wijzigen). **Geen toegang** verbergt hem voor hen.
 3. Kies **Opslaan**. **Terug naar standaard** geeft alle mensen en agents weer **Gebruiken**. Eigenaren en beheerders beheren altijd elke koppeling.
 4. Een agent zonder toegang kan de registratie niet bereiken; de poging staat in het auditlog. Agents kunnen een wijziging voorstellen met `set_connection_scope`, wat altijd om goedkeuring vraagt.
 
@@ -132,13 +132,13 @@ Elk Google- of Microsoft-account is één koppeling; voeg er zoveel toe als nodi
 4. Kies onder **Administratie-scope** de administraties die de agent mag benaderen. Geen selectie betekent toegang tot alle administraties.
 5. Elke voorgestelde schrijfactie landt als beslissingskaart met de administratie en de inhoud. Goedkeuren voert de actie alleen uit als beide schrijfschakelaars aan staan.
 
-## Installeer een flowsjabloon
+## Installeer een werksjabloon
 
-Modules leveren één cataloguspakket met hashtags en voorgebouwde flows. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
+Modules leveren één cataloguspakket met hashtags en voorgebouwde werken. Voorbeelden zijn **Btw-aangifte voorbereiden** en **Maandafsluiting beoordelen** op Boekhouding en **Bankreconciliatie** op Bankieren.
 
-1. Open de modulepagina vanuit **Koppelingen**. Als de module aan staat, toont het paneel **Flowsjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
+1. Open de modulepagina vanuit **Koppelingen**. Als de module aan staat, toont het paneel **Werksjablonen** wat de module meelevert, met het aantal stappen per sjabloon.
 2. Een sjabloon dat nog niet kan draaien, laat zien waarom (moduleverbinding ontbreekt, vereiste agentrol niet toegewezen). Los eerst die vereiste op.
-3. Kies **Installeren**. De flow wordt naar je workspace gekopieerd — jij bent eigenaar en mag de kopie bewerken. **Flow openen** brengt je ernaartoe onder [Flows](/docs/ai/flows).
+3. Kies **Installeren**. Het werk wordt naar je workspace gekopieerd — jij bent eigenaar en mag de kopie bewerken. **Werk openen** brengt je ernaartoe onder [Werken](/docs/ai/flows).
 4. Voor elke run van een geïnstalleerd sjabloon controleert Bokito de vereisten opnieuw; een kapotte vereiste pauzeert de run met een beslissing in plaats van stil te falen.
 
 ## Indexeer modulebronnen

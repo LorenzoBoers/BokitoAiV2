@@ -99,7 +99,7 @@ Setup, Connections, Channels and the reply composer all use the same channel sta
 
 1. Disconnect the channel first. A channel that still has conversations cannot be deleted directly.
 2. Open the disconnected channel and choose **Delete permanently** next to **Delete with all data** under **Manage**.
-3. The dialog shows how many conversations go with it. Type the channel address or name to confirm, then choose **Delete permanently**.
+3. The dialog shows how many conversations go with it. Click the channel address or name to copy it into the field, or type it, then choose **Delete permanently**.
 4. The channel and every conversation it brought in are deleted, including messages and attachments. They do not go to the Bin and cannot be restored.
 
 In Communication, a thread that cannot send yet shows **Finish channel setup** when a channel exists but is not ready, or **Connect a mailbox** when none is linked. The setup guide marks the channel step done only when a mailbox can send or receive.

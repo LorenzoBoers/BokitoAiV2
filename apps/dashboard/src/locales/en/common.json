@@ -27,7 +27,8 @@
   },
   "confirmDialog": {
     "title": "Are you sure?",
-    "typeToConfirm": "Type {{value}} to confirm.",
+    "typeLead": "Type",
+    "typeTail": "to confirm.",
     "typePlaceholder": "Type exactly: {{value}}"
   },
   "autosave": {

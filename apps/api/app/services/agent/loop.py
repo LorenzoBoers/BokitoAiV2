@@ -271,6 +271,7 @@ class AgentLoop:
 
     _STRUCTURE_LINE_RE = re.compile(r"^\s*(#{1,6}\s|[-*\u2022]\s|\d+[.)]\s|\*\*[^*]+:\*\*|\|)")
     _CANVAS_FENCE_RE = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
+    _CANVAS_FENCE_LANGS = frozenset({"mermaid", "mmd", "jsx", "tsx", "svg", "bokito"})
     _CANVAS_MARKUP_RE = re.compile(
         r"<\s*(?:BarChart|LineChart|PieChart|Stat|Stack|Grid|Row|Card|Table|Callout|"
         r"ScatterPlot|BoxPlot|Heatmap|bokito-canvas)\b"
@@ -305,6 +306,37 @@ class AgentLoop:
             re.search(r"(?i)export\s+default\s+function\s+Canvas\b", body)
             or re.search(r"(?i)from\s+['\"]bokito/canvas['\"]", body)
         )
+
+    def _fence_lang(self, fence: str) -> str:
+        head = fence.split("\n", 1)[0]
+        return head.lstrip("`").strip().lower().split()[0] if head else ""
+
+    def _fence_is_canvas(self, fence: str) -> bool:
+        """Mermaid, JSX, and SVG fences belong on a canvas. Text fences stay in chat."""
+        lang = self._fence_lang(fence)
+        if lang in self._CANVAS_FENCE_LANGS:
+            return True
+        body = fence.split("\n", 1)[1] if "\n" in fence else fence
+        return self._canvas_body_in_text(body)
+
+    def _drop_canvas_fences(self, text: str) -> str:
+        return self._CANVAS_FENCE_RE.sub(
+            lambda match: "" if self._fence_is_canvas(match.group(0)) else match.group(0),
+            text or "",
+        ).strip()
+
+    def _keep_chat_speech(self, text: str) -> str:
+        """Drop canvas source. Keep prose and copyable text fences in the bubble."""
+        cleaned = self._drop_canvas_fences(text)
+        if not self._canvas_body_in_text(cleaned):
+            return cleaned
+        kept = [
+            match.group(0)
+            for match in self._CANVAS_FENCE_RE.finditer(cleaned)
+            if not self._fence_is_canvas(match.group(0))
+        ]
+        opening = self._canvas_chat_opening(self._CANVAS_FENCE_RE.sub("", cleaned))
+        return "\n\n".join(part for part in [opening, *kept] if part).strip()
 
     def _canvas_chat_opening(self, text: str) -> str:
         """At most one short prose sentence. Never keep fences or JSX."""
@@ -352,9 +384,13 @@ class AgentLoop:
         # A canvas already written this turn can still leak its source afterwards.
         if self._canvas_placed or self._canvas_opened:
             return self._canvas_body_in_text(body)
-        if "```" in body or self._canvas_body_in_text(body):
+        if self._canvas_body_in_text(body):
             return True
-        structure = sum(1 for line in body.splitlines() if self._STRUCTURE_LINE_RE.match(line))
+        if any(self._fence_is_canvas(match.group(0)) for match in self._CANVAS_FENCE_RE.finditer(body)):
+            return True
+        # Copyable text fences are chat, not a canvas. Count structure outside them.
+        prose = self._CANVAS_FENCE_RE.sub("", body)
+        structure = sum(1 for line in prose.splitlines() if self._STRUCTURE_LINE_RE.match(line))
         return structure >= 8
 
     async def _strip_canvas_speech(self) -> str:
@@ -365,14 +401,14 @@ class AgentLoop:
         raw = turn.open_speech_text
         if not raw and turn.segments:
             raw = str(turn.segments[-1].get("text") or "")
-        opening = self._canvas_chat_opening(raw)
+        opening = self._keep_chat_speech(raw)
         if turn.has_open_speech or raw:
             if turn.has_open_speech or opening:
                 await turn.rewrite_open_speech(opening)
             elif hasattr(turn, "discard_open_speech"):
                 turn.discard_open_speech()
         for seg in turn.segments:
-            cleaned = self._canvas_chat_opening(str(seg.get("text") or ""))
+            cleaned = self._keep_chat_speech(str(seg.get("text") or ""))
             if cleaned != str(seg.get("text") or "").strip():
                 seg["text"] = cleaned
         return opening
@@ -439,12 +475,12 @@ class AgentLoop:
         changed = False
         for seg in turn.segments:
             raw = str(seg.get("text") or "")
-            cleaned = self._canvas_chat_opening(detach_sheet_speech(raw))
+            cleaned = self._keep_chat_speech(detach_sheet_speech(raw))
             if cleaned != raw.strip():
                 seg["text"] = cleaned
                 changed = True
         open_text = turn.open_speech_text
-        cleaned_open = self._canvas_chat_opening(detach_sheet_speech(open_text))
+        cleaned_open = self._keep_chat_speech(detach_sheet_speech(open_text))
         if cleaned_open == open_text and not changed:
             return
         await turn.rewrite_open_speech(cleaned_open)
@@ -1034,9 +1070,13 @@ class AgentLoop:
                 "## Canvases\n"
                 "Anything they want to look at, keep or export is a canvas, not chat text.\n"
                 "Hard rule: never write canvas source in the chat message — no import, "
-                "no export default function Canvas, no JSX, no ``` fences, no BarChart/"
-                "Stat/Stack markup, no SVG, no Mermaid, no JSON tables. The body belongs "
-                "only in edit_canvas.\n"
+                "no export default function Canvas, no JSX, no BarChart/Stat/Stack "
+                "markup, no SVG, no Mermaid, no JSON tables. The body belongs only in "
+                "edit_canvas.\n"
+                "Copyable text stays in the chat bubble. When the operator should copy "
+                "a reply, a snippet, or a block of instructions, put that text in one "
+                "fenced block (```text). That renders as a copy window in the bubble. "
+                "Do not use that fence for a dashboard, diagram, or drawing.\n"
                 "New canvas — first action is the create_canvas tool call (empty: title "
                 "and kind only). Optionally one short sentence before that tool, nothing "
                 "else. Then edit_canvas with the full source, then finish_canvas.\n"

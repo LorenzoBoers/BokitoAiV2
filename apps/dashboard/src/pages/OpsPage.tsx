@@ -215,17 +215,15 @@ export default function OpsPage() {
   const onDeleteTenant = useCallback(
     async (tenant: StaffOpsTenant) => {
       if (!token || deletingId) return
-      const typed = window.prompt(t('ops.deletePrompt', { slug: tenant.slug, name: tenant.name }))
-      if (typed == null) return
-      if (typed.trim().toLowerCase() !== tenant.slug.toLowerCase()) {
-        setError(t('ops.deleteSlugMismatch'))
-        return
-      }
-      if (!(await confirm({ description: t('ops.deleteConfirm', { name: tenant.name }), destructive: true }))) return
+      if (!(await confirm({
+        description: t('ops.deleteConfirm', { name: tenant.name }),
+        typeToConfirm: tenant.slug,
+        destructive: true,
+      }))) return
       setDeletingId(tenant.id)
       setError(null)
       try {
-        await deleteStaffOpsTenant(token, tenant.id, typed.trim())
+        await deleteStaffOpsTenant(token, tenant.id, tenant.slug)
         if (tenant.id === activeTenantId) {
           window.location.assign('/ops')
           return

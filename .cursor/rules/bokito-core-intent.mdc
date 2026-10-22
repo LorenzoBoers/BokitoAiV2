@@ -30,7 +30,7 @@ Bokito does not replace ChatGPT, Claude, Copilot, or Cursor. It is the layer on 
 
 ## Operator vocabulary (Set C)
 
-Conversation/Gesprek · Label (a hashtag; color and icon only while a flow is attached; filing that label makes the conversation a Ticket) · Flow (title + that label) · Folder/Map (a tag with a place; projects are folders) · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: Autonomy/Autonomie (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow and actietag / action tag.
+Conversation/Gesprek · Label (a hashtag; color and icon only while a flow/werk is attached; filing that label makes the conversation a Ticket) · Flow/Werk (title + that label; het werk / de werken) · Folder/Map (a tag with a place; projects are folders; NL Map, not Werkmap) · Contact · Agent · Decision/Beslissing. Overview, Govern, Agents stay English loanwords in NL. Rail hub: Communication/Communicatie. Setting: Autonomy/Autonomie (Autonomous · Assisted · Manual). Avoid Smarttag / Smartflow and actietag / action tag.
 
 ## What we are building
 

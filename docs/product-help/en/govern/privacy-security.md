@@ -39,7 +39,7 @@ Owners and admins manage retention, data region, and data subject requests under
 1. Under **Data subject requests**, enter the **Data subject email**.
 2. Choose **Export personal data** to download a JSON package for that address in this workspace.
 3. Or choose **Erase personal data** and confirm the scrub of contacts, message bodies, and matching calendar attendees. Matching Bin items for that address are purged. This cannot be undone.
-4. Full workspace wipe: owners use **Settings → General → Danger zone → Delete workspace** and type the workspace name to confirm. Platform support can also delete a tenant from **Ops** (type the slug to confirm). Account delete is separate from subject erase.
+4. Full workspace wipe: owners use **Settings → General → Danger zone → Delete workspace** and click or type the workspace name to confirm. Platform support can also delete a tenant from **Ops** (click or type the slug). Account delete is separate from subject erase.
 
 ## Restore or permanently delete from the Bin
 
@@ -49,5 +49,5 @@ Operator deletes (conversations, folders, canvases, knowledge, contacts, flows, 
 2. Filter by type or search the title. Each row shows who deleted it and **Purge on** the date it will be removed.
 3. Choose **Restore** to bring the item and its children back. If a slug is taken, Bokito appends `-restored`. The toast offers **Open**, which jumps to the restored conversation, folder, canvas, document, contact, company, flow, trigger or team. Most delete toasts carry **Open Bin**, so you can reach this page right after deleting something. Moving a conversation to the Bin offers **Undo** (Ctrl+Z) instead.
 4. When the Bin is empty, the page says so and links to this article; with a filter or search active, **Clear filters** shows everything again.
-5. Choose **Delete permanently** for one item, or **Empty Bin** (type `empty`) to purge all. The footer states how many days items are kept (platform default 60).
+5. Choose **Delete permanently** for one item, or **Empty Bin** and confirm with `empty` (click the word or type it) to purge all. The footer states how many days items are kept (platform default 60).
 6. New mail on a binned conversation restores that conversation instead of opening a duplicate.

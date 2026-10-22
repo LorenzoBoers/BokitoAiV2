@@ -8,7 +8,7 @@ import { channelFolderPath } from '../lib/open-entity'
 
 const ConversationIcon = ENTITY_ICONS.conversation
 import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
-import { Input } from '../components/ui/input'
+import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { ChannelDetailSkeleton, FolderChecklistSkeleton } from '../components/ui/skeleton'
@@ -69,7 +69,6 @@ export default function ChannelDetailPage() {
   const [renameDraft, setRenameDraft] = useState('')
   const [confirm, setConfirm] = useState<'archive' | 'delete' | null>(null)
   const [confirmError, setConfirmError] = useState<string | null>(null)
-  const [deleteDraft, setDeleteDraft] = useState('')
 
   const [signatureTarget, setSignatureTarget] = useState<MailboxTarget | null>(null)
   const [signatureHtml, setSignatureHtml] = useState('')
@@ -178,7 +177,6 @@ export default function ChannelDetailPage() {
       },
       deletePermanently: () => {
         setConfirmError(null)
-        setDeleteDraft('')
         setConfirm('delete')
       },
       setSyncWindow: (channel, days) => {
@@ -428,51 +426,29 @@ export default function ChannelDetailPage() {
           </DialogContent>
       </Dialog>
 
-      <Dialog open={confirm != null} onOpenChange={(open) => (!open ? setConfirm(null) : null)}>
-          <DialogContent
-            className="block max-w-md"
-            data-testid="channel-confirm-dialog"
-          >
-            <DialogTitle className="mb-2 pr-8">
-              {confirm === 'delete' ? t('channelsPage.deleteConfirmTitle') : t('channelsPage.archiveConfirmTitle')}
-            </DialogTitle>
-            <p className="mb-4 text-sm text-text-secondary">
-              {confirm === 'delete'
-                ? t('channelsPage.deleteConfirmBody', {
-                    name: deleteConfirmText,
-                    count: row.conversationCount ?? 0,
-                  })
-                : t('channelsPage.archiveConfirmBody', { name: deleteConfirmText })}
-            </p>
-            {confirm === 'delete' ? (
-              <label className="mb-4 block space-y-1.5">
-                <span className="text-xs text-text-muted">
-                  {t('channelsPage.deleteConfirmType', { name: deleteConfirmText })}
-                </span>
-                <Input
-                  value={deleteDraft}
-                  onChange={(e) => setDeleteDraft(e.target.value)}
-                  className="w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm"
-                  autoComplete="off"
-                  data-testid="channel-delete-confirm-input"
-                />
-              </label>
-            ) : null}
-            {confirmError ? <p className="mb-3 text-xs text-status-error">{confirmError}</p> : null}
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setConfirm(null)}>
-                {t('channelsPage.cancel')}
-              </Button>
-              <Button
-                variant={confirm === 'delete' ? 'destructive' : 'default'}
-                disabled={busy || (confirm === 'delete' && deleteDraft.trim() !== deleteConfirmText)}
-                onClick={runConfirm}
-              >
-                {confirm === 'delete' ? t('channelsPage.delete') : t('channelsPage.archive')}
-              </Button>
-            </div>
-          </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirm != null}
+        busy={busy}
+        destructive={confirm === 'delete'}
+        title={confirm === 'delete' ? t('channelsPage.deleteConfirmTitle') : t('channelsPage.archiveConfirmTitle')}
+        description={
+          confirm === 'delete'
+            ? t('channelsPage.deleteConfirmBody', {
+                name: deleteConfirmText,
+                count: row.conversationCount ?? 0,
+              })
+            : t('channelsPage.archiveConfirmBody', { name: deleteConfirmText })
+        }
+        confirmLabel={confirm === 'delete' ? t('channelsPage.delete') : t('channelsPage.archive')}
+        cancelLabel={t('channelsPage.cancel')}
+        typeToConfirm={confirm === 'delete' ? deleteConfirmText : undefined}
+        error={confirmError}
+        onCancel={() => {
+          setConfirm(null)
+          setConfirmError(null)
+        }}
+        onConfirm={runConfirm}
+      />
 
       <Dialog open={folderTarget != null} onOpenChange={(open) => (!open ? setFolderTarget(null) : null)}>
           <DialogContent

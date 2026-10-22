@@ -155,7 +155,7 @@
     },
     "agents": {
       "label": "Agents",
-      "hint": "Agents en flows aanmaken of bijwerken."
+      "hint": "Agents en werken aanmaken of bijwerken."
     },
     "delegation": {
       "label": "Delegeren",
@@ -178,12 +178,12 @@
       "hint": "Beleid en governance-wijzigingen."
     },
     "projects": {
-      "label": "Werkmappen",
-      "hint": "Documenten in werkmappen, queue-items en repositorywerk."
+      "label": "Mappen",
+      "hint": "Documenten in mappen, queue-items en repositorywerk."
     },
     "tickets": {
       "label": "Tickets",
-      "hint": "Een gesprek op een label met een flow vastleggen, en het ticket door de fasen bewegen."
+      "hint": "Een gesprek op een label met een werk vastleggen, en het ticket door de fasen bewegen."
     }
   },
   "tokens": {
@@ -224,7 +224,7 @@
   "changeMeta": {
     "resourceType": {
       "agent": "Agent",
-      "workstream": "Flow",
+      "workstream": "Werk",
       "workspace_doc": "Kennisdocument",
       "integration": "Integratie",
       "mcp_server": "Verbonden tools",
@@ -274,13 +274,13 @@
     "content": "Inhoud",
     "kind": "Documenttype",
     "agent_id": "Agent",
-    "workstream_id": "Flow",
+    "workstream_id": "Werk",
     "node_type": "Nodetype",
     "ref_id": "Referentie"
   },
   "dial": {
     "adminOnly": "Alleen een eigenaar of beheerder kan de dial wijzigen.",
-    "intro": "Eén instelling voor de hele werkruimte: hoe ver agents zelf mogen gaan. Kanalen, agents en flows blijven op of onder dit niveau.",
+    "intro": "Eén instelling voor de hele werkruimte: hoe ver agents zelf mogen gaan. Kanalen, agents en werken blijven op of onder dit niveau.",
     "title": "Autonomie"
   }
 }

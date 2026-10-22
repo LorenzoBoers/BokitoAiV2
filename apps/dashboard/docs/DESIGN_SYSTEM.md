@@ -138,7 +138,7 @@ if (!(await confirm({ title: 'Delete key?', description: '...', destructive: tru
 <LoadingBlock variant="skeleton" rows={3} />
 ```
 
-`ConfirmDialog` with `typeToConfirm` covers type-the-name deletes.
+`ConfirmDialog` with `typeToConfirm` is the only type-the-name delete. The phrase is a button: click copies it and fills the field.
 
 ## Data
 

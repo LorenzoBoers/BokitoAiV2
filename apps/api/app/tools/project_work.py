@@ -463,8 +463,8 @@ register_tool(
     ToolSpec(
         name="list_folders",
         description=(
-            "List folders (Werkmappen): places where work on one subject is filed. "
-            "Not departments (Afdelingen). When someone says werkmap or folder, or "
+            "List folders (Mappen): places where work on one subject is filed. "
+            "Not departments (Afdelingen). When someone says map or folder, or "
             "wants to store work in one, use this tool — never list_departments. "
             "Returns id, slug, tag_ids, tag_names, label, path. "
             "Prefer the folder id as parent_id for create_folder. A lookup does "

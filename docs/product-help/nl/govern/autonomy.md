@@ -1,6 +1,6 @@
 ---
 title: Autonomie instellen
-intro: Eén dial voor de hele werkruimte bepaalt hoe ver agents zelf mogen gaan. Kanalen, agents en flows blijven op of onder dat niveau.
+intro: Eén dial voor de hele werkruimte bepaalt hoe ver agents zelf mogen gaan. Kanalen, agents en werken blijven op of onder dat niveau.
 description: Zet de ene Autonomie-dial op Govern (Handmatig, Geassisteerd, Autonoom), zie wat eronder mag staan en stel toolrechten apart in.
 keywords: autonomie, dial, plafond, houding, handmatig, geassisteerd, autonoom, altijd controle, toolrechten, apply-modi, auto-review, prompt-injectie, verborgen instructies
 sort: 20
@@ -9,7 +9,7 @@ related: govern,agents,inbox-ai,flows
 
 # Autonomie instellen
 
-Autonomie is één dial op [Govern](/docs/govern/govern): **Handmatig**, **Geassisteerd** of **Autonoom**. Elk kanaal, gesprek, elke agent en flow blijft op of onder dat niveau, dus de dial is het meeste wat een deel van de werkruimte zelf mag doen.
+Autonomie is één dial op [Govern](/docs/govern/govern): **Handmatig**, **Geassisteerd** of **Autonoom**. Elk kanaal, gesprek, elke agent en werk blijft op of onder dat niveau, dus de dial is het meeste wat een deel van de werkruimte zelf mag doen.
 
 ## De dial zetten
 
@@ -25,18 +25,18 @@ Autonomie is één dial op [Govern](/docs/govern/govern): **Handmatig**, **Geass
 
 1. Een kanaal of één open gesprek kan lager staan. Die staan onder **Per kanaal** op dezelfde pagina; kies **Weer de standaard volgen** om er een weg te halen. Zie [Autonomie](/docs/inbox/inbox-ai).
 2. Elke agent heeft een eigen niveau (zie [Agents](/docs/ai/agents)). Een gesprek dat die agent afhandelt gaat nooit hoger.
-3. Elke flow heeft een eigen **Autonomie** op de flowpagina. Strenger dan de dial geldt meteen; losser wacht hier op akkoord. Een flow op **Geassisteerd** houdt elk antwoord op zijn tickets een concept. Zie [Flows](/docs/ai/flows).
+3. Elk werk heeft een eigen **Autonomie** op de werkpagina. Strenger dan de dial geldt meteen; losser wacht hier op akkoord. Een werk op **Geassisteerd** houdt elk antwoord op zijn tickets een concept. Zie [Werken](/docs/ai/flows).
 4. **Privacy** die AI weghoudt van berichtinhoud zet alles op Handmatig, en een geactiveerde noodrem houdt een kanaal op Geassisteerd tot iemand het hervat.
 
 Ga met de muis over de modus in een gesprekskop om te zien welke van deze besliste.
 
 ## Een voorstel uit de scorekaart accepteren
 
-Bokito stelt een andere stand voor een flow voor als de uitkomsten dat laten zien.
+Bokito stelt een andere stand voor een werk voor als de uitkomsten dat laten zien.
 
-1. Elk flowlabel heeft een scorekaart: hoeveel tickets sloten, hoeveel zonder mens liepen, en hoeveel gecorrigeerd werden.
-2. Heeft een flow op Geassisteerd in 30 dagen minstens 20 schone uitkomsten en minder dan een op de tien gecorrigeerd, dan stelt de afdelingsleider **Autonoom** voor in het afdelingsgesprek. Wordt een autonome flow vaak gecorrigeerd, dan stelt de leider **Geassisteerd** voor.
-3. Accepteer of wijs het voorstel af in het gesprek of onder **Govern**. Een flow krijgt hoogstens een voorstel per richting per 30 dagen.
+1. Elk werklabel heeft een scorekaart: hoeveel tickets sloten, hoeveel zonder mens liepen, en hoeveel gecorrigeerd werden.
+2. Heeft een werk op Geassisteerd in 30 dagen minstens 20 schone uitkomsten en minder dan een op de tien gecorrigeerd, dan stelt de afdelingsleider **Autonoom** voor in het afdelingsgesprek. Wordt een autonome werk vaak gecorrigeerd, dan stelt de leider **Geassisteerd** voor.
+3. Accepteer of wijs het voorstel af in het gesprek of onder **Govern**. Een werk krijgt hoogstens een voorstel per richting per 30 dagen.
 4. Geaccepteerde voorstellen staan op [Vandaag](/docs/getting-started/cockpit) onder **Wat is verbeterd**, met het aandeel autonoom ervoor en nu.
 
 ## Toolrechten instellen
@@ -69,7 +69,7 @@ Klantberichten, webpagina's en toolresultaten kunnen tekst bevatten die de AI wi
 
 1. Zet de dial eerst op **Geassisteerd** terwijl je leert hoe de werkruimte zich gedraagt.
 2. Kijk welke concepten ongewijzigd de deur uit gaan. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd verstuurd is.
-3. Zet flows die altijd gecontroleerd moeten worden op de flowpagina op **Geassisteerd** voordat je de dial verhoogt.
+3. Zet werken die altijd gecontroleerd moeten worden op de werkpagina op **Geassisteerd** voordat je de dial verhoogt.
 
 Websitebezoekers wijzigen de werkruimte nooit zelf, wat de dial ook zegt.
 

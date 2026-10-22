@@ -143,10 +143,10 @@ Elke tool komt terug met een naam, een beschrijving met categorieprefix, en een 
 - `messaging` - threads lezen en samenvatten (`list_threads`, optioneel `older_than_days` + `matched`/`returned` paging tot 200), één sluiten (`close_thread`) of meerdere (`close_threads` met `older_than_days` / `signal_ids`, optioneel `preview` om matches te tonen zonder te sluiten), en CRM met `list_contacts`, `get_contact` en `upsert_contact`
 - `agents` - agents bekijken met `list_agents`, `get_agent`, `list_flows` en `get_flow`; agents en draaiboeken aanmaken of bijwerken
 - `triggers` - `list_triggers` voor de Agenda, plus nieuwe wakes plannen
-- `tickets` - labels en tickets: `list_categories` (lijst labels), `get_ticket`, `file_ticket` (zelfde pad als Tags toevoegen; de werkmap volgt uit de labels) en `update_ticket` om een fase te verplaatsen (geef `fields` mee als de doelfase verplichte velden heeft). Vrije hashtags gaan via `set_thread_tags`, niet via `file_ticket`. Contacttags via `set_contact_tags`. Werkmappen via `create_folder` met `tags` of `tag_ids` (AND-filterset); optioneel `nest_under` uit `list_folders` verenigt de labels van een bredere werkmap in de nieuwe set. Verwijder verouderde werkmappen met `delete_folder` (Prullenbak); `delete_tag` weigert zolang een tag nog in de filterset van een werkmap zit.
+- `tickets` - labels en tickets: `list_categories` (lijst labels), `get_ticket`, `file_ticket` (zelfde pad als Tags toevoegen; de map volgt uit de labels) en `update_ticket` om een fase te verplaatsen (geef `fields` mee als de doelfase verplichte velden heeft). Vrije hashtags gaan via `set_thread_tags`, niet via `file_ticket`. Contacttags via `set_contact_tags`. Mappen via `create_folder` met `tags` of `tag_ids` (AND-filterset); optioneel `nest_under` uit `list_folders` verenigt de labels van een bredere map in de nieuwe set. Verwijder verouderde mappen met `delete_folder` (Prullenbak); `delete_tag` weigert zolang een tag nog in de filterset van een map zit.
 - `govern` - `get_tenant_today`, `get_usage_summary` en `resolve_decision` voor een openstaande beslissingskaart
 - `workspace` - kennis: `search_index`, `list_docs`, `read_doc`, `write_doc`; Prullenbak: `list_trash`, `restore_trash_item` (herstellen vraagt altijd; agents purgen niet)
-- `koppelingen` - `list_module_connections` (alleen de koppelingen die de aanroeper in de huidige werkmap mag gebruiken), `set_module_default_connection`, en `set_connection_scope` om een koppeling aan werkmappen te koppelen of te wijzigen wie hem mag gebruiken (vraagt altijd)
+- `koppelingen` - `list_module_connections` (alleen de koppelingen die de aanroeper in de huidige map mag gebruiken), `set_module_default_connection`, en `set_connection_scope` om een koppeling aan mappen te koppelen of te wijzigen wie hem mag gebruiken (vraagt altijd)
 
 ## Voorbeeld: een tool aanroepen
 
@@ -165,4 +165,4 @@ OAuth-consent en app-token-scopes noemen toolcategorieën: een credential met sc
 
 ## Werk aan een codingtool geven
 
-Het blok **Geef werk aan een codingtool** op dezelfde pagina laat je Cursor Cloud Agents, Claude Managed Agents en Devin koppelen met je eigen API-sleutels. Een agent stelt de job voor als Beslissing; na je akkoord blijven voortgang en vragen in dezelfde thread en komt de pull request terug op de werkmap. Zie [/docs/developers/workbench](/docs/developers/workbench).
+Het blok **Geef werk aan een codingtool** op dezelfde pagina laat je Cursor Cloud Agents, Claude Managed Agents en Devin koppelen met je eigen API-sleutels. Een agent stelt de job voor als Beslissing; na je akkoord blijven voortgang en vragen in dezelfde thread en komt de pull request terug op de map. Zie [/docs/developers/workbench](/docs/developers/workbench).

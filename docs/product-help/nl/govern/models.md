@@ -39,7 +39,7 @@ Modellen staan onder **Instellingen** en daarna **Modellen**. De pagina toont **
    - **Workspace-standaard** — volgt **Instellingen → Modellen**.
    - **Automatisch** — Bokito kiest het niveau per actie.
    - **Maki**, **Bokito** of **Kong** — altijd dat niveau voor deze agent.
-2. Later kan een flowstadium of Agenda-taak een model forceren voor dat item; die override gaat voor de agentmodus en de workspace-standaard.
+2. Later kan een werkstadium of Agenda-taak een model forceren voor dat item; die override gaat voor de agentmodus en de workspace-standaard.
 
 ## Voeg een model toe (wanneer gerechtigd)
 

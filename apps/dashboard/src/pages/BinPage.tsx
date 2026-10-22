@@ -126,11 +126,16 @@ export default function BinPage() {
   }
 
   const onEmpty = async () => {
-    const typed = window.prompt(t('binPage.emptyPrompt'))
-    if (!typed) return
+    const word = t('binPage.emptyWord')
+    if (!(await confirm({
+      description: t('binPage.emptyPrompt'),
+      typeToConfirm: word,
+      confirmLabel: t('binPage.emptyBin'),
+      destructive: true,
+    }))) return
     setBusyId('empty')
     try {
-      await emptyTrash(typed)
+      await emptyTrash(word)
       toast.success(t('binPage.emptied'))
       await load()
     } catch (err) {

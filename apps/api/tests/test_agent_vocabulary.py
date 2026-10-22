@@ -86,7 +86,7 @@ def test_vocabulary_block_lists_every_glossary_term():
         assert term["en"] in block and term["nl"] in block
         for word in term["forbidden"]:
             assert word in block
-    for word in ("Werkmap", "Werkt in", "Opgeleverd", "Autonomie"):
+    for word in ("Map", "Werkt in", "Opgeleverd", "Autonomie", "Werk"):
         assert word in block
 
 

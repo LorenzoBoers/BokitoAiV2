@@ -186,7 +186,7 @@ describe('parseChatText', () => {
   it('keeps fenced code whole and collapses blank lines to one gap', () => {
     const blocks = parseChatText('one\n\n\n```\nx = 1\n\ny = 2\n```')
     expect(blocks.map((b) => b.type)).toEqual(['line', 'gap', 'code'])
-    expect(blocks[2]).toEqual({ type: 'code', text: 'x = 1\n\ny = 2' })
+    expect(blocks[2]).toEqual({ type: 'code', text: 'x = 1\n\ny = 2', lang: '' })
   })
 })
 

@@ -2,7 +2,7 @@
 title: Platformfeatures
 intro: Elk onderdeel van Bokito, van de rail tot de kleine knoppen, en hoe ze aan elkaar hangen.
 description: Overzicht van alle Bokito-features. Per onderdeel de Nederlandse en Engelse naam, wat het doet, en met welke andere onderdelen het samenwerkt.
-keywords: features, overzicht, rail, gesprek, werkmap, werkt in, opgeleverd, flow, agent, autonomie, govern, grid, agenda
+keywords: features, overzicht, rail, gesprek, map, werkt in, opgeleverd, werk, agent, autonomie, govern, grid, agenda
 sort: 15
 related: welcome,communication,agents,folders,flows,agenda,team,govern
 ---
@@ -21,13 +21,13 @@ Alles in Bokito hangt aan deze vijf. Label, afdeling, kanaal en contact zijn eig
 
 **EN:** Conversation. Alles wat binnenkomt of wordt gestart. Een status maakt het een ticket. Een datum zet het op de agenda. Een herhaling maakt het terugkerend. Wat een agent deed, staat als bericht in dat gesprek. Hangt aan [Communicatie](/docs/inbox/communication), [Agenda](/docs/ai/agenda) en [Beslissingen](/docs/ai/decisions).
 
-### {icon:folder} Werkmap
+### {icon:folder} Map
 
-**EN:** Folder. De plek waar al het werk over één onderwerp samenkomt en terechtkomt: een klant, een project of een afdelingstaak. Werkmappen kun je nesten. **Werkt in** toont waar in die werkmap gewerkt wordt: Bord, Bestanden en canvassen in Bokito, en koppelingen zoals een GitHub-repo, een Drive-map of een Exact-administratie. Wat een gesprek opleverde, landt hier als **Opgeleverd**. Hangt aan [Werkmappen](/docs/ai/folders), [Labels](/docs/ai/categories) en [Kennis](/docs/ai/knowledge).
+**EN:** Folder. De plek waar al het werk over één onderwerp samenkomt en terechtkomt: een klant, een project of een afdelingstaak. Mappen kun je nesten. **Werkt in** toont waar in die map gewerkt wordt: Bord, Bestanden en canvassen in Bokito, en koppelingen zoals een GitHub-repo, een Drive-map of een Exact-administratie. Wat een gesprek opleverde, landt hier als **Opgeleverd**. Hangt aan [Mappen](/docs/ai/folders), [Labels](/docs/ai/categories) en [Kennis](/docs/ai/knowledge).
 
-### {icon:flow} Flow
+### {icon:flow} Werk
 
-**EN:** Flow. Hoe één soort werk loopt: fasen, een eigenaar per fase en een optionele bestemming (**Levert op in**). Het label met de flow is het mechanisme eronder, bijvoorbeeld `#klacht`. Bereikt een ticket een fase Klaar, dan wordt het opgeleverd in die bestemming. Hangt aan [Flows](/docs/ai/flows), [Labels](/docs/ai/categories) en [Werkmappen](/docs/ai/folders).
+**EN:** Flow. Hoe één soort werk loopt: fasen, een eigenaar per fase en een optionele bestemming (**Levert op in**). Het label met het werk is het mechanisme eronder, bijvoorbeeld `#klacht`. Bereikt een ticket een fase Klaar, dan wordt het opgeleverd in die bestemming. Hangt aan [Werken](/docs/ai/flows), [Labels](/docs/ai/categories) en [Mappen](/docs/ai/folders).
 
 ### {icon:agent} Agent
 
@@ -35,25 +35,25 @@ Alles in Bokito hangt aan deze vijf. Label, afdeling, kanaal en contact zijn eig
 
 ### {icon:autonomy} Autonomie
 
-**EN:** Autonomy. Wat een agent zelf mag: **Autonoom**, **Geassisteerd** of **Handmatig**. Eén dial in **Govern**, tab **Beleid**, voor de hele werkruimte. Een kanaal, een gesprek, een agent of een flow mag lager staan; niets gaat boven de dial. Hangt aan [Autonomie instellen](/docs/govern/autonomy) en [Antwoorden, waarborgen en overdracht](/docs/inbox/inbox-ai).
+**EN:** Autonomy. Wat een agent zelf mag: **Autonoom**, **Geassisteerd** of **Handmatig**. Eén dial in **Govern**, tab **Beleid**, voor de hele werkruimte. Een kanaal, een gesprek, een agent of een werk mag lager staan; niets gaat boven de dial. Hangt aan [Autonomie instellen](/docs/govern/autonomy) en [Antwoorden, waarborgen en overdracht](/docs/inbox/inbox-ai).
 
 ## Eigenschappen
 
 ### {icon:hash} Label
 
-**EN:** Label. Een hashtag op een gesprek. Een label met een flow maakt het gesprek een ticket in die flow; een gesprek heeft er hoogstens één. Kleur en icoon bestaan alleen zolang de flow eraan hangt. Labels bepalen ook in welke werkmap een gesprek staat. Hangt aan [Labels](/docs/ai/categories) en [Flows](/docs/ai/flows).
+**EN:** Label. Een hashtag op een gesprek. Een label met een werk maakt het gesprek een ticket in dat werk; een gesprek heeft er hoogstens één. Kleur en icoon bestaan alleen zolang het werk eraan hangt. Labels bepalen ook in welke map een gesprek staat. Hangt aan [Labels](/docs/ai/categories) en [Werken](/docs/ai/flows).
 
 ### {icon:contact} Contact
 
-**EN:** Contact. De persoon aan de andere kant, per kanaal. Status is goedgekeurd, in afwachting of geblokkeerd. Labels op het contact tellen mee voor werkmappen. Hangt aan [Contacten](/docs/inbox/contacts), [Kanalen](/docs/inbox/channels) en de [widget](/docs/inbox/widget).
+**EN:** Contact. De persoon aan de andere kant, per kanaal. Status is goedgekeurd, in afwachting of geblokkeerd. Labels op het contact tellen mee voor mappen. Hangt aan [Contacten](/docs/inbox/contacts), [Kanalen](/docs/inbox/channels) en de [widget](/docs/inbox/widget).
 
 ### {icon:company} Bedrijf
 
-**EN:** Organization. Het CRM-bedrijf bij een contact, gekoppeld op e-maildomein. Dit is niet de werkruimte. Labels erven naar elk contact van dat bedrijf en daarmee naar hun gesprekken. Hangt aan [Contacten](/docs/inbox/contacts) en [Werkmappen](/docs/ai/folders).
+**EN:** Organization. Het CRM-bedrijf bij een contact, gekoppeld op e-maildomein. Dit is niet de werkruimte. Labels erven naar elk contact van dat bedrijf en daarmee naar hun gesprekken. Hangt aan [Contacten](/docs/inbox/contacts) en [Mappen](/docs/ai/folders).
 
 ## Rail
 
-Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. Groep **Werk**: Agenda, Werkmappen, Flows. Groep **Team**: Agents, Workforce. Boven je account: **Koppelingen**, daarna **Instellingen**. Vandaag zit in Inbox, Kennis onder Agents, de Grid onder Workforce, en Govern en Verbruik onder Instellingen.
+Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. Groep **Werk**: Agenda, Mappen, Werken. Groep **Team**: Agents, Workforce. Boven je account: **Koppelingen**, daarna **Instellingen**. Vandaag zit in Inbox, Kennis onder Agents, de Grid onder Workforce, en Govern en Verbruik onder Instellingen.
 
 ### {icon:new-chat} Nieuwe chat
 
@@ -89,7 +89,7 @@ Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. 
 
 ### {icon:delivered} Opgeleverd
 
-**EN:** Delivered. Waar het werk uit een gesprek terechtkwam: een antwoord via het kanaal, een plek in een werkmap of kennis na een correctie. Het gesprek toont een chip zoals "Opgeleverd in administratie › Exact", en het paneel Waarom noemt de laatste opleveringen. Hangt aan [Werkmappen](/docs/ai/folders) en [Communicatie](/docs/inbox/communication).
+**EN:** Delivered. Waar het werk uit een gesprek terechtkwam: een antwoord via het kanaal, een plek in een map of kennis na een correctie. Het gesprek toont een chip zoals "Opgeleverd in administratie › Exact", en het paneel Waarom noemt de laatste opleveringen. Hangt aan [Mappen](/docs/ai/folders) en [Communicatie](/docs/inbox/communication).
 
 ### {icon:plan} Plannen
 
@@ -111,25 +111,25 @@ Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. 
 
 **EN:** Agenda. Wat gebeurde, wat due is en wat gepland is, plus afspraken uit Google of Outlook. Het getal op de rail telt due werk op gesprekken die aan jou zijn toegewezen. Hangt aan [Agenda](/docs/ai/agenda), [Communicatie](/docs/inbox/communication) en [Koppelingen](/docs/integrations/integrations).
 
-### {icon:folder} Werkmappen
+### {icon:folder} Mappen
 
-**EN:** Folders. De boom van werkmappen. Leden lezen. Hernoemen, labels en nesten doen eigenaar en beheerder. Elke werkmap toont gesprekken, documenten en **Werkt in**. Hangt aan [Werkmappen](/docs/ai/folders).
+**EN:** Folders. De boom van mappen. Leden lezen. Hernoemen, labels en nesten doen eigenaar en beheerder. Elke map toont gesprekken, documenten en **Werkt in**. Hangt aan [Mappen](/docs/ai/folders).
 
 ### {icon:works-in} Werkt in
 
-**EN:** Works in. Eén sectie op de werkmap met alles waar in die werkmap gewerkt wordt, één kaart per plek. Een gevuld icoon zit in Bokito (Bord, Bestanden, Canvas), een omlijnd icoon is een koppeling. Een koppeling die werk ontvangt, hangt altijd aan een werkmap. **Toevoegen aan Werkt in** voegt een plek toe. Hangt aan [Werkmappen](/docs/ai/folders) en [Koppelingen](/docs/integrations/integrations).
+**EN:** Works in. Eén sectie op de map met alles waar in die map gewerkt wordt, één kaart per plek. Een gevuld icoon zit in Bokito (Bord, Bestanden, Canvas), een omlijnd icoon is een koppeling. Een koppeling die werk ontvangt, hangt altijd aan een map. **Toevoegen aan Werkt in** voegt een plek toe. Hangt aan [Mappen](/docs/ai/folders) en [Koppelingen](/docs/integrations/integrations).
 
 ### {icon:canvas} Canvas
 
-**EN:** Canvas. Een werkoppervlak in een werkmap, bijvoorbeeld voor de cijfers van een klant. Het staat onder Werkt in. Een agent bouwt het in een gesprek; verversen is de herhaling van dat gesprek op de agenda. Hangt aan [Werkmappen](/docs/ai/folders), [Agents](/docs/ai/agents) en [Agenda](/docs/ai/agenda).
+**EN:** Canvas. Een werkoppervlak in een map, bijvoorbeeld voor de cijfers van een klant. Het staat onder Werkt in. Een agent bouwt het in een gesprek; verversen is de herhaling van dat gesprek op de agenda. Hangt aan [Mappen](/docs/ai/folders), [Agents](/docs/ai/agents) en [Agenda](/docs/ai/agenda).
 
 ### {icon:board} Bord
 
-**EN:** Board. Tickets van een flow, per fase. Op de werkmap zie je de flows die hier matchen. Op de flow zie je een baan per werkmap. Slepen wijzigt de fase. Hangt aan [Flows](/docs/ai/flows).
+**EN:** Board. Tickets van een werk, per fase. Op de map zie je de werken die hier matchen. Op het werk zie je een baan per map. Slepen wijzigt de fase. Hangt aan [Werken](/docs/ai/flows).
 
-### {icon:flows} Flows
+### {icon:flows} Werken
 
-**EN:** Flows. De lijst van flows. Leden zien het bord. Aanmaken, fasen wijzigen en **Levert op in** kiezen doen eigenaar en beheerder. Een flow kiest een vrij label of maakt er een. Hangt aan [Flows](/docs/ai/flows).
+**EN:** Flows. De lijst van werken. Leden zien het bord. Aanmaken, fasen wijzigen en **Levert op in** kiezen doen eigenaar en beheerder. Een werk kiest een vrij label of maakt er een. Hangt aan [Werken](/docs/ai/flows).
 
 ### {icon:stages} Fasen
 
@@ -141,7 +141,7 @@ Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. 
 
 ### {icon:knowledge} Kennis
 
-**EN:** Knowledge. Markdown die agents bij elke run lezen, voor de organisatie, een werkmap of een agent. Soorten zijn document, geheugen, persona, vaardigheid en heartbeat. Publiceren maakt een artikel voor de widget. Hangt aan [Kennis](/docs/ai/knowledge) en de [widget](/docs/inbox/widget).
+**EN:** Knowledge. Markdown die agents bij elke run lezen, voor de organisatie, een map of een agent. Soorten zijn document, geheugen, persona, vaardigheid en heartbeat. Publiceren maakt een artikel voor de widget. Hangt aan [Kennis](/docs/ai/knowledge) en de [widget](/docs/inbox/widget).
 
 ### {icon:assistant} Bokito-assistent
 
@@ -165,7 +165,7 @@ Bovenaan de knop **Nieuwe chat**, daarna **Inbox** los boven de groep **Werk**. 
 
 ### {icon:grid} Grid
 
-**EN:** Grid. De organisatiekaart in 3D: afdelingen met hun mensen en agents, en de werkmappen, flows en koppelingen waarmee ze werken. Ernaast staat **Workflow**: hoe werk door het bedrijf loopt, in vier lagen van links naar rechts: **Binnenkomst** (kanalen), **Uitvoerders** (mensen en agents per afdeling), **Flow** en **Resultaat** (antwoord, werkmappen met hun Werkt in, kennis). De lenzen van Workflow zijn Stroom, Labels en Autonomie, in 3D of 2D; knelpunten staan in het zijpaneel. **Open in Grid** staat op Agents, Flows, Werkmappen en Koppelingen. Bewerken doe je op die pagina's. Hangt aan [Workforce](/docs/getting-started/team).
+**EN:** Grid. De organisatiekaart in 3D: afdelingen met hun mensen en agents, en de mappen, werken en koppelingen waarmee ze werken. Ernaast staat **Workflow**: hoe werk door het bedrijf loopt, in vier lagen van links naar rechts: **Binnenkomst** (kanalen), **Uitvoerders** (mensen en agents per afdeling), **Werk** en **Resultaat** (antwoord, mappen met hun Werkt in, kennis). De lenzen van Workflow zijn Stroom, Labels en Autonomie, in 3D of 2D; knelpunten staan in het zijpaneel. **Open in Grid** staat op Agents, Werken, Mappen en Koppelingen. Bewerken doe je op die pagina's. Hangt aan [Workforce](/docs/getting-started/team).
 
 ## Instellingen
 
@@ -189,7 +189,7 @@ Persoonlijk is van het lid. Werkruimte, kanalen, labels, Govern, modellen, koppe
 
 ### {icon:labels} Labels
 
-**EN:** Labels. Eén lijst. Een vrij label, een flow eraan hangen, of er een werkmap van maken. Hier stel je ook in wie een AI-voorstel mag bevestigen. Leden mogen altijd zelf een ticket archiveren. Hangt aan [Labels](/docs/ai/categories).
+**EN:** Labels. Eén lijst. Een vrij label, een werk eraan hangen, of er een map van maken. Hier stel je ook in wie een AI-voorstel mag bevestigen. Leden mogen altijd zelf een ticket archiveren. Hangt aan [Labels](/docs/ai/categories).
 
 ### {icon:govern} Govern
 
@@ -201,11 +201,11 @@ Persoonlijk is van het lid. Werkruimte, kanalen, labels, Govern, modellen, koppe
 
 ### {icon:connections} Koppelingen
 
-**EN:** Connections. Modules, partnerlogins en AI-gereedschap op één pagina. Een login geeft agents nog geen tools: installeer eerst de module en wijs een agent toe. Een koppeling die werk ontvangt, zet je onder Werkt in van een werkmap. Mailboxen openen Kanalen. Agenda-apps openen Agenda. Hangt aan [Koppelingen](/docs/integrations/integrations) en [MCP](/docs/integrations/mcp).
+**EN:** Connections. Modules, partnerlogins en AI-gereedschap op één pagina. Een login geeft agents nog geen tools: installeer eerst de module en wijs een agent toe. Een koppeling die werk ontvangt, zet je onder Werkt in van een map. Mailboxen openen Kanalen. Agenda-apps openen Agenda. Hangt aan [Koppelingen](/docs/integrations/integrations) en [MCP](/docs/integrations/mcp).
 
 ### {icon:module} Module
 
-**EN:** Module. Een pakket dat één keer neerzet: een afdeling, een specialist, labels, een flow, een vaardigheid en een werkmap met het juiste Werkt in-item. Daarna is het gewone data. Geen extra rail-item. Hangt aan [Workforce](/docs/getting-started/team), [Flows](/docs/ai/flows) en [Koppelingen](/docs/integrations/integrations).
+**EN:** Module. Een pakket dat één keer neerzet: een afdeling, een specialist, labels, een werk, een vaardigheid en een map met het juiste Werkt in-item. Daarna is het gewone data. Geen extra rail-item. Hangt aan [Workforce](/docs/getting-started/team), [Werken](/docs/ai/flows) en [Koppelingen](/docs/integrations/integrations).
 
 ### {icon:usage} Verbruik
 
@@ -221,7 +221,7 @@ Persoonlijk is van het lid. Werkruimte, kanalen, labels, Govern, modellen, koppe
 
 ### {icon:bin} Prullenbak
 
-**EN:** Bin. Verwijderde gesprekken, contacten, werkmappen, kennis, flows, agenda-items en afdelingen. Herstellen of definitief wissen. Hangt aan [Gegevens en privacy](/docs/govern/privacy-security).
+**EN:** Bin. Verwijderde gesprekken, contacten, mappen, kennis, werken, agenda-items en afdelingen. Herstellen of definitief wissen. Hangt aan [Gegevens en privacy](/docs/govern/privacy-security).
 
 ### {icon:help} Hulp en instelgids
 

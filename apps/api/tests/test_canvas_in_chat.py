@@ -68,6 +68,19 @@ def test_short_answer_stays_in_chat():
     assert not _loop()._canvas_in_chat("Het is 14 graden.\n\n- morgen 16\n- overmorgen 12")
 
 
+def test_copyable_text_fence_stays_in_chat():
+    text = (
+        "Te plakken na je keuzes.\n\n"
+        "```text\n"
+        "Antwoord op beide vragen.\n\n"
+        "Vraag 1: B.\n"
+        "```"
+    )
+    loop = _loop()
+    assert not loop._canvas_in_chat(text)
+    assert "Antwoord op beide vragen." in loop._keep_chat_speech(text)
+
+
 def test_no_nudge_without_tool_or_after_canvas():
     assert not _loop(tools=[])._canvas_in_chat("```x```")
     assert not _loop(trust="external")._canvas_in_chat("```x```")

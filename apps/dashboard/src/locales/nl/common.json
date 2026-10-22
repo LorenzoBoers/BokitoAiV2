@@ -27,7 +27,8 @@
   },
   "confirmDialog": {
     "title": "Weet je het zeker?",
-    "typeToConfirm": "Typ {{value}} om te bevestigen.",
+    "typeLead": "Typ",
+    "typeTail": "om te bevestigen.",
     "typePlaceholder": "Typ exact: {{value}}"
   },
   "autosave": {
@@ -55,7 +56,7 @@
       "default": "de platformstandaard",
       "workspace": "de workspace-standaard",
       "channel": "het kanaal",
-      "flow": "de flow",
+      "flow": "het werk",
       "conversation": "dit gesprek"
     },
     "follows": "Volgt {{source}}",

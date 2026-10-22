@@ -14,11 +14,11 @@ Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, folder
 ## Kies een scope
 
 ![Kennis-pagina](/api/docs/assets/knowledge/add-doc.png)
-*Elke chip is een echte entiteit, gelabeld Platform, Werkmap of Agent.*
+*Elke chip is een echte entiteit, gelabeld Platform, Map of Agent.*
 
 1. Open **Kennis**.
-2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **werkmapnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als documentatie in een werkmap.
-3. Met een werkmap of agent geselecteerd verschijnt **Werkmap openen** of **Agent openen** onder de chips; dat brengt je naar die folderpagina of agentpagina, zodat documentatie en het werk waar ze bij hoort één klik uit elkaar blijven.
+2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **mapnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als documentatie in een map.
+3. Met een map of agent geselecteerd verschijnt **Map openen** of **Agent openen** onder de chips; dat brengt je naar die folderpagina of agentpagina, zodat documentatie en het werk waar ze bij hoort één klik uit elkaar blijven.
 
 De zijbalk groepeert documenten naar de soorten die er echt zijn — bijvoorbeeld Stem, Geheugen, Vaardigheden, Docs, Check-ins of Dagnotities wanneer die bestaan. Lege soorten blijven weg. Geheugen, check-ins en dagnotities onderhoudt de AI: bewerk ze als een feit fout is; behandel ze niet als tweede wiki.
 
@@ -61,4 +61,4 @@ Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instelling
 
 ## Wat nu
 
-Houd docs van een werkmap op het tabblad Documentatie van [Wappen](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet **Werkmap**). Laat agents Vaardigheden en Geheugen gebruiken zodat antwoorden onderbouwd blijven.
+Houd docs van een map op het tabblad Documentatie van [Wappen](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet **Map**). Laat agents Vaardigheden en Geheugen gebruiken zodat antwoorden onderbouwd blijven.

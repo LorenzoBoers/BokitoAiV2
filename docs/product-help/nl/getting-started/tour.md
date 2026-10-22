@@ -1,7 +1,7 @@
 ---
 title: Producttour
 intro: Een snelle kaart van de interface — waar elk gebied voor is en wanneer je het gebruikt.
-description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Werkmappen, Flows, Grid, Agents en Instellingen.
+description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Mappen, Werken, Grid, Agents en Instellingen.
 keywords: tour, interface, navigatie, commandopalet, zijbalk
 sort: 40
 related: welcome,cockpit,communication
@@ -30,8 +30,8 @@ Bokito heeft één zijbalk. Vastgezette items staan boven drie groepen: Werk, AI
 
 ## Werk en AI
 
-- **Werkmappen** — een werkmap in Bokito is de plek waar al het werk over één onderwerp samenkomt: gesprekken, borden, bestanden en koppelingen. Zie [Werkmappen](/docs/ai/folders).
-- **Flows** — ticketflows, elk met het label als titel. Zie [Flows](/docs/ai/flows).
+- **Mappen** — een map in Bokito is de plek waar al het werk over één onderwerp samenkomt: gesprekken, borden, bestanden en koppelingen. Zie [Mappen](/docs/ai/folders).
+- **Werken** — werken, elk met het label als titel. Zie [Werken](/docs/ai/flows).
 - **Agenda** — wanneer agents wakker worden; staat onder **Werk**. Zie [Agenda](/docs/ai/agenda).
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
 - **Kennis** — documenten, vaardigheden en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).
@@ -53,7 +53,7 @@ Persoonlijke schermen — **Profiel** en **Notificaties** — zijn van jou, geen
 
 1. Druk `Ctrl+K` (Windows) of `Cmd+K` (Mac) vanaf elke ingelogde pagina.
 2. Typ om te springen. Resultaten groeperen onder **Recent**, **Ga naar**, **Acties**, **Sessies**, **Gesprekken**, **Contacten**, **Communicatie-wachtrijen**, **Kennis** en **Instellingen**.
-3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Agent openen**, **Flow openen**, **Werkmap openen**, **Kennis openen**, **Agenda openen**, **Nieuwe flow**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Nieuwe werkmap**, **Mailbox koppelen**, **Setupgids openen**, **Hulp openen (Bokito)** en **Support openen**. **Werkmap openen** en **Nieuwe werkmap** openen een werkmap.
+3. Met een lege zoekopdracht biedt **Acties** ook **Nieuwe chat**, **Praat met een agent**, **Agent openen**, **Werk openen**, **Map openen**, **Kennis openen**, **Agenda openen**, **Nieuw werk**, **Nodig een teammate uit**, **Open mijn profiel**, **Open meldingen**, **Nieuwe e-mail**, **Nieuw contact**, **Nieuwe agent**, **Nieuwe map**, **Mailbox koppelen**, **Setupgids openen**, **Hulp openen (Bokito)** en **Support openen**. **Map openen** en **Nieuwe map** openen een map.
 4. Instellingenpagina's verschijnen nadat je typt. **Schakel naar lichte modus** of **Schakel naar donkere modus** kan ook vanuit het palet.
 
 Zoeken in de Communicatie-lijst zoekt in gesprekken. Het palet is om te springen, niet om inboxfilters te zetten.

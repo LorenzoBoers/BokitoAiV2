@@ -2,12 +2,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Check, Copy } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -27,8 +29,10 @@ export type ConfirmOptions = {
   cancelLabel?: ReactNode
   /** Red confirm button for deletes and other irreversible actions. */
   destructive?: boolean
-  /** Require typing this exact value before confirming. */
+  /** Require this exact value before confirming. Clicking the phrase copies it into the field. */
   typeToConfirm?: string
+  /** Shown under the field when the action fails and the dialog stays open. */
+  error?: ReactNode
 }
 
 type ConfirmDialogProps = ConfirmOptions & {
@@ -48,13 +52,40 @@ export function ConfirmDialog({
   cancelLabel,
   destructive = false,
   typeToConfirm,
+  error,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
   const { t } = useTranslation('common')
   const [typed, setTyped] = useState('')
+  const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<number | null>(null)
   const needsTyping = Boolean(typeToConfirm)
   const matches = !needsTyping || typed.trim() === typeToConfirm
+
+  useEffect(() => {
+    setTyped('')
+    setCopied(false)
+  }, [open, typeToConfirm])
+
+  useEffect(() => {
+    return () => {
+      if (copyTimer.current != null) window.clearTimeout(copyTimer.current)
+    }
+  }, [])
+
+  const copyPhrase = useCallback(async () => {
+    if (!typeToConfirm) return
+    setTyped(typeToConfirm)
+    try {
+      await navigator.clipboard.writeText(typeToConfirm)
+    } catch {
+      // The field is filled either way; clipboard can be blocked.
+    }
+    setCopied(true)
+    if (copyTimer.current != null) window.clearTimeout(copyTimer.current)
+    copyTimer.current = window.setTimeout(() => setCopied(false), 1500)
+  }, [typeToConfirm])
 
   return (
     <Dialog
@@ -77,26 +108,44 @@ export function ConfirmDialog({
         </DialogHeader>
         {needsTyping ? (
           <div className="space-y-2">
-            <p className="text-xs text-text-muted">
-              {t('confirmDialog.typeToConfirm', { value: typeToConfirm })}
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-text-muted">
+              <span>{t('confirmDialog.typeLead')}</span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="h-auto max-w-full whitespace-normal px-1.5 py-0.5 text-left font-mono text-xs"
+                aria-label={copied ? t('actions.copied') : t('actions.copy')}
+                onClick={() => void copyPhrase()}
+              >
+                <span className="min-w-0 break-all">{typeToConfirm}</span>
+                {copied ? <Check size={12} /> : <Copy size={12} />}
+              </Button>
+              <span>{t('confirmDialog.typeTail')}</span>
             </p>
             <Input
               value={typed}
               onChange={(event) => setTyped(event.target.value)}
               placeholder={t('confirmDialog.typePlaceholder', { value: typeToConfirm })}
               autoFocus
+              autoComplete="off"
+              data-testid="confirm-type-input"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && matches && !busy) {
+                  event.preventDefault()
+                  void Promise.resolve(onConfirm())
+                }
+              }}
             />
           </div>
         ) : null}
+        {error ? <p className="text-xs text-status-error">{error}</p> : null}
         <DialogFooter className="gap-2">
           <Button
             type="button"
             variant="ghost"
             disabled={busy}
-            onClick={() => {
-              setTyped('')
-              onCancel()
-            }}
+            onClick={onCancel}
           >
             {cancelLabel ?? t('actions.cancel')}
           </Button>
@@ -106,7 +155,7 @@ export function ConfirmDialog({
             disabled={!matches || busy}
             autoFocus={!needsTyping}
             onClick={() => {
-              void Promise.resolve(onConfirm()).then(() => setTyped(''))
+              void Promise.resolve(onConfirm())
             }}
           >
             {busy ? <Spinner size="sm" /> : null}

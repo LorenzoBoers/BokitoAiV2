@@ -54,7 +54,7 @@ curl -X POST -H "Authorization: Bearer bok_..." -H "Content-Type: application/js
 
 Vereist `signals:write`. `subject` (maximaal 200 tekens) en `body` zijn verplicht; `priority` is een van `low`, `normal`, `high`, `urgent` (standaard `normal`); maximaal 10 `tags` (kleine letters, elk maximaal 40 tekens; nieuwe namen komen in de hashtaglijst van de workspace; de hashtag van een categorie wordt hier als tag toegevoegd maar legt geen ticket vast, zie [Categorieën en tickets](/docs/ai/categories)). Antwoorden met een signaal geven de huidige `tags` van het gesprek terug. Optionele `contact_name` en `contact_email` maken of matchen een [contact](/docs/inbox/contacts).
 
-Het signal landt in de inbox op het `api`-kanaal. Je kunt hier geen ander kanaal kiezen. Agents en routeringsregels behandelen het als elk ander inkomend bericht, en er vuurt een `signal.created`-webhook. Dit is de standaardmanier om alerts, formulierinzendingen of events uit andere systemen in dezelfde flow als klantmail te krijgen.
+Het signal landt in de inbox op het `api`-kanaal. Je kunt hier geen ander kanaal kiezen. Agents en routeringsregels behandelen het als elk ander inkomend bericht, en er vuurt een `signal.created`-webhook. Dit is de standaardmanier om alerts, formulierinzendingen of events uit andere systemen in dezelfde werk als klantmail te krijgen.
 
 ## Fouten
 

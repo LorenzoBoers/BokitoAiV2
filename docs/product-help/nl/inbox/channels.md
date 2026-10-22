@@ -99,7 +99,7 @@ Setupgids, Koppelingen, Kanalen en de reply-composer gebruiken dezelfde kanaalst
 
 1. Koppel het kanaal eerst los. Een kanaal met gesprekken kun je niet direct verwijderen.
 2. Open het ontkoppelde kanaal en kies **Definitief verwijderen** naast **Verwijderen met alle data** onder **Beheer**.
-3. Het venster toont hoeveel gesprekken meegaan. Typ het adres of de naam van het kanaal om te bevestigen en kies **Definitief verwijderen**.
+3. Het venster toont hoeveel gesprekken meegaan. Klik op het adres of de naam om die in het veld te zetten, of typ het, en kies **Definitief verwijderen**.
 4. Het kanaal en elk gesprek dat via dit kanaal binnenkwam worden verwijderd, inclusief berichten en bijlagen. Ze gaan niet naar de Prullenbak en zijn niet terug te halen.
 
 In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** als er al een kanaal is dat nog niet klaar is, of **Mailbox koppelen** als er nog geen kanaal is. De setupgids markeert de kanaalstap pas klaar wanneer een mailbox kan verzenden of ontvangen.
@@ -147,9 +147,9 @@ Contacten en losse gesprekken kunnen nog steeds afwijken van het kanaal. Zie [Au
 ![Tags en Communicatie op de pagina Kanalen](/api/docs/assets/channels/communication-tags.png)
 *Elke rij in Communicatie met de submap waarmee hij opent.*
 
-1. Scroll naar **Tags en Communicatie** op dezelfde pagina. Elke rij in de zijbalk van Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies de **Standaard submap**, en wijk daar per team, kanaal, tag of werkmap van af.
+1. Scroll naar **Tags en Communicatie** op dezelfde pagina. Elke rij in de zijbalk van Communicatie heeft dezelfde submappen: **Voor jou**, **Open**, **Niet toegewezen** en **Gesloten**. Kies de **Standaard submap**, en wijk daar per team, kanaal, tag of map van af.
 2. Tags en labels beheer je onder **Instellingen** → **Labels**: één **Tags**-lijst. Kies **Nieuwe tag**, typ een naam en voeg een omschrijving toe die agents lezen.
-3. Zet een vrije tag vast voor een rij onder **Tags** in Communicatie, of kies **Flow aanmaken** om er een flow aan te koppelen. Bij een label met een flow kies je **Flow openen**.
+3. Zet een vrije tag vast voor een rij onder **Tags** in Communicatie, of kies **Werk aanmaken** om er een werk aan te koppelen. Bij een label met een werk kies je **Werk openen**.
 4. Zie [Labels en tickets](/docs/ai/categories).
 
 ## Wat nu

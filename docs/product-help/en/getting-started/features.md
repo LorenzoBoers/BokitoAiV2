@@ -23,11 +23,11 @@ Everything in Bokito hangs on these five. Label, department, channel and contact
 
 ### {icon:folder} Folder
 
-**NL:** Werkmap. The place where all work on one subject comes together and lands: a client, a project or a department task. Folders nest. **Works in** shows where work in that folder happens: Board, Files and canvases in Bokito, and connections such as a GitHub repo, a Drive folder or an Exact administration. What a conversation produced lands here as **Delivered**. Connects to [Folders](/docs/ai/folders), [Labels](/docs/ai/categories) and [Knowledge](/docs/ai/knowledge).
+**NL:** Map. The place where all work on one subject comes together and lands: a client, a project or a department task. Folders nest. **Works in** shows where work in that folder happens: Board, Files and canvases in Bokito, and connections such as a GitHub repo, a Drive folder or an Exact administration. What a conversation produced lands here as **Delivered**. Connects to [Folders](/docs/ai/folders), [Labels](/docs/ai/categories) and [Knowledge](/docs/ai/knowledge).
 
 ### {icon:flow} Flow
 
-**NL:** Flow. How one kind of work runs: stages, an owner per stage and an optional destination (**Delivers to**). The label with the flow is the mechanism underneath, for example `#complaint`. When a ticket reaches a Done stage, it is delivered to that destination. Connects to [Flows](/docs/ai/flows), [Labels](/docs/ai/categories) and [Folders](/docs/ai/folders).
+**NL:** Werk. How one kind of work runs: stages, an owner per stage and an optional destination (**Delivers to**). The label with the flow is the mechanism underneath, for example `#complaint`. When a ticket reaches a Done stage, it is delivered to that destination. Connects to [Flows](/docs/ai/flows), [Labels](/docs/ai/categories) and [Folders](/docs/ai/folders).
 
 ### {icon:agent} Agent
 
@@ -113,7 +113,7 @@ At the top the **New chat** button, then **Inbox** on its own, above the **Work*
 
 ### {icon:folder} Folders
 
-**NL:** Werkmappen. The tree of folders. Members read. Owners and admins rename, set labels and nest. Each folder shows conversations, documentation and **Works in**. Connects to [Folders](/docs/ai/folders).
+**NL:** Mappen. The tree of folders. Members read. Owners and admins rename, set labels and nest. Each folder shows conversations, documentation and **Works in**. Connects to [Folders](/docs/ai/folders).
 
 ### {icon:works-in} Works in
 
@@ -129,7 +129,7 @@ At the top the **New chat** button, then **Inbox** on its own, above the **Work*
 
 ### {icon:flows} Flows
 
-**NL:** Flows. The list of flows. Members see the board. Owners and admins create flows, change stages and pick **Delivers to**. A flow picks a free label or creates one. Connects to [Flows](/docs/ai/flows).
+**NL:** Werken. The list of flows. Members see the board. Owners and admins create flows, change stages and pick **Delivers to**. A flow picks a free label or creates one. Connects to [Flows](/docs/ai/flows).
 
 ### {icon:stages} Stages
 

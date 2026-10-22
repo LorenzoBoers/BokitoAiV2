@@ -11,14 +11,16 @@
     },
     {
       "id": "folder",
-      "nl": "Werkmap",
+      "nl": "Map",
       "en": "Folder",
       "code": "Project",
       "api": "/api/folders",
       "slug": "/folders",
       "forbidden": [
         "Projecten",
-        "Projects"
+        "Projects",
+        "Werkmap",
+        "Werkmappen"
       ]
     },
     {
@@ -41,7 +43,7 @@
     },
     {
       "id": "flow",
-      "nl": "Flow",
+      "nl": "Werk",
       "en": "Flow",
       "code": "Workstream",
       "api": "/api/flows",
@@ -211,7 +213,11 @@
     "Projects",
     "Project",
     "Overview",
-    "Teams"
+    "Teams",
+    "Flow",
+    "Flows",
+    "flow",
+    "flows"
   ],
   "bad_outcomes": [
     "Logboek in",
@@ -222,17 +228,19 @@
     "Foldermappen",
     "de Aanbod",
     "/docs/connections/",
-    "Nieuwe map",
-    "Geen map",
-    "Map openen",
-    "Mappen openen",
-    "Opbergen in map",
-    "Mapagent",
-    " mapwachtrij",
-    "Mapdocumenten",
-    "Submappen",
-    "Maplead",
-    "Rapport"
+    "Rapport",
+    "werkmap",
+    "Werkmap",
+    "werkmappen",
+    "Werkmappen",
+    "Werkmapagent",
+    "Werkmaplead",
+    "werkmapwachtrij",
+    "Nieuwe flow",
+    "de flow",
+    "een flow",
+    "Geen flow",
+    "Nog geen flows"
   ],
   "loanwords": [
     "Agents",

@@ -1,6 +1,7 @@
-import { memo, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { BookOpen, Plug, Settings } from 'lucide-react'
+import { BookOpen, Check, Code2, Copy, Plug, Settings } from 'lucide-react'
 import { BrandMark } from '../integrations/BrandMark'
 import {
   appLinkKind,
@@ -125,6 +126,47 @@ function TagChip({ name, action }: { name: string; action: boolean }) {
 /** Commas the model puts between #tags. The pills already separate themselves. */
 function isTagSeparator(text: string): boolean {
   return /^[\s,;]+$/.test(text)
+}
+
+/** Claude-style inline window: the fence stays in the bubble and is one click to copy. */
+function ChatCodeWindow({ text, lang }: { text: string; lang: string }) {
+  const { t } = useTranslation('common')
+  const [copied, setCopied] = useState(false)
+  const label = /^(text|txt|plain|markdown|md)$/i.test(lang) ? '' : lang
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      /* Clipboard can be blocked; the text stays selectable. */
+    }
+  }
+
+  return (
+    <div
+      className="chat-code-window my-2 overflow-hidden rounded-lg border border-border/70 bg-bg-elevated"
+      data-testid="chat-code-window"
+    >
+      <div className="flex items-center gap-2 border-b border-border/50 bg-bg-input/40 px-2 py-1">
+        <Code2 size={13} className="shrink-0 text-text-muted" aria-hidden />
+        <span className="min-w-0 flex-1 truncate font-mono text-2xs text-text-muted">{label}</span>
+        <button
+          type="button"
+          onClick={() => void onCopy()}
+          className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-text-secondary hover:bg-bg-hover hover:text-text-heading"
+          aria-label={copied ? t('actions.copied') : t('actions.copy')}
+        >
+          {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+          <span>{copied ? t('actions.copied') : t('actions.copy')}</span>
+        </button>
+      </div>
+      <pre className="max-h-80 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre">
+        {text}
+      </pre>
+    </div>
+  )
 }
 
 function renderInline(nodes: ChatInline[]): ReactNode[] {
@@ -310,14 +352,7 @@ function ChatTextImpl({
       {blocks.map((block, index) => {
         if (block.type === 'gap') return <div key={index} className="chat-text-gap" aria-hidden />
         if (block.type === 'code') {
-          return (
-            <pre
-              key={index}
-              className="my-1.5 overflow-x-auto rounded-lg border border-border/40 bg-bg-elevated px-3 py-2 font-mono text-xs leading-relaxed"
-            >
-              {block.text}
-            </pre>
-          )
+          return <ChatCodeWindow key={index} text={block.text} lang={block.lang} />
         }
         if (block.type === 'list') {
           return <ChatList key={index} ordered={block.ordered} items={block.items} />

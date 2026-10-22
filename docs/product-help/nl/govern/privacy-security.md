@@ -39,15 +39,15 @@ Owners en admins beheren bewaartermijnen, dataregio en verzoeken van betrokkenen
 1. Vul onder **Verzoeken van betrokkenen** het **E-mail van betrokkene** in.
 2. Kies **Persoonsgegevens exporteren** om een JSON-pakket voor dat adres in deze workspace te downloaden.
 3. Of kies **Persoonsgegevens wissen** en bevestig het scrubben van contactvelden, berichtteksten en bijpassende agenda-deelnemers. Bijbehorende items in de Prullenbak worden ook gepurged. Dit kan niet ongedaan worden gemaakt.
-4. Volledige workspace-wipe: eigenaren gebruiken **Instellingen → Algemeen → Gevaarlijke acties → Workspace verwijderen** en typen de workspacenaam ter bevestiging. Platform support kan een tenant ook verwijderen via **Ops** (type de slug ter bevestiging). Account verwijderen is iets anders dan subject-erase.
+4. Volledige workspace-wipe: eigenaren gebruiken **Instellingen → Algemeen → Gevaarlijke acties → Workspace verwijderen** en klikken of typen de workspacenaam ter bevestiging. Platform support kan een tenant ook verwijderen via **Ops** (klik of typ de slug). Account verwijderen is iets anders dan subject-erase.
 
 ## Herstellen of definitief verwijderen uit de Prullenbak
 
-Operator-verwijderingen (gesprekken, werkmappen, canvassen, kennis, contacten, draaiboeken, triggers, afdelingen, regels) gaan naar de **Prullenbak**, niet meteen weg. Agent deactiveren en mailbox archiveren blijven buiten de Prullenbak.
+Operator-verwijderingen (gesprekken, mappen, canvassen, kennis, contacten, draaiboeken, triggers, afdelingen, regels) gaan naar de **Prullenbak**, niet meteen weg. Agent deactiveren en mailbox archiveren blijven buiten de Prullenbak.
 
 1. Open **Instellingen**. Onderaan de zijbalk, boven **Support**, kies **Prullenbak**.
 2. Filter op type of zoek op titel. Elke rij toont wie het verwijderde en **Weg op** de datum waarop het verdwijnt.
-3. Kies **Herstellen** om het item en de kinderen terug te zetten. Als de slug al bestaat, voegt Bokito `-restored` toe. De melding biedt **Openen**, dat direct naar het herstelde gesprek, werkmap, canvas, document, contact, bedrijf, flow, trigger of team springt. De meeste verwijdermeldingen hebben **Prullenbak openen**, zodat je meteen na het verwijderen hier uitkomt. Een gesprek naar de prullenbak verplaatsen biedt **Ongedaan maken** (Ctrl+Z).
+3. Kies **Herstellen** om het item en de kinderen terug te zetten. Als de slug al bestaat, voegt Bokito `-restored` toe. De melding biedt **Openen**, dat direct naar het herstelde gesprek, map, canvas, document, contact, bedrijf, werk, trigger of team springt. De meeste verwijdermeldingen hebben **Prullenbak openen**, zodat je meteen na het verwijderen hier uitkomt. Een gesprek naar de prullenbak verplaatsen biedt **Ongedaan maken** (Ctrl+Z).
 4. Als de Prullenbak leeg is, zegt de pagina dat en linkt ze naar dit artikel; met een filter of zoekopdracht actief toont **Filters wissen** weer alles.
-5. Kies **Definitief verwijderen** voor één item, of **Prullenbak legen** (typ `leeg`) om alles te purgen. De voettekst noemt hoe veel dagen items blijven (platformstandaard 60).
+5. Kies **Definitief verwijderen** voor één item, of **Prullenbak legen** en bevestig met `leeg` (klik op het woord of typ het) om alles te purgen. De voettekst noemt hoe veel dagen items blijven (platformstandaard 60).
 6. Nieuwe mail op een gesprek in de Prullenbak herstelt dat gesprek in plaats van een duplicaat te openen.

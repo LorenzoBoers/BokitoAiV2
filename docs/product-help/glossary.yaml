@@ -15,14 +15,14 @@ terms:
     forbidden: []
   - id: folder
     # The place where all work on one subject lands: a client, a project or a
-    # department task. "Map" alone is not used for this term in NL; mailbox
-    # and Drive folders keep "map". See bad_outcomes for the guarded phrases.
-    nl: Werkmap
+    # department task. Mailbox and Drive folders also use "map" in NL; Drive
+    # copy says "Drive-map" or "een map buiten Bokito".
+    nl: Map
     en: Folder
     code: Project
     api: /api/folders
     slug: /folders
-    forbidden: ["Projecten", "Projects"]
+    forbidden: ["Projecten", "Projects", "Werkmap", "Werkmappen"]
   - id: works_in
     # Everything inside a folder where its work is done: board, files and
     # canvases in Bokito, and connections such as a repository or Exact.
@@ -41,7 +41,9 @@ terms:
     slug: ""
     forbidden: []
   - id: flow
-    nl: Flow
+    # Stage pipeline for one label. Dutch noun is "werk" (het werk / de werken).
+    # English stays Flow. Do not put Flow on forbidden: EN copy still uses it.
+    nl: Werk
     en: Flow
     code: Workstream
     api: /api/flows
@@ -148,6 +150,8 @@ terms:
 
 # Whole words that must not appear in Dutch UI values.
 # Loanwords that stay: Agents, Govern, Workforce, Bokito, and product names.
+# Flow/Flows stay off the all-language forbidden list (EN still uses them);
+# they are listed here so Dutch copy cannot keep the old loanword.
 nl_forbidden_words:
   - Files
   - Marketplace
@@ -158,6 +162,10 @@ nl_forbidden_words:
   - Project
   - Overview
   - Teams
+  - Flow
+  - Flows
+  - flow
+  - flows
 
 # Phrases the glossary rewrite produced. They must not come back.
 bad_outcomes:
@@ -169,17 +177,19 @@ bad_outcomes:
   - "Foldermappen"
   - "de Aanbod"
   - "/docs/connections/"
-  - "Nieuwe map"
-  - "Geen map"
-  - "Map openen"
-  - "Mappen openen"
-  - "Opbergen in map"
-  - "Mapagent"
-  - " mapwachtrij"
-  - "Mapdocumenten"
-  - "Submappen"
-  - "Maplead"
   - "Rapport"
+  - "werkmap"
+  - "Werkmap"
+  - "werkmappen"
+  - "Werkmappen"
+  - "Werkmapagent"
+  - "Werkmaplead"
+  - "werkmapwachtrij"
+  - "Nieuwe flow"
+  - "de flow"
+  - "een flow"
+  - "Geen flow"
+  - "Nog geen flows"
 
 loanwords:
   - Agents
