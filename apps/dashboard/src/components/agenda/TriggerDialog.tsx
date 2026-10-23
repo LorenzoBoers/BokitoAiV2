@@ -1,7 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -361,7 +361,7 @@ export default function TriggerDialog({
           <div>
             {editing ? (
               <Button type="button" variant="ghost" className="text-status-error" disabled={deleting || saving} onClick={() => void remove()}>
-                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : t('triggerDialog.delete')}
+                {deleting ? <Spinner size="md" /> : t('triggerDialog.delete')}
               </Button>
             ) : null}
           </div>
@@ -370,7 +370,7 @@ export default function TriggerDialog({
               {savedWebhook ? t('triggerDialog.close') : t('triggerDialog.cancel')}
             </Button>
             <Button type="button" onClick={() => void save()} disabled={!canSave || saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? t('triggerDialog.save') : t('triggerDialog.schedule')}
+              {saving ? <Spinner size="md" /> : editing ? t('triggerDialog.save') : t('triggerDialog.schedule')}
             </Button>
           </div>
         </DialogFooter>

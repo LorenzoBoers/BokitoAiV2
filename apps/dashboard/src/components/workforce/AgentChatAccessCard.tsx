@@ -1,6 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Loader2, MessageSquare } from 'lucide-react'
+import { Check, MessageSquare } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Badge } from '../ui/badge'
 import { Card } from '../ui/card'
@@ -117,7 +118,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
           </p>
         </div>
         <span className="flex items-center gap-1.5 text-xs text-text-muted">
-          {saving ? <Loader2 size={12} className="animate-spin" /> : null}
+          {saving ? <Spinner size="sm" /> : null}
           {saved ? (
             <span className="inline-flex items-center gap-1 text-status-success">
               <Check size={12} /> {t('workforce.agents.chatAccessSaved')}

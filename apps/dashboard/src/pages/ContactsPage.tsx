@@ -1,10 +1,11 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { openEntityPath } from '../lib/open-entity'
-import { Check, Loader2, Mail, Plus, RefreshCw, ShieldBan } from 'lucide-react'
+import { Check, Mail, Plus, RefreshCw, ShieldBan } from 'lucide-react'
 
 const Building2 = ENTITY_ICONS.company
 const MessageSquare = ENTITY_ICONS.conversation
@@ -332,7 +333,7 @@ export default function ContactsPage() {
               onClick={() => void load()}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
-              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              {loading ? <Spinner size="sm" /> : <RefreshCw size={12} />}
               {t('contactsPage.refresh')}
             </button>
             {view === 'companies' ? (
@@ -342,7 +343,7 @@ export default function ContactsPage() {
                 onClick={() => void handleBackfill()}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
               >
-                {backfilling ? <Loader2 size={12} className="animate-spin" /> : <Building2 size={12} />}
+                {backfilling ? <Spinner size="sm" /> : <Building2 size={12} />}
                 {t('contactsPage.linkContacts')}
               </button>
             ) : (
@@ -508,7 +509,7 @@ export default function ContactsPage() {
                 {tc('actions.cancel')}
               </Button>
               <Button type="submit" disabled={creating || !createDraft.address.trim()}>
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                {creating ? <Spinner size="md" /> : null}
                 {creating ? t('contactsPage.creating') : t('contactsPage.create')}
               </Button>
             </DialogFooter>

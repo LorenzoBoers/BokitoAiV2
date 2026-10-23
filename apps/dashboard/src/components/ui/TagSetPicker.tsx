@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Loader2 } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { filtersetPlainLabel, predictFiltersetParent } from '../../lib/folder-filter-tree'
@@ -10,6 +10,7 @@ import { listSignalTags, type SignalTag } from '../../lib/signals-api'
 import { formatApiErrorMessage } from './ApiErrorBanner'
 import { ChipCloudSkeleton } from './skeleton'
 import { Button } from './button'
+import { Spinner } from './spinner'
 import {
   Dialog,
   DialogContent,
@@ -446,7 +447,7 @@ export function TagSetPicker({
             {t('tags.cancel')}
           </Button>
           <Button type="button" disabled={busy || !editReady} onClick={() => void confirm()}>
-            {busy ? <Loader2 size={14} className="mr-1.5 animate-spin" /> : null}
+            {busy ? <Spinner size="md" className="mr-1.5" /> : null}
             {confirmLabel}
             {pendingOnly.length > 0 ? (
               <span className="ml-1.5 rounded-md bg-bg-surface/25 px-1.5 py-px text-2xs tabular-nums">

@@ -1,9 +1,10 @@
 ﻿import { useState, FormEvent, useEffect } from 'react';
+import { Spinner } from '../components/ui/spinner'
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { persistUiLanguage } from '../lib/language-preference';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { APP_VERSION } from '../lib/app-version';
 import { startGoogleSso, startMicrosoftSso } from '../lib/api';
 import { MicrosoftSignInButton } from '../components/auth/MicrosoftSignInButton';
@@ -261,7 +262,7 @@ export default function Signup() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
+                  <Spinner size="md" />
                   {t('signupPage.creating')}
                 </>
               ) : (

@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Copy, Loader2, Trash2, Zap } from 'lucide-react'
+import { Copy, Trash2, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -191,7 +192,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
                       onClick={() => void runTest(row)}
                       aria-label={t('integrations.mcp.servers.testConnection')}
                     >
-                      {testingId === row.id ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+                      {testingId === row.id ? <Spinner size="md" /> : <Zap size={14} />}
                     </Button>
                     <Button
                       variant="ghost"

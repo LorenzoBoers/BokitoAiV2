@@ -1,9 +1,11 @@
+import { LoadingBlock } from '../components/ui/loading-block'
+import { Spinner } from '../components/ui/spinner'
 import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ChevronRight, Loader2, Plus } from 'lucide-react'
+import { ChevronRight, Plus } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { openEntityPath } from '../lib/open-entity'
 
@@ -298,10 +300,7 @@ function CreateFlowDialog({
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-6 text-sm text-text-muted">
-              <Loader2 size={14} className="animate-spin" aria-hidden />
-              {t('workstreamsPage.dialogLoadingTags')}
-            </div>
+            <LoadingBlock className="py-6" label={t('workstreamsPage.dialogLoadingTags')} />
           ) : choice ? (
             <div className="flex items-center justify-between gap-2">
               <TagPill names={choice.name} tone="action" size="sm" color={markColor} icon={markIcon} selected />
@@ -407,7 +406,7 @@ function CreateFlowDialog({
           </Button>
           {choice ? (
             <Button type="button" onClick={() => void createFlow()} disabled={creating}>
-              {creating ? <Loader2 size={13} className="mr-1 animate-spin" aria-hidden /> : null}
+              {creating ? <Spinner size="md" className="mr-1" /> : null}
               {t('workstreamsPage.create')}
             </Button>
           ) : null}

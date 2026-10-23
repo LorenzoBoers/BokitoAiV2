@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { GRID_PATH, AUTONOMY_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
@@ -385,7 +386,7 @@ export default function AiAgents() {
               title={t('workforce.agents.refresh')}
               aria-label={t('workforce.agents.refresh')}
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+              {loading ? <Spinner size="md" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
             </Button>
             {isAdmin ? (
               <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>

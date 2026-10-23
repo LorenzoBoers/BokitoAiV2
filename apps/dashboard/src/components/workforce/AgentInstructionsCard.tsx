@@ -1,6 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { Card } from '../ui/card'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
@@ -113,7 +114,7 @@ export function AgentInstructionsCard({ agentId, systemPrompt, canEdit, onChange
                 {tc('actions.cancel')}
               </Button>
               <Button type="button" size="sm" onClick={() => void save()} disabled={busy}>
-                {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
+                {busy ? <Spinner size="md" className="mr-1.5" /> : null}
                 {tc('actions.save')}
               </Button>
             </DialogFooter>

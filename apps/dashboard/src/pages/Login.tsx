@@ -1,8 +1,9 @@
 ﻿import { useState, FormEvent, useEffect } from 'react';
+import { Spinner } from '../components/ui/spinner'
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { TwoFactorRequiredError, WorkspaceRequiredError, useAuth } from '../context/AuthContext';
-import { Building2, Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react';
+import { Building2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { appendDevLocalhostCrossHostAccessHash, needsDevLocalhostCrossHostHandoff, sanitizeCrossHostReturnTo } from '../lib/host-routing';
 import { APP_VERSION } from '../lib/app-version';
 import { startGoogleSso, startMicrosoftSso } from '../lib/api';
@@ -346,7 +347,7 @@ export default function Login() {
                   disabled={isLoading || !newWorkspaceName.trim()}
                   className="w-full"
                 >
-                  {isLoading ? <Loader2 size={16} className="animate-spin" /> : null}
+                  {isLoading ? <Spinner size="md" /> : null}
                   {t('loginPage.createWorkspace')}
                 </Button>
               </form>
@@ -408,7 +409,7 @@ export default function Login() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
+                    <Spinner size="md" />
                     {t('loginPage.verifying')}
                   </>
                 ) : (
@@ -492,7 +493,7 @@ export default function Login() {
             >
               {isLoading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
+                  <Spinner size="md" />
                   {t('loginPage.signingIn')}
                 </>
               ) : (

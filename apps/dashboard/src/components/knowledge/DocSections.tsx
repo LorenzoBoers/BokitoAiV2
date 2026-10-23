@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Check, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Badge, type BadgeTone } from '../ui/badge'
@@ -247,7 +248,7 @@ export function DocSectionsEditor({
                   </Button>
                   <Button size="sm" onClick={() => void saveSection(section)} disabled={busy}>
                     {busy ? (
-                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      <Spinner size="sm" className="mr-1.5" />
                     ) : (
                       <Check className="mr-1.5 h-3 w-3" />
                     )}
@@ -286,7 +287,7 @@ export function DocSectionsEditor({
                 {t('knowledgePage.cancel')}
               </Button>
               <Button size="sm" onClick={() => void addSection()} disabled={busyId === 'new' || !newHeading.trim()}>
-                {busyId === 'new' ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+                {busyId === 'new' ? <Spinner size="sm" className="mr-1.5" /> : null}
                 {t('knowledgePage.add')}
               </Button>
             </div>

@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import {
   AlertCircle,
   Bell,
@@ -12,7 +13,6 @@ import {
   Forward,
   Hash,
   Layers,
-  Loader2,
   Mail,
   Maximize2,
   Minimize2,
@@ -2292,7 +2292,7 @@ export function MessageTimelineItem({
     <div className="space-y-1">
       {enriching && message.hasHtml ? (
         <div className="flex items-center gap-1.5 text-xs text-text-muted">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          <Spinner size="md" />
           <span>{t('timeline.events.emailContent')}</span>
         </div>
       ) : (
@@ -2830,7 +2830,7 @@ export function MessageTimelineItem({
         status === 'scheduled' && token && typeof message.id === 'string'
       const mark = (
         <span className="inline-flex" aria-label={t('timeline.sending')}>
-          <Loader2 size={11} className="shrink-0 animate-spin opacity-80" aria-hidden />
+          <Spinner size="sm" className="opacity-80" />
         </span>
       )
       return (

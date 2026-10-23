@@ -1,7 +1,8 @@
 ﻿import { useEffect, useState } from 'react'
+import { Spinner } from '../components/ui/spinner'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle, AlertCircle, Mail, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle, AlertCircle, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { resendVerificationEmail, verifyEmail } from '../lib/api'
 import { AuthShell } from '../components/auth/AuthShell'
@@ -60,7 +61,7 @@ export default function VerifyEmail() {
     return (
       <AuthShell title={t('verifyEmailPage.pendingTitle')} subtitle={t('verifyEmailPage.pendingSubtitle')}>
         <div className="flex flex-col items-center gap-3 text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" aria-hidden />
+          <Spinner size="xl" className="text-accent" />
           <p className="text-sm text-text-secondary">{t('verifyEmailPage.pending')}</p>
         </div>
       </AuthShell>

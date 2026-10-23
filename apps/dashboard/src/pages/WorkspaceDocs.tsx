@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -10,7 +11,6 @@ import {
   FilePlus,
   FileText,
   Globe,
-  Loader2,
   Lock,
   Pencil,
   RefreshCw,
@@ -571,7 +571,7 @@ export default function WorkspaceDocs() {
                   onClick={() => uploadInputRef.current?.click()}
                 >
                   {uploading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner size="md" />
                   ) : (
                     <Upload className="h-3.5 w-3.5" />
                   )}

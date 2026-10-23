@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Copy, Loader2, RefreshCw, Zap } from 'lucide-react'
+import { Copy, RefreshCw, Zap } from 'lucide-react'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Label } from '../ui/label'
@@ -210,11 +211,11 @@ export function WebhookTriggerPanel({
 
       <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="secondary" disabled={testing} onClick={() => void testPing()}>
-          {testing ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <Zap size={14} className="mr-1.5" />}
+          {testing ? <Spinner size="md" className="mr-1.5" /> : <Zap size={14} className="mr-1.5" />}
           {t('agendaPage.webhookTest')}
         </Button>
         <Button type="button" size="sm" variant="secondary" disabled={rotating} onClick={() => void rotate()}>
-          {rotating ? <Loader2 size={14} className="animate-spin mr-1.5" /> : <RefreshCw size={14} className="mr-1.5" />}
+          {rotating ? <Spinner size="md" className="mr-1.5" /> : <RefreshCw size={14} className="mr-1.5" />}
           {t('agendaPage.webhookRotate')}
         </Button>
       </div>

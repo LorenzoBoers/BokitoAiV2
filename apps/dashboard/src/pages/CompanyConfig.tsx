@@ -1,7 +1,8 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, CheckCircle2, Copy, Image, Loader2, MessageSquare, Upload } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Copy, Image, MessageSquare, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -559,7 +560,7 @@ export default function CompanyConfig() {
                   : 'bg-accent text-accent-fg hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'
               }`}
             >
-              {saving ? <><Loader2 size={14} className="animate-spin" />{t('brandingPage.saving')}</> : saved ? <><CheckCircle2 size={14} />{t('brandingPage.saved')}</> : t('brandingPage.save')}
+              {saving ? <><Spinner size="md" />{t('brandingPage.saving')}</> : saved ? <><CheckCircle2 size={14} />{t('brandingPage.saved')}</> : t('brandingPage.save')}
             </button>
           </div>
 

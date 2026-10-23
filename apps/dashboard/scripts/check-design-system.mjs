@@ -73,6 +73,12 @@ const RULES = [
     catalogOk: true,
   },
   {
+    id: 'raw-spinner',
+    pattern: /<Loader2\b|\banimate-spin\b/,
+    message: 'Use <Spinner> or <LoadingBlock>.',
+    catalogOk: true,
+  },
+  {
     id: 'muted-text-opacity',
     pattern: /(?<![\w-])text-text-muted\/\d/,
     message: 'Use text-text-muted without an opacity step.',

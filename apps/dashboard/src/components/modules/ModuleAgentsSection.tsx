@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
-import { Loader2, Settings2, Star, X } from 'lucide-react'
+import { Settings2, Star, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
 import { AgentSelect } from '../ui/AgentSelect'
@@ -264,7 +265,7 @@ export function ModuleAgentsSection({
           onClick={() => void hire()}
         >
           {hiring ? (
-            <Loader2 size={12} className="animate-spin" />
+            <Spinner size="sm" />
           ) : managedSpecialist ? (
             t('integrations.modules.agents.openSetup', {
               defaultValue: 'Open setup chat',
@@ -352,7 +353,7 @@ export function ModuleAgentsSection({
                       onClick={() => void makeDefault(row.agent_id)}
                     >
                       {busyId === row.agent_id ? (
-                        <Loader2 size={12} className="animate-spin" />
+                        <Spinner size="sm" />
                       ) : (
                         <Star size={12} />
                       )}
@@ -368,7 +369,7 @@ export function ModuleAgentsSection({
                     onClick={() => void remove(row.agent_id)}
                   >
                     {busyId === row.agent_id ? (
-                      <Loader2 size={12} className="animate-spin" />
+                      <Spinner size="sm" />
                     ) : (
                       <X size={12} />
                     )}

@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '../ui/spinner'
 import { describeSsoError } from './sso-errors'
 import { MicrosoftLogo } from './provider-logos'
 import { Button } from '../ui/button'
@@ -23,7 +23,7 @@ export function MicrosoftSignInButton({
       disabled={disabled || isLoading}
       className="w-full gap-2.5"
     >
-      {isLoading ? <Loader2 size={16} className="animate-spin" /> : <MicrosoftLogo />}
+      {isLoading ? <Spinner size="md" /> : <MicrosoftLogo />}
       {label}
     </Button>
   )

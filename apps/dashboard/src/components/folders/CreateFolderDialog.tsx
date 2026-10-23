@@ -1,6 +1,6 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { filtersetPlainLabel } from '../../lib/folder-filter-tree'
@@ -212,7 +212,7 @@ export function CreateFolderDialog({ open, onOpenChange, parentId = null, onCrea
             {t('projects.page.cancel')}
           </Button>
           <Button type="button" onClick={() => void confirm()} disabled={!canSubmit || busy}>
-            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden /> : null}
+            {busy ? <Spinner size="md" className="mr-1" /> : null}
             {t('projects.page.create')}
           </Button>
         </DialogFooter>

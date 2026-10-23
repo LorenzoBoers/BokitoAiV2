@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState, FormEvent, ChangeEvent } from 'react';
+import { Spinner } from '../components/ui/spinner'
 import { Link, useSearchParams } from 'react-router-dom';
-import { Camera, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Camera, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { persistUiLanguage } from '../lib/language-preference';
 import { useTranslation } from 'react-i18next';
@@ -300,7 +301,7 @@ export default function AcceptInvite() {
                 >
                   {finishing ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Spinner size="md" />
                       {t('acceptInvitePage.settingUp')}
                     </>
                   ) : (
@@ -423,7 +424,7 @@ export default function AcceptInvite() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={16} className="animate-spin" />
+                    <Spinner size="md" />
                     {t('acceptInvitePage.joining')}
                   </>
                 ) : (

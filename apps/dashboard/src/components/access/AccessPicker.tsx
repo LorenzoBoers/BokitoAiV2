@@ -1,7 +1,8 @@
+import { LoadingBlock } from '../ui/loading-block'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Loader2, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
@@ -290,9 +291,7 @@ function AccessDialog<L extends string>({
           <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
         {!overview ? (
-          <div className="flex justify-center py-6">
-            <Loader2 size={16} className="animate-spin text-text-muted" />
-          </div>
+          <LoadingBlock className="py-6" />
         ) : (
           <div className="max-h-[50vh] space-y-4 overflow-y-auto pr-1">
             <div

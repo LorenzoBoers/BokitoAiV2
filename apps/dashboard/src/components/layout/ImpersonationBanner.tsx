@@ -1,6 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Eye, Loader2 } from 'lucide-react'
+import { Eye } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { Button } from '../ui/button'
 
@@ -43,7 +44,7 @@ export default function ImpersonationBanner() {
         disabled={stopping}
         onClick={() => void onStop()}
       >
-        {stopping ? <Loader2 size={12} className="animate-spin" /> : t('impersonation.stop')}
+        {stopping ? <Spinner size="sm" /> : t('impersonation.stop')}
       </Button>
     </div>
   )

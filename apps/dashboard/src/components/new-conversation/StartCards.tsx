@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { Hash, Loader2 } from 'lucide-react'
+import { Hash } from 'lucide-react'
 import { type ChatTarget, type NavRow } from '../../lib/signals-api'
 import { useCommunicationNav } from '../../hooks/useCommunicationNav'
 import { agentFunctionLabel } from '../../lib/workforce-nav-agents'
@@ -169,7 +170,7 @@ export function TicketStart({
         type="submit"
         disabled={sending || !ready}
       >
-        {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.logTicket')}
+        {sending ? <Spinner size="md" /> : t('newConversation.logTicket')}
       </Button>
     </form>
   )
@@ -340,7 +341,7 @@ export function NoteStart({
         type="submit"
         disabled={sending || !shown.trim()}
       >
-        {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.saveNote')}
+        {sending ? <Spinner size="md" /> : t('newConversation.saveNote')}
       </Button>
     </form>
   )

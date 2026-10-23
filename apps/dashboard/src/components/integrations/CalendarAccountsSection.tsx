@@ -1,6 +1,8 @@
+import { LoadingBlock } from '../ui/loading-block'
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Loader2, Plus } from 'lucide-react'
+import { AlertTriangle, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { CalendarListSkeleton } from '../ui/skeleton'
@@ -79,7 +81,7 @@ export function CalendarAccountsSection() {
               data-testid={`calendar-connect-${provider}`}
             >
               {connecting === provider ? (
-                <Loader2 size={14} className="animate-spin" aria-hidden />
+                <Spinner size="md" />
               ) : hasAny ? (
                 <Plus size={14} aria-hidden />
               ) : (
@@ -94,9 +96,7 @@ export function CalendarAccountsSection() {
       </div>
       {error ? <ApiErrorBanner message={error} /> : null}
       {rows == null ? (
-        <div className="flex justify-center py-4">
-          <Loader2 size={16} className="animate-spin text-text-muted" aria-hidden />
-        </div>
+        <LoadingBlock className="py-4" />
       ) : rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-text-muted">
           {t('accounts.empty')}

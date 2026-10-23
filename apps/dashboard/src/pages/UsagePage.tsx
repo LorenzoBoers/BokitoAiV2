@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -339,7 +340,7 @@ export default function UsagePage() {
               onClick={load}
               className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
-              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              {loading ? <Spinner size="sm" /> : <RefreshCw size={12} />}
               {t('usagePage.refresh')}
             </button>
           </div>

@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -55,7 +56,7 @@ function FixButton({
   }
   return (
     <Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.sync(row)}>
-      <RefreshCw size={13} className={busy ? 'animate-spin' : undefined} />
+      {busy ? <Spinner size="md" /> : <RefreshCw size={13} />}
       {busy ? t('channelsPage.syncing') : t('channelsPage.retrySync')}
     </Button>
   )

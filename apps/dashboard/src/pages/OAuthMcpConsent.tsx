@@ -1,7 +1,8 @@
+import { Spinner } from '../components/ui/spinner'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Building2, Loader2, ShieldCheck } from 'lucide-react'
+import { Building2, ShieldCheck } from 'lucide-react'
 import { ConsentPanelSkeleton } from '../components/ui/skeleton'
 import { Button } from '../components/ui/button'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
@@ -218,7 +219,7 @@ export default function OAuthMcpConsent() {
                 size="sm"
                 disabled={submitting || !tenantId || ctx.memberships.length === 0}
               >
-                {submitting ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                {submitting ? <Spinner size="md" className="mr-1" /> : null}
                 {t('oauthMcp.authorize')}
               </Button>
             </div>

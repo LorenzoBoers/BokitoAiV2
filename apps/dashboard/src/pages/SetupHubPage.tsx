@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -6,7 +7,6 @@ import {
   Bot,
   CalendarClock,
   Check,
-  Loader2,
   Mail,
   MessageSquare,
   Sparkles,
@@ -295,7 +295,7 @@ export default function SetupHubPage() {
                                     : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
                                 }
                               >
-                                {action.busy ? <Loader2 size={11} className="animate-spin" /> : null}
+                                {action.busy ? <Spinner size="sm" /> : null}
                                 {action.label}
                               </button>
                             ) : (

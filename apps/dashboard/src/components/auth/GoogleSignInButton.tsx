@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '../ui/spinner'
 import { GoogleLogo } from './provider-logos'
 import { Button } from '../ui/button'
 
@@ -20,7 +20,7 @@ export function GoogleSignInButton({
       disabled={disabled || isLoading}
       className="w-full gap-2.5"
     >
-      {isLoading ? <Loader2 size={16} className="animate-spin" /> : <GoogleLogo />}
+      {isLoading ? <Spinner size="md" /> : <GoogleLogo />}
       {label}
     </Button>
   )

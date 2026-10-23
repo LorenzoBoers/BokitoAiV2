@@ -1,6 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import type { InboxThread, PatchThreadInput } from '../../lib/inbox-api'
@@ -260,7 +261,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                   continueAfterReplace(next)
                 }}
               >
-                {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                {busy ? <Spinner size="md" className="mr-1" /> : null}
                 {t('tags.replaceConfirm')}
               </Button>
             </DialogFooter>
@@ -301,7 +302,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                 disabled={busy || !intakeValid}
                 onClick={() => void runFile(pending)}
               >
-                {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                {busy ? <Spinner size="md" className="mr-1" /> : null}
                 {t('tags.intakeContinue')}
               </Button>
             </DialogFooter>

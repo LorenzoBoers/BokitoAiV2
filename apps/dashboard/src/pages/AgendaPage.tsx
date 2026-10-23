@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -617,7 +618,7 @@ export default function AgendaPage() {
             onClick={reload}
             disabled={loading}
           >
-            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} aria-hidden />
+            {loading ? <Spinner size="md" /> : <RefreshCw className="h-4 w-4" aria-hidden />}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

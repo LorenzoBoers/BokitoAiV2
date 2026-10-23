@@ -1,6 +1,7 @@
+import { LoadingBlock } from '../ui/loading-block'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ConnectionRow } from './ConnectionRow'
 import { ConnectionScopeEditor } from './ConnectionScopeEditor'
@@ -53,9 +54,7 @@ export function ProviderConnectionsList({
 
   if (rows == null) {
     return (
-      <div className="flex justify-center py-4">
-        <Loader2 size={16} className="animate-spin text-text-muted" aria-hidden />
-      </div>
+      <LoadingBlock className="py-4" />
     )
   }
 

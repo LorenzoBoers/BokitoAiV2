@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -455,7 +456,7 @@ export default function GovernPage() {
               title={t('refresh')}
               aria-label={t('refresh')}
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} aria-hidden />
+              {loading ? <Spinner size="md" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
             </Button>
           </>
         }

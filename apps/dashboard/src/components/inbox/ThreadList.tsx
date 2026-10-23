@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Filter, X } from 'lucide-react'
@@ -341,7 +342,7 @@ export default function ThreadList({
         >
           {loadingMore ? (
             <span className="inline-flex items-center justify-center gap-2">
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border border-border border-t-accent" />
+              <Spinner size="sm" className="text-accent" />
               {t('threadList.loadingMore')}
             </span>
           ) : total != null ? (

@@ -1,7 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -586,7 +586,7 @@ export default function PlanDialog({ open, onOpenChange, thread = null, seed, on
               {t('plan.cancel')}
             </Button>
             <Button type="button" onClick={() => void save()} disabled={!canSave || acting != null}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : t('plan.save')}
+              {saving ? <Spinner size="md" /> : t('plan.save')}
             </Button>
           </div>
         </DialogFooter>

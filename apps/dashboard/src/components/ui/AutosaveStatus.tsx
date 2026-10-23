@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from './spinner'
 import type { AutosavePhase } from '../../hooks/useAutosave'
 import { timeAgo } from '../../lib/time-ago'
 import { formatAppDateTime } from '../../lib/app-locale'
@@ -35,7 +35,7 @@ export function AutosaveStatus({
         role="status"
         aria-live="polite"
       >
-        <Loader2 size={12} className="animate-spin" aria-hidden />
+        <Spinner size="sm" />
         {t('autosave.saving')}
       </span>
     )

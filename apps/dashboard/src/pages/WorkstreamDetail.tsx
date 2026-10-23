@@ -1,9 +1,10 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, Loader2, MoreHorizontal, Pencil, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, Pencil, Settings, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
@@ -333,7 +334,7 @@ export default function WorkstreamDetail() {
                     onClick={isAdmin ? () => setMarkOpen(true) : undefined}
                   />
                 ) : null}
-                {savingMeta ? <Loader2 size={14} className="shrink-0 animate-spin text-text-muted" /> : null}
+                {savingMeta ? <Spinner size="md" className="text-text-muted" /> : null}
               </div>
               <div className="flex h-8 shrink-0 items-center gap-2">
                 <OpenInGridButton kind="flow" id={workstream.id} />

@@ -1,7 +1,8 @@
+import { Spinner } from '../components/ui/spinner'
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { WizardSkeleton } from '../components/ui/skeleton'
@@ -605,7 +606,7 @@ export default function OnboardingWizardPage() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? t('saving') : stepIndex >= steps.length - 1 ? t('finish') : t('next')}
-            {!busy ? <ArrowRight size={13} /> : <Loader2 size={13} className="animate-spin" />}
+            {!busy ? <ArrowRight size={13} /> : <Spinner size="md" />}
           </button>
         </div>
       </main>

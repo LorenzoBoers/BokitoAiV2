@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { ChevronDown, ChevronRight, FileText, Loader2, Pencil, Plus, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileText, Pencil, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import MarkdownView from '../docs/MarkdownView'
 import { KnowledgeMarkdownEditor } from '../knowledge/KnowledgeMarkdownEditor'
@@ -77,7 +78,7 @@ function SectionRow({
                   variant={SECTION_STATUS_VARIANT[section.status]}
                   className="cursor-pointer px-1.5 py-0 text-2xs"
                 >
-                  {busy ? <Loader2 size={10} className="mr-0.5 animate-spin" /> : null}
+                  {busy ? <Spinner size="sm" className="mr-0.5" /> : null}
                   {t(`projects.work.sectionStatus.${section.status}`)}
                 </Badge>
               </button>
@@ -275,7 +276,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                 autoFocus
               />
               <Button type="button" size="sm" disabled={saving || !newPath.trim()} onClick={() => void createDoc()}>
-                {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                {saving ? <Spinner size="md" /> : <Plus size={13} />}
               </Button>
               <Button type="button" size="sm" variant="ghost" className="px-2" onClick={() => setCreating(false)}>
                 <X size={13} />
@@ -352,7 +353,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                         {t('projects.work.cancel')}
                       </Button>
                       <Button type="button" size="sm" disabled={saving} onClick={() => void saveDoc()}>
-                        {saving ? <Loader2 size={13} className="mr-1 animate-spin" /> : null}
+                        {saving ? <Spinner size="md" className="mr-1" /> : null}
                         {t('projects.work.saveDoc')}
                       </Button>
                     </div>

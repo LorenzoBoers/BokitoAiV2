@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Skeleton } from './skeleton'
+import { Spinner } from './spinner'
 
 interface LoadingBlockProps {
   /**
@@ -18,7 +18,7 @@ interface LoadingBlockProps {
 
 /**
  * Unified loading block. Default `center` variant matches the
- * Integrations Connected loading pattern (Loader2 above text-text-muted).
+ * Integrations Connected loading pattern (spinner above text-text-muted).
  */
 export function LoadingBlock({
   variant = 'center',
@@ -34,7 +34,7 @@ export function LoadingBlock({
           className,
         )}
       >
-        <Loader2 size={14} className="animate-spin" aria-hidden />
+        <Spinner size="md" />
         {label ?? null}
       </span>
     )
@@ -65,7 +65,7 @@ export function LoadingBlock({
       aria-busy="true"
       aria-live="polite"
     >
-      <Loader2 size={20} className="animate-spin" aria-hidden />
+      <Spinner size="lg" />
       {label ? <p className="text-sm">{label}</p> : null}
     </div>
   )

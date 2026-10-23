@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -5,7 +6,6 @@ import {
   Eye,
   EyeOff,
   Globe2,
-  Loader2,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -776,7 +776,7 @@ export default function ModelsSettings() {
                           {t('modelsPage.custom.back')}
                         </Button>
                         <Button type="button" size="sm" disabled={busy || !apiKey.trim()} onClick={() => void handleCreateProvider()}>
-                          {busy ? <Loader2 size={14} className="animate-spin" /> : null}
+                          {busy ? <Spinner size="md" /> : null}
                           {t('modelsPage.custom.saveAndTest')}
                         </Button>
                       </div>

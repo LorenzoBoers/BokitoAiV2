@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
@@ -199,7 +200,7 @@ export function IntegrationDetailPanel({
                 disabled={toolsBusy}
                 onClick={() => void refreshTools()}
               >
-                <RefreshCw className={`h-3 w-3 ${toolsBusy ? 'animate-spin' : ''}`} aria-hidden />
+                {toolsBusy ? <Spinner size="sm" /> : <RefreshCw className="h-3 w-3" aria-hidden />}
                 {t('integrations.hub.detail.refreshTools', { defaultValue: 'Refresh' })}
               </Button>
             ) : null}

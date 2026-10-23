@@ -2,9 +2,10 @@
  * Compose-with-AI menu for the customer reply composer: intent → draft,
  * plus quick rewrite actions on existing text.
  */
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Sparkles, Wand2 } from 'lucide-react'
+import { Sparkles, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { draftComposerText, draftThreadReply } from '../../lib/inbox-api'
@@ -173,7 +174,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
           aria-label={t('composer.writeWithAi')}
           className="flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium text-ai-ink transition-colors hover:bg-ai/10 disabled:opacity-40"
         >
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          {busy ? <Spinner size="md" /> : <Sparkles size={14} />}
           <span className="hidden sm:inline">{t('composer.writeWithAiShort')}</span>
         </button>
       </DropdownMenuTrigger>
@@ -231,7 +232,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
             onClick={() => void run('compose')}
             className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-ai px-2.5 text-xs font-medium text-ai-fg hover:opacity-90 disabled:opacity-40"
           >
-            {busy ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
+            {busy ? <Spinner size="md" /> : <Wand2 size={13} />}
             {hasDraft && !intent.trim() ? t('composer.aiRedraft') : t('composer.aiGenerate')}
           </button>
         </div>

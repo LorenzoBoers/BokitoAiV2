@@ -1,7 +1,8 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Building2, Loader2 } from 'lucide-react'
+import { Building2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { listStaffTenants, type StaffTenantOption } from '../../lib/staff-api'
 import { StaffSelectSkeleton } from '../ui/skeleton'
@@ -94,7 +95,7 @@ export default function StaffTenantBar() {
           ]}
         />
       )}
-      {switching ? <Loader2 size={12} className="animate-spin text-text-muted" /> : null}
+      {switching ? <Spinner size="sm" className="text-text-muted" /> : null}
       <Link
         to="/ops"
         className="flex h-5 shrink-0 items-center rounded-sm px-1.5 text-2xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"

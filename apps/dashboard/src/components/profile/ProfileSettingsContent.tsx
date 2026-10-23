@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import { useRef, useState, useCallback, useEffect, useMemo, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -538,7 +539,7 @@ export function ProfileSettingsContent() {
                 <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={48} />
                 <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   {avatarUploading
-                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ? <Spinner size="md" className="text-white" />
                     : <Pencil size={14} className="text-white" />}
                 </span>
               </button>

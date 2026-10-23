@@ -1,6 +1,7 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Cpu, Loader2, Sparkles } from 'lucide-react'
+import { Cpu, Sparkles } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -235,7 +236,7 @@ export function NewAgentDialog({ open, onOpenChange, onCreated, prefill = null }
             {t('workforce.agents.create.cancel')}
           </Button>
           <Button type="button" onClick={() => void submit()} disabled={busy || !name.trim()}>
-            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
+            {busy ? <Spinner size="md" className="mr-1.5" /> : null}
             {t('workforce.agents.create.submit')}
           </Button>
         </DialogFooter>

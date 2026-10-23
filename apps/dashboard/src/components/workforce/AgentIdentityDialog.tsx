@@ -1,6 +1,6 @@
+import { Spinner } from '../ui/spinner'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -447,7 +447,7 @@ export function AgentIdentityDialog({
             {tc('actions.cancel')}
           </Button>
           <Button type="button" onClick={() => void save()} disabled={busy}>
-            {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden /> : null}
+            {busy ? <Spinner size="md" className="mr-1.5" /> : null}
             {tc('actions.save')}
           </Button>
         </DialogFooter>

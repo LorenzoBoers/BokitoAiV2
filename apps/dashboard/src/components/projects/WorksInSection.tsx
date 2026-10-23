@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
@@ -10,7 +11,6 @@ import {
   Globe,
   SquareKanban,
   Link2,
-  Loader2,
   NotebookText,
   Paperclip,
   Plug,
@@ -310,7 +310,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
               {t('projects.work.cancel')}
             </Button>
             <Button type="button" size="xs" disabled={busy || !canSubmit} onClick={() => void add()}>
-              {busy ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Plus size={12} className="mr-1" />}
+              {busy ? <Spinner size="sm" className="mr-1" /> : <Plus size={12} className="mr-1" />}
               {t('projects.work.add')}
             </Button>
           </div>

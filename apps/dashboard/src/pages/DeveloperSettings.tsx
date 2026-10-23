@@ -1,3 +1,4 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -5,7 +6,6 @@ import {
   Check,
   Copy,
   KeyRound,
-  Loader2,
   Plus,
   Send,
   Trash2,
@@ -174,7 +174,7 @@ function McpOAuthGrantsSection({
                 disabled={busyId === grant.id}
                 onClick={() => void handleRevoke(grant)}
               >
-                {busyId === grant.id ? <Loader2 size={13} className="animate-spin" /> : null}
+                {busyId === grant.id ? <Spinner size="md" /> : null}
                 {t('developersPage.oauthGrants.revoke')}
               </Button>
             </li>
@@ -351,7 +351,7 @@ function ApiTokensSection({
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleCreate} disabled={busy || !name.trim()}>
-              {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+              {busy ? <Spinner size="md" className="mr-1" /> : null}
               {busy ? t('developersPage.creating') : t('developersPage.create')}
             </Button>
             <Button
@@ -747,7 +747,7 @@ export default function DeveloperSettings() {
               </div>
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleCreate} disabled={busy || !newUrl.trim()}>
-                  {busy ? <Loader2 size={14} className="mr-1 animate-spin" /> : null}
+                  {busy ? <Spinner size="md" className="mr-1" /> : null}
                   {t('developersPage.webhooks.create')}
                 </Button>
                 <Button

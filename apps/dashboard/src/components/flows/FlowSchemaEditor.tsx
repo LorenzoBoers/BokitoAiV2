@@ -1,3 +1,4 @@
+import { Spinner } from '../ui/spinner'
 import {
   useEffect,
   useLayoutEffect,
@@ -18,7 +19,6 @@ import {
   Gauge,
   LayoutGrid,
   ListChecks,
-  Loader2,
   Plus,
   Settings2,
   Square,
@@ -646,7 +646,7 @@ export function FlowSchemaEditor({
             {t('workstreamsPage.schema.close')}
           </Button>
           <Button type="button" size="sm" onClick={() => void save()} disabled={saving || !dirty}>
-            {saving ? <Loader2 size={14} className="animate-spin" aria-hidden /> : null}
+            {saving ? <Spinner size="md" /> : null}
             {t('workstreamsPage.schema.save')}
           </Button>
         </div>
@@ -671,7 +671,7 @@ export function FlowSchemaEditor({
             <p className="mb-2 text-xs font-medium text-text-heading">{t('workstreamsPage.schema.errorsTitle')}</p>
             {checking ? (
               <p className="flex items-center gap-1.5 text-xs text-text-muted">
-                <Loader2 size={12} className="animate-spin" aria-hidden />
+                <Spinner size="sm" />
               </p>
             ) : sourceErrors.length === 0 ? (
               <p className="text-xs text-status-success">{t('workstreamsPage.schema.sourceOk')}</p>

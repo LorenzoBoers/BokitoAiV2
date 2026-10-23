@@ -1,7 +1,8 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowUp, Bot, ChevronLeft, ChevronRight, Loader2, Mail, Mic, Plus, StickyNote, X as XIcon } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Bot, ChevronLeft, ChevronRight, Mail, Mic, Plus, StickyNote, X as XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useChatSessions } from '../context/ChatSessionsContext'
@@ -1189,7 +1190,7 @@ export default function NewConversationPage() {
                     type="submit"
                     disabled={sending || whatsappTo.trim().length < 8 || !whatsappBody.trim()}
                   >
-                    {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.send')}
+                    {sending ? <Spinner size="md" /> : t('newConversation.send')}
                   </Button>
                 </form>
               ) : activeCarousel?.kind === 'channel' ? (
@@ -1296,7 +1297,7 @@ export default function NewConversationPage() {
                     title={t('newConversation.send')}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
-                    {sending ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.25} />}
+                    {sending ? <Spinner size="md" /> : <ArrowUp size={16} strokeWidth={2.25} />}
                   </button>
                 </ComposerDictationRow>
               </ComposerCard>
@@ -1413,7 +1414,7 @@ export default function NewConversationPage() {
                 type="submit"
                 disabled={sending || whatsappTo.trim().length < 8 || !whatsappBody.trim()}
               >
-                {sending ? <Loader2 size={14} className="animate-spin" /> : t('newConversation.send')}
+                {sending ? <Spinner size="md" /> : t('newConversation.send')}
               </Button>
             </form>
           ) : null}

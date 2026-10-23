@@ -1,7 +1,8 @@
+import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Lock, Search, Shield } from 'lucide-react'
+import { Lock, Search, Shield } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
@@ -440,7 +441,7 @@ export default function OpsPage() {
                                 className="rounded border-border"
                               />
                               {featuringId === tenant.id ? (
-                                <Loader2 size={12} className="animate-spin text-text-muted" />
+                                <Spinner size="sm" className="text-text-muted" />
                               ) : tenant.custom_models ? (
                                 t('ops.customModelsOn')
                               ) : (
@@ -464,7 +465,7 @@ export default function OpsPage() {
                                   onClick={() => void onEnter(tenant.id)}
                                 >
                                   {enteringId === tenant.id ? (
-                                    <Loader2 size={14} className="animate-spin" />
+                                    <Spinner size="md" />
                                   ) : (
                                     t('ops.enter')
                                   )}
@@ -479,7 +480,7 @@ export default function OpsPage() {
                                 onClick={() => void onDeleteTenant(tenant)}
                               >
                                 {deletingId === tenant.id ? (
-                                  <Loader2 size={14} className="animate-spin" />
+                                  <Spinner size="md" />
                                 ) : (
                                   t('ops.delete')
                                 )}
@@ -545,7 +546,7 @@ export default function OpsPage() {
                                 onClick={() => void onImpersonate(row)}
                               >
                                 {impersonatingId === row.id ? (
-                                  <Loader2 size={14} className="animate-spin" />
+                                  <Spinner size="md" />
                                 ) : (
                                   t('ops.impersonate')
                                 )}
