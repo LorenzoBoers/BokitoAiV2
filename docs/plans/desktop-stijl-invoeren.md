@@ -470,6 +470,11 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - De gloed om een live agent-stoel (`[data-live-agent='true']::after`, `live-agent-glow`) staat niet in de lijst en blijft.
 - Iconen: gekozen voor `svg.lucide[stroke-width='2'] { stroke-width: 1.75 }` in de base-laag, geen `Icon`-wrapper. De selector raakt alleen de Lucide-standaard; expliciete diktes (`strokeWidth={2.5}` enzovoort) blijven. Ook de 17 expliciete `strokeWidth={2}` worden daardoor 1,75.
 
+### Fase 7: documentatie
+
+- `.cursor/rules/dashboard-design-system.mdc` staat niet in het plan, maar noemde nog `AmbientSpotlights` en "geen andere fonts". Die regel is de korte vorm van `DESIGN_SYSTEM.md`, dus hij is in dezelfde commit gelijkgetrokken (serif, radius, geen glows, de nieuwe guard-regels).
+- Baseline: alleen `border-opacity` is toegevoegd (leeg, dus 0 per bestand). De vier bestaande ratchets zijn niet herschreven, hoewel 7 bestanden na de Button-codemod lager zitten; die gaan omlaag in de fase-8-stap waar ze bij horen.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

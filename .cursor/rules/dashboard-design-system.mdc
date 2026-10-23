@@ -19,7 +19,6 @@ Rare one-off styles fold into the nearest catalog component.
 | Family | Component | Use for |
 |---|---|---|
 | Surfaces | `Card` (+ `CardHeader`, `CardTitle`, `CardContent`) / `.panel` | Every card, section, standalone list |
-| | `AmbientSpotlights` | Soft corner wash on a large dark canvas (parent is `relative`) |
 | | `InsetPanel` | Region inside a Card (sublist, preview, group) |
 | | `SettingsSection` | Settings form card with title, description, actions |
 | | `SectionHeading` | Heading of a group inside a page or card |
@@ -50,9 +49,10 @@ Rare one-off styles fold into the nearest catalog component.
 
 ## Tokens
 
-- Fonts: `--font-sans` (Inter) and `--font-mono` (JetBrains Mono) in `index.css`. No other families.
+- Fonts: `--font-sans` (Inter), `--font-serif` (Source Serif 4, headings and agent text only) and `--font-mono` (JetBrains Mono) in `index.css`. No other families.
 - Size ladder: `text-2xs`, `xs`, `sm`, `base`, `lg`, `xl`, `2xl`. Never `text-[Npx]`.
-- Radius ladder: shell `2xl`/`xl` > `Card`, `Badge`, `OptionCard`, `Callout` `lg` > `InsetPanel`, input, button, `FilterChip` `md`. `rounded-full` only for avatars, dots, switches and numeric count bubbles.
+- Radius ladder: `Card`, `.panel`, `Dialog` `xl` > `Callout` `lg` > input, button, menu item `md`. `rounded-full` for `Badge`, avatars, dots, switches and count bubbles.
+- No glows, no opacity steps on `border-border` or `text-text-muted`. Button height comes from `size`, never `h-*` in `className`.
 - Colors: surface ladder `bg`, `bg-surface`, `bg-elevated`, `bg-hover`, `bg-input`; status via `status-success|warning|error|info`; AI via `ai`/`ai-ink`; brand via `accent`. No raw palette colors (`emerald-500`, `amber-600`, `red-500`).
 - Badge tones: `neutral`, `accent`, `ai`, `success`, `warning`, `error`, `info`. Map domain values with `statusTone`, `roleTone`, `memberTypeTone`, `ratioTone`.
 
@@ -60,10 +60,11 @@ Rare one-off styles fold into the nearest catalog component.
 
 `npm run lint` in `apps/dashboard` runs `scripts/check-design-system.mjs`. It fails on
 `window.confirm`, native `<select>`, `text-[Npx]`, hand-rolled card strings,
-`bg-bg-elevated/40`, raw status colors, capsule chips and removed legacy classes.
+`bg-bg-elevated/40`, raw status colors, capsule chips, `h-*` on a `<Button>`,
+`text-text-muted/NN` and removed legacy classes.
 Exempt a line only with a `design-system-ignore` comment and a reason.
 
-Ratchet rules (`raw-button`, `raw-input`, `hex-color`, `arbitrary-radius`) compare per-file
+Ratchet rules (`raw-button`, `raw-input`, `hex-color`, `arbitrary-radius`, `border-opacity`) compare per-file
 counts against `scripts/design-system-baseline.json`: a file may not gain hits. After removing
 debt, run `node scripts/check-design-system.mjs --update-baseline` to lock in the lower count.
 

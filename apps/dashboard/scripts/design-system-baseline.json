@@ -210,5 +210,6 @@
     "components/inbox/ThreadTimeline.tsx": 1,
     "components/integrations/BrandMark.tsx": 1,
     "components/org/OrgFlowBoard.tsx": 3
-  }
+  },
+  "border-opacity": {}
 }
