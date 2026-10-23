@@ -571,7 +571,7 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 - **Stap 6 bestaat niet in de code.** `flows/FlowTicketBoard` heeft alleen het bord: kolommen met `FlowTicketCard`. Er is geen lijstweergave, ook niet elders onder `components/flows` of op de werkpagina's. Een lijstweergave bouwen staat niet in het plan, dus stap 6 is overgeslagen.
 - Zonder stap 6 haalt de klaar-eis "zes lijsten" er hoogstens vijf: nu vier, na stap 5 vijf. `EntityList` heeft 5 gebruikers (eis: 4).
 - **Stap 5 (`ThreadListItem`) is na akkoord omgezet.** Gekozen: ongelezen is titel 600 en de bestaande statusstip, acties nemen bij hover de plaats van de tijd in, geselecteerd is vol `bg-bg-hover`. `EntityRow` kreeg daarvoor de slots `select` en `footer`. Dat de acties geen ruimte innemen geldt nu voor alle lijsten, dus ook voor Contacten en Leden.
-- De rij is nu een `Pressable` binnen een slepende rij. In Chromium start slepen ook vanaf een knop; in Firefox niet getest.
+- De klikzone is nu een `Pressable` (een knop) binnen de slepende rij. Slepen naar een map of werk is niet in de browser getest, omdat dat een echt gesprek verplaatst. Firefox start van oudsher geen sleep vanaf een knop; controleer dat voor de merge.
 - Avatar en tekst staan verticaal gecentreerd, zoals in elke `EntityRow`, en niet meer bovenaan. Een titel die niet ongelezen is, staat in kopkleur in plaats van `text-primary`.
 - Mappen: het pad van de bovenliggende mappen was een rij links in de kaart. In de rij is het nu gewone tekst, omdat de rij zelf een link is en links niet in links mogen.
 - Leden: de kolomkoppen en de sleutels `membersPage.col*` en `membersPage.openAgent` worden niet meer gebruikt. Ze zijn blijven staan, want copy opruimen staat niet in het plan.
