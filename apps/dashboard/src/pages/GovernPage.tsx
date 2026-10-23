@@ -10,7 +10,7 @@ import { inboxPath } from '../lib/messages-paths'
 import { talkToAssistantPath } from '../lib/talk-to-assistant'
 import { activityEntryPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge, type BadgeTone } from '../components/ui/badge'
@@ -435,12 +435,12 @@ export default function GovernPage() {
 
   return (
     <PageContent width="xl" className="space-y-6">
-      <ContentHeader
+      <PageHeader
         guide="govern"
         title={t('title')}
         subtitle={t('subtitle')}
         className="mb-0"
-        meta={
+        actions={
           <>
             {refreshedAt ? (
               <span className="hidden text-xs text-text-muted sm:inline">

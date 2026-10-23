@@ -25,6 +25,7 @@ import { AgentDefinitionCard } from '../components/workforce/AgentDefinitionCard
 import { AgentActivityTimeline } from '../components/workforce/AgentActivityTimeline'
 import { AgentIdentityDialog } from '../components/workforce/AgentIdentityDialog'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { Card } from '../components/ui/card'
 import { AgentIdentitySkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
@@ -293,6 +294,7 @@ export default function AiAgentDetail() {
         </Card>
       ) : (
         <>
+          <PageHeader className="sr-only" title={agent.name} />
           <section className="relative py-4">
             <div className="absolute right-0 top-0 z-[1] flex h-8 items-center gap-2">
               <OpenInGridButton kind="agent" id={agent.id} />

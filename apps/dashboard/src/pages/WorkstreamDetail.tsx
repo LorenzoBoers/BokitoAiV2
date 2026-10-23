@@ -4,12 +4,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, MoreHorizontal, Pencil, Settings, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Pencil, Settings, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { Switch } from '../components/ui/switch'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
@@ -284,26 +285,21 @@ export default function WorkstreamDetail() {
 
   return (
     <PageContent width="full" className="space-y-4 py-1">
-      <Link
-        to="/flows"
-        className="inline-flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-primary"
-      >
-        <ArrowLeft size={14} />
-        {t('workstreamsPage.back')}
-      </Link>
-
       {loading ? (
         <FlowHeaderSkeleton />
       ) : error || !workstream ? (
         <ApiErrorBanner message={error ?? t('workstreamsPage.notFound')} onRetry={() => void load()} />
       ) : (
         <>
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
+          <PageHeader
+            className="mb-0"
+            back={{ to: '/flows', label: t('workstreamsPage.back') }}
+            title={
+              <span className="flex min-w-0 items-center gap-2.5">
                 <FlowIcon size={24} className="shrink-0 text-text-muted" aria-hidden />
                 <Tip label={isAdmin ? t('workstreamsPage.editNameHint') : undefined}>
                   <NameEdit
+                    heading="span"
                     value={titleEditing ? name : titleName}
                     canEdit={isAdmin}
                     editing={titleEditing}
@@ -335,8 +331,21 @@ export default function WorkstreamDetail() {
                   />
                 ) : null}
                 {savingMeta ? <Spinner size="md" className="text-text-muted" /> : null}
-              </div>
-              <div className="flex h-8 shrink-0 items-center gap-2">
+              </span>
+            }
+            subtitle={
+              workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
+                <Link
+                  to="/agenda?view=list&layers=tasks"
+                  className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-heading"
+                >
+                  <CalendarClock size={12} aria-hidden />
+                  {t('workstreamsPage.meta.checkupsOnAgenda')}
+                </Link>
+              ) : undefined
+            }
+            actions={
+              <>
                 <OpenInGridButton kind="flow" id={workstream.id} />
                 {isAdmin ? (
                   <Button
@@ -360,49 +369,41 @@ export default function WorkstreamDetail() {
                 >
                   <Settings size={16} aria-hidden />
                 </Button>
-                {isAdmin ? (
-                  <DropdownMenu.Root>
-                    <DropdownMenu.Trigger asChild>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="secondary"
-                        className="px-0 text-text-muted"
-                        aria-label={t('workstreamsPage.moreActions')}
+              </>
+            }
+            primaryAction={
+              isAdmin ? (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      className="px-0 text-text-muted"
+                      aria-label={t('workstreamsPage.moreActions')}
+                    >
+                      <MoreHorizontal size={16} aria-hidden />
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      align="end"
+                      sideOffset={4}
+                      className="z-50 min-w-[180px] rounded-lg border border-border bg-bg-surface p-1 shadow-overlay"
+                    >
+                      <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
+                        onSelect={() => setDeleteOpen(true)}
                       >
-                        <MoreHorizontal size={16} aria-hidden />
-                      </Button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        align="end"
-                        sideOffset={4}
-                        className="z-50 min-w-[180px] rounded-lg border border-border bg-bg-surface p-1 shadow-overlay"
-                      >
-                        <DropdownMenu.Item
-                          className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
-                          onSelect={() => setDeleteOpen(true)}
-                        >
-                          <Trash2 size={14} />
-                          {t('workstreamsPage.delete')}
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-                ) : null}
-              </div>
-            </div>
-
-            {workstream.stages.some((stage) => (stage.checkup_minutes ?? 0) > 0) ? (
-              <Link
-                to="/agenda?view=list&layers=tasks"
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-heading"
-              >
-                <CalendarClock size={12} aria-hidden />
-                {t('workstreamsPage.meta.checkupsOnAgenda')}
-              </Link>
-            ) : null}
-          </header>
+                        <Trash2 size={14} />
+                        {t('workstreamsPage.delete')}
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              ) : undefined
+            }
+          />
 
           <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
             <DialogContent className="flex h-[min(960px,94vh)] w-[calc(100%-1.5rem)] max-w-[1440px] flex-col gap-0 overflow-hidden p-0">

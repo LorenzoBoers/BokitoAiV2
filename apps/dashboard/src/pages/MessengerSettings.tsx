@@ -17,6 +17,7 @@ import {
 import { PageGuideLink } from '../components/layout/PageGuideLink'
 import { AutosaveStatus } from '../components/ui/AutosaveStatus'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { WidgetPreviewSkeleton } from '../components/ui/skeleton'
 import { Input } from '../components/ui/input'
 import { SegmentedControl } from '../components/ui/segmented-control'
@@ -559,7 +560,7 @@ function MessengerSettingsContent({
       <div className={cn('flex flex-col gap-3 border-b border-border pb-4', embedded ? 'lg:flex-row lg:items-center lg:justify-end' : 'lg:flex-row lg:flex-wrap lg:items-start lg:justify-between')}>
         {embedded ? null : (
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
-          <h2 className="shrink-0 text-lg font-semibold leading-none tracking-[-0.01em] text-text-heading">{t('messengerPage.title')}</h2>
+          <PageHeader className="mb-0 shrink-0" title={t('messengerPage.title')} />
           <SegmentedControl
             value={section}
             onChange={(v) => (onSectionChange ? onSectionChange(v) : navigate(assistantSettingsPath('external', v)))}

@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { PageHeader } from '../components/ui/page-header'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -888,6 +889,7 @@ export default function NewConversationPage() {
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <DotGridBackground />
+      <PageHeader className="sr-only" title={t('newConversation.title')} />
       <div className="relative z-10 flex h-11 shrink-0 items-center gap-3 border-b border-border bg-bg px-4">
         <button
           type="button"

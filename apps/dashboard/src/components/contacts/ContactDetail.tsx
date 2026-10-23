@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { toastMovedToBin } from '../../lib/bin-toast'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
-import { ArrowLeft, Check, Mail, ShieldBan, ShieldCheck, Trash2 } from 'lucide-react'
+import { Check, Mail, ShieldBan, ShieldCheck, Trash2 } from 'lucide-react'
 
 const Building2 = ENTITY_ICONS.company
 const MessageSquare = ENTITY_ICONS.conversation
@@ -19,7 +19,7 @@ import { PersonAvatar } from '../ui/PersonAvatar'
 import { Badge } from '../ui/badge'
 import { useConfirm } from '../ui/confirm-dialog'
 import { useAuth } from '../../context/AuthContext'
-import ContentHeader from '../shell/ContentHeader'
+import { PageHeader } from '../ui/page-header'
 import { PageContent } from '../layout/PageContent'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { deleteContact, detachContactIdentity, findThreadsForContact, getContact, getContactThreadPage, setContactTags, updateContact, type ContactOwner, type ContactRow, type ContactStatus } from '../../lib/contacts-api'
@@ -257,7 +257,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
 
   return (
     <PageContent width="xl">
-      <ContentHeader
+      <PageHeader
         title={contact.displayName || contact.address || t('contactsPage.newContact')}
         subtitle={
           contact.title || contact.company ? (
@@ -283,15 +283,21 @@ export function ContactDetail({ contactId }: { contactId: string }) {
             t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })
           )
         }
-        meta={
-          <>
+        back={{ to: '/contacts', label: t('contactsPage.allContacts') }}
+        primaryAction={
+          mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
             <Link
-              to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
+              to={composeEmailPath({ to: contact.address })}
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+              title={t('contactsPage.writeEmailHint')}
             >
-              <ArrowLeft size={14} />
-              {t('contactsPage.allContacts')}
+              <Mail size={14} />
+              {t('contactsPage.writeEmail')}
             </Link>
+          ) : undefined
+        }
+        actions={
+          <>
             {threads[0] ? (
               <Link
                 to={inboxPath('open', String(threads[0].id))}
@@ -304,16 +310,6 @@ export function ContactDetail({ contactId }: { contactId: string }) {
               >
                 <MessageSquare size={12} />
                 {t('contactsPage.openConversation')}
-              </Link>
-            ) : null}
-            {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
-              <Link
-                to={composeEmailPath({ to: contact.address })}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
-                title={t('contactsPage.writeEmailHint')}
-              >
-                <Mail size={14} />
-                {t('contactsPage.writeEmail')}
               </Link>
             ) : null}
             {contact.status !== 'approved' ? (

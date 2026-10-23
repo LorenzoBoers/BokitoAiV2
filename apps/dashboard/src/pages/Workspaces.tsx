@@ -8,6 +8,7 @@ import { useWorkspace } from '../context/WorkspaceContext'
 import { useTranslation } from 'react-i18next'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { WorkspaceCardsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { buildTenantOrigin, isLocalHostname } from '../lib/host-routing'
@@ -169,10 +170,7 @@ export default function Workspaces() {
   return (
     <div className="flex min-h-full items-center justify-center px-6 py-10">
       <div className="w-full max-w-[860px] space-y-10">
-        <section className="space-y-1.5 text-center">
-          <h2 className="text-2xl font-semibold leading-tight text-text-heading">{t('title')}</h2>
-          <p className="text-sm text-text-secondary">{t('description')}</p>
-        </section>
+        <PageHeader className="mb-0 justify-center text-center" title={t('title')} subtitle={t('description')} />
 
         <div className="space-y-4">
           {workspaces.length > 3 ? (

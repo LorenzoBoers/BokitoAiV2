@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { Button } from '../components/ui/button'
 import { RetentionFieldsSkeleton } from '../components/ui/skeleton'
 import { useConfirm } from '../components/ui/confirm-dialog'
@@ -138,7 +138,7 @@ export default function TrustPrivacyPage() {
 
   return (
     <PageContent width="md" className="space-y-6">
-      <ContentHeader title={t('trustPage.title')} subtitle={t('trustPage.subtitle')} />
+      <PageHeader title={t('trustPage.title')} subtitle={t('trustPage.subtitle')} />
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 

@@ -18,7 +18,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SRC = join(ROOT, 'src')
 const CATALOG_DIR = `components${sep}ui${sep}`
 
-/** Rules: `pattern` runs per line; `catalogOk` skips components/ui. */
+/** Rules: `pattern` runs per line; `catalogOk` skips components/ui; `allow` skips matching paths. */
 const RULES = [
   {
     id: 'window-confirm',
@@ -109,6 +109,13 @@ const RULES = [
     pattern: /\b(badge-accent|badge-status|font-display|panel-inset)\b/,
     message: 'Removed legacy class; use Badge / InsetPanel / font-sans.',
     catalogOk: false,
+  },
+  {
+    id: 'raw-h1',
+    pattern: /<h1\b/,
+    message: 'Pages start with <PageHeader>; it owns the <h1>.',
+    catalogOk: true,
+    allow: /^(components\/auth\/|components\/docs\/|pages\/(Docs|ForgotPassword|ResetPassword|Login|Signup|VerifyEmail|AcceptInvite|PublicTrust|TrustPrivacy)(?:Page)?)/,
   },
 ]
 
@@ -220,6 +227,7 @@ for (const file of walk(SRC)) {
     if (line.includes(IGNORE_MARKER)) return
     for (const rule of RULES) {
       if (inCatalog && rule.catalogOk) continue
+      if (rule.allow?.test(relPosix)) continue
       if (rule.skip?.test(line)) continue
       if (rule.pattern.test(line)) {
         hits.push({ rule, rel: relPosix, line: index + 1, text: line.trim() })

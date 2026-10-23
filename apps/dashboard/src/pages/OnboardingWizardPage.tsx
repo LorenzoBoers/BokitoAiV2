@@ -1,5 +1,6 @@
 import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
+import { PageHeader } from '../components/ui/page-header'
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -347,20 +348,21 @@ export default function OnboardingWizardPage() {
 
   return (
     <div className="app-atmosphere flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-border px-5 py-3">
-        <div>
-          <p className="text-xs font-semibold text-accent">Bokito</p>
-          <h1 className="text-lg font-semibold text-text-heading">
-            {isOwnerScope ? t('title') : t('memberTitle')}
-          </h1>
-        </div>
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
-        >
-          {t('logout')}
-        </button>
+      <header className="border-b border-border px-5 py-3">
+        <p className="text-xs font-semibold text-accent">Bokito</p>
+        <PageHeader
+          className="mb-0 items-center"
+          title={isOwnerScope ? t('title') : t('memberTitle')}
+          primaryAction={
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
+            >
+              {t('logout')}
+            </button>
+          }
+        />
       </header>
 
       <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-5 py-8">

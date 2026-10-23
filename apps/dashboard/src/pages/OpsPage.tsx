@@ -10,7 +10,7 @@ import { DirectoryRowsSkeleton, StatTilesSkeleton } from '../components/ui/skele
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { toast } from 'sonner'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { Badge } from '../components/ui/badge'
 import { StatGrid, StatTile } from '../components/ui/stat-tile'
 import {
@@ -250,7 +250,7 @@ export default function OpsPage() {
 
   return (
     <PageContent width="xl" className="space-y-6 pb-10">
-      <ContentHeader
+      <PageHeader
         className="mb-0"
         title={
           <span className="inline-flex flex-wrap items-center gap-2">
@@ -264,7 +264,7 @@ export default function OpsPage() {
             {data?.api_url ? <span className="mt-1 block font-mono text-xs text-text-muted">{data.api_url}</span> : null}
           </>
         }
-        meta={
+        actions={
           <Link to="/settings/models" className="text-xs font-medium text-accent hover:underline">
             {t('ops.modelsLink')}
           </Link>

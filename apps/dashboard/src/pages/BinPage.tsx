@@ -6,7 +6,7 @@ import { Layers, Trash2 } from 'lucide-react'
 import { entityIcon } from '../lib/entity-icons'
 import { restoredEntityPath } from '../lib/open-entity'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { Button } from '../components/ui/button'
 import { TrashRowsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
@@ -155,7 +155,7 @@ export default function BinPage() {
 
   return (
     <PageContent width="md" className="space-y-6">
-      <ContentHeader title={t('binPage.title')} subtitle={t('binPage.subtitle')} />
+      <PageHeader title={t('binPage.title')} subtitle={t('binPage.subtitle')} />
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
       <FilterChipRow>

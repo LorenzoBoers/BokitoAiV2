@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Copy, FileText, Search } from 'lucide-react'
+import { BookOpen, Copy, FileText, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import MarkdownView from '../components/docs/MarkdownView'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
@@ -15,6 +15,7 @@ import {
 } from '../lib/help-api'
 import { parseHelpSearch } from '../lib/help-search-url'
 import { TextLink } from '../components/ui/text-link'
+import { PageHeader } from '../components/ui/page-header'
 
 function formatDate(iso: string, language?: string | null): string {
   try {
@@ -159,30 +160,29 @@ export default function HelpCenter() {
           </div>
         ) : articleSlug && article ? (
           <article>
-            <Link
-              to={`/help/${tenantSlug}`}
-              className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              {t('helpPublic.allArticles')}
-            </Link>
-            <h1 className="text-2xl font-semibold tracking-tight">{article.title}</h1>
-            <div className="mt-1 mb-6 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span>{t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}</span>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
-                onClick={() => {
-                  void navigator.clipboard.writeText(window.location.href).then(
-                    () => toast.success(t('helpPublic.copiedUrl')),
-                    () => toast.error(t('helpPublic.copyFailed')),
-                  )
-                }}
-              >
-                <Copy className="h-3 w-3" />
-                {t('helpPublic.copyUrl')}
-              </button>
-            </div>
+            <PageHeader
+              className="mb-6"
+              back={{ to: `/help/${tenantSlug}`, label: t('helpPublic.allArticles') }}
+              title={article.title}
+              subtitle={
+                <span className="flex flex-wrap items-center gap-3 text-xs">
+                  <span>{t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}</span>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(window.location.href).then(
+                        () => toast.success(t('helpPublic.copiedUrl')),
+                        () => toast.error(t('helpPublic.copyFailed')),
+                      )
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                    {t('helpPublic.copyUrl')}
+                  </button>
+                </span>
+              }
+            />
             <MarkdownView content={article.content} />
           </article>
         ) : filtered.length === 0 ? (

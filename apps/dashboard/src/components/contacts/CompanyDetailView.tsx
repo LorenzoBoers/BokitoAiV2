@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../../lib/bin-toast'
-import { ArrowLeft, Check, Trash2 } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ProfileSkeleton } from '../ui/skeleton'
@@ -14,7 +14,7 @@ import { DomainFavicon } from '../ui/DomainFavicon'
 import { PersonAvatar } from '../ui/PersonAvatar'
 import { useConfirm } from '../ui/confirm-dialog'
 import { useAuth } from '../../context/AuthContext'
-import ContentHeader from '../shell/ContentHeader'
+import { PageHeader } from '../ui/page-header'
 import { PageContent } from '../layout/PageContent'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { deleteCompany, getCompany, setCompanyTags, updateCompany, type CompanyDetail as CompanyDetailData } from '../../lib/contacts-api'
@@ -139,18 +139,12 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
 
   return (
     <PageContent width="xl">
-      <ContentHeader
+      <PageHeader
         title={company.name || company.domain}
         subtitle={`${company.domain} - ${t('contactsPage.contactCount', { count: company.contactCount })}`}
-        meta={
+        back={{ to: '/contacts', label: t('contactsPage.allContacts') }}
+        actions={
           <>
-            <Link
-              to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
-            >
-              <ArrowLeft size={14} />
-              {t('contactsPage.allContacts')}
-            </Link>
             <button
               type="button"
               disabled={saving}

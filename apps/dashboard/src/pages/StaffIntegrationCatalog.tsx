@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
 import { useConfirm } from '../components/ui/confirm-dialog'
@@ -140,7 +140,7 @@ export default function StaffIntegrationCatalog() {
 
   return (
     <PageContent width="xl" className="space-y-8">
-      <ContentHeader
+      <PageHeader
         title={t('integrations.staffCatalog.title', {
           defaultValue: 'MCP marketplace catalog',
         })}

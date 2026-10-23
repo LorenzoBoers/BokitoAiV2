@@ -92,6 +92,7 @@ export function FiltersetHeading({
             canEdit={canEdit}
             editing={editingName}
             disabled={savingName}
+            heading="span"
             size="lg"
             label={t('projects.detail.renameFolder', { defaultValue: 'Rename folder' })}
             onStart={() => {

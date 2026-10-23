@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, BookOpen } from 'lucide-react'
+import { BookOpen } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import MarkdownView from '../components/docs/MarkdownView'
 import ArticleFeedback from '../components/docs/ArticleFeedback'
 import { SearchField } from '../components/ui/search-field'
@@ -71,7 +71,7 @@ function LearnIndex() {
 
   return (
     <PageContent width="md" className="space-y-6 py-1">
-      <ContentHeader title={t('pageGuides.indexTitle')} subtitle={t('pageGuides.indexIntro')} />
+      <PageHeader title={t('pageGuides.indexTitle')} subtitle={t('pageGuides.indexIntro')} />
 
       {lastLearn ? (
         <Link
@@ -167,26 +167,18 @@ function LearnArticle({ slug }: { slug: string }) {
 
   return (
     <PageContent width="md" className="space-y-6 py-1">
-      <ContentHeader
-        title={article?.title || slug}
-        subtitle={article?.intro || ''}
-        meta={
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to={backTo}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
-            >
-              <ArrowLeft size={14} aria-hidden />
-              {t('pageGuides.back')}
-            </Link>
-            <Link
-              to="/learn"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
-            >
-              <BookOpen size={14} aria-hidden />
-              {t('pageGuides.allArticles')}
-            </Link>
-          </div>
+      <PageHeader
+        title={article?.title || (isPageGuideSlug(slug) ? t(`pageGuides.${slug}.pageTitle`) : t('pageGuides.indexTitle'))}
+        subtitle={article?.intro || undefined}
+        back={{ to: backTo, label: t('pageGuides.back') }}
+        actions={
+          <Link
+            to="/learn"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
+          >
+            <BookOpen size={14} aria-hidden />
+            {t('pageGuides.allArticles')}
+          </Link>
         }
       />
 

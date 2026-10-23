@@ -12,6 +12,7 @@ import { TeamCardsSkeleton } from '../components/ui/skeleton'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
 import { AgentMark } from '../components/ui/AgentMark'
@@ -143,6 +144,23 @@ export default function TeamPage() {
 
   return (
     <PageContent width="xl" className="space-y-6">
+      {showDepartments ? (
+        <PageHeader
+          className="mb-0"
+          title={t('teamPage.sections.teams')}
+          subtitle={t('teamPage.sections.teamsHint')}
+          primaryAction={
+            canManage ? (
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Plus size={14} />
+                {t('teamPage.newTeam')}
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <PageHeader className="mb-0" title={t('teamPage.sections.people')} />
+      )}
       {showDepartments ? null : (
         <MemberManagement
           metaByUuid={metaByUuid}
@@ -154,18 +172,6 @@ export default function TeamPage() {
 
       {showDepartments ? (
       <section id="teams" className="space-y-3 scroll-mt-24">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-medium text-text-heading">{t('teamPage.sections.teams')}</h2>
-            <p className="text-xs text-text-muted">{t('teamPage.sections.teamsHint')}</p>
-          </div>
-          {canManage ? (
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus size={14} />
-              {t('teamPage.newTeam')}
-            </Button>
-          ) : null}
-        </div>
         <div className="flex flex-col gap-2">
           {teamsLoading && !overview ? <TeamCardsSkeleton /> : null}
           {(overview?.teams ?? []).map((team) => {

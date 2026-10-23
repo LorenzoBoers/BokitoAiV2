@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { ModelsCatalogSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
@@ -360,12 +360,12 @@ export default function ModelsSettings() {
 
   return (
     <PageContent width="lg" className="space-y-6 pb-12">
-      <ContentHeader
+      <PageHeader
         guide="models"
         title={t('modelsPage.pageTitle')}
         subtitle={t('modelsPage.pageSubtitle')}
         className="mb-0"
-        meta={
+        primaryAction={
           saved ? (
             <span className="inline-flex items-center gap-1 text-xs text-status-success">
               <Check size={14} />

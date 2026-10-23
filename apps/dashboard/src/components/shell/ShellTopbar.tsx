@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
 import { openAssistant } from '../../lib/personal-assistant-widget'
-import { PageGuideLink } from '../layout/PageGuideLink'
+import { cn } from '../../lib/utils'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
 import { useOnboardingStatus } from '../onboarding/OnboardingChecklist'
@@ -12,7 +12,6 @@ import { SearchField } from '../ui/search-field'
 import { Tip } from '../ui/Tip'
 import { settingsLinkForPath } from './SettingsLayout'
 import { extraCrumbsForPath } from '../../lib/page-crumbs'
-import { pageGuideForPath } from '../../lib/page-guides'
 
 type ShellTopbarProps = {
   onOpenNavDrawer: () => void
@@ -44,10 +43,10 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         : (currentWorkspace?.name ?? 'Bokito')
   const settingsLink = settingsLinkForPath(pathname)
   const extraCrumbs = extraCrumbsForPath(pathname)
-  const pageGuide = pageGuideForPath(pathname)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-  const crumbs: string[] = [
+  const trail: string[] = [
+    pageTitle,
     ...(settingsLink ? [t(settingsLink.labelKey)] : []),
     ...extraCrumbs.map((crumb) => t(crumb.labelKey)),
   ]
@@ -64,18 +63,17 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
           <Menu size={16} />
         </button>
 
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 px-1 text-sm">
-          <span className={`min-w-0 truncate-fade ${crumbs.length ? 'text-text-secondary' : 'font-medium text-text-heading'}`}>
-            {pageTitle}
-          </span>
-          {pageGuide ? <PageGuideLink page={pageGuide} compact className="h-6 w-6" /> : null}
-          {crumbs.map((crumb, index) => {
-            const last = index === crumbs.length - 1
+        {/* Breadcrumb. Below md only the last segment shows, as the page title. */}
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 px-1 text-sm text-text-secondary">
+          {trail.map((crumb, index) => {
+            const last = index === trail.length - 1
             return (
-              <span key={`${crumb}-${index}`} className="flex min-w-0 items-center gap-1.5">
-                <span className="shrink-0 text-text-muted">/</span>
-                <span className={`min-w-0 truncate-fade ${last ? 'font-medium text-text-heading' : 'text-text-secondary'}`}>
+              <span
+                key={`${crumb}-${index}`}
+                className={cn('min-w-0 items-center gap-1.5', last ? 'flex' : 'hidden md:flex')}
+              >
+                {index > 0 ? <span className="hidden shrink-0 text-text-muted md:inline">/</span> : null}
+                <span className={cn('min-w-0 truncate-fade', last && 'font-medium text-text-heading md:font-normal md:text-text-secondary')}>
                   {crumb}
                 </span>
               </span>

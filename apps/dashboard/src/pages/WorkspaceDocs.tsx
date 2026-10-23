@@ -23,6 +23,7 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { ConversationRowsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Badge, badgeVariants } from '../components/ui/badge'
@@ -870,9 +871,10 @@ export default function WorkspaceDocs() {
         <main className="min-w-0 flex-1 overflow-y-auto">
           {!active ? (
             <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+              <PageHeader className="sr-only" title={t('tabs.knowledge.title')} />
               <KnowledgeTile size="lg" className="knowledge-glow" />
               <div className="space-y-1.5">
-                <h1 className="text-lg font-semibold text-text-heading">{t('knowledgePage.emptyTitle')}</h1>
+                <h2 className="text-lg font-semibold text-text-heading">{t('knowledgePage.emptyTitle')}</h2>
                 <p className="mx-auto max-w-md text-sm leading-6 text-text-secondary">
                   {t('knowledgePage.emptyBody')}
                 </p>
@@ -915,69 +917,65 @@ export default function WorkspaceDocs() {
           ) : (
             <div className="mx-auto max-w-3xl px-8 py-7">
               {error ? <p className="mb-3 text-xs text-status-error">{error}</p> : null}
-              <div className="mb-5 flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h1 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">
-                    {docTitle(active)}
-                  </h1>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <Badge>{kindLabel(active.kind)}</Badge>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(active.path).then(
-                          () => toast.success(t('knowledgePage.pathCopied')),
-                          () => toast.error(t('knowledgePage.copyFailed')),
-                        )
-                      }}
-                      title={t('knowledgePage.copyPath')}
-                      className={cn(badgeVariants({ variant: 'neutral' }), 'gap-1 font-mono text-text-muted hover:text-text-secondary')}
-                    >
-                      <Copy size={14} />
-                      {active.path}
-                    </button>
-                    {AI_MAINTAINED_KINDS.has(active.kind) ? (
-                      <LearnedChip label={t('knowledgePage.aiMaintained')} />
-                    ) : null}
-                    {isPublished(active) ? (
-                      <Badge variant="success" icon={Globe}>
-                        {t('knowledgePage.publishedBadge')}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  {AI_MAINTAINED_KINDS.has(active.kind) ? (
-                    <p className="mt-2 rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
-                      {t('knowledgePage.aiMaintainedBanner')}
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-xs text-text-muted">
-                    {t('knowledgePage.usedByAgents')}{' '}
-                    <Link to="/agents" className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.openAgents')}
-                    </Link>
-                    {' · '}
-                    <Link to={activityTerminalPath()} className="font-medium text-accent hover:underline">
-                      {t('knowledgePage.openRuns')}
-                    </Link>
-                    {' · '}
-                    <Link
-                      to={talkToAssistantPath(t('knowledgePage.tryPrefill'))}
-                      className="font-medium text-accent hover:underline"
-                    >
-                      {t('knowledgePage.talkAssistant')}
-                    </Link>
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {editing ? (
-                    <>
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
-                        {t('knowledgePage.cancel')}
-                      </Button>
-                      <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
-                        {saving ? t('knowledgePage.saving') : t('knowledgePage.save')}
-                      </Button>
-                    </>
+              <PageHeader
+                className="mb-5 items-start"
+                title={docTitle(active)}
+                subtitle={
+                  <>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <Badge>{kindLabel(active.kind)}</Badge>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(active.path).then(
+                              () => toast.success(t('knowledgePage.pathCopied')),
+                              () => toast.error(t('knowledgePage.copyFailed')),
+                            )
+                          }}
+                          title={t('knowledgePage.copyPath')}
+                          className={cn(badgeVariants({ variant: 'neutral' }), 'gap-1 font-mono text-text-muted hover:text-text-secondary')}
+                        >
+                          <Copy size={14} />
+                          {active.path}
+                        </button>
+                        {AI_MAINTAINED_KINDS.has(active.kind) ? (
+                          <LearnedChip label={t('knowledgePage.aiMaintained')} />
+                        ) : null}
+                        {isPublished(active) ? (
+                          <Badge variant="success" icon={Globe}>
+                            {t('knowledgePage.publishedBadge')}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {AI_MAINTAINED_KINDS.has(active.kind) ? (
+                        <p className="mt-2 rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
+                          {t('knowledgePage.aiMaintainedBanner')}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-xs text-text-muted">
+                        {t('knowledgePage.usedByAgents')}{' '}
+                        <Link to="/agents" className="font-medium text-accent hover:underline">
+                          {t('knowledgePage.openAgents')}
+                        </Link>
+                        {' · '}
+                        <Link to={activityTerminalPath()} className="font-medium text-accent hover:underline">
+                          {t('knowledgePage.openRuns')}
+                        </Link>
+                        {' · '}
+                        <Link
+                          to={talkToAssistantPath(t('knowledgePage.tryPrefill'))}
+                          className="font-medium text-accent hover:underline"
+                        >
+                          {t('knowledgePage.talkAssistant')}
+                        </Link>
+                      </p>
+                  </>
+                }
+                actions={
+                  editing ? (
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(false)} disabled={saving}>
+                      {t('knowledgePage.cancel')}
+                    </Button>
                   ) : (
                     <>
                       {active.kind === 'doc' ? (
@@ -986,11 +984,7 @@ export default function WorkspaceDocs() {
                           size="sm"
                           disabled={publishing}
                           onClick={() => void handlePublishToggle()}
-                          title={
-                            isPublished(active)
-                              ? t('knowledgePage.unpublishTitle')
-                              : t('knowledgePage.publishTitle')
-                          }
+                          title={isPublished(active) ? t('knowledgePage.unpublishTitle') : t('knowledgePage.publishTitle')}
                         >
                           <Globe className="mr-1.5 h-3.5 w-3.5" />
                           {publishing
@@ -1000,29 +994,32 @@ export default function WorkspaceDocs() {
                               : t('knowledgePage.publish')}
                         </Button>
                       ) : null}
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          setDraft(active.content ?? '')
-                          setEditing(true)
-                        }}
-                      >
-                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                        {t('knowledgePage.edit')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title={t('knowledgePage.delete')}
-                        onClick={() => void handleDelete()}
-                      >
+                      <Button variant="ghost" size="icon" title={t('knowledgePage.delete')} onClick={() => void handleDelete()}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </>
-                  )}
-                </div>
-              </div>
+                  )
+                }
+                primaryAction={
+                  editing ? (
+                    <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
+                      {saving ? t('knowledgePage.saving') : t('knowledgePage.save')}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setDraft(active.content ?? '')
+                        setEditing(true)
+                      }}
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      {t('knowledgePage.edit')}
+                    </Button>
+                  )
+                }
+              />
               {isPublished(active) && !editing && user?.tenant?.slug ? (
                 <a
                   href={`/help/${user.tenant.slug}/${active.frontmatter?.slug ?? ''}`}

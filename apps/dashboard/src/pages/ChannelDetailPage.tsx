@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowLeft } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { channelFolderPath } from '../lib/open-entity'
 
@@ -13,7 +12,7 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { ChannelDetailSkeleton, FolderChecklistSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
-import { PageGuideLink } from '../components/layout/PageGuideLink'
+import { PageHeader } from '../components/ui/page-header'
 import ChannelPanel from '../components/channels/ChannelPanel'
 import { type ChannelActions } from '../components/channels/channel-actions'
 import SignatureEditor from '../components/inbox/SignatureEditor'
@@ -315,17 +314,12 @@ export default function ChannelDetailPage() {
 
   return (
     <PageContent width="full" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Link
-            to="/settings/channels"
-            className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-text-muted hover:text-text-heading"
-          >
-            <ArrowLeft size={14} />
-            {t('channelsPage.backToList')}
-          </Link>
-          <h2 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">{row.label}</h2>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-text-muted">
+      <PageHeader
+        className="mb-0"
+        back={{ to: '/settings/channels', label: t('channelsPage.backToList') }}
+        title={row.label}
+        subtitle={
+          <span className="flex flex-wrap items-center gap-x-2">
             <span>{t(`channelsPage.kind.${row.kind}`, { defaultValue: row.kind })}</span>
             {folderHref ? (
               <>
@@ -342,10 +336,10 @@ export default function ChannelDetailPage() {
                 </Link>
               </>
             ) : null}
-          </p>
-        </div>
-        <PageGuideLink page={row.kind === 'widget' ? 'widget' : 'channels'} compact />
-      </div>
+          </span>
+        }
+        guide={row.kind === 'widget' ? 'widget' : 'channels'}
+      />
 
       {row.kind === 'widget' && !archived ? (
         <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5">

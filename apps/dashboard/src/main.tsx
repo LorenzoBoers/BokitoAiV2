@@ -30,6 +30,7 @@ import '@fontsource/source-serif-4/latin-500.css'
 import '@fontsource/source-serif-4/latin-600.css'
 import './index.css'
 import { Button } from './components/ui/button'
+import { PageHeader } from './components/ui/page-header'
 
 function resolveBootLanguage(): 'nl' | 'en' {
   const fromQuery = new URLSearchParams(window.location.search).get('lang')
@@ -90,10 +91,11 @@ function RouteErrorFallback() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-primary p-6">
       <div className="max-w-md space-y-4 text-center">
-        <h1 className="text-lg font-semibold text-text-heading">
-          {i18n.t('errorBoundary.title', { ns: 'nav' })}
-        </h1>
-        <p className="text-sm text-text-muted">{message}</p>
+        <PageHeader
+          className="mb-0 justify-center text-center"
+          title={i18n.t('errorBoundary.title', { ns: 'nav' })}
+          subtitle={message}
+        />
         <Button
           type="button"
           onClick={() => window.location.assign('/')}

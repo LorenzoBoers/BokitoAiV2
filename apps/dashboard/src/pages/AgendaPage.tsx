@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import {
   DropdownMenu,
@@ -571,6 +572,7 @@ export default function AgendaPage() {
 
   return (
     <PageContent width="full" className="flex h-full min-h-0 flex-col gap-3 px-6 pb-4 pt-4">
+      <PageHeader className="sr-only" title={t('tabs.agenda.title')} />
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="flex">
           <Button type="button" size="sm" variant="ghost" aria-label={t('agendaPage.previous')} onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}>

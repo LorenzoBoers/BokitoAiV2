@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { Building2, ShieldCheck } from 'lucide-react'
 import { ConsentPanelSkeleton } from '../components/ui/skeleton'
 import { Button } from '../components/ui/button'
+import { IconTile } from '../components/ui/icon-tile'
+import { PageHeader } from '../components/ui/page-header'
 import { FilterChip, FilterChipRow } from '../components/ui/filter-chip'
 import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import {
@@ -126,10 +128,7 @@ export default function OAuthMcpConsent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
       <Card padding="default" className="w-full max-w-md">
-        <div className="mb-5 flex items-center gap-2 text-text-heading">
-          <ShieldCheck size={20} className="text-text-muted" />
-          <h1 className="text-xl font-semibold">{t('oauthMcp.title')}</h1>
-        </div>
+        <PageHeader className="mb-5" icon={<IconTile icon={ShieldCheck} />} title={t('oauthMcp.title')} />
 
         {loading ? (
           <ConsentPanelSkeleton />

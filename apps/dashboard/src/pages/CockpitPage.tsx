@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
 import { PageContent } from '../components/layout/PageContent'
 import { useAuth } from '../context/AuthContext'
@@ -30,14 +30,15 @@ export default function CockpitPage() {
   return (
     <div className="h-full overflow-y-auto px-4 py-4 md:px-6">
       <PageContent width="xl">
-        <ContentHeader
+        <PageHeader
           title={workspaceBrandName(currentWorkspace)}
           subtitle={`${t(greetingKey, { name: greetingName })} · ${formatAppDate(new Date(), i18n.language, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
           })}`}
-          meta={<WorkspaceIdHint />}
+          guide="cockpit"
+          actions={<WorkspaceIdHint />}
         />
         <OverviewFourBlocks />
       </PageContent>

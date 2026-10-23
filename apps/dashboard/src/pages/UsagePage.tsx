@@ -5,7 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { RefreshCw } from 'lucide-react'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import WorkspaceIdHint from '../components/shell/WorkspaceIdHint'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace } from '../context/WorkspaceContext'
@@ -309,10 +309,10 @@ export default function UsagePage() {
 
   return (
     <div>
-      <ContentHeader
+      <PageHeader
         title={workspaceBrandName(currentWorkspace)}
         subtitle={t('pageHeaders.cockpitUsage')}
-        meta={
+        actions={
           <div className="flex flex-wrap items-center gap-2">
             <WorkspaceIdHint />
             {refreshedAt ? (

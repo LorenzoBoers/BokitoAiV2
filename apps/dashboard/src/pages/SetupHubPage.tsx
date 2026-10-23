@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { StepListSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
-import { PageIntro } from '../components/layout/PageIntro'
+import { PageHeader } from '../components/ui/page-header'
 import { useAuth } from '../context/AuthContext'
 import { appScopedGet } from '../lib/api'
 import { appRoutes } from '../api/routes/app.routes'
@@ -225,7 +225,7 @@ export default function SetupHubPage() {
 
   return (
     <PageContent>
-      <PageIntro description={t('pageHeaders.setupGuide')} className="mb-4" />
+      <PageHeader title={t('settings.links.setupGuide')} subtitle={t('pageHeaders.setupGuide')} />
 
       <div className="mx-auto max-w-3xl space-y-6">
         {loading ? (

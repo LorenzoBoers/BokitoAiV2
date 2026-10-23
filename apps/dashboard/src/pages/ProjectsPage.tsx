@@ -6,7 +6,7 @@ import { Plus, Search } from 'lucide-react'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
@@ -180,20 +180,19 @@ export default function ProjectsPage() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <ContentHeader
+      <PageHeader
         title={t('projects.page.tenantTitle', { name: workspaceBrandName(currentWorkspace) })}
         subtitle={t('projects.page.subtitle')}
         className="mb-0"
-        meta={
-          <>
-            <OpenInGridButton />
-            {isAdmin ? (
-              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-                {t('projects.page.new')}
-              </Button>
-            ) : null}
-          </>
+        guide="projects"
+        actions={<OpenInGridButton />}
+        primaryAction={
+          isAdmin ? (
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t('projects.page.new')}
+            </Button>
+          ) : undefined
         }
       />
 

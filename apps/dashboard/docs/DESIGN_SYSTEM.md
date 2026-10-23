@@ -113,7 +113,14 @@ edge, text 16/24.
 ## Recipes
 
 ```tsx
-<PageHeader title="Contacts" subtitle="People and companies" meta={<Button size="sm">New</Button>} />
+<PageHeader
+  title="Contacts"
+  subtitle="People and companies"
+  guide="contacts"
+  actions={<Button size="sm" variant="secondary">Refresh</Button>}
+  primaryAction={<Button size="sm">New</Button>}
+/>
+<PageHeader back={{ to: '/contacts', label: 'All contacts' }} title={contact.name} />
 <PageContent width="lg">...</PageContent>
 
 <DangerZone title="Danger zone">
@@ -123,7 +130,14 @@ edge, text 16/24.
 <AuthShell subtitle="Sign in to your workspace">{/* one card */}</AuthShell>
 ```
 
-`PageHeader` is `components/shell/ContentHeader`. Every signed-out page
+`PageHeader` (`components/ui/page-header`) owns the page's one `<h1>` in
+`.title-page`. Every route starts with it. `primaryAction` is the one main
+button and always shows; `actions` move behind a menu below `sm`. `back`
+adds the arrow link of a detail page and `icon` a leading `IconTile`. The
+topbar carries only the breadcrumb; below `md` it shows the title instead,
+so a top-level page's heading is screen-reader only there (detail pages
+keep theirs). A full-bleed screen (inbox, agenda, canvas) renders
+`<PageHeader className="sr-only" title=... />`. Every signed-out page
 (login, signup, forgot / reset password, invite, verify email) uses
 `AuthShell`; it owns the wordmark, the card and the copyright line.
 Irreversible settings actions sit in one `DangerZone` at the bottom of the
@@ -221,6 +235,13 @@ Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 | `button-height-override` | `Button size` |
 | `muted-text-opacity` | `text-text-muted` |
 | `legacy-class` | `Badge`, `InsetPanel`, `font-sans` |
+| `raw-spinner` | `Spinner` |
+| `hover-tint` | `hover:bg-bg-hover` or `/50` |
+| `page-tint` | `bg-bg`, `.scrim` |
+| `raw-h1` | `PageHeader` (auth, docs and public trust pages are exempt) |
+
+Lucide icons also follow the icon scale: `size` 14, 16 or 20 (24, 32, 40 for
+display) and no `strokeWidth`; the base layer sets 1.75.
 
 Ratchet rules count per file against `scripts/design-system-baseline.json`;
 a file may not gain more than its baseline:

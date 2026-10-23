@@ -227,9 +227,9 @@ export function CarouselCaption({
   return (
     <div className="mt-4 flex h-[5.625rem] w-full max-w-lg flex-col items-center px-6">
       <p className="text-xs leading-4 text-text-muted">{kicker}</p>
-      <h1 className="mt-0.5 line-clamp-1 max-w-full text-xl font-semibold leading-7 tracking-tight text-text-heading">
+      <p className="mt-0.5 line-clamp-1 max-w-full text-xl font-semibold leading-7 tracking-tight text-text-heading">
         {title}
-      </h1>
+      </p>
       <p
         className={cn(
           'mt-1 line-clamp-2 h-10 max-w-full text-sm font-medium leading-5',

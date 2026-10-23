@@ -30,6 +30,7 @@ import { APP_API_BASE } from '../../lib/api.config'
 import { normalizeNotificationPrefs } from '../../lib/notification-prefs'
 import { cn } from '../../lib/utils'
 import { RouteShellSkeleton } from '../ui/skeleton'
+import { ShellTitleContext } from '../ui/page-header'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
 
@@ -231,24 +232,26 @@ export default function AppShell() {
               <MockAiBanner />
               <PushSoftPrompt />
               <main className="relative min-h-0 flex-1 overflow-hidden">
-                {fullBleed ? (
-                  <div
-                    key={contentEnterKey(pathname)}
-                    className="relative z-[1] h-full min-h-0 animate-content-enter overflow-hidden"
-                  >
-                    <Suspense fallback={<RouteShellSkeleton />}>
-                      <Outlet />
-                    </Suspense>
-                  </div>
-                ) : (
-                  <div className="relative z-[1] h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
-                    <div className={cn('mx-auto w-full', isWide(pathname) ? 'max-w-canvas' : 'max-w-shell')}>
+                <ShellTitleContext.Provider value>
+                  {fullBleed ? (
+                    <div
+                      key={contentEnterKey(pathname)}
+                      className="relative z-[1] h-full min-h-0 animate-content-enter overflow-hidden"
+                    >
                       <Suspense fallback={<RouteShellSkeleton />}>
                         <Outlet />
                       </Suspense>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="relative z-[1] h-full overflow-y-auto overflow-x-hidden px-6 pb-8 pt-4">
+                      <div className={cn('mx-auto w-full', isWide(pathname) ? 'max-w-canvas' : 'max-w-shell')}>
+                        <Suspense fallback={<RouteShellSkeleton />}>
+                          <Outlet />
+                        </Suspense>
+                      </div>
+                    </div>
+                  )}
+                </ShellTitleContext.Provider>
               </main>
             </div>
           </div>

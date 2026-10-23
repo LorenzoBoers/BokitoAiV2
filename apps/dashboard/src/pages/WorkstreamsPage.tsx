@@ -15,7 +15,7 @@ const Workflow = ENTITY_ICONS.flow
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import type { LabelColor } from '../lib/signals-api'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
@@ -93,20 +93,18 @@ export default function WorkstreamsPage() {
 
   return (
     <PageContent width="xl" className="space-y-4 py-1">
-      <ContentHeader
+      <PageHeader
         title={t('workstreamsPage.title')}
         subtitle={t('workstreamsPage.subtitle')}
         className="mb-0"
-        meta={
-          <>
-            <OpenInGridButton />
-            {isAdmin ? (
-              <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-                {t('workstreamsPage.new')}
-              </Button>
-            ) : null}
-          </>
+        actions={<OpenInGridButton />}
+        primaryAction={
+          isAdmin ? (
+            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t('workstreamsPage.new')}
+            </Button>
+          ) : undefined
         }
       />
 

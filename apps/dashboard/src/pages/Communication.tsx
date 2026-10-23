@@ -28,6 +28,7 @@ import {
 } from '../lib/hub-list-filters'
 import { CanvasStage } from '../components/project-canvas/CanvasStage'
 import { SplitPane, SplitRow } from '../components/ui/SplitRow'
+import { PageHeader } from '../components/ui/page-header'
 import DecisionGroupsBanner from '../components/inbox/DecisionGroupsBanner'
 import ThreadList, { type ThreadListStatus as ListStatus } from '../components/inbox/ThreadList'
 import ThreadDetail from '../components/inbox/ThreadDetail'
@@ -1796,6 +1797,7 @@ export default function Communication() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md">
+      <PageHeader className="sr-only" title={t('tabs.communication.title', { ns: 'nav' })} />
       <SplitRow
         storageKey={stagedCanvasId ? 'bokito.split.canvas' : 'bokito.split.inbox'}
         minFlex={stagedCanvasId ? 480 : 360}

@@ -2,7 +2,6 @@ import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft } from 'lucide-react'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import {
   ApplicationHubPanel,
@@ -24,6 +23,7 @@ import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { Button } from '../components/ui/button'
+import { PageHeader } from '../components/ui/page-header'
 import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
@@ -296,33 +296,31 @@ export default function ModuleSetupPage() {
   return (
     <PageContent width="lg">
       <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <Link
-            to="/connections"
-            className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
-          >
-            <ArrowLeft size={14} />
-            {t('integrations.modules.backToModules', { defaultValue: 'Back to Connections' })}
-          </Link>
-        </div>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-semibold text-text-heading">{name}</h2>
+        <PageHeader
+          className="mb-0"
+          back={{
+            to: '/connections',
+            label: t('integrations.modules.backToModules', { defaultValue: 'Back to Connections' }),
+          }}
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              {name}
               {module ? <ModuleStatusBadge module={module} /> : null}
-            </div>
-            {description ? (
-              <p className="mt-1 max-w-2xl text-sm text-text-secondary">{description}</p>
-            ) : null}
-          </div>
-          {module && !comingSoon ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <OpenInGridButton kind="module" id={module.slug} />
-              <ModuleToolsetDropdown module={module} />
-              <ModuleInstallControls module={module} onAction={runModuleAction} />
-            </div>
-          ) : null}
-        </div>
+            </span>
+          }
+          subtitle={description ? <p className="max-w-2xl">{description}</p> : undefined}
+          actions={
+            module && !comingSoon ? (
+              <>
+                <OpenInGridButton kind="module" id={module.slug} />
+                <ModuleToolsetDropdown module={module} />
+              </>
+            ) : undefined
+          }
+          primaryAction={
+            module && !comingSoon ? <ModuleInstallControls module={module} onAction={runModuleAction} /> : undefined
+          }
+        />
         {module && !comingSoon && inSetup ? (
           <p className="mt-3 rounded-lg border border-accent/30 bg-accent/8 px-3 py-2 text-sm text-text-primary">
             {t('integrations.modules.setupInProgress', {

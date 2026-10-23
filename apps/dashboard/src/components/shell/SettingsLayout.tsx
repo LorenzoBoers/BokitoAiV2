@@ -2,7 +2,7 @@ import { Suspense, useMemo, useState } from 'react'
 import { NavLink, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Info, Trash2, type LucideIcon } from 'lucide-react'
-import ContentHeader from './ContentHeader'
+import { PageHeader } from '../ui/page-header'
 import ScrollFade from '../ui/ScrollFade'
 import { SearchField } from '../ui/search-field'
 import { EmptyState } from '../ui/empty-state'
@@ -99,17 +99,26 @@ export function SettingsHomeRedirect() {
   return <Navigate to="/settings/profile" replace />
 }
 
-/** Settings pages that render their own `ContentHeader` (title + controls). */
-const OWN_HEADER_PATHS = ['/settings/govern', '/settings/trust', '/settings/bin', '/settings/models', '/settings/mcp-catalog']
+/** Settings pages that render their own `PageHeader` (title + controls). */
+const OWN_HEADER_PATHS = [
+  '/settings/govern',
+  '/settings/trust',
+  '/settings/bin',
+  '/settings/models',
+  '/settings/mcp-catalog',
+  '/settings/usage',
+  '/settings/setup',
+  '/settings/channels',
+  '/settings/labels',
+  '/ai/assistant',
+]
 
 export default function SettingsLayout() {
   const { pathname } = useLocation()
   const { t } = useTranslation('nav')
   const [navQuery, setNavQuery] = useState('')
   const activeLink = SETTINGS_PALETTE_LINKS.find((link) => linkIsActive(pathname, link))
-  const ownsHeader =
-    OWN_HEADER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`)) ||
-    /^\/settings\/channels\/[^/]+/.test(pathname)
+  const ownsHeader = OWN_HEADER_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
   // One title per page: the active section name, with its hint as subtitle.
   // The topbar breadcrumb already reads "Settings / {section}".
   const title = activeLink ? t(activeLink.labelKey) : t('tabs.settings.title')
@@ -159,7 +168,7 @@ export default function SettingsLayout() {
           <SettingsNav pathname={pathname} query={navQuery} compact />
         </nav>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-8 pt-4 lg:px-8">
-          {ownsHeader ? null : <ContentHeader title={title} subtitle={subtitle} />}
+          {ownsHeader ? null : <PageHeader title={title} subtitle={subtitle} />}
           <Suspense fallback={<RouteShellSkeleton titled={false} />}>
             <Outlet />
           </Suspense>

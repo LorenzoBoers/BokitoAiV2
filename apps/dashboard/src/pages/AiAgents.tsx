@@ -14,7 +14,7 @@ import { SearchField } from '../components/ui/search-field'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { AgentsSectionTabs } from '../components/shell/SectionTabs'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
@@ -369,12 +369,12 @@ export default function AiAgents() {
   return (
     <PageContent width="xl" className="space-y-5 py-1">
       <AgentsSectionTabs />
-      <ContentHeader
+      <PageHeader
         guide="agents"
         title={t('workforce.agents.title')}
         subtitle={t('workforce.agents.listDescription')}
         className="mb-0"
-        meta={
+        actions={
           <>
             <OpenInGridButton />
             <Button
@@ -388,13 +388,15 @@ export default function AiAgents() {
             >
               {loading ? <Spinner size="md" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
             </Button>
-            {isAdmin ? (
-              <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>
-                <Plus className="h-3.5 w-3.5" aria-hidden />
-                {t('workforce.agents.newAgent')}
-              </Button>
-            ) : null}
           </>
+        }
+        primaryAction={
+          isAdmin ? (
+            <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              {t('workforce.agents.newAgent')}
+            </Button>
+          ) : undefined
         }
       />
 

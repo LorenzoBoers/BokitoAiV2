@@ -496,6 +496,18 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - `project-canvas/sdk.tsx` en `ProfileSettingsContent.tsx` hebben een eigen lokale `Card`; daar heet de catalogus-kaart `UiCard`.
 - `render.test.tsx` zocht `.panel`; de test zoekt nu het kader (`.rounded-xl.border`).
 
+### Fase 8.5: paginakop
+
+- De `allow`-regex van `raw-h1` in het plan schrijft `Page?`: dat maakt alleen de "e" optioneel, zodat `ForgotPassword.tsx`, `ResetPassword.tsx` en `DocsApiReference.tsx` toch raken. Het script gebruikt `(?:Page)?`. Telling vóór: 11 (16 met de letterlijke regex).
+- `sr-only` op mobiel geldt alleen binnen `AppShell` (via `ShellTitleContext`). Buiten de shell (help center, OAuth-toestemming, onboarding, werkruimtes, foutscherm) is er geen topbar, dus daar blijft de h1 zichtbaar.
+- Detailpagina's (met `back`) houden hun h1 ook op mobiel: de topbar toont daar de sectie ("Map", "Agent"), niet de naam, en `NameEdit` moet bereikbaar blijven.
+- Gids-link: de topbar toont geen "Meer weten" meer. Cockpit (`cockpit`), Mappen (`projects`) en de bestaande koppen hebben `guide`; Inbox, Nieuw gesprek en Agenda hebben een `sr-only`-kop en daarmee geen zichtbare gids-link meer. `pageGuideForPath` is verwijderd.
+- Keuze per scherm. Zichtbare `PageHeader`: Mensen en Afdelingen (Workforce). `sr-only`: Inbox (lijst en gesprek naast elkaar), Agenda (kalender vult de pagina, werkbalk heeft al een datumkop), Grid, Workflow en Organogram (canvas), Nieuw gesprek (gecentreerde carrousel; de oude h1 was het bijschrift van de gekozen ontvanger en is nu een `<p>`), Kennis zonder open document, en Agent-detail (profielkop met naam als h2; de bestaande terug-link en knoppen blijven).
+- `ProjectDetail`: `back` wijst naar de directe bovenliggende map. Het kruimelpad met alle voorouders en het `Card`-kader om de kop zijn weg. `FiltersetHeading` (naam en labels) staat in de h1, `NameEdit` rendert daar een `span`.
+- `MessengerSettings` en `UsagePage` toonden onder `SettingsLayout` een tweede titel; ze staan nu in `OWN_HEADER_PATHS`. Dat geldt ook voor Kanalen, Labels en Setupgids, waar `PageIntro` in de kop is opgegaan.
+- In het mobiele actiemenu staan de `actions` als gewone knoppen, niet als menu-items; pijltjestoetsen springen er niet tussen.
+- `ContentHeader` en `PageIntro` zijn verwijderd. Alle imports zijn in dezelfde stap omgezet, dus de re-export uit het plan was niet nodig.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

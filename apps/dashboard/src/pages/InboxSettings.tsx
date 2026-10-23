@@ -7,7 +7,7 @@ import { MessageSquare, Plus } from 'lucide-react'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
 import { PageContent } from '../components/layout/PageContent'
-import { PageIntro } from '../components/layout/PageIntro'
+import { PageHeader } from '../components/ui/page-header'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { SettingsSection } from '../components/layout/SettingsSection'
 import { OauthRedirectAlert } from '../components/email/OauthRedirectAlert'
@@ -206,7 +206,12 @@ export default function InboxSettings() {
 
   return (
     <PageContent width="full" className="flex min-h-0 flex-col gap-5">
-      <PageIntro description={t('pageHeaders.emailMessages')} guide="channels" />
+      <PageHeader
+        title={t('settings.links.emailMessages')}
+        subtitle={t('pageHeaders.emailMessages')}
+        guide="channels"
+        className="mb-0"
+      />
 
       {channels.some((row) => row.state === 'setup_required' || row.state === 'action_required' || row.state === 'error') ? (
         <div className="rounded-lg border border-status-warning/40 bg-status-warning/10 px-4 py-3 text-sm">

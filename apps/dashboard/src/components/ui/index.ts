@@ -12,7 +12,7 @@ export { SectionLabel } from './section-label'
 export { SettingsSection } from '../layout/SettingsSection'
 
 // Recipes
-export { default as PageHeader } from '../shell/ContentHeader'
+export { PageHeader } from './page-header'
 export { PageContent } from '../layout/PageContent'
 export { DangerZone, DangerZoneRow } from '../layout/DangerZone'
 export { AuthShell } from '../auth/AuthShell'

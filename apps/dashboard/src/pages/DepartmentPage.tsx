@@ -10,6 +10,7 @@ import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectFlowBoards } from '../components/projects/ProjectFlowBoards'
 import { WorksInSection } from '../components/projects/WorksInSection'
 import { Card } from '../components/ui/card'
+import { PageHeader } from '../components/ui/page-header'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -662,18 +663,21 @@ export default function DepartmentPage() {
       {!data && !error ? <CardGridSkeleton cards={3} /> : null}
       {data ? (
         <>
-          <header className="flex flex-wrap items-start gap-x-4 gap-y-3" data-testid="department-header">
-            <div className="flex min-w-0 flex-1 items-start gap-3">
+          <PageHeader
+            className="mb-0"
+            icon={
               <DepartmentIcon
                 icon={data.icon}
                 canEdit={isAdmin}
                 onPick={(icon) => guard(() => (token ? patchTeam(token, data.id, { icon }) : Promise.resolve()))}
               />
-              <div className="min-w-0 space-y-1">
-                <h1 className="truncate text-xl font-semibold text-text-heading">{data.name}</h1>
-                <p className="text-sm text-text-secondary">{data.description || t('departmentPage.subtitle')}</p>
+            }
+            title={data.name}
+            subtitle={
+              <>
+                <p>{data.description || t('departmentPage.subtitle')}</p>
                 {data.origin_module || data.autonomy ? (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                     {data.autonomy ? (
                       <Badge size="sm" data-testid="department-autonomy">
                         {t(`orgCanvas.mode.${data.autonomy}`, { defaultValue: data.autonomy })}
@@ -684,10 +688,10 @@ export default function DepartmentPage() {
                     ) : null}
                   </div>
                 ) : null}
-              </div>
-            </div>
-            <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
-              {data.grid_href ? (
+              </>
+            }
+            actions={
+              data.grid_href ? (
                 <Button type="button" size="sm" variant="secondary" asChild>
                   <Link to={data.grid_href} data-testid="open-in-grid">
                     <GRID_ICON size={14} aria-hidden />
@@ -696,7 +700,9 @@ export default function DepartmentPage() {
                 </Button>
               ) : (
                 <OpenInGridButton kind="department" id={data.id} />
-              )}
+              )
+            }
+            primaryAction={
               <Button
                 type="button"
                 size="icon"
@@ -707,8 +713,8 @@ export default function DepartmentPage() {
               >
                 <Settings size={16} aria-hidden />
               </Button>
-            </div>
-          </header>
+            }
+          />
 
           <ParentBand parent={data.parent} />
 

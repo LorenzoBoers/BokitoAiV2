@@ -13,6 +13,7 @@ import {
 import { cn } from '../../lib/utils'
 import { WorkforceSectionTabs } from './SectionTabs'
 import { RouteShellSkeleton } from '../ui/skeleton'
+import { PageHeader } from '../ui/page-header'
 
 type WorkforceNavItem = {
   to: string
@@ -68,6 +69,8 @@ export default function WorkforceLayout() {
       active: onOrganogram,
     },
   ]
+  // Grid, Workflow and Organogram fill the pane; their title is for screen readers only.
+  const canvasItem = onCanvas ? items.find((item) => item.active) : undefined
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -110,6 +113,7 @@ export default function WorkforceLayout() {
             onCanvas ? 'overflow-hidden' : 'overflow-y-auto px-6 pb-8 pt-4',
           )}
         >
+          {canvasItem ? <PageHeader className="sr-only" title={t(canvasItem.labelKey)} /> : null}
           <Suspense fallback={<RouteShellSkeleton />}>
             <Outlet />
           </Suspense>

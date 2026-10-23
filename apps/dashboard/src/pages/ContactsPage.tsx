@@ -26,7 +26,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { useAuth } from '../context/AuthContext'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { PageContent } from '../components/layout/PageContent'
 import { backfillCompanies, createContact, enrichContactsFromThreads, findThreadsForContact, bulkUpdatePendingContacts, listCompaniesPage, listContactsPage, type CompanyRow, type ContactRow, type ContactStatus } from '../lib/contacts-api'
 import { parseContactsStatus, withContactsParam } from '../lib/contacts-list-query'
@@ -323,11 +323,11 @@ export default function ContactsPage() {
 
   return (
     <PageContent width="xl">
-      <ContentHeader
+      <PageHeader
         guide="contacts"
         title={t('tabs.contacts.title')}
         subtitle={t('tabs.contacts.subtitle')}
-        meta={
+        actions={
           <>
             <button
               type="button"
@@ -347,17 +347,20 @@ export default function ContactsPage() {
                 {backfilling ? <Spinner size="sm" /> : <Building2 size={12} />}
                 {t('contactsPage.linkContacts')}
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
-              >
-                <Plus size={14} />
-                {t('contactsPage.newContact')}
-              </button>
-            )}
+            ) : null}
           </>
+        }
+        primaryAction={
+          view === 'companies' ? undefined : (
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+            >
+              <Plus size={14} />
+              {t('contactsPage.newContact')}
+            </button>
+          )
         }
       />
 

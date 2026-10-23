@@ -26,7 +26,7 @@ import { useConfirm } from '../components/ui/confirm-dialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
-import ContentHeader from '../components/shell/ContentHeader'
+import { PageHeader } from '../components/ui/page-header'
 import { useConnectedIntegrationsSummary } from '../hooks/useConnectedIntegrationsSummary'
 import { useIntegrationCatalog } from '../hooks/useIntegrationCatalog'
 import {
@@ -421,7 +421,7 @@ export default function ConnectionsHub() {
 
   return (
     <PageContent width="xl" className="space-y-8">
-      <ContentHeader
+      <PageHeader
         guide="integrations"
         title={t('tabs.modules.title', { defaultValue: 'Connections' })}
         subtitle={t('integrations.pageMeta.connected.description')}

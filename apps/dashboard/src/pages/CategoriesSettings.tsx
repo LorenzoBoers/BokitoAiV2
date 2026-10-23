@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Plus, Radar, Users } from 'lucide-react'
 import PageContent from '../components/layout/PageContent'
-import { PageIntro } from '../components/layout/PageIntro'
+import { PageHeader } from '../components/ui/page-header'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { TagRegistrySection } from '../components/inbox/TagRegistrySection'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
@@ -72,7 +72,7 @@ export default function CategoriesSettings() {
 
   return (
     <PageContent width="md" className="space-y-6">
-      <PageIntro description={t('categoriesPage.intro')} />
+      <PageHeader title={t('settings.links.categories')} subtitle={t('categoriesPage.intro')} className="mb-0" />
 
       <Card className="space-y-0 p-5">
         <TagRegistrySection onChanged={() => void loadWorkstreams()} />
