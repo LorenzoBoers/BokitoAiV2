@@ -50,7 +50,7 @@ function DialChip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
+        <button // design-system-ignore: call-UI WIP, migreert in 8.7
           type="button"
           className={cn(
             'chat-stack-dial flex h-6 shrink-0 items-center gap-0.5 px-0.5 text-2xs',
@@ -116,7 +116,8 @@ function StackFace({
   const canDial = Boolean(threadId && onDial && onDialEnd && user?.agentCallsEnabled && dialLabel)
   const onCall =
     Boolean(threadId) &&
-    call?.signalId === threadId &&
+    call != null &&
+    call.signalId === threadId &&
     call.agentId === agent.id &&
     (call.status === 'live' || call.status === 'connecting')
   const size = onCall ? 42 : FACE_SIZE
@@ -152,7 +153,7 @@ function StackFace({
       {done && !onCall ? <AgentDoneCorner size={size} enter /> : null}
       </span>
       {onCall ? (
-        <button
+        <button // design-system-ignore: call-UI WIP, migreert in 8.7
           type="button"
           className="absolute right-full top-1/2 z-20 mr-1.5 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-status-error/40 bg-bg-elevated text-status-error shadow-overlay hover:bg-status-error/10"
           aria-label={t('agentCall.hangUp')}

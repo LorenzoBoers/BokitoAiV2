@@ -1,3 +1,5 @@
+import type { PresenceStatus } from './teams-api'
+
 /** Inline mention markup shared with the API: `@[Name](user:123)`, `@[Name](agent:uuid)`, `@[Name](team:uuid)`. */
 
 export type MentionTargetType = 'user' | 'agent' | 'team'
@@ -9,7 +11,7 @@ export type MentionItem = {
   name: string
   email?: string
   avatarUrl?: string | null
-  presence?: 'available' | 'away' | 'offline' | 'standby' | 'working'
+  presence?: PresenceStatus
   /** Agent corner status when type is agent. */
   activity?: 'standby' | 'working' | 'error'
   avatarKind?: string | null

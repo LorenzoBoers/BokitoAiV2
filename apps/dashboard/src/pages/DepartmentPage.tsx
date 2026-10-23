@@ -178,9 +178,9 @@ function ParentBand({ parent }: { parent: DepartmentOverview['parent'] }) {
           {parent.members.map((member) => (
             <li key={`${member.kind}:${member.id}`} className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
               {member.kind === 'agent' ? (
-                <AgentMark agent={member} fallbackName={member.name} size={22} decorative mode="static" />
+                <AgentMark agent={member} fallbackName={member.name} size={24} decorative mode="static" />
               ) : (
-                <UserAvatar name={member.name} email={member.name} size={22} decorative />
+                <UserAvatar name={member.name} email={member.name} size={24} decorative />
               )}
               <span className="max-w-[9rem] truncate">{member.name}</span>
             </li>

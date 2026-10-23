@@ -60,14 +60,14 @@ Een fase kan opsommen wat er moet zijn voordat het werk verder gaat, en zeggen o
 2. Lege banen (mappen zonder tickets) blijven verborgen. Zet **Toon lege mappen** aan op de werkpagina om ze te zien.
 3. Op het maptabblad van de [afdeling](/docs/getting-started/team) verschijnt een werk als bord zodra een gesprek in die map (of een map daarin) het label van het werk als ticket heeft.
 
-## De flow van start tot eind tekenen
+## Het werk van start tot eind tekenen
 
 De stappen en de pijlen ertussen staan in één editor. Een pijl zegt wanneer hij geldt en wat hij meeneemt.
 
 1. Open het werk en kies **Bewerken** rechtsboven, naast **Open in Grid**.
-2. Het diagram houdt altijd de hele flow in beeld, ook nadat je een stap toevoegt of verplaatst. Elke fase toont het voortgangsicoon en het aantal tickets, net als op het bord.
+2. Het diagram houdt altijd het hele werk in beeld, ook nadat je een stap toevoegt of verplaatst. Elke fase toont het voortgangsicoon en het aantal tickets, net als op het bord.
 3. Klik een stap om rechts wie, stand, max, tools, krijgt, geeft, faalt en stil in te stellen. Klik een pijl om in te stellen wanneer hij geldt en wat hij meeneemt, of richt hem op een andere stap. Rechtsklik op een stap, een pijl of de achtergrond voor een menu met **Nieuwe stap hierna**, **Pijl naar**, wie en stand, **Richting omdraaien**, **Nieuwe stap hier** en **Verwijderen**.
-4. Sleep vanaf de stip rechts op een stap naar een andere stap voor een nieuwe pijl. Laat je los op een lege plek, dan komt daar een nieuwe stap met die pijl. **Stap** en **Pijl toevoegen naar** in het paneel doen hetzelfde zonder slepen. Een losse stap sleep je naar een andere kolom, boven of onder een stap; **Automatisch plaatsen** zet hem terug. **Notatie** toont dezelfde flow als tekst en controleert die terwijl je typt.
+4. Sleep vanaf de stip rechts op een stap naar een andere stap voor een nieuwe pijl. Laat je los op een lege plek, dan komt daar een nieuwe stap met die pijl. **Stap** en **Pijl toevoegen naar** in het paneel doen hetzelfde zonder slepen. Een losse stap sleep je naar een andere kolom, boven of onder een stap; **Automatisch plaatsen** zet hem terug. **Notatie** toont hetzelfde werk als tekst en controleert die terwijl je typt.
 5. **Opslaan** bewaart de notatie op het werk. Het bord houdt de kolommen tot de overgangen daarop worden toegepast.
 
 ## Beschrijven hoe het werk zijn werk afhandelt

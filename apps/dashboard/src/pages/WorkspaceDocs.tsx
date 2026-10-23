@@ -629,7 +629,7 @@ export default function WorkspaceDocs() {
               </div>
             ) : null}
             <div className="flex flex-wrap gap-1.5">
-              <button
+              <button // design-system-ignore: same entityChipClass chip as its siblings; migrates with them in 8.7
                 type="button"
                 onClick={() => {
                   if (lessons) {

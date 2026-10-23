@@ -22,7 +22,7 @@ function fetchTeams(token: string): Promise<Team[]> {
   return inflight
 }
 
-const RANK: Record<PresenceStatus, number> = { available: 4, working: 3, away: 2, standby: 1, offline: 0 }
+const RANK: Record<PresenceStatus, number> = { available: 4, working: 3, away: 2, standby: 1, unavailable: 0, offline: 0 }
 
 /**
  * Team corner status from live people presence and live agent status, so an

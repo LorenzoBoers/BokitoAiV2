@@ -1513,7 +1513,7 @@ export default function ReplyComposer({
               </button>
             ) : null}
             {user?.agentCallsEnabled && voiceThreadId ? (
-              <button
+              <button // design-system-ignore: call-UI WIP, migreert in 8.7
                 type="button"
                 disabled={saving || disabled || voiceBusy || Boolean(liveCall)}
                 title={liveCall ? t('agentCall.voiceModeBusy') : t('agentCall.voiceMode')}

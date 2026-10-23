@@ -288,7 +288,7 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
             color={agent?.avatar_color}
             shape={agent?.avatar_shape}
             imageUrl={agent?.avatar_image_url}
-            size={28}
+            size={32}
             mode="live"
             motion={speaking ? 'talking' : userSpeaking ? 'listening' : 'idle'}
             decorative
@@ -306,7 +306,7 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
             </p>
           </div>
           <CallSpectrum />
-          <button
+          <button // design-system-ignore: call-UI WIP, migreert in 8.7
             type="button"
             className={iconClass}
             disabled={!live}
@@ -319,7 +319,7 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <button // design-system-ignore: call-UI WIP, migreert in 8.7
                 type="button"
                 className={iconClass}
                 disabled={!live || saving}
@@ -385,7 +385,7 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
-          <button
+          <button // design-system-ignore: call-UI WIP, migreert in 8.7
             type="button"
             className={`${iconClass} ${transcriptOpen ? 'bg-bg-hover text-text-primary' : ''}`}
             disabled={!live}
@@ -396,7 +396,7 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
           >
             <List className="h-4 w-4" />
           </button>
-          <button
+          <button // design-system-ignore: call-UI WIP, migreert in 8.7
             type="button"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-status-error transition-colors hover:bg-status-error/10 disabled:opacity-40"
             onClick={() => requestAgentCallEnd()}

@@ -55,7 +55,7 @@ export function CallRecord({ message }: { message: InboxMessage }) {
             <p className="text-sm text-text-primary">{t('agentCall.recordTitle')}</p>
             <p className="text-xs text-text-muted">{ended}</p>
           </div>
-          <button
+          <button // design-system-ignore: call-UI WIP, migreert in 8.7
             type="button"
             className="shrink-0 text-sm text-text-secondary hover:text-text-primary"
             onClick={() => setOpen(true)}

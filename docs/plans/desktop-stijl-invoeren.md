@@ -417,3 +417,35 @@ Commit per fase, met een zin die zegt wat de gebruiker ziet veranderen.
 - Vandaag, Inbox (met gesprek) en Agents zien er op dev uit als de Desktop-stijl-borden op het canvas, in licht en donker.
 - Er is geen `!important` toegevoegd en geen selector op andermans Tailwind-klassen.
 - Contrasttests, drift-test, lint en build zijn groen.
+
+## Open punten
+
+### Baseline was rood (werk in uitvoering van een andere agent)
+
+De baseline-commit `cd2a8090` bevat lopend werk dat type-check en lint rood liet. Commit "Baseline groen" repareert alleen het minimum. Let bij het mergen van `wip/werkkopie` op conflicten in deze bestanden:
+
+- `PresenceStatus` kreeg `'unavailable'`, maar niet alle gebruikers volgden. `lib/mentions.ts` gebruikt nu `PresenceStatus`, `hooks/useTeams.ts` rangschikt `unavailable` als `offline`, en `chat-stack/ChatStackCard.tsx` heeft een null-check die het gedrag gelijk laat.
+- Mark-scale: `LiveCallComposerBar.tsx` gaat van 28 naar 32, `DepartmentPage.tsx` van 22 naar 24 (2x).
+- NL-copy: `nav.json` `workstreamsPage.schema.title` en `product-help/nl/ai/flows.md` gaan van "flow" naar "werk".
+
+### Tijdelijke ignores: call-UI WIP, migreren in 8.7
+
+Deze acht `<button>`s dragen `// design-system-ignore: call-UI WIP, migreert in 8.7`. In 8.7 worden ze als eerste omgezet en de ignores weggehaald.
+
+- `src/components/chat-stack/ChatStackCard.tsx:53`
+- `src/components/chat-stack/ChatStackCard.tsx:156`
+- `src/components/inbox/CallRecord.tsx:58`
+- `src/components/inbox/LiveCallComposerBar.tsx:309`
+- `src/components/inbox/LiveCallComposerBar.tsx:322`
+- `src/components/inbox/LiveCallComposerBar.tsx:388`
+- `src/components/inbox/LiveCallComposerBar.tsx:399`
+- `src/components/inbox/ReplyComposer.tsx:1516`
+
+Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore. Het is dezelfde `entityChipClass`-chip als zijn negen buren en gaat in 8.7 met hen mee.
+
+### Tijdelijke copy-allowlist: opruimen na merge
+
+In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:
+
+- `apps/dashboard/src/components/flows/FlowSchemaEditor.tsx` (hardcoded "Del")
+- `apps/dashboard/src/components/projects/WorksInSection.test.tsx` ("grant")

@@ -506,7 +506,7 @@
     "openSettings": "Flowinstellingen",
     "schema": {
       "edit": "Bewerken",
-      "title": "Flow van start tot eind",
+      "title": "Werk van start tot eind",
       "hint": "Klik een stap of een pijl. Een pijl zegt wanneer hij geldt en wat hij meeneemt.",
       "sourceHint": "Een stap is naam: wat hij doet. Velden springen in. Een pijl is van -> naar: wanneer.",
       "diagram": "Diagram",

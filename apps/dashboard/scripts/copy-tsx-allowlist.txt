@@ -35,3 +35,6 @@ apps/dashboard/src/pages/Signup.tsx
 apps/dashboard/src/pages/StaffIntegrationCatalog.tsx
 apps/dashboard/src/pages/TrustPrivacyPage.tsx
 apps/dashboard/src/pages/VerifyEmail.tsx
+# WIP andere agent, opruimen na merge
+apps/dashboard/src/components/flows/FlowSchemaEditor.tsx
+apps/dashboard/src/components/projects/WorksInSection.test.tsx
