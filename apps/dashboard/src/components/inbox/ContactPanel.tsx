@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
@@ -373,16 +375,16 @@ export default function ContactPanel({
     setCaptureOpen(true)
   }
   const linkButton = canLink ? (
-    <button
+    <Button variant="secondary" size="xs"
       type="button"
       onClick={openCaptureForm}
       title={t('contactPanel.linkHint')}
       data-testid="contact-link-open"
-      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+      className="shrink-0"
     >
       <Plus size={14} />
       {t('contactPanel.link')}
-    </button>
+    </Button>
   ) : null
   const inputClass =
     'w-full rounded-md border border-border bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50'
@@ -418,7 +420,7 @@ export default function ContactPanel({
           <div className="space-y-1">
             <p className="text-xs text-text-muted">{t('contactPanel.linkChoose')}</p>
             {candidates.map((candidate) => (
-              <button
+              <Pressable
                 key={candidate.id}
                 type="button"
                 disabled={saving}
@@ -429,28 +431,28 @@ export default function ContactPanel({
                   {candidate.displayName || candidate.address}
                 </span>
                 <span className="min-w-0 truncate-fade text-text-muted">{candidate.address}</span>
-              </button>
+              </Pressable>
             ))}
           </div>
         ) : null}
         <div className="flex items-center gap-1.5">
-          <button
+          <Button size="xs"
             type="submit"
             disabled={saving}
-            className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+           
           >
             {saving ? t('contactPanel.saving') : t('contactPanel.linkSubmit')}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="xs"
             type="button"
             onClick={() => {
               setCaptureOpen(false)
               setCandidates([])
             }}
-            className="rounded-md px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+           
           >
             {t('contactPanel.cancel')}
-          </button>
+          </Button>
         </div>
       </form>
     ) : null
@@ -543,19 +545,19 @@ export default function ContactPanel({
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             {!captureOpen ? linkButton : null}
             {onPatch ? (
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 disabled={saving}
                 onClick={() =>
                   void onPatch({ status: threadStatus === 'spam' ? 'open' : 'spam' })
                 }
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover disabled:opacity-50"
+               
               >
                 <OctagonAlert size={14} />
                 {threadStatus === 'spam'
                   ? t('threadChrome.notSpam')
                   : t('threadChrome.markSpam')}
-              </button>
+              </Button>
             ) : null}
           </div>
         </div>
@@ -740,15 +742,15 @@ export default function ContactPanel({
             />
             {notesDirty ? (
               <div className="mt-1 flex items-center gap-2 px-0.5">
-                <button
+                <Button size="xs"
                   type="button"
                   disabled={saving}
                   onClick={() => void saveNotes()}
-                  className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-2xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                 
                 >
                   <Check size={14} />
                   {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
-                </button>
+                </Button>
                 <span className="text-2xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
               </div>
             ) : null}
@@ -760,15 +762,15 @@ export default function ContactPanel({
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             {needsIdentity && !captureOpen ? linkButton : null}
             {statusPending && !anonymous ? (
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-success disabled:opacity-50"
+                className="shrink-0"
               >
                 <Check size={14} />
                 {t('contactPanel.approve')}
-              </button>
+              </Button>
             ) : null}
           </div>
         ) : null}

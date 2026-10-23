@@ -1,4 +1,6 @@
 import { Spinner } from '../components/ui/spinner'
+import { Button } from '../components/ui/button'
+import { Pressable } from '../components/ui/pressable'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -383,26 +385,26 @@ export default function CompanyConfig() {
                       : <Image size={16} className="text-text-muted" />
                     }
                   </div>
-                  <button
+                  <Button variant="secondary" size="xs"
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+                   
                   >
                     <Upload size={14} />
                     {logoSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
-                  </button>
+                  </Button>
                   {logoSrc ? (
-                    <button
+                    <Button variant="secondary" size="xs"
                       type="button"
                       onClick={() => {
                         setLogoSrc(null)
                         setLogoFile(null)
                         setClearLogo(true)
                       }}
-                      className="px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+                     
                     >
                       {t('brandingPage.delete')}
-                    </button>
+                    </Button>
                   ) : null}
                   <input ref={fileInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleLogoUpload(e) }} />
                 </div>
@@ -416,26 +418,26 @@ export default function CompanyConfig() {
                       : <Image size={16} className="text-text-muted" />
                     }
                   </div>
-                  <button
+                  <Button variant="secondary" size="xs"
                     type="button"
                     onClick={() => faviconInputRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+                   
                   >
                     <Upload size={14} />
                     {faviconSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
-                  </button>
+                  </Button>
                   {faviconSrc ? (
-                    <button
+                    <Button variant="secondary" size="xs"
                       type="button"
                       onClick={() => {
                         setFaviconSrc(null)
                         setFaviconFile(null)
                         setClearFavicon(true)
                       }}
-                      className="px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
+                     
                     >
                       {t('brandingPage.delete')}
-                    </button>
+                    </Button>
                   ) : null}
                   <input ref={faviconInputRef} type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg,image/svg+xml" className="hidden" onChange={(e) => { void handleFaviconUpload(e) }} />
                 </div>
@@ -445,9 +447,9 @@ export default function CompanyConfig() {
                 <div className="flex flex-col gap-2.5">
                 <div className="flex items-center gap-2">
                   <ColorField value={brandColor} onChange={setBrandColor} invalid={brandColorInvalid} />
-                  <button
+                  <Button variant="secondary" size="xs"
                     type="button"
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs text-text-secondary hover:bg-bg-hover"
+                   
                     onClick={() => {
                       void navigator.clipboard.writeText(brandColor)
                       toast.success(t('brandingPage.copiedColor'))
@@ -456,7 +458,7 @@ export default function CompanyConfig() {
                   >
                     <Copy size={14} />
                     {t('brandingPage.copyColor')}
-                  </button>
+                  </Button>
                 </div>
                 {brandColorInvalid ? (
                   <p className="text-xs text-status-error">{t('brandingPage.brandColorInvalid')}</p>
@@ -522,7 +524,7 @@ export default function CompanyConfig() {
           </div>
 
           {/* ── Chat assistant style link ─────────────────────────────────── */}
-          <button
+          <Pressable
             type="button"
             onClick={() => navigate(WEBSITE_WIDGET_CUSTOMIZE_PATH)}
             className="w-full flex items-center gap-4 rounded-lg border border-border bg-bg-elevated/30 px-5 py-4 hover:border-border-light hover:bg-bg-hover/50 transition-all group text-left"
@@ -535,7 +537,7 @@ export default function CompanyConfig() {
               <p className="text-xs text-text-muted mt-0.5">{t('brandingPage.chatWidgetDescription')}</p>
             </div>
             <ArrowRight size={16} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
-          </button>
+          </Pressable>
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
             <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">
               {t('brandingPage.openCommunication')}
@@ -550,18 +552,14 @@ export default function CompanyConfig() {
             {saveError ? (
               <p className="mr-4 self-center text-xs text-status-error">{saveError}</p>
             ) : null}
-            <button
+            <Button size="md"
               type="button"
               onClick={() => void handleSave()}
               disabled={saving || !brandingDirty}
-              className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
-                saved
-                  ? 'bg-status-success/12 text-status-success border border-status-success/30'
-                  : 'bg-accent text-accent-fg hover:bg-accent-hover shadow-[0_4px_14px_rgba(70,82,242,0.3)]'
-              }`}
+              className={saved ? 'border border-status-success/30 bg-status-success/12 text-status-success hover:bg-status-success/12' : undefined}
             >
               {saving ? <><Spinner size="md" />{t('brandingPage.saving')}</> : saved ? <><CheckCircle2 size={14} />{t('brandingPage.saved')}</> : t('brandingPage.save')}
-            </button>
+            </Button>
           </div>
 
         </div>

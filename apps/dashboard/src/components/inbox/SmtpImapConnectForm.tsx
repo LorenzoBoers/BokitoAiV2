@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ChevronDown, Info } from 'lucide-react'
@@ -488,7 +489,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
           </div>
 
           <div className="rounded-lg border border-border bg-bg-elevated/25">
-            <button
+            <Pressable
               type="button"
               onClick={() => setTipsOpen((v) => !v)}
               className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium text-text-secondary hover:text-text-heading"
@@ -501,7 +502,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                 className={cn('shrink-0 transition-transform', tipsOpen && 'rotate-180')}
                 aria-hidden
               />
-            </button>
+            </Pressable>
             {tipsOpen ? (
               <ol className="space-y-1.5 border-t border-border px-3 py-2.5 pl-8 text-xs leading-snug text-text-muted list-decimal">
                 <li>{t('channelsPage.email.smtp.step1ItemImap')}</li>

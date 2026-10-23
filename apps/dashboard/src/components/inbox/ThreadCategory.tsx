@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, ClipboardCheck, Plus, Sparkles } from 'lucide-react'
@@ -246,7 +247,7 @@ export function ThreadCategory({ signalId, version }: Props) {
                       const reached = stageIndex >= 0 && index <= stageIndex
                       const current = index === stageIndex
                       return (
-                        <button
+                        <Pressable
                           key={stage.key}
                           type="button"
                           disabled={busy || current}
@@ -263,7 +264,7 @@ export function ThreadCategory({ signalId, version }: Props) {
                               current && 'ring-2 ring-accent/30 ring-offset-1 ring-offset-bg-surface',
                             )}
                           />
-                        </button>
+                        </Pressable>
                       )
                     })}
                   </div>

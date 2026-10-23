@@ -1,4 +1,6 @@
+import { FilterChip } from '../ui/filter-chip'
 import { useEffect, useMemo, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { Avatar } from '../ui/avatar'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -243,14 +245,14 @@ function BubbleDrafts({
             <ChatText content={bubble} className="text-sm leading-relaxed text-text-primary" />
           )}
           {editable && bubbles.length > 1 ? (
-            <button
+            <Button variant="ghost" size="iconSm"
               type="button"
               onClick={() => onChange(bubbles.filter((_, i) => i !== index))}
               aria-label={t('decisionCard.removeBubble')}
-              className="absolute right-1.5 top-1.5 rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-bg-hover hover:text-text-primary focus:opacity-100 group-hover:opacity-100"
+              className="absolute right-1.5 top-1.5 group-hover:opacity-100"
             >
               <X size={14} />
-            </button>
+            </Button>
           ) : null}
         </div>
       ))}
@@ -720,7 +722,7 @@ export default function DecisionRequestMessage({
           body={
             <div className="flex min-w-0 flex-col gap-1.5">
               <div className="flex min-w-0 items-center gap-2">
-                <button
+                <Pressable
                   type="button"
                   onClick={() => setCompactOpen((open) => !open)}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left outline-none transition-colors hover:text-text-primary focus-visible:ring-2 focus-visible:ring-accent/40"
@@ -737,7 +739,7 @@ export default function DecisionRequestMessage({
                       compactOpen && 'rotate-180',
                     )}
                   />
-                </button>
+                </Pressable>
                 {onEditDraft ? (
                   <Button
                     type="button"
@@ -956,7 +958,7 @@ export default function DecisionRequestMessage({
               <span className="truncate-fade font-mono text-2xs text-text-muted">
                 {String(message.decisionId)}
               </span>
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 aria-label={t('decisionCard.copyId')}
                 title={t('decisionCard.copyId')}
@@ -966,10 +968,10 @@ export default function DecisionRequestMessage({
                     () => toast.error(t('decisionCard.copyIdFailed')),
                   )
                 }}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover hover:text-text-body"
+                className="shrink-0"
               >
                 <Copy size={14} />
-              </button>
+              </Button>
             </div>
           </details>
         ) : null}
@@ -1035,34 +1037,22 @@ export default function DecisionRequestMessage({
                       </span>
                       <div className="flex items-center gap-1">
                         <span className="text-2xs text-text-muted">{t('decisionCard.sendAs.label')}</span>
-                        <button
-                          type="button"
+                        <FilterChip active={sendAs === 'user'}
                           disabled={busy}
                           onClick={() => chooseSendAs('user')}
-                          className={cn(
-                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition-colors',
-                            sendAs === 'user'
-                              ? 'border-border-light bg-bg-hover text-text-heading'
-                              : 'border-border text-text-muted hover:bg-bg-hover hover:text-text-body',
-                          )}
+                         
                         >
                           <UserRound size={14} aria-hidden />
                           {t('decisionCard.sendAs.you')}
-                        </button>
-                        <button
-                          type="button"
+                        </FilterChip>
+                        <FilterChip active={sendAs === 'agent'}
                           disabled={busy}
                           onClick={() => chooseSendAs('agent')}
-                          className={cn(
-                            'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition-colors',
-                            sendAs === 'agent'
-                              ? 'border-ai/40 bg-ai/10 text-text-primary'
-                              : 'border-border text-text-muted hover:bg-bg-hover hover:text-text-body',
-                          )}
+                         
                         >
                           <Bot size={14} aria-hidden />
                           {agentName || t('decisionCard.sendAs.agentFallback')}
-                        </button>
+                        </FilterChip>
                       </div>
                     </div>
                     <Link

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useAgents } from '../../hooks/useAgents'
 import type { InboxMessage } from '../../lib/inbox-api'
 import { cn } from '../../lib/utils'
+import { Button } from '../ui/button'
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { THREAD_GUTTER } from './ThreadMeta'
 
@@ -55,13 +56,14 @@ export function CallRecord({ message }: { message: InboxMessage }) {
             <p className="text-sm text-text-primary">{t('agentCall.recordTitle')}</p>
             <p className="text-xs text-text-muted">{ended}</p>
           </div>
-          <button // design-system-ignore: call-UI WIP, migreert in 8.7
-            type="button"
-            className="shrink-0 text-sm text-text-secondary hover:text-text-primary"
+          <Button
+            variant="ghost"
+            size="xs"
+            className="shrink-0"
             onClick={() => setOpen(true)}
           >
             {t('agentCall.viewTranscript')}
-          </button>
+          </Button>
         </div>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>

@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -187,8 +188,7 @@ function Chip({
   const label = t(`aiHandling.modes.${mode}.label`)
   return (
     <DropdownMenuTrigger asChild>
-      <button
-        type="button"
+      <Pressable
         disabled={saving || disabled || !handling}
         aria-label={`${t('aiHandling.title')}: ${label}`}
         title={title || undefined}
@@ -204,7 +204,7 @@ function Chip({
         {compact ? null : <span className="max-w-[9rem] truncate-fade">{label}</span>}
         {handling?.clampedBy ? <ShieldAlert size={14} className="shrink-0 text-text-muted" /> : null}
         <ChevronDown size={14} className="shrink-0 text-text-muted" />
-      </button>
+      </Pressable>
     </DropdownMenuTrigger>
   )
 }

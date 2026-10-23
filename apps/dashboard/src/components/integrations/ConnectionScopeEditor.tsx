@@ -1,3 +1,4 @@
+import { FilterChip } from '../ui/filter-chip'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
@@ -94,22 +95,16 @@ export function ConnectionScopeEditor({
               {allProjects.map((project) => {
                 const on = selected.includes(project.id)
                 return (
-                  <button
+                  <FilterChip active={on}
                     key={project.id}
-                    type="button"
                     aria-pressed={on}
                     disabled={busy}
                     onClick={() => toggle(project.id)}
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs',
-                      on
-                        ? 'border-accent/50 bg-accent/10 text-text-heading'
-                        : 'border-border text-text-secondary hover:border-border-light',
-                    )}
+                   
                   >
                     {on ? <Check size={14} aria-hidden /> : null}
                     {project.name}
-                  </button>
+                  </FilterChip>
                 )
               })}
             </div>

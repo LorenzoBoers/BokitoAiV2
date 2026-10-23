@@ -882,17 +882,15 @@ function AttentionChip({
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      size="xs"
       onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-lg border bg-bg-surface px-2.5 py-1 text-xs font-medium transition-colors hover:bg-bg-elevated',
-        tone === 'error' ? 'border-status-error/40 text-status-error' : 'border-status-warning/40 text-status-warning',
-      )}
+      className={tone === 'error' ? 'border-status-error/40 text-status-error' : 'border-status-warning/40 text-status-warning'}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden />
       {label}
-    </button>
+    </Button>
   )
 }
 

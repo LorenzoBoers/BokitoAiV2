@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { Button } from '../components/ui/button'
 import { Avatar } from '../components/ui/avatar'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
@@ -320,7 +321,7 @@ export default function UsagePage() {
               </span>
             ) : null}
             {breakdown ? (
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 onClick={() => {
                   const blob = new Blob([usageBreakdownToCsv(breakdown)], { type: 'text/csv;charset=utf-8' })
@@ -332,19 +333,19 @@ export default function UsagePage() {
                   URL.revokeObjectURL(url)
                   toast.success(t('usagePage.exported'))
                 }}
-                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+               
               >
                 {t('usagePage.exportCsv')}
-              </button>
+              </Button>
             ) : null}
-            <button
+            <Button variant="secondary" size="xs"
               type="button"
               onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+             
             >
               {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('usagePage.refresh')}
-            </button>
+            </Button>
           </div>
         }
       />
@@ -431,13 +432,13 @@ export default function UsagePage() {
                   <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.capsHint')}</p>
                 </div>
                 {capDraft ? null : (
-                  <button
+                  <Button variant="secondary" size="xs"
                     type="button"
                     onClick={startEditCaps}
-                    className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+                    className="shrink-0"
                   >
                     {t('usagePage.editCaps')}
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="p-4">
@@ -480,21 +481,21 @@ export default function UsagePage() {
                       />
                     </label>
                     <div className="flex items-center gap-2">
-                      <button
+                      <Button variant="secondary" size="xs"
                         type="button"
                         onClick={() => void saveCaps()}
                         disabled={savingCaps}
-                        className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+                       
                       >
                         {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
-                      </button>
-                      <button
+                      </Button>
+                      <Button variant="ghost" size="xs"
                         type="button"
                         onClick={() => setCapDraft(null)}
-                        className="rounded-md px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
+                        className="text-text-muted"
                       >
                         {t('usagePage.cancel')}
-                      </button>
+                      </Button>
                     </div>
                     {capError ? <p className="w-full text-xs text-status-error">{capError}</p> : null}
                   </div>

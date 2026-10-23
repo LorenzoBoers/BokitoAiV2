@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
@@ -156,26 +157,26 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
           <span key={slot.key} className="inline-flex items-center">{slot.node}</span>
         ))}
         {hiddenCount > 0 ? (
-          <button
+          <Button variant="ghost" size="xs"
             type="button"
             disabled={saving}
             onClick={() => setExpanded(true)}
-            className="inline-flex h-5 items-center rounded-md bg-bg-hover px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-border-light/35 hover:text-text-heading disabled:opacity-40"
+           
           >
             {t('tags.moreCount', { count: hiddenCount })}
-          </button>
+          </Button>
         ) : null}
         {onPatch ? (
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
             disabled={saving}
             onClick={() => setOpen(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-            className="inline-flex h-6 w-6 items-center justify-center text-text-muted transition-colors hover:text-accent disabled:opacity-40"
+           
           >
             <Plus size={14} />
-          </button>
+          </Button>
         ) : null}
       </div>
       <HashtagPickerModal

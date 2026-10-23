@@ -94,15 +94,15 @@ export function ChannelExceptionsCard({
                       </span>
                     ) : null}
                     {row.mode ? (
-                      <button
+                      <Button variant="ghost" size="iconSm"
                         type="button"
                         onClick={() => onClear(group.scope, row)}
                         title={t('ai.communication.exceptionClear')}
                         aria-label={t('ai.communication.exceptionClear')}
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                        className="shrink-0"
                       >
                         <X size={14} />
-                      </button>
+                      </Button>
                     ) : null}
                   </li>
                 ))}

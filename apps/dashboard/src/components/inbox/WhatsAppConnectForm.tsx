@@ -346,14 +346,14 @@ function CopyRow({
       <code className="min-w-0 flex-1 break-all rounded bg-bg-input px-1.5 py-1 text-xs text-text-primary">
         {value}
       </code>
-      <button
+      <Button variant="ghost" size="xs"
         type="button"
         onClick={onCopy}
-        className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
+        className="shrink-0"
       >
         {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
         <span>{copyLabel}</span>
-      </button>
+      </Button>
     </div>
   )
 }

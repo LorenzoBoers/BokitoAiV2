@@ -24,6 +24,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-react'
+import { TextLink } from '../ui/text-link'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -48,7 +49,6 @@ import { threadStatusLabel } from '../../lib/status-labels'
 import {
   THREAD_ACTION_CLUSTER_CLASS,
   THREAD_HEADER_CLASS,
-  THREAD_HEADER_ICON_CLASS,
 } from '../../lib/chat-chrome'
 import {
   DropdownMenu,
@@ -70,7 +70,7 @@ import { Button } from '../ui/button'
 import { requestMinimizeToStack } from '../../lib/chat-stack'
 import { cn } from '../../lib/utils'
 
-const HEADER_ICON = THREAD_HEADER_ICON_CLASS
+const HEADER_ICON = 'text-text-muted'
 const FolderIcon = ENTITY_ICONS.project
 
 type Props = {
@@ -192,14 +192,14 @@ export default function ThreadHeader({
   return (
     <div className={THREAD_HEADER_CLASS} data-thread-header>
       {onBack ? (
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onBack}
           aria-label={t('threadChrome.backToConversations')}
-          className="-ml-1 shrink-0 rounded-md p-1.5 text-text-muted hover:bg-bg-hover hover:text-text-primary md:hidden"
+          className="-ml-1 shrink-0 md:hidden"
         >
           <ArrowLeft size={16} />
-        </button>
+        </Button>
       ) : null}
       <div className="min-w-0 flex-1 leading-tight">
         <h2 className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-text-heading">
@@ -246,8 +246,7 @@ export default function ThreadHeader({
               contactDisplayName !== thread.contactEmail ? (
                 <>
                   {' · '}
-                  <button
-                    type="button"
+                  <TextLink tone="muted"
                     title={t('threadChrome.copyEmail')}
                     onClick={() => {
                       void navigator.clipboard.writeText(thread.contactEmail).then(
@@ -255,18 +254,18 @@ export default function ThreadHeader({
                         () => toast.error(t('threadChrome.copyEmail')),
                       )
                     }}
-                    className="hover:text-accent hover:underline"
+                   
                   >
                     {thread.contactEmail}
-                  </button>
+                  </TextLink>
                 </>
               ) : null}
               {previousCount > 0 && onToggleContact ? (
                 <>
                   {' · '}
-                  <button type="button" onClick={onToggleContact} className="hover:text-accent hover:underline">
+                  <TextLink tone="muted" onClick={onToggleContact}>
                     {t('threadChrome.earlierConversations', { count: previousCount })}
-                  </button>
+                  </TextLink>
                 </>
               ) : null}
               <span className="text-text-muted">
@@ -367,7 +366,9 @@ export default function ThreadHeader({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <Button
+              variant="ghost"
+              size="iconSm"
               type="button"
               disabled={saving || closeBusy}
               onClick={() => {
@@ -389,7 +390,7 @@ export default function ThreadHeader({
               ) : (
                 <Archive size={14} />
               )}
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
             {thread.status === 'closed' || thread.status === 'pending' ? (
@@ -403,14 +404,16 @@ export default function ThreadHeader({
           <Tooltip>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
-                <button
+                <Button
+                  variant="ghost"
+                  size="iconSm"
                   type="button"
                   disabled={saving}
                   aria-label={t('threadChrome.moreActions')}
                   className={HEADER_ICON}
                 >
                   <MoreHorizontal size={14} />
-                </button>
+                </Button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <TooltipContent side="bottom">{t('threadChrome.moreActions')}</TooltipContent>
@@ -597,7 +600,9 @@ export default function ThreadHeader({
         {onToggleContact && !contactOpen ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Button
+                variant="ghost"
+                size="iconSm"
                 type="button"
                 onClick={onToggleContact}
                 aria-label={t('threadChrome.showDetails')}
@@ -609,7 +614,7 @@ export default function ThreadHeader({
                     {panelCount > 9 ? '9+' : panelCount}
                   </span>
                 ) : null}
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               {t('threadChrome.showDetails')}

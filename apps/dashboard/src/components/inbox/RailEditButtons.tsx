@@ -1,9 +1,10 @@
+import { Button } from '../ui/button'
 import type { MouseEvent, PointerEvent } from 'react'
 import { Eye, PenLine } from 'lucide-react'
 import { Tip } from '../ui/Tip'
 
 const controlClass =
-  'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary'
+  'shrink-0 text-text-muted hover:text-text-secondary'
 
 function stopRow(event: MouseEvent | PointerEvent) {
   event.preventDefault()
@@ -13,7 +14,7 @@ function stopRow(event: MouseEvent | PointerEvent) {
 export function RailEyeButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <Tip label={label}>
-      <button
+      <Button variant="ghost" size="iconSm"
         type="button"
         aria-label={label}
         className={controlClass}
@@ -24,7 +25,7 @@ export function RailEyeButton({ label, onClick }: { label: string; onClick: () =
         }}
       >
         <Eye size={14} aria-hidden />
-      </button>
+      </Button>
     </Tip>
   )
 }
@@ -32,7 +33,7 @@ export function RailEyeButton({ label, onClick }: { label: string; onClick: () =
 export function RailPenButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <Tip label={label}>
-      <button
+      <Button variant="ghost" size="iconSm"
         type="button"
         aria-label={label}
         className={controlClass}
@@ -43,7 +44,7 @@ export function RailPenButton({ label, onClick }: { label: string; onClick: () =
         }}
       >
         <PenLine size={14} aria-hidden />
-      </button>
+      </Button>
     </Tip>
   )
 }

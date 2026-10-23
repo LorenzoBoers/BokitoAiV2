@@ -1,4 +1,5 @@
 import { Spinner } from '../ui/spinner'
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -54,7 +55,7 @@ function SectionRow({
       />
       <div className="min-w-0 flex-1 py-0.5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <button
+          <Pressable
             type="button"
             className="inline-flex min-w-0 items-center gap-1 text-left text-sm text-text-primary hover:text-text-heading"
             onClick={() => setExpanded((v) => !v)}
@@ -65,12 +66,11 @@ function SectionRow({
               <ChevronRight size={14} className="shrink-0 text-text-muted" />
             )}
             <span className="truncate-fade">{section.heading || section.anchor}</span>
-          </button>
+          </Pressable>
           {canEdit ? (
             <div className="relative">
-              <button
-                type="button"
-                className="inline-flex"
+              <Pressable
+                className="w-auto inline-flex"
                 onClick={() => setMenuOpen((v) => !v)}
                 title={t('projects.work.changeSectionStatus')}
               >
@@ -81,11 +81,11 @@ function SectionRow({
                   {busy ? <Spinner size="sm" className="mr-0.5" /> : null}
                   {t(`projects.work.sectionStatus.${section.status}`)}
                 </Badge>
-              </button>
+              </Pressable>
               {menuOpen ? (
                 <div className="absolute left-0 top-6 z-20 w-40 rounded-lg border border-border bg-bg-surface p-1 shadow-overlay">
                   {SECTION_STATUSES.map((status) => (
-                    <button
+                    <Pressable
                       key={status}
                       type="button"
                       className={cn(
@@ -100,7 +100,7 @@ function SectionRow({
                       }}
                     >
                       {t(`projects.work.sectionStatus.${status}`)}
-                    </button>
+                    </Pressable>
                   ))}
                 </div>
               ) : null}
@@ -238,7 +238,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
     <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
       <div className="space-y-1.5">
         {docs.map((doc) => (
-          <button
+          <Pressable
             key={doc.id}
             type="button"
             className={cn(
@@ -257,7 +257,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             {doc.sections.length > 0 ? (
               <span className="text-xs text-text-muted">{doc.sections.length}</span>
             ) : null}
-          </button>
+          </Pressable>
         ))}
         {canEdit ? (
           creating ? (

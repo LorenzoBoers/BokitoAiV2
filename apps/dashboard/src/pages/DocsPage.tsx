@@ -1,3 +1,4 @@
+import { Pressable } from '../components/ui/pressable'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Copy, FileText } from 'lucide-react'
@@ -299,14 +300,14 @@ function ArticleView({
           </h1>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <button type="button" onClick={() => void copyForLlm()} className="docs-util">
+            <Pressable onClick={() => void copyForLlm()} className="w-auto text-center docs-util">
               {copied ? (
                 <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
               ) : (
                 <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />
               )}
               {copied ? t('docs.copyForLlmDone') : t('docs.copyForLlm')}
-            </button>
+            </Pressable>
             <a
               href={productHelpMarkdownUrl(article.slug, lang)}
               target="_blank"

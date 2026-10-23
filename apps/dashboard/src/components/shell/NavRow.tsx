@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react'
 import { NavLink, type NavLinkProps } from 'react-router-dom'
 import type { LucideIcon } from 'lucide-react'
@@ -103,7 +104,7 @@ export const NavRowButton = forwardRef<HTMLButtonElement, NavRowButtonProps>(fun
   const base = { icon, label, count, unread, trailing, iconOnly, depth, active, className }
   const tip = tipLabel(title, iconOnly, label, tipDetail)
   const button = (
-    <button
+    <Pressable
       ref={ref}
       type={type}
       {...buttonProps}
@@ -112,7 +113,7 @@ export const NavRowButton = forwardRef<HTMLButtonElement, NavRowButtonProps>(fun
       data-active={active ? 'true' : undefined}
     >
       <RowInner {...base} />
-    </button>
+    </Pressable>
   )
   return tip ? (
     <Tip label={tip} detail={tipDetail} side="right">

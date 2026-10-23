@@ -1,4 +1,6 @@
+import { Pressable } from '../ui/pressable'
 import { FileText, X } from 'lucide-react'
+import { Button } from '../ui/button'
 import { Skeleton } from '../ui/skeleton'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -91,14 +93,14 @@ export default function MessageAttachments({
                 <FileText size={14} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 truncate-fade text-text-secondary">{name}</span>
                 {onRemove ? (
-                  <button
+                  <Button variant="ghost" size="iconSm"
                     type="button"
                     onClick={() => onRemove(att.id)}
-                    className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                   
                     aria-label={t('composer.removeAttachment', { name })}
                   >
                     <X size={14} />
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             )
@@ -114,14 +116,14 @@ export default function MessageAttachments({
                 <img src={att.url} alt={name} className="h-full w-full object-cover" />
               </a>
               {onRemove ? (
-                <button
+                <Button variant="ghost" size="iconSm"
                   type="button"
                   onClick={() => onRemove(att.id)}
-                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg text-text-heading opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur-sm transition-opacity duration-150 hover:bg-bg focus-visible:opacity-100 group-hover/thumb:opacity-100"
+                  className="absolute -right-1.5 -top-1.5 bg-bg ring-1 ring-border/60 backdrop-blur-sm group-hover/thumb:opacity-100"
                   aria-label={t('composer.removeAttachment', { name })}
                 >
                   <X size={14} />
-                </button>
+                </Button>
               ) : null}
             </div>
           )
@@ -161,18 +163,17 @@ export default function MessageAttachments({
               </a>
             )}
             {onRemove ? (
-              <button
-                type="button"
+              <Pressable
                 onClick={() => onRemove(att.id)}
                 className={
                   isImage
-                    ? 'absolute right-1 top-1 rounded-md bg-bg p-0.5 text-text-primary hover:bg-bg'
-                    : 'rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary'
+                    ? 'absolute right-1 top-1 w-auto rounded-md bg-bg p-0.5 text-text-primary hover:bg-bg'
+                    : 'w-auto rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary'
                 }
                 aria-label={t('composer.removeAttachment', { name })}
               >
                 <X size={14} />
-              </button>
+              </Pressable>
             ) : null}
           </div>
         )

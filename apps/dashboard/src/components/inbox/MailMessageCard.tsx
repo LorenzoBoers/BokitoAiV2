@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react'
+import { Pressable } from '../ui/pressable'
 import { Fragment, useState, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 import { THREAD_GUTTER } from './ThreadMeta'
@@ -84,7 +85,7 @@ export function MailMessageCard({
   const canOpenEnvelope = envelopeRows.length > 0
 
   const bandButton = collapsed ? (
-    <button
+    <Pressable
       type="button"
       onClick={onToggleCollapsed}
       aria-expanded={false}
@@ -94,10 +95,10 @@ export function MailMessageCard({
       <span className="shrink-0 font-semibold text-text-heading">{senderName}</span>
       {senderChip}
       {preview ? <span className="min-w-0 truncate text-text-muted">{preview}</span> : null}
-    </button>
+    </Pressable>
   ) : (
     <div className="flex min-w-0 flex-1 flex-col">
-      <button
+      <Pressable
         type="button"
         onClick={canOpenEnvelope ? () => setEnvelopeOpen((v) => !v) : undefined}
         aria-expanded={envelopeOpen}
@@ -118,7 +119,7 @@ export function MailMessageCard({
             )}
           />
         ) : null}
-      </button>
+      </Pressable>
       {envelopeOpen ? (
         <dl className="mt-1.5 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-2xs leading-snug text-text-secondary">
           {envelopeRows.map((row) => (

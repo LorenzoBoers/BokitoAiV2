@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, AlertTriangle, Archive, CornerUpLeft, Folder, Inbox, Lightbulb, Link2, Tag, X } from 'lucide-react'
@@ -162,7 +163,7 @@ export function OrgIssuesList({
             return (
               <li key={`${issue.message_key}:${issue.node_id ?? i}`}>
                 {issue.node_id ? (
-                  <button
+                  <Pressable
                     type="button"
                     onClick={() => onSelect(issue.node_id)}
                     onMouseEnter={() => onHover(issue.node_id)}
@@ -180,7 +181,7 @@ export function OrgIssuesList({
                         </span>
                       ) : null}
                     </span>
-                  </button>
+                  </Pressable>
                 ) : (
                   <Link
                     to={issue.href ?? '#'}
@@ -348,15 +349,14 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
                     {body}
                   </Link>
                 ) : (
-                  <button
-                    type="button"
+                  <Pressable
                     onClick={() => onSelect(other.id)}
                     onMouseEnter={() => onHover(other.id)}
                     onMouseLeave={() => onHover(null)}
                     className={ROW_LINK}
                   >
                     {body}
-                  </button>
+                  </Pressable>
                 )}
               </li>
             )
@@ -537,9 +537,9 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
                       {body}
                     </Link>
                   ) : (
-                    <button type="button" onClick={() => isolateLabel(row.key)} className={ROW_LINK}>
+                    <Pressable onClick={() => isolateLabel(row.key)} className={ROW_LINK}>
                       {body}
-                    </button>
+                    </Pressable>
                   )}
                 </li>
               )

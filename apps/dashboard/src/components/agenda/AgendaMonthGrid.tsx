@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
@@ -50,20 +51,19 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
                 outside && 'bg-bg-elevated/30',
               )}
             >
-              <button
-                type="button"
+              <Pressable
                 onClick={() => onOpenDay(day)}
                 className={cn(
-                  'mb-0.5 inline-flex h-6 min-w-6 items-center justify-center self-start rounded-full px-1 text-xs font-semibold tabular-nums hover:bg-bg-elevated',
+                  'w-auto mb-0.5 inline-flex h-6 min-w-6 items-center justify-center self-start rounded-full px-1 text-xs font-semibold tabular-nums hover:bg-bg-elevated',
                   key === todayKey ? 'bg-accent text-white hover:bg-accent' : outside ? 'text-text-muted' : 'text-text-heading',
                 )}
               >
                 {day.getDate()}
-              </button>
+              </Pressable>
               {planned.slice(0, VISIBLE).map((item) => {
                 const owner = itemOwner(item)
                 return (
-                <button
+                <Pressable
                   key={item.id}
                   type="button"
                   title={[item.title, item.calendar_name, item.location].filter(Boolean).join(' · ')}
@@ -86,11 +86,11 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
                   </span>
                   <span className="min-w-0 flex-1 truncate text-text-heading">{item.title}</span>
                   {owner ? <AgendaOwnerMark owner={owner} size={12} /> : null}
-                </button>
+                </Pressable>
                 )
               })}
               {planned.length > VISIBLE || quiet > 0 ? (
-                <button
+                <Pressable
                   type="button"
                   onClick={() => onOpenDay(day)}
                   className="px-1 text-left text-2xs text-text-muted hover:text-accent"
@@ -98,7 +98,7 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
                   {planned.length > VISIBLE
                     ? t('agendaPage.grid.more', { count: planned.length - VISIBLE })
                     : t('agendaPage.grid.quiet', { count: quiet })}
-                </button>
+                </Pressable>
               ) : null}
             </div>
           )

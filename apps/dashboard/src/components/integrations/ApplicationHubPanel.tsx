@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft } from 'lucide-react'
 import {
@@ -160,7 +161,7 @@ export function ApplicationHubPanel({
               <ul className="space-y-2">
                 {application.offers.map((offer) => (
                   <li key={offer.integration.id}>
-                    <button
+                    <Pressable
                       type="button"
                       className="w-full rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-bg-muted/40"
                       onClick={() => {
@@ -192,7 +193,7 @@ export function ApplicationHubPanel({
                           </span>
                         ) : null}
                       </div>
-                    </button>
+                    </Pressable>
                   </li>
                 ))}
               </ul>

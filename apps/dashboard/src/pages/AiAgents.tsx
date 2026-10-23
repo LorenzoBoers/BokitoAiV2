@@ -1,6 +1,6 @@
 import { Spinner } from '../components/ui/spinner'
 import { GRID_PATH, AUTONOMY_PATH } from '../lib/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -180,20 +180,19 @@ function AgentLibraryCard({
                   </span>
                 ) : null}
                 {project ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
+                  <TextLink tone="muted"
+                    onClick={(e: MouseEvent<HTMLButtonElement>) => {
                       // The card itself is a link; open the folder instead.
                       e.preventDefault()
                       e.stopPropagation()
                       navigate(openEntityPath({ type: 'project', id: project.id }))
                     }}
-                    className="inline-flex min-w-0 items-center gap-1 truncate rounded text-2xs text-text-muted hover:text-accent hover:underline"
+                    className="text-2xs truncate"
                     title={t('workforce.agents.openProject', { name: project.name })}
                   >
                     <FolderIcon size={11} aria-hidden className="shrink-0" />
                     <span className="truncate">{project.name}</span>
-                  </button>
+                  </TextLink>
                 ) : null}
               </div>
             ) : null}
@@ -213,17 +212,16 @@ function AgentLibraryCard({
                   </TextLink>
                 ) : null}
                 {decisionCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={(e) => {
+                  <TextLink tone="muted"
+                    onClick={(e: MouseEvent<HTMLButtonElement>) => {
                       e.preventDefault()
                       e.stopPropagation()
                       navigate(forYouPath(null, { agent: agent.id, needs_decision: '1' }))
                     }}
-                    className="text-xs font-medium text-text-heading hover:underline"
+                    className="text-xs"
                   >
                     {t('workforce.agents.awaitingDecisionCount', { count: decisionCount })}
-                  </button>
+                  </TextLink>
                 ) : null}
               </div>
             ) : null}

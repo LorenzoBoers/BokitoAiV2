@@ -11,7 +11,9 @@
  * composer, switching threads or reloading keeps the unsent mail, and the
  * thread shows a draft chip to continue it. Sending clears the draft.
  */
+import { TextLink } from '../ui/text-link'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { Pressable } from '../ui/pressable'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -313,7 +315,7 @@ function RecipientField({
         <div className="absolute left-[calc(0.75rem+5.5rem+0.75rem)] right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay">
           <div className="max-h-56 overflow-y-auto p-1">
             {matches.map((s, index) => (
-              <button
+              <Pressable
                 key={s.address}
                 type="button"
                 onMouseDown={(e) => {
@@ -333,7 +335,7 @@ function RecipientField({
                     <span className="block truncate-fade text-2xs text-text-muted">{s.address}</span>
                   ) : null}
                 </span>
-              </button>
+              </Pressable>
             ))}
           </div>
         </div>
@@ -905,9 +907,9 @@ export default function MailComposer({
             {emailChannels.length > 1 ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
+                  <Button variant="ghost" size="xs"
                     type="button"
-                    className="flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+                   
                     title={t('compose.fromHint')}
                   >
                     {selectedMailbox ? (
@@ -925,7 +927,7 @@ export default function MailComposer({
                         : t('compose.from')}
                     </span>
                     <ChevronDown size={14} className="shrink-0 opacity-70" />
-                  </button>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
                   <p className="px-2 py-1.5 text-2xs font-semibold text-text-muted">
@@ -985,15 +987,15 @@ export default function MailComposer({
             >
               {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </Button>
-            <button
+            <Button variant="ghost" size="iconSm"
               type="button"
               onClick={onCancel}
               title={t('compose.cancel')}
               aria-label={t('compose.cancel')}
-              className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+             
             >
               <XIcon size={14} />
-            </button>
+            </Button>
           </div>
 
           {/* Recipients + subject */}
@@ -1008,20 +1010,16 @@ export default function MailComposer({
             testId="mail-composer-to"
             onFocusChange={(focused) => setFocusedField(focused ? 'to' : null)}
             trailing={
-              <button
-                type="button"
+              <TextLink tone={ccBccOpen || cc || bcc ? 'accent' : 'muted'}
                 onClick={() => {
                   const next = !ccBccOpen
                   setCcBccOpen(next)
                   if (next) requestAnimationFrame(() => ccFieldRef.current?.focus())
                 }}
-                className={cn(
-                  'shrink-0 text-2xs font-medium transition-colors',
-                  ccBccOpen || cc || bcc ? 'text-accent' : 'text-text-muted hover:text-text-primary',
-                )}
+                className="shrink-0 text-2xs"
               >
                 {t('composer.ccBcc')}
-              </button>
+              </TextLink>
             }
           />
           {ccBccOpen ? (
@@ -1131,17 +1129,17 @@ export default function MailComposer({
 
             {intent.quotedHtml ? (
               <div className="px-3 pb-3">
-                <button
+                <Button variant="ghost" size="iconSm"
                   type="button"
                   onClick={() => setQuoteOpen((open) => !open)}
                   title={t('mailComposer.quoteToggle')}
                   aria-label={t('mailComposer.quoteToggle')}
                   aria-expanded={quoteOpen}
-                  className="flex h-5 items-center rounded-full border border-border bg-bg-elevated px-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                 
                   data-testid="mail-composer-quote-toggle"
                 >
                   <MoreHorizontal size={14} />
-                </button>
+                </Button>
                 {quoteOpen ? (
                   <QuotedMailFrame html={intent.quotedHtml} title={t('mailComposer.quoteTitle')} />
                 ) : intent.quotedPreview ? (
@@ -1171,15 +1169,15 @@ export default function MailComposer({
                 }}
               />
             ) : null}
-            <button
+            <Button variant="ghost" size="icon"
               type="button"
               disabled={uploading || busy}
               onClick={() => fileInputRef.current?.click()}
               title={t('composer.attachFile')}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+              className="shrink-0"
             >
               <Paperclip size={14} />
-            </button>
+            </Button>
             <div className="ml-auto flex items-center gap-2">
               <span className="hidden text-2xs text-text-muted sm:block">
                 {draftSaved && mailDraftHasContent({ body, attachments })
@@ -1194,19 +1192,19 @@ export default function MailComposer({
                 onConfirm={confirmDictation}
               >
               <div className="flex h-8 items-stretch overflow-hidden rounded-lg">
-                <button
+                <Button 
                   type="button"
                   disabled={!canSend || busy || uploading}
                   onClick={() => void handleSend()}
                   title={`${t('composer.sendTitle')} — ${t('composer.hintEmail')}`}
-                  className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+                 
                   data-testid="mail-composer-send"
                 >
                   <Send size={14} />
                   <span className="text-xs font-medium">
                     {sending ? t('compose.sending') : t('compose.send')}
                   </span>
-                </button>
+                </Button>
               </div>
               </ComposerDictationRow>
             </div>

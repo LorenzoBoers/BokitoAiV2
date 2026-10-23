@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '../ui/button'
+import { Pressable } from '../ui/pressable'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -753,10 +755,9 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-hidden pt-[14vh]">
-      <button
-        type="button"
+      <Pressable
         aria-label={t('palette.ariaClose')}
-        className="scrim absolute inset-0 animate-fade-in"
+        className="scrim absolute inset-0 rounded-none animate-fade-in"
         onClick={onClose}
       />
       <div
@@ -779,14 +780,14 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <p className="mt-1 text-xs text-text-secondary">{t('palette.tryInstead')}</p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                 {suggestions.map((item) => (
-                  <button
+                  <Button variant="secondary" size="xs"
                     key={item.id}
                     type="button"
                     onClick={() => runItem(item)}
-                    className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                   
                   >
                     {item.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -803,7 +804,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       {item.group}
                     </p>
                   ) : null}
-                  <button
+                  <Pressable
                     type="button"
                     data-selected={selected}
                     onClick={() => runItem(item)}
@@ -821,7 +822,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                       </span>
                     ) : null}
                     {selected ? <CornerDownLeft size={14} className="text-text-muted" /> : null}
-                  </button>
+                  </Pressable>
                 </div>
               )
             })

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { AlertCircle, Brain, Calendar, Check, ChevronDown, ChevronRight, CircleDot, FileText, Globe, Image, List, Mail, Pencil, Plus, Search, Send, Tags, ThumbsUp, Trash2, UserRound, Wrench } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useIntegrationBrand } from '../../context/IntegrationBrandContext'
@@ -297,7 +298,7 @@ function ItemRow({ item }: { item: ActivityItem }) {
   const duration = itemDurationMs(item)
   return (
     <li className="min-w-0">
-      <button
+      <Pressable
         type="button"
         disabled={!detail}
         onClick={() => setOpen((v) => !v)}
@@ -324,7 +325,7 @@ function ItemRow({ item }: { item: ActivityItem }) {
             {formatDuration(duration)}
           </span>
         ) : null}
-      </button>
+      </Pressable>
       {open && detail ? (
         <pre className="mb-1 ml-5 mt-0.5 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-bg-elevated/70 px-2 py-1 text-2xs leading-relaxed text-text-muted">
           {detail}
@@ -399,7 +400,7 @@ function LiveThinkLine({ group }: { group: ActivityGroup }) {
 
   return (
     <div className="min-w-0">
-      <button
+      <Pressable
         type="button"
         disabled={!text}
         onClick={() => setOpen((v) => !v)}
@@ -424,7 +425,7 @@ function LiveThinkLine({ group }: { group: ActivityGroup }) {
             <ChevronRight size={THREAD_ICON} className="shrink-0 text-text-muted opacity-60 group-hover:opacity-100" />
           )
         ) : null}
-      </button>
+      </Pressable>
       {open && text ? (
         <pre
           ref={panelRef}
@@ -504,7 +505,7 @@ export function ActivityGroupLine({
 
   return (
     <div className="min-w-0">
-      <button
+      <Pressable
         type="button"
         onClick={() => {
           if (!expanded) onExpand?.()
@@ -529,7 +530,7 @@ export function ActivityGroupLine({
         >
           {groupSummary(group, t)}
         </ThreadMetaRow>
-      </button>
+      </Pressable>
       {expanded ? (
         <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border pl-3">
           {group.items.map((item) => (
@@ -559,7 +560,7 @@ function SavedHistory({
   const [expanded, setExpanded] = useState(false)
   return (
     <>
-      <button
+      <Pressable
         type="button"
         onClick={() => {
           if (!expanded) onExpand?.()
@@ -602,7 +603,7 @@ function SavedHistory({
           </ThreadMetaRow>
           )
         })}
-      </button>
+      </Pressable>
       {expanded ? (
         <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border pl-3">
           {items.filter(isVisibleActivity).map((item) => (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { Avatar } from '../ui/avatar'
 import type { AgentPassport } from '../../lib/workforce-api'
 import { agentStatusOf } from '../../lib/presence'
@@ -65,7 +66,7 @@ function DisclosureRow({
   const [open, setOpen] = useState(false)
   return (
     <div>
-      <button
+      <Pressable
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-1.5 text-left text-xs text-text-secondary hover:text-text-primary"
@@ -77,7 +78,7 @@ function DisclosureRow({
         ) : (
           <ChevronRight size={14} className="shrink-0 text-text-muted" />
         )}
-      </button>
+      </Pressable>
       {open ? <div className="pb-1.5 pt-1">{children}</div> : null}
     </div>
   )

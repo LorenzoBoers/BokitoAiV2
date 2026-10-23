@@ -1,3 +1,4 @@
+import { Pressable } from '../components/ui/pressable'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -123,9 +124,9 @@ function HubRow({ item }: { item: HubLink }) {
   if (item.onClick) {
     return (
       <li>
-        <button type="button" onClick={item.onClick} className={className}>
+        <Pressable onClick={item.onClick} className={className}>
           {body}
-        </button>
+        </Pressable>
       </li>
     )
   }

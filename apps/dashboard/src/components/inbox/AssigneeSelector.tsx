@@ -168,22 +168,15 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 id="inbox-assignee-trigger"
                 disabled={disabled}
                 aria-label={tooltip}
-                className={cn(
-                  'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors',
-                  'hover:bg-bg-hover hover:text-text-primary',
-                  'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
-                  'disabled:pointer-events-none disabled:opacity-40',
-                  'data-[state=open]:bg-bg-hover data-[state=open]:text-text-primary',
-                  owned && 'text-accent',
-                )}
+                className={cn('shrink-0 text-text-muted data-[state=open]:bg-bg-hover data-[state=open]:text-text-primary', owned && 'text-accent')}
               >
                 {triggerMark}
-              </button>
+              </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">{tooltip}</TooltipContent>

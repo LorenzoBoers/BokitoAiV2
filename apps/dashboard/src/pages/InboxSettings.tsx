@@ -1,4 +1,5 @@
 import { GRID_PATH, AUTONOMY_PATH } from '../lib/navigation'
+import { TextLink } from '../components/ui/text-link'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -249,13 +250,12 @@ export default function InboxSettings() {
         <div className="rounded-lg border border-status-error/40 bg-status-error/10 px-3 py-2 text-xs text-status-error">
           <div className="flex flex-wrap items-start justify-between gap-2 gap-x-4">
             <span className="min-w-0 flex-1 leading-snug">{pageAlert.message}</span>
-            <button
-              type="button"
-              className="shrink-0 underline opacity-90 hover:opacity-100"
+            <TextLink tone="muted"
+              className="shrink-0"
               onClick={() => setPageAlert(null)}
             >
               {t('channelsPage.close')}
-            </button>
+            </TextLink>
           </div>
         </div>
       ) : null}

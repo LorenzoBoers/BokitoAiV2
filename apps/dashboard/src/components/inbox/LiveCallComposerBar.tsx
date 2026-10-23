@@ -23,6 +23,7 @@ import {
 } from '../../lib/agent-call-live'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
+import { Button } from '../ui/button'
 import ScrollFade from '../ui/ScrollFade'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -244,8 +245,7 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
       .finally(() => setSaving(false))
   }
 
-  const iconClass =
-    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40'
+  const iconClass = 'shrink-0 text-text-muted'
 
   return (
     <div className="relative z-20 shrink-0 bg-bg px-4 pt-2">
@@ -309,8 +309,9 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
             </p>
           </div>
           <CallSpectrum />
-          <button // design-system-ignore: call-UI WIP, migreert in 8.7
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             className={iconClass}
             disabled={!live}
             aria-pressed={muted}
@@ -319,18 +320,19 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
             onClick={() => requestAgentCallMute(!muted)}
           >
             {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </button>
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button // design-system-ignore: call-UI WIP, migreert in 8.7
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 className={iconClass}
                 disabled={!live || saving}
                 title={t('agentCall.settings')}
                 aria-label={t('agentCall.settings')}
               >
                 <Settings className="h-4 w-4" />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="end" className="z-[100] min-w-[220px]">
               <DropdownMenuSub>
@@ -388,9 +390,10 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
-          <button // design-system-ignore: call-UI WIP, migreert in 8.7
-            type="button"
-            className={`${iconClass} ${transcriptOpen ? 'bg-bg-hover text-text-primary' : ''}`}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(iconClass, transcriptOpen && 'bg-bg-hover text-text-primary')}
             disabled={!live}
             aria-pressed={transcriptOpen}
             title={t('agentCall.transcript')}
@@ -398,17 +401,18 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
             onClick={() => setTranscriptOpen((open) => !open)}
           >
             <List className="h-4 w-4" />
-          </button>
-          <button // design-system-ignore: call-UI WIP, migreert in 8.7
-            type="button"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-status-error transition-colors hover:bg-status-error/10 disabled:opacity-40"
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-status-error hover:bg-status-error/10 hover:text-status-error"
             onClick={() => requestAgentCallEnd()}
             disabled={!live}
             title={live ? t('agentCall.hangUp') : t('agentCall.connecting')}
             aria-label={live ? t('agentCall.hangUp') : t('agentCall.connecting')}
           >
             <PhoneOff className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

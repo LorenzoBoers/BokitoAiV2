@@ -1,4 +1,7 @@
 import { Spinner } from '../ui/spinner'
+import { Pressable } from '../ui/pressable'
+import { Button } from '../ui/button'
+import { TextLink } from '../ui/text-link'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Filter, X } from 'lucide-react'
@@ -334,7 +337,7 @@ export default function ThreadList({
   const footer = useCallback(() => {
     const loadMore =
       hasMore && onLoadMore && threads.length > 0 ? (
-        <button
+        <Pressable
           type="button"
           onClick={onLoadMore}
           disabled={loadingMore}
@@ -350,7 +353,7 @@ export default function ThreadList({
           ) : (
             t('threadList.loadMore')
           )}
-        </button>
+        </Pressable>
       ) : null
     if (!loadMore && outsideThreads.length === 0) return null
     return (
@@ -419,14 +422,14 @@ export default function ThreadList({
           <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-heading">
             {scopeLabel}
           </span>
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
             aria-label={t('threadList.clearScope')}
             onClick={onClearScope}
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
+            className="shrink-0"
           >
             <X size={14} />
-          </button>
+          </Button>
         </div>
       ) : null}
 
@@ -494,13 +497,12 @@ export default function ThreadList({
               </p>
               {quickFilter !== 'all' ? (
                 <div className="mt-2 flex flex-col items-center gap-1.5">
-                  <button
-                    type="button"
+                  <TextLink
                     onClick={() => onQuickFilterChange('all')}
-                    className="text-xs font-medium text-accent hover:underline"
+                    className="text-xs"
                   >
                     {t('threadList.showAllConversations')}
-                  </button>
+                  </TextLink>
                 </div>
               ) : (
                 emptyHint

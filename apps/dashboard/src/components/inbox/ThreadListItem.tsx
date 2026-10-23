@@ -1,3 +1,4 @@
+import { Button } from '../ui/button'
 import { memo, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -126,12 +127,12 @@ const PRIORITY_DOT: Record<string, string> = {
  * or its menu is open. A hidden-but-reserved slot made the name fade early.
  */
 const ROW_ICON_BUTTON = cn(
-  'hidden h-6 w-6 items-center justify-center rounded text-text-muted',
+  'hidden text-text-muted',
   'group-hover/thread:inline-flex',
   'group-focus-visible/thread:inline-flex',
   'group-has-[:focus-visible]/thread:inline-flex',
   'group-data-[menu-open]/thread:inline-flex',
-  'focus-visible:inline-flex focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+  'focus-visible:inline-flex',
 )
 
 /**
@@ -398,7 +399,9 @@ function ThreadListItem({
             </span>
             <div className="flex shrink-0 items-center gap-0.5">
               {showActions && (thread.status === 'closed' || thread.status === 'spam') ? (
-                <button
+                <Button
+                  variant="ghost"
+                  size="iconSm"
                   type="button"
                   disabled={deleting}
                   onClick={(e) => {
@@ -411,9 +414,11 @@ function ThreadListItem({
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-status-error/10 hover:text-status-error')}
                 >
                   <Trash2 size={14} />
-                </button>
+                </Button>
               ) : showActions && onClose ? (
-                <button
+                <Button
+                  variant="ghost"
+                  size="iconSm"
                   type="button"
                   disabled={deleting}
                   onClick={(e) => {
@@ -427,7 +432,7 @@ function ThreadListItem({
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
                 >
                   <Archive size={14} />
-                </button>
+                </Button>
               ) : null}
               {showActions ? (
               <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
@@ -441,7 +446,9 @@ function ThreadListItem({
                   </DropdownMenuTrigger>,
                   document.body,
                 )}
-                <button
+                <Button
+                  variant="ghost"
+                  size="iconSm"
                   type="button"
                   onClick={(event) => {
                     stop(event)
@@ -467,7 +474,7 @@ function ThreadListItem({
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
                 >
                   <MoreHorizontal size={14} />
-                </button>
+                </Button>
                 <DropdownMenuContent
                   key={`${menuAnchor.x}:${menuAnchor.y}`}
                   align="end"

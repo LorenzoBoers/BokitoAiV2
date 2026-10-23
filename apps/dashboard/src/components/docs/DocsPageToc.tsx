@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useEffect, useState } from 'react'
 import { Check, Copy, List } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -85,14 +86,13 @@ export default function DocsPageToc({
   const utilities = (
     <div className="space-y-2 pt-4">
       {onCopyForLlm ? (
-        <button
-          type="button"
+        <Pressable
           onClick={() => void handleCopy()}
           className="docs-util w-full justify-start"
         >
           {copied ? <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden />}
           {copied ? t('docs.copyForLlmDone') : t('docs.copyForLlm')}
-        </button>
+        </Pressable>
       ) : null}
       {slug ? (
         <div className="pt-1">

@@ -1,4 +1,5 @@
 import { memo, useState, type ReactNode } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { BookOpen, Check, Code2, Copy, Plug, Settings } from 'lucide-react'
@@ -152,15 +153,15 @@ function ChatCodeWindow({ text, lang }: { text: string; lang: string }) {
       <div className="flex items-center gap-2 border-b border-border bg-bg-input/40 px-2 py-1">
         <Code2 size={14} className="shrink-0 text-text-muted" aria-hidden />
         <span className="min-w-0 flex-1 truncate font-mono text-2xs text-text-muted">{label}</span>
-        <button
+        <Button variant="ghost" size="xs"
           type="button"
           onClick={() => void onCopy()}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-text-secondary hover:bg-bg-hover hover:text-text-heading"
+          className="shrink-0"
           aria-label={copied ? t('actions.copied') : t('actions.copy')}
         >
           {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
           <span>{copied ? t('actions.copied') : t('actions.copy')}</span>
-        </button>
+        </Button>
       </div>
       <pre className="max-h-80 overflow-auto px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre">
         {text}

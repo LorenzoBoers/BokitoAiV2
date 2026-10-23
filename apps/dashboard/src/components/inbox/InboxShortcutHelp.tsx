@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 
 const ROWS: Array<{ keys: string; labelKey: string }> = [
@@ -62,13 +63,13 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-text-heading">{t('shortcuts.title')}</h2>
-          <button
+          <Button variant="ghost" size="xs"
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-xs font-medium text-text-muted hover:bg-bg-hover hover:text-text-primary"
+           
           >
             {t('shortcuts.closeHelp')}
-          </button>
+          </Button>
         </div>
         <ul className="space-y-1.5">
           {ROWS.map((row) => (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Button } from '../components/ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Bell, BellRing, RotateCcw, Volume2 } from 'lucide-react'
@@ -296,14 +297,14 @@ export default function NotificationSettings() {
               {pushError ? <p className="text-xs text-status-error">{pushError}</p> : null}
             </div>
             {permission === 'denied' ? null : (
-              <button
+              <Button variant="secondary"
                 type="button"
                 disabled={pushBusy || !token}
                 onClick={() => void enrollPush()}
-                className="shrink-0 h-8 rounded-md border border-border px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-50"
+                className="shrink-0"
               >
                 {t('notificationsPage.pushEnable')}
-              </button>
+              </Button>
             )}
           </div>
         </Card>
@@ -327,13 +328,13 @@ export default function NotificationSettings() {
             <p className="text-xs text-text-secondary">{t('notificationsPage.soundBody')}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <button
+            <Button variant="secondary"
               type="button"
               onClick={playTestSound}
-              className="h-8 rounded-md border border-border px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover"
+             
             >
               {t('notificationsPage.soundTest')}
-            </button>
+            </Button>
             <Switch
               checked={prefs.sound}
               onCheckedChange={(value) => void apply({ ...prefs, sound: value })}
@@ -412,7 +413,7 @@ export default function NotificationSettings() {
           <span className="flex items-center gap-1.5">
             {t('notificationsPage.notifyMe')}
             <Tip label={t('notificationsPage.restoreDefaults')}>
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={() => {
                   void (async () => {
@@ -421,10 +422,10 @@ export default function NotificationSettings() {
                   })()
                 }}
                 aria-label={t('notificationsPage.restoreDefaults')}
-                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
+               
               >
                 <RotateCcw size={14} aria-hidden />
-              </button>
+              </Button>
             </Tip>
           </span>
           {NOTIFICATION_CHANNELS.map((channel) => (

@@ -1,3 +1,4 @@
+import { Button } from '../ui/button'
 import { Suspense } from 'react'
 import { Outlet, useSearchParams } from 'react-router-dom'
 import { Eye, PenLine } from 'lucide-react'
@@ -42,10 +43,10 @@ function MessagesHubFrame() {
               <span className="min-w-0 flex-1 truncate px-2 text-sm font-medium text-text-heading">
                 {t('tabs.communication.title')}
               </span>
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={() => openEditor()}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                className="shrink-0 text-text-muted"
                 aria-label={t('support.customize.title')}
                 data-testid="customize-sidebar"
               >
@@ -56,7 +57,7 @@ function MessagesHubFrame() {
                     className="absolute -bottom-0.5 -right-0.5 rounded-sm bg-bg"
                   />
                 </span>
-              </button>
+              </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden">
               <MessagesHubNav />

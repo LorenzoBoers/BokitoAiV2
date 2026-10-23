@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { AutosaveStatus } from '../ui/AutosaveStatus'
@@ -111,7 +112,7 @@ export function AgentSignatureCard({
             {t('workforce.agents.replySendAsHint')}
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <button
+            <Pressable
               type="button"
               disabled={!canEdit}
               onClick={() => {
@@ -132,8 +133,8 @@ export function AgentSignatureCard({
               <span className="mt-0.5 block text-xs text-text-muted">
                 {t('workforce.agents.replySendAsAgentHint')}
               </span>
-            </button>
-            <button
+            </Pressable>
+            <Pressable
               type="button"
               disabled={!canEdit}
               onClick={() => {
@@ -154,7 +155,7 @@ export function AgentSignatureCard({
               <span className="mt-0.5 block text-xs text-text-muted">
                 {t('workforce.agents.replySendAsUserHint')}
               </span>
-            </button>
+            </Pressable>
           </div>
         </div>
 

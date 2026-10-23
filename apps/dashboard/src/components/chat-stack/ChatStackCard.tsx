@@ -15,6 +15,7 @@ import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipLabel, TooltipTrigger } from '../ui/tooltip'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import { Button } from '../ui/button'
+import { Pressable } from '../ui/pressable'
 
 const FACE_SIZE = 32
 /** Function keys Chrome and Bokito leave alone. Letters type, F5 reloads, F11 fills the screen. */
@@ -50,10 +51,9 @@ function DialChip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button // design-system-ignore: call-UI WIP, migreert in 8.7
-          type="button"
+        <Pressable
           className={cn(
-            'chat-stack-dial flex h-6 shrink-0 items-center gap-0.5 px-0.5 text-2xs',
+            'chat-stack-dial flex h-6 w-auto shrink-0 items-center gap-0.5 px-0.5 text-2xs',
             held ? 'text-accent' : 'text-text-secondary hover:text-text-heading',
           )}
           aria-label={t('agentCall.holdToSpeak')}
@@ -76,7 +76,7 @@ function DialChip({
         >
           <AudioLines size={14} aria-hidden />
           {label}
-        </button>
+        </Pressable>
       </TooltipTrigger>
       <TooltipContent side="top">
         <TooltipLabel detail={label}>{t('agentCall.holdToSpeak')}</TooltipLabel>
@@ -156,9 +156,10 @@ function StackFace({
       {done && !onCall ? <AgentDoneCorner size={size} enter /> : null}
       </span>
       {onCall ? (
-        <button // design-system-ignore: call-UI WIP, migreert in 8.7
-          type="button"
-          className="absolute right-full top-1/2 z-20 mr-1.5 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-status-error/40 bg-bg-elevated text-status-error shadow-overlay hover:bg-status-error/10"
+        <Button
+          variant="destructive"
+          size="iconSm"
+          className="absolute right-full top-1/2 z-20 mr-1.5 -translate-y-1/2 rounded-full bg-bg-elevated shadow-overlay"
           aria-label={t('agentCall.hangUp')}
           title={t('agentCall.hangUp')}
           onClick={(event) => {
@@ -167,7 +168,7 @@ function StackFace({
           }}
         >
           <PhoneOff size={14} aria-hidden />
-        </button>
+        </Button>
       ) : null}
       {canDial && dialLabel && onDialEnd ? (
         <span

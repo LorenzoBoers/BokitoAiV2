@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 
@@ -16,7 +17,7 @@ type Props = {
 export function ConnectedTile({ mark, name, meta, onClick, className }: Props) {
   return (
     <Card asChild padding="compact">
-      <button
+      <Pressable
         type="button"
         onClick={onClick}
         className={cn(
@@ -29,7 +30,7 @@ export function ConnectedTile({ mark, name, meta, onClick, className }: Props) {
           <span className="block truncate text-sm font-medium text-text-heading">{name}</span>
           <span className="block truncate text-2xs text-text-muted">{meta}</span>
         </span>
-      </button>
+      </Pressable>
     </Card>
   )
 }

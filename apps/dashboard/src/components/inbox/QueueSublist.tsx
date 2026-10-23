@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSidebarPrefs } from '../../context/SidebarPrefsContext'
@@ -213,7 +214,7 @@ export function SidebarFolder({
   return (
     <div className="space-y-px">
       <Tip label={title || label} side="right" className="max-w-56 font-normal">
-        <button
+        <Pressable
           type="button"
           onClick={toggleFolder}
           onDragOver={onDragOver}
@@ -255,7 +256,7 @@ export function SidebarFolder({
           ) : (
             <NavCountBadge count={badgeCount} placement="inline" />
           )}
-        </button>
+        </Pressable>
       </Tip>
       {hasNested ? (
       <div className="nav-fold" data-open={expanded ? 'true' : undefined} aria-hidden={!expanded}>

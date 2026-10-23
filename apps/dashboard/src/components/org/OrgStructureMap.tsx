@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Search } from 'lucide-react'
@@ -137,7 +138,7 @@ export function OrgStructureMap() {
                 <ul>
                   {group.nodes.map((node) => (
                     <li key={node.id}>
-                      <button
+                      <Pressable
                         type="button"
                         title={t('orgCanvas.findAction', { name: node.label })}
                         onMouseEnter={() => highlightRef.current(node.id)}
@@ -149,7 +150,7 @@ export function OrgStructureMap() {
                           <OrgNodeFace node={node} size={16} />
                         </span>
                         <span className="truncate">{node.label}</span>
-                      </button>
+                      </Pressable>
                     </li>
                   ))}
                 </ul>

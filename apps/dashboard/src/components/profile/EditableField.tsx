@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Pencil, X } from 'lucide-react'
@@ -95,13 +96,12 @@ export function EditableField({
       ) : (
         <div className="flex flex-1 items-center justify-end gap-2">
           {saved && <Check size={14} className="text-status-success" />}
-          <button
-            type="button"
+          <Pressable
             onClick={startEdit}
-            className={`max-w-[16rem] truncate text-right text-sm ${value ? 'text-text-primary' : 'text-text-muted'}`}
+            className={`w-auto text-center max-w-[16rem] truncate text-right text-sm ${value ? 'text-text-primary' : 'text-text-muted'}`}
           >
             {value || t('personalInformation.emptyValue')}
-          </button>
+          </Pressable>
           <Button
             variant="ghost"
             size="iconSm"

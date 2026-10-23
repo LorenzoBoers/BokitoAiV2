@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { useTranslation } from 'react-i18next'
@@ -71,7 +72,7 @@ export function FlowTicketCard({
       <p className="line-clamp-2 text-xs font-medium leading-snug text-text-primary">{title}</p>
       {ticket.contact_name && ticket.subject ? (
         ticket.contact_id ? (
-          <button
+          <Pressable
             type="button"
             onClick={(event) => {
               // The card opens the conversation; this opens the contact.
@@ -83,7 +84,7 @@ export function FlowTicketCard({
             title={t('tickets.openContact', { name: ticket.contact_name })}
           >
             {ticket.contact_name}
-          </button>
+          </Pressable>
         ) : (
           <p className="mt-0.5 truncate text-2xs text-text-muted">{ticket.contact_name}</p>
         )
@@ -104,19 +105,18 @@ export function FlowTicketCard({
       <div className="mt-1.5 flex items-center gap-1.5 text-2xs text-text-muted">
         <ChannelGlyph channel={ticket.channel} size={11} />
         {showTag ? (
-          <button
-            type="button"
+          <Pressable
             onClick={(event) => {
               // On a project board the tag opens that flow's folder in Communication.
               event.stopPropagation()
               navigate(openEntityPath({ type: 'tag', name: ticket.tag }))
             }}
             onKeyDown={(event) => event.stopPropagation()}
-            className="rounded"
+            className="w-auto rounded"
             title={t('tags.openFolder', { ns: 'communication', tag: ticket.tag })}
           >
             <Hashtag name={ticket.tag} category />
-          </button>
+          </Pressable>
         ) : null}
         <span className="tabular-nums">{timeAgo(ticket.last_message_at, t)}</span>
         <TicketDueBadge step={ticket.next_step} />

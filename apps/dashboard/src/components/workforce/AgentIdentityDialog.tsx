@@ -1,4 +1,5 @@
 import { Spinner } from '../ui/spinner'
+import { TextLink } from '../ui/text-link'
 import { Avatar } from '../ui/avatar'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -317,17 +318,16 @@ export function AgentIdentityDialog({
                 </Tip>
               </div>
             ) : (
-              <button
-                type="button"
+              <TextLink tone="muted"
                 disabled={busy}
                 onClick={() => {
                   jobAtEditStart.current = ''
                   setEditingJobTitle(true)
                 }}
-                className="mt-1.5 text-sm text-text-muted transition-colors hover:text-text-secondary disabled:opacity-50"
+                className="text-sm mt-1.5"
               >
                 {t('workforce.agents.profileAddJobTitle')}
-              </button>
+              </TextLink>
             )}
 
             <div className="mt-2 flex w-full justify-center">

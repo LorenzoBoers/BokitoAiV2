@@ -1,4 +1,6 @@
+import { FilterChip } from '../ui/filter-chip'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { TextLink } from '../ui/text-link'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Pencil, X } from 'lucide-react'
@@ -96,14 +98,13 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
             {t('workforce.agents.allowedTools')}
           </p>
           {canEdit ? (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+            <TextLink
+              className="text-xs"
               onClick={() => setEditing(true)}
             >
               <Pencil size={14} aria-hidden />
               {t('workforce.agents.editTools')}
-            </button>
+            </TextLink>
           ) : null}
           <Link
             to="/settings/govern?tab=policy"
@@ -188,20 +189,14 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                 {tools.map((tool) => {
                   const active = selected.has(tool.name)
                   return (
-                    <button
+                    <FilterChip active={active}
                       key={tool.name}
-                      type="button"
                       title={tool.description}
                       onClick={() => toggle(tool.name)}
-                      className={cn(
-                        'rounded-md border px-2 py-0.5 text-xs transition-colors',
-                        active
-                          ? 'border-accent/50 bg-accent/12 text-accent'
-                          : 'border-border bg-bg-elevated/60 text-text-secondary hover:border-border',
-                      )}
+                     
                     >
                       {humanizeLabel(tool.name)}
-                    </button>
+                    </FilterChip>
                   )
                 })}
               </div>

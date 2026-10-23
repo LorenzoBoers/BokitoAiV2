@@ -5,6 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { Button } from '../ui/button'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -1060,7 +1061,7 @@ function FolderNavRow({
           <FolderRowChrome node={node} />
         </NavLink>
         {hasChildren ? (
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
             aria-expanded={expanded}
             aria-label={t(expanded ? 'projects.detail.collapseFolder' : 'projects.detail.expandFolder', {
@@ -1072,14 +1073,14 @@ function FolderNavRow({
               e.stopPropagation()
               onToggle(node.id)
             }}
-            className="absolute right-0.5 z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-secondary"
+            className="absolute right-0.5 z-10 shrink-0"
           >
             <ChevronRight
               size={14}
               className={cn('transition-transform duration-150', expanded && 'rotate-90')}
               aria-hidden
             />
-          </button>
+          </Button>
         ) : null}
       </div>
       {hasChildren && expanded ? (

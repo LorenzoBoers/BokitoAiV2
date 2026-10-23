@@ -3,6 +3,8 @@
  * plus quick rewrite actions on existing text.
  */
 import { Spinner } from '../ui/spinner'
+import { Button } from '../ui/button'
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Sparkles, Wand2 } from 'lucide-react'
@@ -167,16 +169,16 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button variant="ghost"
           type="button"
           disabled={disabled || busy}
           title={t('composer.writeWithAi')}
           aria-label={t('composer.writeWithAi')}
-          className="flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-medium text-ai-ink transition-colors hover:bg-ai/10 disabled:opacity-40"
+          className="shrink-0 text-ai-ink"
         >
           {busy ? <Spinner size="md" /> : <Sparkles size={14} />}
           <span className="hidden sm:inline">{t('composer.writeWithAiShort')}</span>
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
         <div className="border-b border-border px-3 py-2.5">
@@ -226,7 +228,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
               </div>
             ) : null}
           </div>
-          <button
+          <Pressable
             type="button"
             disabled={busy || disabled}
             onClick={() => void run('compose')}
@@ -234,7 +236,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
           >
             {busy ? <Spinner size="md" /> : <Wand2 size={14} />}
             {hasDraft && !intent.trim() ? t('composer.aiRedraft') : t('composer.aiGenerate')}
-          </button>
+          </Pressable>
         </div>
 
         {hasDraft ? (

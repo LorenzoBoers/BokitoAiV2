@@ -1,3 +1,4 @@
+import { TextLink } from '../ui/text-link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -198,15 +199,12 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             placeholder={t('compose.toPlaceholder')}
             className={FIELD}
           />
-          <button
-            type="button"
+          <TextLink tone={ccBccOpen || cc || bcc ? 'accent' : 'muted'}
             onClick={() => setCcBccOpen((v) => !v)}
-            className={`shrink-0 text-xs font-medium transition-colors ${
-              ccBccOpen || cc || bcc ? 'text-accent' : 'text-text-muted hover:text-text-primary'
-            }`}
+            className="shrink-0 text-xs"
           >
             {t('composer.ccBcc')}
-          </button>
+          </TextLink>
         </div>
 
         {ccBccOpen ? (

@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { TextLink } from '../ui/text-link'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -241,14 +242,14 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
       <TourStyles />
       <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border bg-bg-surface shadow-overlay">
         {/* Accent halo */}
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           onClick={onSkip}
           aria-label={t('welcome.skip')}
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          className="absolute right-3 top-3 z-10"
         >
           <X size={16} />
-        </button>
+        </Button>
 
         <div className="relative px-7 pb-7 pt-8">
           <div className="mb-5 text-center">
@@ -299,13 +300,13 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           </div>
 
           <div className="mt-6 flex items-center justify-center gap-2.5">
-            <button
+            <Button variant="ghost" size="md"
               type="button"
               onClick={onSkip}
-              className="rounded-lg px-3.5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+             
             >
               {t('welcome.skip')}
-            </button>
+            </Button>
             <Button
               type="button"
               onClick={onStart}
@@ -461,13 +462,12 @@ function StepOverlay({
           <span className="text-2xs font-semibold text-accent">
             {t('progress', { current: stepIndex + 1, total: TOUR_STEPS.length })}
           </span>
-          <button
-            type="button"
+          <TextLink tone="muted"
             onClick={onSkip}
-            className="text-xs text-text-muted transition-colors hover:text-text-primary"
+            className="text-xs"
           >
             {t('skipTour')}
-          </button>
+          </TextLink>
         </div>
         <h3 className="text-lg font-semibold text-text-heading">
           {t(`steps.${step.id}.title`)}
@@ -488,22 +488,22 @@ function StepOverlay({
           </div>
           <div className="flex items-center gap-1.5">
             {stepIndex > 0 ? (
-              <button
+              <Button variant="ghost" size="xs"
                 type="button"
                 onClick={onBack}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+               
               >
                 {t('back')}
-              </button>
+              </Button>
             ) : null}
-            <button
+            <Button size="xs"
               type="button"
               onClick={onNext}
-              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
+             
             >
               {t('next')}
               <ArrowRight size={14} />
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -552,20 +552,20 @@ function FinishScreen({
               <Sparkles size={14} />
               {t('finish.cta')}
             </Button>
-            <button
+            <Button variant="secondary" size="xs"
               type="button"
               onClick={onCommunication}
-              className="rounded-lg border border-border px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+             
             >
               {t('finish.communication')}
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="xs"
               type="button"
               onClick={onExplore}
-              className="rounded-lg px-3.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+             
             >
               {t('finish.later')}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

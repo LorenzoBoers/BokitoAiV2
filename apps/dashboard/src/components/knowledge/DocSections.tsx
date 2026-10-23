@@ -1,4 +1,5 @@
 import { Spinner } from '../ui/spinner'
+import { Pressable } from '../ui/pressable'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -47,20 +48,19 @@ function SectionStatusBadge({
   )
   if (!onChange) return badge
   return (
-    <button
-      type="button"
+    <Pressable
       disabled={disabled}
       onClick={() => onChange(next)}
       title={t('knowledgePage.sectionStatusCycle', {
         next: t(`knowledgePage.sectionStatus.${next}`, { defaultValue: next }),
       })}
       className={cn(
-        'inline-flex rounded-lg transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
+        'w-auto inline-flex rounded-lg transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
         disabled ? 'opacity-60' : 'hover:opacity-80',
       )}
     >
       {badge}
-    </button>
+    </Pressable>
   )
 }
 
@@ -293,14 +293,14 @@ export function DocSectionsEditor({
             </div>
           </InsetPanel>
         ) : (
-          <button
+          <Pressable
             type="button"
             onClick={() => setAdding(true)}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary"
           >
             <Plus className="h-3.5 w-3.5" />
             {t('knowledgePage.sectionAdd')}
-          </button>
+          </Pressable>
         )
       ) : null}
     </div>

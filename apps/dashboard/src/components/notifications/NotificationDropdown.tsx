@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, AtSign, Bell, CalendarClock, ChevronDown, ChevronRight, Hand, Inbox, ListTodo, MessageSquare, Settings, ShieldCheck, UserCheck } from 'lucide-react'
@@ -97,16 +98,15 @@ export default function NotificationDropdown() {
             </p>
           </div>
           {unread ? (
-            <button
-              type="button"
-              onClick={(event) => {
+            <TextLink
+              onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                 event.stopPropagation()
                 for (const id of notification.ids) markAsRead(id)
               }}
-              className="shrink-0 self-start text-xs font-medium text-accent hover:underline"
+              className="text-xs shrink-0 self-start"
             >
               {t('notificationsUi.markRead')}
-            </button>
+            </TextLink>
           ) : null}
         </div>
       </div>
@@ -150,18 +150,18 @@ export default function NotificationDropdown() {
                   {t('notificationsUi.markAll')}
                 </Button>
               ) : null}
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={() => navigate('/settings/notifications')}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+               
                 aria-label={t('notificationsUi.settings')}
                 title={t('notificationsUi.settings')}
               >
                 <Settings size={14} aria-hidden />
-              </button>
+              </Button>
             </div>
           </div>
-          <button
+          <Pressable
             type="button"
             onClick={() => navigate(forYouPath())}
             data-testid="bell-for-you"
@@ -178,7 +178,7 @@ export default function NotificationDropdown() {
                 : t('notificationsUi.forYouEmpty')}
             </span>
             <span className="shrink-0 text-xs font-medium text-accent">{t('notificationsUi.openForYou')}</span>
-          </button>
+          </Pressable>
         </div>
 
         <div className="space-y-1 max-h-96 overflow-y-auto">
@@ -227,16 +227,15 @@ export default function NotificationDropdown() {
               })}
               {digestNotifications.length > 0 ? (
                 <div className="pt-1">
-                  <button
-                    type="button"
+                  <Pressable
                     onClick={() => setShowDigest((v) => !v)}
                     aria-expanded={showDigest}
                     data-testid="bell-digest-toggle"
-                    className="inline-flex items-center gap-1 px-1 py-1.5 text-xs font-medium text-text-muted hover:text-text-heading"
+                    className="w-auto inline-flex items-center gap-1 px-1 py-1.5 text-xs font-medium text-text-muted hover:text-text-heading"
                   >
                     {showDigest ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     {t('notificationsUi.digestGroup', { count: digestNotifications.length })}
-                  </button>
+                  </Pressable>
                   {showDigest
                     ? digestNotifications.map((notification) => (
                         <div key={notification.id}>{renderItem(notification)}</div>

@@ -1,4 +1,5 @@
 import { CircleHelp, Menu, Search, Sparkles } from 'lucide-react'
+import { Button } from '../ui/button'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
@@ -54,14 +55,14 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   return (
     <header className="relative flex h-topbar shrink-0 items-center gap-2 bg-transparent pl-2 pr-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onOpenNavDrawer}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary lg:hidden"
+          className="lg:hidden"
           aria-label={t('topbar.openNavigation')}
         >
           <Menu size={16} />
-        </button>
+        </Button>
 
         {/* Breadcrumb. Below md only the last segment shows, as the page title. */}
         <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 px-1 text-sm text-text-secondary">
@@ -109,47 +110,47 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
 
       {setupIncomplete ? (
         <Tip label={t('topbar.resumeSetup')}>
-          <button
+          <Button variant="secondary" size="xs"
             type="button"
             onClick={() => navigate('/settings/setup')}
-            className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover hover:text-text-heading md:flex"
+            className="hidden md:flex"
           >
             <Sparkles size={14} className="text-accent" />
             <span>{t('topbar.setup')}</span>
-          </button>
+          </Button>
         </Tip>
       ) : null}
 
       <Tip label={t('topbar.help')} detail="?">
-        <button
+        <Button variant="secondary" size="xs"
           type="button"
           onClick={() => openAssistant()}
-          className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover hover:text-text-heading md:flex"
+          className="hidden md:flex"
         >
           <CircleHelp size={14} className="text-accent" />
           <span>{t('topbar.help')}</span>
-        </button>
+        </Button>
       </Tip>
       <Tip label={t('topbar.help')} detail="?">
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={() => openAssistant()}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary md:hidden"
+          className="md:hidden"
           aria-label={t('topbar.help')}
         >
           <CircleHelp size={14} />
-        </button>
+        </Button>
       </Tip>
 
       <Tip label={t('topbar.openPalette')} detail={isMac ? 'Cmd K' : 'Ctrl K'}>
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onOpenPalette}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary sm:hidden"
+          className="sm:hidden"
           aria-label={t('topbar.search')}
         >
           <Search size={14} />
-        </button>
+        </Button>
       </Tip>
 
         <NotificationDropdown />

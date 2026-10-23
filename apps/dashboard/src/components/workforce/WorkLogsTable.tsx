@@ -1,3 +1,4 @@
+import { Button } from '../ui/button'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -105,9 +106,9 @@ export function WorkLogsTable({
                   {formatAppNumber(run.tokens_used ?? 0, i18n.language, { maximumFractionDigits: 0 })}
                 </TableCell>
                 <TableCell>
-                  <button
+                  <Button variant="ghost" size="iconSm"
                     type="button"
-                    className="rounded p-1 text-text-muted hover:text-accent"
+                    className="text-text-muted hover:text-accent"
                     title={t('workforce.runs.copyId')}
                     onClick={() => {
                       void navigator.clipboard.writeText(run.id).then(
@@ -118,7 +119,7 @@ export function WorkLogsTable({
                   >
                     <Copy className="h-3.5 w-3.5" aria-hidden />
                     <span className="sr-only">{t('workforce.runs.copyId')}</span>
-                  </button>
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

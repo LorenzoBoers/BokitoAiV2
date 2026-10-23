@@ -1,3 +1,4 @@
+import { Button } from '../ui/button'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ThumbsDown, ThumbsUp } from 'lucide-react'
@@ -44,24 +45,24 @@ export default function ArticleFeedback({ slug, lang }: { slug: string; lang?: s
         <>
           <p className="text-sm text-text-secondary">{t('pageGuides.feedback.question')}</p>
           <div className="flex items-center gap-1">
-            <button
+            <Button variant="ghost" size="iconSm"
               type="button"
               onClick={() => void submit('up')}
               disabled={state === 'sending'}
               aria-label={t('pageGuides.feedback.yes')}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent disabled:opacity-50"
+              className="text-text-secondary hover:text-accent"
             >
               <ThumbsUp size={14} aria-hidden />
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="iconSm"
               type="button"
               onClick={() => void submit('down')}
               disabled={state === 'sending'}
               aria-label={t('pageGuides.feedback.no')}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-error disabled:opacity-50"
+              className="text-text-secondary hover:text-status-error"
             >
               <ThumbsDown size={14} aria-hidden />
-            </button>
+            </Button>
           </div>
         </>
       )}

@@ -1,4 +1,6 @@
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { Spinner } from '../components/ui/spinner'
+import { Pressable } from '../components/ui/pressable'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -538,9 +540,8 @@ export default function GovernPage() {
                           <p className="text-xs text-text-muted mt-1">
                             {formatChangeMeta(change.resource_type, change.change_kind, change.status, t)}
                           </p>
-                          <button
-                            type="button"
-                            className="mt-1 inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                          <TextLink
+                            className="text-xs mt-1"
                             onClick={() => setExpandedId(expandedId === change.id ? null : change.id)}
                           >
                             {expandedId === change.id ? (
@@ -549,7 +550,7 @@ export default function GovernPage() {
                               <ChevronDown className="h-3 w-3" />
                             )}
                             {t('drafts.viewDiff')}
-                          </button>
+                          </TextLink>
                           {expandedId === change.id ? <DiffPreview change={change} /> : null}
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
@@ -601,7 +602,7 @@ export default function GovernPage() {
               after={
                 <Card data-testid="govern-tool-defaults">
                   <CardHeader>
-                    <button
+                    <Pressable
                       type="button"
                       className="flex w-full items-center justify-between gap-3 text-left"
                       aria-expanded={toolDefaultsOpen}
@@ -616,7 +617,7 @@ export default function GovernPage() {
                       ) : (
                         <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
                       )}
-                    </button>
+                    </Pressable>
                   </CardHeader>
                   {toolDefaultsOpen ? (
                     <CardContent className="space-y-4">
@@ -688,36 +689,20 @@ export default function GovernPage() {
                                     {toolCategoryHint(category, t)}
                                   </p>
                                 </div>
-                                <div
-                                  className="inline-flex shrink-0 rounded-lg border border-border p-0.5"
-                                  role="radiogroup"
+                                <SegmentedControl
+                                  size="sm"
+                                  className="shrink-0"
                                   aria-label={t('toolOverride.categoryAria', {
                                     category: toolCategoryLabel(category, t),
                                   })}
-                                >
-                                  {ALLOWANCE_OPTIONS.map((mode) => (
-                                    <button
-                                      key={mode}
-                                      type="button"
-                                      role="radio"
-                                      aria-checked={current === mode}
-                                      disabled={savingModes}
-                                      onClick={() => void handleAllowanceChange(category, mode)}
-                                      className={cn(
-                                        'rounded-md px-3 py-1 text-xs transition-colors',
-                                        current === mode
-                                          ? mode === 'deny'
-                                            ? 'bg-destructive/10 text-destructive font-medium'
-                                            : mode === 'allow'
-                                              ? 'bg-bg-hover font-medium text-text-heading'
-                                              : 'bg-bg-muted text-text-heading font-medium'
-                                          : 'text-text-muted hover:text-text-heading',
-                                      )}
-                                    >
-                                      {allowanceModeLabel(mode, t)}
-                                    </button>
-                                  ))}
-                                </div>
+                                  value={current}
+                                  onChange={(mode) => void handleAllowanceChange(category, mode)}
+                                  options={ALLOWANCE_OPTIONS.map((mode) => ({
+                                    value: mode,
+                                    label: allowanceModeLabel(mode, t),
+                                    disabled: savingModes,
+                                  }))}
+                                />
                               </div>
                               <p className="mt-1.5 text-xs text-text-muted">
                                 {allowanceModeHint(current, t)}

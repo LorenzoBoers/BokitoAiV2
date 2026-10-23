@@ -18,6 +18,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso, type ListRange, type VirtuosoHandle } from 'react-virtuoso'
 import type {
@@ -1294,14 +1295,14 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
             hasOlder && onLoadOlder ? (
               <div className={cn(CHAT_COLUMN_CLASS, 'px-4 pb-3 pt-12')}>
                 <div className="flex justify-center">
-                  <button
+                  <Button variant="secondary" size="xs"
                     type="button"
                     disabled={loadingOlder}
                     onClick={() => void onLoadOlder()}
-                    className="rounded-md border border-border bg-bg-elevated/70 px-3 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+                   
                   >
                     {loadingOlder ? t('threadChrome.loadingOlder') : t('threadChrome.loadOlder')}
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (

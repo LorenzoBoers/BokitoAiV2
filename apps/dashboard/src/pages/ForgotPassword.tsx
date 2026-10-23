@@ -1,3 +1,4 @@
+import { Pressable } from '../components/ui/pressable'
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -77,7 +78,7 @@ export default function ForgotPassword() {
                 </TextLink>
               </div>
             ) : null}
-            <button
+            <Pressable
               type="button"
               className="mb-4 block w-full text-sm font-medium text-accent hover:underline"
               onClick={() => {
@@ -86,7 +87,7 @@ export default function ForgotPassword() {
               }}
             >
               {t('forgotPage.tryDifferent')}
-            </button>
+            </Pressable>
             <Link
               to="/login"
               className="inline-flex items-center gap-2 text-accent hover:text-accent-hover transition-colors"

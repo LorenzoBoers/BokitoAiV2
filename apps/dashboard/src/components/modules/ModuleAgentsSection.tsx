@@ -1,3 +1,4 @@
+import { FilterChip } from '../ui/filter-chip'
 import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -416,19 +417,14 @@ export function ModuleAgentsSection({
                         {companies.map((company) => {
                           const selected = (row.company_ids ?? []).includes(company.id)
                           return (
-                            <button
+                            <FilterChip active={selected}
                               key={company.id}
-                              type="button"
                               disabled={busyId !== null}
-                              className={
-                                selected
-                                  ? 'rounded-md border border-accent/60 bg-accent/10 px-2 py-0.5 text-xs text-accent'
-                                  : 'rounded-md border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-border-light'
-                              }
+                             
                               onClick={() => toggleCompany(row, company.id)}
                             >
                               {company.name}
-                            </button>
+                            </FilterChip>
                           )
                         })}
                       </div>

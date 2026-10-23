@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { TextLink } from '../ui/text-link'
 import { cn } from '../../lib/utils'
 
 type OauthRedirectAlertProps = {
@@ -60,13 +61,12 @@ export function OauthRedirectAlert({
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          className="ml-auto shrink-0 self-start underline opacity-90 hover:opacity-100 sm:ml-0"
+        <TextLink tone="muted"
+          className="ml-auto shrink-0 self-start sm:ml-0"
           onClick={onDismiss}
         >
           Close
-        </button>
+        </TextLink>
       </div>
     </div>
   )

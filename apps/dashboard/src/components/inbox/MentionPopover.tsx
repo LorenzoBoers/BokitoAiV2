@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
@@ -28,7 +29,7 @@ export function MentionCandidateRow({ item, active, selected, onSelect, onHover 
   const { teams } = useTeams()
   const { agents } = useAgents()
   return (
-    <button
+    <Pressable
       type="button"
       disabled={item.disabled}
       title={item.disabled ? item.disabledReason : undefined}
@@ -102,7 +103,7 @@ export function MentionCandidateRow({ item, active, selected, onSelect, onHover 
           {item.type === 'agent' ? t('mentions.agent') : t('mentions.team')}
         </Badge>
       ) : null}
-    </button>
+    </Pressable>
   )
 }
 

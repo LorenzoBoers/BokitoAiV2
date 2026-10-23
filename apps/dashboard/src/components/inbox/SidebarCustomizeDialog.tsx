@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pressable } from '../ui/pressable'
+import { Button } from '../ui/button'
 import { Link } from 'react-router-dom'
 import {
   DndContext,
@@ -83,7 +85,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
       data-editor-row={node.id}
     >
       <div className="flex items-center gap-0.5 rounded-md">
-        <button
+        <Pressable
           type="button"
           disabled={inactive}
           className={cn(
@@ -101,7 +103,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
           <span className="flex min-w-0 flex-1 items-center">
             {node.mark ?? <span className="min-w-0 flex-1 truncate-fade">{node.label}</span>}
           </span>
-        </button>
+        </Pressable>
         {node.href ? (
           <Tip label={t('support.customize.manage')}>
             <Link
@@ -122,11 +124,11 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
         ) : null}
         {node.hideKind !== 'none' ? (
           <Tip label={eyeLabel}>
-            <button
+            <Button variant="ghost" size="iconSm"
               type="button"
               aria-label={eyeLabel}
               aria-pressed={!node.hidden}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
+              className="shrink-0 text-text-muted"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation()
@@ -134,7 +136,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
               }}
             >
               {node.hidden ? <EyeOff size={14} aria-hidden /> : <Eye size={14} aria-hidden />}
-            </button>
+            </Button>
           </Tip>
         ) : null}
       </div>
@@ -260,13 +262,13 @@ export default function SidebarCustomizeDialog() {
           </DndContext>
         </div>
         <div className="flex justify-end">
-          <button
+          <Button variant="secondary" size="xs"
             type="button"
             onClick={resetPrefs}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+           
           >
             {t('support.customize.reset')}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

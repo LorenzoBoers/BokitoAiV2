@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -280,8 +281,7 @@ export function CanvasHost({
               )
             })}
             {canEdit ? (
-              <button
-                type="button"
+              <Pressable
                 className="-mb-px inline-flex h-9 w-9 shrink-0 items-center justify-center border-b-2 border-transparent text-text-secondary hover:text-text-primary disabled:opacity-40"
                 onClick={() => void openAdd()}
                 disabled={busy}
@@ -289,7 +289,7 @@ export function CanvasHost({
                 aria-label={t('projects.canvas.add')}
               >
                 <Plus size={16} aria-hidden />
-              </button>
+              </Pressable>
             ) : null}
           </TabsList>
         ) : null}

@@ -1,4 +1,6 @@
 import { Card } from '../ui/card'
+import { Button } from '../ui/button'
+import { Pressable } from '../ui/pressable'
 import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUp, ChevronDown, ChevronRight } from 'lucide-react'
@@ -163,7 +165,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
                   {isToday && nowIndex === -1 && rows.length > 0 ? <NowLine /> : null}
                   {routines.length > 0 ? (
                     <div>
-                      <button
+                      <Pressable
                         type="button"
                         onClick={() =>
                           setOpenRoutines((prev) => {
@@ -180,7 +182,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
                         {routines.some((item) => isFailed(item.status)) ? (
                           <span className="text-status-error">{t('agendaPage.list.routinesFailed')}</span>
                         ) : null}
-                      </button>
+                      </Pressable>
                       {routinesOpen
                         ? routines.map((item) => (
                             <Row
@@ -204,15 +206,15 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
         </div>
       </div>
       {awayFromLand ? (
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           onClick={scrollToLand}
-          className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-bg-surface/95 text-text-heading shadow-sm hover:bg-bg-elevated"
+          className="absolute right-3 top-3 z-20"
           aria-label={t('agendaPage.list.backToTop')}
           title={t('agendaPage.list.backToTop')}
         >
           <ArrowUp className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
       ) : null}
     </div>
   )
@@ -252,7 +254,7 @@ function Row({
   const owner = itemOwner(item)
   const showStatus = !QUIET_STATUSES.has(item.status.toLowerCase()) && item.kind !== 'activity'
   return (
-    <button
+    <Pressable
       type="button"
       onClick={onSelect}
       className={cn(
@@ -290,6 +292,6 @@ function Row({
           {agendaStatusLabel(item.status, t)}
         </Badge>
       ) : null}
-    </button>
+    </Pressable>
   )
 }

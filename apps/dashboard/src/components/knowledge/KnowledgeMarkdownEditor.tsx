@@ -1,3 +1,4 @@
+import { SegmentedControl } from '../ui/segmented-control'
 import { Card } from '../ui/card'
 import { useEffect, useMemo, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -79,28 +80,15 @@ export function KnowledgeMarkdownEditor({
   return (
     <Card className={cn( className)}>
       <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
-        <div className="flex rounded-md border border-border p-0.5">
-          <button
-            type="button"
-            className={cn(
-              'rounded px-2 py-0.5 text-xs',
-              mode === 'write' ? 'bg-bg-hover font-medium text-text-heading' : 'text-text-muted',
-            )}
-            onClick={() => setMode('write')}
-          >
-            {writeLabel}
-          </button>
-          <button
-            type="button"
-            className={cn(
-              'rounded px-2 py-0.5 text-xs',
-              mode === 'markdown' ? 'bg-bg-hover font-medium text-text-heading' : 'text-text-muted',
-            )}
-            onClick={() => setMode('markdown')}
-          >
-            {markdownLabel}
-          </button>
-        </div>
+        <SegmentedControl
+          size="sm"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'write', label: writeLabel },
+            { value: 'markdown', label: markdownLabel },
+          ]}
+        />
         {mode === 'write' && editor ? (
           <div className="ml-1 flex items-center gap-0.5">
             <Button

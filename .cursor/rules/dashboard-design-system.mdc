@@ -24,6 +24,7 @@ Rare one-off styles fold into the nearest catalog component.
 | | `SectionHeading` | Heading of a group inside a page or card |
 | Controls | `Button` | Every action (`default`, `secondary`, `ghost`, `ai`, `destructive`) |
 | | `TextLink` | Inline text action, router or external link |
+| | `Pressable` | Click area without a button look: row, tile, cell, scrim (`asChild`; `w-auto` inline) |
 | | `OptionCard` + `OptionCardGrid` | Large selectable choice (mode, tier, plan) |
 | | `SegmentedControl` | 2-5 short in-place options |
 | | `FilterChip` + `FilterChipRow` | Toggleable filters |
@@ -61,10 +62,10 @@ Rare one-off styles fold into the nearest catalog component.
 `npm run lint` in `apps/dashboard` runs `scripts/check-design-system.mjs`. It fails on
 `window.confirm`, native `<select>`, `text-[Npx]`, hand-rolled card strings,
 `bg-bg-elevated/40`, raw status colors, capsule chips, `h-*` on a `<Button>`,
-`text-text-muted/NN` and removed legacy classes.
+`text-text-muted/NN`, removed legacy classes and a raw `<button>` outside `components/ui`.
 Exempt a line only with a `design-system-ignore` comment and a reason.
 
-Ratchet rules (`raw-button`, `raw-input`, `hex-color`, `arbitrary-radius`, `border-opacity`) compare per-file
+Ratchet rules (`raw-input`, `hex-color`, `arbitrary-radius`, `border-opacity`) compare per-file
 counts against `scripts/design-system-baseline.json`: a file may not gain hits. After removing
 debt, run `node scripts/check-design-system.mjs --update-baseline` to lock in the lower count.
 

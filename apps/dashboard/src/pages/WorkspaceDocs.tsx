@@ -1,4 +1,6 @@
+import { TextLink } from '../components/ui/text-link'
 import { Card } from '../components/ui/card'
+import { Pressable } from '../components/ui/pressable'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -23,6 +25,7 @@ import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { ConversationRowsSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { Button } from '../components/ui/button'
+import { FilterChip } from '../components/ui/filter-chip'
 import { PageHeader } from '../components/ui/page-header'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
@@ -80,6 +83,9 @@ const KIND_ORDER: WorkspaceDocKind[] = [
 type KnowledgeScope = 'organization' | 'project' | 'agent'
 
 /** Kinds that agents write and maintain themselves (auto-learning surface). */
+/** Scope chips carry a name and its type; long names fade inside the chip. */
+const SCOPE_CHIP = 'max-w-[14rem]'
+
 const AI_MAINTAINED_KINDS = new Set<WorkspaceDocKind>(['memory', 'heartbeat', 'daily_log'])
 
 const TRUTHY = new Set(['true', '1', 'yes', 'on'])
@@ -184,14 +190,6 @@ export default function WorkspaceDocs() {
       [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name),
     )
   }, [sortedAgents])
-
-  const entityChipClass = (selected: boolean) =>
-    cn(
-      'inline-flex max-w-[12rem] flex-col items-start gap-0 rounded-lg border px-2 py-1 text-left leading-tight',
-      selected
-        ? 'border-border-light bg-bg-hover text-text-heading'
-        : 'border-border text-text-muted hover:text-text-secondary',
-    )
 
   // The selected scope chip filters; this is the way to the entity itself.
   const scopeEntityHref =
@@ -628,8 +626,9 @@ export default function WorkspaceDocs() {
               </div>
             ) : null}
             <div className="flex flex-wrap gap-1.5">
-              <button // design-system-ignore: same entityChipClass chip as its siblings; migrates with them in 8.7
-                type="button"
+              <FilterChip
+                active={lessons !== null}
+                count={lessons?.length}
                 onClick={() => {
                   if (lessons) {
                     setLessons(null)
@@ -637,41 +636,37 @@ export default function WorkspaceDocs() {
                   }
                   void listLessons({ status: 'draft' }).then(setLessons).catch(() => setLessons([]))
                 }}
-                className={entityChipClass(lessons !== null)}
               >
-                <span className="max-w-full truncate-fade text-xs font-medium">
-                  {t('knowledgePage.draftLessons')}
-                  {lessons ? ` (${lessons.length})` : ''}
-                </span>
-              </button>
-              <button
-                type="button"
+                {t('knowledgePage.draftLessons')}
+              </FilterChip>
+              <FilterChip
+                active={scope === 'organization'}
                 onClick={() => {
                   setScope('organization')
                   setScopeProjectId('')
                   setScopeAgentId('')
                 }}
-                className={entityChipClass(scope === 'organization')}
+                className={SCOPE_CHIP}
                 title={`${organizationName} · ${scopeTypeLabel('organization')}`}
               >
-                <span className="max-w-full truncate-fade text-xs font-medium">{organizationName}</span>
-                <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('organization')}</span>
-              </button>
+                <span className="min-w-0 truncate-fade">{organizationName}</span>
+                <span className="font-normal opacity-70">{scopeTypeLabel('organization')}</span>
+              </FilterChip>
               {sortedProjects.map((project) => (
-                <button
+                <FilterChip
                   key={project.id}
-                  type="button"
+                  active={scope === 'project' && scopeProjectId === project.id}
                   onClick={() => {
                     setScope('project')
                     setScopeProjectId(project.id)
                     setScopeAgentId('')
                   }}
-                  className={entityChipClass(scope === 'project' && scopeProjectId === project.id)}
+                  className={SCOPE_CHIP}
                   title={`${project.name} · ${scopeTypeLabel('project')}`}
                 >
-                  <span className="max-w-full truncate-fade text-xs font-medium">{project.name}</span>
-                  <span className="text-2xs font-normal opacity-70">{scopeTypeLabel('project')}</span>
-                </button>
+                  <span className="min-w-0 truncate-fade">{project.name}</span>
+                  <span className="font-normal opacity-70">{scopeTypeLabel('project')}</span>
+                </FilterChip>
               ))}
               {sortedAgents.map((agent) => {
                 const sameName = duplicateAgentNames.has(agent.name)
@@ -686,20 +681,20 @@ export default function WorkspaceDocs() {
                     ? agent.slug || agent.id.slice(0, 8)
                     : agent.role_name || agent.slug
                 return (
-                <button
+                <FilterChip
                   key={agent.id}
-                  type="button"
+                  active={scope === 'agent' && scopeAgentId === agent.id}
                   onClick={() => {
                     setScope('agent')
                     setScopeAgentId(agent.id)
                     setScopeProjectId('')
                   }}
-                  className={entityChipClass(scope === 'agent' && scopeAgentId === agent.id)}
+                  className={SCOPE_CHIP}
                   title={`${agent.name} · ${chipHint}`}
                 >
-                  <span className="max-w-full truncate-fade text-xs font-medium">{agent.name}</span>
-                  <span className="text-2xs font-normal opacity-70">{chipHint}</span>
-                </button>
+                  <span className="min-w-0 truncate-fade">{agent.name}</span>
+                  <span className="font-normal opacity-70">{chipHint}</span>
+                </FilterChip>
                 )
               })}
             </div>
@@ -759,8 +754,9 @@ export default function WorkspaceDocs() {
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {hits !== null ? (
               <div className="space-y-1">
-                <button
-                  className="px-2 text-xs text-text-muted hover:text-text-secondary hover:underline"
+                <TextLink
+                  tone="muted"
+                  className="px-2 text-xs"
                   onClick={() => {
                     setHits(null)
                     setSearchCapped(false)
@@ -768,14 +764,14 @@ export default function WorkspaceDocs() {
                   }}
                 >
                   {t('knowledgePage.clearSearch')}
-                </button>
+                </TextLink>
                 {hits.length === 0 ? (
                   <p className="px-2 py-4 text-xs text-text-muted">
                     {t('knowledgePage.noMatches')}
                   </p>
                 ) : (
                   hits.map((hit, idx) => (
-                    <button
+                    <Pressable
                       key={idx}
                       className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-bg-hover"
                       onClick={() => {
@@ -788,7 +784,7 @@ export default function WorkspaceDocs() {
                       <span className="block truncate-fade text-xs text-text-muted">
                         {hit.content.slice(0, 80)}
                       </span>
-                    </button>
+                    </Pressable>
                   ))
                 )}
                 {searchCapped ? (
@@ -809,7 +805,7 @@ export default function WorkspaceDocs() {
                       {AI_MAINTAINED_KINDS.has(kind) ? <KnowledgeMark size={11} /> : null}
                     </p>
                     {rows.map((doc) => (
-                      <button
+                      <Pressable
                         key={doc.id}
                         className={cn(
                           'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary',
@@ -830,7 +826,7 @@ export default function WorkspaceDocs() {
                             className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-success"
                           />
                         ) : null}
-                      </button>
+                      </Pressable>
                     ))}
                   </div>
                 ))
@@ -856,14 +852,14 @@ export default function WorkspaceDocs() {
               </div>
             ) : null}
             {hits === null && docsNext != null ? (
-              <button
+              <Pressable
                 type="button"
                 className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-medium text-accent hover:underline disabled:opacity-60"
                 disabled={loadingMoreDocs}
                 onClick={() => void loadMoreDocs()}
               >
                 {loadingMoreDocs ? t('knowledgePage.loadingMore') : t('knowledgePage.loadMore')}
-              </button>
+              </Pressable>
             ) : null}
           </div>
         </aside>
@@ -881,8 +877,7 @@ export default function WorkspaceDocs() {
               </div>
               {!loading && docs.length === 0 ? (
                 <div className="flex flex-col items-center gap-3">
-                  <button
-                    type="button"
+                  <Pressable
                     onDragOver={(event) => {
                       event.preventDefault()
                       setDragOver(true)
@@ -896,12 +891,12 @@ export default function WorkspaceDocs() {
                     }}
                     onClick={() => uploadInputRef.current?.click()}
                     className={cn(
-                      'rounded-lg border border-dashed px-6 py-5 text-xs text-text-muted transition-colors',
+                      'w-auto rounded-lg border border-dashed px-6 text-center py-5 text-xs text-text-muted transition-colors',
                       dragOver ? 'border-accent/50 bg-accent/5 text-text-secondary' : 'border-border',
                     )}
                   >
                     {t('knowledgePage.dropHint')}
-                  </button>
+                  </Pressable>
                   <Button size="sm" onClick={() => setCreating(true)}>
                     <FilePlus className="mr-1.5 h-3.5 w-3.5" />
                     {t('knowledgePage.createFirst')}
@@ -924,8 +919,7 @@ export default function WorkspaceDocs() {
                   <>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         <Badge>{kindLabel(active.kind)}</Badge>
-                        <button
-                          type="button"
+                        <Pressable
                           onClick={() => {
                             void navigator.clipboard.writeText(active.path).then(
                               () => toast.success(t('knowledgePage.pathCopied')),
@@ -933,11 +927,11 @@ export default function WorkspaceDocs() {
                             )
                           }}
                           title={t('knowledgePage.copyPath')}
-                          className={cn(badgeVariants({ variant: 'neutral' }), 'gap-1 font-mono text-text-muted hover:text-text-secondary')}
+                          className={cn(badgeVariants({ variant: 'neutral' }), 'w-auto gap-1 font-mono text-text-muted hover:text-text-secondary')}
                         >
                           <Copy size={14} />
                           {active.path}
-                        </button>
+                        </Pressable>
                         {AI_MAINTAINED_KINDS.has(active.kind) ? (
                           <LearnedChip label={t('knowledgePage.aiMaintained')} />
                         ) : null}

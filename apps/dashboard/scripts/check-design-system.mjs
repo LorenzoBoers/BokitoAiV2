@@ -123,14 +123,15 @@ const RULES = [
     message: 'Use <Avatar kind="person|agent|team">.',
     catalogOk: true,
   },
-]
-
-const RATCHET_RULES = [
   {
     id: 'raw-button',
     pattern: /<button\b/,
-    message: 'Use <Button> (or Button asChild) from components/ui/button.',
+    message: 'Use <Button>, <Pressable>, <TextLink>, <FilterChip> or <SegmentedControl> from components/ui.',
+    catalogOk: true,
   },
+]
+
+const RATCHET_RULES = [
   {
     id: 'raw-input',
     pattern: /<input\b(?![^>]*type=["'](file|hidden)["'])/,

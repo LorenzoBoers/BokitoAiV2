@@ -1,4 +1,5 @@
 import { Spinner } from '../ui/spinner'
+import { Pressable } from '../ui/pressable'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
@@ -316,7 +317,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               <DialogDescription>{t('tags.modalHint')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
-              <button
+              <Pressable
                 type="button"
                 disabled={busy || !onPatch}
                 onClick={() => {
@@ -326,8 +327,8 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
               >
                 <span className="text-sm font-medium text-text-heading">{t('tags.applyFree')}</span>
                 <span className="text-xs text-text-muted">{t('tags.applyFreeHint')}</span>
-              </button>
-              <button
+              </Pressable>
+              <Pressable
                 type="button"
                 disabled={busy}
                 onClick={() => void makeActionTag()}
@@ -337,7 +338,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                 <span className="text-xs text-text-muted">
                   {t('tags.makeActionTagHint', { name: normalizeHashtag(createName) })}
                 </span>
-              </button>
+              </Pressable>
             </div>
             <DialogFooter>
               <Button type="button" variant="secondary" disabled={busy} onClick={() => setPhase('pick')}>

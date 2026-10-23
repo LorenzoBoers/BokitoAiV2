@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { filtersetPlainLabel } from '../../lib/folder-filter-tree'
@@ -117,7 +118,7 @@ export default function FileInFolderDialog({
         <div className="max-h-64 space-y-1 overflow-y-auto">
           {loading ? <FolderChecklistSkeleton rows={4} /> : null}
           {allowRoot ? (
-            <button
+            <Pressable
               type="button"
               disabled={busy}
               onClick={() => setPicked('')}
@@ -126,13 +127,13 @@ export default function FileInFolderDialog({
               }`}
             >
               {t('threadChrome.fileRoot')}
-            </button>
+            </Pressable>
           ) : null}
           {visible.map((row) => {
             const project = byId.get(row.id)
             const tagLine = row.tag_names.length ? filtersetPlainLabel(row.tag_names) : null
             return (
-              <button
+              <Pressable
                 key={row.id}
                 type="button"
                 disabled={busy}
@@ -147,7 +148,7 @@ export default function FileInFolderDialog({
                   <span className="min-w-0 truncate font-medium">{row.name}</span>
                 </span>
                 {tagLine ? <span className="truncate pl-6 text-2xs text-text-muted">{tagLine}</span> : null}
-              </button>
+              </Pressable>
             )
           })}
           {!loading && visible.length === 0 ? (

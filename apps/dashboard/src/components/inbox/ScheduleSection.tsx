@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, MapPin, Repeat } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
@@ -38,10 +39,10 @@ export function ScheduleSection({ thread, onPlan }: Props) {
     if (!onPlan) return null
     return (
       <SettingRow label={t('schedule.title')}>
-        <button type="button" onClick={onPlan} className={`${controlTextClass} text-text-secondary`}>
+        <Pressable onClick={onPlan} className={`${controlTextClass} text-text-secondary`}>
           <CalendarClock size={11} aria-hidden />
           <span className="truncate">{t('schedule.plan')}</span>
-        </button>
+        </Pressable>
       </SettingRow>
     )
   }

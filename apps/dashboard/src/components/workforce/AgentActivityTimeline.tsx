@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -206,14 +207,13 @@ function ClusterMark({
             <MarkerGlyph cluster={cluster} />
           </Link>
         ) : (
-          <button
-            type="button"
+          <Pressable
             className={markClass}
             style={{ left: `${cluster.pct}%` }}
             aria-label={aria}
           >
             <MarkerGlyph cluster={cluster} />
-          </button>
+          </Pressable>
         )}
       </TooltipTrigger>
       <TooltipContent className="max-w-xs overflow-hidden p-1 font-normal">

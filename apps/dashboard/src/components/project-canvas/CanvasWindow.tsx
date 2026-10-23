@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import {
@@ -258,14 +259,14 @@ export function CanvasWindow({
       >
         <div className="min-w-0 flex-1">
           {onOpen && actions ? (
-            <button
+            <Pressable
               type="button"
               onClick={onOpen}
               className="block min-w-0 rounded-md text-left hover:opacity-90"
               title={t('projects.canvas.openFull')}
             >
               {heading}
-            </button>
+            </Pressable>
           ) : openHref && actions ? (
             <Link to={openHref} className="block min-w-0 rounded-md no-underline hover:opacity-90" title={t('projects.canvas.openFull')}>
               {heading}

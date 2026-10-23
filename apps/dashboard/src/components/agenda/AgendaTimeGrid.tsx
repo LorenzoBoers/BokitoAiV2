@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
@@ -82,11 +83,10 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
             {perDay.map(({ day, key }) => {
               const isToday = key === todayKey
               return (
-                <button
+                <Pressable
                   key={key}
-                  type="button"
                   onClick={() => onOpenDay?.(day)}
-                  className="flex items-baseline justify-center gap-1.5 border-l border-border py-2 hover:bg-bg-elevated"
+                  className="w-auto flex items-baseline justify-center gap-1.5 border-l border-border py-2 hover:bg-bg-elevated"
                 >
                   <span className={cn('text-xs uppercase tracking-wide', isToday ? 'text-accent' : 'text-text-muted')}>
                     {formatAppDate(day, i18n.language, { weekday: 'short' })}
@@ -99,7 +99,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                   >
                     {day.getDate()}
                   </span>
-                </button>
+                </Pressable>
               )
             })}
           </div>
@@ -112,7 +112,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                   {allDay.map((item) => {
                     const owner = itemOwner(item)
                     return (
-                    <button
+                    <Pressable
                       key={item.id}
                       type="button"
                       onClick={() => onSelect({ kind: 'item', item })}
@@ -124,7 +124,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                     >
                       <span className="min-w-0 flex-1 truncate">{item.title}</span>
                       {owner ? <AgendaOwnerMark owner={owner} size={14} /> : null}
-                    </button>
+                    </Pressable>
                     )
                   })}
                 </div>
@@ -180,7 +180,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                       const selected = selectedId === item.id
                       const owner = itemOwner(item)
                       return (
-                        <button
+                        <Pressable
                           key={item.id}
                           type="button"
                           onClick={() => onSelect({ kind: 'item', item })}
@@ -211,7 +211,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                               ) : null}
                             </span>
                           ) : null}
-                        </button>
+                        </Pressable>
                       )
                     })}
                     {isToday ? (

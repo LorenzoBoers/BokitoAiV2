@@ -47,14 +47,14 @@ export function NotificationToast({
       className="notification-toast-glass relative pointer-events-auto flex w-[min(380px,calc(100vw-1.5rem))] items-start gap-3 rounded-xl p-3"
       data-testid="notification-toast"
     >
-      <button
+      <Button variant="ghost" size="iconSm"
         type="button"
         onClick={() => toast.dismiss(toastId)}
-        className="absolute -left-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-bg-elevated/70 text-text-muted shadow-sm backdrop-blur-md hover:bg-bg-hover hover:text-text-heading"
+        className="absolute -left-1.5 -top-1.5 backdrop-blur-md"
         aria-label="Close"
       >
         <X size={14} aria-hidden />
-      </button>
+      </Button>
 
       {from ? (
         fromHref ? (

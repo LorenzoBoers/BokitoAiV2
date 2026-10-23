@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { Plus } from 'lucide-react'
 import { normalizeHashtag, stripHash } from '../../lib/hashtag'
@@ -79,14 +80,14 @@ export function OwnerTagsField({
         />
       ))}
       {hiddenCount > 0 ? (
-        <button
+        <Button variant="ghost" size="xs"
           type="button"
           disabled={disabled}
           onClick={() => setExpanded(true)}
-          className="inline-flex h-5 items-center rounded-md bg-bg-hover px-2 text-2xs font-medium text-text-muted transition-colors hover:bg-border-light/35 hover:text-text-heading disabled:opacity-40"
+         
         >
           {t('tags.moreCount', { count: hiddenCount })}
-        </button>
+        </Button>
       ) : null}
     </>
   )
@@ -121,28 +122,28 @@ export function OwnerTagsField({
               aria-label={t('contactPanel.tags')}
               className="h-6 w-[5.5rem] min-w-0 text-2xs"
             />
-            <button
+            <Button variant="ghost" size="iconSm"
               type="button"
               disabled={disabled || !canAdd}
               onClick={add}
               aria-label={t('tags.add')}
               title={t('tags.add')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border text-text-muted disabled:opacity-40"
+             
             >
               <Plus size={14} />
-            </button>
+            </Button>
           </>
         ) : (
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
             disabled={disabled}
             onClick={() => setAdding(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
+            className="ring-1 ring-inset ring-border/50"
           >
             <Plus size={14} />
-          </button>
+          </Button>
         )}
       </div>
     )
@@ -165,15 +166,15 @@ export function OwnerTagsField({
           placeholder={t('tags.placeholder')}
           className="h-7 min-w-0 flex-1 text-xs"
         />
-        <button
+        <Button variant="secondary" size="xs"
           type="button"
           disabled={disabled || !canAdd}
           onClick={add}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs disabled:opacity-40"
+         
         >
           <Plus size={14} />
           {t('tags.add')}
-        </button>
+        </Button>
       </div>
     </div>
   )

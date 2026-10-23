@@ -1,3 +1,4 @@
+import { Pressable } from '../components/ui/pressable'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -309,15 +310,14 @@ function IssuesSwap({
   }
 
   return (
-    <button
-      type="button"
+    <Pressable
       data-testid="grid-issues-button"
       aria-expanded={false}
       aria-label={label}
       disabled={leaving}
       onClick={onToggle}
       className={cn(
-        'pointer-events-auto absolute top-16 z-20 flex h-8 origin-top-right items-center gap-1 rounded-full px-2.5 text-status-warning',
+        'w-auto pointer-events-auto absolute top-16 z-20 flex h-8 origin-top-right items-center gap-1 rounded-full px-2.5 text-status-warning',
         'right-[calc(1rem+18rem+0.5rem)]',
         ORG_FLOAT_GLASS,
         motion,
@@ -325,7 +325,7 @@ function IssuesSwap({
     >
       <AlertTriangle size={14} />
       <span className="text-2xs font-semibold tabular-nums">{count}</span>
-    </button>
+    </Pressable>
   )
 }
 

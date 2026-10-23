@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Pin, Plus } from 'lucide-react'
@@ -165,8 +166,7 @@ function PinButton({
 }) {
   return (
     <Tip label={label}>
-      <button
-        type="button"
+      <Pressable
         onClick={(event) => {
           event.preventDefault()
           event.stopPropagation()
@@ -177,7 +177,7 @@ function PinButton({
         aria-label={label}
       >
         <Pin size={14} />
-      </button>
+      </Pressable>
     </Tip>
   )
 }
@@ -489,7 +489,7 @@ export function FolderTagTree({
           <AgendaFolderRow key={row.id} row={row} selectedId={selectedId} onSelect={clickFolder} nameById={nameById} />
         ))}
         {[...tags, ...ticketTags, ...agendaExtraTag].map((row) => (
-          <button
+          <Pressable
             key={`tag-${row.id}`}
             type="button"
             onClick={() => clickTag(row)}
@@ -498,7 +498,7 @@ export function FolderTagTree({
           >
             <HashtagMark className="text-xs" />
             <span className="min-w-0 flex-1 truncate-fade">{row.name.replace(/^#/, '')}</span>
-          </button>
+          </Pressable>
         ))}
       </div>
     )
@@ -554,7 +554,7 @@ function AgendaFolderRow({
   const ownTags = folderTagNames(row, nameById)
   return (
     <div className="space-y-px">
-      <button
+      <Pressable
         type="button"
         onClick={() => onSelect(row)}
         data-active={selectedId === row.id ? 'true' : undefined}
@@ -565,7 +565,7 @@ function AgendaFolderRow({
           <FolderIcon size={12} />
         </span>
         <span className="min-w-0 flex-1 truncate-fade">{label}</span>
-      </button>
+      </Pressable>
       {children.length > 0 ? (
         <div className="nav-tree-children">
           {children.map((child) => (

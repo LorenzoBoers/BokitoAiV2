@@ -1,3 +1,5 @@
+import { FilterChip } from '../ui/filter-chip'
+import { Pressable } from '../ui/pressable'
 import { useEffect, useMemo, useState } from 'react'
 import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
@@ -194,18 +196,14 @@ export function AgentVisualEditor({
                 const active =
                   row.id === 'spawn' ? preview.previewingSpawn : !preview.previewingSpawn && preview.motion === row.id
                 return (
-                  <button
+                  <FilterChip
                     key={row.id}
-                    type="button"
+                    active={active}
                     disabled={busy}
                     onClick={() => (row.id === 'spawn' ? preview.playSpawn() : preview.play(row.id))}
-                    className={cn(
-                      'rounded-md px-2 py-1 text-2xs font-medium transition-colors',
-                      active ? 'bg-ai/15 text-ai-ink' : 'bg-bg-elevated text-text-muted hover:text-text-heading',
-                    )}
                   >
                     {t(row.labelKey)}
-                  </button>
+                  </FilterChip>
                 )
               })}
             </div>
@@ -268,8 +266,7 @@ function ShapeButton({
   onPick: (shape: string) => void
 }) {
   return (
-    <button
-      type="button"
+    <Pressable
       title={label}
       aria-label={label}
       aria-selected={selected}
@@ -282,7 +279,7 @@ function ShapeButton({
       )}
     >
       <Avatar kind="agent" agent={{ avatar_kind: 'orb', avatar_color: color, avatar_shape: shapeKey }} size={32} mode="static" decorative />
-    </button>
+    </Pressable>
   )
 }
 
@@ -300,8 +297,7 @@ function ColorSwatch({
   onPick: (value: string) => void
 }) {
   return (
-    <button
-      type="button"
+    <Pressable
       title={label}
       aria-label={label}
       aria-pressed={selected}

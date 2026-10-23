@@ -3,6 +3,7 @@
  * params, href); this component only translates and links them.
  */
 import { useState } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { appRoutes } from '../../api/routes'
@@ -47,15 +48,15 @@ export function ThreadWhyPanel({ threadId }: { threadId: string }) {
 
   return (
     <div className="relative">
-      <button
+      <Button variant="ghost" size="xs"
         type="button"
         onClick={() => void toggle()}
         aria-expanded={open}
-        className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-bg-hover hover:text-text"
+       
         data-testid="thread-why-toggle"
       >
         {t('threadWhy.button')}
-      </button>
+      </Button>
       {open ? (
         <div
           className="absolute right-0 z-20 mt-1 w-80 rounded-md border border-border bg-bg p-3 text-xs text-text shadow-sm"

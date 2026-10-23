@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
+import { Pressable } from '../../ui/pressable'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Languages, Mail, MessageSquareText, UserRound } from 'lucide-react'
@@ -170,7 +171,7 @@ export function LanguageCard({
               const expanded = expandedMailboxId === mailbox.id
               return (
                 <div key={mailbox.id} className="overflow-hidden rounded-lg border border-border">
-                  <button
+                  <Pressable
                     type="button"
                     onClick={() => setExpandedMailboxId((prev) => (prev === mailbox.id ? null : mailbox.id))}
                     className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-bg-hover/50"
@@ -195,7 +196,7 @@ export function LanguageCard({
                       size={16}
                       className={cn('shrink-0 text-text-muted transition-transform', expanded && 'rotate-180')}
                     />
-                  </button>
+                  </Pressable>
                   {expanded ? (
                     <div className="flex items-start justify-between gap-4 border-t border-border bg-bg-elevated/30 px-3 py-4">
                       <p className="mt-2 max-w-sm text-xs text-text-muted">{t('ai.communication.mailboxLanguageHint')}</p>

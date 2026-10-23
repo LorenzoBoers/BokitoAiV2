@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { FolderOpen, Plus } from 'lucide-react'
 import { toast } from 'sonner'
@@ -140,16 +141,16 @@ export function FiltersetHeading({
               />
             ))}
             {canEdit ? (
-              <button
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={() => setOpen(true)}
                 disabled={savingTags}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
+                className="shrink-0"
                 aria-label={addAria}
                 title={addAria}
               >
                 <Plus size={14} aria-hidden />
-              </button>
+              </Button>
             ) : null}
             {canEdit && names.length === 0 ? (
               <span className="px-0.5 text-xs text-text-muted">{addAria}</span>

@@ -69,7 +69,7 @@ export function NameEdit({
       el.focus()
       el.select()
     }
-    // Hug the text: HTML size=chars overestimates with proportional fonts.
+    // Hug the text: HTML size="chars" overestimates with proportional fonts.
     el.style.width = '0px'
     el.style.width = `${Math.max(el.scrollWidth, 48)}px`
   }, [editing, value])

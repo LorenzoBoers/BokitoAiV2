@@ -102,17 +102,17 @@ export function RecurringWakeBanner() {
       data-testid="recurring-wake-banner"
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-ai/10" aria-hidden />
-      <button
+      <Button variant="ghost" size="iconSm"
         type="button"
         onClick={() => {
           writeDismissed(workspaceId)
           setDismissed(true)
         }}
-        className="absolute right-2 top-2 rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-heading"
+        className="absolute right-2 top-2"
         aria-label={t('cockpitPage.recurringWake.dismiss')}
       >
         <X className="h-3.5 w-3.5" aria-hidden />
-      </button>
+      </Button>
       <div className="flex items-center gap-4 px-4 py-3.5 pr-10">
         <WatchMark />
         <div className="min-w-0 flex-1">

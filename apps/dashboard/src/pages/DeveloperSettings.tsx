@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { Pressable } from '../components/ui/pressable'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -307,14 +308,14 @@ function ApiTokensSection({
             <Label>{t('developersPage.scopes')}</Label>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {TOKEN_SCOPE_PRESETS.map((preset) => (
-                <button
+                <Button variant="secondary" size="xs"
                   key={preset.id}
                   type="button"
                   onClick={() => setScopes([...preset.scopes])}
-                  className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-border-light hover:text-accent"
+                 
                 >
                   {t(`developersPage.preset.${preset.id}`)}
-                </button>
+                </Button>
               ))}
             </div>
             <div className="mt-2 space-y-2">
@@ -862,10 +863,9 @@ export default function DeveloperSettings() {
                       <code className="rounded bg-bg-surface-hover px-1.5 py-0.5 font-mono text-xs text-text-secondary">
                         {endpoint.secret.slice(0, 12)}...
                       </code>
-                      <button
-                        type="button"
+                      <TextLink tone="muted"
                         onClick={() => handleCopySecret(endpoint)}
-                        className="flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
+                        className="text-xs"
                       >
                         {copiedId === endpoint.id ? (
                           <>
@@ -876,7 +876,7 @@ export default function DeveloperSettings() {
                             <Copy size={14} /> {t('developersPage.webhooks.copy')}
                           </>
                         )}
-                      </button>
+                      </TextLink>
                     </div>
                   ) : null}
                   <TextLink
@@ -932,7 +932,7 @@ export default function DeveloperSettings() {
                         </table>
                       )}
                       {deliveryNext[endpoint.id] != null ? (
-                        <button
+                        <Pressable
                           type="button"
                           className="w-full px-3 py-2 text-left text-xs font-medium text-accent hover:underline disabled:opacity-60"
                           disabled={loadingMoreDeliveries === endpoint.id}
@@ -941,7 +941,7 @@ export default function DeveloperSettings() {
                           {loadingMoreDeliveries === endpoint.id
                             ? t('developersPage.webhooks.loadingMore')
                             : t('developersPage.webhooks.loadMore')}
-                        </button>
+                        </Pressable>
                       ) : null}
                     </div>
                   ) : null}

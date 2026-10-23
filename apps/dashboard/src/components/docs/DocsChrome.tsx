@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -112,14 +113,13 @@ export function DocsHeader({
       <header className="docs-header z-20">
         <div className="flex h-14 w-full items-center gap-3 px-4 sm:px-6 lg:px-8">
           {onOpenNav ? (
-            <button
-              type="button"
+            <Pressable
               onClick={onOpenNav}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--docs-muted)] hover:bg-[var(--docs-hover)] hover:text-[var(--docs-fg)] lg:hidden"
               aria-label={t('docs.openNav')}
             >
               <Menu className="h-4 w-4" aria-hidden />
-            </button>
+            </Pressable>
           ) : null}
 
           <Link
@@ -138,8 +138,7 @@ export function DocsHeader({
           </Link>
 
           <div className="mx-auto min-w-0 max-w-md flex-1">
-            <button
-              type="button"
+            <Pressable
               onClick={() => setSearchOpen(true)}
               className="docs-search-trigger flex h-9 w-full items-center gap-2 px-3.5 text-left text-sm transition-colors"
             >
@@ -148,7 +147,7 @@ export function DocsHeader({
               <kbd className="hidden shrink-0 rounded-md bg-[var(--docs-kbd)] px-1.5 py-0.5 font-mono text-2xs text-[var(--docs-muted)] sm:inline">
                 Ctrl+K
               </kbd>
-            </button>
+            </Pressable>
           </div>
 
           <nav className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -231,14 +230,13 @@ function DocsLangPicker({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center gap-1 rounded-full border border-[var(--docs-border)] bg-transparent px-2 text-sm text-[var(--docs-fg)] transition-colors hover:border-[var(--docs-active-ring)] hover:bg-[var(--docs-hover)]"
+        <Pressable
+          className="w-auto inline-flex h-9 items-center gap-1 rounded-full border border-[var(--docs-border)] bg-transparent px-2 text-sm text-[var(--docs-fg)] transition-colors hover:border-[var(--docs-active-ring)] hover:bg-[var(--docs-hover)]"
           aria-label={`${t('docs.language')}: ${t(active.labelKey)}`}
         >
           <ActiveFlag className="h-4 w-4 shrink-0 rounded-full ring-1 ring-white/15" />
           <ChevronDown className="h-3.5 w-3.5 text-[var(--docs-muted)]" aria-hidden />
-        </button>
+        </Pressable>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -333,9 +331,8 @@ function DocsSearchDialog({
             <p className="px-4 py-6 text-sm text-[var(--docs-muted)]">{t('docs.noResults')}</p>
           ) : (
             results.map((row) => (
-              <button
+              <Pressable
                 key={`${row.slug}:${row.heading}`}
-                type="button"
                 onClick={() => goTo(row.path)}
                 className="block w-full border-b border-[var(--docs-border)] px-4 py-2.5 text-left last:border-b-0 hover:bg-[var(--docs-hover)]"
               >
@@ -346,7 +343,7 @@ function DocsSearchDialog({
                   ) : null}
                 </p>
                 <p className="mt-0.5 line-clamp-2 text-xs text-[var(--docs-muted)]">{row.snippet}</p>
-              </button>
+              </Pressable>
             ))
           )}
         </div>

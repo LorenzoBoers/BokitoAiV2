@@ -5,6 +5,7 @@
  * this button) sends what was heard.
  * DictationLevelMeter, drawn to the left, scrolls a frozen wave right to left.
  */
+import { Pressable } from '../ui/pressable'
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { Mic } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -326,8 +327,7 @@ export function DictationMicButton({
   // a Tooltip here previously crashed the whole page when Provider context
   // did not match across chunks.
   return (
-    <button
-      type="button"
+    <Pressable
       disabled={disabled}
       aria-pressed={listening}
       aria-label={label}
@@ -336,7 +336,7 @@ export function DictationMicButton({
       onPointerUp={finishPointer}
       onPointerCancel={finishPointer}
       className={cn(
-        'relative flex shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40',
+        'w-auto relative flex shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40',
         dim,
         listening
           ? 'text-text-muted hover:bg-bg-hover'
@@ -349,6 +349,6 @@ export function DictationMicButton({
       ) : (
         <Mic size={size === 'sm' ? 16 : 18} />
       )}
-    </button>
+    </Pressable>
   )
 }

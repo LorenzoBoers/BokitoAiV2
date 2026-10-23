@@ -1,3 +1,4 @@
+import { FilterChip } from '../ui/filter-chip'
 import { Card } from '../ui/card'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -143,19 +144,13 @@ export function ConnectionRow({
                     const isCompanyDefault = defaultCompanyId != null && company.id === defaultCompanyId
                     return (
                       <li key={company.id || company.name}>
-                        <button
-                          type="button"
+                        <FilterChip active={isCompanyDefault}
                           disabled={busy || !company.id || !row.ready || !onSetDefault}
                           onClick={() => onSetDefault?.(company.id)}
-                          className={cn(
-                            'rounded-md border px-2 py-0.5 text-xs',
-                            isCompanyDefault
-                              ? 'border-border-light bg-bg-hover text-text-heading'
-                              : 'border-border text-text-secondary hover:border-border-light',
-                          )}
+                         
                         >
                           {company.name || company.id}
-                        </button>
+                        </FilterChip>
                       </li>
                     )
                   })}

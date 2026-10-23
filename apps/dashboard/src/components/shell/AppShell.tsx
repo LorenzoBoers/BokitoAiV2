@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -204,10 +205,9 @@ export default function AppShell() {
             {/* Mobile drawer */}
             {drawerOpen ? (
               <div className="fixed inset-0 z-50 lg:hidden">
-                <button
-                  type="button"
+                <Pressable
                   aria-label={t('topbar.closeNavigation')}
-                  className="scrim absolute inset-0 animate-fade-in"
+                  className="scrim absolute inset-0 rounded-none animate-fade-in"
                   onClick={() => setDrawerOpen(false)}
                 />
                 <div className="absolute inset-y-0 left-0 w-rail bg-bg-sidebar shadow-overlay animate-slide-in-left">

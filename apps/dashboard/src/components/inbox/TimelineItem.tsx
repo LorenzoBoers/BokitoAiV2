@@ -1,4 +1,6 @@
+import { Pressable } from '../ui/pressable'
 import { Spinner } from '../ui/spinner'
+import { TextLink } from '../ui/text-link'
 import {
   AlertCircle,
   Bell,
@@ -771,35 +773,32 @@ a { color: #2563eb; }
         />
         {heightCapped ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-14 items-end bg-gradient-to-t from-bg-surface via-bg-surface/95 to-transparent pb-1.5">
-            <button
-              type="button"
-              className="pointer-events-auto text-xs font-medium text-text-muted hover:text-text-primary"
+            <TextLink tone="muted"
+              className="text-xs pointer-events-auto"
               onClick={() => setExpandedFull(true)}
             >
               {t('timeline.showFullMessage')}
-            </button>
+            </TextLink>
           </div>
         ) : null}
       </div>
       {canCollapseHeight || showQuoteToggle ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1">
           {canCollapseHeight ? (
-            <button
-              type="button"
-              className="text-xs font-medium text-text-muted hover:text-text-primary"
+            <TextLink tone="muted"
+              className="text-xs"
               onClick={() => setExpandedFull(false)}
             >
               {t('timeline.showLessMessage')}
-            </button>
+            </TextLink>
           ) : null}
           {showQuoteToggle ? (
-            <button
-              type="button"
-              className="text-xs font-medium text-text-muted hover:text-text-primary"
+            <TextLink tone="muted"
+              className="text-xs"
               onClick={() => applyQuoteCollapse(!quotesCollapsed)}
             >
               {quotesCollapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')}
-            </button>
+            </TextLink>
           ) : null}
         </div>
       ) : null}
@@ -911,13 +910,12 @@ function PlainMessageBody({
   return (
     <div className="space-y-1.5">
       <ChatText content={expanded ? text : head} tags={tags} mentions={mentions} />
-      <button
-        type="button"
-        className="text-xs font-medium text-text-muted hover:text-text-primary"
+      <TextLink tone="muted"
+        className="text-xs"
         onClick={() => setExpanded((v) => !v)}
       >
         {expanded ? t('timeline.hideQuoted') : t('timeline.showQuoted')}
-      </button>
+      </TextLink>
     </div>
   )
 }
@@ -2270,22 +2268,22 @@ export function MessageTimelineItem({
         className="w-full min-w-52 resize-y rounded-md border border-border bg-bg-surface px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
       />
       <div className="flex items-center gap-1.5">
-        <button
+        <Button size="xs"
           type="button"
           disabled={noteBusy || !noteDraft.trim()}
           onClick={() => void saveNote()}
-          className="rounded-md bg-accent px-2 py-1 text-xs font-medium text-accent-fg hover:bg-accent/90 disabled:opacity-40"
+         
         >
           {t('timeline.events.save')}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="xs"
           type="button"
           disabled={noteBusy}
           onClick={() => setEditingNote(false)}
-          className="rounded-md px-2 py-1 text-xs text-text-muted hover:text-text-primary disabled:opacity-40"
+          className="text-text-muted"
         >
           {t('composer.cancel')}
-        </button>
+        </Button>
       </div>
     </div>
   ) : usePlainBody ? (
@@ -2304,13 +2302,12 @@ export function MessageTimelineItem({
       )}
       {deliveryNotice && htmlSource ? (
         <div className="pt-1">
-          <button
-            type="button"
-            className="text-xs font-medium text-text-muted hover:text-text-primary"
+          <TextLink tone="muted"
+            className="text-xs"
             onClick={() => setShowDeliveryOriginal((open) => !open)}
           >
             {showDeliveryOriginal ? t('timeline.showLessMessage') : t('timeline.showFullMessage')}
-          </button>
+          </TextLink>
           {showDeliveryOriginal ? (
             <div className="pt-1.5">
               <MessageHtmlBody
@@ -2626,8 +2623,7 @@ export function MessageTimelineItem({
             {failReason ? ` - ${failReason}` : ''}
           </span>
           {onRetrySend ? (
-            <button
-              type="button"
+            <TextLink tone="muted"
               disabled={retrying}
               onClick={() => {
                 setRetrying(true)
@@ -2635,24 +2631,23 @@ export function MessageTimelineItem({
                   setRetrying(false),
                 )
               }}
-              className="text-2xs font-medium text-status-error underline-offset-2 hover:underline disabled:opacity-50"
+              className="text-2xs text-status-error"
             >
               {retrying ? t('timeline.sending') : t('timeline.retrySend')}
-            </button>
+            </TextLink>
           ) : null}
           {displayBody ? (
-            <button
-              type="button"
+            <TextLink
               onClick={() => {
                 void navigator.clipboard.writeText(displayBody).then(
                   () => toast.success(t('timeline.bodyCopied')),
                   () => toast.error(t('timeline.copyFailed')),
                 )
               }}
-              className="text-2xs font-medium text-accent hover:underline"
+              className="text-2xs"
             >
               {t('timeline.copyBody')}
-            </button>
+            </TextLink>
           ) : null}
         </div>
       )
@@ -2839,9 +2834,8 @@ export function MessageTimelineItem({
         <Tooltip>
           <TooltipTrigger asChild>
             {canCancel ? (
-              <button
-                type="button"
-                className="inline-flex rounded-sm hover:opacity-100"
+              <Pressable
+                className="w-auto inline-flex rounded-sm hover:opacity-100"
                 aria-label={t('timeline.cancelSend')}
                 onClick={() => {
                   void cancelScheduledMessage(token, String(message.id)).then(
@@ -2851,7 +2845,7 @@ export function MessageTimelineItem({
                 }}
               >
                 {mark}
-              </button>
+              </Pressable>
             ) : (
               mark
             )}

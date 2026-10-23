@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import {
   AlertCircle,
@@ -219,7 +220,7 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
 
     if (node.kind === 'sink_open' || node.kind === 'sink_closed_without_result') {
       return (
-        <button
+        <Pressable
           key={key}
           {...common}
           className={cn(
@@ -232,13 +233,13 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
             {node.kind === 'sink_open' ? node.open || node.count : node.count || '-'}
           </span>
           {lens === 'labels' ? <LabelBar node={node} data={data} /> : null}
-        </button>
+        </Pressable>
       )
     }
 
     if (node.kind === 'reply' || node.kind === 'folder') {
       return (
-        <button
+        <Pressable
           key={key}
           {...common}
           className={cn(
@@ -292,13 +293,13 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
             </span>
           )}
           {lens === 'labels' ? <LabelBar node={node} data={data} /> : null}
-        </button>
+        </Pressable>
       )
     }
 
     const executor = node.layer === 'executor'
     return (
-      <button
+      <Pressable
         key={key}
         {...common}
         style={{ ...style, ...autonomyEdge }}
@@ -326,7 +327,7 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
           <span className="block truncate text-2xs">{subtitle(node, card)}</span>
           {lens === 'labels' && !card.ghost ? <LabelBar node={node} data={data} /> : null}
         </span>
-      </button>
+      </Pressable>
     )
   }
 

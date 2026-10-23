@@ -1,5 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { Spinner } from '../components/ui/spinner'
+import { Pressable } from '../components/ui/pressable'
+import { TextLink } from '../components/ui/text-link'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CheckCircle, AlertCircle, Mail } from 'lucide-react'
@@ -132,7 +134,7 @@ export default function VerifyEmail() {
           <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
             {devLink}
           </Link>
-          <button
+          <Pressable
             type="button"
             className="mt-2 block text-xs font-medium text-accent hover:underline"
             onClick={() => {
@@ -143,19 +145,18 @@ export default function VerifyEmail() {
             }}
           >
             {t('verifyEmailPage.copyLink')}
-          </button>
+          </Pressable>
         </div>
       ) : null}
 
       <div className="mt-6 text-center">
-        <button
-          type="button"
+        <TextLink
           onClick={() => navigate('/login')}
-          className="inline-flex items-center gap-2 text-sm text-accent hover:text-accent-hover transition-colors"
+          className="text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
           {t('loginPage.backToSignIn')}
-        </button>
+        </TextLink>
       </div>
     </AuthShell>
   )

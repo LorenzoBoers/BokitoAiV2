@@ -213,14 +213,14 @@ export default function ContactsPage() {
   const loadMoreButton =
     moreOffset == null ? null : (
       <div className="flex justify-center border-t border-border px-4 py-3">
-        <button
+        <Button variant="secondary" size="xs"
           type="button"
           disabled={loadingMore}
           onClick={() => void loadMore()}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+         
         >
           {loadingMore ? t('contactsPage.loadingMore') : t('contactsPage.loadMore')}
-        </button>
+        </Button>
       </div>
     )
 
@@ -329,37 +329,37 @@ export default function ContactsPage() {
         subtitle={t('tabs.contacts.subtitle')}
         actions={
           <>
-            <button
+            <Button variant="secondary" size="xs"
               type="button"
               onClick={() => void load()}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
+             
             >
               {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('contactsPage.refresh')}
-            </button>
+            </Button>
             {view === 'companies' ? (
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 disabled={backfilling}
                 onClick={() => void handleBackfill()}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover disabled:opacity-50"
+               
               >
                 {backfilling ? <Spinner size="sm" /> : <Building2 size={12} />}
                 {t('contactsPage.linkContacts')}
-              </button>
+              </Button>
             ) : null}
           </>
         }
         primaryAction={
           view === 'companies' ? undefined : (
-            <button
+            <Button size="xs"
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
+             
             >
               <Plus size={14} />
               {t('contactsPage.newContact')}
-            </button>
+            </Button>
           )
         }
       />
@@ -413,22 +413,22 @@ export default function ContactsPage() {
           <p className="text-xs text-text-muted">{t('contactsPage.statusPendingHint')}</p>
           {sorted.length > 0 ? (
             <>
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkStatus('approved')}
-                className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:text-text-primary disabled:opacity-50"
+               
               >
                 {t('contactsPage.approveAll')}
-              </button>
-              <button
+              </Button>
+              <Button variant="destructive" size="xs"
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkStatus('blocked')}
-                className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:text-status-error disabled:opacity-50"
+               
               >
                 {t('contactsPage.blockAll')}
-              </button>
+              </Button>
             </>
           ) : null}
         </div>
@@ -528,13 +528,13 @@ export default function ContactsPage() {
           <UserRound size={22} className="mx-auto text-text-muted" />
           <h2 className="mt-3 text-lg font-semibold text-text-heading">{t('contactsPage.couldNotLoad')}</h2>
           <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">{listError}</p>
-          <button
+          <Button variant="secondary" size="xs"
             type="button"
             onClick={() => void load()}
-            className="mt-4 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:border-border-light hover:text-text-primary"
+            className="mt-4"
           >
             {t('contactsPage.tryAgain')}
-          </button>
+          </Button>
         </div>
       ) : view === 'companies' ? (
         companies.length === 0 ? (
@@ -550,14 +550,14 @@ export default function ContactsPage() {
             </p>
             {search.trim() ? null : (
               <div className="mt-4 flex flex-col items-center gap-3">
-                <button
+                <Button size="xs"
                   type="button"
                   disabled={backfilling}
                   onClick={() => void handleBackfill()}
-                  className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+                 
                 >
                   {backfilling ? t('contactsPage.linking') : t('contactsPage.linkContacts')}
-                </button>
+                </Button>
                 <Link to="/docs/inbox/contacts" className="text-xs font-medium text-accent hover:underline">
                   {t('pageGuides.learnMore')}
                 </Link>
@@ -619,16 +619,16 @@ export default function ContactsPage() {
               : t('contactsPage.noContactsHint')}
           </p>
           {filtered ? (
-            <button
+            <Button variant="secondary" size="xs"
               type="button"
               onClick={() => {
                 setSearch('')
                 setStatusFilter('all')
               }}
-              className="mt-4 rounded-lg border border-border px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+              className="mt-4"
             >
               {t('contactsPage.clearFiltersAction')}
-            </button>
+            </Button>
           ) : (
             <div className="mt-4 flex flex-col items-center gap-3">
               <Link
@@ -697,7 +697,7 @@ export default function ContactsPage() {
                         </span>
                       </Link>
                       {contact.threadCount > 0 ? (
-                        <button
+                        <Button variant="ghost" size="iconSm"
                           type="button"
                           title={t('contactsPage.openConversationHint')}
                           aria-label={t('contactsPage.openConversation')}
@@ -712,10 +712,10 @@ export default function ContactsPage() {
                               navigate(`/contacts/${contact.id}`)
                             }
                           }}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
+                          className="shrink-0"
                         >
                           <MessageSquare size={13} />
-                        </button>
+                        </Button>
                       ) : null}
                       {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                         <Link

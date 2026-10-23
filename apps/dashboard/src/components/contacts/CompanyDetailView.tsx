@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Button } from '../ui/button'
 import { useCallback, useEffect, useState } from 'react'
 import { timeAgo } from '../../lib/time-ago'
 import { Link, useNavigate } from 'react-router-dom'
@@ -145,15 +146,15 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
         back={{ to: '/contacts', label: t('contactsPage.allContacts') }}
         actions={
           <>
-            <button
+            <Button variant="destructive" size="xs"
               type="button"
               disabled={saving}
               onClick={() => void remove()}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+             
             >
               <Trash2 size={14} />
               {t('contactsPage.delete')}
-            </button>
+            </Button>
           </>
         }
       />
@@ -182,15 +183,15 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                 />
               </label>
               {dirty ? (
-                <button
+                <Button size="xs"
                   type="button"
                   disabled={saving}
                   onClick={() => void save()}
-                  className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                 
                 >
                   <Check size={14} />
                   {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
-                </button>
+                </Button>
               ) : null}
             </div>
   

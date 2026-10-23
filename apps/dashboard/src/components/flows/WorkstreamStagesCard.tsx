@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import {
   DndContext,
@@ -385,18 +386,18 @@ function SortablePhaseCard({
     >
       <header className="flex items-center gap-1.5 border-b border-border px-2 py-2.5 sm:px-3">
         {canEdit ? (
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
             {...attributes}
             {...listeners}
-            className="shrink-0 cursor-grab touch-none rounded-md p-1 text-text-muted hover:bg-bg-muted/70 hover:text-text-primary active:cursor-grabbing"
+            className="shrink-0 cursor-grab touch-none active:cursor-grabbing"
             aria-label={t('workstreamsPage.stages.dragAria', {
               defaultValue: 'Drag to reorder',
               name: stage.name || String(index + 1),
             })}
           >
             <GripVertical size={16} />
-          </button>
+          </Button>
         ) : null}
         <StageProgressIcon kind={stage.kind} fill={fill} size={18} />
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -507,7 +508,7 @@ function StageFieldsBlock({
   const rowId = stage.dragId || stage.key || 'stage'
   return (
         <div className="space-y-2 rounded-lg border border-border bg-bg-muted/20 p-2.5">
-          <button
+          <Pressable
             type="button"
             onClick={() => setFieldsOpen((open) => !open)}
             aria-expanded={fieldsOpen}
@@ -524,7 +525,7 @@ function StageFieldsBlock({
                 {fieldCount}
               </span>
             ) : null}
-          </button>
+          </Pressable>
           {fieldsOpen ? (
             <p className="text-2xs leading-snug text-text-muted">{t('workstreamsPage.stages.fieldsHint')}</p>
           ) : null}
@@ -652,7 +653,7 @@ function StageFieldsBlock({
                     </div>
                   ))}
                   {canEdit && (field.options?.length ?? 0) < MAX_ENUM_OPTIONS ? (
-                    <button
+                    <Pressable
                       type="button"
                       onClick={() => {
                         const fields = [...(stage.fields ?? [])]
@@ -666,14 +667,14 @@ function StageFieldsBlock({
                     >
                       <Plus size={14} />
                       {t('workstreamsPage.stages.fieldOptionAdd')}
-                    </button>
+                    </Pressable>
                   ) : null}
                 </div>
               ) : null}
             </div>
           )) : null}
           {fieldsOpen && canEdit && fieldCount < MAX_FIELDS ? (
-            <button
+            <Pressable
               type="button"
               onClick={() =>
                 onUpdate({
@@ -687,7 +688,7 @@ function StageFieldsBlock({
             >
               <Plus size={14} />
               {t('workstreamsPage.stages.fieldAdd')}
-            </button>
+            </Pressable>
           ) : null}
         </div>
   )
@@ -1080,8 +1081,7 @@ export function WorkstreamStagesCard({
               ))}
 
               {canEdit ? (
-                <button
-                  type="button"
+                <Pressable
                   onClick={add}
                   className="flex min-h-[220px] w-[140px] min-w-[120px] max-w-[160px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-bg-muted/15 px-4 text-sm text-text-muted transition-colors hover:border-accent/50 hover:bg-bg-muted/35 hover:text-text-primary"
                 >
@@ -1089,7 +1089,7 @@ export function WorkstreamStagesCard({
                   <span className="text-center text-xs font-medium leading-snug">
                     {t('workstreamsPage.stages.add')}
                   </span>
-                </button>
+                </Pressable>
               ) : null}
             </div>
           </SortableContext>

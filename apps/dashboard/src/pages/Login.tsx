@@ -1,5 +1,7 @@
 ﻿import { useState, FormEvent, useEffect } from 'react';
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { Spinner } from '../components/ui/spinner'
+import { Pressable } from '../components/ui/pressable'
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { TwoFactorRequiredError, WorkspaceRequiredError, useAuth } from '../context/AuthContext';
@@ -253,29 +255,24 @@ export default function Login() {
       subtitle={t('loginPage.subtitle')}
       intro={t('loginPage.about')}
       above={
-        <div className="flex items-center justify-center gap-2 text-xs">
-          {(['nl', 'en'] as const).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              onClick={() => {
-                void i18n.changeLanguage(lang);
-                document.documentElement.lang = lang;
-                try {
-                  window.localStorage.setItem('bokito-language', lang);
-                } catch {
-                  /* private mode */
-                }
-              }}
-              className={`rounded-md px-2 py-1 ${
-                (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
-                  ? 'bg-bg-hover font-medium text-text-heading'
-                  : 'text-text-muted hover:text-text-primary'
-              }`}
-            >
-              {lang === 'nl' ? t('loginPage.languageNl') : t('loginPage.languageEn')}
-            </button>
-          ))}
+        <div className="flex justify-center">
+          <SegmentedControl
+            size="sm"
+            value={(i18n.resolvedLanguage ?? i18n.language).startsWith('nl') ? 'nl' : 'en'}
+            onChange={(lang) => {
+              void i18n.changeLanguage(lang);
+              document.documentElement.lang = lang;
+              try {
+                window.localStorage.setItem('bokito-language', lang);
+              } catch {
+                /* private mode */
+              }
+            }}
+            options={[
+              { value: 'nl', label: t('loginPage.languageNl') },
+              { value: 'en', label: t('loginPage.languageEn') },
+            ]}
+          />
         </div>
       }
       below={
@@ -319,14 +316,14 @@ export default function Login() {
                             : t('loginPage.roleLabel', { role: invite.role })}
                         </p>
                       </div>
-                      <button
+                      <Button size="xs"
                         type="button"
                         disabled={isLoading}
                         onClick={() => void handleAcceptPendingInvite(invite.id)}
-                        className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60 transition"
+                        className="shrink-0"
                       >
                         {t('loginPage.join')}
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -358,7 +355,7 @@ export default function Login() {
                 </div>
               )}
 
-              <button
+              <Pressable
                 type="button"
                 onClick={() => {
                   setWorkspaceSetup(null);
@@ -368,7 +365,7 @@ export default function Login() {
                 className="w-full text-center text-sm text-accent hover:text-accent-hover transition-colors"
               >
                 {t('loginPage.backToSignIn')}
-              </button>
+              </Pressable>
             </div>
           ) : twoFactorChallenge ? (
             <form onSubmit={handleTotpSubmit} className="space-y-5">
@@ -416,7 +413,7 @@ export default function Login() {
                   t('loginPage.verify')
                 )}
               </Button>
-              <button
+              <Pressable
                 type="button"
                 onClick={() => {
                   setTwoFactorChallenge('');
@@ -426,7 +423,7 @@ export default function Login() {
                 className="w-full text-center text-sm text-accent hover:text-accent-hover transition-colors"
               >
                 {t('loginPage.backToSignIn')}
-              </button>
+              </Pressable>
             </form>
           ) : (
           <>
@@ -467,14 +464,13 @@ export default function Login() {
                   className="h-10 pr-10"
                   placeholder={t('loginPage.passwordPlaceholder')}
                 />
-                <button
-                  type="button"
+                <Pressable
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
+                  className="w-auto text-center absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                </Pressable>
               </div>
             </div>
 

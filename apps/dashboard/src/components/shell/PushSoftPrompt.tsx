@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { BellRing, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -74,22 +75,22 @@ export default function PushSoftPrompt() {
       <span className="min-w-0 truncate-fade">
         {error ?? t('pushSoftPrompt.body')}
       </span>
-      <button
+      <Button variant="secondary" size="xs"
         type="button"
         disabled={busy || !token}
         onClick={() => void enable()}
-        className="ml-auto shrink-0 h-6 rounded-md border border-border px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-50"
+        className="ml-auto shrink-0"
       >
         {t('pushSoftPrompt.enable')}
-      </button>
-      <button
+      </Button>
+      <Button variant="ghost" size="iconSm"
         type="button"
         onClick={hide}
         aria-label={t('pushSoftPrompt.dismiss')}
-        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
+        className="shrink-0"
       >
         <X size={14} aria-hidden />
-      </button>
+      </Button>
     </div>
   )
 }

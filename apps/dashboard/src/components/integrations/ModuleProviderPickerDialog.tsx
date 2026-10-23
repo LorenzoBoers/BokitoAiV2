@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Pressable } from '../ui/pressable'
 import { Clock } from 'lucide-react'
 import {
   Dialog,
@@ -51,7 +52,7 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
               const planned = item.status === 'coming_soon'
               return (
                 <li key={item.key}>
-                  <button
+                  <Pressable
                     type="button"
                     disabled={planned}
                     className={`flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left ${
@@ -95,7 +96,7 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
                         {t('integrations.actions.comingSoon', { defaultValue: 'Coming soon' })}
                       </span>
                     ) : null}
-                  </button>
+                  </Pressable>
                 </li>
               )
             })}

@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useEffect, useState } from 'react'
 import { AlertCircle, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -65,14 +66,13 @@ export default function ConnectionStatus({
   if (status === 'disconnected') {
     return (
       <Tip label={title}>
-        <button
-          type="button"
+        <Pressable
           onClick={() => window.location.reload()}
-          className={cn('inline-flex items-center gap-1.5 hover:text-text-primary', tone)}
+          className={cn('w-auto inline-flex items-center gap-1.5 hover:text-text-primary', tone)}
         >
           {body}
           <span className="underline decoration-border/80 underline-offset-2">{t('gateway.reload')}</span>
-        </button>
+        </Pressable>
       </Tip>
     )
   }

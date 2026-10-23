@@ -1,4 +1,6 @@
 import { Card } from '../components/ui/card'
+import { Pressable } from '../components/ui/pressable'
+import { Button } from '../components/ui/button'
 import { Avatar } from '../components/ui/avatar'
 import { Spinner } from '../components/ui/spinner'
 import { PageHeader } from '../components/ui/page-header'
@@ -354,13 +356,13 @@ export default function OnboardingWizardPage() {
           className="mb-0 items-center"
           title={isOwnerScope ? t('title') : t('memberTitle')}
           primaryAction={
-            <button
+            <Button variant="ghost" size="xs"
               type="button"
               onClick={() => void logout()}
-              className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
+             
             >
               {t('logout')}
-            </button>
+            </Button>
           }
         />
       </header>
@@ -575,7 +577,7 @@ export default function OnboardingWizardPage() {
               <h2 className="text-lg font-semibold text-text-heading">{t('channel.title')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('channel.subtitle')}</p>
             </div>
-            <button
+            <Pressable
               type="button"
               disabled={busy}
               onClick={() => {
@@ -593,30 +595,30 @@ export default function OnboardingWizardPage() {
               className="w-full rounded-lg border border-border-light bg-bg-hover px-4 py-3 text-sm font-semibold text-text-heading hover:bg-accent/15 disabled:opacity-60"
             >
               {t('channel.openChannels')}
-            </button>
+            </Pressable>
             <p className="text-center text-xs text-text-muted">{t('channel.later')}</p>
           </section>
         ) : null}
 
         <div className="mt-auto flex items-center justify-between gap-3 pt-8">
-          <button
+          <Button variant="ghost" size="md"
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || busy}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted disabled:opacity-40 hover:bg-bg-hover hover:text-text-primary"
+           
           >
             <ArrowLeft size={14} />
             {t('back')}
-          </button>
-          <button
+          </Button>
+          <Button size="md"
             type="button"
             onClick={() => void goNext()}
             disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+           
           >
             {busy ? t('saving') : stepIndex >= steps.length - 1 ? t('finish') : t('next')}
             {!busy ? <ArrowRight size={14} /> : <Spinner size="md" />}
-          </button>
+          </Button>
         </div>
       </main>
     </div>

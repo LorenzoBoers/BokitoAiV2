@@ -1,3 +1,5 @@
+import { FilterChip } from '../ui/filter-chip'
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -330,9 +332,8 @@ export default function AgendaRail(props: Props) {
                     {props.people.map((person) => {
                       const on = !props.hiddenOwners.has(ownerVisibilityKey('user', person.id))
                       return (
-                        <button
+                        <Pressable
                           key={person.id}
-                          type="button"
                           role="switch"
                           aria-checked={on}
                           onClick={() => props.onToggleOwner('user', person.id)}
@@ -356,7 +357,7 @@ export default function AgendaRail(props: Props) {
                           >
                             {person.name}
                           </span>
-                        </button>
+                        </Pressable>
                       )
                     })}
                   </SortableAgendaSection>
@@ -377,9 +378,8 @@ export default function AgendaRail(props: Props) {
                     {props.agents.map((agent) => {
                       const on = !props.hiddenOwners.has(ownerVisibilityKey('agent', agent.id))
                       return (
-                        <button
+                        <Pressable
                           key={agent.id}
-                          type="button"
                           role="switch"
                           aria-checked={on}
                           onClick={() => props.onToggleOwner('agent', agent.id)}
@@ -402,7 +402,7 @@ export default function AgendaRail(props: Props) {
                           >
                             {agent.name}
                           </span>
-                        </button>
+                        </Pressable>
                       )
                     })}
                   </SortableAgendaSection>
@@ -458,8 +458,7 @@ export default function AgendaRail(props: Props) {
                           }))
                     return (
                       <div key={connection.id}>
-                        <button
-                          type="button"
+                        <Pressable
                           role="switch"
                           aria-checked={on}
                           onClick={() => props.onToggleCalendar(connection.id)}
@@ -476,7 +475,7 @@ export default function AgendaRail(props: Props) {
                           >
                             {connection.account || connection.display_name}
                           </span>
-                        </button>
+                        </Pressable>
                         {connection.sync_status === 'error' && connection.sync_error ? (
                           <p className="ml-7 text-2xs text-status-error">
                             {syncProblemText(connection.sync_error, t)}
@@ -514,8 +513,7 @@ export default function AgendaRail(props: Props) {
                           const busy = enablingId === `${connection.id}|${cal.external_id}`
                           return (
                             <div key={cal.id}>
-                              <button
-                                type="button"
+                              <Pressable
                                 role="switch"
                                 aria-checked={shown}
                                 disabled={busy}
@@ -547,25 +545,19 @@ export default function AgendaRail(props: Props) {
                                 >
                                   {cal.name}
                                 </span>
-                              </button>
+                              </Pressable>
                               {cal.tags.length > 0 ? (
                                 <div className="ml-12 flex flex-wrap gap-1 pb-1">
                                   {cal.tags.map((tag) => {
                                     const active = props.calendarTagFilter?.includes(tag.name)
                                     return (
-                                      <button
+                                      <FilterChip
                                         key={tag.id}
-                                        type="button"
-                                        className={cn(
-                                          'rounded-md px-1.5 py-0.5 text-2xs',
-                                          active
-                                            ? 'bg-accent/15 text-accent'
-                                            : 'text-text-muted hover:bg-bg-elevated',
-                                        )}
+                                        active={active}
                                         onClick={() => props.onToggleCalendarTag?.(tag.name)}
                                       >
                                         #{tag.name}
-                                      </button>
+                                      </FilterChip>
                                     )
                                   })}
                                 </div>
@@ -591,13 +583,13 @@ export default function AgendaRail(props: Props) {
                               side="right"
                               className="max-w-56 text-left font-normal"
                             >
-                              <button
+                              <Button variant="ghost" size="iconSm"
                                 type="button"
-                                className="inline-flex shrink-0 rounded-full p-0.5 text-text-muted hover:text-text-heading focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                                className="shrink-0"
                                 aria-label={t('agendaPage.rail.connectCalendarsHint')}
                               >
                                 <Info className="h-3 w-3" aria-hidden />
-                              </button>
+                              </Button>
                             </Tip>
                           </p>
                           <Link
@@ -705,9 +697,8 @@ function MiniMonth({
           const outside = day.getMonth() !== month.getMonth()
           const inWeek = day.getTime() >= weekStart && day.getTime() < weekEnd
           return (
-            <button
+            <Pressable
               key={key}
-              type="button"
               onClick={() => onPickDay(day)}
               aria-current={key === todayKey ? 'date' : undefined}
               aria-pressed={key === anchorKey}
@@ -727,7 +718,7 @@ function MiniMonth({
               {busyDays.has(key) && key !== todayKey ? (
                 <span className="absolute bottom-0.5 h-1 w-1 rounded-full bg-accent/70" aria-hidden />
               ) : null}
-            </button>
+            </Pressable>
           )
         })}
       </div>

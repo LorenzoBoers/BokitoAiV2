@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useState } from 'react'
 import { Building2, Check, ChevronsUpDown, CircleHelp, LaptopMinimal, LogOut, Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -140,10 +141,9 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
     >
       <Tip label={collapsed ? name : undefined} side="right">
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
+          <Pressable
             aria-label={t('topbar.openUserMenu')}
-            className={`flex items-center gap-2 rounded-md text-left transition-colors hover:bg-bg-hover data-[state=open]:bg-bg-hover ${
+            className={`w-auto flex items-center gap-2 rounded-md text-left transition-colors hover:bg-bg-hover data-[state=open]:bg-bg-hover ${
               collapsed ? 'h-9 w-9 justify-center' : 'h-10 w-full px-1.5'
             }`}
           >
@@ -157,7 +157,7 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
                 <ChevronsUpDown size={14} className="shrink-0 text-text-muted" aria-hidden />
               </>
             )}
-          </button>
+          </Pressable>
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent

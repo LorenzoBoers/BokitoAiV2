@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Button } from '../ui/button'
 import { useCallback, useEffect, useState } from 'react'
 import { timeAgo } from '../../lib/time-ago'
 import { Link, useNavigate } from 'react-router-dom'
@@ -313,36 +314,36 @@ export function ContactDetail({ contactId }: { contactId: string }) {
               </Link>
             ) : null}
             {contact.status !== 'approved' ? (
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-success disabled:opacity-50"
+               
               >
                 <ShieldCheck size={14} />
                 {t('contactsPage.approve')}
-              </button>
+              </Button>
             ) : null}
             {contact.status !== 'blocked' ? (
-              <button
+              <Button variant="destructive" size="xs"
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('blocked')}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-error disabled:opacity-50"
+               
               >
                 <ShieldBan size={14} />
                 {t('contactsPage.block')}
-              </button>
+              </Button>
             ) : null}
-            <button
+            <Button variant="destructive" size="xs"
               type="button"
               disabled={saving}
               onClick={() => void removeContact()}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+             
             >
               <Trash2 size={14} />
               {t('contactsPage.delete')}
-            </button>
+            </Button>
           </>
         }
       />
@@ -390,15 +391,15 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                         <span className="ml-auto shrink-0 text-xs text-text-muted">
                           {identity.lastSeenAt ? timeAgo(identity.lastSeenAt, t) : ''}
                         </span>
-                        <button
+                        <Button variant="ghost" size="xs"
                           type="button"
                           disabled={saving}
                           onClick={() => void detachIdentity(identity.id)}
                           title={t('contactsPage.detachHint')}
-                          className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+                          className="shrink-0"
                         >
                           {t('contactsPage.detach')}
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -482,15 +483,15 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 />
               </label>
               {dirty ? (
-                <button
+                <Button size="xs"
                   type="button"
                   disabled={saving}
                   onClick={() => void save()}
-                  className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                 
                 >
                   <Check size={14} />
                   {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
-                </button>
+                </Button>
               ) : null}
             </div>
           </section>

@@ -1,4 +1,6 @@
+import { Pressable } from '../components/ui/pressable'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { TextLink } from '../components/ui/text-link'
 import type { AgentPassport } from '../lib/workforce-api'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -383,10 +385,9 @@ export default function AiAgentDetail() {
                 style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
               >
                 {isAdmin && agent.kind !== 'personal' ? (
-                  <button
-                    type="button"
+                  <Pressable
                     onClick={() => setIdentityOpen(true)}
-                    className="group relative z-[1] overflow-visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                    className="w-auto text-center group relative z-[1] overflow-visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
                     style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
                     aria-label={t('workforce.agents.editIdentity')}
                   >
@@ -407,7 +408,7 @@ export default function AiAgentDetail() {
                     >
                       <Pencil size={14} />
                     </span>
-                  </button>
+                  </Pressable>
                 ) : (
                   <Avatar
                     kind="agent"
@@ -442,26 +443,24 @@ export default function AiAgentDetail() {
                     {agent.job_title}
                   </p>
                 ) : isAdmin && agent.kind !== 'personal' ? (
-                  <button
-                    type="button"
+                  <TextLink tone="muted"
                     onClick={() => setIdentityOpen(true)}
-                    className="mt-1.5 text-sm text-text-muted transition-colors hover:text-text-secondary"
+                    className="text-sm mt-1.5"
                   >
                     {t('workforce.agents.profileAddJobTitle')}
-                  </button>
+                  </TextLink>
                 ) : null}
                 {agent.description ? (
                   <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-text-secondary">
                     {agent.description}
                   </p>
                 ) : isAdmin && agent.kind !== 'personal' ? (
-                  <button
-                    type="button"
+                  <TextLink tone="muted"
                     onClick={() => setIdentityOpen(true)}
-                    className="mt-1 text-sm text-text-muted transition-colors hover:text-text-secondary"
+                    className="text-sm mt-1"
                   >
                     {t('workforce.agents.profileAddDescription')}
-                  </button>
+                  </TextLink>
                 ) : null}
                 <AgentModuleOrigin agent={agent} linked />
                 {work === 'working' && (view?.current_activity_summary || live?.summary) ? (

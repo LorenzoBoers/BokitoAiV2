@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { Check, ChevronsUpDown, LayoutGrid, Gauge } from 'lucide-react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -115,10 +116,9 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
     <DropdownMenu>
       <Tip label={collapsed ? brandName : undefined} side="right">
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
+          <Pressable
             aria-label={t('topbar.switchWorkspace')}
-            className={`flex h-8 min-w-0 items-center gap-2 rounded-md text-sm font-medium text-text-heading transition-colors hover:bg-bg-hover data-[state=open]:bg-bg-hover ${
+            className={`w-auto flex h-8 min-w-0 items-center gap-2 rounded-md text-sm font-medium text-text-heading transition-colors hover:bg-bg-hover data-[state=open]:bg-bg-hover ${
               collapsed ? 'w-8 justify-center px-0' : 'flex-1 px-1.5'
             }`}
           >
@@ -129,7 +129,7 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
                 <ChevronsUpDown size={14} className="shrink-0 text-text-muted" aria-hidden />
               </>
             )}
-          </button>
+          </Pressable>
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent align="start" sideOffset={6} className="w-60">

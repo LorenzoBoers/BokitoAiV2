@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { ArrowUpRight, ChevronDown } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -191,8 +192,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
             {folders.length > 0 && onPatch ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
+                  <Pressable
                     disabled={saving}
                     aria-label={t('tickets.project', { ns: 'nav' })}
                     className={VALUE_BUTTON}
@@ -200,7 +200,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                     <FolderIcon size={12} className="shrink-0 text-text-muted" />
                     <span className="truncate" title={project.path ?? undefined}>{project.name}</span>
                     <ChevronDown size={14} className="text-text-muted" />
-                  </button>
+                  </Pressable>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="max-h-72 w-56 overflow-y-auto">
                   {folders.map((choice) => (
@@ -254,8 +254,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
               {onPatch ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
+                    <Pressable
                       disabled={saving}
                       aria-label={t('threadChrome.setPriority')}
                       className={VALUE_BUTTON}
@@ -263,7 +262,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                       <span className={`h-1 w-1 rounded-full ${priorityMeta.dot}`} />
                       {t(priorityMeta.labelKey)}
                       <ChevronDown size={14} className="text-text-muted" />
-                    </button>
+                    </Pressable>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-36">
                     {Object.entries(PRIORITY_META).map(([value, meta]) => (

@@ -1,3 +1,4 @@
+import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -285,20 +286,16 @@ export default function SetupHubPage() {
                         <div className="mt-2.5 flex flex-wrap gap-2">
                           {step.actions.map((action) =>
                             action.onClick ? (
-                              <button
+                              <Button variant={action.primary ? 'default' : 'secondary'} size="xs"
                                 key={action.label}
                                 type="button"
                                 disabled={action.busy}
                                 onClick={action.onClick}
-                                className={
-                                  action.primary
-                                    ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60'
-                                }
+                               
                               >
                                 {action.busy ? <Spinner size="sm" /> : null}
                                 {action.label}
-                              </button>
+                              </Button>
                             ) : (
                               <Link
                                 key={(action.to ?? '') + action.label}

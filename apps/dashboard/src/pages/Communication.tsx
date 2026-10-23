@@ -1,4 +1,6 @@
+import { Pressable } from '../components/ui/pressable'
 import { Mail, MessageSquare, SquarePen } from 'lucide-react'
+import { TextLink } from '../components/ui/text-link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -1621,13 +1623,13 @@ export default function Communication() {
     return (
       <div className="flex h-full flex-col items-start justify-center gap-3 px-4 py-8">
         <p className="text-sm text-status-error">{connectionsError}</p>
-        <button
+        <Button variant="secondary" size="xs"
           type="button"
           onClick={() => window.location.reload()}
-          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+         
         >
           {t('onboarding.retry')}
-        </button>
+        </Button>
       </div>
     )
   }
@@ -1637,20 +1639,20 @@ export default function Communication() {
       <div className="flex h-full max-w-md flex-col items-start justify-center gap-3 px-4 py-8">
         <p className="text-sm text-text-muted">{t('missingOrganisation')}</p>
         <div className="flex flex-wrap gap-2">
-          <button
+          <Button variant="secondary" size="xs"
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+           
           >
             {t('onboarding.retry')}
-          </button>
-          <button
+          </Button>
+          <Button variant="secondary" size="xs"
             type="button"
             onClick={() => void logout()}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+           
           >
             {t('signOut')}
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -1695,13 +1697,13 @@ export default function Communication() {
           <p className="text-sm text-status-error">
             {onboardingError === 'LOAD_FAILED' ? t('onboarding.loadError') : onboardingError}
           </p>
-          <button
+          <Button variant="secondary" size="xs"
             type="button"
             onClick={retryOnboarding}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+           
           >
             {t('onboarding.retry')}
-          </button>
+          </Button>
         </div>
       )
     }
@@ -1908,31 +1910,29 @@ export default function Communication() {
             }
             emptyHint={
               search.trim() ? (
-                <button
-                  type="button"
+                <TextLink
                   onClick={() => setSearch('')}
-                  className="mt-2 text-xs font-medium text-accent hover:underline"
+                  className="text-xs mt-2"
                 >
                   {t('inboxSearchClear')}
-                </button>
+                </TextLink>
               ) : hasFolderFilter ? (
-                <button
-                  type="button"
+                <TextLink
                   onClick={clearScope}
-                  className="mt-2 text-xs font-medium text-accent hover:underline"
+                  className="text-xs mt-2"
                 >
                   {t('threadList.clearScope')}
-                </button>
+                </TextLink>
               ) : scheduledMode ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
                   <p className="text-xs text-text-muted">{t('threadList.emptyScheduledHint')}</p>
-                  <button
+                  <Button variant="secondary" size="xs"
                     type="button"
                     onClick={() => setNewPlanOpen(true)}
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
+                   
                   >
                     {t('plan.newTitle')}
-                  </button>
+                  </Button>
                 </div>
               ) : leaf.type === 'inbox' && leaf.queue === 'spam' ? (
                 <div className="mt-2 flex flex-col items-center gap-2">
@@ -2084,9 +2084,8 @@ export default function Communication() {
       {/* Mobile/tablet: same context panel as a slide-over. */}
       {detail && showContactPanel && !isLgUp && !stagedCanvasId ? (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            className="scrim absolute inset-0"
+          <Pressable
+            className="scrim absolute inset-0 rounded-none"
             aria-label={t('split.closeContext')}
             onClick={toggleContactPanel}
           />

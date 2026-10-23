@@ -1,3 +1,4 @@
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -393,22 +394,15 @@ export default function ModuleSetupPage() {
             </div>
           ) : null}
 
-          <nav className="mb-6 flex flex-wrap gap-1 border-b border-border pb-px">
-            {tabs.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setTab(item.id)}
-                className={`rounded-t-md px-3 py-2 text-sm ${
-                  tab === item.id
-                    ? 'border-b-2 border-accent font-medium text-text-heading'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
+          <Tabs value={tab} onValueChange={(value) => setTab(value as ModuleTab)} className="mb-6">
+            <TabsList className="flex">
+              {tabs.map((item) => (
+                <TabsTrigger key={item.id} value={item.id}>
+                  {item.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
           {tab === 'overview' ? (
             <div className="space-y-8">

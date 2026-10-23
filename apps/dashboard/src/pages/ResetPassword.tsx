@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import { Pressable } from '../components/ui/pressable'
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
@@ -135,14 +136,13 @@ export default function ResetPassword() {
                   placeholder={t('resetPage.passwordPlaceholder')}
                   autoFocus
                 />
-                <button
-                  type="button"
+                <Pressable
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
+                  className="w-auto text-center absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                </Pressable>
               </div>
               {validation.errors.find(e => e.field === 'password') && (
                 <p className="text-sm text-status-error mt-1 flex items-center gap-1">
@@ -166,14 +166,13 @@ export default function ResetPassword() {
                   className="h-10 pr-10"
                   placeholder={t('resetPage.confirmPlaceholder')}
                 />
-                <button
-                  type="button"
+                <Pressable
                   onClick={() => setShowPasswordConfirmation(!showPasswordConfirmation)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
+                  className="w-auto text-center absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
                   tabIndex={-1}
                 >
                   {showPasswordConfirmation ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                </Pressable>
               </div>
               {validation.errors.find(e => e.field === 'passwordConfirmation') && (
                 <p className="text-sm text-status-error mt-1 flex items-center gap-1">

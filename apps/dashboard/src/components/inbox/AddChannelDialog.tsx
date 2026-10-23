@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -74,7 +75,7 @@ function ChoiceRow({
   className?: string
 }) {
   return (
-    <button
+    <Pressable
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -100,7 +101,7 @@ function ChoiceRow({
           className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-text-secondary"
         />
       )}
-    </button>
+    </Pressable>
   )
 }
 
@@ -120,7 +121,7 @@ function ProviderCard({
   badge?: string
 }) {
   return (
-    <button
+    <Pressable
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -145,7 +146,7 @@ function ProviderCard({
         <span className="block text-sm font-medium text-text-heading">{title}</span>
         <span className="mt-0.5 block text-xs leading-snug text-text-secondary">{hint}</span>
       </span>
-    </button>
+    </Pressable>
   )
 }
 

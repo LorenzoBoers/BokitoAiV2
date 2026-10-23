@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Button } from '../ui/button'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Bot, CalendarClock, Mail, MessageSquare, Sparkles, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -176,16 +177,16 @@ function NextStepCta({
 
   if (step.id === 'first_decision') {
     return (
-      <button type="button" onClick={start} disabled={starting} className={nextStepCtaClass}>
+      <Button size="md" type="button" onClick={start} disabled={starting} className="w-full font-semibold sm:w-auto">
         {t(`onboarding.steps.${step.id}.cta`)}
-      </button>
+      </Button>
     )
   }
   if (step.id === 'watching') {
     return (
-      <button type="button" onClick={enable} disabled={enabling} className={nextStepCtaClass}>
+      <Button size="md" type="button" onClick={enable} disabled={enabling} className="w-full font-semibold sm:w-auto">
         {enabling ? t('onboarding.steps.watching.enabling') : t(`onboarding.steps.${step.id}.cta`)}
-      </button>
+      </Button>
     )
   }
   return (
@@ -212,15 +213,15 @@ export default function OnboardingChecklist({
   return (
     <div className="relative mx-auto w-full max-w-[440px] space-y-6 px-4 py-12 text-center">
       {onDismiss ? (
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onDismiss}
           title={t('onboarding.dismiss')}
           aria-label={t('onboarding.dismiss')}
-          className="absolute right-2 top-4 flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          className="absolute right-2 top-4"
         >
           <X size={14} />
-        </button>
+        </Button>
       ) : null}
       <div className="space-y-3">
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">

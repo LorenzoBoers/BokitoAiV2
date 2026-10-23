@@ -1,3 +1,4 @@
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -61,14 +62,6 @@ function directoryTabCountTone(id: FilterTab, selected: boolean): BadgeTone {
   if (id === 'pending') return 'warning'
   if (id === 'deactivated') return 'error'
   return 'accent'
-}
-
-function directoryTabBorderClass(id: FilterTab, selected: boolean): string {
-  if (!selected) return 'border-transparent text-text-muted hover:text-text-secondary'
-  if (id === 'agents') return 'border-ai text-text-heading'
-  if (id === 'pending') return 'border-status-warning text-text-heading'
-  if (id === 'deactivated') return 'border-status-error text-text-heading'
-  return 'border-accent text-text-heading'
 }
 
 type Member = {
@@ -735,21 +728,18 @@ export default function MemberManagement({
 
       <Card id="directory" className="overflow-hidden p-0 scroll-mt-24">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 pt-3 pb-0">
-          <div className="flex flex-wrap items-center gap-0">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilterTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 pb-3 text-sm font-medium border-b-2 transition-colors ${directoryTabBorderClass(tab.id, filterTab === tab.id)}`}
-              >
-                {tab.label}
-                <Badge size="sm" variant={directoryTabCountTone(tab.id, filterTab === tab.id)} className="tabular-nums">
-                  {tab.count}
-                </Badge>
-              </button>
-            ))}
-          </div>
+          <Tabs value={filterTab} onValueChange={(value) => setFilterTab(value as FilterTab)}>
+            <TabsList className="-mb-px min-h-0 border-b-0">
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} className="h-auto px-3 pb-3">
+                  {tab.label}
+                  <Badge size="sm" variant={directoryTabCountTone(tab.id, filterTab === tab.id)} className="tabular-nums">
+                    {tab.count}
+                  </Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           <div className="pb-3">
             <SearchField
               value={search}
@@ -799,16 +789,16 @@ export default function MemberManagement({
                     action={
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         {search.trim() || filterTab !== 'all' ? (
-                          <button
+                          <Button size="xs"
                             type="button"
                             onClick={() => {
                               setSearch('')
                               setFilterTab('all')
                             }}
-                            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                           
                           >
                             {t('membersPage.clearFilters')}
-                          </button>
+                          </Button>
                         ) : canInviteMembers ? (
                           <a
                             href="#member-invite"

@@ -1,4 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { TextLink } from '../ui/text-link'
+import { Button } from '../ui/button'
+import { Pressable } from '../ui/pressable'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -837,13 +840,12 @@ export default function ReplyComposer({
         }}
       >
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
+          <Pressable
             title={t('composer.pickFocus')}
             aria-label={t('composer.pickFocus')}
             onClick={(event) => event.stopPropagation()}
             className={cn(
-              'inline-flex items-center justify-center self-stretch border-l px-1.5 leading-none transition-colors',
+              'inline-flex w-auto items-center justify-center self-stretch rounded-none border-l px-1.5 leading-none transition-colors',
               isAsk
                 ? 'border-border text-inherit hover:bg-bg-muted/50'
                 : 'border-transparent text-inherit opacity-70 hover:bg-bg-hover hover:opacity-100',
@@ -851,7 +853,7 @@ export default function ReplyComposer({
             data-testid="composer-tag-button"
           >
             <AtSign size={14} className="shrink-0 opacity-80" aria-hidden />
-          </button>
+          </Pressable>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
@@ -1112,12 +1114,11 @@ export default function ReplyComposer({
                 isReply ? 'bg-bg-hover' : '',
               )}
             >
-              <button
-                type="button"
+              <Pressable
                 onClick={() => setMode('reply')}
                 title={replyTooltip}
                 className={cn(
-                  'inline-flex h-full items-center gap-1.5 px-2.5 leading-none transition-colors',
+                  'inline-flex h-full w-auto items-center gap-1.5 rounded-none px-2.5 leading-none transition-colors',
                   isReply
                     ? 'font-medium text-text-heading'
                     : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -1125,16 +1126,15 @@ export default function ReplyComposer({
               >
                 <DestinationGlyph channel={activeDestination?.channel || surface.channel} />
                 <span className="max-w-[12rem] truncate-fade">{replyTabLabel}</span>
-              </button>
+              </Pressable>
               {canPickDestination ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
+                    <Pressable
                       title={t('composer.pickChannel')}
                       aria-label={t('composer.pickChannel')}
                       className={cn(
-                        'inline-flex h-full items-center border-l border-border px-1.5 leading-none transition-colors',
+                        'inline-flex h-full w-auto items-center rounded-none border-l border-border px-1.5 leading-none transition-colors',
                         isReply
                           ? 'text-text-heading hover:bg-bg-muted/60'
                           : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -1142,7 +1142,7 @@ export default function ReplyComposer({
                       data-testid="composer-destination-chevron"
                     >
                       <ChevronDown size={14} className="shrink-0 opacity-70" />
-                    </button>
+                    </Pressable>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64">
                     <p className="px-2 py-1.5 text-2xs font-semibold text-text-muted">
@@ -1182,14 +1182,13 @@ export default function ReplyComposer({
                   : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
               )}
             >
-              <button
-                type="button"
+              <Pressable
                 onClick={() => {
                   onAskTabFocus?.(body)
                   setMode('ask')
                 }}
                 title={askTooltip}
-                className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
+                className="inline-flex h-full w-auto items-center gap-1.5 rounded-none px-2.5 leading-none"
                 data-testid="composer-team-tab"
               >
                 {tagFaces.length > 0 ? (
@@ -1198,7 +1197,7 @@ export default function ReplyComposer({
                   <Users size={14} className="shrink-0" aria-hidden />
                 )}
                 {teamLabel}
-              </button>
+              </Pressable>
               {tagMenu}
             </div>
           ) : null}
@@ -1211,15 +1210,14 @@ export default function ReplyComposer({
                   : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
               )}
             >
-              <button
-                type="button"
+              <Pressable
                 onClick={() => setMode('note')}
                 title={noteTooltip}
-                className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
+                className="inline-flex h-full w-auto items-center gap-1.5 rounded-none px-2.5 leading-none"
               >
                 <StickyNote size={14} />
                 {t('composer.tabNote')}
-              </button>
+              </Pressable>
             </div>
           ) : null}
           {extraActions ? (
@@ -1233,13 +1231,12 @@ export default function ReplyComposer({
             tone="warning"
             actions={
               showNoteTab ? (
-                <button
-                  type="button"
+                <TextLink
                   onClick={() => setMode('note')}
-                  className="text-xs font-medium text-accent hover:underline"
+                  className="text-xs"
                 >
                   {t('composer.switchToNote', { defaultValue: 'Write an internal note instead' })}
-                </button>
+                </TextLink>
               ) : undefined
             }
           >
@@ -1257,22 +1254,19 @@ export default function ReplyComposer({
               <span className="min-w-0 truncate-fade text-text-primary">{surface.recipientValue}</span>
               <span className="ml-auto flex items-center gap-2">
                   {lastInboundText?.trim() ? (
-                    <button
-                      type="button"
+                    <TextLink
+                      tone={quoteIncluded ? 'accent' : 'muted'}
                       aria-pressed={quoteIncluded}
                       onClick={() => setQuoteIncluded((on) => !on)}
-                      className={cn(
-                        'inline-flex items-center gap-1 text-2xs font-medium',
-                        quoteIncluded ? 'text-accent' : 'text-text-muted hover:text-text-primary',
-                      )}
+                      className="text-2xs"
                     >
                       <Quote size={14} />
                       {t('composer.quote')}
-                    </button>
+                    </TextLink>
                   ) : null}
                   {surface.channel === 'email' ? (
-                  <button
-                    type="button"
+                  <TextLink
+                    tone={ccBccOpen || cc || bcc ? 'accent' : 'muted'}
                     onClick={() =>
                       setCcBccOpen((open) => {
                         // Opening for the first time seeds the customer's CC
@@ -1281,14 +1275,10 @@ export default function ReplyComposer({
                         return !open
                       })
                     }
-                    className={`shrink-0 text-2xs font-medium transition-colors ${
-                      ccBccOpen || cc || bcc
-                        ? 'text-accent'
-                        : 'text-text-muted hover:text-text-primary'
-                    }`}
+                    className="shrink-0 text-2xs"
                   >
                     {suggestedCc?.trim() ? t('composer.replyAll') : t('composer.ccBcc')}
-                  </button>
+                  </TextLink>
                   ) : null}
                 </span>
             </div>
@@ -1341,25 +1331,23 @@ export default function ReplyComposer({
             </span>
             <span className="flex shrink-0 items-center gap-3">
               {draftStale && token && persistKey ? (
-                <button
-                  type="button"
+                <TextLink
                   disabled={redrafting}
                   onClick={() => void redraft()}
-                  className="text-xs font-medium text-accent hover:underline disabled:opacity-50"
+                  className="text-xs"
                 >
                   {redrafting ? t('composer.redrafting') : t('composer.redraft')}
-                </button>
+                </TextLink>
               ) : null}
-              <button
-                type="button"
+              <TextLink
                 onClick={() => {
                   clearDraft()
                   if (proposal) void proposal.onDismiss()
                 }}
-                className="text-xs font-medium text-accent hover:underline"
+                className="text-xs"
               >
                 {t('composer.discardDraft')}
-              </button>
+              </TextLink>
             </span>
           </div>
         ) : null}
@@ -1472,16 +1460,16 @@ export default function ReplyComposer({
                 className="hidden"
                 onChange={(e) => void onPickFiles(e.target.files)}
               />
-              <button
+              <Button variant="ghost" size="icon"
                 type="button"
                 disabled={uploading || saving || disabled}
                 onClick={() => fileInputRef.current?.click()}
                 title={t('composer.attachFile')}
                 aria-label={t('composer.attachFile')}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+                className="shrink-0"
               >
                 <Plus size={16} />
-              </button>
+              </Button>
               {!isNote && !isAsk && showWriteAssist && threadIdForAi ? (
                 <ComposerWriteAssist
                   threadId={threadIdForAi}
@@ -1500,19 +1488,20 @@ export default function ReplyComposer({
         >
           <div className="flex h-8 shrink-0 items-center gap-1.5">
             {isAsk && agentStreaming ? (
-              <button
+              <Button variant="ghost"
                 type="button"
                 onClick={() => onStopAgent?.()}
                 title={t('composer.stop', { defaultValue: 'Stop' })}
-                className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover"
+               
               >
                 <Square size={14} />
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
-              </button>
+              </Button>
             ) : null}
             {user?.agentCallsEnabled && voiceThreadId ? (
-              <button // design-system-ignore: call-UI WIP, migreert in 8.7
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 disabled={saving || disabled || voiceBusy || Boolean(liveCall)}
                 title={liveCall ? t('agentCall.voiceModeBusy') : t('agentCall.voiceMode')}
                 aria-label={t('agentCall.voiceMode')}
@@ -1535,10 +1524,10 @@ export default function ReplyComposer({
                     })
                     .finally(() => setVoiceBusy(false))
                 }}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+                className="shrink-0 text-text-muted"
               >
                 <AudioLines size={16} />
-              </button>
+              </Button>
             ) : null}
             <ComposerDictationRow
               supported={dictation.supported}
@@ -1574,19 +1563,14 @@ export default function ReplyComposer({
                     : 'Enter'
               }
             >
-            <button
-              type="button"
+            <Button
+              variant={isAsk || isReply ? 'default' : 'ghost'}
               disabled={!canSend || busy || disabled || uploading}
               onClick={() =>
                 void (closesByPolicy ? handleSubmit('send_and_close') : handleSubmit('send'))
               }
               data-testid="composer-send"
-              className={cn(
-                'flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40',
-                isAsk || isReply
-                  ? 'bg-accent text-accent-fg hover:bg-accent-hover'
-                  : 'bg-bg-elevated text-text-primary hover:bg-bg-hover',
-              )}
+              className={cn('rounded-none px-2.5', !(isAsk || isReply) && 'bg-bg-elevated text-text-primary')}
             >
               {isNote ? (
                 <StickyNote size={14} />
@@ -1598,20 +1582,19 @@ export default function ReplyComposer({
               ) : isReply && surface.channel === 'email' ? (
                 <span className="text-2xs font-medium opacity-90">{t('composer.sendShortcut')}</span>
               ) : null}
-            </button>
+            </Button>
             </Tip>
             {isReply && showCustomerActions ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
+                  <Button
                     disabled={!canSend || busy || disabled || uploading}
                     title={t('composer.sendMore')}
                     aria-label={t('composer.sendMore')}
-                    className="flex h-8 w-6 items-center justify-center border-l border-accent-fg/20 bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
+                    className="w-6 rounded-none border-l border-accent-fg/20 px-0"
                   >
                     <ChevronDown size={14} />
-                  </button>
+                  </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-44">
                   {showHandbackChoice ? (

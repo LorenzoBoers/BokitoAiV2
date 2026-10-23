@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
@@ -44,19 +45,18 @@ export default function WorkspaceIdHint({
       {env && slugOk ? DOT : null}
       {slugOk ? (
         <Tip label={t('cockpitPage.workspaceIdHint')}>
-          <button
-            type="button"
+          <Pressable
             onClick={() => {
               void navigator.clipboard.writeText(copyValue).then(
                 () => toast.success(t('cockpitPage.workspaceIdCopied')),
                 () => toast.error(t('cockpitPage.workspaceIdCopyFailed')),
               )
             }}
-            className={`max-w-[12rem] truncate hover:text-text-muted ${QUIET}`}
+            className={`w-auto text-center max-w-[12rem] truncate hover:text-text-muted ${QUIET}`}
             aria-label={t('cockpitPage.workspaceIdHint')}
           >
             {slug}
-          </button>
+          </Pressable>
         </Tip>
       ) : null}
       {(env || slugOk) ? DOT : null}

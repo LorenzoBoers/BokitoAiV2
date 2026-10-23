@@ -7,6 +7,7 @@
  * exists, that stack is the only control — hover it to change; never a second
  * thumbs beside it. Intentional emoji exception for this surface only.
  */
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -163,9 +164,8 @@ export function MessageReactions({
         className="flex items-center gap-0.5 rounded-full border border-border bg-bg-surface px-1 py-0.5 text-text-primary shadow-md"
       >
         {HUMAN_REACTION_KINDS.map((kind) => (
-          <button
+          <Pressable
             key={kind}
-            type="button"
             role="menuitem"
             disabled={busy}
             aria-label={labelFor[kind]}
@@ -179,7 +179,7 @@ export function MessageReactions({
             <span aria-hidden="true" className={EMOJI_GLYPH_CLASS}>
               {REACTION_EMOJI[kind]}
             </span>
-          </button>
+          </Pressable>
         ))}
       </div>
     </div>
@@ -225,8 +225,7 @@ export function MessageReactions({
               <span key={entry.kind} className="inline-flex items-center">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button
-                      type="button"
+                    <Pressable
                       disabled={busy || !canReact}
                       aria-label={tip}
                       aria-expanded={canReact ? menuOpen : undefined}
@@ -245,7 +244,7 @@ export function MessageReactions({
                       <span aria-hidden="true" className={EMOJI_GLYPH_CLASS}>
                         {entry.emoji || REACTION_EMOJI[entry.kind]}
                       </span>
-                    </button>
+                    </Pressable>
                   </TooltipTrigger>
                   <TooltipContent side="top">{tip}</TooltipContent>
                 </Tooltip>
@@ -276,8 +275,7 @@ export function MessageReactions({
           onMouseEnter={openMenu}
           onMouseLeave={scheduleCloseMenu}
         >
-          <button
-            type="button"
+          <Pressable
             disabled={busy}
             aria-label={labelFor.up}
             aria-expanded={menuOpen}
@@ -289,7 +287,7 @@ export function MessageReactions({
             <span aria-hidden="true" className={EMOJI_GLYPH_CLASS}>
               {REACTION_EMOJI.up}
             </span>
-          </button>
+          </Pressable>
           {palette}
         </div>
       ) : null}

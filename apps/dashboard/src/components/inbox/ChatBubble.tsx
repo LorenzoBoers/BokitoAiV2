@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { chatRunCloses, chatRunLeads, type BubbleStack } from '../../lib/chat-layout'
 import { THREAD_GUTTER } from './ThreadMeta'
@@ -109,8 +110,7 @@ export function BubbleAction({
   children: ReactNode
 }) {
   return (
-    <button
-      type="button"
+    <Pressable
       aria-label={label}
       title={label}
       disabled={disabled}
@@ -124,7 +124,7 @@ export function BubbleAction({
       )}
     >
       {children}
-    </button>
+    </Pressable>
   )
 }
 
@@ -337,10 +337,10 @@ export function ChatMessageBubble({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={cn(row, 'w-full')}>
+      <Pressable type="button" onClick={onClick} className={cn(row, 'w-full')}>
         {avatarSlot}
         {bubble}
-      </button>
+      </Pressable>
     )
   }
   return (

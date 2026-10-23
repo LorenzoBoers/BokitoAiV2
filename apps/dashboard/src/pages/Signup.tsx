@@ -1,4 +1,5 @@
 ﻿import { useState, FormEvent, useEffect } from 'react';
+import { Pressable } from '../components/ui/pressable'
 import { Spinner } from '../components/ui/spinner'
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
@@ -199,14 +200,13 @@ export default function Signup() {
                 <p className="mt-1 text-xs text-text-muted">
                   {t('signupPage.passwordHint', { count: password.length })}
                 </p>
-                <button
-                  type="button"
+                <Pressable
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
+                  className="w-auto text-center absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+                </Pressable>
               </div>
             </div>
 

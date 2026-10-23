@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { Pressable } from '../components/ui/pressable'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Building2, CirclePlus, Copy, Plus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
@@ -81,7 +82,7 @@ function AssistantThreadsSection({
         {threads.slice(0, 8).map((thread) => (
           <li key={thread.id}>
             <Card asChild>
-              <button
+              <Pressable
                 type="button"
                 onClick={() => void onOpen(thread)}
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover"
@@ -95,7 +96,7 @@ function AssistantThreadsSection({
                     ? t('assistant.thisWorkspace')
                     : thread.workspace_name}
                 </span>
-              </button>
+              </Pressable>
             </Card>
           </li>
         ))}
@@ -203,7 +204,7 @@ export default function Workspaces() {
                 .join('')
                 .toUpperCase()
               return (
-                <button
+                <Pressable
                   key={workspace.id}
                   type="button"
                   onClick={async () => {
@@ -284,11 +285,11 @@ export default function Workspaces() {
                     <span>{hasSubdomain ? t('cards.workspace.openCta') : t('cards.workspace.setSubdomainCta')}</span>
                     <ArrowRight size={14} className="text-text-muted" />
                   </div>
-                </button>
+                </Pressable>
               )
             })}
 
-            <button
+            <Pressable
               type="button"
               onClick={() => {
                 setError(null)
@@ -307,7 +308,7 @@ export default function Workspaces() {
                 <Plus size={14} className="text-text-muted" />
                 <span>{t('cards.create.openDialogCta')}</span>
               </div>
-            </button>
+            </Pressable>
           </div>
 
         </div>

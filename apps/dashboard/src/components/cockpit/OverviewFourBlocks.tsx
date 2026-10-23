@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, CalendarClock, CircleDollarSign, Play } from 'lucide-react'
@@ -392,13 +393,13 @@ export default function OverviewFourBlocks() {
           <Block title={copy('quiet')} hint={copy('quietHint')} index={1}>
             {data.quiet.map((row) => (
               <div key={row.id} className="flex items-center justify-between gap-3 py-1.5">
-                <button
+                <Pressable
                   type="button"
                   className="min-w-0 truncate text-left text-sm text-text-primary hover:text-accent"
                   onClick={() => navigate(forYouPath(row.id))}
                 >
                   {row.contactName || row.subject || row.id}
-                </button>
+                </Pressable>
                 <Button type="button" size="sm" variant="secondary" onClick={() => void closeQuiet(row.id)}>
                   {copy('quietClose')}
                 </Button>

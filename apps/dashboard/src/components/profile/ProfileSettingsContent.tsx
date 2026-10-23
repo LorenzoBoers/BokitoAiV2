@@ -1,3 +1,5 @@
+import { SegmentedControl } from '../ui/segmented-control'
+import { Pressable } from '../ui/pressable'
 import { Card as UiCard } from '../ui/card'
 import { Spinner } from '../ui/spinner'
 import { useRef, useState, useCallback, useEffect, useMemo, type ChangeEvent } from 'react'
@@ -529,8 +531,7 @@ export function ProfileSettingsContent() {
                     : t('profile:personalInformation.removePhoto')}
                 </Button>
               ) : null}
-              <button
-                type="button"
+              <Pressable
                 onClick={() => !avatarUploading && !avatarRemoving && avatarInputRef.current?.click()}
                 disabled={avatarUploading || avatarRemoving}
                 className="group relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full transition-opacity hover:opacity-80 disabled:cursor-wait"
@@ -543,7 +544,7 @@ export function ProfileSettingsContent() {
                     ? <Spinner size="md" className="text-white" />
                     : <Pencil size={14} className="text-white" />}
                 </span>
-              </button>
+              </Pressable>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -666,61 +667,42 @@ export function ProfileSettingsContent() {
 
       {/* ── Language ── */}
       <Section title={t('profile:language.title')} description={`${t('profile:language.description')} ${t('profile:language.deviceHint')}`}>
-        <div className="flex gap-2">
-          {(['nl', 'en'] as const).map((lang) => (
-            <button
-              key={lang}
-              type="button"
-              aria-pressed={(i18n.resolvedLanguage ?? i18n.language).startsWith(lang)}
-              onClick={() => {
-                applyUiLanguageLocally(i18n, lang)
-                if (!token) return
-                void persistUiLanguage(token, lang).catch(() => {
-                  toast.error(t('profile:language.saveError'))
-                })
-              }}
-              className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
-                  ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border text-text-secondary hover:border-border hover:text-text-primary'
-              }`}
-            >
-              {lang === 'nl' ? t('profile:language.dutch') : t('profile:language.english')}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label={t('profile:language.title')}
+          value={(i18n.resolvedLanguage ?? i18n.language).startsWith('nl') ? 'nl' : 'en'}
+          onChange={(lang) => {
+            applyUiLanguageLocally(i18n, lang)
+            if (!token) return
+            void persistUiLanguage(token, lang).catch(() => {
+              toast.error(t('profile:language.saveError'))
+            })
+          }}
+          options={[
+            { value: 'nl', label: t('profile:language.dutch') },
+            { value: 'en', label: t('profile:language.english') },
+          ]}
+        />
       </Section>
 
       {/* ── Start page ── */}
       <Section title={t('profile:landing.title')} description={t('profile:landing.description')}>
-        <div className="flex flex-wrap gap-2">
-          {([
-            { id: 'new' as const, label: t('profile:landing.new') },
-            { id: 'inbox' as const, label: t('profile:landing.inbox') },
-            { id: 'agenda' as const, label: t('profile:landing.agenda') },
-            { id: 'today' as const, label: t('profile:landing.today') },
-          ]).map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              aria-pressed={defaultLanding === option.id}
-              onClick={() => {
-                setDefaultLanding(option.id)
-                if (!token) return
-                void persistDefaultLanding(token, option.id).catch(() => {
-                  toast.error(t('profile:landing.saveError'))
-                })
-              }}
-              className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-                defaultLanding === option.id
-                  ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border text-text-secondary hover:border-border hover:text-text-primary'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label={t('profile:landing.title')}
+          value={defaultLanding}
+          onChange={(id) => {
+            setDefaultLanding(id)
+            if (!token) return
+            void persistDefaultLanding(token, id).catch(() => {
+              toast.error(t('profile:landing.saveError'))
+            })
+          }}
+          options={[
+            { value: 'new', label: t('profile:landing.new') },
+            { value: 'inbox', label: t('profile:landing.inbox') },
+            { value: 'agenda', label: t('profile:landing.agenda') },
+            { value: 'today', label: t('profile:landing.today') },
+          ]}
+        />
       </Section>
 
       {/* ── Appearance ── */}

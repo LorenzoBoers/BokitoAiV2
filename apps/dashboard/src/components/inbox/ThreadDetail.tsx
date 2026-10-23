@@ -1,4 +1,6 @@
 import { AlertCircle, PenLine, RefreshCw, Trash2 } from 'lucide-react'
+import { Pressable } from '../ui/pressable'
+import { TextLink } from '../ui/text-link'
 import { Callout } from '../ui/callout'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -2185,16 +2187,16 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         }}
       >
         {unseenNew > 0 ? (
-          <button
+          <Button size="xs"
             type="button"
             onClick={() => {
               setUnseenNew(0)
               pinToBottom('smooth')
             }}
-            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 rounded-lg border border-accent/30 bg-accent px-3 py-1 text-xs font-medium text-accent-fg"
+            className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2 border-accent/30"
           >
             {t('threadChrome.newMessages', { count: unseenNew })}
-          </button>
+          </Button>
         ) : null}
         <ThreadTimeline
           ref={timelineRef}
@@ -2351,7 +2353,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           <div className={CHAT_COLUMN_CLASS}>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs">
               <PenLine size={14} className="shrink-0 text-text-muted" />
-              <button
+              <Pressable
                 type="button"
                 onClick={resumeStoredMailDraft}
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
@@ -2363,23 +2365,22 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                 <span className="truncate text-text-muted">
                   {storedMailDraft.subject || storedMailDraft.body}
                 </span>
-              </button>
-              <button
-                type="button"
+              </Pressable>
+              <TextLink
                 onClick={resumeStoredMailDraft}
-                className="shrink-0 font-medium text-accent transition-colors hover:text-accent-hover"
+                className="shrink-0"
               >
                 {t('mailComposer.draftChipResume')}
-              </button>
-              <button
+              </TextLink>
+              <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={discardStoredMailDraft}
                 title={t('mailComposer.draftChipDiscard')}
                 aria-label={t('mailComposer.draftChipDiscard')}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                className="shrink-0"
               >
                 <Trash2 size={14} />
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2458,13 +2459,13 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
               <span className="flex flex-wrap items-center gap-2">
                 <AlertCircle size={14} className="shrink-0 text-status-warning" />
                 <span>{t('composer.spamBlocked')}</span>
-                <button
+                <Button size="xs"
                   type="button"
-                  className="rounded-md bg-accent px-2.5 py-1 text-xs font-medium text-accent-fg hover:bg-accent-hover"
+                 
                   onClick={() => void onPatch({ status: 'open' })}
                 >
                   {t('threadChrome.reopen')}
-                </button>
+                </Button>
               </span>
             ) : undefined
           }

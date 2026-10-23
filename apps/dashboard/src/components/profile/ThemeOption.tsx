@@ -1,3 +1,4 @@
+import { Pressable } from '../ui/pressable'
 import type { ReactNode } from 'react'
 
 export type ThemeVariant = 'light' | 'dark' | 'system'
@@ -65,8 +66,7 @@ export function ThemeOption({ label, icon, active, onClick, variant }: {
   variant: ThemeVariant
 }) {
   return (
-    <button
-      type="button"
+    <Pressable
       aria-pressed={active}
       onClick={onClick}
       className={`flex-1 rounded-lg border p-2.5 transition-all ${
@@ -97,6 +97,6 @@ export function ThemeOption({ label, icon, active, onClick, variant }: {
       <span className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-text-secondary">
         {icon}{label}
       </span>
-    </button>
+    </Pressable>
   )
 }

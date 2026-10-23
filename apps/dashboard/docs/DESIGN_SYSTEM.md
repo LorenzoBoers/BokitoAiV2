@@ -92,6 +92,8 @@ overlays are solid elevated surfaces.
 
 <SearchField value={q} onChange={setQ} />
 <TextLink to="/settings/models">Open models</TextLink>
+
+<Pressable onClick={open} className="flex items-center gap-2 px-2 py-1.5 hover:bg-bg-hover">...</Pressable>
 ```
 
 Forms use `Input`, `Textarea`, `Select`, `Switch`, `Label`. Menus use
@@ -102,7 +104,19 @@ use `Tip` (or a native `title`, which `NativeTitleTooltipBridge` upgrades).
 `destructive`; all flat. Sizes `xs` 28, `sm` 32 (default), `md` 36, `lg` 40,
 `icon` 32, `iconSm` 28. Set the height with `size`, never with `h-*` in
 `className`. Inline text actions are `TextLink` (`tone="muted"` for quiet
-ones), never a raw `<button>`.
+ones). A click area without a button look (a whole row, tile, calendar cell,
+scrim or docs control) is `Pressable`: `w-full`, `text-left`, `rounded-md` and a
+focus ring, with `asChild`; add `w-auto` when it sits inline. A choice from a
+group is `SegmentedControl`, `FilterChip` or `Tabs`. A raw `<button>` only
+lives inside `components/ui`.
+
+| Looks like | Use |
+|---|---|
+| Icon only | `Button variant="ghost" size="iconSm"` or `"icon"` with `aria-label` |
+| Short text action | `Button variant="ghost" size="xs"` or `TextLink tone="muted"` |
+| Whole row, card or tile | `Pressable` (or `EntityRow interactive`) |
+| Menu trigger | `DropdownMenuTrigger asChild` around a `Button` or `Pressable` |
+| One of a group | `SegmentedControl`, `FilterChip`, `Tabs` |
 
 Fields (`Input`, `Select`, `SearchField`) are 36px with a `border-light` edge
 and a 3px focus ring; `Textarea` shares the edge and ring. Menu and select
@@ -254,6 +268,7 @@ Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 | `page-tint` | `bg-bg`, `.scrim` |
 | `raw-h1` | `PageHeader` (auth, docs and public trust pages are exempt) |
 | `legacy-avatar` | `Avatar kind="person"`, `"agent"` or `"team"` |
+| `raw-button` | `Button`, `Pressable`, `TextLink`, `FilterChip`, `SegmentedControl` |
 
 Face `size` on `Avatar`, `AvatarStack` and `TeamFacepile` stays on the mark
 ladder (`mark-scale`).
@@ -266,7 +281,6 @@ a file may not gain more than its baseline:
 
 | Rule | Fix |
 |---|---|
-| `raw-button` | `Button`, `TextLink` |
 | `raw-input` | `Input`, `SearchField` |
 | `hex-color` | color tokens |
 | `arbitrary-radius` | radius scale |

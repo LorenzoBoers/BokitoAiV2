@@ -178,36 +178,30 @@ export default function ThreadListQuickFilters({
             )}
           />
           {search && setSearch ? (
-            <button
+            <Button variant="ghost" size="iconSm"
               type="button"
               onClick={() => setSearch('')}
               aria-label={t('inboxSearchClear')}
-              className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2"
             >
               <X size={14} />
-            </button>
+            </Button>
           ) : null}
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
+            <Button variant="secondary"
               type="button"
               aria-label={t('threadList.filters')}
               title={t('threadList.filters')}
-              className={cn(
-                'inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-md border text-xs font-medium transition-colors',
-                filtersActive ? 'min-w-8 px-1.5' : 'w-8 px-0',
-                filtersActive
-                  ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border text-text-secondary hover:bg-bg-hover hover:text-text-heading',
-              )}
+              className={cn('shrink-0 gap-1', filtersActive ? 'min-w-8 border-border-light bg-bg-hover px-1.5 text-text-heading' : 'w-8 px-0')}
             >
               <Filter size={14} />
               {filtersActive ? (
                 <span className="tabular-nums text-2xs opacity-90">{activeFilterCount}</span>
               ) : null}
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[min(18rem,calc(100vw-2rem))] p-1.5">
             <DropdownMenuLabel>{t('threadList.quickFilters')}</DropdownMenuLabel>
@@ -342,13 +336,13 @@ export default function ThreadListQuickFilters({
                 </Button>
               ) : null}
               {filtersActive ? (
-                <button
+                <Button variant="ghost" size="xs"
                   type="button"
                   onClick={clearAllFilters}
-                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-heading"
+                 
                 >
                   {t('threadList.clearFilters')}
-                </button>
+                </Button>
               ) : null}
             </div>
             {syncHint ? (
@@ -364,7 +358,7 @@ export default function ThreadListQuickFilters({
         </DropdownMenu>
 
         {onToggleDensity ? (
-          <button
+          <Button variant="secondary" size="icon"
             type="button"
             onClick={onToggleDensity}
             aria-label={
@@ -373,10 +367,10 @@ export default function ThreadListQuickFilters({
             title={
               density === 'compact' ? t('threadList.densityComfortable') : t('threadList.densityCompact')
             }
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+            className="shrink-0 rounded-lg text-text-muted"
           >
             {density === 'compact' ? <Rows3 size={14} /> : <List size={14} />}
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -385,14 +379,14 @@ export default function ThreadListQuickFilters({
           <span className="min-w-0 flex-1 truncate-fade text-xs text-text-secondary">
             {activeSummary.join(' · ')}
           </span>
-          <button
+          <Button variant="ghost" size="xs"
             type="button"
             onClick={clearAllFilters}
-            className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
+            className="shrink-0"
           >
             <X size={14} />
             {t('threadList.clearFilters')}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

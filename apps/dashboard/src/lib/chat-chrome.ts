@@ -11,9 +11,6 @@ export const THREAD_HEADER_CLASS =
 export const THREAD_ACTION_CLUSTER_CLASS =
   'flex shrink-0 items-center gap-0.5'
 
-export const THREAD_HEADER_ICON_CLASS =
-  'inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50 disabled:pointer-events-none disabled:opacity-40'
-
 /** Transcript column shared by chat-like surfaces. */
 export const THREAD_TRANSCRIPT_CLASS = 'mx-auto w-full max-w-[820px] px-4 py-4'
 

@@ -443,6 +443,8 @@ Deze acht `<button>`s dragen `// design-system-ignore: call-UI WIP, migreert in 
 
 Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore. Het is dezelfde `entityChipClass`-chip als zijn negen buren en gaat in 8.7 met hen mee.
 
+Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
+
 ### Fase 1: merkkleur-engine
 
 - **Keuze per thema.** Letterlijk "wit onder 4,5:1 wordt donkere inkt" zou de standaard-mint in het lichte thema donkere tekst geven, tegen het lichte palet in (diepgroen met wit). Daarom geldt:
@@ -522,6 +524,19 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - `person` volgt de regels van `PersonAvatar`. Een teamlid zonder naam, of met een e-mailadres als naam, krijgt nu initialen uit het adres.
 - Het favicon van een contact volgt nu de ladder: 28 wordt 32, zoals de initialen al deden.
 - `ReplyComposer` importeerde `AgentMark` en `UserAvatar` zonder ze te gebruiken; die imports zijn weg.
+
+### Fase 8.7: knoppen
+
+- Verdeling van de 362 kale knoppen (353 + 8 call-UI + 1 WorkspaceDocs): 162 `Button`, 142 `Pressable`, 37 `TextLink`, 12 `FilterChip`, 6 `SegmentedControl` en 2 `Tabs`-balken. Een codemod deed 225 mechanische plekken, de rest is met de hand gedaan.
+- `Pressable` heeft `w-full` en `text-left` in de basis, zoals het plan voorschrijft. Een kale `<button>` was smal en gecentreerd, dus inline plekken (kalendercellen, pills, avatar-uploads, wachtwoordogen) dragen `w-auto`, en waar tekst zonder flex staat ook `text-center`. Scrims dragen `rounded-none`.
+- Soort F zonder ignore: de modus-tabs van de composer (Antwoorden, Team, Notitie, met losse chevrons) zijn `Pressable` met `rounded-none`, de docs-skin (`--docs-*`) en de tijdlijnmarkeringen in `AgentActivityTimeline` ook. Geen enkele plek heeft een `design-system-ignore` nodig.
+- **Kleur verschuift.** Verzenden op Nieuw gesprek was een donkere knop (`bg-text-heading`) en is nu `Button` default (accent). Verzenden in de composer in Notitie-modus is `ghost` op `bg-bg-elevated`. Verwijderknoppen met een rode rand zijn `destructive` geworden.
+- **Kleurtonen vallen weg.** `FilterChip` en `SegmentedControl` kennen één actieve toon. Daardoor is "Verstuur als agent" in een beslissing accent in plaats van ai-paars. De Govern-toestemmingen (Weigeren, Vragen, Toestaan) hebben geen rode of grijze vulling meer. De tabs van Mensen hebben geen eigen onderstreepkleur per tab meer; alleen de telbadge houdt haar toon.
+- **Maat verschuift.** Iconknoppen van 24px (`h-6 w-6`: rij-acties in de threadlijst, `RailEditButtons`, `SidebarCustomizeDialog`) en de bulkbalk (`h-6`) zijn nu 28px (`iconSm`, `xs`). Een kleinere maat staat niet in de Button-ladder.
+- `TextLink` is `font-medium` en onderstreept bij hover. De schakelaars Citeren en CC/BCC zijn daardoor iets zwaarder.
+- `THREAD_HEADER_ICON_CLASS` (`lib/chat-chrome.ts`) is weg; de threadkop gebruikt `Button size="iconSm"`.
+- De taglabels in het agenda-rail filter tonen nog `#naam`. De vocabulaire zegt "nooit een leidende #"; dat aanpassen staat niet in dit plan.
+- Profiel (Taal, Startpagina) en Login (taal) gebruiken nu `SegmentedControl` in plaats van losse omrande knoppen.
 
 ### Tijdelijke copy-allowlist: opruimen na merge
 

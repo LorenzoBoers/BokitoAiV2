@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Avatar } from '../ui/avatar'
+import { Button } from '../ui/button'
 
 type Props = {
   count: number
@@ -38,8 +39,7 @@ type Props = {
   onSelectAll?: () => void
 }
 
-const BUTTON =
-  'inline-flex h-6 shrink-0 items-center gap-1 rounded px-1.5 text-xs text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors disabled:opacity-40'
+const BUTTON = 'shrink-0 gap-1 px-1.5'
 
 /** Action bar shown above the thread list while threads are selected. */
 export default function BulkActionsBar({
@@ -72,11 +72,13 @@ export default function BulkActionsBar({
           {t('bulkActions.selected', { count })}
         </span>
         {onSelectAll ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={onSelectAll}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={onSelectAll}>
             {t('bulkActions.selectAll')}
-          </button>
+          </Button>
         ) : null}
-        <button
+        <Button
+          variant="ghost"
+          size="xs"
           type="button"
           aria-label={t('bulkActions.clearSelection')}
           className={`${BUTTON} ml-auto`}
@@ -84,51 +86,51 @@ export default function BulkActionsBar({
         >
           <X size={14} />
           {t('bulkActions.clear')}
-        </button>
+        </Button>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-0.5">
         {visibility.showRead ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
             <Check size={14} />
             {t('bulkActions.read')}
-          </button>
+          </Button>
         ) : null}
         {visibility.primary === 'close' && visibility.showClose ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('close')}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onAction('close')}>
             <Archive size={14} />
             {t('bulkActions.close')}
-          </button>
+          </Button>
         ) : null}
         {visibility.primary === 'reopen' ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
             <ArchiveRestore size={14} />
             {t('bulkActions.reopen')}
-          </button>
+          </Button>
         ) : null}
         {visibility.primary === 'not_spam' ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
             <ArchiveRestore size={14} />
             {t('bulkActions.notSpam')}
-          </button>
+          </Button>
         ) : null}
         {pinInMain ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => onPin?.(true)}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onPin?.(true)}>
             <Pin size={14} />
             {t('bulkActions.pin')}
-          </button>
+          </Button>
         ) : null}
         {unpinInMain ? (
-          <button type="button" disabled={busy} className={BUTTON} onClick={() => onPin?.(false)}>
+          <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onPin?.(false)}>
             <PinOff size={14} />
             {t('bulkActions.unpin')}
-          </button>
+          </Button>
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" disabled={busy} className={BUTTON}>
+            <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON}>
               <UserRound size={14} />
               {t('bulkActions.assign')}
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-52">
             {myId ? (
@@ -157,10 +159,10 @@ export default function BulkActionsBar({
         </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button type="button" disabled={busy} aria-label={t('bulkActions.moreActions')} className={BUTTON}>
+            <Button variant="ghost" size="xs" type="button" disabled={busy} aria-label={t('bulkActions.moreActions')} className={BUTTON}>
               <MoreHorizontal size={14} />
               {t('bulkActions.moreActions')}
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-44">
             {visibility.showUnread ? (

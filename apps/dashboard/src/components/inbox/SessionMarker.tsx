@@ -6,6 +6,7 @@
  * is closed, offers a compact summary of the outcome. Active: "{agent} ·
  * internal". Closed: a summary pill that expands to summary + actions.
  */
+import { Pressable } from '../ui/pressable'
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -39,7 +40,7 @@ function actionLabel(action: ThreadSession['actions'][number]): string {
 }
 
 const PILL_CLASS =
-  'inline-flex max-w-full items-center gap-1.5 rounded-lg bg-ai/[0.08] px-2.5 py-0.5 text-2xs leading-4 text-ai-ink'
+  'inline-flex w-auto max-w-full items-center gap-1.5 rounded-lg bg-ai/[0.08] px-2.5 py-0.5 text-2xs leading-4 text-ai-ink'
 
 function AgentNameLink({ session }: { session: ThreadSession }) {
   const { t } = useTranslation('communication')
@@ -100,8 +101,7 @@ export default function SessionMarker({ session }: Props) {
     <div data-testid="session-marker-closed">
       <div className="flex justify-center py-0.5">
         {hasDetails ? (
-          <button
-            type="button"
+          <Pressable
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             className={cn(PILL_CLASS, 'hover:bg-ai/[0.14]')}
@@ -119,7 +119,7 @@ export default function SessionMarker({ session }: Props) {
             ) : (
               <ChevronRight size={14} className="shrink-0 text-ai-ink/70" />
             )}
-          </button>
+          </Pressable>
         ) : (
           <span className={PILL_CLASS}>
             <AiMark size={11} />

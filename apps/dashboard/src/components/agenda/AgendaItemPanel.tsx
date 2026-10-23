@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -302,7 +303,7 @@ function GroupBody({ items, onSelect }: Props & { items: TimeItem[] }) {
         const layer = layerOf(item)
         return (
           <li key={item.id}>
-            <button
+            <Pressable
               type="button"
               onClick={() => onSelect({ kind: 'item', item })}
               className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm hover:bg-bg-elevated/60"
@@ -324,7 +325,7 @@ function GroupBody({ items, onSelect }: Props & { items: TimeItem[] }) {
                   {agendaStatusLabel(item.status, t)}
                 </Badge>
               ) : null}
-            </button>
+            </Pressable>
           </li>
         )
       })}

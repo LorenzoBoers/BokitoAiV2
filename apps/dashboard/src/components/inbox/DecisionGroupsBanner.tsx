@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Layers } from 'lucide-react'
@@ -65,14 +66,14 @@ export default function DecisionGroupsBanner({ onDismissed }: Props) {
               {group.title}
             </span>
             <span className="shrink-0 tabular-nums text-text-muted">{group.count}</span>
-            <button
+            <Button variant="secondary" size="xs"
               type="button"
               disabled={busy !== null}
               onClick={() => void dismissGroup(group)}
-              className="shrink-0 rounded-md border border-border px-2 py-0.5 text-2xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+              className="shrink-0"
             >
               {busy === group.title ? t('decisionGroups.dismissing') : t('decisionGroups.dismissAll')}
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

@@ -1,3 +1,4 @@
+import { Button } from '../ui/button'
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -148,14 +149,14 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
       >
         <SidebarWorkspaceSwitcher collapsed={collapsed} onNavigate={onNavigate} />
         <Tip label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')} side="right">
-          <button
+          <Button variant="ghost" size="iconSm"
             type="button"
             onClick={onToggleCollapsed}
             aria-label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+            className="shrink-0 text-text-muted"
           >
             {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-          </button>
+          </Button>
         </Tip>
       </div>
 

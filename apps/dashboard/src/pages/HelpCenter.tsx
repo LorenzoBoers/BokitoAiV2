@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Button } from '../components/ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { BookOpen, Copy, FileText, Search } from 'lucide-react'
@@ -124,9 +125,8 @@ export default function HelpCenter() {
                     className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-20 text-sm outline-none focus:border-primary"
                   />
                   {query.trim() ? (
-                    <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-accent hover:underline"
+                    <TextLink
+                      className="text-xs absolute right-3 top-1/2 -translate-y-1/2"
                       onClick={() => {
                         const params = new URLSearchParams(searchParams)
                         params.delete('q')
@@ -134,7 +134,7 @@ export default function HelpCenter() {
                       }}
                     >
                       {t('helpPublic.clearSearch')}
-                    </button>
+                    </TextLink>
                   ) : null}
                 </div>
                 <p className="mt-1.5 text-xs text-muted-foreground">{t('helpPublic.searchHint')}</p>
@@ -150,13 +150,13 @@ export default function HelpCenter() {
         ) : error ? (
           <div className="space-y-3">
             <p className="text-sm text-destructive">{error}</p>
-            <button
+            <Button variant="secondary" size="xs"
               type="button"
               onClick={() => setReloadNonce((n) => n + 1)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+             
             >
               {t('helpPublic.retry')}
-            </button>
+            </Button>
           </div>
         ) : articleSlug && article ? (
           <article>
@@ -167,9 +167,8 @@ export default function HelpCenter() {
               subtitle={
                 <span className="flex flex-wrap items-center gap-3 text-xs">
                   <span>{t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}</span>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1 font-medium text-accent hover:underline"
+                  <TextLink
+                   
                     onClick={() => {
                       void navigator.clipboard.writeText(window.location.href).then(
                         () => toast.success(t('helpPublic.copiedUrl')),
@@ -179,7 +178,7 @@ export default function HelpCenter() {
                   >
                     <Copy className="h-3 w-3" />
                     {t('helpPublic.copyUrl')}
-                  </button>
+                  </TextLink>
                 </span>
               }
             />

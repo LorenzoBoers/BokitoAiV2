@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Pressable } from '../ui/pressable'
 import { useEffect, useState, type ComponentType, MouseEvent } from 'react'
 import { Skeleton } from '../ui/skeleton'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -208,7 +209,7 @@ export function ProposalItemPreview({
   if (item.missing || (item.planned && !onSelect)) return row
   if (onSelect) {
     return (
-      <button
+      <Pressable
         type="button"
         className="block w-full text-left"
         onClick={(e: MouseEvent) => {
@@ -217,7 +218,7 @@ export function ProposalItemPreview({
         }}
       >
         {row}
-      </button>
+      </Pressable>
     )
   }
   if (item.type === 'image' && (item.url || item.imageUrl)) {
@@ -389,9 +390,9 @@ export function CanvasShowcaseCard({
   if (blocked) return frame
   if (onSelect) {
     return (
-      <button type="button" className="block w-full" onClick={() => onSelect(item)}>
+      <Pressable type="button" className="block w-full" onClick={() => onSelect(item)}>
         {frame}
-      </button>
+      </Pressable>
     )
   }
   if (compact && path) {
@@ -525,9 +526,9 @@ function ModuleShowcaseCard({
   )
   if (onSelect) {
     return (
-      <button type="button" className="mt-2 block w-full text-left" onClick={() => onSelect(item)}>
+      <Pressable type="button" className="mt-2 block w-full text-left" onClick={() => onSelect(item)}>
         {body}
-      </button>
+      </Pressable>
     )
   }
   return (

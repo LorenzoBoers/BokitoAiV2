@@ -1,3 +1,4 @@
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -342,21 +343,12 @@ export default function ChannelDetailPage() {
       />
 
       {row.kind === 'widget' && !archived ? (
-        <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5">
-          {WIDGET_TABS.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTab(value)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-xs font-medium',
-                tab === value ? 'bg-bg-hover text-text-heading' : 'text-text-muted hover:text-text-primary',
-              )}
-            >
-              {t(`channelsPage.widgetTabs.${value}`)}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          size="sm"
+          value={tab}
+          onChange={setTab}
+          options={WIDGET_TABS.map((value) => ({ value, label: t(`channelsPage.widgetTabs.${value}`) }))}
+        />
       ) : null}
 
       {row.kind === 'widget' && widgetSectionValue ? (

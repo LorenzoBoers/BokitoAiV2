@@ -316,7 +316,7 @@ export function FlowTicketBoard({
                     const index = offset + 1
                     const kind = kindForInsert(board.stages, index)
                     return (
-                      <button
+                      <Button variant="ghost" size="iconSm"
                         key={`insert-${stage.key}`}
                         type="button"
                         disabled={savingStages}
@@ -332,24 +332,24 @@ export function FlowTicketBoard({
                           // resize dividers on the hovered column.
                           left: columnBoundaryLeft(widths, index) - 28,
                         }}
-                        className="absolute top-1/2 z-20 inline-flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg-elevated text-text-muted opacity-0 shadow-sm transition-opacity hover:border-border hover:text-text-heading focus-visible:opacity-100 group-hover/stages:opacity-100 disabled:opacity-40"
+                        className="absolute top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 group-hover/stages:opacity-100"
                       >
                         <Plus size={14} aria-hidden />
-                      </button>
+                      </Button>
                     )
                   })
                 : null}
             </div>
             {canEditStages ? (
-              <button
+              <Button variant="secondary" size="xs"
                 type="button"
                 disabled={savingStages}
                 onClick={() => insertStage(board.stages.length)}
-                className="mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 self-center rounded-md border border-dashed border-border px-3 text-xs font-medium text-text-muted transition-colors hover:border-border hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
+                className="mr-2 shrink-0 self-center"
               >
                 <Plus size={14} aria-hidden />
                 {t('workstreamsPage.stages.addButton')}
-              </button>
+              </Button>
             ) : null}
           </div>
           {board.tickets.length === 0 ? (
@@ -595,15 +595,15 @@ function StageColumnHeader({
       <span className="truncate text-xs font-semibold text-text-heading">{shown}</span>
       <span className="shrink-0 text-2xs tabular-nums text-text-muted">{count}</span>
       {canEdit ? (
-        <button
+        <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onEdit}
           aria-label={t('workstreamsPage.stages.editTitle')}
           title={t('workstreamsPage.stages.editTitle')}
-          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted opacity-0 transition-opacity hover:bg-bg-hover hover:text-text-heading focus-visible:opacity-100 group-hover/col:opacity-100"
+          className="shrink-0 group-hover/col:opacity-100"
         >
           <Pencil size={14} aria-hidden />
-        </button>
+        </Button>
       ) : null}
       {showLeftEdge ? <ColumnBoundaryMark side="left" /> : null}
       <ColumnResizeHandle
@@ -722,16 +722,16 @@ function LaneHeader({
   const label = lane.id ? lane.name : t('workstreamsPage.board.noProject')
   return (
     <div className="flex items-center gap-2 px-3 pt-2.5 text-xs">
-      <button
+      <Button variant="ghost" size="xs"
         type="button"
         onClick={onToggle}
-        className="inline-flex items-center gap-1.5 rounded px-1 py-0.5 font-medium text-text-secondary transition-colors hover:bg-bg-muted/60 hover:text-text-heading"
+       
         aria-expanded={!collapsed}
       >
         <ChevronDown size={14} className={cn('transition-transform', collapsed && '-rotate-90')} aria-hidden />
         <FolderKanban size={14} className="text-text-muted" aria-hidden />
         <span className={cn(!lane.id && 'italic text-text-muted')}>{label}</span>
-      </button>
+      </Button>
       <span className="text-2xs tabular-nums text-text-muted">{count}</span>
       {lane.id ? (
         <Link

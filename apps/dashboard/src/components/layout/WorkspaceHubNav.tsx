@@ -1,4 +1,5 @@
 import { LayoutGrid, LogOut, Settings } from 'lucide-react'
+import { Button } from '../ui/button'
 import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
@@ -60,15 +61,15 @@ export default function WorkspaceHubNav() {
             <span className="block truncate-fade text-xs text-text-muted">{email}</span>
           </span>
         </NavLink>
-        <button
+        <Button variant="ghost" size="icon"
           type="button"
           onClick={() => void logout()}
           title={t('account.session.signOut')}
           aria-label={t('account.session.signOut')}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+          className="shrink-0"
         >
           <LogOut size={16} />
-        </button>
+        </Button>
       </div>
     </aside>
   )

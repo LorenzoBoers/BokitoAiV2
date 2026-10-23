@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, useState, FormEvent, ChangeEvent } from 'react';
 import { Spinner } from '../components/ui/spinner'
+import { Pressable } from '../components/ui/pressable'
 import { Link, useSearchParams } from 'react-router-dom';
 import { Camera, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -210,8 +211,7 @@ export default function AcceptInvite() {
               </p>
 
               <div className="flex items-center gap-3">
-                <button
-                  type="button"
+                <Pressable
                   onClick={() => avatarInputRef.current?.click()}
                   className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border bg-bg-input flex items-center justify-center text-text-muted hover:border-border-focus transition"
                   title={t('acceptInvitePage.uploadPhoto')}
@@ -221,7 +221,7 @@ export default function AcceptInvite() {
                   ) : (
                     <Camera size={16} />
                   )}
-                </button>
+                </Pressable>
                 <input
                   ref={avatarInputRef}
                   type="file"
@@ -308,14 +308,14 @@ export default function AcceptInvite() {
                     t('acceptInvitePage.getStarted')
                   )}
                 </Button>
-                <button
+                <Pressable
                   type="button"
                   onClick={() => void completeOnboarding(true)}
                   disabled={finishing}
                   className="w-full px-4 py-2 text-sm text-text-muted hover:text-text-secondary transition"
                 >
                   {t('acceptInvitePage.skipForNow')}
-                </button>
+                </Pressable>
               </div>
             </div>
           ) : infoLoading ? (
@@ -395,14 +395,13 @@ export default function AcceptInvite() {
                         : t('acceptInvitePage.passwordPlaceholderNew')
                     }
                   />
-                  <button
-                    type="button"
+                  <Pressable
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
+                    className="w-auto text-center absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary transition"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                  </Pressable>
                 </div>
                 {info?.existing_user ? (
                   <p className="mt-1 text-xs text-text-muted">

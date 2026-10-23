@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Pressable } from '../components/ui/pressable'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Link, useNavigate, useParams } from 'react-router-dom'
 import {
@@ -115,7 +116,7 @@ function FoldableSection({
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="mb-3 overflow-hidden rounded-lg border border-border bg-bg-input/35 dark:bg-bg-input/25">
-      <button
+      <Pressable
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-bg-hover/50"
@@ -124,7 +125,7 @@ function FoldableSection({
         <ChevronDown
           className={cn('h-4 w-4 shrink-0 text-text-muted transition-transform duration-200', open && 'rotate-180')}
         />
-      </button>
+      </Pressable>
       {open ? <div className="border-t border-border px-4 pb-4 pt-1">{children}</div> : null}
     </div>
   )
@@ -704,13 +705,13 @@ function MessengerSettingsContent({
                           )}
                         </div>
                         {faviconPreviewUrl || draft.widget_favicon_url ? (
-                          <button
+                          <Button variant="secondary" size="xs"
                             type="button"
                             onClick={clearWidgetFavicon}
-                            className="rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover"
+                           
                           >
                             {t('messengerPage.remove')}
-                          </button>
+                          </Button>
                         ) : (
                           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover">
                             <Upload size={14} />

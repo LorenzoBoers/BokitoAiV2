@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { Pressable } from '../components/ui/pressable'
 import { PageHeader } from '../components/ui/page-header'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent } from 'react'
@@ -890,14 +891,13 @@ export default function NewConversationPage() {
       <DotGridBackground />
       <PageHeader className="sr-only" title={t('newConversation.title')} />
       <div className="relative z-10 flex h-11 shrink-0 items-center gap-3 border-b border-border bg-bg px-4">
-        <button
-          type="button"
+        <TextLink tone="muted"
           onClick={() => (showAgentHome ? navigate(lastInboxPath()) : setIntent(null))}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-text-primary"
+          className="text-xs"
         >
           <ArrowLeft size={14} />
           {showAgentHome ? t('newConversation.back') : t('newConversation.changeType')}
-        </button>
+        </TextLink>
         {showAgentHome && !noAgents ? null : (
           <>
             <p className="text-sm font-medium text-text-primary">
@@ -927,7 +927,7 @@ export default function NewConversationPage() {
               {newMailDraft ? (
                 <Card className="flex items-center gap-2.5 px-3 py-2">
                   <Mail size={14} className="shrink-0 text-accent" />
-                  <button
+                  <Pressable
                     type="button"
                     onClick={resumeNewMailDraft}
                     className="min-w-0 flex-1 text-left"
@@ -939,7 +939,7 @@ export default function NewConversationPage() {
                     <span className="block truncate-fade text-2xs text-text-muted">
                       {newMailDraft.subject || newMailDraft.body}
                     </span>
-                  </button>
+                  </Pressable>
                   <TextLink
                     type="button"
                     onClick={resumeNewMailDraft}
@@ -947,7 +947,7 @@ export default function NewConversationPage() {
                   >
                     {t('mailComposer.draftChipResume')}
                   </TextLink>
-                  <button
+                  <Button variant="ghost" size="iconSm"
                     type="button"
                     onClick={() => {
                       clearStoredMailDraft('new')
@@ -955,10 +955,10 @@ export default function NewConversationPage() {
                     }}
                     title={t('mailComposer.draftChipDiscard')}
                     aria-label={t('mailComposer.draftChipDiscard')}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                    className="shrink-0"
                   >
                     <XIcon size={14} />
-                  </button>
+                  </Button>
                 </Card>
               ) : null}
               {!canSendEmail ? (
@@ -978,22 +978,22 @@ export default function NewConversationPage() {
               >
                 {carouselItems.length > 1 ? (
                   <>
-                    <button
+                    <Button variant="ghost" size="iconSm"
                       type="button"
                       onClick={() => stepCarousel(-1)}
                       aria-label={t('newConversation.previousAgent')}
-                      className="absolute left-0 top-1/2 z-[1] flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-heading"
+                      className="absolute left-0 top-1/2 z-[1] -translate-y-1/2"
                     >
                       <ChevronLeft size={24} aria-hidden />
-                    </button>
-                    <button
+                    </Button>
+                    <Button variant="ghost" size="iconSm"
                       type="button"
                       onClick={() => stepCarousel(1)}
                       aria-label={t('newConversation.nextAgent')}
-                      className="absolute right-0 top-1/2 z-[1] flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-heading"
+                      className="absolute right-0 top-1/2 z-[1] -translate-y-1/2"
                     >
                       <ChevronRight size={24} aria-hidden />
-                    </button>
+                    </Button>
                   </>
                 ) : null}
                 {activeCarousel ? (
@@ -1100,14 +1100,15 @@ export default function NewConversationPage() {
                       ),
                     })}
                   >
-                    <button
-                      type="button"
+                    <Button
+                      size="icon"
                       disabled
                       title={t('newConversation.send')}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg opacity-40"
+                      aria-label={t('newConversation.send')}
+                      className="shrink-0 rounded-lg"
                     >
                       <ArrowUp size={16} />
-                    </button>
+                    </Button>
                   </ComposerCard>
                 )
               ) : activeCarousel?.kind === 'email' ||
@@ -1153,14 +1154,15 @@ export default function NewConversationPage() {
                     }}
                     placeholder={t('newConversation.writeMessage')}
                   >
-                    <button
-                      type="button"
+                    <Button
+                      size="icon"
                       disabled
                       title={t('newConversation.send')}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg opacity-40"
+                      aria-label={t('newConversation.send')}
+                      className="shrink-0 rounded-lg"
                     >
                       <ArrowUp size={16} />
-                    </button>
+                    </Button>
                   </ComposerCard>
                 )
               ) : activeCarousel?.kind === 'channel' && activeCarousel.account.channel === 'whatsapp' ? (
@@ -1265,16 +1267,16 @@ export default function NewConversationPage() {
                       className="hidden"
                       onChange={(e) => void onPickFiles(e.target.files)}
                     />
-                    <button
+                    <Button variant="ghost" size="icon"
                       type="button"
                       disabled={uploading || sending}
                       onClick={() => fileInputRef.current?.click()}
                       title={t('composer.attachFile')}
                       aria-label={t('composer.attachFile')}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+                      className="shrink-0"
                     >
                       <Plus size={16} />
-                    </button>
+                    </Button>
                   </>
                 }
               >
@@ -1295,15 +1297,17 @@ export default function NewConversationPage() {
                   onStart={() => dictation.start()}
                   onConfirm={confirmDictation}
                 >
-                  <button
+                  <Button
+                    size="icon"
                     type="button"
                     onClick={() => void start()}
                     disabled={sending || !(activeCarousel?.kind === 'member' ? mention.raw.trim() || dictationInterim.trim() : canSendAgent)}
                     title={t('newConversation.send')}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
+                    aria-label={t('newConversation.send')}
+                    className="shrink-0 rounded-lg"
                   >
                     {sending ? <Spinner size="md" /> : <ArrowUp size={16} />}
-                  </button>
+                  </Button>
                 </ComposerDictationRow>
               </ComposerCard>
               )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { MailWarning } from 'lucide-react'
 import { toast } from 'sonner'
@@ -53,18 +54,18 @@ export default function VerifyEmailBanner() {
       <span className="min-w-0 truncate-fade">
         {t('verifyEmail.body', { email: user.email })}
       </span>
-      <button
+      <Button variant="secondary" size="xs"
         type="button"
         onClick={() => void resend()}
         disabled={sending || remaining > 0}
-        className="ml-auto shrink-0 h-6 rounded-md border border-border px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-60"
+        className="ml-auto shrink-0"
       >
         {sending
           ? t('verifyEmail.sending')
           : remaining > 0
             ? t('verifyEmail.resendIn', { seconds: remaining })
             : t('verifyEmail.resend')}
-      </button>
+      </Button>
     </div>
   )
 }
