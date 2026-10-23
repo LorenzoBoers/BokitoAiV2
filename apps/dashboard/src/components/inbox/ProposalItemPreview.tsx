@@ -197,7 +197,7 @@ export function ProposalItemPreview({
         interactive={!item.missing && (!item.planned || Boolean(onSelect))}
         leading={<ItemLeading item={item} />}
         title={item.title || typeLabel}
-        meta={<span className="block truncate">{metaParts.join(' · ')}</span>}
+        description={metaParts.join(' · ')}
         className={cn(
           item.missing && 'opacity-60',
           selected && 'ring-1 ring-ai/50 border-ai/40',

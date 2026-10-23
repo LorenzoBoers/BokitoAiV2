@@ -1,49 +1,122 @@
 import * as React from 'react'
+import { Link } from 'react-router-dom'
 import { cn } from '../../lib/utils'
+import { EmptyState } from './empty-state'
+import { LoadingBlock } from './loading-block'
+import { Pressable } from './pressable'
+import { StatusDot } from './status-dot'
 
-type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> & {
+type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'onClick'> & {
   /** Leading visual: Avatar, IconTile, BrandMark. */
   leading?: React.ReactNode
   title: React.ReactNode
   /** Badge(s) right after the title. */
   badges?: React.ReactNode
-  /** Secondary line, usually a MetaLine or short description. */
+  /** Second line, one line, truncated. */
+  description?: React.ReactNode
+  /** Top right next to the title, e.g. a time. */
   meta?: React.ReactNode
-  /** Right-aligned actions or values. */
+  /** Right side, always visible: a value, a chevron, a button. */
   trailing?: React.ReactNode
-  /** Row reacts to hover (clickable lists). */
+  /** Right side, shown on hover or focus. */
+  actions?: React.ReactNode
+  /** Hover feedback. With `onClick` the main zone is a `Pressable`. */
   interactive?: boolean
-  /** `md` (default) for lists, `sm` for dense sublists. */
+  onClick?: React.MouseEventHandler<HTMLButtonElement>
+  /** Main zone is a router link. */
+  href?: string
+  selected?: boolean
+  /** Title 600 and an accent dot. */
+  unread?: boolean
+  /** Row height: `sm` 44px, `md` 56px. */
   density?: 'sm' | 'md'
 }
+
+const MAIN_CLASS = 'flex min-w-0 flex-1 items-center gap-3 self-stretch'
 
 /** One person, agent, channel, key or resource in a list. */
 export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
   (
-    { leading, title, badges, meta, trailing, interactive = false, density = 'md', className, ...props },
+    {
+      leading,
+      title,
+      badges,
+      description,
+      meta,
+      trailing,
+      actions,
+      interactive = false,
+      onClick,
+      href,
+      selected = false,
+      unread = false,
+      density = 'md',
+      className,
+      ...props
+    },
     ref,
-  ) => (
-    <div
-      ref={ref}
-      className={cn(
-        'flex min-w-0 items-center gap-3',
-        density === 'sm' ? 'px-2.5 py-2' : 'px-3 py-2.5',
-        interactive && 'cursor-pointer rounded-md transition-colors hover:bg-bg-hover',
-        className,
-      )}
-      {...props}
-    >
-      {leading ? <div className="shrink-0">{leading}</div> : null}
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="min-w-0 truncate text-sm font-medium text-text-heading">{title}</span>
-          {badges}
+  ) => {
+    const body = (
+      <>
+        {leading ? <div className="shrink-0">{leading}</div> : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {unread ? <StatusDot className="bg-accent" /> : null}
+            <span
+              className={cn(
+                'min-w-0 truncate text-sm text-text-heading',
+                unread ? 'font-semibold' : 'font-medium',
+              )}
+            >
+              {title}
+            </span>
+            {badges}
+            {meta ? <span className="ml-auto shrink-0 pl-2 text-xs text-text-muted">{meta}</span> : null}
+          </div>
+          {description ? <div className="mt-0.5 min-w-0 truncate text-xs text-text-muted">{description}</div> : null}
         </div>
-        {meta ? <div className="mt-0.5 min-w-0 text-xs text-text-muted">{meta}</div> : null}
+      </>
+    )
+    const main = href ? (
+      <Link
+        to={href}
+        className={cn(
+          MAIN_CLASS,
+          'rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
+        )}
+      >
+        {body}
+      </Link>
+    ) : interactive && onClick ? (
+      <Pressable onClick={onClick} className={MAIN_CLASS}>
+        {body}
+      </Pressable>
+    ) : (
+      <div className={MAIN_CLASS}>{body}</div>
+    )
+    return (
+      <div
+        ref={ref}
+        data-selected={selected || undefined}
+        className={cn(
+          'group/row flex min-w-0 items-center gap-3 rounded-md',
+          density === 'sm' ? 'min-h-11 px-2.5 py-1.5' : 'min-h-14 px-3 py-2',
+          (interactive || href) && 'cursor-pointer transition-colors hover:bg-bg-hover/50',
+          selected && 'bg-bg-hover',
+          className,
+        )}
+        {...props}
+      >
+        {main}
+        {actions ? (
+          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100">
+            {actions}
+          </div>
+        ) : null}
+        {trailing ? <div className="flex shrink-0 items-center gap-2">{trailing}</div> : null}
       </div>
-      {trailing ? <div className="flex shrink-0 items-center gap-2">{trailing}</div> : null}
-    </div>
-  ),
+    )
+  },
 )
 EntityRow.displayName = 'EntityRow'
 
@@ -127,9 +200,25 @@ export function DescriptionRow({
   )
 }
 
+type EntityListProps = React.HTMLAttributes<HTMLDivElement> & {
+  /** Shown when there are no rows: a title string or a full `EmptyState`. */
+  empty?: React.ReactNode
+  loading?: boolean
+  /** Skeleton rows while loading. */
+  loadingRows?: number
+}
+
 /** Divided stack of EntityRows inside a Card or InsetPanel. */
-export function EntityList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('divide-y divide-border/40', className)} {...props} />
+export function EntityList({ empty, loading = false, loadingRows = 3, className, children, ...props }: EntityListProps) {
+  if (loading) return <LoadingBlock variant="skeleton" rows={loadingRows} className={className} />
+  if (empty != null && React.Children.toArray(children).length === 0) {
+    return typeof empty === 'string' ? <EmptyState tone="plain" size="sm" title={empty} className={className} /> : <>{empty}</>
+  }
+  return (
+    <div className={cn('divide-y divide-border', className)} {...props}>
+      {children}
+    </div>
+  )
 }
 
 export default EntityRow

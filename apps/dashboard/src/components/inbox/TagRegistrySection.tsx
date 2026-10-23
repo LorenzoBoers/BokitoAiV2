@@ -166,7 +166,7 @@ export function TagRegistrySection({
                   />
                 </span>
               }
-              meta={tag.description ? <span className="truncate-fade">{tag.description}</span> : null}
+              description={tag.description || null}
               trailing={
                 <>
                   {tag.count > 0 ? (
