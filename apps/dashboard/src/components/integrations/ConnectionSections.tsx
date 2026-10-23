@@ -6,6 +6,7 @@ import { Button } from '../ui/button'
 import { CardGridSkeleton } from '../ui/skeleton'
 import type { groupConnectionItems, ConnectionListItem } from '../../lib/connection-list'
 import { EmptyState } from '../ui/empty-state'
+import { EntityList, EntityRow } from '../ui/entity-row'
 
 type Props = {
   title: string
@@ -57,10 +58,7 @@ export function ConnectionSections({
               ) : null}
               <div className="space-y-4">
                 {group.programs.map((program) => (
-                  <Card
-                    key={program.programKey}
-                   
-                  >
+                  <Card key={program.programKey}>
                     <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">
                         <IntegrationHostLogo
@@ -89,70 +87,63 @@ export function ConnectionSections({
                         </Button>
                       ) : null}
                     </div>
-                    <ul>
+                    <EntityList className="px-1 py-1">
                       {program.items.map((row) => {
                         const canAttach =
                           Boolean(row.eligibleModule) &&
                           !row.attachedModules.includes(row.eligibleModule ?? '')
                         return (
-                          <li
+                          <EntityRow
                             key={row.id}
-                            className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2 first:border-t-0"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate-fade text-sm text-text-heading">{row.title}</p>
-                              <p className="truncate-fade text-xs text-text-muted">
-                                {row.attachedModules.length > 0
-                                  ? row.attachedModules
-                                      .map((slug) =>
-                                        t(`integrations.modules.${slug}.name`, {
-                                          defaultValue: slug,
-                                        }),
-                                      )
-                                      .join(', ')
-                                  : row.subtitle}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {row.source === 'inbox' ? (
-                                <Button size="sm" variant="secondary" asChild>
-                                  <Link to="/settings/channels">
-                                    {t('integrations.connected.openChannels')}
-                                  </Link>
-                                </Button>
-                              ) : null}
-                              {row.source === 'calendar' ? (
-                                <Button size="sm" variant="secondary" asChild>
-                                  <Link to="/agenda">{t('integrations.actions.manage')}</Link>
-                                </Button>
-                              ) : null}
-                              {canAttach && row.eligibleModule ? (
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => void onAttach(row)}
-                                >
-                                  {t('integrations.connected.useInModule', {
-                                    name: t(`integrations.modules.${row.eligibleModule}.name`, {
-                                      defaultValue: row.eligibleModule,
-                                    }),
-                                  })}
-                                </Button>
-                              ) : null}
-                              {row.source !== 'inbox' && row.source !== 'calendar' ? (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => void onDisconnect(row)}
-                                >
+                            density="sm"
+                            title={row.title}
+                            description={
+                              row.attachedModules.length > 0
+                                ? row.attachedModules
+                                    .map((slug) =>
+                                      t(`integrations.modules.${slug}.name`, {
+                                        defaultValue: slug,
+                                      }),
+                                    )
+                                    .join(', ')
+                                : row.subtitle
+                            }
+                            actions={
+                              row.source !== 'inbox' && row.source !== 'calendar' ? (
+                                <Button size="sm" variant="ghost" onClick={() => void onDisconnect(row)}>
                                   {t('integrations.actions.disconnect')}
                                 </Button>
-                              ) : null}
-                            </div>
-                          </li>
+                              ) : null
+                            }
+                            trailing={
+                              <>
+                                {row.source === 'inbox' ? (
+                                  <Button size="sm" variant="secondary" asChild>
+                                    <Link to="/settings/channels">
+                                      {t('integrations.connected.openChannels')}
+                                    </Link>
+                                  </Button>
+                                ) : null}
+                                {row.source === 'calendar' ? (
+                                  <Button size="sm" variant="secondary" asChild>
+                                    <Link to="/agenda">{t('integrations.actions.manage')}</Link>
+                                  </Button>
+                                ) : null}
+                                {canAttach && row.eligibleModule ? (
+                                  <Button size="sm" variant="secondary" onClick={() => void onAttach(row)}>
+                                    {t('integrations.connected.useInModule', {
+                                      name: t(`integrations.modules.${row.eligibleModule}.name`, {
+                                        defaultValue: row.eligibleModule,
+                                      }),
+                                    })}
+                                  </Button>
+                                ) : null}
+                              </>
+                            }
+                          />
                         )
                       })}
-                    </ul>
+                    </EntityList>
                   </Card>
                 ))}
               </div>
