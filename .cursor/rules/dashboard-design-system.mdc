@@ -53,7 +53,7 @@ Rare one-off styles fold into the nearest catalog component.
 - Fonts: `--font-sans` (Inter), `--font-serif` (Source Serif 4, headings and agent text only) and `--font-mono` (JetBrains Mono) in `index.css`. No other families.
 - Size ladder: `text-2xs`, `xs`, `sm`, `base`, `lg`, `xl`, `2xl`. Never `text-[Npx]`.
 - Radius ladder: `Card`, `Dialog` `xl` > `Callout` `lg` > input, button, menu item `md`. `rounded-full` for `Badge`, avatars, dots, switches and count bubbles.
-- No glows, no opacity steps on `border-border` or `text-text-muted`. Button height comes from `size`, never `h-*` in `className`.
+- No glows, no opacity steps on `border-border` or `text-text-muted`. Button height comes from `size`, never `h-*` in `className`. `size="icon"` / `"iconSm"` is icon-only (no visible label); a sometimes-labelled button switches size with the label.
 - Colors: surface ladder `bg`, `bg-surface`, `bg-elevated`, `bg-hover`, `bg-input`; status via `status-success|warning|error|info`; AI via `ai`/`ai-ink`; brand via `accent`. No raw palette colors (`emerald-500`, `amber-600`, `red-500`).
 - Badge tones: `neutral`, `accent`, `ai`, `success`, `warning`, `error`, `info`. Map domain values with `statusTone`, `roleTone`, `memberTypeTone`, `ratioTone`.
 
@@ -61,7 +61,7 @@ Rare one-off styles fold into the nearest catalog component.
 
 `npm run lint` in `apps/dashboard` runs `scripts/check-design-system.mjs`. It fails on
 `window.confirm`, native `<select>`, `text-[Npx]`, hand-rolled card strings,
-`bg-bg-elevated/40`, raw status colors, capsule chips, `h-*` on a `<Button>`,
+`bg-bg-elevated/40`, raw status colors, capsule chips, `h-*` on a `<Button>`, a visible label in an icon-size `<Button>`,
 `text-text-muted/NN`, removed legacy classes, `border-border/NN` and a raw `<button>` outside `components/ui`.
 Exempt a line only with a `design-system-ignore` comment and a reason.
 

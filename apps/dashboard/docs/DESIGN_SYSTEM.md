@@ -111,7 +111,10 @@ use `Tip` (or a native `title`, which `NativeTitleTooltipBridge` upgrades).
 `Button` variants: `default` (accent), `secondary` (hairline), `ghost`, `ai`,
 `destructive`; all flat. Sizes `xs` 28, `sm` 32 (default), `md` 36, `lg` 40,
 `icon` 32, `iconSm` 28. Set the height with `size`, never with `h-*` in
-`className`. Inline text actions are `TextLink` (`tone="muted"` for quiet
+`className`. `icon` and `iconSm` are icon-only: square, with a minimum width
+rather than a fixed one, so content can never spill over a neighbour. A
+button that is sometimes labelled switches size with the label
+(`size={iconOnly ? 'icon' : 'sm'}`). Inline text actions are `TextLink` (`tone="muted"` for quiet
 ones). A click area without a button look (a whole row, tile, calendar cell,
 scrim or docs control) is `Pressable`: `w-full`, `text-left`, `rounded-md` and a
 focus ring, with `asChild`; add `w-auto` when it sits inline. A choice from a
@@ -326,6 +329,7 @@ the separate person, agent and team avatars (use `Avatar`), `.panel` (use
 | `raw-status-color` | status tokens, `Badge`, `Callout` |
 | `capsule-chip` | `Badge` / `FilterChip` |
 | `button-height-override` | `Button size` |
+| `icon-button-label` (visible text in `size="icon"` / `"iconSm"`) | a text size (`xs`, `sm`), or a size that follows the label |
 | `muted-text-opacity` | `text-text-muted` |
 | `legacy-class` | `Badge`, `InsetPanel`, `font-sans` |
 | `raw-spinner` | `Spinner` |

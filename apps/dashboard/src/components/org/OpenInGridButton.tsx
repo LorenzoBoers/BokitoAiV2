@@ -32,9 +32,9 @@ export function OpenInGridButton({ kind, id, nodeId, className, iconOnly = false
   const button = (
     <Button
       type="button"
-      size="icon"
+      size={iconOnly ? 'icon' : 'sm'}
       variant="secondary"
-      className={cn(iconOnly ?'shrink-0 text-text-muted':'shrink-0', className)}
+      className={cn('shrink-0', iconOnly && 'text-text-muted', className)}
       asChild
     >
       <Link to={to} aria-label={label} data-testid="open-in-grid">

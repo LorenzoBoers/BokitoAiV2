@@ -20,8 +20,10 @@ const buttonVariants = cva(
         sm: 'h-8 px-3 text-sm',
         md: 'h-9 px-3.5 text-sm',
         lg: 'h-10 px-4 text-sm',
-        icon: 'h-8 w-8',
-        iconSm: 'h-7 w-7',
+        // Square by default, but never narrower than the content: a stray
+        // label widens the button instead of spilling over its neighbours.
+        icon: 'h-8 min-w-8 px-0',
+        iconSm: 'h-7 min-w-7 px-0',
       },
     },
     defaultVariants: {

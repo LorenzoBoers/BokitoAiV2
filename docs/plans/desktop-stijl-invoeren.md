@@ -585,6 +585,12 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 - `TimelineItem` en `DepartmentPage` (op dev gehouden) importeren `UserAvatar`, `ContactAvatar` en `AgentMark`, die deze branch verwijdert. Alleen op dev staan daarom tijdelijk `UserAvatar`, `ContactAvatar`, `AgentMark`, `AvatarDisc` en `PersonAvatar` uit `9253452a`. Haal ze weg zodra de andere agent die twee bestanden heeft omgezet.
 - Op dev staat los een `components/ui/Chart.tsx` (10 oktober, niet in git) naast `chart.tsx`. `tsc` meldt een verschil in hoofdletters. Dat was er al vóór deze branch.
 
+### Na de PR: overlopende knoppen
+
+- De Button-codemod uit fase 5 maakte van `size={iconOnly ? 'icon' : 'sm'}` met `h-8 w-8` altijd `size="icon"`. "Open in Grid" werd daardoor 32px breed, en de tekst liep over de knop ernaast (Mappen, Werk, agentpagina). Het is het enige geval van een platgeslagen voorwaardelijke maat.
+- Centraal: `icon` en `iconSm` hebben nu `min-w-*` en `px-0` in plaats van een vaste breedte. De nieuwe harde regel `icon-button-label` faalt bij zichtbare tekst in een icoonknop.
+- In `FlowSchemaEditor` (WIP van de andere agent) zijn twee knoppen meegenomen. Het lijnlabel heeft nu `size={label ? 'xs' : 'iconSm'}`, met de opmaak die de codemod verknoeide hersteld. Het verbindingspunt (16px) houdt zijn maat met `min-w-0`.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

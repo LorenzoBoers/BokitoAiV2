@@ -219,6 +219,56 @@ function* jsxTags(text, names) {
   }
 }
 
+const ICON_BUTTON_MESSAGE =
+  "Button size icon/iconSm is icon-only: a visible label needs a text size (xs, sm), or size={label ? 'sm' : 'icon'}."
+
+/** Children of a `<Button>` opened at `end`, up to its matching `</Button>`. */
+function buttonBody(text, end) {
+  let depth = 1
+  const re = /<Button(?=[\s>])|<\/Button>/g
+  re.lastIndex = end
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    depth += m[0] === '</Button>' ? -1 : 1
+    if (depth === 0) return text.slice(end, m.index)
+  }
+  return ''
+}
+
+/** Drop every JSX tag (attributes included, braces skipped) and keep the children. */
+function stripTags(body) {
+  let out = ''
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] !== '<' || !/[A-Za-z/>]/.test(body[i + 1] ?? '')) {
+      out += body[i]
+      continue
+    }
+    let depth = 0
+    let quote = null
+    for (i++; i < body.length; i++) {
+      const c = body[i]
+      if (quote) {
+        if (c === quote) quote = null
+        continue
+      }
+      if (c === '"' || c === "'" || c === '`') quote = c
+      else if (c === '{') depth++
+      else if (c === '}') depth--
+      else if (c === '>' && depth === 0) break
+    }
+    out += ' '
+  }
+  return out
+}
+
+/** True when an icon-size Button renders words a sighted user reads. */
+function hasVisibleLabel(body) {
+  const visible = body.replace(/<span\b[^>]*className="[^"]*\b(?:sr-only|absolute)\b[^"]*"[^>]*>[\s\S]*?<\/span>/g, ' ')
+  const rest = stripTags(visible)
+  if (/\{\s*(?:t|tc|i18n\.t)\(/.test(rest)) return true
+  if (/\{[\w.?]*(?:[lL]abel|[nN]ame|[tT]itle|[tT]ext)\s*\}/.test(rest)) return true
+  return /[A-Za-z]{2,}/.test(rest.replace(/\{[^{}]*\}/g, ' ').replace(/\{[^{}]*\}/g, ' '))
+}
+
 /** Lines carrying this marker are exempt (use sparingly, with a reason). */
 const IGNORE_MARKER = 'design-system-ignore'
 
@@ -281,6 +331,14 @@ for (const file of walk(SRC)) {
     const offScale = size && !ICON_SCALE.has(Number(size[1]))
     if (offScale || /\sstrokeWidth=/.test(tag)) {
       hits.push({ rule: { id: 'icon-scale', message: ICON_MESSAGE }, rel: relPosix, line, text: tag.slice(0, 140) })
+    }
+  }
+  for (const { index, tag } of jsxTags(text, new Set(['Button']))) {
+    if (!/\ssize="(?:icon|iconSm)"/.test(tag) || tag.endsWith('/>')) continue
+    const line = text.slice(0, index).split('\n').length
+    if (lines[line - 1].includes(IGNORE_MARKER)) continue
+    if (hasVisibleLabel(buttonBody(text, index + tag.length))) {
+      hits.push({ rule: { id: 'icon-button-label', message: ICON_BUTTON_MESSAGE }, rel: relPosix, line, text: tag.replace(/\s+/g, ' ').slice(0, 140) })
     }
   }
 }
