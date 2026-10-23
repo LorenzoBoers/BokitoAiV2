@@ -82,7 +82,7 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
               {title}
             </span>
             {badges ? (
-              <span className="truncate-fade flex min-w-0 shrink-[4] items-center gap-1.5 [&>*]:shrink-0">{badges}</span>
+              <span className="truncate-fade flex min-w-0 flex-1 basis-0 items-center gap-1.5 [&>*]:shrink-0">{badges}</span>
             ) : null}
             {meta ? (
               <span className={cn('ml-auto shrink-0 pl-2 text-xs text-text-muted', actions && HIDE_ON_ROW_ACTIVE)}>
