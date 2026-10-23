@@ -60,6 +60,7 @@ import { IdentitySeenLine } from './IdentitySeenLine'
 import { timeAgo } from '../../lib/time-ago'
 import { useMembers } from '../../hooks/useMembers'
 import { threadStatusLabel } from '../../lib/status-labels'
+import { EmptyState } from '../ui/empty-state'
 
 function findMemberByAddress(members: InboxMember[], address?: string | null): InboxMember | undefined {
   const email = (address || '').trim().toLowerCase()
@@ -532,7 +533,7 @@ export default function ContactPanel({
           <UserRound size={20} className="mx-auto text-text-muted" />
           <p className="mt-2 text-sm font-medium text-text-primary">
             {humanizeContactName(fallbackName, fallbackEmail, t('contactPanel.widgetVisitor')) ||
-              t('contactPanel.noContact')}
+              t('contactPanel.noContact' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
           </p>
           <IdentitySeenLine at={threadActivityAt} />
           {readableEmail ? <p className="text-xs text-text-muted">{readableEmail}</p> : null}
@@ -552,7 +553,7 @@ export default function ContactPanel({
               >
                 <OctagonAlert size={14} />
                 {threadStatus === 'spam'
-                  ? t('threadChrome.notSpam')
+                  ? t('threadChrome.notSpam' /* design-system-ignore: actie of titel, geen lege staat */)
                   : t('threadChrome.markSpam')}
               </Button>
             ) : null}
@@ -777,7 +778,7 @@ export default function ContactPanel({
       <div className="border-b border-border px-4 py-3">
         <SectionLabel title={t('contactPanel.previous')} headerClassName="-mx-1 mb-1" />
         {previousThreads.length === 0 ? (
-          <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>
+          <EmptyState tone="plain" size="sm" className="py-3" title={t('contactPanel.noPrevious')} />
         ) : (
           <div className="space-y-1">
             {previousThreads.slice(0, 5).map((thread) => {

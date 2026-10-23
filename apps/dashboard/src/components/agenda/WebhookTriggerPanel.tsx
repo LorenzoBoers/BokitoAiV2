@@ -103,7 +103,7 @@ export function WebhookTriggerPanel({
           </p>
         </div>
         <Badge variant={trigger.has_webhook_secret || activeSecret ? 'success' : 'neutral'}>
-          {trigger.has_webhook_secret || activeSecret ? t('agendaPage.webhookSecretOn') : t('agendaPage.webhookSecretOff')}
+          {trigger.has_webhook_secret || activeSecret ? t('agendaPage.webhookSecretOn') : t('agendaPage.webhookSecretOff' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
         </Badge>
       </div>
 

@@ -43,6 +43,7 @@ import { TextLink } from '../components/ui/text-link'
 import { STATUS_TONE, displayContactStatus } from '../components/contacts/contact-status'
 import { ContactDetail } from '../components/contacts/ContactDetail'
 import { CompanyDetailView } from '../components/contacts/CompanyDetailView'
+import { EmptyState } from '../components/ui/empty-state'
 
 const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; labelKey: string; hintKey: string }> = [
   { key: 'all', labelKey: 'contactsPage.statusAll', hintKey: 'contactsPage.statusAllHint' },
@@ -532,18 +533,15 @@ export default function ContactsPage() {
         </div>
       ) : view === 'companies' ? (
         companies.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border px-4 py-12 text-center">
-            <Building2 size={22} className="mx-auto text-text-muted" />
-            <h2 className="mt-3 text-lg font-semibold text-text-heading">
-              {search.trim() ? t('contactsPage.noMatchingCompanies') : t('contactsPage.noCompanies')}
-            </h2>
-            <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
-              {search.trim()
-                ? t('contactsPage.tryDifferentSearch')
-                : t('contactsPage.noCompaniesHint')}
-            </p>
-            {search.trim() ? null : (
-              <div className="mt-4 flex flex-col items-center gap-3">
+          <EmptyState
+            icon={Building2}
+            tone="dashed"
+            size="lg"
+            title={search.trim() ? t('contactsPage.noMatchingCompanies') : t('contactsPage.noCompanies')}
+            description={search.trim() ? t('contactsPage.tryDifferentSearch') : t('contactsPage.noCompaniesHint')}
+            action={
+            search.trim() ? null : (
+              <div className="flex flex-col items-center gap-3">
                 <Button size="xs"
                   type="button"
                   disabled={backfilling}
@@ -555,9 +553,10 @@ export default function ContactsPage() {
                   {t('pageGuides.learnMore')}
                 </Link>
               </div>
-            )}
-            {loadMoreButton}
-          </div>
+            )
+            }
+            footer={loadMoreButton}
+          />
         ) : (
           <Card className="overflow-hidden">
             <table className="w-full text-left">
@@ -601,29 +600,25 @@ export default function ContactsPage() {
           </Card>
         )
       ) : sorted.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border px-4 py-12 text-center">
-          <UserRound size={22} className="mx-auto text-text-muted" />
-          <h2 className="mt-3 text-lg font-semibold text-text-heading">
-            {filtered ? t('contactsPage.noMatchingContacts') : t('contactsPage.noContacts')}
-          </h2>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-text-muted">
-            {filtered
-              ? t('contactsPage.clearFilters')
-              : t('contactsPage.noContactsHint')}
-          </p>
-          {filtered ? (
+        <EmptyState
+          icon={UserRound}
+          tone="dashed"
+          size="lg"
+          title={filtered ? t('contactsPage.noMatchingContacts') : t('contactsPage.noContacts')}
+          description={filtered ? t('contactsPage.clearFilters') : t('contactsPage.noContactsHint')}
+          action={
+          filtered ? (
             <Button variant="secondary" size="xs"
               type="button"
               onClick={() => {
                 setSearch('')
                 setStatusFilter('all')
               }}
-              className="mt-4"
             >
               {t('contactsPage.clearFiltersAction')}
             </Button>
           ) : (
-            <div className="mt-4 flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3">
               <Link
                 to="/settings/channels"
                 className="rounded-lg bg-accent px-3.5 py-2 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
@@ -642,9 +637,10 @@ export default function ContactsPage() {
                 </Link>
               </div>
             </div>
-          )}
-          {loadMoreButton}
-        </div>
+          )
+          }
+          footer={loadMoreButton}
+        />
       ) : (
         <Card className="overflow-hidden">
           <table className="w-full text-left">
@@ -680,7 +676,7 @@ export default function ContactsPage() {
                               t('contactsPage.widgetVisitor'),
                             ) ||
                               contact.address ||
-                              t('contactsPage.noAddress')}
+                              t('contactsPage.noAddress' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
                           </span>
                           <span className="block truncate-fade text-xs text-text-muted">
                             {isPlaceholderContactAddress(contact.address)
@@ -777,7 +773,7 @@ export default function ContactsPage() {
                         {t('contactsPage.writeEmail')}
                       </Link>
                     ) : (
-                      <span className="text-text-muted">{t('contactsPage.neverSeen')}</span>
+                      <span className="text-text-muted">{t('contactsPage.neverSeen' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 text-right">

@@ -204,7 +204,7 @@ export function MarketplaceModuleCard({
                       defaultValue: '{{count}} active connections',
                     })
                   : installed
-                    ? t('integrations.card.noConnectionsYet', {
+                    ? t('integrations.card.noConnectionsYet' /* design-system-ignore: waarde, label of keuze, geen lege lijst */, {
                         defaultValue: 'No connections yet',
                       })
                     : t('integrations.card.notInstalledYet', {

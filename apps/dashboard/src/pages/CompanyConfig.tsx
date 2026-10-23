@@ -273,7 +273,7 @@ export default function CompanyConfig() {
 
   const handleSave = useCallback(async () => {
     if (!token || !currentWorkspace?.id) {
-      setSaveError(t('brandingPage.noWorkspace'))
+      setSaveError(t('brandingPage.noWorkspace' /* design-system-ignore: melding of fout, geen lege lijst */))
       return
     }
     if (!brandHex) {

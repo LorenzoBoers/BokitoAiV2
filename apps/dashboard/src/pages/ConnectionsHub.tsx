@@ -597,7 +597,7 @@ export default function ConnectionsHub() {
           title={t('integrations.connected.mcpServersTitle', { defaultValue: 'Custom MCP servers' })}
           loading={loading}
           groups={mcpGroups}
-          emptyLabel={t('integrations.connected.noSearchMatches')}
+          emptyLabel={t('integrations.connected.noSearchMatches' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)}
           onOpenProgram={openProgram}
           onAttach={handleAttach}
           onDisconnect={handleDisconnect}

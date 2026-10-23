@@ -90,6 +90,7 @@ function parseIntent(raw: string | null): Intent | null {
 }
 
 import { TicketStart, CarouselCaption, NoteStart, HomeShortcuts } from '../components/new-conversation/StartCards'
+import { EmptyState } from '../components/ui/empty-state'
 
 /**
  * Draft "New conversation" surface inside Communication.
@@ -666,7 +667,7 @@ export default function NewConversationPage() {
     } catch (err) {
       const message = err instanceof Error ? err.message : t('newConversation.startError')
       if (/no agents available/i.test(message)) {
-        setError(t('newConversation.noAgentsAvailableForUser'))
+        setError(t('newConversation.noAgentsAvailableForUser' /* design-system-ignore: melding of fout, geen lege lijst */))
       } else {
         setError(message)
       }
@@ -1321,15 +1322,16 @@ export default function NewConversationPage() {
           {showAgentHome && noAgents ? (
             <div className="mx-auto flex min-h-full max-w-[560px] flex-col justify-center gap-6 py-12">
               <HomeShortcuts />
-              <Card className="px-5 py-8 text-center">
-                <Bot size={24} className="mx-auto text-text-muted" />
-                <p className="mt-3 text-lg font-medium text-text-primary">
-                  {t('newConversation.noAgentsAvailable')}
-                </p>
-                <Link to="/agents" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
-                  {t('newConversation.openAgents')}
-                </Link>
-              </Card>
+              <EmptyState
+                icon={Bot}
+                size="sm"
+                title={t('newConversation.noAgentsAvailable')}
+                footer={
+                  <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                    {t('newConversation.openAgents')}
+                  </Link>
+                }
+              />
             </div>
           ) : null}
 

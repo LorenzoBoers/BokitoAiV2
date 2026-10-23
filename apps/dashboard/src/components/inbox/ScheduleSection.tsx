@@ -90,7 +90,7 @@ export function ScheduleSection({ thread, onPlan }: Props) {
               ? t('schedule.paused')
               : nextAt
                 ? `${scheduleLongLabel(nextAt, i18n.language)}${end ? ` - ${formatAppTime(end, i18n.language)}` : ''}`
-                : t('schedule.noNextRun')}
+                : t('schedule.noNextRun' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
           </p>
           {rule?.repeat ? (
             <p className="text-xs text-text-muted">{describeRepeat(rule.repeat, t, i18n.language)}</p>

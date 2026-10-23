@@ -491,7 +491,7 @@ export default function WorkstreamDetail() {
                           items: [
                             {
                               value: '__none__',
-                              label: t('workstreamsPage.departmentNone'),
+                              label: t('workstreamsPage.departmentNone' /* design-system-ignore: waarde, label of keuze, geen lege lijst */),
                               kind: 'team',
                             },
                             ...departments.map((dept) => ({
@@ -529,7 +529,7 @@ export default function WorkstreamDetail() {
                               ? [
                                   {
                                     value: '__none__',
-                                    label: t('workstreamsPage.meta.noFreeTags'),
+                                    label: t('workstreamsPage.meta.noFreeTags' /* design-system-ignore: waarde, label of keuze, geen lege lijst */),
                                     kind: 'tag',
                                     disabled: true,
                                   },
@@ -544,7 +544,7 @@ export default function WorkstreamDetail() {
                     />
                   </div>
                 ) : !tag ? (
-                  <p className="text-sm italic text-text-muted">{t('workstreamsPage.meta.noActionTag')}</p>
+                  <p className="text-sm italic text-text-muted">{t('workstreamsPage.meta.noActionTag' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>
                 ) : null}
               </div>
             </DialogContent>

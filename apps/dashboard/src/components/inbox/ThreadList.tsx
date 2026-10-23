@@ -24,6 +24,7 @@ import { ApiErrorBanner } from '../ui/ApiErrorBanner'
 import BulkActionsBar from './BulkActionsBar'
 import ThreadListItem from './ThreadListItem'
 import ThreadListQuickFilters from './ThreadListQuickFilters'
+import { EmptyState } from '../ui/empty-state'
 
 type Props = {
   threads: InboxThread[]
@@ -487,27 +488,27 @@ export default function ThreadList({
               </section>
             </div>
           ) : (
-            <div className="px-3 py-10 text-center text-xs text-text-muted">
-              <p className="text-sm font-medium text-text-heading">
-                {quickFilter === 'unread'
+            <EmptyState
+              tone="plain"
+              size="sm"
+              className="py-10"
+              title={
+                quickFilter === 'unread'
                   ? t('threadList.emptyUnread')
                   : quickFilter === 'pinned'
                     ? t('threadList.emptyPinned')
-                    : emptyLabel ?? t('threadList.empty')}
-              </p>
-              {quickFilter !== 'all' ? (
-                <div className="mt-2 flex flex-col items-center gap-1.5">
-                  <TextLink
-                    onClick={() => onQuickFilterChange('all')}
-                    className="text-xs"
-                  >
+                    : emptyLabel ?? t('threadList.empty')
+              }
+              footer={
+                quickFilter !== 'all' ? (
+                  <TextLink onClick={() => onQuickFilterChange('all')} className="text-xs">
                     {t('threadList.showAllConversations')}
                   </TextLink>
-                </div>
-              ) : (
-                emptyHint
-              )}
-            </div>
+                ) : (
+                  emptyHint
+                )
+              }
+            />
           )
         ) : (
           <Virtuoso

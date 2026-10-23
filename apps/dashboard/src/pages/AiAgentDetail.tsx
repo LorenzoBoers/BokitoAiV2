@@ -633,7 +633,7 @@ export default function AiAgentDetail() {
                 </p>
               </div>
               {openConversations.length === 0 ? (
-                <p className="mt-3 text-sm text-text-muted">{t('workforce.agents.conversationsEmpty')}</p>
+                <EmptyState tone="plain" size="sm" className="mt-3 py-4" title={t('workforce.agents.conversationsEmpty')} />
               ) : (
                 <div className="mt-3 flex flex-1 flex-col">
                   <div className="space-y-1.5">

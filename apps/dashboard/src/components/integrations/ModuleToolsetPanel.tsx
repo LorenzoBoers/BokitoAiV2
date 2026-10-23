@@ -7,6 +7,7 @@ import {
 } from '../../lib/integration-modules'
 import type { AttachedMcpToolServer } from '../../lib/integrations-api'
 import { cn } from '../../lib/utils'
+import { EmptyState } from '../ui/empty-state'
 
 type Props = {
   module: Pick<
@@ -136,11 +137,9 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
                     : ''}
                 </p>
                 {server.tools.length === 0 ? (
-                  <p className="mt-2 text-xs text-text-muted">
-                    {t('integrations.modules.attachedMcpToolsEmpty', {
+                  <EmptyState tone="plain" size="sm" className="py-3" title={t('integrations.modules.attachedMcpToolsEmpty', {
                       defaultValue: 'No tools discovered on this server yet.',
-                    })}
-                  </p>
+                    })} />
                 ) : (
                   <ul className="mt-2 flex flex-wrap gap-1.5">
                     {server.tools.map((tool) => (

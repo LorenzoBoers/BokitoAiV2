@@ -123,7 +123,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
     thread,
     projectId,
     nav.projects,
-    t('tickets.noProject', { ns: 'nav' }),
+    t('tickets.noProject' /* design-system-ignore: waarde, label of keuze, geen lege lijst */, { ns: 'nav' }),
     t('tickets.project', { ns: 'nav' }),
   )
 
@@ -226,7 +226,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                       setTicketBump((n) => n + 1)
                     }}
                   >
-                    {t('tickets.noProject', { ns: 'nav' })}
+                    {t('tickets.noProject' /* design-system-ignore: waarde, label of keuze, geen lege lijst */, { ns: 'nav' })}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

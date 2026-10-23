@@ -328,7 +328,7 @@ function DocsSearchDialog({
           {results === null ? (
             <p className="px-4 py-6 text-sm text-[var(--docs-muted)]">{t('docs.searchHint')}</p>
           ) : results.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-[var(--docs-muted)]">{t('docs.noResults')}</p>
+            <p className="px-4 py-6 text-sm text-[var(--docs-muted)]">{t('docs.noResults' /* design-system-ignore: publieke pagina met eigen skin, EmptyState gebruikt app-tokens */)}</p>
           ) : (
             results.map((row) => (
               <Pressable

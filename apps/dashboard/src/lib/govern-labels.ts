@@ -199,7 +199,7 @@ export function summarizeDiff(
   if (lines.length) return lines
   return [
     t
-      ? t('diff.empty', { ns: 'govern', defaultValue: 'No field-level differences recorded.' })
+      ? t('diff.empty' /* design-system-ignore: waarde, label of keuze, geen lege lijst */, { ns: 'govern', defaultValue: 'No field-level differences recorded.' })
       : 'No field-level differences recorded.',
   ]
 }

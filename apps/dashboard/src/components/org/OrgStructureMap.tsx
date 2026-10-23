@@ -12,6 +12,7 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Input } from '../ui/input'
 import { useAuth } from '../../context/AuthContext'
 import { getOrgGraph, type OrgGraph, type OrgGraphNode } from '../../lib/teams-api'
+import { EmptyState } from '../ui/empty-state'
 
 /** The relation map from `org/graph` (membership, owners, labels), always in 3D. */
 export function OrgStructureMap() {
@@ -127,7 +128,7 @@ export function OrgStructureMap() {
           {!graph && !error ? (
             <OrgLegendSkeleton />
           ) : legendGroups.length === 0 ? (
-            <p className="px-1.5 py-2 text-2xs text-text-muted">{t('orgCanvas.findEmpty')}</p>
+            <EmptyState tone="plain" size="sm" className="px-1.5 py-3" title={t('orgCanvas.findEmpty')} />
           ) : (
             legendGroups.map((group) => (
               <div key={group.kind} className="mb-2">

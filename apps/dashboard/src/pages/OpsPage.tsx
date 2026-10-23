@@ -26,6 +26,7 @@ import {
   type StaffOpsUser,
   type StaffTimeSavedWeight,
 } from '../lib/ops-api'
+import { EmptyState } from '../components/ui/empty-state'
 
 function envLabel(environment: string, apiUrl: string): string {
   const env = environment.trim().toLowerCase()
@@ -404,8 +405,8 @@ export default function OpsPage() {
                 <tbody>
                   {data.tenants.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
-                        {t('ops.emptyTenants')}
+                      <td colSpan={6} className="p-0">
+                        <EmptyState tone="plain" size="sm" className="py-6" title={t('ops.emptyTenants')} />
                       </td>
                     </tr>
                   ) : (
@@ -511,8 +512,8 @@ export default function OpsPage() {
                 <tbody>
                   {data.users.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
-                        {t('ops.emptyUsers')}
+                      <td colSpan={5} className="p-0">
+                        <EmptyState tone="plain" size="sm" className="py-6" title={t('ops.emptyUsers')} />
                       </td>
                     </tr>
                   ) : (
@@ -576,8 +577,8 @@ export default function OpsPage() {
                 <tbody>
                   {data.access_logs.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-3 py-6 text-center text-text-muted">
-                        {t('ops.emptyLogs')}
+                      <td colSpan={4} className="p-0">
+                        <EmptyState tone="plain" size="sm" className="py-6" title={t('ops.emptyLogs')} />
                       </td>
                     </tr>
                   ) : (

@@ -1045,7 +1045,7 @@ export default function MailComposer({
           ) : null}
           {invalidShown.length ? (
             <p className="border-b border-border bg-status-error/5 px-3 py-1 text-2xs text-status-error">
-              {t('compose.invalidAddress', { addresses: invalidShown.join(', ') })}
+              {t('compose.invalidAddress' /* design-system-ignore: melding of fout, geen lege lijst */, { addresses: invalidShown.join(', ') })}
             </p>
           ) : null}
           <div className={FIELD_ROW}>

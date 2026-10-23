@@ -349,7 +349,7 @@ function ApiTokensSection({
               ))}
             </div>
             {scopes.length === 0 ? (
-              <p className="mt-2 text-xs text-status-warning">{t('developersPage.fullAccessWarning')}</p>
+              <p className="mt-2 text-xs text-status-warning">{t('developersPage.fullAccessWarning' /* design-system-ignore: melding of fout, geen lege lijst */)}</p>
             ) : null}
           </div>
           <div className="flex gap-2">
@@ -496,7 +496,7 @@ function ApiTokensSection({
 function StatusPill({ endpoint }: { endpoint: WebhookEndpoint }) {
   const { t } = useTranslation('nav')
   if (!endpoint.last_status) {
-    return <span className="text-xs text-text-muted">{t('developersPage.webhooks.noDeliveriesYet')}</span>
+    return <span className="text-xs text-text-muted">{t('developersPage.webhooks.noDeliveriesYet' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</span>
   }
   const ok = endpoint.last_status !== 'failed'
   return (
@@ -890,9 +890,7 @@ export default function DeveloperSettings() {
                   {expandedId === endpoint.id ? (
                     <div className="mt-2 overflow-hidden rounded-lg border border-border">
                       {(deliveries[endpoint.id] || []).length === 0 ? (
-                        <p className="px-3 py-2.5 text-xs text-text-muted">
-                          {t('developersPage.webhooks.noDeliveries')}
-                        </p>
+                        <EmptyState tone="plain" size="sm" className="py-3" title={t('developersPage.webhooks.noDeliveries')} />
                       ) : (
                         <table className="w-full text-xs">
                           <thead>

@@ -284,7 +284,7 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
             disabled={busy}
             onClick={() => void act(() => dismissSignalBacklog(entry.key), t('categoriesPage.backlogDismissed'))}
           >
-            {t('categoriesPage.backlogDismiss')}
+            {t('categoriesPage.backlogDismiss' /* design-system-ignore: actie of titel, geen lege staat */)}
           </Button>
         </div>
       </div>

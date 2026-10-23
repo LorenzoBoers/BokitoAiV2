@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext'
 import { appRoutes } from '../api/routes'
 import { apiDelete, apiGet } from '../lib/api'
 import { startAssistantThread } from '../lib/personal-assistant-widget'
+import { EmptyState } from '../components/ui/empty-state'
 
 type MemoryEntry = {
   key: string
@@ -122,9 +123,9 @@ export default function MyAssistantSettings() {
         {loading ? (
           <MemoryRowsSkeleton />
         ) : !entries?.length ? (
-          <p className="text-sm text-text-secondary">{t('assistantSettings.memoryEmpty')}</p>
+          <EmptyState tone="plain" size="sm" className="py-4" title={t('assistantSettings.memoryEmpty')} />
         ) : visibleEntries.length === 0 ? (
-          <p className="text-sm text-text-secondary">{t('assistantSettings.memoryNoMatch')}</p>
+          <EmptyState tone="plain" size="sm" className="py-4" title={t('assistantSettings.memoryNoMatch')} />
         ) : (
           <ul className="space-y-2">
             {visibleEntries.map((entry) => (

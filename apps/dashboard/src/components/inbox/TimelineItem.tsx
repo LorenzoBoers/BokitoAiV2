@@ -1184,13 +1184,13 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   widget_seen: (t) => t('timeline.events.widgetSeen'),
   agent_processed: (t, p) =>
     p.delivery === 'skipped' && p.reason === 'no_channel_agent'
-      ? t('timeline.events.noChannelAgent')
+      ? t('timeline.events.noChannelAgent' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
       : t('timeline.events.agentReviewed'),
   agent_blocked: (t, p) =>
     t(`timeline.events.agentBlocked.${typeof p.block === 'string' ? p.block : 'other'}`, {
       defaultValue: t('timeline.events.agentBlocked.other'),
     }),
-  no_reply_noted: (t) => t('timeline.events.noReplyNoted'),
+  no_reply_noted: (t) => t('timeline.events.noReplyNoted' /* design-system-ignore: waarde, label of keuze, geen lege lijst */),
   agent_invoked: (t) => t('timeline.events.agentInvoked'),
   agent_replied: (t) => t('timeline.events.agentReplied'),
   suggestion_created: (t) => t('timeline.events.suggestionCreated'),

@@ -11,6 +11,7 @@ import { onFoldersChanged } from '../../lib/folders-bus'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
 import { cn } from '../../lib/utils'
 import ScrollFade from '../ui/ScrollFade'
+import { EmptyState } from '../ui/empty-state'
 
 const OPEN_KEY = 'bokito-project-folders-open'
 const OPEN_INIT_KEY = 'bokito-project-folders-open-init'
@@ -181,13 +182,11 @@ export default function ProjectsFolderNav({ className }: { className?: string })
           enableDrag={!query.trim()}
           onChanged={reload}
           empty={
-            <p className="px-2 py-2 text-xs text-text-muted">
-              {query.trim()
+            <EmptyState tone="plain" size="sm" className="px-2 py-4" title={query.trim()
                 ? t('projects.page.emptyFiltered')
                 : t('projects.page.emptyBody', {
                     defaultValue: 'Create a folder as a tag filterset, then nest narrower maps under it.',
-                  })}
-            </p>
+                  })} />
           }
         />
       </ScrollFade>

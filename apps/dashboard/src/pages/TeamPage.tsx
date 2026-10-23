@@ -194,7 +194,7 @@ export default function TeamPage() {
                   <p className="truncate-fade text-xs text-text-muted">
                     {team.system
                       ? t('teamPage.systemHint.all')
-                      : team.description || t('teamPage.noDescription')}
+                      : team.description || t('teamPage.noDescription' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
                   </p>
                   <p className="truncate-fade text-xs text-text-secondary">
                     {team.system ? null : (

@@ -89,7 +89,7 @@ export function ConnectionScopeEditor({
             </p>
           </div>
           {allProjects == null ? null : allProjects.length === 0 ? (
-            <p className="text-xs text-text-muted">{t('integrations.connections.projectsNone')}</p>
+            <p className="text-xs text-text-muted">{t('integrations.connections.projectsNone' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {allProjects.map((project) => {

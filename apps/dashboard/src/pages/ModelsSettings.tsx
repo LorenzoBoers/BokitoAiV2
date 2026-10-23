@@ -483,7 +483,7 @@ export default function ModelsSettings() {
             <p className="text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
           ) : null}
           {managed?.status === 'unconfigured' ? (
-            <p className="text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
+            <p className="text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort' /* design-system-ignore: melding of fout, geen lege lijst */)}</p>
           ) : null}
           {managedTiers.some((tier) => tier.fallback_active) ? (
             <p className="text-sm text-status-warning">{t('modelsPage.managed.fallbackNoticeSoft')}</p>

@@ -13,6 +13,7 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { countLooseEmptyCopy } from './list-empty-copy.mjs'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SRC = join(ROOT, 'src')
@@ -159,6 +160,11 @@ const RATCHET_RULES = [
     pattern: /(?<![\w-])border-border\/\d/,
     message: 'Use border-border (or border-border-light for a quieter edge), not an opacity step.',
   },
+  {
+    id: 'loose-empty-copy',
+    count: countLooseEmptyCopy,
+    message: 'An empty list or page is <EmptyState>; a field value carries design-system-ignore with a reason.',
+  },
 ]
 
 const BASELINE_PATH = join(ROOT, 'scripts', 'design-system-baseline.json')
@@ -248,6 +254,7 @@ for (const file of walk(SRC)) {
     }
     if (inCatalog) return
     for (const rule of RATCHET_RULES) {
+      if (!rule.pattern) continue
       if (rule.skip?.test(line)) continue
       if (rule.pattern.test(line)) {
         ratchet[rule.id][relPosix] = (ratchet[rule.id][relPosix] ?? 0) + 1
@@ -276,6 +283,9 @@ for (const file of walk(SRC)) {
       hits.push({ rule: { id: 'icon-scale', message: ICON_MESSAGE }, rel: relPosix, line, text: tag.slice(0, 140) })
     }
   }
+}
+for (const rule of RATCHET_RULES) {
+  if (rule.count) ratchet[rule.id] = rule.count()
 }
 
 if (updateBaseline) {

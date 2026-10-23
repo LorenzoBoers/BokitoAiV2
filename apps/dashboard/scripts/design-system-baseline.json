@@ -61,5 +61,9 @@
     "components/integrations/BrandMark.tsx": 1,
     "components/org/OrgFlowBoard.tsx": 3
   },
-  "border-opacity": {}
+  "border-opacity": {},
+  "loose-empty-copy": {
+    "components/flows/FlowSchemaEditor.tsx": 1,
+    "components/projects/WorksInSection.tsx": 1
+  }
 }

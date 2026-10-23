@@ -18,6 +18,7 @@ import {
   testMcpConnection,
   type McpIntegrationRow,
 } from '../../lib/mcp-integrations'
+import { EmptyState } from '../ui/empty-state'
 
 type Props = {
   rows: McpIntegrationRow[]
@@ -107,27 +108,30 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
           ) : rows.length === 0 || visible.length === 0 ? (
             <TableRow>
               <TableCell colSpan={6} className="py-8 text-center">
-                <p className="text-sm text-text-muted">
-                  {rows.length === 0
-                    ? t('integrations.mcp.servers.empty')
-                    : t('integrations.mcp.servers.noMatches')}
-                </p>
-                {rows.length === 0 ? (
-                <p className="mx-auto mt-1 max-w-md text-xs text-text-muted">
-                  {t('integrations.mcp.servers.emptyHint')}
-                </p>
-                ) : null}
-                <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
-                  <Link to="/connections?kind=mcp" className="font-medium text-accent hover:underline">
-                    {t('integrations.mcp.servers.openMarketplace')}
-                  </Link>
-                  <Link to="/agents" className="font-medium text-accent hover:underline">
-                    {t('integrations.mcp.servers.openAgents')}
-                  </Link>
-                  <Link to="/settings/govern" className="font-medium text-accent hover:underline">
-                    {t('integrations.mcp.servers.openGovern')}
-                  </Link>
-                </div>
+                <EmptyState
+                  tone="plain"
+                  size="sm"
+                  className="py-0"
+                  title={
+                    rows.length === 0
+                      ? t('integrations.mcp.servers.empty')
+                      : t('integrations.mcp.servers.noMatches')
+                  }
+                  description={rows.length === 0 ? t('integrations.mcp.servers.emptyHint') : undefined}
+                  footer={
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
+                      <Link to="/connections?kind=mcp" className="font-medium text-accent hover:underline">
+                        {t('integrations.mcp.servers.openMarketplace')}
+                      </Link>
+                      <Link to="/agents" className="font-medium text-accent hover:underline">
+                        {t('integrations.mcp.servers.openAgents')}
+                      </Link>
+                      <Link to="/settings/govern" className="font-medium text-accent hover:underline">
+                        {t('integrations.mcp.servers.openGovern')}
+                      </Link>
+                    </div>
+                  }
+                />
               </TableCell>
             </TableRow>
           ) : (

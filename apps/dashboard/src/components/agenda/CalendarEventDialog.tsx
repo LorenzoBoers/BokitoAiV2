@@ -271,7 +271,7 @@ export default function CalendarEventDialog({
             <div className="space-y-1.5">
               <Label htmlFor="cal-conn">{t('agenda.target', { ns: 'calendar' })}</Label>
               {targets.groups.length === 0 ? (
-                <p className="text-xs text-text-muted">{t('agenda.noWritable', { ns: 'calendar' })}</p>
+                <p className="text-xs text-text-muted">{t('agenda.noWritable' /* design-system-ignore: melding of fout, geen lege lijst */, { ns: 'calendar' })}</p>
               ) : (
                 <ChoiceSelect
                   id="cal-conn"

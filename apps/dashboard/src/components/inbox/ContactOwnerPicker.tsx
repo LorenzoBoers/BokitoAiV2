@@ -69,7 +69,7 @@ export default function ContactOwnerPicker({
     return [
       {
         items: [
-          { value: NONE, label: t('contactPanel.ownerNone'), kind: 'icon' as const, icon: UserRound },
+          { value: NONE, label: t('contactPanel.ownerNone' /* design-system-ignore: waarde, label of keuze, geen lege lijst */), kind: 'icon' as const, icon: UserRound },
           ...orphan,
         ],
       },

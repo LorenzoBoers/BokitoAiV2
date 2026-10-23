@@ -16,6 +16,7 @@ import { resolveIntegrationKind, type IntegrationKind } from '../../lib/integrat
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { ProviderConnectionsList } from './ProviderConnectionsList'
+import { EmptyState } from '../ui/empty-state'
 
 type HubBanner = { type: 'success' | 'error'; message: string } | null
 
@@ -214,11 +215,9 @@ export function IntegrationDetailPanel({
           ) : toolsError ? (
             <p className="text-xs text-status-error">{toolsError}</p>
           ) : toolNames.length === 0 ? (
-            <p className="text-xs text-text-muted">
-              {t('integrations.hub.detail.toolsEmpty', {
+            <EmptyState tone="plain" size="sm" className="py-4" title={t('integrations.hub.detail.toolsEmpty', {
                 defaultValue: 'No tools synced yet. Refresh to discover tools from the MCP server.',
-              })}
-            </p>
+              })} />
           ) : (
             <ul className="flex flex-wrap gap-1.5">
               {toolNames.map((tool) => (

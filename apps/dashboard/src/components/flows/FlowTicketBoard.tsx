@@ -719,7 +719,7 @@ function LaneHeader({
   onToggle: () => void
 }) {
   const { t } = useTranslation('nav')
-  const label = lane.id ? lane.name : t('workstreamsPage.board.noProject')
+  const label = lane.id ? lane.name : t('workstreamsPage.board.noProject' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
   return (
     <div className="flex items-center gap-2 px-3 pt-2.5 text-xs">
       <Button variant="ghost" size="xs"

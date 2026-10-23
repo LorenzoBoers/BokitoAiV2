@@ -217,7 +217,7 @@ export function FolderContents({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="max-h-80 min-w-[14rem] overflow-auto">
             {(page?.labels ?? []).length === 0 ? (
-              <p className="px-2 py-1.5 text-xs text-text-muted">{t('projects.contents.labelsEmpty')}</p>
+              <EmptyState tone="plain" size="sm" className="px-2 py-3" title={t('projects.contents.labelsEmpty')} />
             ) : (
               page?.labels.map((label) => (
                 <DropdownMenuCheckboxItem

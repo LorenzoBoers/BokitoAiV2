@@ -33,7 +33,7 @@ export async function confirmAutonomousRaise(
             count: evidence.draftsResolved,
             days: evidence.days,
           })
-        : t('aiHandling.preview.noEvidence', { days: evidence.days }),
+        : t('aiHandling.preview.noEvidence' /* design-system-ignore: melding of fout, geen lege lijst */, { days: evidence.days }),
     )
   } catch {
     // Preview is advisory; still ask before raising.

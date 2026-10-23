@@ -185,7 +185,7 @@ export default function HelpCenter() {
         ) : filtered.length === 0 ? (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {query.trim() ? t('helpPublic.emptySearch') : t('helpPublic.empty')}
+              {query.trim() ? t('helpPublic.emptySearch' /* design-system-ignore: publieke pagina met eigen skin, EmptyState gebruikt app-tokens */) : t('helpPublic.empty' /* design-system-ignore: publieke pagina met eigen skin, EmptyState gebruikt app-tokens */)}
             </p>
             {query.trim() ? (
               <TextLink

@@ -65,7 +65,7 @@ Rare one-off styles fold into the nearest catalog component.
 `text-text-muted/NN`, removed legacy classes and a raw `<button>` outside `components/ui`.
 Exempt a line only with a `design-system-ignore` comment and a reason.
 
-Ratchet rules (`raw-input`, `hex-color`, `arbitrary-radius`, `border-opacity`) compare per-file
+Ratchet rules (`raw-input`, `hex-color`, `arbitrary-radius`, `border-opacity`, `loose-empty-copy`) compare per-file
 counts against `scripts/design-system-baseline.json`: a file may not gain hits. After removing
 debt, run `node scripts/check-design-system.mjs --update-baseline` to lock in the lower count.
 

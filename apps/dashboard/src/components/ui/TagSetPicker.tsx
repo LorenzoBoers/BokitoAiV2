@@ -21,6 +21,7 @@ import {
 } from './dialog'
 import { TagChipInput, type TagChip } from './TagChipInput'
 import { TagPill } from './TagPill'
+import { EmptyState } from './empty-state'
 
 export type TagSetOption = {
   key: string
@@ -400,7 +401,7 @@ export function TagSetPicker({
           {loading ? (
             <ChipCloudSkeleton />
           ) : options.length === 0 && !isNewName ? (
-            <p className="px-1 py-3 text-xs text-text-muted">{t('tags.noMatches')}</p>
+            <EmptyState tone="plain" size="sm" className="px-1 py-4" title={t('tags.noMatches')} />
           ) : (
             <>
               {mode === 'folder' && mapOptions.length > 0 ? (

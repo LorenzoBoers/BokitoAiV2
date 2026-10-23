@@ -98,7 +98,7 @@ export function AgentDefinitionCard({ agentId, canEdit }: { agentId: string; can
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('workforce.agents.definition.capabilityAll')}</SelectItem>
-              <SelectItem value="read-write">{t('workforce.agents.definition.capabilityReadWrite')}</SelectItem>
+              <SelectItem value="read-write">{t('workforce.agents.definition.capabilityReadWrite' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</SelectItem>
               <SelectItem value="read-only">{t('workforce.agents.definition.capabilityReadOnly')}</SelectItem>
             </SelectContent>
           </Select>

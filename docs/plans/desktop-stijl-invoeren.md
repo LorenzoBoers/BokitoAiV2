@@ -551,6 +551,21 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 - `raw-input` gaat van 58 naar 47 en blijft een ratchet: de overige 47 zijn vooral tekstvelden, plus enkele kleur-, tijd-, getal-, bereik- en zoekvelden. Die vallen buiten 8.8.
 - Opruimen: het knoppen-codemod uit 8.7 liet 71 lege regels (alleen spaties) achter in open tags. Die zijn weg.
 
+### Fase 8.9: lege staten
+
+- `scripts/list-empty-copy.mjs` vindt 265 sleutels. Bij de telling stonden 137 gebruiken los, in 78 bestanden.
+- Het venster is 10 regels in plaats van de 8 uit stap 3. Met 8 viel de titel van de threadlijst, een geneste keuze binnen `<EmptyState`, net buiten het venster.
+- De sleutelset volgt de NL-tekst ("Nog geen", "Geen "). Daardoor telt hij ook plekken mee die geen lege lijst zijn: veldwaarden ("Geen adres", "Nooit gezien"), meldingen ("Geen toegang"), knoppen en titels ("Geen label"). Die plekken hebben een ignore in de `t()`-aanroep gekregen, met één van drie vaste redenen:
+  - waarde, label of keuze, geen lege lijst (39);
+  - melding of fout, geen lege lijst (18);
+  - actie of titel, geen lege staat (5).
+- Andere ignores:
+  - doorgegeven aan een component dat `EmptyState` toont: `Communication` naar `ThreadList`, `DepartmentPage` naar `FlowList` en `ConnectionsHub` naar `ConnectionSections`;
+  - `Chart` tekent zijn eigen lege staat: `AiHandlingMetricsBlock` en `UsagePage`;
+  - publieke pagina met eigen skin: `DocsChrome` en `HelpCenter`. `EmptyState` gebruikt de app-tokens, die pagina's gebruiken `--docs-*` en `muted-foreground`.
+- `FlowSchemaEditor` en `WorksInSection` (WIP van de andere agent) zijn niet aangeraakt. Ze staan met 1 elk in de baseline van `loose-empty-copy`.
+- **Zichtbaar.** Lege lijsten zijn nu gecentreerd, met een titel in kopkleur en een rustige beschrijving eronder. Dat geldt voor kanalen, contacten, bedrijven, agents, commandopalet, gebruik, Ops, MCP-servers, mappen, kennis en de threadlijst. Waar eerder een gestippeld kader stond, blijft dat (`tone="dashed"`). Kleine lijsten in panelen (eerdere gesprekken, tools, controles) staan nu ook gecentreerd in plaats van links uitgelijnd.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

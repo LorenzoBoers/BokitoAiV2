@@ -17,6 +17,7 @@ import {
 } from '../../lib/module-api'
 import { useConnectionActions } from '../../lib/use-connection-actions'
 import { cn } from '../../lib/utils'
+import { EmptyState } from '../ui/empty-state'
 
 /** Overlapping marks for packages this module can use (channels-style). */
 function PackageKindsMark({ hostSlugs }: { hostSlugs: string[] }) {
@@ -164,9 +165,7 @@ export function ModuleConnectionsPanel({
         </div>
       ) : null}
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-text-muted">
-          {t('integrations.modules.connections.empty')}
-        </p>
+        <EmptyState tone="dashed" size="sm" title={t('integrations.modules.connections.empty')} />
       ) : (
         <ul className="space-y-3">
           {rows.map((row) => (

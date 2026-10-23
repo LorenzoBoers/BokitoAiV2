@@ -37,6 +37,7 @@ import { OwnerTagsField } from './OwnerTagsField'
 import { TextLink } from '../ui/text-link'
 import { STATUS_TONE, displayContactStatus } from './contact-status'
 import { Input } from '../ui/input'
+import { EmptyState } from '../ui/empty-state'
 
 export function ContactDetail({ contactId }: { contactId: string }) {
   const { t } = useTranslation('nav')
@@ -364,7 +365,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 <ChannelGlyph channel={contact.channel} size={13} />
                 {isPlaceholderContactAddress(contact.address)
                   ? t('contactsPage.alsoSeenAsVisitor')
-                  : contact.address || t('contactsPage.noAddress')}
+                  : contact.address || t('contactsPage.noAddress' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
                 <span className="ml-auto text-xs text-text-muted">
                   <ChannelLabel
                     channel={contact.channel}
@@ -452,7 +453,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 </Link>
               ) : (
                 <div className="space-y-1">
-                  <p className="text-xs text-text-muted">{t('contactsPage.noCompanyHint')}</p>
+                  <p className="text-xs text-text-muted">{t('contactsPage.noCompanyHint' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>
                   <div className="flex flex-wrap gap-x-3 gap-y-1">
                     <Link
                       to="/contacts?view=companies"
@@ -506,10 +507,13 @@ export function ContactDetail({ contactId }: { contactId: string }) {
             </div>
             <div className="mt-3 space-y-1.5">
               {threads.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
-                  <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
-                  <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <EmptyState
+                  tone="dashed"
+                  size="sm"
+                  title={t('contactsPage.noConversations')}
+                  description={t('contactsPage.noConversationsHint')}
+                  action={
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
                       <Link
                         to={composeEmailPath({ to: contact.address })}
@@ -532,7 +536,8 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                       {t('contactsPage.openCommunication')}
                     </Link>
                   </div>
-                </div>
+                  }
+                />
               ) : (
                 threads.map((thread) => (
                   <Link

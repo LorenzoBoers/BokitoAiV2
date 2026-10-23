@@ -42,6 +42,7 @@ import { ConversationWorkSection } from './ConversationWorkSection'
 import { timeAgo } from '../../lib/time-ago'
 import { useAgentLive, withAgentLive } from '../../hooks/useAgentPresence'
 import { TextLink } from '../ui/text-link'
+import { EmptyState } from '../ui/empty-state'
 
 const COUNT_CAP = 999
 
@@ -290,7 +291,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
                 ))}
               </div>
             ) : (
-              <p className="pl-[18px] text-xs text-text-muted">{t('agentContext.noModulesOrConnections')}</p>
+              <EmptyState tone="plain" size="sm" className="py-3" title={t('agentContext.noModulesOrConnections')} />
             )}
             {agentId ? (
               <Link
@@ -330,17 +331,22 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
           headerClassName="-mx-1 mb-1"
         />
         {recent.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border px-3 py-3">
-            <p className="text-xs text-text-muted">{t('agentContext.noOtherConversations')}</p>
-            {agent?.id ? (
-              <Link
-                to={withNavReveal(agentChatPath(agent.id))}
-                className="mt-1.5 inline-block text-xs font-medium text-accent hover:underline"
-              >
-                {t('agentContext.chatWithAgent')}
-              </Link>
-            ) : null}
-          </div>
+          <EmptyState
+            tone="dashed"
+            size="sm"
+            className="py-4"
+            title={t('agentContext.noOtherConversations')}
+            footer={
+              agent?.id ? (
+                <Link
+                  to={withNavReveal(agentChatPath(agent.id))}
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  {t('agentContext.chatWithAgent')}
+                </Link>
+              ) : null
+            }
+          />
         ) : (
           <div className="space-y-1">
             {recent.slice(0, 5).map((thread) => (

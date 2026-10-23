@@ -290,7 +290,7 @@ export default function Login() {
             <div className="space-y-5">
               <div className="flex flex-col items-center text-center">
                 <Building2 size={24} className="mb-2 text-accent" />
-                <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.noWorkspaceTitle')}</h2>
+                <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.noWorkspaceTitle' /* design-system-ignore: melding of fout, geen lege lijst */)}</h2>
                 <p className="mt-1 text-sm text-text-secondary">
                   {t('loginPage.noWorkspaceBody', { email: workspaceSetup.email })}
                 </p>

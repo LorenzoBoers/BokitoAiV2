@@ -48,7 +48,7 @@ export function AutoReviewCard({ canEdit }: { canEdit: boolean }) {
   const agreement =
     state && state.agreement_sample > 0 && state.agreement_rate != null
       ? t('ai.autoReview.agreement', { rate: state.agreement_rate, count: state.agreement_sample })
-      : t('ai.autoReview.agreementEmpty')
+      : t('ai.autoReview.agreementEmpty' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
 
   return (
     <Card className="space-y-5 p-5" data-testid="govern-auto-review">

@@ -21,6 +21,7 @@ import { waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from '../flows/StageProgressIcon'
 import { ProjectKanbanColumn } from './ProjectKanbanColumn'
 import { useCollectStageFields } from '../inbox/TicketStageGate'
+import { EmptyState } from '../ui/empty-state'
 
 const Workflow = ENTITY_ICONS.flow
 
@@ -69,9 +70,7 @@ export function ProjectFlowBoards({
   return (
     <div className="space-y-5" data-testid="project-playbook-boards">
       {boards.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-text-muted">
-          {t('projects.home.boardsEmpty')}
-        </p>
+        <EmptyState tone="dashed" size="sm" title={t('projects.home.boardsEmpty')} />
       ) : (
         boards.map((board) => (
           <FlowBoardView

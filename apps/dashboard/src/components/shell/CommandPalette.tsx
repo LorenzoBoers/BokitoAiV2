@@ -63,6 +63,7 @@ import { listWorkstreams, startWorkstreamRun, type WorkstreamRow } from '../../l
 import { parseComposerVerb } from '../../lib/composer-verbs'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
+import { EmptyState } from '../ui/empty-state'
 
 type PaletteItem = {
   id: string
@@ -778,23 +779,28 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         />
         <div ref={listRef} className="max-h-[340px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
-            <div className="px-3 py-6 text-center">
-              <p className="text-sm text-text-muted">{t('palette.noResults')}</p>
-              <p className="mt-1 text-xs text-text-secondary">{t('palette.tryInstead')}</p>
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                {suggestions.map((item) => (
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    key={item.id}
-                    type="button"
-                    onClick={() => runItem(item)}
-                  >
-                    {item.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
+            <EmptyState
+              tone="plain"
+              size="sm"
+              className="py-6"
+              title={t('palette.noResults')}
+              description={t('palette.tryInstead')}
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {suggestions.map((item) => (
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      key={item.id}
+                      type="button"
+                      onClick={() => runItem(item)}
+                    >
+                      {item.label}
+                    </Button>
+                  ))}
+                </div>
+              }
+            />
           ) : (
             filtered.map((item, index) => {
               const showGroup = item.group !== lastGroup

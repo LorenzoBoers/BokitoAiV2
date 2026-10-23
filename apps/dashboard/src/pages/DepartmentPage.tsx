@@ -403,7 +403,7 @@ function ChipRow({ label, items }: { label: string; items: Array<{ id: string; n
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs">
       <span className="w-28 shrink-0 text-text-muted">{label}</span>
-      {items.length === 0 ? <span className="text-text-muted">{t('departmentPage.reach.none')}</span> : null}
+      {items.length === 0 ? <span className="text-text-muted">{t('departmentPage.reach.none' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</span> : null}
       {items.map((item) =>
         item.href ? (
           <Link key={item.id} to={item.href}>
@@ -422,7 +422,7 @@ function TeamCard({ data }: { data: DepartmentOverview }) {
   return (
     <SectionCard title={t('departmentPage.team')} testId="department-team">
       {data.members.length === 0 ? (
-        <p className="text-sm text-text-secondary">{t('departmentPage.reach.none')}</p>
+        <EmptyState tone="plain" size="sm" className="py-4" title={t('departmentPage.reach.none')} />
       ) : (
         <ul className="divide-y divide-border/50">
           {data.members.map((member) => (
@@ -494,7 +494,7 @@ function AllTab({
         )}
       </SectionCard>
 
-      <FlowList flows={data.flows} empty={t('departmentPage.noFlows')} />
+      <FlowList flows={data.flows} empty={t('departmentPage.noFlows' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)} />
       {data.flows.some((flow) => flow.scorecard) ? (
         <p className="-mt-3 text-2xs text-text-muted">{t('departmentPage.scorecardHint')}</p>
       ) : null}
@@ -602,7 +602,7 @@ function FolderTab({
         />
       </StatGrid>
       <Bottlenecks items={folder.bottlenecks} />
-      <FlowList flows={folder.flows} empty={t('departmentPage.folderEmpty')} />
+      <FlowList flows={folder.flows} empty={t('departmentPage.folderEmpty' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)} />
       <ProjectFlowBoards projectId={folder.id} canEdit={canEdit} />
       <div className="max-w-md">
         <ProjectAgendaCard projectId={folder.id} />

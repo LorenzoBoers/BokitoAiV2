@@ -476,23 +476,27 @@ export default function AiAgents() {
         )
       ) : (
         visibleAgents.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
-            <p className="text-sm text-text-muted">
-              {statusFilter === 'deactivated'
-                ? t('workforce.agents.emptyDeactivated')
-                : t('workforce.agents.emptySearch')}
-            </p>
-            <TextLink
-              type="button"
-              onClick={() => {
-                setQuery('')
-                setStatusFilter('all')
-              }}
-              className="mt-3 text-xs"
-            >
-              {t('workforce.agents.clearSearch')}
-            </TextLink>
-          </div>
+            <EmptyState
+              tone="dashed"
+              size="sm"
+              title={
+                statusFilter === 'deactivated'
+                  ? t('workforce.agents.emptyDeactivated')
+                  : t('workforce.agents.emptySearch')
+              }
+              footer={
+                <TextLink
+                  type="button"
+                  onClick={() => {
+                    setQuery('')
+                    setStatusFilter('all')
+                  }}
+                  className="text-xs"
+                >
+                  {t('workforce.agents.clearSearch')}
+                </TextLink>
+              }
+            />
         ) : (
         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
           {visibleAgents.map((agent) => (

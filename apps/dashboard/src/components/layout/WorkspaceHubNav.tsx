@@ -18,7 +18,7 @@ export default function WorkspaceHubNav() {
   const { t } = useTranslation('workspaces')
   const { user, logout } = useAuth()
   const displayName = user?.name || t('account.sidebar.fallbackName')
-  const email = user?.email || t('account.sidebar.fallbackEmail')
+  const email = user?.email || t('account.sidebar.fallbackEmail' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
 
   return (
     <aside className="flex h-full w-rail shrink-0 flex-col px-4 py-4">

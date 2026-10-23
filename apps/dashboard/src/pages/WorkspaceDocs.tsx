@@ -766,9 +766,7 @@ export default function WorkspaceDocs() {
                   {t('knowledgePage.clearSearch')}
                 </TextLink>
                 {hits.length === 0 ? (
-                  <p className="px-2 py-4 text-xs text-text-muted">
-                    {t('knowledgePage.noMatches')}
-                  </p>
+                  <EmptyState tone="plain" size="sm" className="px-2 py-4" title={t('knowledgePage.noMatches')} />
                 ) : (
                   hits.map((hit, idx) => (
                     <Pressable

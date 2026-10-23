@@ -18,6 +18,7 @@ import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDict
 import { DictationMicButton } from '../inbox/DictationMicButton'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
+import { EmptyState } from '../ui/empty-state'
 
 type Intent = 'contact' | 'agent' | 'teammate' | 'whatsapp' | 'ticket' | 'note' | 'transcript' | 'channel'
 
@@ -76,13 +77,16 @@ export function TicketStart({
 
   if (categories.length === 0) {
     return (
-      <Card className="px-5 py-8 text-center">
-        <Hash size={24} className="mx-auto text-text-muted" />
-        <p className="mt-3 text-sm text-text-primary">{t('newConversation.noActionTags')}</p>
-        <Link to="/flows" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
-          {t('newConversation.openFlows')}
-        </Link>
-      </Card>
+      <EmptyState
+        icon={Hash}
+        size="sm"
+        title={t('newConversation.noActionTags')}
+        footer={
+          <Link to="/flows" className="text-xs font-medium text-accent hover:underline">
+            {t('newConversation.openFlows')}
+          </Link>
+        }
+      />
     )
   }
 
@@ -118,13 +122,13 @@ export function TicketStart({
           <span className="text-xs font-medium text-text-muted">{t('tags.chooseProject')}</span>
           <ChoiceSelect
             aria-label={t('tags.chooseProject')}
-            placeholder={t('tags.noProject')}
+            placeholder={t('tags.noProject' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
             value={projectId || NO_PROJECT}
             onValueChange={onProject}
             groups={[
               {
                 items: [
-                  { value: NO_PROJECT, label: t('tags.noProject'), kind: 'project' as const },
+                  { value: NO_PROJECT, label: t('tags.noProject' /* design-system-ignore: waarde, label of keuze, geen lege lijst */), kind: 'project' as const },
                   ...folders.map((folder) => ({
                     value: folder.id,
                     label: folder.path,

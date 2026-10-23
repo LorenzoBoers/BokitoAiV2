@@ -198,7 +198,7 @@ export default function OAuthMcpConsent() {
                 )}
               </FilterChipRow>
               {!selectedScopes.length ? (
-                <p className="mt-1.5 text-xs text-status-warning">{t('oauthMcp.scopesFull')}</p>
+                <p className="mt-1.5 text-xs text-status-warning">{t('oauthMcp.scopesFull' /* design-system-ignore: melding of fout, geen lege lijst */)}</p>
               ) : null}
             </div>
 

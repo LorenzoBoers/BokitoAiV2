@@ -28,6 +28,7 @@ import {
   type CalendarProvider,
 } from '../../lib/calendars-api'
 import { revokeIntegrationConnection } from '../../lib/integrations-api'
+import { EmptyState } from '../ui/empty-state'
 
 /** Google and Microsoft calendar accounts on the Connections page (Agenda filter). */
 export function CalendarAccountsSection() {
@@ -99,9 +100,7 @@ export function CalendarAccountsSection() {
       {rows == null ? (
         <LoadingBlock className="py-4" />
       ) : rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-text-muted">
-          {t('accounts.empty')}
-        </p>
+        <EmptyState tone="dashed" size="sm" className="py-4" title={t('accounts.empty')} />
       ) : (
         <ul className="space-y-2">
           {rows.map((row) => (
@@ -322,7 +321,7 @@ function CalendarPicker({ connectionId, onSaved }: { connectionId: string; onSav
           <p className="mt-0.5 text-xs text-text-muted">{t('calendars.defaultHint')}</p>
         </div>
         {writable.length === 0 ? (
-          <p className="text-xs text-text-muted">{t('calendars.noneWritable')}</p>
+          <p className="text-xs text-text-muted">{t('calendars.noneWritable' /* design-system-ignore: melding of fout, geen lege lijst */)}</p>
         ) : (
           <ChoiceSelect
             aria-label={t('calendars.default')}

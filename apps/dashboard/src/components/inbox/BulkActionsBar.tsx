@@ -110,7 +110,7 @@ export default function BulkActionsBar({
         {visibility.primary === 'not_spam' ? (
           <Button variant="ghost" size="xs" type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
             <ArchiveRestore size={14} />
-            {t('bulkActions.notSpam')}
+            {t('bulkActions.notSpam' /* design-system-ignore: actie of titel, geen lege staat */)}
           </Button>
         ) : null}
         {pinInMain ? (
@@ -141,7 +141,7 @@ export default function BulkActionsBar({
             ) : null}
             {members.length === 0 ? (
               <DropdownMenuItem disabled className="text-xs">
-                {t('bulkActions.noMembers')}
+                {t('bulkActions.noMembers' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
               </DropdownMenuItem>
             ) : (
               members.map((m) => (

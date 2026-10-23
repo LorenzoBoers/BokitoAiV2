@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { KnowledgeTile, LearnedChip } from '../knowledge/KnowledgeMark'
 import { inboxPath } from '../../lib/messages-paths'
 import { TAB_PATHS } from '../../lib/navigation'
+import { EmptyState } from '../ui/empty-state'
 
 const ACTION_KEYS: Record<InboxRule['action'], string> = {
   auto_close: 'automationRules.actionClose',
@@ -178,11 +179,12 @@ export default function AutomationRulesManager() {
         {loading ? (
           <DirectoryRowsSkeleton rows={3} />
         ) : rules.length === 0 && !creating ? (
-          <div className="px-4 py-4">
-            <p className="text-xs text-text-muted">
-              {t('automationRules.empty')}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+          <EmptyState
+            tone="plain"
+            size="sm"
+            title={t('automationRules.empty')}
+            action={
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
                 <Plus size={14} />
                 {t('automationRules.newRule')}
@@ -200,7 +202,8 @@ export default function AutomationRulesManager() {
                 {t('automationRules.openAgendaAutomations')}
               </Link>
             </div>
-          </div>
+            }
+          />
         ) : null}
         {rules.map((rule) => (
           <div key={rule.id} className="flex items-center gap-3 px-4 py-2.5">

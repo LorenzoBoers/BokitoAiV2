@@ -12,6 +12,7 @@ import { parseTimelineMs } from '../../lib/time-items'
 import { triggerScheduleLabel, isFailed } from './agenda-style'
 import { agendaStatusLabel } from '../../lib/status-labels'
 import { cn } from '../../lib/utils'
+import { EmptyState } from '../ui/empty-state'
 
 type Props = {
   open: boolean
@@ -59,7 +60,7 @@ export default function RoutinesDialog({ open, onOpenChange, triggers, agentName
     const rows = source.filter((row) => !q || `${row.name} ${row.instructions}`.toLowerCase().includes(q))
     const map = new Map<string, Trigger[]>()
     for (const row of rows) {
-      const key = row.agent_id ? agentNames.get(row.agent_id) ?? t('agendaPage.routines.otherAgent') : t('agendaPage.routines.noAgent')
+      const key = row.agent_id ? agentNames.get(row.agent_id) ?? t('agendaPage.routines.otherAgent') : t('agendaPage.routines.noAgent' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
       map.set(key, [...(map.get(key) ?? []), row])
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
@@ -104,9 +105,7 @@ export default function RoutinesDialog({ open, onOpenChange, triggers, agentName
         ) : null}
         <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
           {groups.length === 0 ? (
-            <p className="py-6 text-center text-sm text-text-muted">
-              {query ? t('agendaPage.triggerFilterEmpty') : t('agendaPage.noTriggers')}
-            </p>
+            <EmptyState tone="plain" size="sm" title={query ? t('agendaPage.triggerFilterEmpty') : t('agendaPage.noTriggers')} />
           ) : null}
           {groups.map(([agent, rows]) => (
             <section key={agent}>

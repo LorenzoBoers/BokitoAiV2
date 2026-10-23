@@ -128,6 +128,7 @@ import { useLiveEntity } from '../../lib/live-store'
 import { takeChatContinue } from '../../lib/chat-auto-continue'
 import { talkToAssistantPath } from '../../lib/talk-to-assistant'
 import { toast } from 'sonner'
+import { EmptyState } from '../ui/empty-state'
 
 /** Threads whose opener has already been continued or auto-sent this session. */
 const autoSentThreads = new Set<string>()
@@ -481,7 +482,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   }, [token, assigneesThreadId, t])
   const mentionExtras: MentionItem[] = useMemo(() => {
     if (!assignees) return []
-    const reason = t('threadChrome.noChannelAccess')
+    const reason = t('threadChrome.noChannelAccess' /* design-system-ignore: melding of fout, geen lege lijst */)
     const agentRank = new Map(agentCandidates.map((row, index) => [row.id, index]))
     const rankedAgents = [...assignees.agents].sort((a, b) => {
       const left = agentRank.has(a.id) ? (agentRank.get(a.id) as number) : 1_000
@@ -1236,14 +1237,14 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         const q = normalizeHashtag(verb.arg)
         if (!q) {
           toast.message(
-            categories.map((row) => row.name.replace(/^#/, '')).join(', ') || t('tickets.setUp', { ns: 'nav' }),
+            categories.map((row) => row.name.replace(/^#/, '')).join(', ') || t('tickets.setUp' /* design-system-ignore: melding of fout, geen lege lijst */, { ns: 'nav' }),
           )
           return true
         }
         const match =
           categories.find((row) => row.name === q) ?? categories.find((row) => row.name.includes(q))
         if (!match) {
-          toast.error(t('tickets.unknownCategory', { ns: 'nav', name: q }))
+          toast.error(t('tickets.unknownCategory' /* design-system-ignore: melding of fout, geen lege lijst */, { ns: 'nav', name: q }))
           return true
         }
         await fileTicket(threadIdString, match.id)
@@ -2316,20 +2317,25 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
             ) : null
           }
           emptyState={
-            <div className="flex h-full flex-col items-center justify-center text-center text-xs text-text-muted">
-              <p>{t('threadChrome.emptyTitle')}</p>
-              <p className="mt-1 text-xs opacity-70">
-                {thread.channel === 'email'
-                  ? t('threadChrome.emptyEmail')
-                  : t('threadChrome.emptyChat')}
-              </p>
-              <Link
-                to={talkToAssistantPath(t('threadChrome.emptyAskPrefill'))}
-                className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
-              >
-                {t('threadChrome.emptyAsk')}
-              </Link>
-            </div>
+              <EmptyState
+                tone="plain"
+                size="sm"
+                className="flex h-full flex-col items-center justify-center"
+                title={t('threadChrome.emptyTitle')}
+                description={
+                  thread.channel === 'email'
+                    ? t('threadChrome.emptyEmail')
+                    : t('threadChrome.emptyChat')
+                }
+                footer={
+                  <Link
+                    to={talkToAssistantPath(t('threadChrome.emptyAskPrefill'))}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    {t('threadChrome.emptyAsk')}
+                  </Link>
+                }
+              />
           }
         />
       </div>

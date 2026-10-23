@@ -908,7 +908,7 @@ export default function DecisionRequestMessage({
               {isQueueProposal
                 ? t('decisionCard.titleQueueProposal')
                 : isActionSuggestion
-                  ? t('decisionCard.titleNoReply')
+                  ? t('decisionCard.titleNoReply' /* design-system-ignore: actie of titel, geen lege staat */)
                   : isSuggestion
                     ? t('decisionCard.titleSuggestedReply')
                     : t('decision.waitForOk')}

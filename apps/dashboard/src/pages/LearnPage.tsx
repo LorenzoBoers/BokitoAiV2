@@ -18,6 +18,7 @@ import {
 } from '../lib/product-help-api'
 import { isPageGuideSlug, PAGE_GUIDE_BACK, PAGE_GUIDE_RELATED, publicDocsPath } from '../lib/page-guides'
 import { readLastLearn, writeLastLearn } from '../lib/docs-continue'
+import { EmptyState } from '../components/ui/empty-state'
 
 export default function LearnPage() {
   const { slug } = useParams<{ slug: string }>()
@@ -92,9 +93,7 @@ function LearnIndex() {
       ) : !index ? (
         <DocsIndexSkeleton />
       ) : sections.length === 0 ? (
-        <p className="text-sm text-text-muted">
-          {query.trim() ? t('pageGuides.emptySearch') : t('pageGuides.empty')}
-        </p>
+        <EmptyState tone="dashed" size="sm" title={query.trim() ? t('pageGuides.emptySearch') : t('pageGuides.empty')} />
       ) : (
         sections.map((section) => (
           <section key={section.id} className="space-y-2">

@@ -540,7 +540,7 @@ export default function ThreadHeader({
                 onClick={() => void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })}
               >
                 <OctagonAlert size={14} />
-                {thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
+                {thread.status === 'spam' ? t('threadChrome.notSpam' /* design-system-ignore: actie of titel, geen lege staat */) : t('threadChrome.markSpam')}
               </DropdownMenuItem>
             ) : null}
             {onMarkUnread && !thread.hasUnread ? (

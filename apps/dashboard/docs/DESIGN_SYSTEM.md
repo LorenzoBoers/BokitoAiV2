@@ -171,6 +171,11 @@ if (!(await confirm({ title: 'Delete key?', description: '...', destructive: tru
 <LoadingBlock variant="skeleton" rows={3} />
 ```
 
+An empty list or page is always `EmptyState`: one sentence and one action.
+Use `tone="plain"` inside a card or panel and `size="sm"` in rails, panels
+and menus. A "None yet" line that is really a field value stays text and
+carries `design-system-ignore` with a reason.
+
 `ConfirmDialog` with `typeToConfirm` is the only type-the-name delete. The phrase is a button: click copies it and fills the field.
 
 ## Data
@@ -288,6 +293,7 @@ a file may not gain more than its baseline:
 | `hex-color` | color tokens |
 | `arbitrary-radius` | radius scale |
 | `border-opacity` | `border-border`, `border-border-light` |
+| `loose-empty-copy` | `EmptyState` (counted by `scripts/list-empty-copy.mjs`) |
 
 After a cleanup, run `node scripts/check-design-system.mjs --update-baseline`
 to lock in the lower counts.

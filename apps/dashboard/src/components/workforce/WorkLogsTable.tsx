@@ -15,6 +15,7 @@ import { workLogStatusLabel } from '../../lib/status-labels'
 import { formatWorkLogSubject } from '../../lib/work-log-labels'
 import { formatWorkLogWhen, projectNameForRun } from '../../lib/work-logs-format'
 import { formatAppNumber } from '../../lib/app-number'
+import { EmptyState } from '../ui/empty-state'
 
 const FolderIcon = ENTITY_ICONS.project
 
@@ -57,9 +58,9 @@ export function WorkLogsTable({
         </div>
       ) : null}
       {runs.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-text-muted">{t('workforce.runs.empty')}</p>
+        <EmptyState tone="plain" size="sm" title={t('workforce.runs.empty')} />
       ) : visible.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-text-muted">{t('workforce.runs.filterEmpty')}</p>
+        <EmptyState tone="plain" size="sm" title={t('workforce.runs.filterEmpty')} />
       ) : (
         <Table>
           <TableHeader>

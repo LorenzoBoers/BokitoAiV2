@@ -1887,21 +1887,21 @@ export default function Communication() {
             onLoadMore={() => void loadMoreThreads()}
             emptyLabel={
               search.trim()
-                ? t('threadList.emptySearch', { query: search.trim() })
+                ? t('threadList.emptySearch' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */, { query: search.trim() })
                 : closedMode
-                  ? t('threadList.emptyClosed')
+                  ? t('threadList.emptyClosed' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)
                   : scheduledMode
                     ? t('threadList.emptyScheduled')
                     : hasFolderFilter || leaf.type === 'channel' || leaf.type === 'agent' || leaf.type === 'team'
-                  ? t('threadList.emptyScoped')
+                  ? t('threadList.emptyScoped' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)
                   : leaf.type === 'inbox' && leaf.queue === 'for_you'
                     ? t('threadList.emptyForYou')
                     : leaf.type === 'inbox' && leaf.queue === 'scheduled'
                       ? t('threadList.emptyScheduled')
                       : leaf.type === 'inbox' && leaf.queue === 'spam'
-                        ? t('threadList.emptySpam')
+                        ? t('threadList.emptySpam' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)
                         : leaf.type === 'inbox' && leaf.queue === 'closed'
-                          ? t('threadList.emptyClosed')
+                          ? t('threadList.emptyClosed' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)
                           : undefined
             }
             emptyHint={

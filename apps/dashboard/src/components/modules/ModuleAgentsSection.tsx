@@ -26,6 +26,7 @@ import {
   type ModuleAgentRow,
 } from '../../lib/integrations-api'
 import { ModuleAgentBadges } from './ModuleAgentBadges'
+import { EmptyState } from '../ui/empty-state'
 
 /**
  * Module agent roster: only these agents get the module tools.
@@ -288,16 +289,19 @@ export function ModuleAgentsSection({
       {loading ? (
         <AgentRosterSkeleton />
       ) : roster.length === 0 ? (
-        <div className="space-y-1.5">
-          <p className="text-sm text-text-muted">
-            {t('integrations.modules.agents.empty', {
-              defaultValue: 'No agents assigned yet. Hire a specialist or assign one to continue setup.',
-            })}
-          </p>
-          <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
-            {t('integrations.modules.agents.openAgents', { defaultValue: 'Open Agents' })}
-          </Link>
-        </div>
+        <EmptyState
+          tone="plain"
+          size="sm"
+          className="py-4"
+          title={t('integrations.modules.agents.empty', {
+            defaultValue: 'No agents assigned yet. Hire a specialist or assign one to continue setup.',
+          })}
+          footer={
+            <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+              {t('integrations.modules.agents.openAgents', { defaultValue: 'Open Agents' })}
+            </Link>
+          }
+        />
       ) : (
         <ul className="space-y-1">
           {roster.map((row) => (
@@ -409,7 +413,7 @@ export function ModuleAgentsSection({
                         })}
                       </p>
                       <p className="text-xs text-text-muted">
-                        {t('integrations.modules.agents.scopeHint', {
+                        {t('integrations.modules.agents.scopeHint' /* design-system-ignore: melding of fout, geen lege lijst */, {
                           defaultValue: 'No selection = access to all administrations.',
                         })}
                       </p>

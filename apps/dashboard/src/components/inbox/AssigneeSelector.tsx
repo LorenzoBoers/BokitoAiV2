@@ -106,7 +106,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
         ? t('threadChrome.assign')
         : t('threadChrome.assign')
   const owned = Boolean(currentMember) || owner?.kind === 'agent' || owner?.kind === 'team'
-  const blocked = t('threadChrome.noChannelAccess')
+  const blocked = t('threadChrome.noChannelAccess' /* design-system-ignore: melding of fout, geen lege lijst */)
   const currentAgent = useMemo(() => {
     if (owner?.kind !== 'agent' || !owner.agentId) return null
     const fromCandidates = candidates?.agents.find((a) => a.id === owner.agentId)

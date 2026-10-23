@@ -19,6 +19,7 @@ import { NO_LABEL_KEY, suggestOrgFlowLabels, type OrgFlow, type OrgFlowNode } fr
 import { labelHex, labelKeyOf, OTHER_LABEL_KEY, pathsOf } from '../../lib/org-flow-layout'
 import { workstreamPath } from '../../lib/workstream-ui'
 import { useGridNames } from './org-flow-names'
+import { EmptyState } from '../ui/empty-state'
 
 const ROW_LINK =
   'flex w-full items-center justify-between gap-2 rounded px-1 py-0.5 text-left text-sm leading-[18px] text-text-primary hover:bg-bg-elevated'
@@ -153,7 +154,7 @@ export function OrgIssuesList({
         </div>
       )}
       {data.issues.length === 0 ? (
-        <p className="text-xs text-text-muted">{t('orgCanvas.panel.noIssues')}</p>
+        <EmptyState tone="plain" size="sm" className="py-3" title={t('orgCanvas.panel.noIssues')} />
       ) : (
         <ul className="flex flex-col gap-1">
           {data.issues.map((issue, i) => {

@@ -60,7 +60,7 @@ export default function ForgotPassword() {
             {devLink ? (
               <div className="mb-6 rounded-md border border-border bg-bg-input/50 px-4 py-3 text-left text-sm">
                 <p className="font-medium text-text-heading mb-1">{t('forgotPage.devTitle')}</p>
-                <p className="text-text-secondary mb-2">{t('forgotPage.devBody')}</p>
+                <p className="text-text-secondary mb-2">{t('forgotPage.devBody' /* design-system-ignore: melding of fout, geen lege lijst */)}</p>
                 <Link to={devLink} className="break-all text-accent hover:text-accent-hover">
                   {devLink}
                 </Link>

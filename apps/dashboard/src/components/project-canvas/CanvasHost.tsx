@@ -42,6 +42,7 @@ import { bokitoCreateConversation } from '../../lib/signals-api'
 import { stashChatContinue } from '../../lib/chat-auto-continue'
 import { useAuth } from '../../context/AuthContext'
 import type { RuntimeAgent } from '../../lib/workforce-api'
+import { EmptyState } from '../ui/empty-state'
 
 const REFRESH_CADENCES: RefreshCadence[] = ['manual', 'daily', 'weekly', 'hourly', 'monthly', 'custom']
 
@@ -296,16 +297,20 @@ export function CanvasHost({
 
         {items.length === 0 ? (
           <TabsContent value="empty">
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <CANVAS_ICON size={28} className="text-text-muted opacity-70" aria-hidden />
-              <p className="text-sm text-text-muted">{t('projects.canvas.emptyHint')}</p>
-              {canEdit ? (
-                <Button type="button" size="sm" variant="secondary" onClick={() => void openAdd()} disabled={busy}>
-                  <Plus size={14} className="mr-1.5 shrink-0" aria-hidden />
-                  {t('projects.canvas.add')}
-                </Button>
-              ) : null}
-            </div>
+            <EmptyState
+              icon={CANVAS_ICON}
+              tone="plain"
+              size="lg"
+              title={t('projects.canvas.emptyHint')}
+              action={
+                canEdit ? (
+                  <Button type="button" size="sm" variant="secondary" onClick={() => void openAdd()} disabled={busy}>
+                    <Plus size={14} className="mr-1.5 shrink-0" aria-hidden />
+                    {t('projects.canvas.add')}
+                  </Button>
+                ) : null
+              }
+            />
           </TabsContent>
         ) : null}
 

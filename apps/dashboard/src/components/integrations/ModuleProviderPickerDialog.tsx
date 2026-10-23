@@ -12,6 +12,7 @@ import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import type { ModulePackageItem } from './ModulePackageGrid'
+import { EmptyState } from '../ui/empty-state'
 
 type Props = {
   open: boolean
@@ -41,11 +42,9 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
           })}
         </p>
         {items.length === 0 ? (
-          <p className="text-sm text-text-muted">
-            {t('integrations.modules.connections.noPackages', {
+          <EmptyState tone="plain" size="sm" className="py-4" title={t('integrations.modules.connections.noPackages', {
               defaultValue: 'No packages for this module yet.',
-            })}
-          </p>
+            })} />
         ) : (
           <ul className="max-h-80 space-y-1.5 overflow-y-auto">
             {items.map((item) => {

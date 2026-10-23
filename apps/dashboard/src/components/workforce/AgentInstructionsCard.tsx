@@ -85,7 +85,7 @@ export function AgentInstructionsCard({ agentId, systemPrompt, canEdit, onChange
           </pre>
         ) : (
           <p className="text-sm text-text-muted">
-            {t('workforce.agents.instructionsEmpty')}
+            {t('workforce.agents.instructionsEmpty' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
           </p>
         )}
       </div>

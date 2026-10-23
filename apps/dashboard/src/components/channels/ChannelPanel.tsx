@@ -17,6 +17,7 @@ import { updateChannelAccess } from '../../lib/channel-accounts-api'
 
 const CHANNEL_LEVELS = ['view', 'handle'] as const
 import type { ChannelActions } from './channel-actions'
+import { EmptyState } from '../ui/empty-state'
 
 /**
  * The same four sections for every channel: what works (Status), how
@@ -53,7 +54,7 @@ export default function ChannelPanel({
               {t('channelsPage.archivedNote', { count: row.conversationCount ?? 0 })}
             </p>
           ) : row.checks.length === 0 ? (
-            <p className="text-xs text-text-muted">{t('channelsPage.noChecks')}</p>
+            <EmptyState tone="plain" size="sm" className="py-4" title={t('channelsPage.noChecks')} />
           ) : (
             <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
               {row.checks.map((check) => (

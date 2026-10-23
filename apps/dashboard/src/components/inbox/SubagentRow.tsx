@@ -76,7 +76,7 @@ export function SubagentRow({ threadId, meta }: { threadId: string; meta: Subage
           {!failed && !detail ? <p className="text-text-muted">{t('subagent.loading')}</p> : null}
           {detail ? (
             <>
-              {detail.result ? <ChatText content={detail.result} /> : <p className="text-text-muted">{t('subagent.noResult')}</p>}
+              {detail.result ? <ChatText content={detail.result} /> : <p className="text-text-muted">{t('subagent.noResult' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>}
               {detail.events.length ? (
                 <ul className="space-y-0.5 text-xs text-text-muted">
                   {detail.events.map((event, index) => (

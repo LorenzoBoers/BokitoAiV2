@@ -27,6 +27,7 @@ import { ContactFolderChips, ThreadLookAt, ThreadTicketPrefix } from './ContactT
 import { OwnerTagsField } from './OwnerTagsField'
 import { TextLink } from '../ui/text-link'
 import { Input } from '../ui/input'
+import { EmptyState } from '../ui/empty-state'
 
 export function CompanyDetailView({ companyId }: { companyId: string }) {
   const { t } = useTranslation('nav')
@@ -226,10 +227,13 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
             ) : null}
             <div className="mt-2 space-y-1.5">
               {company.contacts.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
-                  <p className="text-xs text-text-muted">{t('contactsPage.noLinkedContacts')}</p>
-                  <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noLinkedContactsHint')}</p>
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <EmptyState
+                  tone="dashed"
+                  size="sm"
+                  title={t('contactsPage.noLinkedContacts')}
+                  description={t('contactsPage.noLinkedContactsHint')}
+                  action={
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     <Link
                       to="/settings/channels"
                       className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
@@ -243,7 +247,8 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                       {t('contactsPage.browseContacts')}
                     </Link>
                   </div>
-                </div>
+                  }
+                />
               ) : (
                 company.contacts.map((c) => (
                   <Link
@@ -281,10 +286,13 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
             </div>
             <div className="mt-3 space-y-1.5">
               {company.threads.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
-                  <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
-                  <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
-                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <EmptyState
+                  tone="dashed"
+                  size="sm"
+                  title={t('contactsPage.noConversations')}
+                  description={t('contactsPage.noConversationsHint')}
+                  action={
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     <Link
                       to="/settings/channels"
                       className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
@@ -298,7 +306,8 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                       {t('contactsPage.openCommunication')}
                     </Link>
                   </div>
-                </div>
+                  }
+                />
               ) : (
                 company.threads.map((thread) => (
                   <Link

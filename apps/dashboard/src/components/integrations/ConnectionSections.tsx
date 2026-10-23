@@ -5,6 +5,7 @@ import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { Button } from '../ui/button'
 import { CardGridSkeleton } from '../ui/skeleton'
 import type { groupConnectionItems, ConnectionListItem } from '../../lib/connection-list'
+import { EmptyState } from '../ui/empty-state'
 
 type Props = {
   title: string
@@ -37,7 +38,7 @@ export function ConnectionSections({
       {loading ? (
         <CardGridSkeleton />
       ) : groups.length === 0 ? (
-        <p className="text-sm text-text-muted">{emptyLabel}</p>
+        <EmptyState tone="dashed" size="sm" title={emptyLabel} />
       ) : (
         <div className="space-y-6">
           {groups.map((group) => (

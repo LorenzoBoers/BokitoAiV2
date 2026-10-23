@@ -276,7 +276,7 @@ export default function AiHandlingMetricsBlock() {
                 tone="ai"
                 height={CHART_HEIGHT}
                 ariaLabel={t('aiHandling.metrics.chartAria', { days })}
-                emptyLabel={t('aiHandling.metrics.emptyChart')}
+                emptyLabel={t('aiHandling.metrics.emptyChart' /* design-system-ignore: Chart tekent zijn eigen lege staat */)}
                 series={
                   hasSeriesWork(chartPoints)
                     ? [
@@ -309,7 +309,7 @@ export default function AiHandlingMetricsBlock() {
                 tone="ai"
                 slices={pieSlices}
                 ariaLabel={t('aiHandling.metrics.mixAria', { days })}
-                emptyLabel={t('aiHandling.metrics.emptyMix')}
+                emptyLabel={t('aiHandling.metrics.emptyMix' /* design-system-ignore: Chart tekent zijn eigen lege staat */)}
               />
               <ul className="space-y-1">
                 {mixByMode.map((row) => (

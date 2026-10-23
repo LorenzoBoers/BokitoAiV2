@@ -462,7 +462,7 @@ function MessengerSettingsContent({
 
   const handleSave = useCallback(async () => {
     if (!token || !channelId) {
-      const message = t('messengerPage.noWorkspace')
+      const message = t('messengerPage.noWorkspace' /* design-system-ignore: melding of fout, geen lege lijst */)
       setSaveError(message)
       throw new Error(message)
     }

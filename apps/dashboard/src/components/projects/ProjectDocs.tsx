@@ -29,6 +29,7 @@ import {
   SECTION_STATUS_RAIL,
   SECTION_STATUS_VARIANT,
 } from './projectWorkBadges'
+import { EmptyState } from '../ui/empty-state'
 
 const SECTION_STATUSES: DocSectionStatus[] = ['draft', 'review', 'final']
 
@@ -122,7 +123,7 @@ function SectionRow({
               <p className="text-xs text-text-muted">{section.summary}</p>
             ) : null}
             {items.length === 0 ? (
-              <p className="text-xs text-text-muted">{t('projects.work.noLinkedItems')}</p>
+              <p className="text-xs text-text-muted">{t('projects.work.noLinkedItems' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>
             ) : (
               items.map((item) => (
                 <div key={`${item.queue_item_id}-${item.relation}`} className="flex items-center gap-1.5">
@@ -290,7 +291,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
           )
         ) : null}
         {docs.length === 0 && !canEdit ? (
-          <p className="px-1 text-sm text-text-muted">{t('projects.work.docsEmpty')}</p>
+          <EmptyState tone="plain" size="sm" className="py-4" title={t('projects.work.docsEmpty')} />
         ) : null}
         <Link
           to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
@@ -302,21 +303,24 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
 
       <div className="min-w-0 space-y-3">
         {!selected ? (
-          <Card className="p-6 text-center">
-            <p className="text-sm font-medium text-text-heading">{t('projects.work.docsEmptyTitle')}</p>
-            <p className="mt-1 text-sm text-text-muted">{t('projects.work.docsEmptyBody')}</p>
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-              <Link
-                to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                {t('projects.work.openKnowledge')}
-              </Link>
-              <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
-                {t('projects.work.openAgents')}
-              </Link>
-            </div>
-          </Card>
+          <EmptyState
+            size="sm"
+            title={t('projects.work.docsEmptyTitle')}
+            description={t('projects.work.docsEmptyBody')}
+            footer={
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                <Link
+                  to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
+                  className="text-xs font-medium text-accent hover:underline"
+                >
+                  {t('projects.work.openKnowledge')}
+                </Link>
+                <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
+                  {t('projects.work.openAgents')}
+                </Link>
+              </div>
+            }
+          />
         ) : (
           <>
             {(selected.linked_requests?.length ?? 0) > 0 ? (

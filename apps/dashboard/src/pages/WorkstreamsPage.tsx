@@ -335,9 +335,7 @@ function CreateFlowDialog({
                 ))}
               </div>
             ) : (
-              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-text-muted">
-                {t('workstreamsPage.dialogNoFlows')}
-              </p>
+              <EmptyState tone="dashed" size="sm" className="py-4" title={t('workstreamsPage.dialogNoFlows')} />
             )
           ) : takenHit ? (
             <div className="space-y-2">
@@ -376,13 +374,18 @@ function CreateFlowDialog({
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
-              <p className="text-xs text-text-muted">{t('workstreamsPage.dialogNoMatch')}</p>
-              <Button type="button" size="sm" className="mt-3" disabled={creating} onClick={() => choose(normalized)}>
-                <Plus size={14} className="mr-1" aria-hidden />
-                {t('workstreamsPage.dialogCreateTag', { name: normalized })}
-              </Button>
-            </div>
+            <EmptyState
+              tone="dashed"
+              size="sm"
+              className="py-4"
+              title={t('workstreamsPage.dialogNoMatch')}
+              action={
+                <Button type="button" size="sm" disabled={creating} onClick={() => choose(normalized)}>
+                  <Plus size={14} className="mr-1" aria-hidden />
+                  {t('workstreamsPage.dialogCreateTag', { name: normalized })}
+                </Button>
+              }
+            />
           )}
 
           {choice ? (
@@ -502,7 +505,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
             {linked.length > 3 ? <span className="tabular-nums">+{linked.length - 3}</span> : null}
           </span>
         ) : (
-          <span className="italic">{t('workstreamsPage.meta.noProjects')}</span>
+          <span className="italic">{t('workstreamsPage.meta.noProjects' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</span>
         )}
       </div>
       <ChevronRight size={16} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />

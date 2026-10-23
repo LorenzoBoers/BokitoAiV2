@@ -218,7 +218,7 @@ export default function AddChannelDialog({
       try {
         const url = await startOAuthConnection(token, next, undefined, syncWindowDays)
         if (!url.trim()) {
-          setConnectError(t('channelsPage.noAuthorizeUrl'))
+          setConnectError(t('channelsPage.noAuthorizeUrl' /* design-system-ignore: melding of fout, geen lege lijst */))
           setConnectBusy(null)
           return
         }

@@ -42,6 +42,7 @@ import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { Input } from '../components/ui/input'
+import { EmptyState } from '../components/ui/empty-state'
 
 const CHART_HEIGHT = 168
 
@@ -263,7 +264,7 @@ export default function UsagePage() {
             summary.avg_feedback_score > 0
               ? num(summary.avg_feedback_score)
               : t('usagePage.noScore', { defaultValue: '—' }),
-          hint: summary.avg_feedback_score === 0 ? t('usagePage.feedbackEmptyHint') : null,
+          hint: summary.avg_feedback_score === 0 ? t('usagePage.feedbackEmptyHint' /* design-system-ignore: waarde, label of keuze, geen lege lijst */) : null,
           hintTo: summary.avg_feedback_score === 0 ? '/ai/assistant' : null,
           hintLink: summary.avg_feedback_score === 0 ? t('usagePage.openWebsiteWidget') : null,
         },
@@ -276,7 +277,7 @@ export default function UsagePage() {
               : t('usagePage.noScore', { defaultValue: '—' }),
           hint:
             summary.csat_score == null
-              ? t('cockpitPage.noRatings')
+              ? t('cockpitPage.noRatings' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
               : t('cockpitPage.csatResponses', { count: summary.csat_responses }),
           hintTo: summary.csat_score == null ? '/ai/assistant' : null,
           hintLink: summary.csat_score == null ? t('usagePage.openWebsiteWidget') : null,
@@ -288,7 +289,7 @@ export default function UsagePage() {
           hint:
             summary.open_decisions > 0
               ? t('usagePage.openDecisionsHint')
-              : t('usagePage.openDecisionsEmpty'),
+              : t('usagePage.openDecisionsEmpty' /* design-system-ignore: waarde, label of keuze, geen lege lijst */),
           hintTo: forYouPath(),
           hintLink: t('usagePage.openForYou', { defaultValue: 'Open For you' }),
         },
@@ -397,7 +398,7 @@ export default function UsagePage() {
                       tone="ai"
                       height={CHART_HEIGHT}
                       ariaLabel={t('usagePage.seriesAria', { days })}
-                      emptyLabel={t('usagePage.seriesEmpty')}
+                      emptyLabel={t('usagePage.seriesEmpty' /* design-system-ignore: Chart tekent zijn eigen lege staat */)}
                       series={[
                         {
                           name: t('usagePage.seriesName'),
@@ -457,7 +458,7 @@ export default function UsagePage() {
                             void saveCaps()
                           }
                         }}
-                        placeholder={t('usagePage.noCap')}
+                        placeholder={t('usagePage.noCap' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
                         inputMode="numeric"
                         className="h-8 w-36"
                       />
@@ -473,7 +474,7 @@ export default function UsagePage() {
                             void saveCaps()
                           }
                         }}
-                        placeholder={t('usagePage.noCap')}
+                        placeholder={t('usagePage.noCap' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
                         inputMode="decimal"
                         className="h-8 w-36"
                       />
@@ -553,9 +554,13 @@ export default function UsagePage() {
                 extra={t('usagePage.billable', { amount: usd(breakdown.total_customer_cost_micros) })}
               >
                 {breakdown.by_model.length === 0 ? (
-                  <div>
-                    <p className="text-xs text-text-muted">{t('usagePage.noModelUsage')}</p>
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  <EmptyState
+                    tone="plain"
+                    size="sm"
+                    className="py-4"
+                    title={t('usagePage.noModelUsage')}
+                    footer={
+                      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
                       <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
                         {t('usagePage.startChat')}
                       </Link>
@@ -569,7 +574,8 @@ export default function UsagePage() {
                         {t('usagePage.openModels')}
                       </Link>
                     </div>
-                  </div>
+                    }
+                  />
                 ) : (
                   breakdown.by_model.map((row) => (
                     <Link
@@ -602,9 +608,13 @@ export default function UsagePage() {
 
               <UsageCard title={t('usagePage.byAgent', { days: breakdown.days })}>
                 {breakdown.by_agent.length === 0 ? (
-                  <div>
-                    <p className="text-xs text-text-muted">{t('usagePage.noAgentUsage')}</p>
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  <EmptyState
+                    tone="plain"
+                    size="sm"
+                    className="py-4"
+                    title={t('usagePage.noAgentUsage')}
+                    footer={
+                      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
                       <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
                         {t('usagePage.openAgents')}
                       </Link>
@@ -618,7 +628,8 @@ export default function UsagePage() {
                         {t('usagePage.openModels')}
                       </Link>
                     </div>
-                  </div>
+                    }
+                  />
                 ) : (
                   breakdown.by_agent.map((row) => {
                     const body = (
@@ -662,21 +673,22 @@ export default function UsagePage() {
 
               <UsageCard title={t('usagePage.byUser', { days: breakdown.days })} hint={t('usagePage.userHint')}>
                 {(breakdown.by_user ?? []).length === 0 ? (
-                  <div>
-                    <p className="text-xs text-text-muted">{t('usagePage.noUserUsage')}</p>
-                    <Link
-                      to="/communication/new"
-                      className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
-                    >
-                      {t('usagePage.startChat')}
-                    </Link>
-                    <Link
-                      to="/settings/setup"
-                      className="mt-2 ml-3 inline-block text-xs font-medium text-accent hover:underline"
-                    >
-                      {t('usagePage.openSetup')}
-                    </Link>
-                  </div>
+                  <EmptyState
+                    tone="plain"
+                    size="sm"
+                    className="py-4"
+                    title={t('usagePage.noUserUsage')}
+                    footer={
+                      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+                        <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
+                          {t('usagePage.startChat')}
+                        </Link>
+                        <Link to="/settings/setup" className="text-xs font-medium text-accent hover:underline">
+                          {t('usagePage.openSetup')}
+                        </Link>
+                      </div>
+                    }
+                  />
                 ) : (
                   (breakdown.by_user ?? []).map((row) => (
                     <div key={row.user_id ?? 'system'} className={usageRow}>
@@ -693,7 +705,7 @@ export default function UsagePage() {
 
               <UsageCard title={t('usagePage.byRegion', { days: breakdown.days })} hint={t('usagePage.euShareHint')}>
                 {(breakdown.by_region ?? []).length === 0 ? (
-                  <p className="text-xs text-text-muted">{t('usagePage.noRegionUsage')}</p>
+                  <EmptyState tone="plain" size="sm" className="py-4" title={t('usagePage.noRegionUsage')} />
                 ) : (
                   (breakdown.by_region ?? []).map((row) => (
                     <Link key={row.region} to="/settings/trust" className={usageLink}>

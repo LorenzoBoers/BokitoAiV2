@@ -17,6 +17,7 @@ import { formatAppDateTime } from '../../lib/app-locale'
 import { channelSettingsPath, type ChannelRow } from '../../lib/channels-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { TextLink } from '../ui/text-link'
+import { EmptyState } from '../ui/empty-state'
 
 export type ChannelListProps = {
   channels: ChannelRow[]
@@ -105,9 +106,12 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
 
   if (!loading && sorted.length === 0) {
     return (
-      <div className="px-4 py-10 text-center text-sm text-text-muted">
-        <p>{t('channelsPage.noChannels')}</p>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+      <EmptyState
+        tone="plain"
+        size="sm"
+        title={t('channelsPage.noChannels')}
+        action={
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
           <TextLink type="button" onClick={onAddChannel} className="text-sm">
             {t('channelsPage.addChannel')}
           </TextLink>
@@ -118,7 +122,8 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
             {t('channelsPage.openCommunication')}
           </Link>
         </div>
-      </div>
+        }
+      />
     )
   }
 
@@ -149,7 +154,7 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
         </div>
       ) : null}
       {filtered.length === 0 ? (
-        <p className="px-4 py-8 text-center text-sm text-text-muted">{t('channelsPage.searchEmpty')}</p>
+        <EmptyState tone="plain" size="sm" title={t('channelsPage.searchEmpty')} />
       ) : (
     <ul className="divide-y divide-border/50">
       {filtered.map((row) => {
@@ -186,7 +191,7 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
                         ? t('channelsPage.lastActivity', {
                             when: formatAppDateTime(new Date(lastActivity), i18n.language),
                           })
-                        : t('channelsPage.noActivityYet')}
+                        : t('channelsPage.noActivityYet' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
                     </span>
                   </span>
                 </span>
