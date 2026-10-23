@@ -44,6 +44,7 @@ import { STATUS_TONE, displayContactStatus } from '../components/contacts/contac
 import { ContactDetail } from '../components/contacts/ContactDetail'
 import { CompanyDetailView } from '../components/contacts/CompanyDetailView'
 import { EmptyState } from '../components/ui/empty-state'
+import { EntityList, EntityRow } from '../components/ui/entity-row'
 
 const STATUS_FILTERS: ReadonlyArray<{ key: ContactStatus | 'all'; labelKey: string; hintKey: string }> = [
   { key: 'all', labelKey: 'contactsPage.statusAll', hintKey: 'contactsPage.statusAllHint' },
@@ -559,43 +560,27 @@ export default function ContactsPage() {
           />
         ) : (
           <Card className="overflow-hidden">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-border text-xs font-semibold text-text-muted">
-                  <th className="px-4 py-2.5">{t('contactsPage.colCompany')}</th>
-                  <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colDomain')}</th>
-                  <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colWebsite')}</th>
-                  <th className="px-4 py-2.5 text-right">{t('contactsPage.colContacts')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.map((company) => (
-                  <tr
-                    key={company.id}
-                    onClick={() => navigate(`/contacts/companies/${company.id}`)}
-                    className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-hover/50"
-                  >
-                    <td className="px-4 py-2.5">
-                      <span className="flex items-center gap-2.5">
-                        <DomainFavicon host={company.domain} name={company.name || company.domain} size={28} />
-                        <span className="truncate-fade text-sm font-medium text-text-primary">
-                          {company.name || company.domain}
-                        </span>
+            <EntityList className="px-1 py-1">
+              {companies.map((company) => (
+                <EntityRow
+                  key={company.id}
+                  href={`/contacts/companies/${company.id}`}
+                  leading={<DomainFavicon host={company.domain} name={company.name || company.domain} size={32} />}
+                  title={company.name || company.domain}
+                  description={company.domain}
+                  trailing={
+                    <>
+                      <span className="hidden w-48 truncate text-sm text-text-secondary md:block">
+                        {company.website || '-'}
                       </span>
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-sm text-text-secondary sm:table-cell">
-                      {company.domain}
-                    </td>
-                    <td className="hidden px-4 py-2.5 text-sm text-text-secondary md:table-cell">
-                      {company.website || '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-right text-sm text-text-secondary">
-                      {company.contactCount}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <span className="w-28 text-right text-sm text-text-secondary">
+                        {t('contactsPage.contactCount', { count: company.contactCount })}
+                      </span>
+                    </>
+                  }
+                />
+              ))}
+            </EntityList>
             {loadMoreButton}
           </Card>
         )
@@ -643,162 +628,122 @@ export default function ContactsPage() {
         />
       ) : (
         <Card className="overflow-hidden">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="border-b border-border text-xs font-semibold text-text-muted">
-                <th className="px-4 py-2.5">{t('contactsPage.colName')}</th>
-                <th className="hidden px-4 py-2.5 sm:table-cell">{t('contactsPage.colChannel')}</th>
-                <th className="hidden px-4 py-2.5 md:table-cell">{t('contactsPage.colCompany')}</th>
-                <th className="px-4 py-2.5 text-right">{t('contactsPage.colThreads')}</th>
-                <th className="px-4 py-2.5 text-right">{t('contactsPage.colStatus')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((contact) => (
-                <tr
+          <EntityList className="px-1 py-1">
+            {sorted.map((contact) => {
+              const canWrite = mailboxReady && canComposeToAddress(contact.channel, contact.address)
+              const openLatest = async () => {
+                if (!token) return
+                try {
+                  const history = await findThreadsForContact(token, contact)
+                  const latest = history[0]
+                  navigate(latest ? inboxPath('open', String(latest.id)) : `/contacts/${contact.id}`)
+                } catch {
+                  navigate(`/contacts/${contact.id}`)
+                }
+              }
+              const shown = displayContactStatus(contact)
+              const awaiting = isAnonymousContact(contact.displayName, contact.address)
+              return (
+                <EntityRow
                   key={contact.id}
-                  onClick={() => navigate(`/contacts/${contact.id}`)}
-                  className="group cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-hover/50"
-                >
-                  <td className="px-4 py-2.5">
-                    <span className="flex items-center gap-2.5">
-                      <Link
-                        to={`/contacts/${contact.id}`}
-                        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <Avatar kind="person" name={contact.displayName} email={contact.address} size={32} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate-fade text-sm font-medium text-text-primary">
-                            {humanizeContactName(
-                              contact.displayName,
-                              contact.address,
-                              t('contactsPage.widgetVisitor'),
-                            ) ||
-                              contact.address ||
-                              t('contactsPage.noAddress' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
-                          </span>
-                          <span className="block truncate-fade text-xs text-text-muted">
-                            {isPlaceholderContactAddress(contact.address)
-                              ? t('contactsPage.alsoSeenAsVisitor')
-                              : contact.address}
-                          </span>
-                        </span>
-                      </Link>
+                  href={`/contacts/${contact.id}`}
+                  leading={<Avatar kind="person" name={contact.displayName} email={contact.address} size={32} />}
+                  title={
+                    humanizeContactName(contact.displayName, contact.address, t('contactsPage.widgetVisitor')) ||
+                    contact.address ||
+                    t('contactsPage.noAddress' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
+                  }
+                  description={
+                    isPlaceholderContactAddress(contact.address) ? t('contactsPage.alsoSeenAsVisitor') : contact.address
+                  }
+                  actions={
+                    <>
                       {contact.threadCount > 0 ? (
-                        <Button variant="ghost" size="iconSm"
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
                           type="button"
                           title={t('contactsPage.openConversationHint')}
                           aria-label={t('contactsPage.openConversation')}
-                          onClick={async (event) => {
-                            event.stopPropagation()
-                            if (!token) return
-                            try {
-                              const history = await findThreadsForContact(token, contact)
-                              const latest = history[0]
-                              navigate(latest ? inboxPath('open', String(latest.id)) : `/contacts/${contact.id}`)
-                            } catch {
-                              navigate(`/contacts/${contact.id}`)
-                            }
-                          }}
-                          className="shrink-0"
+                          onClick={() => void openLatest()}
                         >
-                          <MessageSquare size={13} />
+                          <MessageSquare size={14} />
                         </Button>
                       ) : null}
-                      {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
-                        <Link
-                          to={composeEmailPath({ to: contact.address })}
-                          onClick={(event) => event.stopPropagation()}
-                          title={t('contactsPage.writeEmail')}
-                          aria-label={t('contactsPage.writeEmail')}
-                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
-                        >
-                          <Mail size={14} />
-                        </Link>
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className="hidden px-4 py-2.5 text-sm text-text-secondary sm:table-cell">
-                    <ChannelLabel
-                      channel={contact.channel}
-                      label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
-                    />
-                  </td>
-                  <td className="hidden px-4 py-2.5 md:table-cell">
-                    {contact.company && contact.companyId ? (
-                      <Link
-                        to={openEntityPath({ type: 'company', id: contact.companyId })}
-                        onClick={(event) => event.stopPropagation()}
-                        className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-accent hover:underline"
-                        title={t('contactsPage.openCompany', { name: contact.company })}
-                      >
-                        <Building2 size={12} className="text-text-muted" />
-                        {contact.company}
-                      </Link>
-                    ) : contact.company ? (
-                      <span className="flex items-center gap-1.5 text-sm text-text-secondary">
-                        <Building2 size={12} className="text-text-muted" />
-                        {contact.company}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-text-muted">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-sm text-text-secondary">
-                    {contact.threadCount > 0 ? (
-                      <TextLink
-                        type="button"
-                        onClick={async (event: React.MouseEvent<HTMLButtonElement>) => {
-                          event.stopPropagation()
-                          if (!token) return
-                          try {
-                            const history = await findThreadsForContact(token, contact)
-                            const latest = history[0]
-                            navigate(latest ? inboxPath('open', String(latest.id)) : `/contacts/${contact.id}`)
-                          } catch {
-                            navigate(`/contacts/${contact.id}`)
-                          }
-                        }}
-                      >
-                        {contact.threadCount}
-                      </TextLink>
-                    ) : mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
-                      <Link
-                        to={composeEmailPath({ to: contact.address })}
-                        onClick={(event) => event.stopPropagation()}
-                        className="text-accent hover:underline"
-                        title={t('contactsPage.writeEmailHint')}
-                      >
-                        {t('contactsPage.writeEmail')}
-                      </Link>
-                    ) : (
-                      <span className="text-text-muted">{t('contactsPage.neverSeen' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    {(() => {
-                      const shown = displayContactStatus(contact)
-                      const awaiting = isAnonymousContact(contact.displayName, contact.address)
-                      return (
-                        <span className="inline-flex items-center gap-1.5">
-                          <Badge
-                            size="sm"
-                            variant={STATUS_TONE[shown]}
-                            icon={shown === 'blocked' ? ShieldBan : shown === 'approved' ? Check : undefined}
+                      {canWrite ? (
+                        <Button variant="ghost" size="iconSm" asChild>
+                          <Link
+                            to={composeEmailPath({ to: contact.address })}
+                            title={t('contactsPage.writeEmail')}
+                            aria-label={t('contactsPage.writeEmail')}
                           >
-                            {awaiting
-                              ? t('contactsPage.statusAwaitingEmail')
-                              : contactStatusLabel(shown, t)}
-                          </Badge>
-                        </span>
-                      )
-                    })()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                            <Mail size={14} />
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </>
+                  }
+                  trailing={
+                    <>
+                      <span className="hidden w-28 text-sm text-text-secondary sm:block">
+                        <ChannelLabel
+                          channel={contact.channel}
+                          label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
+                        />
+                      </span>
+                      <span className="hidden w-40 min-w-0 md:block">
+                        {contact.company && contact.companyId ? (
+                          <Link
+                            to={openEntityPath({ type: 'company', id: contact.companyId })}
+                            className="flex min-w-0 items-center gap-1.5 text-sm text-text-secondary hover:text-accent hover:underline"
+                            title={t('contactsPage.openCompany', { name: contact.company })}
+                          >
+                            <Building2 size={14} className="shrink-0 text-text-muted" />
+                            <span className="truncate">{contact.company}</span>
+                          </Link>
+                        ) : contact.company ? (
+                          <span className="flex min-w-0 items-center gap-1.5 text-sm text-text-secondary">
+                            <Building2 size={14} className="shrink-0 text-text-muted" />
+                            <span className="truncate">{contact.company}</span>
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="w-24 text-right text-sm text-text-secondary">
+                        {contact.threadCount > 0 ? (
+                          <TextLink
+                            type="button"
+                            title={t('contactsPage.threadCount', { count: contact.threadCount })}
+                            onClick={() => void openLatest()}
+                          >
+                            {contact.threadCount}
+                          </TextLink>
+                        ) : canWrite ? (
+                          <Link
+                            to={composeEmailPath({ to: contact.address })}
+                            className="text-accent hover:underline"
+                            title={t('contactsPage.writeEmailHint')}
+                          >
+                            {t('contactsPage.writeEmail')}
+                          </Link>
+                        ) : (
+                          <span className="text-text-muted">{t('contactsPage.neverSeen' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</span>
+                        )}
+                      </span>
+                      <span className="flex w-32 justify-end">
+                        <Badge
+                          size="sm"
+                          variant={STATUS_TONE[shown]}
+                          icon={shown === 'blocked' ? ShieldBan : shown === 'approved' ? Check : undefined}
+                        >
+                          {awaiting ? t('contactsPage.statusAwaitingEmail') : contactStatusLabel(shown, t)}
+                        </Badge>
+                      </span>
+                    </>
+                  }
+                />
+              )
+            })}
+          </EntityList>
           {loadMoreButton}
         </Card>
       )}
