@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, Building2, CirclePlus, Copy, Plus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
@@ -78,21 +79,23 @@ function AssistantThreadsSection({
       <ul className="space-y-1.5">
         {threads.slice(0, 8).map((thread) => (
           <li key={thread.id}>
-            <button
-              type="button"
-              onClick={() => void onOpen(thread)}
-              className="panel flex w-full items-center gap-3 px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover"
-            >
-              <Sparkles size={14} className="shrink-0 text-ai-ink" aria-hidden />
-              <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">
-                {thread.title}
-              </span>
-              <span className="shrink-0 text-xs text-text-muted">
-                {thread.workspace_id === currentWorkspaceId
-                  ? t('assistant.thisWorkspace')
-                  : thread.workspace_name}
-              </span>
-            </button>
+            <Card asChild>
+              <button
+                type="button"
+                onClick={() => void onOpen(thread)}
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover"
+              >
+                <Sparkles size={14} className="shrink-0 text-ai-ink" aria-hidden />
+                <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">
+                  {thread.title}
+                </span>
+                <span className="shrink-0 text-xs text-text-muted">
+                  {thread.workspace_id === currentWorkspaceId
+                    ? t('assistant.thisWorkspace')
+                    : thread.workspace_name}
+                </span>
+              </button>
+            </Card>
           </li>
         ))}
       </ul>

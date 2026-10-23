@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { Suspense, type ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
 import PersonalAssistantWidget from '../shell/PersonalAssistantWidget'
@@ -12,13 +13,13 @@ export default function WorkspaceHubLayout({ children }: { children?: ReactNode 
 
       {/* Rechts: content in een afgerond vlak */}
       <div className="flex min-w-0 flex-1 flex-col p-3 pl-0">
-        <div className="panel flex min-h-0 flex-1 flex-col overflow-hidden">
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <main className="min-h-0 flex-1 overflow-y-auto">
             <Suspense fallback={<div className="p-6"><RouteShellSkeleton /></div>}>
               {children ?? <Outlet />}
             </Suspense>
           </main>
-        </div>
+        </Card>
       </div>
 
       {/* Same personal Bokito FAB as inside a workspace — person-scoped memory,

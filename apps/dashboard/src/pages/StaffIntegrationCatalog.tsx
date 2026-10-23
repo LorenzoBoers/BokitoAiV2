@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { useCallback, useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -150,153 +151,159 @@ export default function StaffIntegrationCatalog() {
       />
       {error ? <p className="text-sm text-status-error">{error}</p> : null}
 
-        <section className="panel space-y-3 p-4">
-          <h2 className="text-sm font-semibold text-text-heading">
-            {t('integrations.staffCatalog.addHost', { defaultValue: 'Add host' })}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="grid gap-1.5">
-              <Label>Slug</Label>
-              <Input value={newHostSlug} onChange={(e) => setNewHostSlug(e.target.value)} />
+        <Card asChild padding="default">
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-text-heading">
+              {t('integrations.staffCatalog.addHost', { defaultValue: 'Add host' })}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-1.5">
+                <Label>Slug</Label>
+                <Input value={newHostSlug} onChange={(e) => setNewHostSlug(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Name</Label>
+                <Input value={newHostName} onChange={(e) => setNewHostName(e.target.value)} />
+              </div>
+              <div className="flex items-end">
+                <Button type="button" disabled={saving} onClick={() => void handleCreateHost()}>
+                  {t('integrations.staffCatalog.saveHost', { defaultValue: 'Save host' })}
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-1.5">
-              <Label>Name</Label>
-              <Input value={newHostName} onChange={(e) => setNewHostName(e.target.value)} />
-            </div>
-            <div className="flex items-end">
-              <Button type="button" disabled={saving} onClick={() => void handleCreateHost()}>
-                {t('integrations.staffCatalog.saveHost', { defaultValue: 'Save host' })}
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Card>
 
-        <section className="panel space-y-3 p-4">
-          <h2 className="text-sm font-semibold text-text-heading">
-            {t('integrations.staffCatalog.addProvider', { defaultValue: 'Add remote MCP provider' })}
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="grid gap-1.5">
-              <Label>Slug</Label>
-              <Input
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="acme_mcp"
-              />
+        <Card asChild padding="default">
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-text-heading">
+              {t('integrations.staffCatalog.addProvider', { defaultValue: 'Add remote MCP provider' })}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label>Slug</Label>
+                <Input
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="acme_mcp"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Name</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Host</Label>
+                <Select value={hostSlug} onValueChange={setHostSlug}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hosts.map((h) => (
+                      <SelectItem key={h.slug} value={h.slug}>
+                        {h.name} ({h.slug})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Auth</Label>
+                <Select value={authType} onValueChange={setAuthType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mcp_remote_oauth">mcp_remote_oauth</SelectItem>
+                    <SelectItem value="api_key">api_key</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-1.5 sm:col-span-2">
+                <Label>MCP URL</Label>
+                <Input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://mcp.example.com/mcp"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="available">available</SelectItem>
+                    <SelectItem value="coming_soon">coming_soon</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end">
+                <Button type="button" disabled={saving} onClick={() => void handleCreateProvider()}>
+                  {t('integrations.staffCatalog.saveProvider', { defaultValue: 'Save provider' })}
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-1.5">
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Host</Label>
-              <Select value={hostSlug} onValueChange={setHostSlug}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {hosts.map((h) => (
-                    <SelectItem key={h.slug} value={h.slug}>
-                      {h.name} ({h.slug})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Auth</Label>
-              <Select value={authType} onValueChange={setAuthType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mcp_remote_oauth">mcp_remote_oauth</SelectItem>
-                  <SelectItem value="api_key">api_key</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-1.5 sm:col-span-2">
-              <Label>MCP URL</Label>
-              <Input
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://mcp.example.com/mcp"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">available</SelectItem>
-                  <SelectItem value="coming_soon">coming_soon</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Button type="button" disabled={saving} onClick={() => void handleCreateProvider()}>
-                {t('integrations.staffCatalog.saveProvider', { defaultValue: 'Save provider' })}
-              </Button>
-            </div>
-          </div>
-        </section>
+          </section>
+        </Card>
 
-        <section className="panel space-y-2 p-4">
-          <h2 className="text-sm font-semibold text-text-heading">
-            {t('integrations.staffCatalog.listTitle', { defaultValue: 'Catalog providers' })}
-          </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs text-text-muted">
-                <tr>
-                  <th className="py-2 pr-3">Slug</th>
-                  <th className="py-2 pr-3">Name</th>
-                  <th className="py-2 pr-3">Auth</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">URL</th>
-                  <th className="py-2 pr-3">Enabled</th>
-                  <th className="py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {providers.map((row) => (
-                  <tr key={row.slug} className="border-t border-border">
-                    <td className="py-2 pr-3 font-mono text-xs">{row.slug}</td>
-                    <td className="py-2 pr-3">{row.name}</td>
-                    <td className="py-2 pr-3 text-xs">{row.auth_type}</td>
-                    <td className="py-2 pr-3 text-xs">{row.status}</td>
-                    <td className="max-w-[220px] truncate-fade py-2 pr-3 text-xs text-text-muted">
-                      {row.mcp_remote_url || '—'}
-                    </td>
-                    <td className="py-2 pr-3 text-xs">{row.enabled ? 'yes' : 'no'}</td>
-                    <td className="py-2">
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => void toggleEnabled(row)}
-                        >
-                          {row.enabled ? 'Disable' : 'Enable'}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => void removeProvider(row)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
+        <Card asChild padding="default">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-text-heading">
+              {t('integrations.staffCatalog.listTitle', { defaultValue: 'Catalog providers' })}
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-xs text-text-muted">
+                  <tr>
+                    <th className="py-2 pr-3">Slug</th>
+                    <th className="py-2 pr-3">Name</th>
+                    <th className="py-2 pr-3">Auth</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">URL</th>
+                    <th className="py-2 pr-3">Enabled</th>
+                    <th className="py-2">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-      </section>
+                </thead>
+                <tbody>
+                  {providers.map((row) => (
+                    <tr key={row.slug} className="border-t border-border">
+                      <td className="py-2 pr-3 font-mono text-xs">{row.slug}</td>
+                      <td className="py-2 pr-3">{row.name}</td>
+                      <td className="py-2 pr-3 text-xs">{row.auth_type}</td>
+                      <td className="py-2 pr-3 text-xs">{row.status}</td>
+                      <td className="max-w-[220px] truncate-fade py-2 pr-3 text-xs text-text-muted">
+                        {row.mcp_remote_url || '—'}
+                      </td>
+                      <td className="py-2 pr-3 text-xs">{row.enabled ? 'yes' : 'no'}</td>
+                      <td className="py-2">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => void toggleEnabled(row)}
+                          >
+                            {row.enabled ? 'Disable' : 'Enable'}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void removeProvider(row)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+        </section>
+        </Card>
     </PageContent>
   )
 }

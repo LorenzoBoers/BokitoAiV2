@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -141,161 +142,169 @@ export default function TrustPrivacyPage() {
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
 
-      <section className="panel space-y-3 p-4">
-        <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.legalTitle')}</h2>
-        <p className="text-xs text-text-muted">{t('trustPage.legalBody')}</p>
-        <ul className="space-y-1 text-sm">
-          {(
-            [
-              ['DPA.md', t('trustPage.linkDpa')],
-              ['PRIVACY.md', t('trustPage.linkPrivacy')],
-              ['SUBPROCESSORS.md', t('trustPage.linkSubprocessors')],
-              ['SECURITY.md', t('trustPage.linkSecurity')],
-            ] as const
-          ).map(([file, label]) => (
-            <li key={file}>
-              <a
-                className="text-accent hover:underline"
-                href={`/docs/govern/privacy-security`}
-              >
-                {label}
-              </a>
-              <span className="text-text-muted"> · </span>
-              <a
-                className="text-xs text-text-muted hover:underline"
-                href={`${LEGAL_BASE}/${file}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {file}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <Card asChild padding="default">
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.legalTitle')}</h2>
+          <p className="text-xs text-text-muted">{t('trustPage.legalBody')}</p>
+          <ul className="space-y-1 text-sm">
+            {(
+              [
+                ['DPA.md', t('trustPage.linkDpa')],
+                ['PRIVACY.md', t('trustPage.linkPrivacy')],
+                ['SUBPROCESSORS.md', t('trustPage.linkSubprocessors')],
+                ['SECURITY.md', t('trustPage.linkSecurity')],
+              ] as const
+            ).map(([file, label]) => (
+              <li key={file}>
+                <a
+                  className="text-accent hover:underline"
+                  href={`/docs/govern/privacy-security`}
+                >
+                  {label}
+                </a>
+                <span className="text-text-muted"> · </span>
+                <a
+                  className="text-xs text-text-muted hover:underline"
+                  href={`${LEGAL_BASE}/${file}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {file}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </Card>
 
-      <section className="panel space-y-4 p-4">
-        <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.retentionTitle')}</h2>
-        {loading || !settings ? (
-          <RetentionFieldsSkeleton />
-        ) : (
-          <>
-            <div className="max-w-sm space-y-1.5">
-                <Label htmlFor="ret-workspace">{t('trustPage.retentionWorkspace')}</Label>
-                <Input
-                  id="ret-workspace"
-                  type="number"
-                  min={30}
-                  max={3650}
-                  className="h-9"
-                  value={settings.workspace_retention_days}
+      <Card asChild padding="default">
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.retentionTitle')}</h2>
+          {loading || !settings ? (
+            <RetentionFieldsSkeleton />
+          ) : (
+            <>
+              <div className="max-w-sm space-y-1.5">
+                  <Label htmlFor="ret-workspace">{t('trustPage.retentionWorkspace')}</Label>
+                  <Input
+                    id="ret-workspace"
+                    type="number"
+                    min={30}
+                    max={3650}
+                    className="h-9"
+                    value={settings.workspace_retention_days}
+                    disabled={saving}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        workspace_retention_days: Number(e.target.value) || 365,
+                      })
+                    }
+                    onBlur={(e) => {
+                      const days = Number(e.currentTarget.value) || 365
+                      void save({ workspace_retention_days: days })
+                    }}
+                  />
+                  <p className="text-xs text-text-muted">{t('trustPage.retentionWorkspaceHint')}</p>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+                <div>
+                  <p className="text-sm font-medium">{t('trustPage.llmBodies')}</p>
+                  <p className="text-xs text-text-muted">{t('trustPage.llmBodiesHint')}</p>
+                </div>
+                <Switch
+                  checked={settings.llm_may_use_message_bodies}
                   disabled={saving}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      workspace_retention_days: Number(e.target.value) || 365,
-                    })
-                  }
-                  onBlur={(e) => {
-                    const days = Number(e.currentTarget.value) || 365
-                    void save({ workspace_retention_days: days })
+                  onCheckedChange={(checked) => {
+                    setSettings({ ...settings, llm_may_use_message_bodies: checked })
+                    void save({ llm_may_use_message_bodies: checked })
                   }}
                 />
-                <p className="text-xs text-text-muted">{t('trustPage.retentionWorkspaceHint')}</p>
-            </div>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-              <div>
-                <p className="text-sm font-medium">{t('trustPage.llmBodies')}</p>
-                <p className="text-xs text-text-muted">{t('trustPage.llmBodiesHint')}</p>
               </div>
-              <Switch
-                checked={settings.llm_may_use_message_bodies}
-                disabled={saving}
-                onCheckedChange={(checked) => {
-                  setSettings({ ...settings, llm_may_use_message_bodies: checked })
-                  void save({ llm_may_use_message_bodies: checked })
-                }}
-              />
+            </>
+          )}
+        </section>
+      </Card>
+
+      <Card asChild padding="default">
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.region.title')}</h2>
+          <p className="text-xs text-text-muted">{t('trustPage.region.body')}</p>
+          {region?.eu_share_pct_30d != null && region.eu_share_pct_30d > 0 ? (
+            <p className="text-sm text-text-primary">
+              {t('trustPage.region.euShare30d')}: {region.eu_share_pct_30d}%
+            </p>
+          ) : null}
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">{t('trustPage.region.allowUs')}</p>
+              <p className="text-xs text-text-muted">{t('trustPage.region.allowUsHint')}</p>
             </div>
-          </>
-        )}
-      </section>
-
-      <section className="panel space-y-4 p-4">
-        <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.region.title')}</h2>
-        <p className="text-xs text-text-muted">{t('trustPage.region.body')}</p>
-        {region?.eu_share_pct_30d != null && region.eu_share_pct_30d > 0 ? (
-          <p className="text-sm text-text-primary">
-            {t('trustPage.region.euShare30d')}: {region.eu_share_pct_30d}%
-          </p>
-        ) : null}
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-          <div>
-            <p className="text-sm font-medium">{t('trustPage.region.allowUs')}</p>
-            <p className="text-xs text-text-muted">{t('trustPage.region.allowUsHint')}</p>
+            <Switch
+              checked={allowUs}
+              disabled={regionBusy || !isOwnerOrAdmin || !region}
+              onCheckedChange={(checked) => void handleRegionPolicy(checked)}
+            />
           </div>
-          <Switch
-            checked={allowUs}
-            disabled={regionBusy || !isOwnerOrAdmin || !region}
-            onCheckedChange={(checked) => void handleRegionPolicy(checked)}
-          />
-        </div>
-        {region && region.non_eu_models_in_use.length > 0 ? (
+          {region && region.non_eu_models_in_use.length > 0 ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-text-primary">{t('trustPage.region.inUseTitle')}</p>
+              <ul className="flex flex-wrap gap-2">
+                {region.non_eu_models_in_use.map((slug) => (
+                  <li
+                    key={slug}
+                    className="rounded-md border border-border px-3 py-1.5 text-sm text-text-primary"
+                  >
+                    {slug}
+                  </li>
+                ))}
+              </ul>
+              {!allowUs ? (
+                <p className="text-xs text-text-muted">{t('trustPage.region.inUseBlockedHint')}</p>
+              ) : null}
+            </div>
+          ) : null}
+          <p className="text-xs text-text-muted">{t('trustPage.region.embeddingNote')}</p>
+        </section>
+      </Card>
+
+      <Card asChild padding="default">
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.dsarTitle')}</h2>
+          <p className="text-xs text-text-muted">{t('trustPage.dsarBody')}</p>
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-text-primary">{t('trustPage.region.inUseTitle')}</p>
-            <ul className="flex flex-wrap gap-2">
-              {region.non_eu_models_in_use.map((slug) => (
-                <li
-                  key={slug}
-                  className="rounded-md border border-border px-3 py-1.5 text-sm text-text-primary"
-                >
-                  {slug}
-                </li>
-              ))}
-            </ul>
-            {!allowUs ? (
-              <p className="text-xs text-text-muted">{t('trustPage.region.inUseBlockedHint')}</p>
-            ) : null}
+            <Label htmlFor="subject">{t('trustPage.subjectEmail')}</Label>
+            <Input
+              id="subject"
+              type="email"
+              className="h-9"
+              value={subjectEmail}
+              onChange={(e) => setSubjectEmail(e.target.value)}
+              placeholder="person@example.com"
+            />
           </div>
-        ) : null}
-        <p className="text-xs text-text-muted">{t('trustPage.region.embeddingNote')}</p>
-      </section>
-
-      <section className="panel space-y-3 p-4">
-        <h2 className="text-sm font-semibold text-text-heading">{t('trustPage.dsarTitle')}</h2>
-        <p className="text-xs text-text-muted">{t('trustPage.dsarBody')}</p>
-        <div className="space-y-1.5">
-          <Label htmlFor="subject">{t('trustPage.subjectEmail')}</Label>
-          <Input
-            id="subject"
-            type="email"
-            className="h-9"
-            value={subjectEmail}
-            onChange={(e) => setSubjectEmail(e.target.value)}
-            placeholder="person@example.com"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={busyAction != null || !subjectEmail.trim().includes('@')}
-            onClick={() => void runExport()}
-          >
-            {t('trustPage.export')}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={busyAction != null || !subjectEmail.trim().includes('@')}
-            onClick={() => void runErase()}
-          >
-            {t('trustPage.erase')}
-          </Button>
-        </div>
-      </section>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busyAction != null || !subjectEmail.trim().includes('@')}
+              onClick={() => void runExport()}
+            >
+              {t('trustPage.export')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              disabled={busyAction != null || !subjectEmail.trim().includes('@')}
+              onClick={() => void runErase()}
+            >
+              {t('trustPage.erase')}
+            </Button>
+          </div>
+        </section>
+      </Card>
     </PageContent>
   )
 }

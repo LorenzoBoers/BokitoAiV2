@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -44,31 +45,33 @@ export default function AgendaItemPanel(props: Props) {
   const { selection, onClose } = props
   const { t } = useTranslation('nav')
   return (
-    <aside
-      className="panel flex max-h-[calc(100vh-10rem)] flex-col overflow-hidden lg:sticky lg:top-4"
-      data-testid="agenda-item-panel"
-    >
-      <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
-        {selection.kind === 'item' ? (
-          <ItemHeader item={selection.item} />
-        ) : (
-          <p className="text-sm font-semibold text-text-heading">
-            {selection.title} <span className="font-normal text-text-muted">· {selection.items.length}</span>
-          </p>
-        )}
-        <Button variant="ghost" size="iconSm"
-          type="button"
-          onClick={onClose}
-          className="text-text-muted"
-          aria-label={t('agendaPage.panel.close')}
-        >
-          <X className="h-4 w-4" aria-hidden />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {selection.kind === 'item' ? <ItemBody {...props} item={selection.item} /> : <GroupBody {...props} items={selection.items} />}
-      </div>
-    </aside>
+    <Card asChild>
+      <aside
+        className="flex max-h-[calc(100vh-10rem)] flex-col overflow-hidden lg:sticky lg:top-4"
+        data-testid="agenda-item-panel"
+      >
+        <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
+          {selection.kind === 'item' ? (
+            <ItemHeader item={selection.item} />
+          ) : (
+            <p className="text-sm font-semibold text-text-heading">
+              {selection.title} <span className="font-normal text-text-muted">· {selection.items.length}</span>
+            </p>
+          )}
+          <Button variant="ghost" size="iconSm"
+            type="button"
+            onClick={onClose}
+            className="text-text-muted"
+            aria-label={t('agendaPage.panel.close')}
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {selection.kind === 'item' ? <ItemBody {...props} item={selection.item} /> : <GroupBody {...props} items={selection.items} />}
+        </div>
+      </aside>
+    </Card>
   )
 }
 

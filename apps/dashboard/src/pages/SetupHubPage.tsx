@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -231,7 +232,7 @@ export default function SetupHubPage() {
           <StepListSkeleton />
         ) : (
           <>
-            <div className="panel flex items-center gap-3 px-4 py-3">
+            <Card padding="compact" className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/12 text-accent">
                 <Sparkles size={16} />
               </div>
@@ -252,7 +253,7 @@ export default function SetupHubPage() {
                 <Bot size={14} />
                 {t('setupGuidePage.startAssistant')}
               </Link>
-            </div>
+            </Card>
 
             <ol className="space-y-3">
               {steps.map((step, index) => {
@@ -325,19 +326,21 @@ export default function SetupHubPage() {
               <h2 className="mb-2 text-xs font-semibold text-text-muted">
                 {t('setupGuidePage.later.title', { defaultValue: 'Later' })}
               </h2>
-              <ul className="panel divide-y divide-border/50">
-                {later.map((item) => (
-                  <li key={item.to}>
-                    <Link
-                      to={item.to}
-                      className="flex items-center justify-between px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover/50 hover:text-text-primary"
-                    >
-                      {item.label}
-                      <ArrowRight size={14} className="text-text-muted" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <Card asChild>
+                <ul className="divide-y divide-border/50">
+                  {later.map((item) => (
+                    <li key={item.to}>
+                      <Link
+                        to={item.to}
+                        className="flex items-center justify-between px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover/50 hover:text-text-primary"
+                      >
+                        {item.label}
+                        <ArrowRight size={14} className="text-text-muted" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             </section>
 
             <p className="text-xs text-text-muted">

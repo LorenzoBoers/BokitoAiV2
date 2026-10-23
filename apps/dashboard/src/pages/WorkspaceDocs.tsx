@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -540,7 +541,7 @@ export default function WorkspaceDocs() {
   return (
     <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
       <AgentsSectionTabs className="mb-2 shrink-0" />
-      <div className="panel flex min-h-0 flex-1 overflow-hidden">
+      <Card className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border">
           <div className="space-y-2.5 border-b border-border px-3 pb-3 pt-3.5">
             <div className="flex items-center justify-between gap-2">
@@ -1082,7 +1083,7 @@ export default function WorkspaceDocs() {
             </div>
           )}
         </main>
-      </div>
+      </Card>
     </div>
   )
 }

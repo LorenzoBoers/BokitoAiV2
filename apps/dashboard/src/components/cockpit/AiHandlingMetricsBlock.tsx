@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -225,116 +226,118 @@ export default function AiHandlingMetricsBlock() {
   )
 
   return (
-    <section className="panel overflow-hidden" data-testid="overview-ai-activity">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-text-heading">{t('aiHandling.metrics.activityTitle')}</h2>
-          <p className="mt-0.5 text-xs text-text-muted">
-            {t('aiHandling.metrics.activityHint', { days })}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {periodControl}
-          <Link to={AI_HANDLING_SETTINGS_PATH} className="link-draw text-xs font-medium text-accent">
-            {t('aiHandling.openSettings')}
-          </Link>
-        </div>
-      </div>
-      <div className="p-4">
-        <div className="grid items-start gap-4 lg:grid-cols-3">
-          <div className="min-w-0 space-y-3 lg:col-span-2">
-            <div className="grid grid-cols-2 gap-2">
-              <InsetPanel padding="sm" className="px-3 py-3">
-                <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.timeSavedHint', { days })}>
-                  {t('aiHandling.metrics.timeSaved')}
-                </span>
-                <span className="mt-1 flex items-baseline gap-2">
-                  <span className="tabular-nums text-2xl font-semibold text-text-heading">
-                    {mix.time_saved_minutes} min
-                  </span>
-                  <PeriodTrend delta={timeSavedTrend} label={trendLabel} />
-                </span>
-              </InsetPanel>
-              <InsetPanel padding="sm" className="px-3 py-3">
-                <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.aiShareHint', { days })}>
-                  {t('aiHandling.metrics.aiShare')}
-                </span>
-                <span className="mt-1 flex items-baseline gap-2">
-                  <span className="tabular-nums text-2xl font-semibold text-text-heading">
-                    {shownShare == null ? '—' : `${Math.round(shownShare)}%`}
-                  </span>
-                  <PeriodTrend delta={aiShareTrend} label={trendLabel} />
-                </span>
-              </InsetPanel>
-            </div>
-            <Chart
-              kind="area"
-              stack
-              showAxes={false}
-              tone="ai"
-              height={CHART_HEIGHT}
-              ariaLabel={t('aiHandling.metrics.chartAria', { days })}
-              emptyLabel={t('aiHandling.metrics.emptyChart')}
-              series={
-                hasSeriesWork(chartPoints)
-                  ? [
-                      {
-                        name: manualLabel,
-                        color: MANUAL_COLOR,
-                        points: plotPoints.map((point) => ({ x: point.x, y: point.manual })),
-                      },
-                      {
-                        name: aiLabel,
-                        color: AI_COLOR,
-                        points: plotPoints.map((point) => ({ x: point.x, y: point.ai })),
-                      },
-                    ]
-                  : []
-              }
-            />
-            {chartPoints.length > 0 ? (
-              <div className="flex justify-between text-2xs tabular-nums text-text-muted">
-                <span>{formatDay(first, i18n.language)}</span>
-                <span>{formatDay(mid, i18n.language)}</span>
-                <span>{formatDay(last, i18n.language)}</span>
-              </div>
-            ) : null}
-          </div>
-          <div className="flex min-w-0 flex-col items-stretch gap-2 lg:pt-0.5">
-            <Chart
-              kind="pie"
-              height={PIE_HEIGHT}
-              tone="ai"
-              slices={pieSlices}
-              ariaLabel={t('aiHandling.metrics.mixAria', { days })}
-              emptyLabel={t('aiHandling.metrics.emptyMix')}
-            />
-            <ul className="space-y-1">
-              {mixByMode.map((row) => (
-                <li key={row.mode} className="flex items-center gap-2 text-2xs text-text-muted">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: MODE_SLICE_COLOR[row.mode] }}
-                    aria-hidden
-                  />
-                  <AiHandlingIcon mode={row.mode} size={12} />
-                  <span className="min-w-0 flex-1 truncate">{t(`aiHandling.modes.${row.mode}.label`)}</span>
-                  <span className="tabular-nums text-text-secondary" title={t('aiHandling.metrics.mixWeightHint')}>
-                    {row.count}
-                    {row.minutes > 0 ? ` · ${row.minutes}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="text-2xs text-text-muted">
-              {t('aiHandling.metrics.openHint', {
-                autonomous: metrics.openByMode.autonomous,
-                assisted: metrics.openByMode.assisted,
-              })}
+    <Card asChild>
+      <section className="overflow-hidden" data-testid="overview-ai-activity">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-text-heading">{t('aiHandling.metrics.activityTitle')}</h2>
+            <p className="mt-0.5 text-xs text-text-muted">
+              {t('aiHandling.metrics.activityHint', { days })}
             </p>
           </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {periodControl}
+            <Link to={AI_HANDLING_SETTINGS_PATH} className="link-draw text-xs font-medium text-accent">
+              {t('aiHandling.openSettings')}
+            </Link>
+          </div>
         </div>
-      </div>
-    </section>
+        <div className="p-4">
+          <div className="grid items-start gap-4 lg:grid-cols-3">
+            <div className="min-w-0 space-y-3 lg:col-span-2">
+              <div className="grid grid-cols-2 gap-2">
+                <InsetPanel padding="sm" className="px-3 py-3">
+                  <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.timeSavedHint', { days })}>
+                    {t('aiHandling.metrics.timeSaved')}
+                  </span>
+                  <span className="mt-1 flex items-baseline gap-2">
+                    <span className="tabular-nums text-2xl font-semibold text-text-heading">
+                      {mix.time_saved_minutes} min
+                    </span>
+                    <PeriodTrend delta={timeSavedTrend} label={trendLabel} />
+                  </span>
+                </InsetPanel>
+                <InsetPanel padding="sm" className="px-3 py-3">
+                  <span className="block text-xs text-text-muted" title={t('aiHandling.metrics.aiShareHint', { days })}>
+                    {t('aiHandling.metrics.aiShare')}
+                  </span>
+                  <span className="mt-1 flex items-baseline gap-2">
+                    <span className="tabular-nums text-2xl font-semibold text-text-heading">
+                      {shownShare == null ? '—' : `${Math.round(shownShare)}%`}
+                    </span>
+                    <PeriodTrend delta={aiShareTrend} label={trendLabel} />
+                  </span>
+                </InsetPanel>
+              </div>
+              <Chart
+                kind="area"
+                stack
+                showAxes={false}
+                tone="ai"
+                height={CHART_HEIGHT}
+                ariaLabel={t('aiHandling.metrics.chartAria', { days })}
+                emptyLabel={t('aiHandling.metrics.emptyChart')}
+                series={
+                  hasSeriesWork(chartPoints)
+                    ? [
+                        {
+                          name: manualLabel,
+                          color: MANUAL_COLOR,
+                          points: plotPoints.map((point) => ({ x: point.x, y: point.manual })),
+                        },
+                        {
+                          name: aiLabel,
+                          color: AI_COLOR,
+                          points: plotPoints.map((point) => ({ x: point.x, y: point.ai })),
+                        },
+                      ]
+                    : []
+                }
+              />
+              {chartPoints.length > 0 ? (
+                <div className="flex justify-between text-2xs tabular-nums text-text-muted">
+                  <span>{formatDay(first, i18n.language)}</span>
+                  <span>{formatDay(mid, i18n.language)}</span>
+                  <span>{formatDay(last, i18n.language)}</span>
+                </div>
+              ) : null}
+            </div>
+            <div className="flex min-w-0 flex-col items-stretch gap-2 lg:pt-0.5">
+              <Chart
+                kind="pie"
+                height={PIE_HEIGHT}
+                tone="ai"
+                slices={pieSlices}
+                ariaLabel={t('aiHandling.metrics.mixAria', { days })}
+                emptyLabel={t('aiHandling.metrics.emptyMix')}
+              />
+              <ul className="space-y-1">
+                {mixByMode.map((row) => (
+                  <li key={row.mode} className="flex items-center gap-2 text-2xs text-text-muted">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: MODE_SLICE_COLOR[row.mode] }}
+                      aria-hidden
+                    />
+                    <AiHandlingIcon mode={row.mode} size={12} />
+                    <span className="min-w-0 flex-1 truncate">{t(`aiHandling.modes.${row.mode}.label`)}</span>
+                    <span className="tabular-nums text-text-secondary" title={t('aiHandling.metrics.mixWeightHint')}>
+                      {row.count}
+                      {row.minutes > 0 ? ` · ${row.minutes}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-2xs text-text-muted">
+                {t('aiHandling.metrics.openHint', {
+                  autonomous: metrics.openByMode.autonomous,
+                  assisted: metrics.openByMode.assisted,
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </Card>
   )
 }

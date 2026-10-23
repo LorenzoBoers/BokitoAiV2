@@ -1,3 +1,4 @@
+import { Card as UiCard } from '../ui/card'
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -61,10 +62,10 @@ export function Grid({ columns = 2, children }: { columns?: number; children?: R
 
 export function Card({ title, children }: { title?: string; children?: ReactNode }) {
   return (
-    <div className="panel p-3">
+    <UiCard padding="compact">
       {title ? <p className="mb-2 text-sm font-medium text-text-heading">{title}</p> : null}
       <div className="space-y-2">{children}</div>
-    </div>
+    </UiCard>
   )
 }
 
@@ -189,8 +190,8 @@ export function Stat({
   const sparkPoints = (spark ?? [])
     .filter((point) => Number.isFinite(point))
     .map((point, index) => ({ x: String(index + 1), y: point }))
-  return (
-    <div className={cn('min-w-0', tile && 'panel flex flex-col gap-1 p-3')}>
+  const body = (
+    <>
       <p className="flex items-center gap-1.5 text-xs text-text-muted">
         {status && STATUS_DOT[status] ? (
           <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_DOT[status])} aria-hidden />
@@ -223,7 +224,14 @@ export function Stat({
       {sparkPoints.length > 1 ? (
         <Chart kind="area" series={[{ name: heading, points: sparkPoints }]} showAxes={false} height={36} />
       ) : null}
-    </div>
+    </>
+  )
+  return tile ? (
+    <UiCard padding="compact" className="flex min-w-0 flex-col gap-1">
+      {body}
+    </UiCard>
+  ) : (
+    <div className="min-w-0">{body}</div>
   )
 }
 

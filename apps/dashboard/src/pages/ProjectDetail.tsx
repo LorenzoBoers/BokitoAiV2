@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -131,82 +132,84 @@ export default function ProjectDetail() {
         <ApiErrorBanner message={error ?? t('projects.detail.notFound')} onRetry={() => void load()} />
       ) : (
         <>
-          <header className="panel flex flex-wrap items-start gap-4 p-4">
-            <div className="min-w-0 flex-1 space-y-2">
-              <FiltersetHeading
-                folderId={project.id}
-                name={project.name}
-                tagNames={project.tag_names ?? []}
-                canEdit={isAdmin}
-                onChanged={() => load({ silent: true })}
-                size="lg"
-              />
-              <p className="text-xs tabular-nums text-text-muted">
-                {t('projects.detail.folderCounts', {
-                  open: project.open_count,
-                  closed: project.closed_count,
-                })}
-              </p>
-            </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              <OpenInGridButton kind="folder" id={project.id} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    aria-label={t('projects.detail.moreActions')}
-                    title={t('projects.detail.moreActions')}
-                  >
-                    <MoreHorizontal size={16} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[200px]">
-                  <DropdownMenuItem
-                    onSelect={() =>
-                      void copyText(
-                        project.id,
-                        t('projects.detail.copied', { label: t('projects.detail.copyId') }),
-                        t('projects.detail.copyError', { label: t('projects.detail.copyId') }),
-                      )
-                    }
-                  >
-                    <Copy size={14} className="mr-2" aria-hidden />
-                    {t('projects.detail.copyId')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={() =>
-                      void copyText(
-                        project.slug,
-                        t('projects.detail.copied', { label: t('projects.detail.copySlug') }),
-                        t('projects.detail.copyError', { label: t('projects.detail.copySlug') }),
-                      )
-                    }
-                  >
-                    <Copy size={14} className="mr-2" aria-hidden />
-                    {t('projects.detail.copySlug')}
-                  </DropdownMenuItem>
-                  {isAdmin ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => setMoveOpen(true)}>
-                        <FolderInput size={14} className="mr-2" aria-hidden />
-                        {t('projects.detail.nestUnder', { defaultValue: 'Nest under…' })}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-status-error focus:text-status-error"
-                        onSelect={() => setDeleteOpen(true)}
-                      >
-                        <Trash2 size={14} className="mr-2" aria-hidden />
-                        {t('projects.detail.delete')}
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </header>
+          <Card asChild padding="default">
+            <header className="flex flex-wrap items-start gap-4">
+              <div className="min-w-0 flex-1 space-y-2">
+                <FiltersetHeading
+                  folderId={project.id}
+                  name={project.name}
+                  tagNames={project.tag_names ?? []}
+                  canEdit={isAdmin}
+                  onChanged={() => load({ silent: true })}
+                  size="lg"
+                />
+                <p className="text-xs tabular-nums text-text-muted">
+                  {t('projects.detail.folderCounts', {
+                    open: project.open_count,
+                    closed: project.closed_count,
+                  })}
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <OpenInGridButton kind="folder" id={project.id} />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={t('projects.detail.moreActions')}
+                      title={t('projects.detail.moreActions')}
+                    >
+                      <MoreHorizontal size={16} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[200px]">
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        void copyText(
+                          project.id,
+                          t('projects.detail.copied', { label: t('projects.detail.copyId') }),
+                          t('projects.detail.copyError', { label: t('projects.detail.copyId') }),
+                        )
+                      }
+                    >
+                      <Copy size={14} className="mr-2" aria-hidden />
+                      {t('projects.detail.copyId')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() =>
+                        void copyText(
+                          project.slug,
+                          t('projects.detail.copied', { label: t('projects.detail.copySlug') }),
+                          t('projects.detail.copyError', { label: t('projects.detail.copySlug') }),
+                        )
+                      }
+                    >
+                      <Copy size={14} className="mr-2" aria-hidden />
+                      {t('projects.detail.copySlug')}
+                    </DropdownMenuItem>
+                    {isAdmin ? (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onSelect={() => setMoveOpen(true)}>
+                          <FolderInput size={14} className="mr-2" aria-hidden />
+                          {t('projects.detail.nestUnder', { defaultValue: 'Nest under…' })}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-status-error focus:text-status-error"
+                          onSelect={() => setDeleteOpen(true)}
+                        >
+                          <Trash2 size={14} className="mr-2" aria-hidden />
+                          {t('projects.detail.delete')}
+                        </DropdownMenuItem>
+                      </>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </header>
+          </Card>
           {!isAdmin ? (
             <p className="rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
               {t('projects.detail.readonlyBanner')}

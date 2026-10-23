@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { Spinner } from '../ui/spinner'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -75,13 +76,13 @@ export function TicketStart({
 
   if (categories.length === 0) {
     return (
-      <div className="panel px-5 py-8 text-center">
+      <Card className="px-5 py-8 text-center">
         <Hash size={24} className="mx-auto text-text-muted" />
         <p className="mt-3 text-sm text-text-primary">{t('newConversation.noActionTags')}</p>
         <Link to="/flows" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
           {t('newConversation.openFlows')}
         </Link>
-      </div>
+      </Card>
     )
   }
 

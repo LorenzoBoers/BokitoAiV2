@@ -28,7 +28,7 @@ catalog in short form. `npm run lint` enforces it.
 | Font | `--font-sans` Inter, `--font-serif` Source Serif 4, `--font-mono` JetBrains Mono (`index.css`) |
 | Serif | Headings and agent text only: `.title-page`, `.title-dialog`, `.title-section` and the text of an agent reply. Everything else, own messages included, is sans |
 | Size (px) | `text-2xs` 11.5/15, `xs` 13/19, `sm` 14/21, `base` 15/23, `lg` 16/25, `xl` 19/27, `2xl` 24/31 (size/line height, `packages/ui-tokens/src/typography.ts`) |
-| Radius (px) | `sm` 4, `DEFAULT` 8, `md` 10, `lg` 12, `xl` 16, `2xl` 20, `3xl` 24, `full`. Card, `.panel`, Dialog `xl`; Callout `lg`; input, button, menu item `md`; Badge, avatars, dots, switches `full`. Two fixed shapes: chat bubble 18, composer 22 |
+| Radius (px) | `sm` 4, `DEFAULT` 8, `md` 10, `lg` 12, `xl` 16, `2xl` 20, `3xl` 24, `full`. Card, Dialog `xl`; Callout `lg`; input, button, menu item `md`; Badge, avatars, dots, switches `full`. Two fixed shapes: chat bubble 18, composer 22 |
 | Shadow | Buttons and cards are flat (`btn`, `card` = none). `shadow-overlay` for menus, popovers, drawers and dialogs; `shadow-composer` for the floating composer only |
 | Border | `border-border` at full strength; `border-border-light` for fields. No opacity steps (`border-border/60`) |
 | Titles | `.title-page` (h1, serif 30/36), `.title-dialog` (serif 20/28), `.title-section` (serif 18/26), `.title-card` (sans 14, 500), `.title-eyebrow` (sans 12.5, muted) in `index.css`; primitives use them, so pages rarely set a heading size |
@@ -73,8 +73,9 @@ overlays are solid elevated surfaces.
 {/* Rail reorder: pass dnd-kit listeners via titleButtonProps (distance ≥ 6 so click still toggles) */}
 ```
 
-`className="panel"` is the CSS form of `Card` for elements that must stay a
-`<section>`, `<li>` or `<button>`.
+`<Card padding="compact|default">` sets the inner padding (12 / 16px; default
+`none` for cards with their own header and rows). `<Card asChild>` makes a
+`<section>`, `<li>`, `<a>` or `<button>` the card. There is no `.panel` class.
 
 ## Controls
 
@@ -212,7 +213,8 @@ Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 | `window-confirm` | `useConfirm()` |
 | `native-select` | `Select` |
 | `arbitrary-text-size` | size ladder |
-| `hand-rolled-card` | `Card` / `.panel` |
+| `hand-rolled-card` | `Card` |
+| `panel-class` | `Card padding` / `Card asChild` |
 | `legacy-inset` | `InsetPanel` / `OptionCard` |
 | `raw-status-color` | status tokens, `Badge`, `Callout` |
 | `capsule-chip` | `Badge` / `FilterChip` |

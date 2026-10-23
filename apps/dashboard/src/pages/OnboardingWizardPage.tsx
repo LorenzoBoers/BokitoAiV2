@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
@@ -459,23 +460,25 @@ export default function OnboardingWizardPage() {
               <h2 className="text-lg font-semibold text-text-heading">{t('notifications.title')}</h2>
               <p className="mt-1 text-sm text-text-secondary">{t('notifications.subtitle')}</p>
             </div>
-            <ul className="panel divide-y divide-border/40">
-              {NOTIFICATION_TIERS.map((tier) => (
-                <li key={tier} className="flex items-center justify-between gap-3 px-3.5 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm text-text-heading">{tn(`notificationsPage.tiers.${tier}.title`)}</p>
-                    <p className="text-xs text-text-muted">{tn(`notificationsPage.tiers.${tier}.hint`)}</p>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-text-muted">{t(`notifications.tierChannel.${tier}`)}</span>
-                    <Switch
-                      checked={notifPrefs.tiers[tier][ONBOARDING_TIER_CHANNEL[tier]]}
-                      onCheckedChange={(checked) => updateNotifTier(tier, checked)}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <Card asChild>
+              <ul className="divide-y divide-border/40">
+                {NOTIFICATION_TIERS.map((tier) => (
+                  <li key={tier} className="flex items-center justify-between gap-3 px-3.5 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-text-heading">{tn(`notificationsPage.tiers.${tier}.title`)}</p>
+                      <p className="text-xs text-text-muted">{tn(`notificationsPage.tiers.${tier}.hint`)}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-text-muted">{t(`notifications.tierChannel.${tier}`)}</span>
+                      <Switch
+                        checked={notifPrefs.tiers[tier][ONBOARDING_TIER_CHANNEL[tier]]}
+                        onCheckedChange={(checked) => updateNotifTier(tier, checked)}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
             <p className="text-xs text-text-muted">{t('notifications.hint')}</p>
           </section>
         ) : null}

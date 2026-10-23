@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useEffect, useState, type ComponentType, MouseEvent } from 'react'
 import { Skeleton } from '../ui/skeleton'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -192,19 +193,20 @@ export function ProposalItemPreview({
         item.subtitle,
       ].filter(Boolean)
   const row = (
-    <EntityRow
-      density="sm"
-      interactive={!item.missing && (!item.planned || Boolean(onSelect))}
-      leading={<ItemLeading item={item} />}
-      title={item.title || typeLabel}
-      meta={<span className="block truncate">{metaParts.join(' · ')}</span>}
-      className={cn(
-        'panel',
-        item.missing && 'opacity-60',
-        selected && 'ring-1 ring-ai/50 border-ai/40',
-      )}
-      data-testid="proposal-item"
-    />
+    <Card asChild>
+      <EntityRow
+        density="sm"
+        interactive={!item.missing && (!item.planned || Boolean(onSelect))}
+        leading={<ItemLeading item={item} />}
+        title={item.title || typeLabel}
+        meta={<span className="block truncate">{metaParts.join(' · ')}</span>}
+        className={cn(
+          item.missing && 'opacity-60',
+          selected && 'ring-1 ring-ai/50 border-ai/40',
+        )}
+        data-testid="proposal-item"
+      />
+    </Card>
   )
   if (item.missing || (item.planned && !onSelect)) return row
   if (onSelect) {
@@ -453,73 +455,75 @@ function ModuleShowcaseCard({
   const color = agentProfileAccentColor(item.avatarColor || '#9159fe')
   const row = moduleInstallRow(item)
   const body = (
-    <article
-      className={cn(
-        'panel relative flex flex-col overflow-hidden p-4 text-left',
-        selected && 'ring-1 ring-ai/50',
-        onSelect && 'cursor-pointer',
-      )}
-      data-testid="module-showcase"
-    >
-      <div className="relative z-[1] flex items-stretch gap-4">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
-          <p className="mt-1 line-clamp-3 text-sm leading-snug text-text-secondary">{description}</p>
-          {item.roleBlurb ? (
-            <p className="mt-2 line-clamp-2 text-xs leading-snug text-text-muted">{item.roleBlurb}</p>
-          ) : null}
-          {item.toolCount ? (
-            <p className="mt-2 text-2xs text-text-muted">
-              {t('integrations.modules.showcase.cardTools', {
-                ns: 'nav',
-                count: item.toolCount,
-                defaultValue: '{{count}} agent tools',
+    <Card asChild padding="default">
+      <article
+        className={cn(
+          'relative flex flex-col overflow-hidden text-left',
+          selected && 'ring-1 ring-ai/50',
+          onSelect && 'cursor-pointer',
+        )}
+        data-testid="module-showcase"
+      >
+        <div className="relative z-[1] flex items-stretch gap-4">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
+            <p className="mt-1 line-clamp-3 text-sm leading-snug text-text-secondary">{description}</p>
+            {item.roleBlurb ? (
+              <p className="mt-2 line-clamp-2 text-xs leading-snug text-text-muted">{item.roleBlurb}</p>
+            ) : null}
+            {item.toolCount ? (
+              <p className="mt-2 text-2xs text-text-muted">
+                {t('integrations.modules.showcase.cardTools', {
+                  ns: 'nav',
+                  count: item.toolCount,
+                  defaultValue: '{{count}} agent tools',
+                })}
+              </p>
+            ) : null}
+            <div className="mt-auto pt-3">
+              <ModulePartnerLogos applications={[]} extraHostSlugs={item.providerSlugs ?? []} />
+            </div>
+          </div>
+          <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
+            <AiAvatar
+              {...toAiAvatarProps({
+                id: slug,
+                name: agentName,
+                avatar_kind: item.avatarKind,
+                avatar_icon: item.avatarIcon,
+                avatar_color: item.avatarColor,
+                avatar_shape: item.avatarShape,
+                avatar_image_url: item.avatarImageUrl,
               })}
+              size={40}
+              mode="live"
+              decorative
+            />
+            <p className="mt-2 max-w-full truncate text-sm font-semibold text-text-heading" title={agentName}>
+              {agentName}
             </p>
-          ) : null}
-          <div className="mt-auto pt-3">
-            <ModulePartnerLogos applications={[]} extraHostSlugs={item.providerSlugs ?? []} />
+            {jobTitle ? (
+              <p className="max-w-full truncate text-xs font-medium" style={{ color }} title={jobTitle}>
+                {jobTitle}
+              </p>
+            ) : null}
+            {comingSoon || onSelect ? null : (
+              <div
+                className="mt-auto pt-3"
+                onClick={(event) => event.stopPropagation()}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <ModuleInstallControls
+                  module={row}
+                  compact
+                  onAction={(moduleSlug, action) => patchIntegrationModule(moduleSlug, { action })}
+                />
+              </div>
+            )}
           </div>
         </div>
-        <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
-          <AiAvatar
-            {...toAiAvatarProps({
-              id: slug,
-              name: agentName,
-              avatar_kind: item.avatarKind,
-              avatar_icon: item.avatarIcon,
-              avatar_color: item.avatarColor,
-              avatar_shape: item.avatarShape,
-              avatar_image_url: item.avatarImageUrl,
-            })}
-            size={40}
-            mode="live"
-            decorative
-          />
-          <p className="mt-2 max-w-full truncate text-sm font-semibold text-text-heading" title={agentName}>
-            {agentName}
-          </p>
-          {jobTitle ? (
-            <p className="max-w-full truncate text-xs font-medium" style={{ color }} title={jobTitle}>
-              {jobTitle}
-            </p>
-          ) : null}
-          {comingSoon || onSelect ? null : (
-            <div
-              className="mt-auto pt-3"
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <ModuleInstallControls
-                module={row}
-                compact
-                onAction={(moduleSlug, action) => patchIntegrationModule(moduleSlug, { action })}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
+      </article>
+    </Card>
   )
   if (onSelect) {
     return (

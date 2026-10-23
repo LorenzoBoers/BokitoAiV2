@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { LoadingBlock } from '../components/ui/loading-block'
 import { Spinner } from '../components/ui/spinner'
 import { GRID_PATH } from '../lib/navigation'
@@ -430,7 +431,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
 
   // The row opens the flow; the project chips inside open their folder.
   return (
-    <div
+    <Card padding="compact"
       role="link"
       tabIndex={0}
       aria-label={title}
@@ -442,7 +443,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
         }
       }}
       className={cn(
-        'panel hover-lift group flex cursor-pointer items-center gap-4 px-4 py-3 transition',
+        'hover-lift group flex cursor-pointer items-center gap-4 transition',
         'hover:border-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent',
       )}
       data-testid="flow-row"
@@ -507,6 +508,6 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
         )}
       </div>
       <ChevronRight size={16} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />
-    </div>
+    </Card>
   )
 }

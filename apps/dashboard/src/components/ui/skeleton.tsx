@@ -1,3 +1,4 @@
+import { Card } from './card'
 import * as React from 'react'
 import { cn } from '../../lib/utils'
 
@@ -34,7 +35,7 @@ function SkeletonGrid({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) 
 
 function SkeletonCard() {
   return (
-    <div className="panel space-y-3 p-4">
+    <Card padding="default" className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-6 w-6 shrink-0 rounded-md" />
@@ -48,13 +49,13 @@ function SkeletonCard() {
         <Skeleton className="h-5 w-14 rounded-full" />
         <Skeleton className="h-5 w-16 rounded-full" />
       </div>
-    </div>
+    </Card>
   )
 }
 
 function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="panel">
+    <Card>
       <div className="flex h-11 items-center justify-between border-b border-border px-4">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-8 w-24" />
@@ -69,7 +70,7 @@ function SkeletonTable({ rows = 5 }: { rows?: number }) {
           </div>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
 

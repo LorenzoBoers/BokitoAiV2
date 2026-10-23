@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
@@ -37,10 +38,10 @@ export function AuthShell({ subtitle, intro, title, children, cardClassName, abo
           {intro ? <span className="mt-2 text-sm text-text-muted">{intro}</span> : null}
         </div>
 
-        <div className={cn('panel animate-page-enter p-8 shadow-overlay', cardClassName)}>
+        <Card className={cn('animate-page-enter p-8 shadow-overlay', cardClassName)}>
           {title ? <h1 className="title-page mb-4 text-center">{title}</h1> : null}
           {children}
-        </div>
+        </Card>
 
         {above ? <div className="mt-5">{above}</div> : null}
         <p className={cn('text-center text-xs text-text-muted', above ? 'mt-3' : 'mt-6')}>

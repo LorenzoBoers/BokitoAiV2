@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -90,36 +91,38 @@ function ItemCard({
   const className =
     'flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-bg-muted/40'
   return (
-    <li
-      className="panel flex items-center gap-1"
-      data-testid="works-in-item"
-      data-key={item.key}
-    >
-      {item.href && external ? (
-        <a href={item.href} target="_blank" rel="noreferrer" className={className}>
-          {body}
-        </a>
-      ) : item.href ? (
-        <Link to={item.href} className={className}>
-          {body}
-        </Link>
-      ) : (
-        <span className={className}>{body}</span>
-      )}
-      {canRemove ? (
-        <Button
-          type="button"
-          size="xs"
-          variant="ghost"
-          className="mr-1 px-1.5 text-text-muted hover:text-status-error"
-          disabled={busy}
-          title={t('projects.worksIn.remove')}
-          onClick={onRemove}
-        >
-          <Trash2 size={14} />
-        </Button>
-      ) : null}
-    </li>
+    <Card asChild>
+      <li
+        className="flex items-center gap-1"
+        data-testid="works-in-item"
+        data-key={item.key}
+      >
+        {item.href && external ? (
+          <a href={item.href} target="_blank" rel="noreferrer" className={className}>
+            {body}
+          </a>
+        ) : item.href ? (
+          <Link to={item.href} className={className}>
+            {body}
+          </Link>
+        ) : (
+          <span className={className}>{body}</span>
+        )}
+        {canRemove ? (
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            className="mr-1 px-1.5 text-text-muted hover:text-status-error"
+            disabled={busy}
+            title={t('projects.worksIn.remove')}
+            onClick={onRemove}
+          >
+            <Trash2 size={14} />
+          </Button>
+        ) : null}
+      </li>
+    </Card>
   )
 }
 

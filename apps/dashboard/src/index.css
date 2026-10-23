@@ -176,10 +176,6 @@
    * input, button md > FilterChip md. `rounded-full` only for avatars,
    * dots and switches. Catalog: apps/dashboard/docs/DESIGN_SYSTEM.md.
    */
-  .panel {
-    @apply bg-bg-surface border border-border rounded-xl;
-    --color-cutout: var(--color-bg-surface);
-  }
   .bg-bg-surface {
     --color-cutout: var(--color-bg-surface);
   }

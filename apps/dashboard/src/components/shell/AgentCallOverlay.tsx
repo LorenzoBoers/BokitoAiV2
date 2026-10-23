@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Phone, PhoneOff } from 'lucide-react'
@@ -535,9 +536,9 @@ export default function AgentCallOverlay() {
       aria-modal="true"
       aria-labelledby="agent-call-title"
     >
-      <div
+      <Card padding="default"
         ref={panelRef}
-        className="panel w-full max-w-sm cursor-pointer p-5"
+        className="w-full max-w-sm cursor-pointer"
         onClick={() => {
           if (showingRing) {
             void accept(ring ?? undefined)
@@ -589,7 +590,7 @@ export default function AgentCallOverlay() {
             </Button>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   )
 }

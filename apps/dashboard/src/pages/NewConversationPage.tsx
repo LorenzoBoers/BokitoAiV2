@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type PointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -923,7 +924,7 @@ export default function NewConversationPage() {
           <div className="flex min-h-full flex-col items-center justify-center px-4 py-12">
             <div className="w-full max-w-[560px] space-y-6">
               {newMailDraft ? (
-                <div className="panel flex items-center gap-2.5 px-3 py-2">
+                <Card className="flex items-center gap-2.5 px-3 py-2">
                   <Mail size={14} className="shrink-0 text-accent" />
                   <button
                     type="button"
@@ -957,7 +958,7 @@ export default function NewConversationPage() {
                   >
                     <XIcon size={14} />
                   </button>
-                </div>
+                </Card>
               ) : null}
               {!canSendEmail ? (
                 <p className="text-center text-xs text-text-muted">
@@ -1312,7 +1313,7 @@ export default function NewConversationPage() {
           {showAgentHome && noAgents ? (
             <div className="mx-auto flex min-h-full max-w-[560px] flex-col justify-center gap-6 py-12">
               <HomeShortcuts />
-              <div className="panel px-5 py-8 text-center">
+              <Card className="px-5 py-8 text-center">
                 <Bot size={24} className="mx-auto text-text-muted" />
                 <p className="mt-3 text-lg font-medium text-text-primary">
                   {t('newConversation.noAgentsAvailable')}
@@ -1320,7 +1321,7 @@ export default function NewConversationPage() {
                 <Link to="/agents" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
                   {t('newConversation.openAgents')}
                 </Link>
-              </div>
+              </Card>
             </div>
           ) : null}
 

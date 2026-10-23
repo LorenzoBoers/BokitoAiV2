@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -135,9 +136,11 @@ function ProviderCard({
           {badge}
         </Badge>
       ) : null}
-      <span className="panel flex h-9 w-9 items-center justify-center">
-        {icon}
-      </span>
+      <Card asChild>
+        <span className="flex h-9 w-9 items-center justify-center">
+          {icon}
+        </span>
+      </Card>
       <span className="min-w-0">
         <span className="block text-sm font-medium text-text-heading">{title}</span>
         <span className="mt-0.5 block text-xs leading-snug text-text-secondary">{hint}</span>
@@ -447,9 +450,11 @@ export default function AddChannelDialog({
                   <div className="rounded-lg border border-border bg-bg-elevated px-4 py-4">
                     <p className="text-sm text-text-secondary">{t('channelsPage.relay.created')}</p>
                     <div className="mt-3 flex items-center gap-2">
-                      <code className="panel min-w-0 flex-1 truncate-fade px-2.5 py-2 text-xs font-medium text-text-heading">
-                        {createdAddress}
-                      </code>
+                      <Card asChild>
+                        <code className="min-w-0 flex-1 truncate-fade px-2.5 py-2 text-xs font-medium text-text-heading">
+                          {createdAddress}
+                        </code>
+                      </Card>
                       <Button variant="secondary" size="sm" onClick={() => void copyAddress()}>
                         {copied ? <Check size={14} /> : <Copy size={14} />}
                         {copied ? t('channelsPage.copied') : t('channelsPage.copy')}

@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
@@ -73,7 +74,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
   const nowMinutes = new Date(nowMs).getHours() * 60 + new Date(nowMs).getMinutes()
 
   return (
-    <div className="panel overflow-hidden" data-testid="agenda-time-grid">
+    <Card className="overflow-hidden" data-testid="agenda-time-grid">
       <div className={cn('overflow-x-auto', days.length > 1 && 'min-w-0')}>
         <div className={cn(days.length > 1 && 'min-w-[44rem]')}>
           <div className="grid border-b border-border" style={{ gridTemplateColumns: columns }}>
@@ -234,7 +235,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
         </div>
       </div>
       <Legend />
-    </div>
+    </Card>
   )
 }
 

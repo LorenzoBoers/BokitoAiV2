@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useCallback, useEffect, useState } from 'react'
 import { timeAgo } from '../../lib/time-ago'
 import { Link, useNavigate } from 'react-router-dom'
@@ -351,215 +352,219 @@ export function ContactDetail({ contactId }: { contactId: string }) {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="panel p-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex min-w-0 items-center gap-2.5">
-              <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
-              <h2 className="truncate-fade text-base font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
-            </span>
-            <Badge size="sm" variant={STATUS_TONE[displayContactStatus(contact)]}>
-              {isAnonymousContact(contact.displayName, contact.address)
-                ? t('contactsPage.statusAwaitingEmail')
-                : contactStatusLabel(contact.status, t)}
-            </Badge>
-          </div>
-          <div className="mt-3 space-y-3">
-            <p className="flex items-center gap-2 text-sm text-text-secondary">
-              <ChannelGlyph channel={contact.channel} size={13} />
-              {isPlaceholderContactAddress(contact.address)
-                ? t('contactsPage.alsoSeenAsVisitor')
-                : contact.address || t('contactsPage.noAddress')}
-              <span className="ml-auto text-xs text-text-muted">
-                <ChannelLabel
-                  channel={contact.channel}
-                  label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
-                  size={11}
-                />
+        <Card asChild padding="default">
+          <section>
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex min-w-0 items-center gap-2.5">
+                <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
+                <h2 className="truncate-fade text-base font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
               </span>
-            </p>
-            {contact.identities.length > 0 ? (
-              <div data-testid="contact-identities">
-                <span className="text-xs font-semibold text-text-muted">{t('contactsPage.identities')}</span>
-                <ul className="mt-1 space-y-1">
-                  {contact.identities.map((identity) => (
-                    <li key={identity.id} className="flex items-center gap-2 text-sm text-text-secondary">
-                      <ChannelGlyph channel={identity.channel} size={13} className="shrink-0" />
-                      <span className="min-w-0 truncate-fade">
-                        {isPlaceholderContactAddress(identity.address)
-                          ? t('contactsPage.widgetVisitor')
-                          : identity.address}
-                      </span>
-                      <span className="ml-auto shrink-0 text-xs text-text-muted">
-                        {identity.lastSeenAt ? timeAgo(identity.lastSeenAt, t) : ''}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() => void detachIdentity(identity.id)}
-                        title={t('contactsPage.detachHint')}
-                        className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
-                      >
-                        {t('contactsPage.detach')}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <div className="rounded-md border border-border px-3 py-2.5" data-testid="contact-tags">
-              <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactsPage.tags', { defaultValue: 'Tags' })}</p>
-              <OwnerTagsField
-                tags={contact.tags ?? []}
-                inherited={contact.companyTags ?? []}
-                inheritedLabel={t('contactsPage.viaCompany', { defaultValue: 'via company' })}
-                disabled={saving}
-                onChange={(names) => {
-                  void (async () => {
-                    if (!token) return
-                    setSaving(true)
-                    try {
-                      const tags = await setContactTags(token, contact.id, names)
-                      setContact((current) => (current ? { ...current, tags } : current))
-                    } catch (err) {
-                      toast.error(formatApiErrorMessage(err, t('contactsPage.saveError')))
-                    } finally {
-                      setSaving(false)
-                    }
-                  })()
-                }}
-              />
+              <Badge size="sm" variant={STATUS_TONE[displayContactStatus(contact)]}>
+                {isAnonymousContact(contact.displayName, contact.address)
+                  ? t('contactsPage.statusAwaitingEmail')
+                  : contactStatusLabel(contact.status, t)}
+              </Badge>
             </div>
-            <div className="rounded-md border border-border px-3 py-2.5" data-testid="contact-owner">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-text-muted">{t('contactsPage.owner')}</span>
-                <div className="w-[220px]">
-                  <ContactOwnerPicker
-                    owner={contact.owner}
-                    onChange={(owner) => void setOwner(owner)}
-                    disabled={saving}
+            <div className="mt-3 space-y-3">
+              <p className="flex items-center gap-2 text-sm text-text-secondary">
+                <ChannelGlyph channel={contact.channel} size={13} />
+                {isPlaceholderContactAddress(contact.address)
+                  ? t('contactsPage.alsoSeenAsVisitor')
+                  : contact.address || t('contactsPage.noAddress')}
+                <span className="ml-auto text-xs text-text-muted">
+                  <ChannelLabel
+                    channel={contact.channel}
+                    label={t(`contactsPage.channels.${channelKind(contact.channel)}`, { defaultValue: contact.channel })}
+                    size={11}
                   />
+                </span>
+              </p>
+              {contact.identities.length > 0 ? (
+                <div data-testid="contact-identities">
+                  <span className="text-xs font-semibold text-text-muted">{t('contactsPage.identities')}</span>
+                  <ul className="mt-1 space-y-1">
+                    {contact.identities.map((identity) => (
+                      <li key={identity.id} className="flex items-center gap-2 text-sm text-text-secondary">
+                        <ChannelGlyph channel={identity.channel} size={13} className="shrink-0" />
+                        <span className="min-w-0 truncate-fade">
+                          {isPlaceholderContactAddress(identity.address)
+                            ? t('contactsPage.widgetVisitor')
+                            : identity.address}
+                        </span>
+                        <span className="ml-auto shrink-0 text-xs text-text-muted">
+                          {identity.lastSeenAt ? timeAgo(identity.lastSeenAt, t) : ''}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => void detachIdentity(identity.id)}
+                          title={t('contactsPage.detachHint')}
+                          className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
+                        >
+                          {t('contactsPage.detach')}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="rounded-md border border-border px-3 py-2.5" data-testid="contact-tags">
+                <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactsPage.tags', { defaultValue: 'Tags' })}</p>
+                <OwnerTagsField
+                  tags={contact.tags ?? []}
+                  inherited={contact.companyTags ?? []}
+                  inheritedLabel={t('contactsPage.viaCompany', { defaultValue: 'via company' })}
+                  disabled={saving}
+                  onChange={(names) => {
+                    void (async () => {
+                      if (!token) return
+                      setSaving(true)
+                      try {
+                        const tags = await setContactTags(token, contact.id, names)
+                        setContact((current) => (current ? { ...current, tags } : current))
+                      } catch (err) {
+                        toast.error(formatApiErrorMessage(err, t('contactsPage.saveError')))
+                      } finally {
+                        setSaving(false)
+                      }
+                    })()
+                  }}
+                />
+              </div>
+              <div className="rounded-md border border-border px-3 py-2.5" data-testid="contact-owner">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-semibold text-text-muted">{t('contactsPage.owner')}</span>
+                  <div className="w-[220px]">
+                    <ContactOwnerPicker
+                      owner={contact.owner}
+                      onChange={(owner) => void setOwner(owner)}
+                      disabled={saving}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            {field(t('contactsPage.fieldName'), 'displayName', t('contactsPage.namePlaceholderFull'))}
-            <div className="grid grid-cols-2 gap-3">
-              {field(t('contactsPage.fieldCompany'), 'company', t('contactsPage.fieldCompany'))}
-              {field(t('contactsPage.fieldTitle'), 'title', t('contactsPage.titlePlaceholder'))}
-            </div>
-            {contact.companyId ? (
-              <Link
-                to={`/contacts/companies/${contact.companyId}`}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
-              >
-                <Building2 size={12} />
-                {t('contactsPage.viewCompany')}
-              </Link>
-            ) : (
-              <div className="space-y-1">
-                <p className="text-xs text-text-muted">{t('contactsPage.noCompanyHint')}</p>
-                <div className="flex flex-wrap gap-x-3 gap-y-1">
-                  <Link
-                    to="/contacts?view=companies"
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
-                  >
-                    <Building2 size={12} />
-                    {t('contactsPage.viewCompanies')}
-                  </Link>
-                  <span className="text-xs text-text-muted">{t('contactsPage.linkContactsHint')}</span>
-                </div>
+              {field(t('contactsPage.fieldName'), 'displayName', t('contactsPage.namePlaceholderFull'))}
+              <div className="grid grid-cols-2 gap-3">
+                {field(t('contactsPage.fieldCompany'), 'company', t('contactsPage.fieldCompany'))}
+                {field(t('contactsPage.fieldTitle'), 'title', t('contactsPage.titlePlaceholder'))}
               </div>
-            )}
-            {field(t('contactsPage.fieldPhone'), 'phone', t('contactsPage.phonePlaceholder'))}
-            <label className="block">
-              <span className="text-xs font-semibold text-text-muted">{t('contactsPage.notes')}</span>
-              <textarea
-                value={draft.notes}
-                onChange={(e) => {
-                  setDraft((prev) => ({ ...prev, notes: e.target.value }))
-                  setDirty(true)
-                }}
-                rows={4}
-                placeholder={t('contactsPage.notesPlaceholder')}
-                className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
-              />
-            </label>
-            {dirty ? (
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => void save()}
-                className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
-              >
-                <Check size={14} />
-                {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <section id="conversations" className="panel p-4">
-          <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
-          <p className="text-xs text-text-muted">
-            {threadTotal > threads.length
-              ? t('contactsPage.threadCountPartial', { shown: threads.length, count: threadTotal })
-              : t('contactsPage.threadCount', { count: threadTotal })}
-          </p>
-          <div className="mt-2">
-            <ContactFolderChips threads={threads} />
-          </div>
-          <div className="mt-3 space-y-1.5">
-            {threads.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
-                <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
-                <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                  {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
-                    <Link
-                      to={composeEmailPath({ to: contact.address })}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-                    >
-                      {t('contactsPage.writeEmail')}
-                    </Link>
-                  ) : (
-                    <Link
-                      to="/settings/channels"
-                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-                    >
-                      {t('contactsPage.connectChannels')}
-                    </Link>
-                  )}
-                  <Link
-                    to={inboxPath('open')}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
-                  >
-                    {t('contactsPage.openCommunication')}
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              threads.map((thread) => (
+              {contact.companyId ? (
                 <Link
-                  key={String(thread.id)}
-                  to={inboxPath('open', String(thread.id))}
-                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover"
+                  to={`/contacts/companies/${contact.companyId}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
                 >
-                  <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate-fade text-sm font-medium text-text-primary">
-                      {thread.emailSubject || t('contactsPage.noSubject')}
-                    </span>
-                    <span className="block truncate-fade text-xs text-text-muted">
-                      <ThreadTicketPrefix thread={thread} />
-                      {threadStatusLabel(thread.status, t)}
-                      {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
-                    </span>
-                  </span>
-                  <ThreadLookAt thread={thread} />
+                  <Building2 size={12} />
+                  {t('contactsPage.viewCompany')}
                 </Link>
-              ))
-            )}
-          </div>
-        </section>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-xs text-text-muted">{t('contactsPage.noCompanyHint')}</p>
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <Link
+                      to="/contacts?view=companies"
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-accent hover:underline"
+                    >
+                      <Building2 size={12} />
+                      {t('contactsPage.viewCompanies')}
+                    </Link>
+                    <span className="text-xs text-text-muted">{t('contactsPage.linkContactsHint')}</span>
+                  </div>
+                </div>
+              )}
+              {field(t('contactsPage.fieldPhone'), 'phone', t('contactsPage.phonePlaceholder'))}
+              <label className="block">
+                <span className="text-xs font-semibold text-text-muted">{t('contactsPage.notes')}</span>
+                <textarea
+                  value={draft.notes}
+                  onChange={(e) => {
+                    setDraft((prev) => ({ ...prev, notes: e.target.value }))
+                    setDirty(true)
+                  }}
+                  rows={4}
+                  placeholder={t('contactsPage.notesPlaceholder')}
+                  className="mt-1 w-full resize-none rounded-md border border-border bg-bg-surface px-2.5 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50"
+                />
+              </label>
+              {dirty ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void save()}
+                  className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
+                >
+                  <Check size={14} />
+                  {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
+                </button>
+              ) : null}
+            </div>
+          </section>
+        </Card>
+
+        <Card asChild padding="default">
+          <section id="conversations">
+            <h2 className="text-base font-semibold text-text-heading">{t('contactsPage.conversations')}</h2>
+            <p className="text-xs text-text-muted">
+              {threadTotal > threads.length
+                ? t('contactsPage.threadCountPartial', { shown: threads.length, count: threadTotal })
+                : t('contactsPage.threadCount', { count: threadTotal })}
+            </p>
+            <div className="mt-2">
+              <ContactFolderChips threads={threads} />
+            </div>
+            <div className="mt-3 space-y-1.5">
+              {threads.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
+                  <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
+                  <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {mailboxReady && canComposeToAddress(contact.channel, contact.address) ? (
+                      <Link
+                        to={composeEmailPath({ to: contact.address })}
+                        className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                      >
+                        {t('contactsPage.writeEmail')}
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/settings/channels"
+                        className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                      >
+                        {t('contactsPage.connectChannels')}
+                      </Link>
+                    )}
+                    <Link
+                      to={inboxPath('open')}
+                      className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+                    >
+                      {t('contactsPage.openCommunication')}
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                threads.map((thread) => (
+                  <Link
+                    key={String(thread.id)}
+                    to={inboxPath('open', String(thread.id))}
+                    className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover"
+                  >
+                    <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate-fade text-sm font-medium text-text-primary">
+                        {thread.emailSubject || t('contactsPage.noSubject')}
+                      </span>
+                      <span className="block truncate-fade text-xs text-text-muted">
+                        <ThreadTicketPrefix thread={thread} />
+                        {threadStatusLabel(thread.status, t)}
+                        {thread.lastMessageAt ? ` - ${timeAgo(thread.lastMessageAt, t)}` : ''}
+                      </span>
+                    </span>
+                    <ThreadLookAt thread={thread} />
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
+        </Card>
       </div>
     </PageContent>
   )

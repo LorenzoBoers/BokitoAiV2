@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { useEffect, useState } from 'react';
 import { AUTONOMY_PATH } from '../lib/navigation'
 import { useTranslation } from 'react-i18next';
@@ -92,56 +93,66 @@ export default function WorkspaceSettings() {
         <p className="text-sm font-medium text-text-heading">{t('startHereTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">{t('startHereBody')}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Link
-            to="/settings/setup"
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
-          >
-            <ListChecks size={14} className="shrink-0 text-accent" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-text-heading">{t('startHereSetup')}</span>
-              <span className="block text-xs text-text-muted">{t('nav:settings.hints.setupGuide')}</span>
-            </span>
-          </Link>
-          <Link
-            to="/settings/channels"
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
-          >
-            <Mail size={14} className="shrink-0 text-accent" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-text-heading">{t('startHereEmail')}</span>
-              <span className="block text-xs text-text-muted">{t('nav:settings.hints.emailMessages')}</span>
-            </span>
-          </Link>
-          <Link
-            to={AUTONOMY_PATH}
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
-          >
-            <Bot size={14} className="shrink-0 text-accent" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-text-heading">{t('startHereInboxAi')}</span>
-              <span className="block text-xs text-text-muted">{t('nav:settings.hints.inboxAi')}</span>
-            </span>
-          </Link>
-          <Link
-            to={WEBSITE_WIDGET_PATH}
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
-          >
-            <MessageSquare size={14} className="shrink-0 text-accent" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-text-heading">{t('startHereWidget')}</span>
-              <span className="block text-xs text-text-muted">{t('nav:settings.hints.chatWidget')}</span>
-            </span>
-          </Link>
-          <Link
-            to="/connections"
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
-          >
-            <Puzzle size={14} className="shrink-0 text-accent" />
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-text-heading">{t('startHereMarketplace')}</span>
-              <span className="block text-xs text-text-muted">{t('nav:settings.hints.integrations')}</span>
-            </span>
-          </Link>
+          <Card asChild padding="compact">
+            <Link
+              to="/settings/setup"
+              className="flex items-center gap-2 hover:border-border-light hover:bg-bg-hover/50"
+            >
+              <ListChecks size={14} className="shrink-0 text-accent" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-text-heading">{t('startHereSetup')}</span>
+                <span className="block text-xs text-text-muted">{t('nav:settings.hints.setupGuide')}</span>
+              </span>
+            </Link>
+          </Card>
+          <Card asChild padding="compact">
+            <Link
+              to="/settings/channels"
+              className="flex items-center gap-2 hover:border-border-light hover:bg-bg-hover/50"
+            >
+              <Mail size={14} className="shrink-0 text-accent" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-text-heading">{t('startHereEmail')}</span>
+                <span className="block text-xs text-text-muted">{t('nav:settings.hints.emailMessages')}</span>
+              </span>
+            </Link>
+          </Card>
+          <Card asChild padding="compact">
+            <Link
+              to={AUTONOMY_PATH}
+              className="flex items-center gap-2 hover:border-border-light hover:bg-bg-hover/50"
+            >
+              <Bot size={14} className="shrink-0 text-accent" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-text-heading">{t('startHereInboxAi')}</span>
+                <span className="block text-xs text-text-muted">{t('nav:settings.hints.inboxAi')}</span>
+              </span>
+            </Link>
+          </Card>
+          <Card asChild padding="compact">
+            <Link
+              to={WEBSITE_WIDGET_PATH}
+              className="flex items-center gap-2 hover:border-border-light hover:bg-bg-hover/50"
+            >
+              <MessageSquare size={14} className="shrink-0 text-accent" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-text-heading">{t('startHereWidget')}</span>
+                <span className="block text-xs text-text-muted">{t('nav:settings.hints.chatWidget')}</span>
+              </span>
+            </Link>
+          </Card>
+          <Card asChild padding="compact">
+            <Link
+              to="/connections"
+              className="flex items-center gap-2 hover:border-border-light hover:bg-bg-hover/50"
+            >
+              <Puzzle size={14} className="shrink-0 text-accent" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-text-heading">{t('startHereMarketplace')}</span>
+                <span className="block text-xs text-text-muted">{t('nav:settings.hints.integrations')}</span>
+              </span>
+            </Link>
+          </Card>
         </div>
       </div>
 

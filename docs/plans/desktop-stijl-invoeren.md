@@ -488,6 +488,14 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - `bg-bg/NN` (5×) is meegenomen met regel `page-tint`. Twee daarvan waren een eigen modale achtergrond (`fixed inset-0 bg-bg/80`, in `MailComposer` en `TimelineItem`) en zijn nu `.scrim`.
 - `bg-bg-elevated/NN` staat op 42 (boven de 20) en is niet meegenomen. Verdeling: /25 2, /30 5, /50 4, /55 1, /60 16, /70 7, /80 3, /90 3, /95 1.
 
+### Fase 8.4: kaarten
+
+- `p-5`/`p-6` is `p-4` geworden (plan: meld de bestanden): `AiToolCard`, `AgentCallOverlay`, `ModelsSettings`, `OAuthMcpConsent` (p-6) en `ApplicationCard`.
+- `px-4 py-3` valt onder `compact` en is nu `p-3`: rijen met die padding zijn 4px smaller aan de zijkant.
+- De guard-regel `panel-class` uit het plan gaf vals alarm op het woord "panel" in commentaar en op de waarde `'panel'` (weergavemodus in `WorkflowPage`). Hij heeft daarom een `skip` voor commentaarregels en voor `'panel'` als vergelijkingswaarde.
+- `project-canvas/sdk.tsx` en `ProfileSettingsContent.tsx` hebben een eigen lokale `Card`; daar heet de catalogus-kaart `UiCard`.
+- `render.test.tsx` zocht `.panel`; de test zoekt nu het kader (`.rounded-xl.border`).
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

@@ -43,7 +43,7 @@ const RULES = [
     pattern: /["'`][^"'`]*\brounded-(lg|xl)\b[^"'`]*\bborder-border[^"'`]*\bbg-bg-surface(?![\w/-])[^"'`]*["'`]|["'`][^"'`]*\bbg-bg-surface(?![\w/-])[^"'`]*\bborder-border[^"'`]*\brounded-(lg|xl)\b[^"'`]*["'`]/,
     // Floating layers, chat bubbles and inputs share the surface fill legitimately.
     skip: /\b(shadow-overlay|shadow-sm|rounded-t[lr]-|fixed|absolute|placeholder:|resize|Dialog\.Content)\b/,
-    message: 'Use <Card> / className="panel" (or <InsetPanel> inside a card).',
+    message: 'Use <Card padding="compact|default"> (or <InsetPanel> inside a card).',
     catalogOk: true,
   },
   {
@@ -71,6 +71,14 @@ const RULES = [
     pattern: /<Button\b[^>]*className=["'`{][^>]*\bh-(5|6|7|8|9|10|11)\b/,
     message: 'Use size="xs|sm|md|lg|icon|iconSm".',
     catalogOk: true,
+  },
+  {
+    id: 'panel-class',
+    pattern: /(["'`\s])panel(?=["'`\s])/,
+    // Prose in comments and the literal value 'panel' (a view mode) are not classes.
+    skip: /^\s*(\/\/|\*|\/\*|\{\/\*)|(\?|===|\||:)\s*'panel'|'panel'\s*(:|\||\))/,
+    message: 'Use <Card padding="compact|default">.',
+    catalogOk: false,
   },
   {
     id: 'raw-spinner',

@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -376,117 +377,119 @@ export default function ModelsSettings() {
       {error ? <ApiErrorBanner message={error} /> : null}
 
       {/* Bokito AI models + workspace default */}
-      <section className="panel space-y-3 px-4 py-3.5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <img
-              src={DEFAULT_BRAND_MARK}
-              alt=""
-              aria-hidden
-              className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-contain"
-            />
-            <div className="min-w-0 space-y-0.5">
-              <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
-              <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyDefault')}</p>
-            </div>
-          </div>
-          <Badge
-            variant={
-              managed?.status === 'active'
-                ? 'success'
-                : managed?.status === 'standby'
-                  ? 'neutral'
-                  : 'warning'
-            }
-            dot={managed?.status === 'active'}
-          >
-            {statusLabel}
-          </Badge>
-        </div>
-        <p className="text-xs text-text-muted">{t('modelsPage.managed.workspaceDefaultHint')}</p>
-        {(() => {
-          const wsMode = data ? workspaceChatMode(data) : ''
-          const automaticSelected = wsMode === AUTOMATIC_MODE
-          const defaultBadge = <Badge variant="ai">{t('modelsPage.managed.tiers.defaultBadge')}</Badge>
-          return (
-            <OptionCardGrid columns={4}>
-              <OptionCard
-                tone="ai"
-                selected={automaticSelected}
-                readOnly={!isAdmin}
-                disabled={busy}
-                onClick={() => void handleWorkspaceMode(AUTOMATIC_MODE)}
-                icon={<IconTile icon={Sparkles} tone="ai" size="sm" />}
-                title={t('modelsPage.managed.automatic.title')}
-                description={t('modelsPage.managed.automatic.body')}
-                badge={automaticSelected ? defaultBadge : null}
-                className="min-h-[9.5rem]"
+      <Card asChild>
+        <section className="space-y-3 px-4 py-3.5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <img
+                src={DEFAULT_BRAND_MARK}
+                alt=""
+                aria-hidden
+                className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-contain"
               />
-              {managedTiers.map((tier) => {
-                const specs = tierSpecsLine(tier)
-                const selected = wsMode === tier.slug
-                return (
-                  <OptionCard
-                    key={tier.slug}
-                    tone="ai"
-                    selected={selected}
-                    readOnly={!isAdmin}
-                    disabled={busy}
-                    onClick={() => void handleWorkspaceMode(tier.slug)}
-                    icon={<ModelIcon slug={tier.slug} provider={tier.provider} size={28} />}
-                    title={tier.display_name}
-                    description={t(tierBodyKey(tier.tier))}
-                    badge={selected ? defaultBadge : null}
-                    className="min-h-[9.5rem]"
-                  >
-                    {specs ? <span className="text-xs text-text-secondary">{specs}</span> : null}
-                    <span className="text-xs text-text-secondary">
-                      {t('modelsPage.pricingInOut', {
-                        in: formatMtok(tier.input_cost_per_mtok_cents),
-                        out: formatMtok(tier.output_cost_per_mtok_cents),
-                      })}
-                    </span>
-                    <Badge
-                      variant={tier.ready ? 'success' : 'warning'}
-                      dot={tier.ready}
-                      className="mt-auto w-fit"
+              <div className="min-w-0 space-y-0.5">
+                <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.managed.title')}</h2>
+                <p className="text-sm text-text-muted">{t('modelsPage.managed.bodyDefault')}</p>
+              </div>
+            </div>
+            <Badge
+              variant={
+                managed?.status === 'active'
+                  ? 'success'
+                  : managed?.status === 'standby'
+                    ? 'neutral'
+                    : 'warning'
+              }
+              dot={managed?.status === 'active'}
+            >
+              {statusLabel}
+            </Badge>
+          </div>
+          <p className="text-xs text-text-muted">{t('modelsPage.managed.workspaceDefaultHint')}</p>
+          {(() => {
+            const wsMode = data ? workspaceChatMode(data) : ''
+            const automaticSelected = wsMode === AUTOMATIC_MODE
+            const defaultBadge = <Badge variant="ai">{t('modelsPage.managed.tiers.defaultBadge')}</Badge>
+            return (
+              <OptionCardGrid columns={4}>
+                <OptionCard
+                  tone="ai"
+                  selected={automaticSelected}
+                  readOnly={!isAdmin}
+                  disabled={busy}
+                  onClick={() => void handleWorkspaceMode(AUTOMATIC_MODE)}
+                  icon={<IconTile icon={Sparkles} tone="ai" size="sm" />}
+                  title={t('modelsPage.managed.automatic.title')}
+                  description={t('modelsPage.managed.automatic.body')}
+                  badge={automaticSelected ? defaultBadge : null}
+                  className="min-h-[9.5rem]"
+                />
+                {managedTiers.map((tier) => {
+                  const specs = tierSpecsLine(tier)
+                  const selected = wsMode === tier.slug
+                  return (
+                    <OptionCard
+                      key={tier.slug}
+                      tone="ai"
+                      selected={selected}
+                      readOnly={!isAdmin}
+                      disabled={busy}
+                      onClick={() => void handleWorkspaceMode(tier.slug)}
+                      icon={<ModelIcon slug={tier.slug} provider={tier.provider} size={28} />}
+                      title={tier.display_name}
+                      description={t(tierBodyKey(tier.tier))}
+                      badge={selected ? defaultBadge : null}
+                      className="min-h-[9.5rem]"
                     >
-                      {tier.ready
-                        ? t('modelsPage.managed.active')
-                        : t('modelsPage.managed.notConfigured')}
-                    </Badge>
-                  </OptionCard>
-                )
-              })}
-            </OptionCardGrid>
-          )
-        })()}
-        <ul className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              { key: 'modelsPage.managed.usp.eu', icon: Globe2 },
-              { key: 'modelsPage.managed.usp.current', icon: RefreshCw },
-              { key: 'modelsPage.managed.usp.privacy', icon: ShieldCheck },
-              { key: 'modelsPage.managed.usp.competitive', icon: Zap },
-            ] as const
-            ).map(({ key, icon }) => (
-            <li key={key}>
-              <Badge variant="neutral" icon={icon}>
-                {t(key)}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-        {managed?.status === 'standby' ? (
-          <p className="text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
-        ) : null}
-        {managed?.status === 'unconfigured' ? (
-          <p className="text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
-        ) : null}
-        {managedTiers.some((tier) => tier.fallback_active) ? (
-          <p className="text-sm text-status-warning">{t('modelsPage.managed.fallbackNoticeSoft')}</p>
-        ) : null}
-      </section>
+                      {specs ? <span className="text-xs text-text-secondary">{specs}</span> : null}
+                      <span className="text-xs text-text-secondary">
+                        {t('modelsPage.pricingInOut', {
+                          in: formatMtok(tier.input_cost_per_mtok_cents),
+                          out: formatMtok(tier.output_cost_per_mtok_cents),
+                        })}
+                      </span>
+                      <Badge
+                        variant={tier.ready ? 'success' : 'warning'}
+                        dot={tier.ready}
+                        className="mt-auto w-fit"
+                      >
+                        {tier.ready
+                          ? t('modelsPage.managed.active')
+                          : t('modelsPage.managed.notConfigured')}
+                      </Badge>
+                    </OptionCard>
+                  )
+                })}
+              </OptionCardGrid>
+            )
+          })()}
+          <ul className="flex flex-wrap items-center gap-2">
+            {(
+              [
+                { key: 'modelsPage.managed.usp.eu', icon: Globe2 },
+                { key: 'modelsPage.managed.usp.current', icon: RefreshCw },
+                { key: 'modelsPage.managed.usp.privacy', icon: ShieldCheck },
+                { key: 'modelsPage.managed.usp.competitive', icon: Zap },
+              ] as const
+              ).map(({ key, icon }) => (
+              <li key={key}>
+                <Badge variant="neutral" icon={icon}>
+                  {t(key)}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+          {managed?.status === 'standby' ? (
+            <p className="text-sm text-text-muted">{t('modelsPage.managed.standbyHintNew')}</p>
+          ) : null}
+          {managed?.status === 'unconfigured' ? (
+            <p className="text-sm text-status-warning">{t('modelsPage.managed.mockModeHintShort')}</p>
+          ) : null}
+          {managedTiers.some((tier) => tier.fallback_active) ? (
+            <p className="text-sm text-status-warning">{t('modelsPage.managed.fallbackNoticeSoft')}</p>
+          ) : null}
+        </section>
+      </Card>
 
       {data?.image_models && data.image_models.length > 0 ? (
         <section className="space-y-3">
@@ -532,322 +535,324 @@ export default function ModelsSettings() {
           <p className="mt-1 text-sm text-text-muted">{t('modelsPage.custom.lockedBody')}</p>
         </section>
       ) : (
-        <section className="panel space-y-4 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <h2 className="text-base font-semibold text-text-heading">{t('modelsPage.custom.title')}</h2>
-              <p className="text-sm text-text-muted">{t('modelsPage.custom.body')}</p>
+        <Card asChild padding="default">
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <h2 className="text-base font-semibold text-text-heading">{t('modelsPage.custom.title')}</h2>
+                <p className="text-sm text-text-muted">{t('modelsPage.custom.body')}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="models-custom-opt-in"
+                  checked={Boolean(custom.enabled)}
+                  disabled={busy}
+                  onCheckedChange={(checked) => void handleOptIn(checked)}
+                />
+                <Label htmlFor="models-custom-opt-in" className="cursor-pointer text-sm text-text-primary">
+                  {t('modelsPage.custom.optIn')}
+                </Label>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="models-custom-opt-in"
-                checked={Boolean(custom.enabled)}
-                disabled={busy}
-                onCheckedChange={(checked) => void handleOptIn(checked)}
-              />
-              <Label htmlFor="models-custom-opt-in" className="cursor-pointer text-sm text-text-primary">
-                {t('modelsPage.custom.optIn')}
-              </Label>
-            </div>
-          </div>
-
-          {custom.enabled ? (
-            <div className="space-y-4 border-t border-border pt-4">
-              {chatModels.length === 0 && !wizardOpen ? (
-                <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('modelsPage.custom.empty')} />
-              ) : null}
-
-              {chatModels.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-bg-elevated px-3 py-2.5"
-                >
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    <ModelIcon
-                      slug={row.slug}
-                      modelId={row.model_id}
-                      providerType={row.provider_type}
-                      size={24}
-                      className="mt-0.5"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate-fade text-sm font-medium text-text-heading">{row.display_name}</p>
-                      <p className="truncate-fade font-mono text-xs text-text-muted">
-                        {row.connection_label ||
-                          (row.provider_type ? providerTypeLabel(row.provider_type) : '') ||
-                          ''}
-                        {row.model_id ? ` · ${row.model_id}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => void handleRemoveModel(row)}
-                    className="gap-1 text-text-muted"
+  
+            {custom.enabled ? (
+              <div className="space-y-4 border-t border-border pt-4">
+                {chatModels.length === 0 && !wizardOpen ? (
+                  <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('modelsPage.custom.empty')} />
+                ) : null}
+  
+                {chatModels.map((row) => (
+                  <div
+                    key={row.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-bg-elevated px-3 py-2.5"
                   >
-                    <Trash2 size={14} />
-                    {t('modelsPage.remove')}
-                  </Button>
-                </div>
-              ))}
-
-              {(custom.connections ?? []).map((conn) => (
-                <div
-                  key={conn.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-xs text-text-muted"
-                >
-                  <span>
-                    {conn.label || providerTypeLabel(conn.provider_type)}
-                    {conn.is_set ? ` · ${t('modelsPage.keySet', { last4: conn.last4 })}` : ''}
-                  </span>
-                  <div className="flex gap-2">
-                    {rotateId === conn.id ? (
-                      <form
-                        className="flex flex-wrap items-center gap-2"
-                        onSubmit={(event) => {
-                          event.preventDefault()
-                          void handleRotateKey(conn.id, rotateKey)
-                        }}
-                      >
-                        <Input
-                          type="password"
-                          value={rotateKey}
-                          autoFocus
-                          autoComplete="new-password"
-                          aria-label={t('modelsPage.custom.replaceKeyLabel')}
-                          placeholder={t('modelsPage.apiKeyPlaceholder')}
-                          onChange={(event) => setRotateKey(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Escape') {
-                              setRotateId(null)
-                              setRotateKey('')
-                            }
-                          }}
-                          className="h-8 w-48"
-                        />
-                        <Button type="submit" size="sm" disabled={busy || !rotateKey.trim()}>
-                          {t('modelsPage.custom.replaceKeySave')}
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setRotateId(null)
-                            setRotateKey('')
-                          }}
-                        >
-                          {t('modelsPage.cancel')}
-                        </Button>
-                      </form>
-                    ) : (
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      <ModelIcon
+                        slug={row.slug}
+                        modelId={row.model_id}
+                        providerType={row.provider_type}
+                        size={24}
+                        className="mt-0.5"
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate-fade text-sm font-medium text-text-heading">{row.display_name}</p>
+                        <p className="truncate-fade font-mono text-xs text-text-muted">
+                          {row.connection_label ||
+                            (row.provider_type ? providerTypeLabel(row.provider_type) : '') ||
+                            ''}
+                          {row.model_id ? ` · ${row.model_id}` : ''}
+                        </p>
+                      </div>
+                    </div>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
                       disabled={busy}
-                      onClick={() => {
-                        setRotateId(conn.id)
-                        setRotateKey('')
-                      }}
+                      onClick={() => void handleRemoveModel(row)}
+                      className="gap-1 text-text-muted"
                     >
-                      {t('modelsPage.custom.replaceKey')}
-                    </Button>
-                    )}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => void handleRemoveProvider(conn.id, conn.label || conn.provider_type)}
-                    >
+                      <Trash2 size={14} />
                       {t('modelsPage.remove')}
                     </Button>
                   </div>
-                </div>
-              ))}
-
-              {!wizardOpen ? (
-                <Button type="button" size="sm" className="gap-1.5" disabled={busy} onClick={() => setWizardOpen(true)}>
-                  <Plus size={14} />
-                  {t('modelsPage.custom.addModel')}
-                </Button>
-              ) : (
-                <InsetPanel
-                  className="space-y-3 p-4"
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') void closeWizard()
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-text-heading">
-                      {t('modelsPage.custom.wizardTitle', { step })}
-                    </p>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => void closeWizard()}>
-                      {t('modelsPage.cancel')}
-                    </Button>
-                  </div>
-
-                  {step === 1 ? (
-                    <div className="space-y-3">
-                      <div>
-                        <Label>{t('modelsPage.providerType')}</Label>
-                        <Select value={providerType} onValueChange={(value) => setProviderType(value as ProviderType)}>
-                          <SelectTrigger className="mt-1" aria-label={t('modelsPage.providerType')}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PROVIDER_TYPE_OPTIONS.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {t(opt.labelKey)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>
-                          {needsBaseUrl ? t('modelsPage.labelOptionalCustom') : t('modelsPage.labelOptional')}
-                        </Label>
-                        <Input
-                          value={label}
-                          onChange={(e) => setLabel(e.target.value)}
-                          placeholder={t('modelsPage.labelPlaceholder')}
-                          className="mt-1"
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' && !(needsBaseUrl && !baseUrl.trim())) {
-                              event.preventDefault()
-                              setStep(2)
-                            }
+                ))}
+  
+                {(custom.connections ?? []).map((conn) => (
+                  <div
+                    key={conn.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-xs text-text-muted"
+                  >
+                    <span>
+                      {conn.label || providerTypeLabel(conn.provider_type)}
+                      {conn.is_set ? ` · ${t('modelsPage.keySet', { last4: conn.last4 })}` : ''}
+                    </span>
+                    <div className="flex gap-2">
+                      {rotateId === conn.id ? (
+                        <form
+                          className="flex flex-wrap items-center gap-2"
+                          onSubmit={(event) => {
+                            event.preventDefault()
+                            void handleRotateKey(conn.id, rotateKey)
                           }}
-                        />
-                      </div>
-                      {needsBaseUrl ? (
-                        <div>
-                          <Label>{t('modelsPage.baseUrl')}</Label>
+                        >
                           <Input
-                            value={baseUrl}
-                            onChange={(e) => setBaseUrl(e.target.value)}
-                            placeholder={t('modelsPage.baseUrlPlaceholder')}
-                            className="mt-1"
-                          />
-                        </div>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={needsBaseUrl && !baseUrl.trim()}
-                        onClick={() => setStep(2)}
-                      >
-                        {t('modelsPage.custom.next')}
-                      </Button>
-                    </div>
-                  ) : null}
-
-                  {step === 2 ? (
-                    <div className="space-y-3">
-                      <div>
-                        <Label>{t('modelsPage.apiKey')}</Label>
-                        <div className="mt-1 flex gap-2">
-                          <Input
-                            type={showKey ? 'text' : 'password'}
-                            value={apiKey}
-                            onChange={(e) => setApiKey(e.target.value)}
+                            type="password"
+                            value={rotateKey}
+                            autoFocus
+                            autoComplete="new-password"
+                            aria-label={t('modelsPage.custom.replaceKeyLabel')}
                             placeholder={t('modelsPage.apiKeyPlaceholder')}
-                            className="flex-1"
+                            onChange={(event) => setRotateKey(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Escape') {
+                                setRotateId(null)
+                                setRotateKey('')
+                              }
+                            }}
+                            className="h-8 w-48"
                           />
+                          <Button type="submit" size="sm" disabled={busy || !rotateKey.trim()}>
+                            {t('modelsPage.custom.replaceKeySave')}
+                          </Button>
                           <Button
                             type="button"
                             size="sm"
-                            variant="secondary"
-                            onClick={() => setShowKey((v) => !v)}
-                            aria-label={showKey ? t('modelsPage.hideKey') : t('modelsPage.showKey')}
+                            variant="ghost"
+                            onClick={() => {
+                              setRotateId(null)
+                              setRotateKey('')
+                            }}
                           >
-                            {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                            {t('modelsPage.cancel')}
                           </Button>
-                        </div>
-                      </div>
-                      {testMessage ? <p className="text-xs text-text-muted">{testMessage}</p> : null}
-                      <div className="flex gap-2">
-                        <Button type="button" size="sm" variant="secondary" onClick={() => setStep(1)}>
-                          {t('modelsPage.custom.back')}
-                        </Button>
-                        <Button type="button" size="sm" disabled={busy || !apiKey.trim()} onClick={() => void handleCreateProvider()}>
-                          {busy ? <Spinner size="md" /> : null}
-                          {t('modelsPage.custom.saveAndTest')}
-                        </Button>
-                      </div>
+                        </form>
+                      ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => {
+                          setRotateId(conn.id)
+                          setRotateKey('')
+                        }}
+                      >
+                        {t('modelsPage.custom.replaceKey')}
+                      </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => void handleRemoveProvider(conn.id, conn.label || conn.provider_type)}
+                      >
+                        {t('modelsPage.remove')}
+                      </Button>
                     </div>
-                  ) : null}
-
-                  {step === 3 ? (
-                    <div className="space-y-3">
-                      <div>
-                        <Label>{t('modelsPage.custom.pickPreset')}</Label>
-                        <Select
-                          value={pickedModelId || undefined}
-                          onValueChange={(value) => {
-                            setPickedModelId(value)
-                            setCustomModelId('')
-                            const preset = presetModels.find((m) => m.model_id === value || m.slug === value)
-                            if (preset) setDisplayName(preset.display_name)
-                          }}
-                        >
-                          <SelectTrigger className="mt-1" aria-label={t('modelsPage.custom.pickPreset')}>
-                            <SelectValue placeholder={t('modelsPage.custom.pickPresetPlaceholder')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {presetModels.map((m) => (
-                              <SelectItem key={m.slug} value={m.model_id}>
-                                <ModelOptionLabel
-                                  slug={m.slug}
-                                  modelId={m.model_id}
-                                  name={`${m.display_name} (${m.model_id})`}
-                                />
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>{t('modelsPage.custom.orCustomId')}</Label>
-                        <Input
-                          value={customModelId}
-                          onChange={(e) => {
-                            setCustomModelId(e.target.value)
-                            setPickedModelId('')
-                          }}
-                          placeholder={t('modelsPage.modelIdPlaceholder')}
-                          className="mt-1"
-                        />
-                      </div>
-                      <div>
-                        <Label>{t('modelsPage.displayNamePlaceholder')}</Label>
-                        <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="mt-1" />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button type="button" size="sm" variant="secondary" onClick={() => setStep(2)}>
-                          {t('modelsPage.custom.back')}
-                        </Button>
+                  </div>
+                ))}
+  
+                {!wizardOpen ? (
+                  <Button type="button" size="sm" className="gap-1.5" disabled={busy} onClick={() => setWizardOpen(true)}>
+                    <Plus size={14} />
+                    {t('modelsPage.custom.addModel')}
+                  </Button>
+                ) : (
+                  <InsetPanel
+                    className="space-y-3 p-4"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') void closeWizard()
+                    }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-text-heading">
+                        {t('modelsPage.custom.wizardTitle', { step })}
+                      </p>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => void closeWizard()}>
+                        {t('modelsPage.cancel')}
+                      </Button>
+                    </div>
+  
+                    {step === 1 ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label>{t('modelsPage.providerType')}</Label>
+                          <Select value={providerType} onValueChange={(value) => setProviderType(value as ProviderType)}>
+                            <SelectTrigger className="mt-1" aria-label={t('modelsPage.providerType')}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROVIDER_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {t(opt.labelKey)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>
+                            {needsBaseUrl ? t('modelsPage.labelOptionalCustom') : t('modelsPage.labelOptional')}
+                          </Label>
+                          <Input
+                            value={label}
+                            onChange={(e) => setLabel(e.target.value)}
+                            placeholder={t('modelsPage.labelPlaceholder')}
+                            className="mt-1"
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' && !(needsBaseUrl && !baseUrl.trim())) {
+                                event.preventDefault()
+                                setStep(2)
+                              }
+                            }}
+                          />
+                        </div>
+                        {needsBaseUrl ? (
+                          <div>
+                            <Label>{t('modelsPage.baseUrl')}</Label>
+                            <Input
+                              value={baseUrl}
+                              onChange={(e) => setBaseUrl(e.target.value)}
+                              placeholder={t('modelsPage.baseUrlPlaceholder')}
+                              className="mt-1"
+                            />
+                          </div>
+                        ) : null}
                         <Button
                           type="button"
                           size="sm"
-                          disabled={busy || !(pickedModelId || customModelId).trim()}
-                          onClick={() => void handleAddModel()}
+                          disabled={needsBaseUrl && !baseUrl.trim()}
+                          onClick={() => setStep(2)}
                         >
-                          {t('modelsPage.addModel')}
+                          {t('modelsPage.custom.next')}
                         </Button>
                       </div>
-                    </div>
-                  ) : null}
-                </InsetPanel>
-              )}
-            </div>
-          ) : null}
-        </section>
+                    ) : null}
+  
+                    {step === 2 ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label>{t('modelsPage.apiKey')}</Label>
+                          <div className="mt-1 flex gap-2">
+                            <Input
+                              type={showKey ? 'text' : 'password'}
+                              value={apiKey}
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder={t('modelsPage.apiKeyPlaceholder')}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setShowKey((v) => !v)}
+                              aria-label={showKey ? t('modelsPage.hideKey') : t('modelsPage.showKey')}
+                            >
+                              {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </Button>
+                          </div>
+                        </div>
+                        {testMessage ? <p className="text-xs text-text-muted">{testMessage}</p> : null}
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" variant="secondary" onClick={() => setStep(1)}>
+                            {t('modelsPage.custom.back')}
+                          </Button>
+                          <Button type="button" size="sm" disabled={busy || !apiKey.trim()} onClick={() => void handleCreateProvider()}>
+                            {busy ? <Spinner size="md" /> : null}
+                            {t('modelsPage.custom.saveAndTest')}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+  
+                    {step === 3 ? (
+                      <div className="space-y-3">
+                        <div>
+                          <Label>{t('modelsPage.custom.pickPreset')}</Label>
+                          <Select
+                            value={pickedModelId || undefined}
+                            onValueChange={(value) => {
+                              setPickedModelId(value)
+                              setCustomModelId('')
+                              const preset = presetModels.find((m) => m.model_id === value || m.slug === value)
+                              if (preset) setDisplayName(preset.display_name)
+                            }}
+                          >
+                            <SelectTrigger className="mt-1" aria-label={t('modelsPage.custom.pickPreset')}>
+                              <SelectValue placeholder={t('modelsPage.custom.pickPresetPlaceholder')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {presetModels.map((m) => (
+                                <SelectItem key={m.slug} value={m.model_id}>
+                                  <ModelOptionLabel
+                                    slug={m.slug}
+                                    modelId={m.model_id}
+                                    name={`${m.display_name} (${m.model_id})`}
+                                  />
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>{t('modelsPage.custom.orCustomId')}</Label>
+                          <Input
+                            value={customModelId}
+                            onChange={(e) => {
+                              setCustomModelId(e.target.value)
+                              setPickedModelId('')
+                            }}
+                            placeholder={t('modelsPage.modelIdPlaceholder')}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label>{t('modelsPage.displayNamePlaceholder')}</Label>
+                          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="mt-1" />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" variant="secondary" onClick={() => setStep(2)}>
+                            {t('modelsPage.custom.back')}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={busy || !(pickedModelId || customModelId).trim()}
+                            onClick={() => void handleAddModel()}
+                          >
+                            {t('modelsPage.addModel')}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </InsetPanel>
+                )}
+              </div>
+            ) : null}
+          </section>
+        </Card>
       )}
     </PageContent>
   )

@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { LoadingBlock } from '../ui/loading-block'
 import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
@@ -174,67 +175,69 @@ function CalendarAccountRow({
   const enabled = (row.calendars ?? []).filter((c) => c.enabled)
 
   return (
-    <li className="panel" data-testid="calendar-account-row">
-      <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-        <BrandMark slug={calendarBrandSlug(row.provider)} size={22} />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-text-heading">
-            {row.account || row.display_name}
-          </p>
-          <p className="flex flex-wrap items-center gap-x-2 text-xs text-text-muted">
-            <StatusLine row={row} />
-            {row.event_count ? <span>{t('accounts.eventCount', { count: row.event_count })}</span> : null}
-            {!canManage ? <span>{t('accounts.shared')}</span> : null}
-          </p>
-          {enabled.length > 0 ? (
-            <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-secondary">
-              {enabled.map((cal) => (
-                <span key={cal.id} className="inline-flex items-center gap-1.5">
-                  <CalendarSwatch color={cal.color} />
-                  {cal.name}
-                </span>
-              ))}
+    <Card asChild>
+      <li data-testid="calendar-account-row">
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
+          <BrandMark slug={calendarBrandSlug(row.provider)} size={22} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-text-heading">
+              {row.account || row.display_name}
             </p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {needsSignIn && canManage ? (
-            <Button type="button" size="sm" onClick={onReconnect}>
-              {t('actions.reconnect')}
-            </Button>
-          ) : null}
-          {canManage ? (
-            <Button type="button" size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
-              {open ? t('actions.close') : t('actions.manage')}
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      {open && canManage ? (
-        <div className="space-y-5 border-t border-border px-3 py-3">
-          <CalendarPicker connectionId={row.id} onSaved={onChanged} />
-          <CalendarTenantSettings connectionId={row.id} onChanged={onChanged} />
-          <ConnectionScopeEditor
-            connectionId={row.id}
-            projects={[]}
-            showProjects={false}
-            accessHint={t('access.hint')}
-            onSaved={onChanged}
-          />
-          <div>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="text-status-error"
-              onClick={() => void disconnect()}
-            >
-              {t('actions.disconnect')}
-            </Button>
+            <p className="flex flex-wrap items-center gap-x-2 text-xs text-text-muted">
+              <StatusLine row={row} />
+              {row.event_count ? <span>{t('accounts.eventCount', { count: row.event_count })}</span> : null}
+              {!canManage ? <span>{t('accounts.shared')}</span> : null}
+            </p>
+            {enabled.length > 0 ? (
+              <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-secondary">
+                {enabled.map((cal) => (
+                  <span key={cal.id} className="inline-flex items-center gap-1.5">
+                    <CalendarSwatch color={cal.color} />
+                    {cal.name}
+                  </span>
+                ))}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {needsSignIn && canManage ? (
+              <Button type="button" size="sm" onClick={onReconnect}>
+                {t('actions.reconnect')}
+              </Button>
+            ) : null}
+            {canManage ? (
+              <Button type="button" size="sm" variant="ghost" onClick={() => setOpen((v) => !v)}>
+                {open ? t('actions.close') : t('actions.manage')}
+              </Button>
+            ) : null}
           </div>
         </div>
-      ) : null}
-    </li>
+        {open && canManage ? (
+          <div className="space-y-5 border-t border-border px-3 py-3">
+            <CalendarPicker connectionId={row.id} onSaved={onChanged} />
+            <CalendarTenantSettings connectionId={row.id} onChanged={onChanged} />
+            <ConnectionScopeEditor
+              connectionId={row.id}
+              projects={[]}
+              showProjects={false}
+              accessHint={t('access.hint')}
+              onSaved={onChanged}
+            />
+            <div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="text-status-error"
+                onClick={() => void disconnect()}
+              >
+                {t('actions.disconnect')}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </li>
+    </Card>
   )
 }
 

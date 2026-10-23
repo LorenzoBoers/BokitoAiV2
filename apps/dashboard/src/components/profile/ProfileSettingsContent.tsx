@@ -1,3 +1,4 @@
+import { Card as UiCard } from '../ui/card'
 import { Spinner } from '../ui/spinner'
 import { useRef, useState, useCallback, useEffect, useMemo, type ChangeEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -48,9 +49,9 @@ function Section({ title, description, children }: { title: string; description?
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="panel px-4">
+    <UiCard className="px-4">
       {children}
-    </div>
+    </UiCard>
   )
 }
 
@@ -724,11 +725,11 @@ export function ProfileSettingsContent() {
 
       {/* ── Appearance ── */}
       <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
-        <div className="panel grid grid-cols-3 gap-2.5 p-3">
+        <UiCard padding="compact" className="grid grid-cols-3 gap-2.5">
           <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={14} />} active={mode === 'light'} onClick={() => setMode('light')} />
           <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={14} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
           <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={14} />} active={mode === 'system'} onClick={() => setMode('system')} />
-        </div>
+        </UiCard>
       </Section>
 
       {/* ── Security ── */}

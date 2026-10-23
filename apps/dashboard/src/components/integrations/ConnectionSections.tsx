@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
@@ -55,9 +56,9 @@ export function ConnectionSections({
               ) : null}
               <div className="space-y-4">
                 {group.programs.map((program) => (
-                  <div
+                  <Card
                     key={program.programKey}
-                    className="panel"
+                   
                   >
                     <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">
@@ -151,7 +152,7 @@ export function ConnectionSections({
                         )
                       })}
                     </ul>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </div>

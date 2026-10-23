@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -124,7 +125,7 @@ export default function OAuthMcpConsent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-      <div className="panel w-full max-w-md p-6">
+      <Card padding="default" className="w-full max-w-md">
         <div className="mb-5 flex items-center gap-2 text-text-heading">
           <ShieldCheck size={20} className="text-text-muted" />
           <h1 className="text-xl font-semibold">{t('oauthMcp.title')}</h1>
@@ -225,7 +226,7 @@ export default function OAuthMcpConsent() {
             </div>
           </form>
         ) : null}
-      </div>
+      </Card>
     </div>
   )
 }

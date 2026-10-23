@@ -70,7 +70,7 @@ describe('renderCanvasTree', () => {
     const { container } = render(<>{renderCanvasTree(tree)}</>)
     expect(screen.getByText('+12%').closest('span')?.className).toContain('text-status-success')
     expect(screen.getByText(/EUR 75k/)).toBeTruthy()
-    expect(container.querySelector('.panel')).toBeTruthy()
+    expect(container.querySelector('.rounded-xl.border')).toBeTruthy()
   })
 
   it('maps callout tones from the server', () => {

@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -67,16 +68,18 @@ function UsageCard({
   children: ReactNode
 }) {
   return (
-    <section className="panel min-w-0 overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-text-heading">{title}</h2>
-          {hint ? <p className="mt-0.5 text-xs text-text-muted">{hint}</p> : null}
+    <Card asChild>
+      <section className="min-w-0 overflow-hidden">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-text-heading">{title}</h2>
+            {hint ? <p className="mt-0.5 text-xs text-text-muted">{hint}</p> : null}
+          </div>
+          {extra ? <div className="shrink-0 pt-0.5 text-xs tabular-nums text-text-muted">{extra}</div> : null}
         </div>
-        {extra ? <div className="shrink-0 pt-0.5 text-xs tabular-nums text-text-muted">{extra}</div> : null}
-      </div>
-      <div className="space-y-0.5 p-3">{children}</div>
-    </section>
+        <div className="space-y-0.5 p-3">{children}</div>
+      </section>
+    </Card>
   )
 }
 
@@ -378,159 +381,165 @@ export default function UsagePage() {
       ) : null}
 
       <div className="space-y-5">
-        <section className="panel overflow-hidden" data-testid="usage-token-series">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-text-heading">{t('usagePage.seriesTitle')}</h2>
-              <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.seriesHint', { days })}</p>
-            </div>
-            {periodControl}
-          </div>
-          <div className="p-4">
-            {series ? (
-              <div className="grid items-stretch gap-4 lg:grid-cols-3">
-                <div className="min-w-0 lg:col-span-2" style={{ height: CHART_HEIGHT }}>
-                  <Chart
-                    kind="area"
-                    tone="ai"
-                    height={CHART_HEIGHT}
-                    ariaLabel={t('usagePage.seriesAria', { days })}
-                    emptyLabel={t('usagePage.seriesEmpty')}
-                    series={[
-                      {
-                        name: t('usagePage.seriesName'),
-                        points: series.map((point) => ({
-                          x: fmtDay(point.date ?? ''),
-                          y: point.tokens,
-                        })),
-                      },
-                    ]}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2 lg:grid-cols-1" style={{ minHeight: CHART_HEIGHT }}>
-                  <KpiInset label={t('usagePage.tokens30d', { days })} value={tokensValue} />
-                  <KpiInset label={t('usagePage.cost30d', { days })} value={costValue} />
-                </div>
-              </div>
-            ) : (
-              <ChartPanelSkeleton />
-            )}
-          </div>
-        </section>
-
-        {budget ? (
-          <section className="panel overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <Card asChild>
+          <section className="overflow-hidden" data-testid="usage-token-series">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
-                <h2 className="text-base font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h2>
-                <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.capsHint')}</p>
+                <h2 className="text-base font-semibold text-text-heading">{t('usagePage.seriesTitle')}</h2>
+                <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.seriesHint', { days })}</p>
               </div>
-              {capDraft ? null : (
-                <button
-                  type="button"
-                  onClick={startEditCaps}
-                  className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
-                >
-                  {t('usagePage.editCaps')}
-                </button>
-              )}
+              {periodControl}
             </div>
             <div className="p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                {capBar(t('usagePage.tokensToday'), budget.status.daily_tokens, num)}
-                {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
-              </div>
-              {capDraft ? (
-                <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-3">
-                  <label className="flex flex-col gap-1 text-xs text-text-muted">
-                    {t('usagePage.dailyCap')}
-                    <Input
-                      value={capDraft.tokens}
-                      onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          void saveCaps()
-                        }
-                      }}
-                      placeholder={t('usagePage.noCap')}
-                      inputMode="numeric"
-                      className="h-8 w-36"
+              {series ? (
+                <div className="grid items-stretch gap-4 lg:grid-cols-3">
+                  <div className="min-w-0 lg:col-span-2" style={{ height: CHART_HEIGHT }}>
+                    <Chart
+                      kind="area"
+                      tone="ai"
+                      height={CHART_HEIGHT}
+                      ariaLabel={t('usagePage.seriesAria', { days })}
+                      emptyLabel={t('usagePage.seriesEmpty')}
+                      series={[
+                        {
+                          name: t('usagePage.seriesName'),
+                          points: series.map((point) => ({
+                            x: fmtDay(point.date ?? ''),
+                            y: point.tokens,
+                          })),
+                        },
+                      ]}
                     />
-                  </label>
-                  <label className="flex flex-col gap-1 text-xs text-text-muted">
-                    {t('usagePage.monthlyCap')}
-                    <Input
-                      value={capDraft.usd}
-                      onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          void saveCaps()
-                        }
-                      }}
-                      placeholder={t('usagePage.noCap')}
-                      inputMode="decimal"
-                      className="h-8 w-36"
-                    />
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void saveCaps()}
-                      disabled={savingCaps}
-                      className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
-                    >
-                      {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCapDraft(null)}
-                      className="rounded-md px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
-                    >
-                      {t('usagePage.cancel')}
-                    </button>
                   </div>
-                  {capError ? <p className="w-full text-xs text-status-error">{capError}</p> : null}
+                  <div className="grid grid-cols-2 gap-2 lg:grid-cols-1" style={{ minHeight: CHART_HEIGHT }}>
+                    <KpiInset label={t('usagePage.tokens30d', { days })} value={tokensValue} />
+                    <KpiInset label={t('usagePage.cost30d', { days })} value={costValue} />
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <ChartPanelSkeleton />
+              )}
             </div>
           </section>
+        </Card>
+
+        {budget ? (
+          <Card asChild>
+            <section className="overflow-hidden">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h2>
+                  <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.capsHint')}</p>
+                </div>
+                {capDraft ? null : (
+                  <button
+                    type="button"
+                    onClick={startEditCaps}
+                    className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+                  >
+                    {t('usagePage.editCaps')}
+                  </button>
+                )}
+              </div>
+              <div className="p-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {capBar(t('usagePage.tokensToday'), budget.status.daily_tokens, num)}
+                  {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
+                </div>
+                {capDraft ? (
+                  <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-3">
+                    <label className="flex flex-col gap-1 text-xs text-text-muted">
+                      {t('usagePage.dailyCap')}
+                      <Input
+                        value={capDraft.tokens}
+                        onChange={(e) => setCapDraft({ ...capDraft, tokens: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            void saveCaps()
+                          }
+                        }}
+                        placeholder={t('usagePage.noCap')}
+                        inputMode="numeric"
+                        className="h-8 w-36"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-text-muted">
+                      {t('usagePage.monthlyCap')}
+                      <Input
+                        value={capDraft.usd}
+                        onChange={(e) => setCapDraft({ ...capDraft, usd: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            void saveCaps()
+                          }
+                        }}
+                        placeholder={t('usagePage.noCap')}
+                        inputMode="decimal"
+                        className="h-8 w-36"
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void saveCaps()}
+                        disabled={savingCaps}
+                        className="rounded-md border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-60"
+                      >
+                        {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCapDraft(null)}
+                        className="rounded-md px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:text-text-primary"
+                      >
+                        {t('usagePage.cancel')}
+                      </button>
+                    </div>
+                    {capError ? <p className="w-full text-xs text-status-error">{capError}</p> : null}
+                  </div>
+                ) : null}
+              </div>
+            </section>
+          </Card>
         ) : null}
 
         {outcomeStats.length > 0 ? (
-          <section className="panel overflow-hidden">
-            <div className="border-b border-border px-4 py-3">
-              <h2 className="text-base font-semibold text-text-heading">{t('usagePage.outcomesTitle')}</h2>
-              <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.outcomesHint')}</p>
-            </div>
-            <div className="p-4">
-              <StatGrid className="grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
-                {outcomeStats.map((stat) => (
-                  <StatTile
-                    key={stat.key}
-                    label={stat.label}
-                    value={stat.value}
-                    hint={
-                      stat.hint ? (
-                        <span className="leading-snug">
-                          {stat.hint}
-                          {stat.hintTo && stat.hintLink ? (
-                            <>
-                              {' '}
-                              <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
-                                {stat.hintLink}
-                              </Link>
-                            </>
-                          ) : null}
-                        </span>
-                      ) : null
-                    }
-                  />
-                ))}
-              </StatGrid>
-            </div>
-          </section>
+          <Card asChild>
+            <section className="overflow-hidden">
+              <div className="border-b border-border px-4 py-3">
+                <h2 className="text-base font-semibold text-text-heading">{t('usagePage.outcomesTitle')}</h2>
+                <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.outcomesHint')}</p>
+              </div>
+              <div className="p-4">
+                <StatGrid className="grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3">
+                  {outcomeStats.map((stat) => (
+                    <StatTile
+                      key={stat.key}
+                      label={stat.label}
+                      value={stat.value}
+                      hint={
+                        stat.hint ? (
+                          <span className="leading-snug">
+                            {stat.hint}
+                            {stat.hintTo && stat.hintLink ? (
+                              <>
+                                {' '}
+                                <Link to={stat.hintTo} className="font-medium text-accent hover:underline">
+                                  {stat.hintLink}
+                                </Link>
+                              </>
+                            ) : null}
+                          </span>
+                        ) : null
+                      }
+                    />
+                  ))}
+                </StatGrid>
+              </div>
+            </section>
+          </Card>
         ) : !summary && !error ? (
           <StatTilesSkeleton tiles={6} />
         ) : null}

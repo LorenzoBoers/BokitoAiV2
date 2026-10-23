@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatAppDate, formatAppTime } from '../../lib/app-locale'
@@ -26,7 +27,7 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
   const todayKey = dayKey(new Date(nowMs))
 
   return (
-    <div className="panel overflow-hidden" data-testid="agenda-month-grid">
+    <Card className="overflow-hidden" data-testid="agenda-month-grid">
       <div className="grid grid-cols-7 border-b border-border">
         {days.slice(0, 7).map((day) => (
           <div key={day.getDay()} className="py-2 text-center text-xs uppercase tracking-wide text-text-muted">
@@ -103,6 +104,6 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
           )
         })}
       </div>
-    </div>
+    </Card>
   )
 }

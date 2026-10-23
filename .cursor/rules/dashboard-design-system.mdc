@@ -18,7 +18,7 @@ Rare one-off styles fold into the nearest catalog component.
 
 | Family | Component | Use for |
 |---|---|---|
-| Surfaces | `Card` (+ `CardHeader`, `CardTitle`, `CardContent`) / `.panel` | Every card, section, standalone list |
+| Surfaces | `Card` (+ `CardHeader`, `CardTitle`, `CardContent`; `padding`, `asChild`) | Every card, section, standalone list |
 | | `InsetPanel` | Region inside a Card (sublist, preview, group) |
 | | `SettingsSection` | Settings form card with title, description, actions |
 | | `SectionHeading` | Heading of a group inside a page or card |
@@ -51,7 +51,7 @@ Rare one-off styles fold into the nearest catalog component.
 
 - Fonts: `--font-sans` (Inter), `--font-serif` (Source Serif 4, headings and agent text only) and `--font-mono` (JetBrains Mono) in `index.css`. No other families.
 - Size ladder: `text-2xs`, `xs`, `sm`, `base`, `lg`, `xl`, `2xl`. Never `text-[Npx]`.
-- Radius ladder: `Card`, `.panel`, `Dialog` `xl` > `Callout` `lg` > input, button, menu item `md`. `rounded-full` for `Badge`, avatars, dots, switches and count bubbles.
+- Radius ladder: `Card`, `Dialog` `xl` > `Callout` `lg` > input, button, menu item `md`. `rounded-full` for `Badge`, avatars, dots, switches and count bubbles.
 - No glows, no opacity steps on `border-border` or `text-text-muted`. Button height comes from `size`, never `h-*` in `className`.
 - Colors: surface ladder `bg`, `bg-surface`, `bg-elevated`, `bg-hover`, `bg-input`; status via `status-success|warning|error|info`; AI via `ai`/`ai-ink`; brand via `accent`. No raw palette colors (`emerald-500`, `amber-600`, `red-500`).
 - Badge tones: `neutral`, `accent`, `ai`, `success`, `warning`, `error`, `info`. Map domain values with `statusTone`, `roleTone`, `memberTypeTone`, `ratioTone`.
@@ -70,7 +70,7 @@ debt, run `node scripts/check-design-system.mjs --update-baseline` to lock in th
 
 ## Anti-patterns
 
-- Duplicating a card string instead of `<Card>` / `.panel`
+- Duplicating a card string or `className="panel"` instead of `<Card>`
 - Hand-coloring a pill instead of `<Badge variant>`
 - Page-local segmented controls, option cards, cap bars or confirm prompts
 - Light-only shadows or gradients on random pages

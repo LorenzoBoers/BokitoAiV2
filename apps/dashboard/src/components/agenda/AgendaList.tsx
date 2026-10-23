@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { Fragment, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowUp, ChevronDown, ChevronRight } from 'lucide-react'
@@ -143,7 +144,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
                     {formatAppDate(day, i18n.language, { day: 'numeric', month: 'long' })}
                   </span>
                 </h2>
-                <div className="panel divide-y divide-border/40 overflow-hidden">
+                <Card className="divide-y divide-border/40 overflow-hidden">
                   {rows.length === 0 && routines.length === 0 ? (
                     <p className="px-3 py-2.5 text-sm text-text-muted">{t('agendaPage.list.emptyDay')}</p>
                   ) : null}
@@ -194,7 +195,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
                         : null}
                     </div>
                   ) : null}
-                </div>
+                </Card>
               </section>
             )
           })}

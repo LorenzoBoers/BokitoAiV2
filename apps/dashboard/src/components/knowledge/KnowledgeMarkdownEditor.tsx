@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useEffect, useMemo, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -76,7 +77,7 @@ export function KnowledgeMarkdownEditor({
   }, [editor, mode, value])
 
   return (
-    <div className={cn('panel', className)}>
+    <Card className={cn( className)}>
       <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
         <div className="flex rounded-md border border-border p-0.5">
           <button
@@ -162,6 +163,6 @@ export function KnowledgeMarkdownEditor({
           )}
         />
       )}
-    </div>
+    </Card>
   )
 }

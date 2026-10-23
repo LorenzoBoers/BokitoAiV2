@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -172,7 +173,7 @@ export function LiveWorkLog({ workLogId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="panel px-4 py-3">
+      <Card padding="compact">
         <p className="text-lg font-semibold text-text-heading">
           {formatWorkLogSubject(taskSubject, t, t('workforce.runLog.title'))}
         </p>
@@ -200,9 +201,9 @@ export function LiveWorkLog({ workLogId }: Props) {
             {t('workforce.runLog.backToAgenda')}
           </Link>
         </div>
-      </div>
+      </Card>
 
-      <div className="panel max-h-96 space-y-1.5 overflow-y-auto p-3">
+      <Card padding="compact" className="max-h-96 space-y-1.5 overflow-y-auto">
         <p className="mb-2 text-xs text-text-muted">{t('workforce.runLog.stepsHint')}</p>
         {loading && events.length === 0 && !error ? (
           <ActivityStepsSkeleton />
@@ -226,7 +227,7 @@ export function LiveWorkLog({ workLogId }: Props) {
             )
           })
         )}
-      </div>
+      </Card>
     </div>
   )
 }

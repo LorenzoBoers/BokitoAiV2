@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import type { ModuleInstallOptions } from '../../lib/integrations-api'
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
@@ -138,115 +139,117 @@ export function MarketplaceModuleCard({
   const specialist = moduleSpecialistVisual(module, name, t)
 
   return (
-    <article
-      role={clickable ? 'button' : undefined}
-      tabIndex={clickable ? 0 : undefined}
-      onClick={() => {
-        if (clickable) onOpenDetail?.()
-      }}
-      onKeyDown={(e) => {
-        if (!clickable) return
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpenDetail?.()
-        }
-      }}
-      className={cn(
-        'panel relative flex h-full flex-col overflow-hidden p-4',
-        comingSoon
-          ? 'pointer-events-none cursor-not-allowed opacity-50'
-          : clickable
-            ? 'hover-lift hover:border-border cursor-pointer'
-            : null,
-      )}
-      aria-disabled={comingSoon || undefined}
-    >
-      <div className="relative z-[1] flex flex-1 items-stretch gap-4">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
-            {showKindBadge ? (
-              <Badge variant="neutral" className="text-2xs font-medium">
-                {t('integrations.modules.kindBadge', { defaultValue: 'Module' })}
-              </Badge>
-            ) : null}
-          </div>
-          <p className="mt-1 line-clamp-3 text-sm leading-snug text-text-secondary">
-            {description}
-          </p>
-          {toolCount > 0 ? (
-            <p className="mt-2 text-2xs text-text-muted">
-              {t('integrations.modules.showcase.cardTools', {
-                count: toolCount,
-                defaultValue: '{{count}} agent tools',
-              })}
+    <Card asChild padding="default">
+      <article
+        role={clickable ? 'button' : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        onClick={() => {
+          if (clickable) onOpenDetail?.()
+        }}
+        onKeyDown={(e) => {
+          if (!clickable) return
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onOpenDetail?.()
+          }
+        }}
+        className={cn(
+          'relative flex h-full flex-col overflow-hidden',
+          comingSoon
+            ? 'pointer-events-none cursor-not-allowed opacity-50'
+            : clickable
+              ? 'hover-lift hover:border-border cursor-pointer'
+              : null,
+        )}
+        aria-disabled={comingSoon || undefined}
+      >
+        <div className="relative z-[1] flex flex-1 items-stretch gap-4">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-text-heading">{name}</h3>
+              {showKindBadge ? (
+                <Badge variant="neutral" className="text-2xs font-medium">
+                  {t('integrations.modules.kindBadge', { defaultValue: 'Module' })}
+                </Badge>
+              ) : null}
+            </div>
+            <p className="mt-1 line-clamp-3 text-sm leading-snug text-text-secondary">
+              {description}
             </p>
-          ) : null}
-          <div className="mt-auto space-y-2 pt-3">
-            <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
-            {installed ? (
-              <p className="inline-flex items-center gap-1 text-xs font-medium text-status-success">
-                <Check size={14} aria-hidden />
-                {t('integrations.modules.showcase.installedBadge', { defaultValue: 'Installed' })}
+            {toolCount > 0 ? (
+              <p className="mt-2 text-2xs text-text-muted">
+                {t('integrations.modules.showcase.cardTools', {
+                  count: toolCount,
+                  defaultValue: '{{count}} agent tools',
+                })}
               </p>
             ) : null}
-            <p
-              className={cn(
-                'text-xs',
-                hasActive ? 'font-medium text-accent' : 'text-text-muted',
-              )}
-            >
-              {hasActive
-                ? t('integrations.card.activeConnections', {
-                    count: activeCount,
-                    defaultValue: '{{count}} active connections',
-                  })
-                : installed
-                  ? t('integrations.card.noConnectionsYet', {
-                      defaultValue: 'No connections yet',
+            <div className="mt-auto space-y-2 pt-3">
+              <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
+              {installed ? (
+                <p className="inline-flex items-center gap-1 text-xs font-medium text-status-success">
+                  <Check size={14} aria-hidden />
+                  {t('integrations.modules.showcase.installedBadge', { defaultValue: 'Installed' })}
+                </p>
+              ) : null}
+              <p
+                className={cn(
+                  'text-xs',
+                  hasActive ? 'font-medium text-accent' : 'text-text-muted',
+                )}
+              >
+                {hasActive
+                  ? t('integrations.card.activeConnections', {
+                      count: activeCount,
+                      defaultValue: '{{count}} active connections',
                     })
-                  : t('integrations.card.notInstalledYet', {
-                      defaultValue: 'Not installed yet',
-                    })}
+                  : installed
+                    ? t('integrations.card.noConnectionsYet', {
+                        defaultValue: 'No connections yet',
+                      })
+                    : t('integrations.card.notInstalledYet', {
+                        defaultValue: 'Not installed yet',
+                      })}
+              </p>
+            </div>
+          </div>
+          <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
+            <AgentMark
+              agent={specialist.avatar}
+              size={40}
+              mode="live"
+              decorative
+              className="shrink-0"
+            />
+            <p className="mt-2 max-w-full truncate text-sm font-semibold text-text-heading" title={specialist.agentName}>
+              {specialist.agentName}
             </p>
+            <p
+              className="max-w-full truncate text-xs font-medium"
+              style={{ color: specialist.titleColor }}
+              title={specialist.jobTitle}
+            >
+              {specialist.jobTitle}
+            </p>
+            <div
+              className="mt-auto flex items-center gap-2 pt-3"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {comingSoon ? null : installed || hasActive ? (
+                <Button asChild size="sm" variant="secondary">
+                  <Link to={moduleHomePath(module)}>
+                    {t('integrations.modules.manage', { defaultValue: 'Manage' })}
+                  </Link>
+                </Button>
+              ) : null}
+              {comingSoon ? null : (
+                <ModuleInstallControls module={module} onAction={onAction} compact hideUninstall />
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
-          <AgentMark
-            agent={specialist.avatar}
-            size={40}
-            mode="live"
-            decorative
-            className="shrink-0"
-          />
-          <p className="mt-2 max-w-full truncate text-sm font-semibold text-text-heading" title={specialist.agentName}>
-            {specialist.agentName}
-          </p>
-          <p
-            className="max-w-full truncate text-xs font-medium"
-            style={{ color: specialist.titleColor }}
-            title={specialist.jobTitle}
-          >
-            {specialist.jobTitle}
-          </p>
-          <div
-            className="mt-auto flex items-center gap-2 pt-3"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            {comingSoon ? null : installed || hasActive ? (
-              <Button asChild size="sm" variant="secondary">
-                <Link to={moduleHomePath(module)}>
-                  {t('integrations.modules.manage', { defaultValue: 'Manage' })}
-                </Link>
-              </Button>
-            ) : null}
-            {comingSoon ? null : (
-              <ModuleInstallControls module={module} onAction={onAction} compact hideUninstall />
-            )}
-          </div>
-        </div>
-      </div>
-    </article>
+      </article>
+    </Card>
   )
 }

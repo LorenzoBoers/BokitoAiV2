@@ -1,3 +1,4 @@
+import { Card } from './card'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '../../lib/utils'
@@ -25,39 +26,43 @@ function Lines({ widths }: { widths: string[] }) {
 /** People directory: avatar, name, channel, status. */
 export function DirectoryRowsSkeleton({ rows = 8 }: { rows?: number }) {
   return (
-    <Status className="panel overflow-hidden">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
-          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-          <Lines widths={['w-[36%]', 'h-2.5 w-[48%]']} />
-          <Skeleton className="hidden h-5 w-16 rounded-full sm:block" />
-          <Skeleton className="h-3 w-12" />
-        </div>
-      ))}
-    </Status>
+    <Card asChild>
+      <Status className="overflow-hidden">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
+            <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+            <Lines widths={['w-[36%]', 'h-2.5 w-[48%]']} />
+            <Skeleton className="hidden h-5 w-16 rounded-full sm:block" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+        ))}
+      </Status>
+    </Card>
   )
 }
 
 /** Company table: favicon, name, domain, count. */
 export function CompanyTableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <Status className="panel overflow-hidden">
-      <div className="grid grid-cols-[1.4fr_1fr_auto] gap-3 border-b border-border px-4 py-2.5">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-3 w-16" />
-        <Skeleton className="h-3 w-10 justify-self-end" />
-      </div>
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="grid grid-cols-[1.4fr_1fr_auto] items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
-          <div className="flex items-center gap-2.5">
-            <Skeleton className="h-7 w-7 shrink-0 rounded-md" />
-            <Skeleton className="h-3.5 w-32" />
-          </div>
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-3 w-6 justify-self-end" />
+    <Card asChild>
+      <Status className="overflow-hidden">
+        <div className="grid grid-cols-[1.4fr_1fr_auto] gap-3 border-b border-border px-4 py-2.5">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-10 justify-self-end" />
         </div>
-      ))}
-    </Status>
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="grid grid-cols-[1.4fr_1fr_auto] items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="h-7 w-7 shrink-0 rounded-md" />
+              <Skeleton className="h-3.5 w-32" />
+            </div>
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-3 w-6 justify-self-end" />
+          </div>
+        ))}
+      </Status>
+    </Card>
   )
 }
 
@@ -72,14 +77,14 @@ export function ProfileSkeleton() {
           <Skeleton className="h-3 w-28" />
         </div>
       </div>
-      <div className="panel space-y-3 p-4">
+      <Card padding="default" className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="space-y-1.5">
             <Skeleton className="h-2.5 w-20" />
             <Skeleton className="h-9 w-full rounded-lg" />
           </div>
         ))}
-      </div>
+      </Card>
     </Status>
   )
 }
@@ -209,13 +214,13 @@ export function DocsShellSkeleton() {
 export function StepListSkeleton({ steps = 5 }: { steps?: number }) {
   return (
     <Status className="space-y-3">
-      <div className="panel flex items-center gap-3 px-4 py-3">
+      <Card padding="compact" className="flex items-center gap-3">
         <Skeleton className="h-9 w-9 rounded-lg" />
         <div className="space-y-1.5">
           <Skeleton className="h-3.5 w-48" />
           <Skeleton className="h-2.5 w-64" />
         </div>
-      </div>
+      </Card>
       {Array.from({ length: steps }).map((_, i) => (
         <div key={i} className="flex items-start gap-3 rounded-lg border border-border p-4">
           <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
@@ -316,9 +321,9 @@ export function ChannelDetailSkeleton() {
           <Skeleton className="h-3 w-32" />
         </div>
       </div>
-      <div className="panel space-y-3 p-4">
+      <Card padding="default" className="space-y-3">
         <SettingsFieldsSkeleton rows={3} />
-      </div>
+      </Card>
     </Status>
   )
 }
@@ -365,7 +370,7 @@ export function ModelsCatalogSkeleton() {
       <Skeleton className="h-6 w-40" />
       <Skeleton className="h-3 w-72" />
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="panel space-y-3 p-4">
+        <Card padding="default" key={i} className="space-y-3">
           <div className="flex items-center justify-between">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-5 w-16 rounded-full" />
@@ -375,7 +380,7 @@ export function ModelsCatalogSkeleton() {
             <Skeleton className="h-8 w-24 rounded-lg" />
             <Skeleton className="h-8 w-20 rounded-lg" />
           </div>
-        </div>
+        </Card>
       ))}
     </Status>
   )
@@ -871,10 +876,10 @@ export function AgentIdentitySkeleton() {
 export function FolderHomeSkeleton() {
   return (
     <Status className="space-y-4">
-      <div className="panel space-y-3 p-4">
+      <Card padding="default" className="space-y-3">
         <Skeleton className="h-6 w-48" />
         <Skeleton className="h-3 w-32" />
-      </div>
+      </Card>
       <KanbanColumnsSkeleton />
     </Status>
   )

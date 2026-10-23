@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -562,7 +563,7 @@ export default function ContactsPage() {
             {loadMoreButton}
           </div>
         ) : (
-          <div className="panel overflow-hidden">
+          <Card className="overflow-hidden">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-border text-xs font-semibold text-text-muted">
@@ -601,7 +602,7 @@ export default function ContactsPage() {
               </tbody>
             </table>
             {loadMoreButton}
-          </div>
+          </Card>
         )
       ) : sorted.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border px-4 py-12 text-center">
@@ -649,7 +650,7 @@ export default function ContactsPage() {
           {loadMoreButton}
         </div>
       ) : (
-        <div className="panel overflow-hidden">
+        <Card className="overflow-hidden">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-border text-xs font-semibold text-text-muted">
@@ -807,7 +808,7 @@ export default function ContactsPage() {
             </tbody>
           </table>
           {loadMoreButton}
-        </div>
+        </Card>
       )}
     </PageContent>
   )

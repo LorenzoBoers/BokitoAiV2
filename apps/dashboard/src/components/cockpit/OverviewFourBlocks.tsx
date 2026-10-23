@@ -1,3 +1,4 @@
+import { Card } from '../ui/card'
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, CalendarClock, CircleDollarSign, Play } from 'lucide-react'
@@ -99,16 +100,18 @@ function Block({
   index?: number
 }) {
   return (
-    <section
-      className="panel stagger-in min-w-0 overflow-hidden"
-      style={{ '--stagger': index } as CSSProperties}
-    >
-      <div className="border-b border-border px-4 py-3">
-        <h2 className="text-base font-semibold text-text-heading">{title}</h2>
-        <p className="mt-0.5 text-xs text-text-muted">{hint}</p>
-      </div>
-      <div className="space-y-1 p-3">{children}</div>
-    </section>
+    <Card asChild>
+      <section
+        className="stagger-in min-w-0 overflow-hidden"
+        style={{ '--stagger': index } as CSSProperties}
+      >
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-base font-semibold text-text-heading">{title}</h2>
+          <p className="mt-0.5 text-xs text-text-muted">{hint}</p>
+        </div>
+        <div className="space-y-1 p-3">{children}</div>
+      </section>
+    </Card>
   )
 }
 

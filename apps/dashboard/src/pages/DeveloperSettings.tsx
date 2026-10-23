@@ -1,3 +1,4 @@
+import { Card } from '../components/ui/card'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -143,45 +144,47 @@ function McpOAuthGrantsSection({
   }
 
   return (
-    <section id="mcp-clients" className="panel p-4">
-      <h2 className="text-lg font-semibold text-text-heading">
-        {t('developersPage.oauthGrants.title')}
-      </h2>
-      <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-        {t('developersPage.oauthGrants.body')}
-      </p>
-      {loading ? (
-        <GrantRowsSkeleton />
-      ) : grants.length === 0 ? (
-        <EmptyState tone="plain" size="sm" className="mt-3 px-0 py-2" title={t('developersPage.oauthGrants.empty')} />
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {grants.map((grant) => (
-            <li
-              key={grant.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-text-heading">{grant.client_name}</p>
-                <p className="text-xs text-text-muted">
-                  {grant.tenant_name}
-                  {grant.scopes.length ? ` · ${grant.scopes.join(', ')}` : ` · ${t('developersPage.fullAccess')}`}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={busyId === grant.id}
-                onClick={() => void handleRevoke(grant)}
+    <Card asChild padding="default">
+      <section id="mcp-clients">
+        <h2 className="text-lg font-semibold text-text-heading">
+          {t('developersPage.oauthGrants.title')}
+        </h2>
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+          {t('developersPage.oauthGrants.body')}
+        </p>
+        {loading ? (
+          <GrantRowsSkeleton />
+        ) : grants.length === 0 ? (
+          <EmptyState tone="plain" size="sm" className="mt-3 px-0 py-2" title={t('developersPage.oauthGrants.empty')} />
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {grants.map((grant) => (
+              <li
+                key={grant.id}
+                className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2"
               >
-                {busyId === grant.id ? <Spinner size="md" /> : null}
-                {t('developersPage.oauthGrants.revoke')}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text-heading">{grant.client_name}</p>
+                  <p className="text-xs text-text-muted">
+                    {grant.tenant_name}
+                    {grant.scopes.length ? ` · ${grant.scopes.join(', ')}` : ` · ${t('developersPage.fullAccess')}`}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busyId === grant.id}
+                  onClick={() => void handleRevoke(grant)}
+                >
+                  {busyId === grant.id ? <Spinner size="md" /> : null}
+                  {t('developersPage.oauthGrants.revoke')}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </Card>
   )
 }
 
@@ -290,7 +293,7 @@ function ApiTokensSection({
       </div>
 
       {showAdd ? (
-        <div className="panel mt-4 space-y-3 p-4">
+        <Card padding="default" className="mt-4 space-y-3">
           <div>
             <Label htmlFor="token-name">{t('developersPage.tokenName')}</Label>
             <Input
@@ -374,7 +377,7 @@ function ApiTokensSection({
               {t('developersPage.cancel')}
             </Button>
           </div>
-        </div>
+        </Card>
       ) : null}
 
       {createdToken ? (
@@ -441,9 +444,9 @@ function ApiTokensSection({
       ) : (
         <div className="mt-4 space-y-2">
           {tokens.filter((row) => showRevoked || !row.revoked_at).map((row) => (
-            <div
+            <Card padding="compact"
               key={row.id}
-              className="panel flex items-center justify-between gap-3 px-4 py-3"
+              className="flex items-center justify-between gap-3"
             >
               <div className="min-w-0">
                 <p className="truncate-fade text-sm font-medium text-text-heading">
@@ -473,7 +476,7 @@ function ApiTokensSection({
                   <Trash2 size={14} />
                 </Button>
               ) : null}
-            </div>
+            </Card>
           ))}
           {tokens.some((row) => row.revoked_at) ? (
             <TextLink
@@ -709,7 +712,7 @@ export default function DeveloperSettings() {
           </div>
 
           {showAdd ? (
-            <div className="panel mt-4 space-y-3 p-4">
+            <Card padding="default" className="mt-4 space-y-3">
               <div>
                 <Label htmlFor="wh-url">{t('developersPage.webhooks.url')}</Label>
             <Input
@@ -771,7 +774,7 @@ export default function DeveloperSettings() {
                   {t('developersPage.webhooks.cancel')}
                 </Button>
               </div>
-            </div>
+            </Card>
           ) : null}
 
           {loading ? (
@@ -805,9 +808,9 @@ export default function DeveloperSettings() {
           ) : (
             <div className="mt-4 space-y-3">
               {items.map((endpoint) => (
-                <div
+                <Card padding="default"
                   key={endpoint.id}
-                  className="panel p-4"
+                 
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
@@ -942,7 +945,7 @@ export default function DeveloperSettings() {
                       ) : null}
                     </div>
                   ) : null}
-                </div>
+                </Card>
               ))}
               {webhooksNext != null ? (
                 <Button
@@ -961,15 +964,17 @@ export default function DeveloperSettings() {
           )}
         </section>
 
-        <section className="panel p-4">
-          <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>
-          <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-            {t('developersPage.publicBody')}
-          </p>
-          <Button size="sm" variant="secondary" className="mt-3" asChild>
-            <Link to="/settings/govern?tab=policy">{t('developersPage.openGovernPolicy')}</Link>
-          </Button>
-        </section>
+        <Card asChild padding="default">
+          <section>
+            <h2 className="text-lg font-semibold text-text-heading">{t('developersPage.publicTitle')}</h2>
+            <p className="mt-1 text-sm leading-relaxed text-text-secondary">
+              {t('developersPage.publicBody')}
+            </p>
+            <Button size="sm" variant="secondary" className="mt-3" asChild>
+              <Link to="/settings/govern?tab=policy">{t('developersPage.openGovernPolicy')}</Link>
+            </Button>
+          </section>
+        </Card>
       </div>
     </PageContent>
   )
