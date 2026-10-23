@@ -525,7 +525,7 @@ export default function CompanyConfig() {
           <button
             type="button"
             onClick={() => navigate(WEBSITE_WIDGET_CUSTOMIZE_PATH)}
-            className="w-full flex items-center gap-4 rounded-lg border border-border bg-bg-elevated/30 px-5 py-4 hover:border-border-light hover:bg-bg-hover/40 transition-all group text-left"
+            className="w-full flex items-center gap-4 rounded-lg border border-border bg-bg-elevated/30 px-5 py-4 hover:border-border-light hover:bg-bg-hover/50 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
               <MessageSquare size={16} className="text-accent" />

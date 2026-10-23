@@ -81,7 +81,7 @@ function AssistantThreadsSection({
             <button
               type="button"
               onClick={() => void onOpen(thread)}
-              className="panel flex w-full items-center gap-3 px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover/60"
+              className="panel flex w-full items-center gap-3 px-4 py-2.5 text-left hover:border-border-light hover:bg-bg-hover"
             >
               <Sparkles size={14} className="shrink-0 text-ai-ink" aria-hidden />
               <span className="min-w-0 flex-1 truncate-fade text-sm text-text-primary">
@@ -296,7 +296,7 @@ export default function Workspaces() {
               className="attention-glow rounded-lg border border-dashed border-accent/45 p-5 text-left transition-colors hover:bg-bg-hover/50"
             >
               <div className="space-y-2">
-                <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-bg-hover/70">
+                <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-bg-hover">
                   <CirclePlus size={20} className="text-text-muted" />
                 </div>
                 <p className="text-xl font-semibold text-text-heading">{t('cards.create.title')}</p>

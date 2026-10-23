@@ -53,7 +53,7 @@ function formatUsd(micros: number, language?: string) {
 }
 
 const usageRow = 'flex items-center justify-between gap-3 rounded-md px-3 py-2.5 text-sm'
-const usageLink = `${usageRow} transition-colors hover:bg-bg-hover/70`
+const usageLink = `${usageRow} transition-colors hover:bg-bg-hover`
 
 function UsageCard({
   title,
@@ -330,7 +330,7 @@ export default function UsagePage() {
                   URL.revokeObjectURL(url)
                   toast.success(t('usagePage.exported'))
                 }}
-                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
               >
                 {t('usagePage.exportCsv')}
               </button>
@@ -338,7 +338,7 @@ export default function UsagePage() {
             <button
               type="button"
               onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
               {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('usagePage.refresh')}
@@ -429,7 +429,7 @@ export default function UsagePage() {
                 <button
                   type="button"
                   onClick={startEditCaps}
-                  className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                  className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
                 >
                   {t('usagePage.editCaps')}
                 </button>

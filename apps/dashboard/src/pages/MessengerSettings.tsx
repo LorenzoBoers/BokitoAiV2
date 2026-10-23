@@ -117,7 +117,7 @@ function FoldableSection({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-bg-hover/40"
+        className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-bg-hover/50"
       >
         <span className="text-lg font-medium text-text-heading">{title}</span>
         <ChevronDown

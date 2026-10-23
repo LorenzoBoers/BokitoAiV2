@@ -141,7 +141,7 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
           <button
             type="button"
             aria-label={t('topbar.openUserMenu')}
-            className={`flex items-center gap-2 rounded-md text-left transition-colors hover:bg-bg-hover/70 data-[state=open]:bg-bg-hover ${
+            className={`flex items-center gap-2 rounded-md text-left transition-colors hover:bg-bg-hover data-[state=open]:bg-bg-hover ${
               collapsed ? 'h-9 w-9 justify-center' : 'h-10 w-full px-1.5'
             }`}
           >

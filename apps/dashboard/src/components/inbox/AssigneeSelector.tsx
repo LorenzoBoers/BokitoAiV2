@@ -210,7 +210,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
               owner?.kind === 'team' &&
                 currentAssigneeId == null &&
                 (!currentTeam || currentTeam.system) &&
-                'bg-bg-hover/80',
+                'bg-bg-hover',
             )}
           >
             {t('threadChrome.unassigned')}
@@ -223,7 +223,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   key={p.id}
                   disabled={!p.canHandle}
                   onSelect={() => void onAssign({ kind: 'user', id: p.id })}
-                  className={cn('gap-2 text-xs', currentAssigneeId === p.id && 'bg-bg-hover/80')}
+                  className={cn('gap-2 text-xs', currentAssigneeId === p.id && 'bg-bg-hover')}
                 >
                   <UserAvatar name={p.name} email={p.email} avatarUrl={p.avatarUrl} size={20} presence={p.presence} />
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
@@ -238,7 +238,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   key={a.id}
                   disabled={!a.canHandle}
                   onSelect={() => setHandover({ kind: 'agent', id: a.id, name: a.name })}
-                  className={cn('gap-2 text-xs', owner?.kind === 'agent' && owner.agentId === a.id && 'bg-bg-hover/80')}
+                  className={cn('gap-2 text-xs', owner?.kind === 'agent' && owner.agentId === a.id && 'bg-bg-hover')}
                 >
                   <AgentMark
                     agent={preferLiveAgentAvatar(
@@ -260,7 +260,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                 <DropdownMenuItem
                   key={team.id}
                   onSelect={() => setHandover({ kind: 'team', id: team.id, name: teamLabel(team) })}
-                  className={cn('gap-2 text-xs', owner?.kind === 'team' && owner.teamId === team.id && 'bg-bg-hover/80')}
+                  className={cn('gap-2 text-xs', owner?.kind === 'team' && owner.teamId === team.id && 'bg-bg-hover')}
                 >
                   <TeamFacepile
                     team={{
@@ -285,7 +285,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
               <DropdownMenuItem
                 key={m.id}
                 onSelect={() => void onAssign({ kind: 'user', id: m.id })}
-                className={cn('gap-2 text-xs', currentAssigneeId === m.id && 'bg-bg-hover/80')}
+                className={cn('gap-2 text-xs', currentAssigneeId === m.id && 'bg-bg-hover')}
               >
                 <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={20} presence={m.presence} />
                 {m.name}

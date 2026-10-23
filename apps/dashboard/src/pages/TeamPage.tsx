@@ -219,7 +219,7 @@ export default function TeamPage() {
             )
             const cardClass = cn(
               'px-4 py-3',
-              canOpen && 'transition-colors hover:border-border-light hover:bg-bg-hover/40',
+              canOpen && 'transition-colors hover:border-border-light hover:bg-bg-hover/50',
             )
             if (canOpen) {
               return (
@@ -385,7 +385,7 @@ function TeamDialog({
               {overview.people.filter((p) => !p.deactivated).map((p) => {
                 const ref: TeamMemberRef = { kind: 'user', id: p.uuid }
                 return (
-                  <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
+                  <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
                     <UserAvatar
                       name={p.name}
@@ -402,7 +402,7 @@ function TeamDialog({
               {overview.agents.filter((a) => !a.deactivated).map((a) => {
                 const ref: TeamMemberRef = { kind: 'agent', id: a.id }
                 return (
-                  <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover/60">
+                  <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
                     <AgentMark
                       agent={a}

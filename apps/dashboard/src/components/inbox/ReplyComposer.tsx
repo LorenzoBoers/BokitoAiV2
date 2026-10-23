@@ -848,7 +848,7 @@ export default function ReplyComposer({
               'inline-flex items-center justify-center self-stretch border-l px-1.5 leading-none transition-colors',
               isAsk
                 ? 'border-border text-inherit hover:bg-bg-muted/50'
-                : 'border-transparent text-inherit opacity-70 hover:bg-bg-hover/80 hover:opacity-100',
+                : 'border-transparent text-inherit opacity-70 hover:bg-bg-hover hover:opacity-100',
             )}
             data-testid="composer-tag-button"
           >
@@ -1506,7 +1506,7 @@ export default function ReplyComposer({
                 type="button"
                 onClick={() => onStopAgent?.()}
                 title={t('composer.stop', { defaultValue: 'Stop' })}
-                className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover/80"
+                className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover"
               >
                 <Square size={14} />
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>

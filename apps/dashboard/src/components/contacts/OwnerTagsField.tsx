@@ -139,7 +139,7 @@ export function OwnerTagsField({
             onClick={() => setAdding(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-hover/70 hover:text-text-heading disabled:opacity-40"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
           >
             <Plus size={14} />
           </button>

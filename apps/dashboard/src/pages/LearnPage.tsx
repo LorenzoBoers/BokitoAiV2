@@ -106,7 +106,7 @@ function LearnIndex() {
                 <Link
                   key={item.slug}
                   to={`/learn/${item.slug}`}
-                  className="block rounded-lg border border-border px-4 py-3 transition-colors hover:border-accent/40 hover:bg-bg-hover/40"
+                  className="block rounded-lg border border-border px-4 py-3 transition-colors hover:border-accent/40 hover:bg-bg-hover/50"
                 >
                   <p className="text-base font-medium text-text-heading">{item.title}</p>
                   {item.description ? (
@@ -174,14 +174,14 @@ function LearnArticle({ slug }: { slug: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={backTo}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
             >
               <ArrowLeft size={14} aria-hidden />
               {t('pageGuides.back')}
             </Link>
             <Link
               to="/learn"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
             >
               <BookOpen size={14} aria-hidden />
               {t('pageGuides.allArticles')}
@@ -197,7 +197,7 @@ function LearnArticle({ slug }: { slug: string }) {
         </div>
         <Link
           to="/settings/setup"
-          className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-bg-hover/60"
+          className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-bg-hover"
         >
           {t('pageGuides.getStartedCta')}
         </Link>

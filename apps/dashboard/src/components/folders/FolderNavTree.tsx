@@ -940,7 +940,7 @@ function RootDropZone({
         placement === 'start' ? 'mb-0.5' : 'mt-0.5',
         lit
           ? 'border-border bg-bg-hover text-text-secondary'
-          : 'border-border bg-bg-hover/30 text-text-muted',
+          : 'border-border bg-bg-hover/50 text-text-muted',
       )}
     >
       <ArrowUpToLine size={14} className="shrink-0" aria-hidden />
@@ -1072,7 +1072,7 @@ function FolderNavRow({
               e.stopPropagation()
               onToggle(node.id)
             }}
-            className="absolute right-0.5 z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover/80 hover:text-text-secondary"
+            className="absolute right-0.5 z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-secondary"
           >
             <ChevronRight
               size={14}

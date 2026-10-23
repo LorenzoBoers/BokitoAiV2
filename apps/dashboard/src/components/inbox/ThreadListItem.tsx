@@ -303,7 +303,7 @@ function ThreadListItem({
       className={cn(
         'row-interactive group/thread w-full cursor-pointer rounded-md border border-transparent px-2.5 text-left',
         compact ? 'py-1.5' : 'py-2',
-        isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/45 data-[menu-open]:bg-bg-hover/45',
+        isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/50 data-[menu-open]:bg-bg-hover/50',
         aiActive && THREAD_ROW_AI_CLASS,
         enterIndex != null && enterIndex < 12 && 'list-row-enter',
       )}

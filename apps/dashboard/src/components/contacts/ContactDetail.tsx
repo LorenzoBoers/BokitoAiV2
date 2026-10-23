@@ -286,7 +286,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
             >
               <ArrowLeft size={14} />
               {t('contactsPage.allContacts')}
@@ -296,7 +296,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 to={inboxPath('open', String(threads[0].id))}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   canComposeToAddress(contact.channel, contact.address)
-                    ? 'border border-border text-text-secondary hover:bg-bg-hover/60'
+                    ? 'border border-border text-text-secondary hover:bg-bg-hover'
                     : 'bg-accent text-accent-fg hover:bg-accent-hover'
                 }`}
                 title={t('contactsPage.openConversationHint')}
@@ -320,7 +320,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-success disabled:opacity-50"
               >
                 <ShieldCheck size={14} />
                 {t('contactsPage.approve')}
@@ -331,7 +331,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('blocked')}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-error disabled:opacity-50"
               >
                 <ShieldBan size={14} />
                 {t('contactsPage.block')}
@@ -397,7 +397,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                         disabled={saving}
                         onClick={() => void detachIdentity(identity.id)}
                         title={t('contactsPage.detachHint')}
-                        className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
+                        className="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
                       >
                         {t('contactsPage.detach')}
                       </button>
@@ -530,7 +530,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                   )}
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
                   >
                     {t('contactsPage.openCommunication')}
                   </Link>
@@ -541,7 +541,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 <Link
                   key={String(thread.id)}
                   to={inboxPath('open', String(thread.id))}
-                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
+                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover"
                 >
                   <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                   <span className="min-w-0 flex-1">

@@ -217,7 +217,7 @@ export default function OnboardingChecklist({
           onClick={onDismiss}
           title={t('onboarding.dismiss')}
           aria-label={t('onboarding.dismiss')}
-          className="absolute right-2 top-4 flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+          className="absolute right-2 top-4 flex h-7 w-7 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
         >
           <X size={14} />
         </button>
@@ -265,14 +265,14 @@ export default function OnboardingChecklist({
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
         <Link
           to="/settings/setup"
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
         >
           {t('onboarding.openGuide')}
           <ArrowRight size={14} />
         </Link>
         <Link
           to={ASSISTANT_SETUP_TO}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
         >
           <Bot size={14} />
           {t('onboarding.talkAssistant')}

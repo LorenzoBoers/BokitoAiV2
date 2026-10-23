@@ -640,7 +640,7 @@ export default function AiAgentDetail() {
                         <Link
                           key={String(thread.id)}
                           to={agentChatPath(agent.id, String(thread.id))}
-                          className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover/70"
+                          className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover"
                         >
                           <ThreadStatusDot status={thread.status} unread={thread.hasUnread} />
                           <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
@@ -714,7 +714,7 @@ export default function AiAgentDetail() {
                         <Link
                           key={item.id}
                           to={href}
-                          className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover/70"
+                          className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover"
                         >
                           <CalendarDays size={14} className="shrink-0 text-text-muted" aria-hidden />
                           <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">

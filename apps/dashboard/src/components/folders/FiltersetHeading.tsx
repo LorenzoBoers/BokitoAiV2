@@ -143,7 +143,7 @@ export function FiltersetHeading({
                 type="button"
                 onClick={() => setOpen(true)}
                 disabled={savingTags}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/80 hover:text-text-heading disabled:opacity-40"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
                 aria-label={addAria}
                 title={addAria}
               >

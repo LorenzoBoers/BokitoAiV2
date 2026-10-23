@@ -775,7 +775,7 @@ export default function WorkspaceDocs() {
                   hits.map((hit, idx) => (
                     <button
                       key={idx}
-                      className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-bg-hover/60"
+                      className="block w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-bg-hover"
                       onClick={() => {
                         if (hit.doc_id) navigate(`/agents/knowledge/${hit.doc_id}`)
                       }}
@@ -810,7 +810,7 @@ export default function WorkspaceDocs() {
                       <button
                         key={doc.id}
                         className={cn(
-                          'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary',
+                          'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary',
                           active?.id === doc.id &&
                             'bg-ai/10 font-medium text-ai-ink',
                         )}

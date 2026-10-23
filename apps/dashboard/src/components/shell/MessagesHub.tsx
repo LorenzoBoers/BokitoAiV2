@@ -45,7 +45,7 @@ function MessagesHubFrame() {
               <button
                 type="button"
                 onClick={() => openEditor()}
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                 aria-label={t('support.customize.title')}
                 data-testid="customize-sidebar"
               >

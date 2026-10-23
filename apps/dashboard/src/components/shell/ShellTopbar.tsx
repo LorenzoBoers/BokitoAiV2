@@ -58,7 +58,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <button
           type="button"
           onClick={onOpenNavDrawer}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary lg:hidden"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary lg:hidden"
           aria-label={t('topbar.openNavigation')}
         >
           <Menu size={16} />
@@ -114,7 +114,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
           <button
             type="button"
             onClick={() => navigate('/settings/setup')}
-            className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
+            className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover hover:text-text-heading md:flex"
           >
             <Sparkles size={14} className="text-accent" />
             <span>{t('topbar.setup')}</span>
@@ -126,7 +126,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <button
           type="button"
           onClick={() => openAssistant()}
-          className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
+          className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover hover:text-text-heading md:flex"
         >
           <CircleHelp size={14} className="text-accent" />
           <span>{t('topbar.help')}</span>
@@ -136,7 +136,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <button
           type="button"
           onClick={() => openAssistant()}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary md:hidden"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary md:hidden"
           aria-label={t('topbar.help')}
         >
           <CircleHelp size={14} />
@@ -147,7 +147,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <button
           type="button"
           onClick={onOpenPalette}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary sm:hidden"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary sm:hidden"
           aria-label={t('topbar.search')}
         >
           <Search size={14} />

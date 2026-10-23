@@ -9,7 +9,7 @@ function navItemClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
     isActive
       ? 'border-accent/35 bg-accent/12 text-text-heading'
-      : 'border-transparent text-text-secondary hover:border-border hover:bg-bg-hover/60 hover:text-text-primary'
+      : 'border-transparent text-text-secondary hover:border-border hover:bg-bg-hover hover:text-text-primary'
   }`
 }
 
@@ -64,7 +64,7 @@ export default function WorkspaceHubNav() {
           onClick={() => void logout()}
           title={t('account.session.signOut')}
           aria-label={t('account.session.signOut')}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
         >
           <LogOut size={16} />
         </button>

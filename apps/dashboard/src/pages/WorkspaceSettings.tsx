@@ -94,7 +94,7 @@ export default function WorkspaceSettings() {
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/settings/setup"
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
           >
             <ListChecks size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -104,7 +104,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to="/settings/channels"
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
           >
             <Mail size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -114,7 +114,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to={AUTONOMY_PATH}
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
           >
             <Bot size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -124,7 +124,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to={WEBSITE_WIDGET_PATH}
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
           >
             <MessageSquare size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">
@@ -134,7 +134,7 @@ export default function WorkspaceSettings() {
           </Link>
           <Link
             to="/connections"
-            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/40"
+            className="panel flex items-center gap-2 px-3 py-2.5 hover:border-border-light hover:bg-bg-hover/50"
           >
             <Puzzle size={14} className="shrink-0 text-accent" />
             <span className="min-w-0">

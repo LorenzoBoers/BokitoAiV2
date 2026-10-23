@@ -421,7 +421,7 @@ export default function NotificationSettings() {
                   })()
                 }}
                 aria-label={t('notificationsPage.restoreDefaults')}
-                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
               >
                 <RotateCcw size={14} aria-hidden />
               </button>

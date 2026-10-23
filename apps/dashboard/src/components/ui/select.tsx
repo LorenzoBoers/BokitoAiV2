@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 
 /** Compact closed control shared by selects and menu chips. */
 export const controlChipClass =
-  'inline-flex h-7 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border disabled:opacity-50'
+  'inline-flex h-7 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover focus:border-border disabled:opacity-50'
 
 /** Side-panel value without a chip border or fill — icon + label only. */
 export const controlTextClass =
@@ -86,7 +86,7 @@ function SelectItem({
     <SelectPrimitive.Item
       className={cn(
         'relative flex min-h-8 w-full min-w-0 cursor-default select-none items-center overflow-hidden rounded-md px-2.5 py-1 text-sm text-text-primary outline-none',
-        'data-[highlighted]:bg-bg-hover/80 data-[state=checked]:bg-accent/15 data-[highlighted]:data-[state=checked]:bg-accent/20',
+        'data-[highlighted]:bg-bg-hover data-[state=checked]:bg-accent/15 data-[highlighted]:data-[state=checked]:bg-accent/20',
         className,
       )}
       {...props}

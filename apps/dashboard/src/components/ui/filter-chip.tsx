@@ -20,7 +20,7 @@ export const FilterChip = React.forwardRef<HTMLButtonElement, FilterChipProps>(
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:pointer-events-none disabled:opacity-50',
         active
           ? 'bg-accent/12 text-accent'
-          : 'bg-bg-hover/60 text-text-secondary hover:bg-bg-hover hover:text-text-heading',
+          : 'bg-bg-hover text-text-secondary hover:bg-bg-hover hover:text-text-heading',
         className,
       )}
       {...props}

@@ -324,7 +324,7 @@ function AccessDialog<L extends string>({
                     return (
                       <div
                         key={k}
-                        className="grid items-center gap-2 rounded px-1 py-1.5 hover:bg-bg-hover/40"
+                        className="grid items-center gap-2 rounded px-1 py-1.5 hover:bg-bg-hover/50"
                         style={{ gridTemplateColumns: colTemplate }}
                       >
                         <span className="flex min-w-0 items-center gap-2 text-sm">

@@ -152,7 +152,7 @@ export default function HelpCenter() {
             <button
               type="button"
               onClick={() => setReloadNonce((n) => n + 1)}
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
             >
               {t('helpPublic.retry')}
             </button>

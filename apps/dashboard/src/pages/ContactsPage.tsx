@@ -216,7 +216,7 @@ export default function ContactsPage() {
           type="button"
           disabled={loadingMore}
           onClick={() => void loadMore()}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-50"
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-50"
         >
           {loadingMore ? t('contactsPage.loadingMore') : t('contactsPage.loadMore')}
         </button>
@@ -331,7 +331,7 @@ export default function ContactsPage() {
             <button
               type="button"
               onClick={() => void load()}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
             >
               {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('contactsPage.refresh')}
@@ -341,7 +341,7 @@ export default function ContactsPage() {
                 type="button"
                 disabled={backfilling}
                 onClick={() => void handleBackfill()}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover disabled:opacity-50"
               >
                 {backfilling ? <Spinner size="sm" /> : <Building2 size={12} />}
                 {t('contactsPage.linkContacts')}
@@ -577,7 +577,7 @@ export default function ContactsPage() {
                   <tr
                     key={company.id}
                     onClick={() => navigate(`/contacts/companies/${company.id}`)}
-                    className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-hover/45"
+                    className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-hover/50"
                   >
                     <td className="px-4 py-2.5">
                       <span className="flex items-center gap-2.5">
@@ -621,7 +621,7 @@ export default function ContactsPage() {
                 setSearch('')
                 setStatusFilter('all')
               }}
-              className="mt-4 rounded-lg border border-border px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="mt-4 rounded-lg border border-border px-3.5 py-2 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
             >
               {t('contactsPage.clearFiltersAction')}
             </button>
@@ -665,7 +665,7 @@ export default function ContactsPage() {
                 <tr
                   key={contact.id}
                   onClick={() => navigate(`/contacts/${contact.id}`)}
-                  className="group cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-hover/45"
+                  className="group cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-bg-hover/50"
                 >
                   <td className="px-4 py-2.5">
                     <span className="flex items-center gap-2.5">

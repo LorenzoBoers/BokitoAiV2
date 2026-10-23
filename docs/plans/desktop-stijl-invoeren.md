@@ -481,6 +481,13 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - Iconen die als prop doorgegeven en elders getekend worden (`icon={Sparkles}`, `const Icon = …`) ziet de guard niet.
 - Visuele check van inbox-threadlijst en agenda: bij de dev-sync aan het eind.
 
+### Fase 8.3: hover-niveaus
+
+- **Hover wordt vaak vol.** De codemod volgt de kaart uit het plan, ook voor `hover:`: `/55`–`/90` wordt vol. 112 van de ~165 waarden waren `hover:bg-bg-hover/60` of `/70`, dus de meeste hovers zijn nu even sterk als "geselecteerd". Dat botst met de regel "zacht = hover". Rijen die selectie ook met `bg-bg-hover` tonen, hebben bij hover geen verschil meer met geselecteerd. Alternatief: een tweede codemod `hover:`/`group-hover:` naar `/50`. Dat is mechanisch en kan in een vervolgstap.
+- `.nav-row:hover` in `index.css` is met de hand `/50` geworden in plaats van vol, anders is hover gelijk aan actief (de referentie heeft hover `.6`, actief vol).
+- `bg-bg/NN` (5×) is meegenomen met regel `page-tint`. Twee daarvan waren een eigen modale achtergrond (`fixed inset-0 bg-bg/80`, in `MailComposer` en `TimelineItem`) en zijn nu `.scrim`.
+- `bg-bg-elevated/NN` staat op 42 (boven de 20) en is niet meegenomen. Verdeling: /25 2, /30 5, /50 4, /55 1, /60 16, /70 7, /80 3, /90 3, /95 1.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

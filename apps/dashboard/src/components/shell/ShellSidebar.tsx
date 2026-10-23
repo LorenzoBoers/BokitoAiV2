@@ -152,7 +152,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             type="button"
             onClick={onToggleCollapsed}
             aria-label={collapsed ? t('topbar.expandNavigation') : t('topbar.collapseNavigation')}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
             {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
           </button>

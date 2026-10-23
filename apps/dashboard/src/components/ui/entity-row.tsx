@@ -28,7 +28,7 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
       className={cn(
         'flex min-w-0 items-center gap-3',
         density === 'sm' ? 'px-2.5 py-2' : 'px-3 py-2.5',
-        interactive && 'cursor-pointer rounded-md transition-colors hover:bg-bg-hover/60',
+        interactive && 'cursor-pointer rounded-md transition-colors hover:bg-bg-hover',
         className,
       )}
       {...props}

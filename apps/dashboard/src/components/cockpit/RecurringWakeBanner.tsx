@@ -108,7 +108,7 @@ export function RecurringWakeBanner() {
           writeDismissed(workspaceId)
           setDismissed(true)
         }}
-        className="absolute right-2 top-2 rounded p-0.5 text-text-muted hover:bg-bg-hover/70 hover:text-text-heading"
+        className="absolute right-2 top-2 rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-heading"
         aria-label={t('cockpitPage.recurringWake.dismiss')}
       >
         <X className="h-3.5 w-3.5" aria-hidden />

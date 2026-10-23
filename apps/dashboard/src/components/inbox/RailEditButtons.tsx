@@ -3,7 +3,7 @@ import { Eye, PenLine } from 'lucide-react'
 import { Tip } from '../ui/Tip'
 
 const controlClass =
-  'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary'
+  'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary'
 
 function stopRow(event: MouseEvent | PointerEvent) {
   event.preventDefault()

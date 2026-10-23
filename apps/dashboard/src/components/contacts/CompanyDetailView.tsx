@@ -145,7 +145,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
             >
               <ArrowLeft size={14} />
               {t('contactsPage.allContacts')}
@@ -243,7 +243,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                   </Link>
                   <Link
                     to="/contacts"
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
                   >
                     {t('contactsPage.browseContacts')}
                   </Link>
@@ -254,7 +254,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                 <Link
                   key={c.id}
                   to={`/contacts/${c.id}`}
-                  className="flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
+                  className="flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover"
                 >
                   <PersonAvatar name={c.displayName} email={c.address} size={24} />
                   <span className="min-w-0 flex-1">
@@ -296,7 +296,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                   </Link>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
                   >
                     {t('contactsPage.openCommunication')}
                   </Link>
@@ -307,7 +307,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                 <Link
                   key={String(thread.id)}
                   to={inboxPath('open', String(thread.id))}
-                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover/70"
+                  className="group flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover"
                 >
                   <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                   <span className="min-w-0 flex-1">

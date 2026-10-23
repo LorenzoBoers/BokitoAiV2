@@ -60,7 +60,7 @@ function LazyThumb({ url, name }: { url: string; name: string }) {
           className="max-h-52 max-w-full rounded-md object-contain"
         />
       ) : (
-        <span className="block h-24 w-36 rounded-md bg-bg-hover/80" aria-hidden />
+        <span className="block h-24 w-36 rounded-md bg-bg-hover" aria-hidden />
       )}
     </a>
   )
@@ -117,7 +117,7 @@ export default function MessageAttachments({
                 <button
                   type="button"
                   onClick={() => onRemove(att.id)}
-                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg/70 text-text-heading opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur-sm transition-opacity duration-150 hover:bg-bg focus-visible:opacity-100 group-hover/thumb:opacity-100"
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg text-text-heading opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur-sm transition-opacity duration-150 hover:bg-bg focus-visible:opacity-100 group-hover/thumb:opacity-100"
                   aria-label={t('composer.removeAttachment', { name })}
                 >
                   <X size={14} />
@@ -166,7 +166,7 @@ export default function MessageAttachments({
                 onClick={() => onRemove(att.id)}
                 className={
                   isImage
-                    ? 'absolute right-1 top-1 rounded-md bg-bg/80 p-0.5 text-text-primary hover:bg-bg'
+                    ? 'absolute right-1 top-1 rounded-md bg-bg p-0.5 text-text-primary hover:bg-bg'
                     : 'rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary'
                 }
                 aria-label={t('composer.removeAttachment', { name })}

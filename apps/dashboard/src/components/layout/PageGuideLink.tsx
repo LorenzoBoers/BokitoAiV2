@@ -29,7 +29,7 @@ export function PageGuideLink({ page, variant, compact = false, className }: Pag
         to={pageGuidePath(page)}
         aria-label={compact ? `${label}. ${title}` : undefined}
         className={cn(
-          'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md text-xs text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-heading',
+          'inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md text-xs text-text-muted transition-colors hover:bg-bg-hover hover:text-text-heading',
           compact ? 'w-7 justify-center' : 'px-2',
           className,
         )}

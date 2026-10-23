@@ -184,7 +184,7 @@ function ClusterMark({
         key={item.id}
         to={timeItemHref(item)}
         className={cn(
-          'block rounded-md px-1.5 py-1 hover:bg-bg-hover/70 focus:outline-none focus-visible:ring-1 focus-visible:ring-ai',
+          'block rounded-md px-1.5 py-1 hover:bg-bg-hover focus:outline-none focus-visible:ring-1 focus-visible:ring-ai',
           index > 0 && 'border-t border-border',
         )}
       >

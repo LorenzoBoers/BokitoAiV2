@@ -245,7 +245,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           type="button"
           onClick={onSkip}
           aria-label={t('welcome.skip')}
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
         >
           <X size={16} />
         </button>
@@ -302,7 +302,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
             <button
               type="button"
               onClick={onSkip}
-              className="rounded-lg px-3.5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
               {t('welcome.skip')}
             </button>
@@ -491,7 +491,7 @@ function StepOverlay({
               <button
                 type="button"
                 onClick={onBack}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
               >
                 {t('back')}
               </button>
@@ -555,14 +555,14 @@ function FinishScreen({
             <button
               type="button"
               onClick={onCommunication}
-              className="rounded-lg border border-border px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg border border-border px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
               {t('finish.communication')}
             </button>
             <button
               type="button"
               onClick={onExplore}
-              className="rounded-lg px-3.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg px-3.5 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
               {t('finish.later')}
             </button>

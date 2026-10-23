@@ -33,7 +33,7 @@ export function CapBar({ label, value, ratio, exceeded = false, className }: Cap
         </div>
       ) : null}
       {hasBar ? (
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-hover/70">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-bg-hover">
           <div
             className={cn('h-full rounded-full transition-[width] duration-300', fill)}
             style={{ width: `${Math.round(clamped * 100)}%` }}

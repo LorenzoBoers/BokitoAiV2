@@ -134,7 +134,7 @@ function Metric({
   return (
     <Link
       to={to}
-      className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
+      className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover"
     >
       <span className="min-w-0 flex-1">
         <span className="block truncate-fade text-sm font-medium text-text-primary">{label}</span>
@@ -362,7 +362,7 @@ export default function OverviewFourBlocks() {
                 </Link>
                 <Link
                   to="/settings/channels"
-                  className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                 >
                   {copy('emptyNeedsChannels')}
                 </Link>
@@ -524,7 +524,7 @@ export default function OverviewFourBlocks() {
             <Link
               key={item.id}
               to={timeItemHref(item)}
-              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
+              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover"
             >
               <CalendarClock size={14} className="shrink-0 text-text-muted" />
               <span className="min-w-0 flex-1">
@@ -540,7 +540,7 @@ export default function OverviewFourBlocks() {
             <Link
               key={row.id}
               to={row.to}
-              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
+              className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover"
             >
               <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
                 <span className="pulse-dot absolute h-1.5 w-1.5 rounded-full bg-accent" />
@@ -579,7 +579,7 @@ export default function OverviewFourBlocks() {
           />
           <Link
             to="/settings/usage"
-            className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
+            className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover"
           >
             <CircleDollarSign size={14} className="shrink-0 text-text-muted" />
             <span className="min-w-0 flex-1">

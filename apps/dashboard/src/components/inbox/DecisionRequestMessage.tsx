@@ -969,7 +969,7 @@ export default function DecisionRequestMessage({
                     () => toast.error(t('decisionCard.copyIdFailed')),
                   )
                 }}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-body"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover hover:text-text-body"
               >
                 <Copy size={14} />
               </button>

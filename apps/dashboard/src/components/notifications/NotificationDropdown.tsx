@@ -153,7 +153,7 @@ export default function NotificationDropdown() {
               <button
                 type="button"
                 onClick={() => navigate('/settings/notifications')}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                 aria-label={t('notificationsUi.settings')}
                 title={t('notificationsUi.settings')}
               >
@@ -168,7 +168,7 @@ export default function NotificationDropdown() {
             className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
               forYouCount > 0
                 ? 'border-accent/40 bg-accent/5 text-text-heading hover:bg-accent/10'
-                : 'border-border text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
+                : 'border-border text-text-secondary hover:bg-bg-hover hover:text-text-heading'
             }`}
           >
             <Inbox size={14} className="shrink-0 text-text-muted" aria-hidden />

@@ -783,7 +783,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     key={item.id}
                     type="button"
                     onClick={() => runItem(item)}
-                    className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                   >
                     {item.label}
                   </button>

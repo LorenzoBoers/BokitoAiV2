@@ -159,7 +159,7 @@ export default function ProjectsFolderNav({ className }: { className?: string })
           type="button"
           size="icon"
           variant="ghost"
-          className="bg-bg-hover/70 text-text-heading hover:bg-bg-hover"
+          className="bg-bg-hover text-text-heading hover:bg-bg-hover"
           aria-label={t('projects.page.dialogTitle')}
           title={t('projects.page.dialogTitle')}
           onClick={() => setCreateOpen(true)}

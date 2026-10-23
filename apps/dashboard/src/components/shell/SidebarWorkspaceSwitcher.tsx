@@ -100,7 +100,7 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
         <NavLink
           to="/"
           onClick={onNavigate}
-          className={`flex h-8 min-w-0 items-center gap-2 rounded-md px-1.5 text-sm font-medium text-text-heading hover:bg-bg-hover/70 ${
+          className={`flex h-8 min-w-0 items-center gap-2 rounded-md px-1.5 text-sm font-medium text-text-heading hover:bg-bg-hover ${
             collapsed ? 'w-8 justify-center px-0' : ''
           }`}
         >
@@ -118,7 +118,7 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
           <button
             type="button"
             aria-label={t('topbar.switchWorkspace')}
-            className={`flex h-8 min-w-0 items-center gap-2 rounded-md text-sm font-medium text-text-heading transition-colors hover:bg-bg-hover/70 data-[state=open]:bg-bg-hover ${
+            className={`flex h-8 min-w-0 items-center gap-2 rounded-md text-sm font-medium text-text-heading transition-colors hover:bg-bg-hover data-[state=open]:bg-bg-hover ${
               collapsed ? 'w-8 justify-center px-0' : 'flex-1 px-1.5'
             }`}
           >

@@ -135,7 +135,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
             const routinesOpen = openRoutines.has(key)
             return (
               <section key={key} data-day={key} data-today={isToday ? 'true' : undefined} className="scroll-mt-1">
-                <h2 className="sticky top-0 z-10 mb-1.5 flex items-baseline gap-2 bg-bg/90 py-1 backdrop-blur-sm">
+                <h2 className="sticky top-0 z-10 mb-1.5 flex items-baseline gap-2 bg-bg py-1 backdrop-blur-sm">
                   <span className={cn('text-sm font-semibold', isToday ? 'text-accent' : 'text-text-heading')}>
                     {isToday ? t('agendaPage.today') : formatAppDate(day, i18n.language, { weekday: 'long' })}
                   </span>

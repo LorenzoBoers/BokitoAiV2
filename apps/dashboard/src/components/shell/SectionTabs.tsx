@@ -30,7 +30,7 @@ export function SectionTabs({ tabs, className }: { tabs: readonly SectionTab[]; 
             'shrink-0 rounded-md px-2.5 py-1 text-sm transition-colors',
             tab.active
               ? 'bg-bg-elevated font-medium text-text-heading'
-              : 'text-text-muted hover:bg-bg-hover/70 hover:text-text-primary',
+              : 'text-text-muted hover:bg-bg-hover hover:text-text-primary',
           )}
         >
           {tab.label}

@@ -226,7 +226,7 @@
       color 120ms ease;
   }
   .nav-row:hover {
-    @apply bg-bg-hover/60 text-text-primary;
+    @apply bg-bg-hover/50 text-text-primary;
   }
   .nav-row[data-active='true'],
   .nav-row[aria-current='page'] {

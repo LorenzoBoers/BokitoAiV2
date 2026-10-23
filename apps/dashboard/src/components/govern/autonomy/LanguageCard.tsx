@@ -173,7 +173,7 @@ export function LanguageCard({
                   <button
                     type="button"
                     onClick={() => setExpandedMailboxId((prev) => (prev === mailbox.id ? null : mailbox.id))}
-                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-bg-hover/40"
+                    className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-bg-hover/50"
                     aria-expanded={expanded}
                   >
                     <ProviderLogo provider={mailbox.provider} className="h-5 w-5 shrink-0 object-contain" />

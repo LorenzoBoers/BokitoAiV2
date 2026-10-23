@@ -351,7 +351,7 @@ function ContentRow({ item, projectId }: { item: FolderContentItem; projectId: s
   const { t } = useTranslation('nav')
   const title = itemTitle(item, t('projects.contents.noTitle'))
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-bg-hover/70">
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-bg-hover">
       <ItemLink item={item} projectId={projectId} className="flex min-w-0 flex-1 items-center gap-3">
         <ItemMark item={item} />
         <span className="min-w-0 flex-1">

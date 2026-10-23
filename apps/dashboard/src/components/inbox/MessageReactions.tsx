@@ -237,7 +237,7 @@ export function MessageReactions({
                       className={cn(
                         CHIP_CLASS,
                         'text-text-primary transition-colors',
-                        canReact && 'hover:bg-bg-hover/80',
+                        canReact && 'hover:bg-bg-hover',
                         aggregate.mine === entry.kind && 'ring-1 ring-accent/45',
                         !canReact && 'cursor-default',
                       )}
@@ -284,7 +284,7 @@ export function MessageReactions({
             aria-haspopup="menu"
             onFocus={openMenu}
             onClick={() => void pick('up')}
-            className={cn(CHIP_CLASS, 'text-text-primary transition-colors hover:bg-bg-hover/80')}
+            className={cn(CHIP_CLASS, 'text-text-primary transition-colors hover:bg-bg-hover')}
           >
             <span aria-hidden="true" className={EMOJI_GLYPH_CLASS}>
               {REACTION_EMOJI.up}

@@ -973,7 +973,7 @@ function MailReadOverlay({
   }, [onClose])
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4"
+      className="scrim fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -1570,7 +1570,7 @@ function eventLabel(
 }
 
 const OWNER_CHIP_CLASS =
-  'inline-flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated px-1 py-px align-baseline text-2xs font-medium text-text-heading no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70 hover:text-text-heading'
+  'inline-flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated px-1 py-px align-baseline text-2xs font-medium text-text-heading no-underline transition-colors hover:border-border-light hover:bg-bg-hover hover:text-text-heading'
 
 type OwnerChipKind = 'team' | 'user' | 'agent'
 

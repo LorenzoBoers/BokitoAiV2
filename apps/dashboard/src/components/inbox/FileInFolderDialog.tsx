@@ -122,7 +122,7 @@ export default function FileInFolderDialog({
               disabled={busy}
               onClick={() => setPicked('')}
               className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm disabled:opacity-40 ${
-                picked === '' ? 'border-accent bg-accent/10' : 'border-border hover:bg-bg-hover/70'
+                picked === '' ? 'border-accent bg-accent/10' : 'border-border hover:bg-bg-hover'
               }`}
             >
               {t('threadChrome.fileRoot')}
@@ -139,7 +139,7 @@ export default function FileInFolderDialog({
                 onClick={() => setPicked(row.id)}
                 style={{ paddingLeft: 12 + row.depth * 16 }}
                 className={`flex w-full flex-col gap-0.5 rounded-md border py-2 pr-3 text-left text-sm disabled:opacity-40 ${
-                  picked === row.id ? 'border-accent bg-accent/10' : 'border-border hover:bg-bg-hover/70'
+                  picked === row.id ? 'border-accent bg-accent/10' : 'border-border hover:bg-bg-hover'
                 }`}
               >
                 <span className="flex items-center gap-2">

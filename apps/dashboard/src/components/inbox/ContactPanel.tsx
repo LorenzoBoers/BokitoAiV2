@@ -379,7 +379,7 @@ export default function ContactPanel({
       onClick={openCaptureForm}
       title={t('contactPanel.linkHint')}
       data-testid="contact-link-open"
-      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
     >
       <Plus size={14} />
       {t('contactPanel.link')}
@@ -424,7 +424,7 @@ export default function ContactPanel({
                 type="button"
                 disabled={saving}
                 onClick={() => void linkContact(candidate.id)}
-                className="flex w-full items-center gap-2 rounded-md border border-border px-2 py-1 text-left text-xs hover:bg-bg-hover/60 disabled:opacity-50"
+                className="flex w-full items-center gap-2 rounded-md border border-border px-2 py-1 text-left text-xs hover:bg-bg-hover disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1 truncate-fade font-medium text-text-primary">
                   {candidate.displayName || candidate.address}
@@ -448,7 +448,7 @@ export default function ContactPanel({
               setCaptureOpen(false)
               setCandidates([])
             }}
-            className="rounded-md px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+            className="rounded-md px-2 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
             {t('contactPanel.cancel')}
           </button>
@@ -509,7 +509,7 @@ export default function ContactPanel({
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <Link
               to="/team"
-              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
             >
               {t('contactPanel.openMembers')}
             </Link>
@@ -549,7 +549,7 @@ export default function ContactPanel({
                 onClick={() =>
                   void onPatch({ status: threadStatus === 'spam' ? 'open' : 'spam' })
                 }
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover disabled:opacity-50"
               >
                 <OctagonAlert size={14} />
                 {threadStatus === 'spam'
@@ -764,7 +764,7 @@ export default function ContactPanel({
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-success disabled:opacity-50"
               >
                 <Check size={14} />
                 {t('contactPanel.approve')}
@@ -793,7 +793,7 @@ export default function ContactPanel({
                 key={thread.id}
                 to={inboxPath('open', thread.id)}
                 title={detail}
-                className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-bg-hover/70"
+                className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-bg-hover"
                 data-testid="contact-other-conversation"
               >
                 <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={status} />

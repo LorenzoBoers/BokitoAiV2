@@ -323,7 +323,7 @@ function RecipientField({
                 onMouseEnter={() => setActiveIndex(index)}
                 className={cn(
                   'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left',
-                  index === activeIndex ? 'bg-bg-hover/60' : 'hover:bg-bg-hover/60',
+                  index === activeIndex ? 'bg-bg-hover' : 'hover:bg-bg-hover',
                 )}
               >
                 <UserIcon size={14} className="shrink-0 text-text-muted" />
@@ -853,7 +853,7 @@ export default function MailComposer({
     <div
       className={
         fullscreen
-          ? 'fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4'
+          ? 'scrim fixed inset-0 z-50 flex items-center justify-center p-4'
           : fill
             ? 'relative flex min-h-0 flex-1 flex-col'
             : variant === 'thread'
@@ -1109,7 +1109,7 @@ export default function MailComposer({
             {signatureHtml ? (
               <div className="px-3 pb-2 pt-0.5">
                 <div
-                  className="group/sig relative rounded-md px-2 py-1.5 -mx-0.5 transition-colors hover:bg-bg-hover/80 focus-within:bg-bg-hover/80"
+                  className="group/sig relative rounded-md px-2 py-1.5 -mx-0.5 transition-colors hover:bg-bg-hover focus-within:bg-bg-hover"
                   data-testid="mail-composer-signature"
                 >
                   <Link

@@ -1623,7 +1623,7 @@ export default function Communication() {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
         >
           {t('onboarding.retry')}
         </button>
@@ -1639,14 +1639,14 @@ export default function Communication() {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
             {t('onboarding.retry')}
           </button>
           <button
             type="button"
             onClick={() => void logout()}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
             {t('signOut')}
           </button>
@@ -1697,7 +1697,7 @@ export default function Communication() {
           <button
             type="button"
             onClick={retryOnboarding}
-            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+            className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
           >
             {t('onboarding.retry')}
           </button>
@@ -1722,7 +1722,7 @@ export default function Communication() {
           {enabledConnections.length === 0 ? (
             <Link
               to="/settings/channels"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
             >
               <Mail size={14} />
               {t('openEmailSettings')}
@@ -1730,7 +1730,7 @@ export default function Communication() {
           ) : (
             <Link
               to={newConversationPath({ intent: 'contact' })}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
             >
               <Mail size={14} />
               {t('newConversation.intentEmail')}
@@ -1738,13 +1738,13 @@ export default function Communication() {
           )}
           <Link
             to="/settings/setup"
-            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
           >
             {t('onboarding.openGuide')}
           </Link>
           <Link
             to={WEBSITE_WIDGET_PATH}
-            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
           >
             {t('onboarding.installWidget')}
           </Link>
@@ -1927,7 +1927,7 @@ export default function Communication() {
                   <button
                     type="button"
                     onClick={() => setNewPlanOpen(true)}
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                   >
                     {t('plan.newTitle')}
                   </button>
@@ -1937,7 +1937,7 @@ export default function Communication() {
                   <p className="text-xs text-text-muted">{t('threadList.emptySpamHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
@@ -1947,7 +1947,7 @@ export default function Communication() {
                   <p className="text-xs text-text-muted">{t('threadList.emptyClosedHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
@@ -1977,13 +1977,13 @@ export default function Communication() {
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/settings/channels"
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                   >
                     {t('threadList.channelSettings')}
                   </Link>
                   <Link
                     to={newConversationPathForLeaf(leaf)}
-                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                   >
                     {t('onboarding.startConversation')}
                   </Link>

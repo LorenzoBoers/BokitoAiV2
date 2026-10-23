@@ -121,7 +121,7 @@ function SectionGearLink({ to, label }: { to: string; label: string }) {
       <Link
         to={to}
         aria-label={label}
-        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
         onClick={(e) => e.stopPropagation()}
       >
         <Settings size={14} aria-hidden />
@@ -960,7 +960,7 @@ export default function MessagesHubNav() {
                           <Link
                             to={GRID_PATH}
                             aria-label={t('orgCanvas.link')}
-                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+                            className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
                             onClick={(event) => event.stopPropagation()}
                           >
                             <GRID_ICON size={12} strokeWidth={2} aria-hidden />

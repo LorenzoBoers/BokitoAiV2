@@ -342,7 +342,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
               <Link
                 key={String(thread.id)}
                 to={threadHubPath(thread)}
-                className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 transition-colors hover:bg-bg-hover/70"
+                className="flex items-center gap-2 rounded-md border border-transparent px-2.5 py-1.5 transition-colors hover:bg-bg-hover"
               >
                 <ThreadStatusDot status={thread.status} unread={thread.hasUnread} title={threadStatusLabel(thread.status, t)} />
                 <span className="min-w-0 flex-1">

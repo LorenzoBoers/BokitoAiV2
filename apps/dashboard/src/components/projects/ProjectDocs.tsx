@@ -245,7 +245,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
               'flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition-colors',
               doc.id === selectedId
                 ? 'border-border bg-bg-surface text-text-heading'
-                : 'border-transparent text-text-secondary hover:bg-bg-hover/60',
+                : 'border-transparent text-text-secondary hover:bg-bg-hover',
             )}
             onClick={() => {
               setSelectedId(doc.id)

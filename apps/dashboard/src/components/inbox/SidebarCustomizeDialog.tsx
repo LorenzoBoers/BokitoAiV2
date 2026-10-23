@@ -110,7 +110,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
               aria-disabled={inactive}
               tabIndex={inactive ? -1 : undefined}
               className={cn(
-                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary',
+                'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary',
                 inactive && 'pointer-events-none opacity-40',
               )}
               onPointerDown={(event) => event.stopPropagation()}
@@ -126,7 +126,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
               type="button"
               aria-label={eyeLabel}
               aria-pressed={!node.hidden}
-              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
+              className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
                 event.stopPropagation()
@@ -263,7 +263,7 @@ export default function SidebarCustomizeDialog() {
           <button
             type="button"
             onClick={resetPrefs}
-            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/70 hover:text-text-primary"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
             {t('support.customize.reset')}
           </button>

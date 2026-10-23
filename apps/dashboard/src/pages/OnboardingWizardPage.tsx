@@ -356,7 +356,7 @@ export default function OnboardingWizardPage() {
         <button
           type="button"
           onClick={() => void logout()}
-          className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted hover:bg-bg-hover/60 hover:text-text-primary"
+          className="rounded-lg px-2.5 py-1.5 text-xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
         >
           {t('logout')}
         </button>
@@ -594,7 +594,7 @@ export default function OnboardingWizardPage() {
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || busy}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted disabled:opacity-40 hover:bg-bg-hover/60 hover:text-text-primary"
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted disabled:opacity-40 hover:bg-bg-hover hover:text-text-primary"
           >
             <ArrowLeft size={14} />
             {t('back')}

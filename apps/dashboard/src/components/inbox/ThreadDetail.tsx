@@ -2077,7 +2077,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <Link
               to="/communication/new"
-              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary"
             >
               {t('threadChrome.startNewChat')}
             </Link>

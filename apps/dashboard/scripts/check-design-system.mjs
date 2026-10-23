@@ -79,6 +79,18 @@ const RULES = [
     catalogOk: true,
   },
   {
+    id: 'hover-tint',
+    pattern: /\bbg-bg-hover\/(?!50\b)\d+/,
+    message: 'Hover surfaces are bg-bg-hover/50 (soft) or bg-bg-hover (selected).',
+    catalogOk: false,
+  },
+  {
+    id: 'page-tint',
+    pattern: /(?<![\w-])bg-bg\/(?!50\b)\d+/,
+    message: 'Use bg-bg (or bg-bg/50); a modal backdrop is .scrim.',
+    catalogOk: false,
+  },
+  {
     id: 'muted-text-opacity',
     pattern: /(?<![\w-])text-text-muted\/\d/,
     message: 'Use text-text-muted without an opacity step.',

@@ -271,7 +271,7 @@ export default function SetupHubPage() {
                         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
                           step.done
                             ? 'bg-status-success/15 text-status-success'
-                            : 'bg-bg-hover/70 text-text-muted'
+                            : 'bg-bg-hover text-text-muted'
                         }`}
                       >
                         {step.done ? <Check size={16} /> : <Icon size={17} />}
@@ -292,7 +292,7 @@ export default function SetupHubPage() {
                                 className={
                                   action.primary
                                     ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
+                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60'
                                 }
                               >
                                 {action.busy ? <Spinner size="sm" /> : null}
@@ -305,7 +305,7 @@ export default function SetupHubPage() {
                                 className={
                                   action.primary
                                     ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
+                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary'
                                 }
                               >
                                 {action.label}
@@ -330,7 +330,7 @@ export default function SetupHubPage() {
                   <li key={item.to}>
                     <Link
                       to={item.to}
-                      className="flex items-center justify-between px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover/40 hover:text-text-primary"
+                      className="flex items-center justify-between px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover/50 hover:text-text-primary"
                     >
                       {item.label}
                       <ArrowRight size={14} className="text-text-muted" />

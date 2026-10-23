@@ -200,7 +200,7 @@ export default function ThreadListQuickFilters({
                 filtersActive ? 'min-w-8 px-1.5' : 'w-8 px-0',
                 filtersActive
                   ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
+                  : 'border-border text-text-secondary hover:bg-bg-hover hover:text-text-heading',
               )}
             >
               <Filter size={14} />

@@ -322,7 +322,7 @@ export function HashtagPickerModal({ open, onOpenChange, thread, onPatch, onTick
                 onClick={() => {
                   void applyTags([createName]).then(() => close())
                 }}
-                className="flex w-full flex-col items-start gap-0.5 rounded-lg border border-border px-3 py-2.5 text-left hover:bg-bg-hover/70 disabled:opacity-40"
+                className="flex w-full flex-col items-start gap-0.5 rounded-lg border border-border px-3 py-2.5 text-left hover:bg-bg-hover disabled:opacity-40"
               >
                 <span className="text-sm font-medium text-text-heading">{t('tags.applyFree')}</span>
                 <span className="text-xs text-text-muted">{t('tags.applyFreeHint')}</span>

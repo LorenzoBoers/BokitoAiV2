@@ -61,7 +61,7 @@ export function Callout({
         <button
           type="button"
           onClick={onDismiss}
-          className="absolute right-1.5 top-1.5 rounded p-0.5 text-text-muted hover:bg-bg-hover/70 hover:text-text-heading"
+          className="absolute right-1.5 top-1.5 rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-heading"
           aria-label={dismissLabel}
         >
           <X className="h-3.5 w-3.5" aria-hidden />

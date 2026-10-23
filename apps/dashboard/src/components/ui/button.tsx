@@ -10,8 +10,8 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-accent text-accent-fg hover:bg-accent-hover',
         secondary:
-          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
-        ghost: 'text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
+          'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover',
+        ghost: 'text-text-secondary hover:bg-bg-hover hover:text-text-heading',
         ai: 'bg-ai text-ai-fg hover:bg-ai/90',
         destructive: 'border border-status-error/30 text-status-error hover:bg-status-error/10',
       },

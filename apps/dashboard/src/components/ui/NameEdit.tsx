@@ -108,7 +108,7 @@ export function NameEdit({
           className={cn(
             type,
             SHELL[size],
-            'max-w-[28rem] border bg-bg-hover/70 outline-none focus:ring-1',
+            'max-w-[28rem] border bg-bg-hover outline-none focus:ring-1',
             invalid
               ? 'border-status-error/60 focus:ring-status-error/30'
               : 'border-border focus:border-border focus:ring-border/60',
@@ -250,7 +250,7 @@ export function BlurbEdit({
               else onCommit?.()
             }
           }}
-          className="w-full resize-none rounded-xl border border-border bg-bg-hover/70 px-3 py-2 text-sm leading-relaxed text-text-secondary outline-none focus:border-border focus:ring-1 focus:ring-border/60"
+          className="w-full resize-none rounded-xl border border-border bg-bg-hover px-3 py-2 text-sm leading-relaxed text-text-secondary outline-none focus:border-border focus:ring-1 focus:ring-border/60"
         />
         {maxLength != null ? (
           <p className="mt-1 text-center text-2xs text-text-muted">
