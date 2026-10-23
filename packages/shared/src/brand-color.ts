@@ -41,8 +41,8 @@ const RETIRED_DEFAULT_HEXES = new Set(['#00FF99', '#00D986', '#0D9488'])
 export const BRAND_FG_LIGHT: Rgb = [255, 255, 255]
 export const BRAND_FG_DARK: Rgb = [17, 24, 39]
 export const BRAND_DEFAULT_BG: Record<BrandTheme, Rgb> = {
-  light: [251, 250, 246],
-  dark: [38, 37, 35],
+  light: [250, 250, 248],
+  dark: [36, 36, 35],
 }
 
 /** WCAG AA for text: the label on the brand fill. */

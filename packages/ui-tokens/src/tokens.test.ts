@@ -16,9 +16,9 @@ const generatedArtifacts = [
 
 describe('ui tokens', () => {
   it('pins the dashboard dark and light backgrounds', () => {
-    expect(darkColors.bg).toEqual([38, 37, 35])
-    expect(lightColors.bg).toEqual([251, 250, 246])
-    expect(hexCss(darkColors.bg)).toBe('#262523')
+    expect(darkColors.bg).toEqual([36, 36, 35])
+    expect(lightColors.bg).toEqual([250, 250, 248])
+    expect(hexCss(darkColors.bg)).toBe('#242423')
     expect(darkColors.ai).toEqual([169, 139, 255])
     expect(lightColors.accent).toEqual([12, 125, 86])
   })
