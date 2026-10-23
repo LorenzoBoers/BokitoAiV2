@@ -53,7 +53,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
   ]
 
   return (
-    <header className="relative flex h-11 shrink-0 items-center gap-2 border-b border-border/60 bg-bg pl-2 pr-2">
+    <header className="relative flex h-topbar shrink-0 items-center gap-2 bg-transparent pl-2 pr-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           type="button"
@@ -85,7 +85,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
       </div>
 
       {/* Centered command palette. Conversation search lives in the thread list. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-11 items-center justify-center sm:flex">
+      <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-topbar items-center justify-center sm:flex">
         <Tip label={t('topbar.openPalette')} detail={isMac ? 'Cmd K' : 'Ctrl K'}>
           <div className="pointer-events-auto w-64">
             <SearchField

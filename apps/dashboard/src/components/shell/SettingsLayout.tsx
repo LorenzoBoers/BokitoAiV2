@@ -117,7 +117,7 @@ export default function SettingsLayout() {
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      <aside className="hidden w-rail shrink-0 flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5 lg:flex">
+      <aside className="hidden w-rail shrink-0 flex-col bg-bg px-2 pb-2 pt-2.5 lg:flex">
         <p className="flex h-7 shrink-0 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
           {t('tabs.settings.title')}
         </p>

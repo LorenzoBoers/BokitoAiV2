@@ -139,7 +139,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
   }
 
   return (
-    <div className="flex h-full flex-col bg-bg">
+    <div className="flex h-full flex-col bg-bg-sidebar">
       {/* Header: workspace switcher + collapse */}
       <div
         className={`flex shrink-0 items-center ${
@@ -205,7 +205,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
 
       {/* Footer: account row */}
       <div
-        className={`shrink-0 border-t border-border/60 ${
+        className={`shrink-0 ${
           collapsed ? 'flex flex-col items-center gap-1 py-1.5' : 'space-y-px px-1.5 py-1.5'
         }`}
       >

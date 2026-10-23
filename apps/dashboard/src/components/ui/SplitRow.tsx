@@ -146,7 +146,7 @@ function SplitHandle({
         <div className="absolute inset-0 cursor-col-resize touch-none" />
         <div
           className={cn(
-            'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border/70 transition-[width,background-color,box-shadow]',
+            'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-[width,background-color,box-shadow]',
             'group-hover:w-0.5 group-hover:bg-accent group-focus-visible:w-0.5 group-focus-visible:bg-accent',
             'group-active:w-0.5 group-active:bg-accent group-active:shadow-[0_0_0_1px_rgb(var(--color-accent)/0.25)]',
           )}

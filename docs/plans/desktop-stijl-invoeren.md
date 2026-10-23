@@ -451,6 +451,11 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - `BRAND_DEFAULT_BG` volgt de nieuwe `bg` (dark `38 37 35`, light `251 250 246`). Die waarde staat los in `packages/shared` en is geen import uit `ui-tokens`.
 - `applyBrandColor` overschrijft `--color-accent*` en `--color-border-focus` altijd, ook zonder tenant-kleur, want het seed wordt dan `#32BF8E`. De accent-waarden uit `palette.mjs` zie je daardoor alleen waar geen branding geladen is, zoals login en docs. Om de palet-accenten zichtbaar te maken zou het standaard-seed het palet moeten gebruiken. Dat staat niet in het plan.
 
+### Fase 4: shell
+
+- Andere tweede rails met hetzelfde `border-r border-border/60`-patroon vallen buiten de opgesomde drie (inbox, agenda, instellingen) en hebben hun rand nog: `WorkforceLayout`, `ProjectsLayout` (Mappen) en de `aside` in `WorkspaceDocs`. De agenda-rail had al geen rand.
+- `h-topbar` komt uit `shellHeight.topbar` in `packages/ui-tokens/src/spacing.ts`. `emit.mjs` schrijft hem als `height.topbar` in de preset.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

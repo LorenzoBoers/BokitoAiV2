@@ -37,7 +37,7 @@ function MessagesHubFrame() {
           label={t('split.nav', { ns: 'communication' })}
           className="hidden md:flex"
         >
-          <aside className="flex h-full min-h-0 w-full flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5">
+          <aside className="flex h-full min-h-0 w-full flex-col bg-bg px-2 pb-2 pt-2.5">
             <div className="flex shrink-0 items-center gap-0.5 pb-1.5">
               <span className="min-w-0 flex-1 truncate px-2 text-sm font-medium text-text-heading">
                 {t('tabs.communication.title')}

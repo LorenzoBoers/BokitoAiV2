@@ -102,6 +102,9 @@ module.exports = {
         serif: "var(--font-serif)",
         mono: "var(--font-mono)",
       },
+      height: {
+        topbar: "3.25rem",
+      },
       boxShadow: {
         card: "var(--shadow-card)",
         "card-hover": "var(--shadow-card-hover)",

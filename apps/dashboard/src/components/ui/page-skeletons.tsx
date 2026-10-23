@@ -791,7 +791,7 @@ export function PlatformFrameSkeleton() {
       aria-busy="true"
       aria-label={t('app.loading')}
     >
-      <aside className="hidden w-rail shrink-0 flex-col border-r border-border/60 px-2 pb-2 pt-2 lg:flex">
+      <aside className="hidden w-rail shrink-0 flex-col bg-bg-sidebar px-2 pb-2 pt-2 lg:flex">
         <div className="flex h-11 items-center gap-2 px-1.5">
           <Skeleton className="h-7 w-7 shrink-0 rounded-md" />
           <Skeleton className="h-3.5 min-w-0 flex-1" />
@@ -818,7 +818,7 @@ export function PlatformFrameSkeleton() {
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="relative flex h-11 shrink-0 items-center gap-3 border-b border-border/60 px-3">
+        <header className="relative flex h-topbar shrink-0 items-center gap-3 px-3">
           <Skeleton className="h-3.5 w-28" />
           <Skeleton className="absolute left-1/2 hidden h-7 w-64 -translate-x-1/2 rounded-md sm:block" />
           <div className="ml-auto flex items-center gap-2">

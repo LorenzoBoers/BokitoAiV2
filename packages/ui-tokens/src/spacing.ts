@@ -17,3 +17,8 @@ export const spacing = {
   '10': 40,
   '12': 48,
 } as const
+
+/** Fixed shell heights in px (web). */
+export const shellHeight = {
+  topbar: 52,
+} as const
