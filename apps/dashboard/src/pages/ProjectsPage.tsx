@@ -1,5 +1,5 @@
 import { GRID_PATH } from '../lib/navigation'
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Search } from 'lucide-react'
@@ -16,7 +16,9 @@ import { CreateFolderDialog } from '../components/folders/CreateFolderDialog'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
-import { CardGridSkeleton } from '../components/ui/skeleton'
+import { LoadingBlock } from '../components/ui/loading-block'
+import { EntityList, EntityRow } from '../components/ui/entity-row'
+import { IconTile } from '../components/ui/icon-tile'
 import { useIsAdmin } from '../hooks/useIsAdmin'
 import { useWorkspace } from '../context/WorkspaceContext'
 import { listProjects, type CountedProject } from '../lib/projects-api'
@@ -24,86 +26,46 @@ import { workspaceBrandName } from '../lib/tenant-branding'
 
 const FolderKanban = ENTITY_ICONS.project
 
-function stopCard(event: { stopPropagation: () => void }) {
-  event.stopPropagation()
-}
-
-function ProjectCard({ project }: { project: CountedProject }) {
+function FolderRow({ project }: { project: CountedProject }) {
   const { t } = useTranslation('nav')
-  const navigate = useNavigate()
   const title = project.display_name || t('projects.page.unnamed')
+  const path = (project.ancestors ?? []).map((ancestor) => ancestor.display_name || t('projects.page.unnamed'))
 
   return (
-    <Card
-      role="link"
-      tabIndex={0}
+    <EntityRow
+      href={`/folders/${project.id}`}
       aria-label={t('projects.page.openProject', {
         defaultValue: 'Open folder {{name}}',
         name: title,
       })}
-      onClick={() => navigate(`/folders/${project.id}`)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          navigate(`/folders/${project.id}`)
-        }
-      }}
-      interactive
-      className="group flex flex-col gap-3 p-4"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          {project.ancestors && project.ancestors.length > 0 ? (
-            <p className="truncate text-2xs text-text-muted" data-testid="project-card-ancestors">
-              {project.ancestors.map((ancestor, index) => (
-                <span key={ancestor.id}>
-                  {index > 0 ? ' / ' : null}
-                  <Link
-                    to={`/folders/${ancestor.id}`}
-                    className="hover:text-accent hover:underline"
-                    onClick={stopCard}
-                    onKeyDown={stopCard}
-                  >
-                    {ancestor.display_name || t('projects.page.unnamed')}
-                  </Link>
-                </span>
-              ))}
-            </p>
-          ) : null}
-          <p className="flex min-w-0 items-center gap-1.5 truncate-fade font-medium text-text-heading group-hover:text-accent">
-            <FolderKanban size={16} className="shrink-0 text-text-muted" aria-hidden />
-            <span className="min-w-0 truncate">{title}</span>
-          </p>
-          {project.tag_names?.length ? (
-            <div
-              className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden"
-              onClick={stopCard}
-              onKeyDown={stopCard}
-            >
-              {project.tag_names.map((tag) => (
-                <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-auto space-y-2 border-t border-border pt-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
-          <span className="tabular-nums">
-            {t('projects.detail.folderCounts', {
-              open: project.open_count,
-              closed: project.closed_count,
-            })}
+      leading={<IconTile icon={FolderKanban} />}
+      title={title}
+      badges={
+        project.tag_names?.length ? (
+          <span className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
+            {project.tag_names.map((tag) => (
+              <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
+            ))}
           </span>
-          {project.open_tickets_count > 0 ? (
-            <Badge variant="info" className="px-1.5 py-0 text-2xs">
-              {t('projects.page.openTickets', { count: project.open_tickets_count })}
-            </Badge>
-          ) : null}
-        </div>
-      </div>
-    </Card>
+        ) : null
+      }
+      description={path.length ? <span data-testid="project-card-ancestors">{path.join(' / ')}</span> : null}
+      meta={
+        <span className="tabular-nums">
+          {t('projects.detail.folderCounts', {
+            open: project.open_count,
+            closed: project.closed_count,
+          })}
+        </span>
+      }
+      trailing={
+        project.open_tickets_count > 0 ? (
+          <Badge variant="info" size="sm">
+            {t('projects.page.openTickets', { count: project.open_tickets_count })}
+          </Badge>
+        ) : null
+      }
+    />
   )
 }
 
@@ -213,7 +175,7 @@ export default function ProjectsPage() {
       ) : null}
 
       {loading ? (
-        <CardGridSkeleton />
+        <LoadingBlock variant="skeleton" rows={6} />
       ) : projects.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
@@ -245,17 +207,13 @@ export default function ProjectsPage() {
           }
         />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleProjects.map((project, index) => (
-            <div
-              key={project.id}
-              className="stagger-in"
-              style={{ '--stagger': Math.min(index, 11) } as CSSProperties}
-            >
-              <ProjectCard project={project} />
-            </div>
-          ))}
-        </div>
+        <Card className="overflow-hidden">
+          <EntityList className="px-1 py-1">
+            {visibleProjects.map((project) => (
+              <FolderRow key={project.id} project={project} />
+            ))}
+          </EntityList>
+        </Card>
       )}
 
       <CreateFolderDialog
