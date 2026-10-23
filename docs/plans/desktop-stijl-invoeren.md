@@ -569,11 +569,17 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 ### Fase 8.10: lijsten
 
 - **Stap 6 bestaat niet in de code.** `flows/FlowTicketBoard` heeft alleen het bord: kolommen met `FlowTicketCard`. Er is geen lijstweergave, ook niet elders onder `components/flows` of op de werkpagina's. Een lijstweergave bouwen staat niet in het plan, dus stap 6 is overgeslagen.
-- Door stap 6 komt de klaar-eis "zes lijsten" op vijf. Na stap 5 zijn het er ook vijf. `EntityList` heeft 5 gebruikers (eis: 4).
+- Zonder stap 6 haalt de klaar-eis "zes lijsten" er hoogstens vijf: nu vier, na stap 5 vijf. `EntityList` heeft 5 gebruikers (eis: 4).
 - **Stap 5 (`ThreadListItem`) wacht op akkoord.** Het voorstel staat in de PR-tekst.
 - Mappen: het pad van de bovenliggende mappen was een rij links in de kaart. In de rij is het nu gewone tekst, omdat de rij zelf een link is en links niet in links mogen.
 - Leden: de kolomkoppen en de sleutels `membersPage.col*` en `membersPage.openAgent` worden niet meer gebruikt. Ze zijn blijven staan, want copy opruimen staat niet in het plan.
 - De vinkjeslijst in de teamdialoog en de keuzelijsten in pickers zijn formuliervelden, geen lijsten. Die staan niet op `EntityRow`.
+
+### Dev-sync aan het eind: dev is intussen veranderd
+
+- Vóór de laatste sync draaide dev op `6db1ae83`, met daarover de bestanden van sync 1 (`cd2a8090`) en sync 2 (`9253452a`).
+- Van de 329 bestanden die tussen `9253452a` en de branch veranderen, zijn er 15 op dev zelf bewerkt na sync 2. De laatste wijziging was om 09:06, dus daar wordt nog gewerkt. Een driewegsamenvoeging (basis `9253452a`) gaat bij 8 bestanden schoon. Bij 7 geeft hij conflicten: `CallRecord`, `LiveCallComposerBar`, `TimelineItem`, `FolderContents`, `ProjectDocs`, `WorksInSection` en `DepartmentPage`.
+- De laatste sync en de visuele check wachten op een keuze. De 314 overige bestanden kunnen zonder risico.
 
 ### Tijdelijke copy-allowlist: opruimen na merge
 
