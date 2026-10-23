@@ -14,8 +14,9 @@
 @layer base {
   :root {
     color-scheme: dark;
-    /* Type: Inter for UI, JetBrains Mono for code and ids. Change here only. */
+    /* Type: Inter for UI, Source Serif 4 for headings and agent text, JetBrains Mono for code and ids. Change here only. */
     --font-sans: 'Inter', system-ui, sans-serif;
+    --font-serif: 'Source Serif 4', Georgia, serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     /* Color, elevation, motion and --body-bg live in styles/tokens.generated.css. */
     --body-glow-top: transparent;
@@ -88,21 +89,31 @@
   /*
    * Title ladder. Page > dialog > section > card > eyebrow label.
    * Primitives (PageHeader, DialogTitle, SidePanel, SectionHeading, CardTitle) use these.
+   * Page, dialog and section titles are serif; card and eyebrow stay sans.
    */
   .title-page {
-    @apply text-xl font-semibold tracking-tight text-text-heading;
+    @apply font-serif font-medium text-text-heading;
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    letter-spacing: -0.01em;
   }
   .title-dialog {
-    @apply text-base font-semibold text-text-heading;
+    @apply font-serif font-medium text-text-heading;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
   }
   .title-section {
-    @apply text-sm font-semibold text-text-heading;
+    @apply font-serif font-medium text-text-heading;
+    font-size: 1.125rem;
+    line-height: 1.625rem;
   }
   .title-card {
     @apply text-sm font-medium text-text-heading;
   }
   .title-eyebrow {
-    @apply text-xs font-medium text-text-muted;
+    @apply font-medium text-text-muted;
+    font-size: 0.78125rem;
+    line-height: 1.125rem;
   }
 
   ::-webkit-scrollbar {
@@ -1688,6 +1699,12 @@
     display: flex;
     flex-direction: column;
     gap: 0.28em;
+  }
+  /* Agent replies read as prose in serif; own messages and the rest of the UI stay sans. */
+  .chat-bubble-agent .chat-text {
+    font-family: var(--font-serif);
+    font-size: 1.0625rem;
+    line-height: 1.75rem;
   }
   .chat-text-gap {
     height: 0.4em;

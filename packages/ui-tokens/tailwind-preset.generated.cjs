@@ -48,27 +48,27 @@ module.exports = {
         },
       },
       fontSize: {
-        "2xs": ["0.656rem", {
-          lineHeight: "0.875rem",
+        "2xs": ["0.71875rem", {
+          lineHeight: "0.9375rem",
         }],
-        xs: ["0.719rem", {
-          lineHeight: "1rem",
+        xs: ["0.8125rem", {
+          lineHeight: "1.1875rem",
         }],
-        sm: ["0.781rem", {
-          lineHeight: "1.125rem",
+        sm: ["0.875rem", {
+          lineHeight: "1.3125rem",
         }],
-        base: ["0.844rem", {
-          lineHeight: "1.25rem",
+        base: ["0.9375rem", {
+          lineHeight: "1.4375rem",
         }],
-        lg: ["0.938rem", {
-          lineHeight: "1.375rem",
+        lg: ["1rem", {
+          lineHeight: "1.5625rem",
         }],
-        xl: ["1.063rem", {
-          lineHeight: "1.5rem",
+        xl: ["1.1875rem", {
+          lineHeight: "1.6875rem",
           letterSpacing: "-0.01em",
         }],
-        "2xl": ["1.25rem", {
-          lineHeight: "1.75rem",
+        "2xl": ["1.5rem", {
+          lineHeight: "1.9375rem",
           letterSpacing: "-0.015em",
         }],
         "docs-nav": ["0.8125rem", {
@@ -99,6 +99,7 @@ module.exports = {
       },
       fontFamily: {
         sans: "var(--font-sans)",
+        serif: "var(--font-serif)",
         mono: "var(--font-mono)",
       },
       boxShadow: {
