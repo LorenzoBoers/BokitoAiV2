@@ -41,7 +41,7 @@ export function ChannelIcon({ row }: { row: ChannelRow }) {
   if (row.kind === 'email_relay') {
     return (
       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-accent/10 text-accent">
-        <Mail size={13} />
+        <Mail size={14} />
       </span>
     )
   }
@@ -49,7 +49,7 @@ export function ChannelIcon({ row }: { row: ChannelRow }) {
   if (row.kind === 'slack') return <BrandMark slug="slack" />
   return (
     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-bg-elevated text-text-secondary">
-      <MessageSquare size={13} />
+      <MessageSquare size={14} />
     </span>
   )
 }

@@ -30,7 +30,7 @@ export function AgentDoneCorner({
         )}
         aria-hidden
       >
-        <Check size={icon} strokeWidth={3} />
+        <Check size={icon} />
         <span className="sr-only">{label}</span>
       </span>
     </Tip>

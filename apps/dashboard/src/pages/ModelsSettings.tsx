@@ -367,7 +367,7 @@ export default function ModelsSettings() {
         meta={
           saved ? (
             <span className="inline-flex items-center gap-1 text-xs text-status-success">
-              <Check size={12} />
+              <Check size={14} />
               {t('modelsPage.saved')}
             </span>
           ) : null
@@ -588,7 +588,7 @@ export default function ModelsSettings() {
                     onClick={() => void handleRemoveModel(row)}
                     className="gap-1 text-text-muted"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={14} />
                     {t('modelsPage.remove')}
                   </Button>
                 </div>

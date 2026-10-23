@@ -545,9 +545,9 @@ function AllTab({
                 {data.reach_attempts.attempts.map((a, i) => (
                   <li key={`${a.signal_id}:${a.at}:${i}`} className="flex items-center gap-2.5 py-2 text-sm">
                     {a.channel === 'call' ? (
-                      <PhoneCall size={13} className="shrink-0 text-text-muted" aria-hidden />
+                      <PhoneCall size={14} className="shrink-0 text-text-muted" aria-hidden />
                     ) : (
-                      <Bell size={13} className="shrink-0 text-text-muted" aria-hidden />
+                      <Bell size={14} className="shrink-0 text-text-muted" aria-hidden />
                     )}
                     <Link to={inboxPath(null, a.signal_id)} className="min-w-0 flex-1 truncate text-text-primary hover:text-accent">
                       {a.subject || t('departmentPage.attempts.untitled')}
@@ -722,7 +722,7 @@ export default function DepartmentPage() {
               </TabsTrigger>
               {data.folders.map((folder) => (
                 <TabsTrigger key={folder.id} value={folder.id}>
-                  <FolderOpen size={13} className="shrink-0 opacity-70" aria-hidden />
+                  <FolderOpen size={14} className="shrink-0 opacity-70" aria-hidden />
                   {folder.name}
                   {folder.open ? (
                     <span className="rounded-full bg-bg-elevated px-1.5 text-2xs tabular-nums text-text-muted">{folder.open}</span>

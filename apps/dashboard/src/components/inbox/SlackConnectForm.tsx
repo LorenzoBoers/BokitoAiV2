@@ -81,7 +81,7 @@ export default function SlackConnectForm({ onConnected }: { onConnected: () => v
           <span className="font-medium text-text-secondary">{t('slackCard.eventsUrl')}</span>
           <code className="rounded bg-bg-input px-1 py-0.5 text-xs">{eventsUrl}</code>
           <TextLink type="button" onClick={() => void copyEventsUrl()}>
-            {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
+            {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
           </TextLink>
         </p>
         <p>

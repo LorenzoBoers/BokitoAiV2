@@ -301,7 +301,7 @@ export default function ModuleSetupPage() {
             to="/connections"
             className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary"
           >
-            <ArrowLeft size={12} />
+            <ArrowLeft size={14} />
             {t('integrations.modules.backToModules', { defaultValue: 'Back to Connections' })}
           </Link>
         </div>

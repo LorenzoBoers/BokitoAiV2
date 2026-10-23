@@ -771,7 +771,7 @@ export function FlowSchemaEditor({
                     >
                       {index === 0 ? (
                         <>
-                          <Plus size={12} aria-hidden />
+                          <Plus size={14} aria-hidden />
                           {t('workstreamsPage.schema.newStep')}
                         </>
                       ) : null}
@@ -807,11 +807,11 @@ export function FlowSchemaEditor({
                         <span className="truncate">{edge.when}</span>
                       ) : extra ? (
                         <>
-                          <Settings2 size={12} aria-hidden />
+                          <Settings2 size={14} aria-hidden />
                           <span className="tabular-nums">{extra}</span>
                         </>
                       ) : (
-                        <Settings2 size={13} aria-hidden />
+                        <Settings2 size={14} aria-hidden />
                       )}
                     </Button>
                   )
@@ -832,7 +832,7 @@ export function FlowSchemaEditor({
                         className="absolute z-20 flex items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg-surface/80 text-sm text-text-secondary"
                         style={{ left: at.x, top: at.y + CARD_H / 4, width: CARD_W * 0.6, height: CARD_H / 2 }}
                       >
-                        <Square size={12} aria-hidden />
+                        <Square size={14} aria-hidden />
                         {t('workstreamsPage.schema.stop')}
                       </div>
                     )
@@ -963,7 +963,7 @@ export function FlowSchemaEditor({
                         {stage ? (
                           <StageProgressIcon kind={stage.kind} fill={waitingStageFill(stages, index)} size={14} />
                         ) : (
-                          <Circle size={12} className="text-text-muted" aria-hidden />
+                          <Circle size={14} className="text-text-muted" aria-hidden />
                         )}
                         <span className="min-w-0 flex-1 truncate">{node.text || node.name}</span>
                         {stage && counts ? (
@@ -1058,7 +1058,7 @@ function StepCard({
         {stage ? (
           <StageProgressIcon kind={stage.kind} fill={fill} size={15} />
         ) : (
-          <Circle size={13} className="shrink-0 text-text-muted" aria-hidden />
+          <Circle size={14} className="shrink-0 text-text-muted" aria-hidden />
         )}
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-text-heading">{node.text || node.name}</span>
         {count !== undefined ? <span className="shrink-0 text-2xs tabular-nums text-text-muted">{count}</span> : null}
@@ -1471,7 +1471,7 @@ function ArrowList({
                 onClick={() => onSelect(row.index)}
                 className="w-full justify-start gap-1.5 px-2 text-left font-normal text-text-primary"
               >
-                <ArrowRight size={12} className="shrink-0 text-text-muted" aria-hidden />
+                <ArrowRight size={14} className="shrink-0 text-text-muted" aria-hidden />
                 <span className="truncate">{row.name}</span>
                 {row.when ? <span className="ml-auto max-w-[45%] truncate text-2xs text-text-muted">{row.when}</span> : null}
               </Button>

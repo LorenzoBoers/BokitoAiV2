@@ -97,7 +97,7 @@ export default function MessageAttachments({
                     className="rounded p-0.5 text-text-muted hover:bg-bg-hover hover:text-text-primary"
                     aria-label={t('composer.removeAttachment', { name })}
                   >
-                    <X size={12} />
+                    <X size={14} />
                   </button>
                 ) : null}
               </div>
@@ -120,7 +120,7 @@ export default function MessageAttachments({
                   className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bg/70 text-text-heading opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur-sm transition-opacity duration-150 hover:bg-bg focus-visible:opacity-100 group-hover/thumb:opacity-100"
                   aria-label={t('composer.removeAttachment', { name })}
                 >
-                  <X size={11} />
+                  <X size={14} />
                 </button>
               ) : null}
             </div>
@@ -171,7 +171,7 @@ export default function MessageAttachments({
                 }
                 aria-label={t('composer.removeAttachment', { name })}
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             ) : null}
           </div>

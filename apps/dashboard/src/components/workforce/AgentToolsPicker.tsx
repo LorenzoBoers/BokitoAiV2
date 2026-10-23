@@ -101,7 +101,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
               className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
               onClick={() => setEditing(true)}
             >
-              <Pencil size={11} aria-hidden />
+              <Pencil size={14} aria-hidden />
               {t('workforce.agents.editTools')}
             </button>
           ) : null}
@@ -161,7 +161,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
         </p>
         <div className="flex items-center gap-1.5">
           <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)} disabled={busy}>
-            <X size={13} className="mr-1" aria-hidden />
+            <X size={14} className="mr-1" aria-hidden />
             {t('workforce.agents.cancelTools')}
           </Button>
           <Button type="button" size="sm" variant="secondary" onClick={() => void save()} disabled={busy}>

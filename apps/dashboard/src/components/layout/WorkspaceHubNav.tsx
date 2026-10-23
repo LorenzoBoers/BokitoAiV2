@@ -31,11 +31,11 @@ export default function WorkspaceHubNav() {
       </div>
       <nav className="space-y-1">
         <NavLink to="/workspaces" className={({ isActive }) => navItemClass(isActive)}>
-          <LayoutGrid size={15} className="text-text-muted" />
+          <LayoutGrid size={16} className="text-text-muted" />
           <span>{t('nav.workspaces')}</span>
         </NavLink>
         <NavLink to="/account" className={({ isActive }) => navItemClass(isActive)}>
-          <Settings size={15} className="text-text-muted" />
+          <Settings size={16} className="text-text-muted" />
           <span>{t('nav.settings')}</span>
         </NavLink>
       </nav>
@@ -66,7 +66,7 @@ export default function WorkspaceHubNav() {
           aria-label={t('account.session.signOut')}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
-          <LogOut size={15} />
+          <LogOut size={16} />
         </button>
       </div>
     </aside>

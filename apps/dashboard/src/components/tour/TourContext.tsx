@@ -247,7 +247,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
           aria-label={t('welcome.skip')}
           className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
         >
-          <X size={15} />
+          <X size={16} />
         </button>
 
         <div className="relative px-7 pb-7 pt-8">
@@ -283,7 +283,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
                         : 'bg-accent/10 text-accent'
                     }`}
                   >
-                    {violet ? <Brain size={15} /> : <Icon size={15} />}
+                    {violet ? <Brain size={16} /> : <Icon size={15} />}
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-medium text-text-heading">
@@ -311,7 +311,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
               onClick={onStart}
             >
               {t('welcome.start')}
-              <ArrowRight size={13} />
+              <ArrowRight size={14} />
             </Button>
           </div>
         </div>
@@ -502,7 +502,7 @@ function StepOverlay({
               className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition-colors hover:bg-accent-hover"
             >
               {t('next')}
-              <ArrowRight size={12} />
+              <ArrowRight size={14} />
             </button>
           </div>
         </div>
@@ -549,7 +549,7 @@ function FinishScreen({
               type="button"
               onClick={onAssistant}
             >
-              <Sparkles size={13} />
+              <Sparkles size={14} />
               {t('finish.cta')}
             </Button>
             <button

@@ -123,7 +123,7 @@ export function ScheduleSection({ thread, onPlan }: Props) {
         <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
           {details.location ? (
             <span className="inline-flex min-w-0 items-center gap-1">
-              <MapPin size={11} aria-hidden />
+              <MapPin size={14} aria-hidden />
               <span className="truncate">{details.location}</span>
             </span>
           ) : null}
@@ -135,7 +135,7 @@ export function ScheduleSection({ thread, onPlan }: Props) {
               className="inline-flex items-center gap-1 text-accent hover:underline"
               onClick={(event) => event.stopPropagation()}
             >
-              <ExternalLink size={11} aria-hidden />
+              <ExternalLink size={14} aria-hidden />
               {t('schedule.openInCalendar')}
             </a>
           ) : null}

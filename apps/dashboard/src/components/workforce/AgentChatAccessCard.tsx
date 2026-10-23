@@ -110,7 +110,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="flex items-center gap-1.5 text-base font-semibold text-text-heading">
-            <MessageSquare size={15} className="text-text-muted" aria-hidden />
+            <MessageSquare size={16} className="text-text-muted" aria-hidden />
             {t('workforce.agents.chatAccessTitle')}
           </h3>
           <p className="text-sm text-text-muted">
@@ -121,7 +121,7 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
           {saving ? <Spinner size="sm" /> : null}
           {saved ? (
             <span className="inline-flex items-center gap-1 text-status-success">
-              <Check size={12} /> {t('workforce.agents.chatAccessSaved')}
+              <Check size={14} /> {t('workforce.agents.chatAccessSaved')}
             </span>
           ) : null}
         </span>

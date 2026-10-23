@@ -126,7 +126,7 @@ export default function SidebarWorkspaceSwitcher({ collapsed, onNavigate }: Side
             {collapsed ? null : (
               <>
                 <span className="min-w-0 flex-1 truncate-fade text-left">{brandName}</span>
-                <ChevronsUpDown size={12} className="shrink-0 text-text-muted" aria-hidden />
+                <ChevronsUpDown size={14} className="shrink-0 text-text-muted" aria-hidden />
               </>
             )}
           </button>

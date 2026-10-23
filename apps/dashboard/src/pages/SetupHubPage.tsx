@@ -249,7 +249,7 @@ export default function SetupHubPage() {
                 to={talkToAssistantPath(assistantPrompt)}
                 className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border-light bg-bg-hover px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-accent/20"
               >
-                <Bot size={13} />
+                <Bot size={14} />
                 {t('setupGuidePage.startAssistant')}
               </Link>
             </div>
@@ -274,7 +274,7 @@ export default function SetupHubPage() {
                             : 'bg-bg-hover/70 text-text-muted'
                         }`}
                       >
-                        {step.done ? <Check size={17} /> : <Icon size={17} />}
+                        {step.done ? <Check size={16} /> : <Icon size={17} />}
                       </span>
                       <div className="min-w-0 flex-1">
                         <h2 className="text-sm font-semibold text-text-heading">
@@ -309,7 +309,7 @@ export default function SetupHubPage() {
                                 }
                               >
                                 {action.label}
-                                <ArrowRight size={11} />
+                                <ArrowRight size={14} />
                               </Link>
                             ),
                           )}
@@ -333,7 +333,7 @@ export default function SetupHubPage() {
                       className="flex items-center justify-between px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover/40 hover:text-text-primary"
                     >
                       {item.label}
-                      <ArrowRight size={12} className="text-text-muted" />
+                      <ArrowRight size={14} className="text-text-muted" />
                     </Link>
                   </li>
                 ))}

@@ -635,7 +635,7 @@ function ToggleBox({ on, className }: { on: boolean; className: string }) {
       )}
       aria-hidden
     >
-      {on ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : null}
+      {on ? <Check className="h-2.5 w-2.5" /> : null}
     </span>
   )
 }

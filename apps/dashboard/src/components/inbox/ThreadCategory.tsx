@@ -149,7 +149,7 @@ export function ThreadCategory({ signalId, version }: Props) {
         color={(ticket.color || '') as LabelColor}
         icon={ticket.icon}
       />
-      <ArrowUpRight size={12} className="shrink-0 text-text-muted opacity-0 transition group-hover:opacity-100" />
+      <ArrowUpRight size={14} className="shrink-0 text-text-muted opacity-0 transition group-hover:opacity-100" />
     </Link>
   ) : (
     <TagPill
@@ -181,7 +181,7 @@ export function ThreadCategory({ signalId, version }: Props) {
         {proposed ? (
           <div className="space-y-2 bg-status-warning/5 px-3 py-2.5">
             <p className="flex items-center gap-1.5 text-xs text-text-secondary">
-              <Sparkles size={12} className="text-status-warning" aria-hidden />
+              <Sparkles size={14} className="text-status-warning" aria-hidden />
               {t('tickets.looksLike')}
               <TagPill
                 names={ticket.name}
@@ -279,7 +279,7 @@ export function ThreadCategory({ signalId, version }: Props) {
                         className="inline-flex items-center gap-1 hover:text-text-primary"
                         title={checkupLabel(ticket.checkup.every_minutes, t)}
                       >
-                        <ClipboardCheck size={11} aria-hidden />
+                        <ClipboardCheck size={14} aria-hidden />
                         {Date.parse(ticket.checkup.next_at) <= Date.now()
                           ? t('tickets.checkupDue')
                           : t('tickets.checkupNext', { when: relativeMoment(Date.parse(ticket.checkup.next_at), Date.now(), t) })}
@@ -326,7 +326,7 @@ export function ThreadCategory({ signalId, version }: Props) {
                 to={`${workstreamPath(ticket.workstream_id)}?fields=1`}
                 className="flex items-center gap-1.5 border-t border-border px-3 py-2 text-2xs text-text-muted transition hover:bg-bg-muted/40 hover:text-accent"
               >
-                <Plus size={11} aria-hidden />
+                <Plus size={14} aria-hidden />
                 {t('tickets.addFields')}
               </Link>
             ) : null}

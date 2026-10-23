@@ -421,12 +421,12 @@ export default function OpsPage() {
                           <td className="px-3 py-2.5">
                             {locked ? (
                               <span className="inline-flex items-center gap-1 text-text-muted">
-                                <Lock size={12} />
+                                <Lock size={14} />
                                 {t('ops.supportOff')}
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 text-text-heading">
-                                <Shield size={12} className="text-accent" />
+                                <Shield size={14} className="text-accent" />
                                 {t('ops.supportOn')}
                               </span>
                             )}

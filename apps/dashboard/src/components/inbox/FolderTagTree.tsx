@@ -176,7 +176,7 @@ function PinButton({
         aria-pressed={pinned}
         aria-label={label}
       >
-        <Pin size={11} />
+        <Pin size={14} />
       </button>
     </Tip>
   )

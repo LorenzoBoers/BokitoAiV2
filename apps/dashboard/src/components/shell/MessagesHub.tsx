@@ -50,10 +50,9 @@ function MessagesHubFrame() {
                 data-testid="customize-sidebar"
               >
                 <span className="relative inline-flex h-3.5 w-3.5 items-center justify-center" aria-hidden>
-                  <Eye size={14} strokeWidth={1.75} />
+                  <Eye size={14} />
                   <PenLine
-                    size={8}
-                    strokeWidth={2.4}
+                    size={14}
                     className="absolute -bottom-0.5 -right-0.5 rounded-sm bg-bg"
                   />
                 </span>

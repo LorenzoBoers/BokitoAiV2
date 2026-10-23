@@ -147,7 +147,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
               to="/contacts"
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
-              <ArrowLeft size={12} />
+              <ArrowLeft size={14} />
               {t('contactsPage.allContacts')}
             </Link>
             <button
@@ -156,7 +156,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
               onClick={() => void remove()}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
-              <Trash2 size={12} />
+              <Trash2 size={14} />
               {t('contactsPage.delete')}
             </button>
           </>
@@ -192,7 +192,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                 onClick={() => void save()}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
-                <Check size={12} />
+                <Check size={14} />
                 {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
               </button>
             ) : null}

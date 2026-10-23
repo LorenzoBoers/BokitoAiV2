@@ -70,12 +70,12 @@ function DisclosureRow({
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-1.5 text-left text-xs text-text-secondary hover:text-text-primary"
       >
-        <Blocks size={12} className="shrink-0 text-text-muted" />
+        <Blocks size={14} className="shrink-0 text-text-muted" />
         <span className="min-w-0 flex-1 truncate-fade">{summary}</span>
         {open ? (
-          <ChevronDown size={11} className="shrink-0 text-text-muted" />
+          <ChevronDown size={14} className="shrink-0 text-text-muted" />
         ) : (
-          <ChevronRight size={11} className="shrink-0 text-text-muted" />
+          <ChevronRight size={14} className="shrink-0 text-text-muted" />
         )}
       </button>
       {open ? <div className="pb-1.5 pt-1">{children}</div> : null}
@@ -228,12 +228,12 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
                   to={workHref}
                   className="mt-1.5 flex items-start gap-1.5 text-xs text-text-secondary hover:text-text-heading"
                 >
-                  <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
+                  <Activity size={14} className="mt-0.5 shrink-0 text-text-muted" />
                   <span className="line-clamp-3">{summary}</span>
                 </Link>
               ) : (
               <p className="mt-1.5 flex items-start gap-1.5 text-xs text-text-secondary">
-                <Activity size={11} className="mt-0.5 shrink-0 text-text-muted" />
+                <Activity size={14} className="mt-0.5 shrink-0 text-text-muted" />
                 <span className="line-clamp-3">{summary}</span>
               </p>
               )
@@ -246,7 +246,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
             to="/settings/models"
             className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary"
           >
-            <Cpu size={12} className="shrink-0 text-text-muted" />
+            <Cpu size={14} className="shrink-0 text-text-muted" />
             <span className="inline-flex min-w-0 items-center gap-1 truncate-fade">
               <span className="truncate">{formatAgentModelLine(model, provider, t)}</span>
               <ModelIcon modelId={model} provider={provider} size={16} className="shrink-0" />

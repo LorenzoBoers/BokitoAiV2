@@ -133,7 +133,7 @@ export function ModuleSpecialistCallout({
         <ul className="space-y-2">
           {usps.map((item) => (
             <li key={item} className="flex items-start gap-2 text-sm text-text-secondary">
-              <Check size={15} className="mt-0.5 shrink-0" style={{ color: titleColor }} aria-hidden />
+              <Check size={16} className="mt-0.5 shrink-0" style={{ color: titleColor }} aria-hidden />
               <span>{item}</span>
             </li>
           ))}

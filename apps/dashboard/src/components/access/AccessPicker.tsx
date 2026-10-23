@@ -92,7 +92,7 @@ export function AccessPicker<L extends string>({
   return (
     <>
       <Button variant="secondary" size="sm" onClick={() => setOpen(true)} title={copy.hint}>
-        <ShieldCheck size={13} />
+        <ShieldCheck size={14} />
         {summary}
       </Button>
       {open ? (

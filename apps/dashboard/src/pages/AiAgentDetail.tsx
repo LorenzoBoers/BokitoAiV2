@@ -260,7 +260,7 @@ export default function AiAgentDetail() {
           to={`/agents/${agentId}`}
           className="inline-flex items-center gap-1 text-xs font-medium text-text-muted transition-colors hover:text-text-heading"
         >
-          <ArrowLeft size={12} aria-hidden />
+          <ArrowLeft size={14} aria-hidden />
           {t('workforce.agents.backToAgent')}
         </Link>
         <LiveWorkLog workLogId={workLogId} />
@@ -274,7 +274,7 @@ export default function AiAgentDetail() {
         to={AGENTS_DEFAULT_PATH}
         className="inline-flex items-center gap-1 text-xs font-medium text-text-muted transition-colors hover:text-text-heading"
       >
-        <ArrowLeft size={12} aria-hidden />
+        <ArrowLeft size={14} aria-hidden />
         {t('workforce.agents.backToList')}
       </Link>
 
@@ -716,7 +716,7 @@ export default function AiAgentDetail() {
                           to={href}
                           className="flex items-center gap-3 rounded-md border border-transparent px-3 py-2 text-sm transition-colors hover:bg-bg-hover/70"
                         >
-                          <CalendarDays size={13} className="shrink-0 text-text-muted" aria-hidden />
+                          <CalendarDays size={14} className="shrink-0 text-text-muted" aria-hidden />
                           <span className="min-w-0 flex-1 truncate-fade font-medium text-text-heading">
                             {translateDecisionText(item.title, t) || item.title}
                           </span>

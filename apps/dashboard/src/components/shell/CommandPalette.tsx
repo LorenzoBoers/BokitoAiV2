@@ -820,7 +820,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         {item.hint}
                       </span>
                     ) : null}
-                    {selected ? <CornerDownLeft size={12} className="text-text-muted" /> : null}
+                    {selected ? <CornerDownLeft size={14} className="text-text-muted" /> : null}
                   </button>
                 </div>
               )

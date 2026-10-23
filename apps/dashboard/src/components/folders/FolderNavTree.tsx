@@ -943,7 +943,7 @@ function RootDropZone({
           : 'border-border bg-bg-hover/30 text-text-muted',
       )}
     >
-      <ArrowUpToLine size={12} className="shrink-0" aria-hidden />
+      <ArrowUpToLine size={14} className="shrink-0" aria-hidden />
       <span className="truncate">{label}</span>
     </div>
   )

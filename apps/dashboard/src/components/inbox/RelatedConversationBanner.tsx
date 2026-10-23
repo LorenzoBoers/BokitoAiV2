@@ -83,7 +83,7 @@ export default function RelatedConversationBanner({ rows, contactName, currentCh
         className="inline-flex shrink-0 items-center gap-0.5 font-medium text-accent hover:underline"
       >
         {t('relatedConversation.open')}
-        <ArrowUpRight size={12} aria-hidden />
+        <ArrowUpRight size={14} aria-hidden />
       </Link>
     </div>
   )

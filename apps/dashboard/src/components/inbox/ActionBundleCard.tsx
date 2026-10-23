@@ -197,11 +197,11 @@ export function ActionBundleCard({
               ) : (
                 <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted">
                   {state === 'approved' ? (
-                    <Check size={13} aria-hidden className="text-status-success" />
+                    <Check size={14} aria-hidden className="text-status-success" />
                   ) : state === 'rejected' ? (
-                    <X size={13} aria-hidden />
+                    <X size={14} aria-hidden />
                   ) : state === 'failed' ? (
-                    <AlertCircle size={13} aria-hidden className="text-status-error" />
+                    <AlertCircle size={14} aria-hidden className="text-status-error" />
                   ) : null}
                 </span>
               )}

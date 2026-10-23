@@ -72,7 +72,7 @@ export function SplitConversationAction({
   return (
     <>
       <BubbleAction label={t('splitConversation.action')} onClick={() => setOpen(true)}>
-        <Split size={12} />
+        <Split size={14} />
       </BubbleAction>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">

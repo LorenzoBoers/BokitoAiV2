@@ -149,9 +149,9 @@ const STATUS_DOT: Record<string, string> = {
 }
 
 function TrendGlyph({ trend }: { trend?: string }) {
-  if (trend === 'up') return <ArrowUpRight size={12} aria-hidden />
-  if (trend === 'down') return <ArrowDownRight size={12} aria-hidden />
-  if (trend === 'flat') return <Minus size={12} aria-hidden />
+  if (trend === 'up') return <ArrowUpRight size={14} aria-hidden />
+  if (trend === 'down') return <ArrowDownRight size={14} aria-hidden />
+  if (trend === 'flat') return <Minus size={14} aria-hidden />
   return null
 }
 

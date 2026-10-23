@@ -168,7 +168,7 @@ export default function AutomationRulesManager() {
         </div>
         {!creating ? (
           <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-            <Plus size={13} />
+            <Plus size={14} />
             {t('automationRules.newRule')}
           </Button>
         ) : null}
@@ -184,7 +184,7 @@ export default function AutomationRulesManager() {
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-                <Plus size={13} />
+                <Plus size={14} />
                 {t('automationRules.newRule')}
               </Button>
               <Link
@@ -230,7 +230,7 @@ export default function AutomationRulesManager() {
                 disabled={busyId === rule.id}
                 onClick={() => void handleToggle(rule)}
               >
-                {rule.status === 'active' ? <Pause size={13} /> : <Play size={13} />}
+                {rule.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
               </Button>
               <Button
                 size="sm"
@@ -239,7 +239,7 @@ export default function AutomationRulesManager() {
                 disabled={busyId === rule.id}
                 onClick={() => void handleDelete(rule)}
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
               </Button>
             </div>
           </div>

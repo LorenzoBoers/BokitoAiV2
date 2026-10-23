@@ -63,7 +63,7 @@ export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
             aria-label={t('actions.clear')}
             className="absolute right-1.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
           >
-            <X size={12} aria-hidden />
+            <X size={14} aria-hidden />
           </button>
         ) : null}
       </div>

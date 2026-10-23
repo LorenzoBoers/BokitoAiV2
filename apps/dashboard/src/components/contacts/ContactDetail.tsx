@@ -288,7 +288,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
               to="/contacts"
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
-              <ArrowLeft size={12} />
+              <ArrowLeft size={14} />
               {t('contactsPage.allContacts')}
             </Link>
             {threads[0] ? (
@@ -311,7 +311,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
                 title={t('contactsPage.writeEmailHint')}
               >
-                <Mail size={12} />
+                <Mail size={14} />
                 {t('contactsPage.writeEmail')}
               </Link>
             ) : null}
@@ -322,7 +322,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 onClick={() => void setStatus('approved')}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
-                <ShieldCheck size={12} />
+                <ShieldCheck size={14} />
                 {t('contactsPage.approve')}
               </button>
             ) : null}
@@ -333,7 +333,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 onClick={() => void setStatus('blocked')}
                 className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
               >
-                <ShieldBan size={12} />
+                <ShieldBan size={14} />
                 {t('contactsPage.block')}
               </button>
             ) : null}
@@ -343,7 +343,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
               onClick={() => void removeContact()}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
-              <Trash2 size={12} />
+              <Trash2 size={14} />
               {t('contactsPage.delete')}
             </button>
           </>
@@ -490,7 +490,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 onClick={() => void save()}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
               >
-                <Check size={12} />
+                <Check size={14} />
                 {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}
               </button>
             ) : null}

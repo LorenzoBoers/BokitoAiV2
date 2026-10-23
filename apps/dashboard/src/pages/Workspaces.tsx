@@ -281,7 +281,7 @@ export default function Workspaces() {
                   <div className="mt-5 flex items-center gap-2 text-sm text-text-secondary">
                     <Building2 size={14} className="text-text-muted" />
                     <span>{hasSubdomain ? t('cards.workspace.openCta') : t('cards.workspace.setSubdomainCta')}</span>
-                    <ArrowRight size={13} className="text-text-muted" />
+                    <ArrowRight size={14} className="text-text-muted" />
                   </div>
                 </button>
               )
@@ -297,7 +297,7 @@ export default function Workspaces() {
             >
               <div className="space-y-2">
                 <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-bg-hover/70">
-                  <CirclePlus size={18} className="text-text-muted" />
+                  <CirclePlus size={20} className="text-text-muted" />
                 </div>
                 <p className="text-xl font-semibold text-text-heading">{t('cards.create.title')}</p>
                 <p className="text-sm text-text-secondary">{t('cards.create.description')}</p>

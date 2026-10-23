@@ -340,7 +340,7 @@ export default function UsagePage() {
               onClick={load}
               className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
-              {loading ? <Spinner size="sm" /> : <RefreshCw size={12} />}
+              {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('usagePage.refresh')}
             </button>
           </div>

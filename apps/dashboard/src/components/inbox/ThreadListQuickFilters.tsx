@@ -151,7 +151,7 @@ export default function ThreadListQuickFilters({
       <div className="flex items-center gap-1.5 px-2.5 py-2">
         <div className="relative min-w-0 flex-1">
           <Search
-            size={13}
+            size={14}
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
             aria-hidden
           />
@@ -184,7 +184,7 @@ export default function ThreadListQuickFilters({
               aria-label={t('inboxSearchClear')}
               className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary"
             >
-              <X size={12} />
+              <X size={14} />
             </button>
           ) : null}
         </div>
@@ -203,7 +203,7 @@ export default function ThreadListQuickFilters({
                   : 'border-border text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
               )}
             >
-              <Filter size={13} />
+              <Filter size={14} />
               {filtersActive ? (
                 <span className="tabular-nums text-2xs opacity-90">{activeFilterCount}</span>
               ) : null}
@@ -356,7 +356,7 @@ export default function ThreadListQuickFilters({
                 to="/settings/channels"
                 className="mx-1 mb-1 flex items-center gap-1.5 truncate-fade rounded-md px-2 py-1.5 text-2xs text-text-muted hover:bg-bg-hover hover:text-text-primary"
               >
-                <Settings size={11} className="shrink-0" />
+                <Settings size={14} className="shrink-0" />
                 <span className="truncate-fade">{syncHint}</span>
               </Link>
             ) : null}
@@ -375,7 +375,7 @@ export default function ThreadListQuickFilters({
             }
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
-            {density === 'compact' ? <Rows3 size={13} /> : <List size={13} />}
+            {density === 'compact' ? <Rows3 size={14} /> : <List size={14} />}
           </button>
         ) : null}
       </div>
@@ -390,7 +390,7 @@ export default function ThreadListQuickFilters({
             onClick={clearAllFilters}
             className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
           >
-            <X size={11} />
+            <X size={14} />
             {t('threadList.clearFilters')}
           </button>
         </div>

@@ -82,51 +82,51 @@ export default function BulkActionsBar({
           className={`${BUTTON} ml-auto`}
           onClick={onClear}
         >
-          <X size={11} />
+          <X size={14} />
           {t('bulkActions.clear')}
         </button>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-0.5">
         {visibility.showRead ? (
           <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('read')}>
-            <Check size={11} />
+            <Check size={14} />
             {t('bulkActions.read')}
           </button>
         ) : null}
         {visibility.primary === 'close' && visibility.showClose ? (
           <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('close')}>
-            <Archive size={11} />
+            <Archive size={14} />
             {t('bulkActions.close')}
           </button>
         ) : null}
         {visibility.primary === 'reopen' ? (
           <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
-            <ArchiveRestore size={11} />
+            <ArchiveRestore size={14} />
             {t('bulkActions.reopen')}
           </button>
         ) : null}
         {visibility.primary === 'not_spam' ? (
           <button type="button" disabled={busy} className={BUTTON} onClick={() => onAction('reopen')}>
-            <ArchiveRestore size={11} />
+            <ArchiveRestore size={14} />
             {t('bulkActions.notSpam')}
           </button>
         ) : null}
         {pinInMain ? (
           <button type="button" disabled={busy} className={BUTTON} onClick={() => onPin?.(true)}>
-            <Pin size={11} />
+            <Pin size={14} />
             {t('bulkActions.pin')}
           </button>
         ) : null}
         {unpinInMain ? (
           <button type="button" disabled={busy} className={BUTTON} onClick={() => onPin?.(false)}>
-            <PinOff size={11} />
+            <PinOff size={14} />
             {t('bulkActions.unpin')}
           </button>
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" disabled={busy} className={BUTTON}>
-              <UserRound size={11} />
+              <UserRound size={14} />
               {t('bulkActions.assign')}
             </button>
           </DropdownMenuTrigger>
@@ -158,36 +158,36 @@ export default function BulkActionsBar({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" disabled={busy} aria-label={t('bulkActions.moreActions')} className={BUTTON}>
-              <MoreHorizontal size={11} />
+              <MoreHorizontal size={14} />
               {t('bulkActions.moreActions')}
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-44">
             {visibility.showUnread ? (
               <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('unread')}>
-                <Mail size={12} />
+                <Mail size={14} />
                 {t('bulkActions.markUnread')}
               </DropdownMenuItem>
             ) : null}
             {reopenInMore ? (
               <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('reopen')}>
-                <ArchiveRestore size={12} />
+                <ArchiveRestore size={14} />
                 {t('bulkActions.reopen')}
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('file')}>
-              <FolderKanban size={12} />
+              <FolderKanban size={14} />
               {t('bulkActions.file')}
             </DropdownMenuItem>
             {visibility.showSpam ? (
               <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onAction('spam')}>
-                <OctagonAlert size={12} />
+                <OctagonAlert size={14} />
                 {t('bulkActions.markSpam')}
               </DropdownMenuItem>
             ) : null}
             {unpinInMore ? (
               <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onPin?.(false)}>
-                <PinOff size={12} />
+                <PinOff size={14} />
                 {t('bulkActions.unpin')}
               </DropdownMenuItem>
             ) : null}
@@ -195,7 +195,7 @@ export default function BulkActionsBar({
               className="gap-2 text-xs text-status-error focus:text-status-error"
               onSelect={() => onAction('trash')}
             >
-              <Trash2 size={12} />
+              <Trash2 size={14} />
               {t('bulkActions.trash')}
             </DropdownMenuItem>
           </DropdownMenuContent>

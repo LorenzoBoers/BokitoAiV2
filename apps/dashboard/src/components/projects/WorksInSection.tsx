@@ -78,13 +78,13 @@ function ItemCard({
           ) : null}
         </span>
         <span className="flex items-center gap-1 text-xs text-text-muted">
-          {item.origin === 'connection' ? <Link2 size={11} aria-hidden /> : null}
+          {item.origin === 'connection' ? <Link2 size={14} aria-hidden /> : null}
           {t(`projects.worksIn.origin.${item.origin}`)}
           {item.count != null ? ` · ${item.count}` : ''}
           {item.detail ? ` · ${item.detail}` : ''}
         </span>
       </span>
-      {external ? <ExternalLink size={12} className="shrink-0 text-text-muted" aria-hidden /> : null}
+      {external ? <ExternalLink size={14} className="shrink-0 text-text-muted" aria-hidden /> : null}
     </>
   )
   const className =
@@ -116,7 +116,7 @@ function ItemCard({
           title={t('projects.worksIn.remove')}
           onClick={onRemove}
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} />
         </Button>
       ) : null}
     </li>
@@ -219,7 +219,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
         </h2>
         {canEdit && !adding ? (
           <Button type="button" size="xs" variant="secondary" onClick={() => setAdding(true)}>
-            <Plus size={13} className="mr-1" />
+            <Plus size={14} className="mr-1" />
             {t('projects.worksIn.add')}
           </Button>
         ) : null}
@@ -306,11 +306,11 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
           </p>
           <div className="flex justify-end gap-1.5">
             <Button type="button" size="xs" variant="ghost" onClick={reset}>
-              <X size={12} className="mr-1" />
+              <X size={14} className="mr-1" />
               {t('projects.work.cancel')}
             </Button>
             <Button type="button" size="xs" disabled={busy || !canSubmit} onClick={() => void add()}>
-              {busy ? <Spinner size="sm" className="mr-1" /> : <Plus size={12} className="mr-1" />}
+              {busy ? <Spinner size="sm" className="mr-1" /> : <Plus size={14} className="mr-1" />}
               {t('projects.work.add')}
             </Button>
           </div>

@@ -41,7 +41,7 @@ function FixButton({
   if (fix === 'resume') {
     return (
       <Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.setPaused(row, false)}>
-        <Play size={13} />
+        <Play size={14} />
         {t('channelsPage.turnOn')}
       </Button>
     )
@@ -49,14 +49,14 @@ function FixButton({
   if (fix === 'reconnect') {
     return (
       <Button variant="secondary" size="sm" onClick={() => actions.reconnect(row)}>
-        <Wifi size={13} />
+        <Wifi size={14} />
         {t('channelsPage.reconnect')}
       </Button>
     )
   }
   return (
     <Button variant="secondary" size="sm" disabled={busy} onClick={() => actions.sync(row)}>
-      {busy ? <Spinner size="md" /> : <RefreshCw size={13} />}
+      {busy ? <Spinner size="md" /> : <RefreshCw size={14} />}
       {busy ? t('channelsPage.syncing') : t('channelsPage.retrySync')}
     </Button>
   )
@@ -190,7 +190,7 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
                     </span>
                   </span>
                 </span>
-                <ChevronRight size={15} className="shrink-0 text-text-muted" aria-hidden />
+                <ChevronRight size={16} className="shrink-0 text-text-muted" aria-hidden />
               </Link>
 
               <div className="flex shrink-0 flex-wrap items-center gap-3">

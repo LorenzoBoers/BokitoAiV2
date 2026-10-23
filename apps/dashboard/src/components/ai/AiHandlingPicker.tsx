@@ -73,7 +73,7 @@ function ClampNote({ handling }: { handling: AiHandling }) {
   if (!handling.clampedBy) return null
   return (
     <p className="flex items-start gap-1.5 text-xs leading-snug text-text-muted">
-      <ShieldAlert size={12} className="mt-0.5 shrink-0" />
+      <ShieldAlert size={14} className="mt-0.5 shrink-0" />
       {t(`aiHandling.clamped.${handling.clampedBy}`, {
         mode: t(`aiHandling.modes.${handling.ceiling}.label`),
       })}
@@ -153,7 +153,7 @@ function ModeMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild className="gap-2 text-xs">
             <Link to={AI_HANDLING_SETTINGS_PATH}>
-              <Settings2 size={13} />
+              <Settings2 size={14} />
               {t('aiHandling.openSettings')}
             </Link>
           </DropdownMenuItem>
@@ -202,8 +202,8 @@ function Chip({
       >
         <AiHandlingIcon mode={mode} size={12} />
         {compact ? null : <span className="max-w-[9rem] truncate-fade">{label}</span>}
-        {handling?.clampedBy ? <ShieldAlert size={11} className="shrink-0 text-text-muted" /> : null}
-        <ChevronDown size={11} className="shrink-0 text-text-muted" />
+        {handling?.clampedBy ? <ShieldAlert size={14} className="shrink-0 text-text-muted" /> : null}
+        <ChevronDown size={14} className="shrink-0 text-text-muted" />
       </button>
     </DropdownMenuTrigger>
   )

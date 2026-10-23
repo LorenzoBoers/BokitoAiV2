@@ -107,7 +107,7 @@ export function ConnectionScopeEditor({
                         : 'border-border text-text-secondary hover:border-border-light',
                     )}
                   >
-                    {on ? <Check size={11} aria-hidden /> : null}
+                    {on ? <Check size={14} aria-hidden /> : null}
                     {project.name}
                   </button>
                 )

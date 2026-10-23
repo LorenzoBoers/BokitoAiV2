@@ -60,9 +60,9 @@ function SectionRow({
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? (
-              <ChevronDown size={13} className="shrink-0 text-text-muted" />
+              <ChevronDown size={14} className="shrink-0 text-text-muted" />
             ) : (
-              <ChevronRight size={13} className="shrink-0 text-text-muted" />
+              <ChevronRight size={14} className="shrink-0 text-text-muted" />
             )}
             <span className="truncate-fade">{section.heading || section.anchor}</span>
           </button>
@@ -276,15 +276,15 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                 autoFocus
               />
               <Button type="button" size="sm" disabled={saving || !newPath.trim()} onClick={() => void createDoc()}>
-                {saving ? <Spinner size="md" /> : <Plus size={13} />}
+                {saving ? <Spinner size="md" /> : <Plus size={14} />}
               </Button>
               <Button type="button" size="sm" variant="ghost" className="px-2" onClick={() => setCreating(false)}>
-                <X size={13} />
+                <X size={14} />
               </Button>
             </div>
           ) : (
             <Button type="button" size="sm" variant="secondary" className="w-full" onClick={() => setCreating(true)}>
-              <Plus size={13} className="mr-1" />
+              <Plus size={14} className="mr-1" />
               {t('projects.work.newDoc')}
             </Button>
           )
@@ -359,7 +359,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                     </div>
                   ) : (
                     <Button type="button" size="sm" variant="secondary" onClick={startEdit}>
-                      <Pencil size={13} className="mr-1" />
+                      <Pencil size={14} className="mr-1" />
                       {t('projects.work.editDoc')}
                     </Button>
                   )

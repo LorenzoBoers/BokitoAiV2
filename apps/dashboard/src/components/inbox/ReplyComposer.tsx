@@ -213,7 +213,7 @@ function writeStoredDraft(
 
 function DestinationGlyph({ channel }: { channel: string }) {
   if (channel === 'phone') {
-    return <Phone size={12} className="shrink-0 text-text-muted" aria-hidden />
+    return <Phone size={14} className="shrink-0 text-text-muted" aria-hidden />
   }
   return <ChannelGlyph channel={channel} size={12} />
 }
@@ -852,7 +852,7 @@ export default function ReplyComposer({
             )}
             data-testid="composer-tag-button"
           >
-            <AtSign size={12} className="shrink-0 opacity-80" aria-hidden />
+            <AtSign size={14} className="shrink-0 opacity-80" aria-hidden />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -1143,7 +1143,7 @@ export default function ReplyComposer({
                       )}
                       data-testid="composer-destination-chevron"
                     >
-                      <ChevronDown size={11} className="shrink-0 opacity-70" />
+                      <ChevronDown size={14} className="shrink-0 opacity-70" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-64">
@@ -1166,7 +1166,7 @@ export default function ReplyComposer({
                               {t(`composer.channel.${channelKey}`, { defaultValue: row.channel })}
                             </span>
                           </span>
-                          {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
+                          {active ? <Check size={14} className="shrink-0 text-accent" /> : null}
                         </DropdownMenuItem>
                       )
                     })}
@@ -1197,7 +1197,7 @@ export default function ReplyComposer({
                 {tagFaces.length > 0 ? (
                   <AvatarStack members={tagFaces} size={16} linkAgents={false} className="shrink-0" />
                 ) : (
-                  <Users size={12} className="shrink-0" aria-hidden />
+                  <Users size={14} className="shrink-0" aria-hidden />
                 )}
                 {teamLabel}
               </button>
@@ -1219,7 +1219,7 @@ export default function ReplyComposer({
                 title={noteTooltip}
                 className="inline-flex h-full items-center gap-1.5 px-2.5 leading-none"
               >
-                <StickyNote size={11} />
+                <StickyNote size={14} />
                 {t('composer.tabNote')}
               </button>
             </div>
@@ -1268,7 +1268,7 @@ export default function ReplyComposer({
                         quoteIncluded ? 'text-accent' : 'text-text-muted hover:text-text-primary',
                       )}
                     >
-                      <Quote size={10} />
+                      <Quote size={14} />
                       {t('composer.quote')}
                     </button>
                   ) : null}
@@ -1508,7 +1508,7 @@ export default function ReplyComposer({
                 title={t('composer.stop', { defaultValue: 'Stop' })}
                 className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-bg-hover px-2.5 text-text-primary transition-colors hover:bg-bg-hover/80"
               >
-                <Square size={13} />
+                <Square size={14} />
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
@@ -1591,9 +1591,9 @@ export default function ReplyComposer({
               )}
             >
               {isNote ? (
-                <StickyNote size={13} />
+                <StickyNote size={14} />
               ) : (
-                <Send size={13} />
+                <Send size={14} />
               )}
               {closesByPolicy ? (
                 <span className="text-2xs font-medium opacity-90">{t('composer.sendAndClose')}</span>
@@ -1612,7 +1612,7 @@ export default function ReplyComposer({
                     aria-label={t('composer.sendMore')}
                     className="flex h-8 w-6 items-center justify-center border-l border-accent-fg/20 bg-accent text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
                   >
-                    <ChevronDown size={12} />
+                    <ChevronDown size={14} />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-44">
@@ -1635,7 +1635,7 @@ export default function ReplyComposer({
                         data-testid="composer-send-keep"
                         onClick={() => void handleSubmit('send', undefined, { handback: false })}
                       >
-                        <UserRound size={13} />
+                        <UserRound size={14} />
                         {t('composer.sendKeepWithMe')}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />

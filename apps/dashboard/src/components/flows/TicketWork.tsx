@@ -46,7 +46,7 @@ export function TicketDueBadge({ step, className }: { step: TicketNextStep | nul
       className={cn('inline-flex items-center gap-0.5 tabular-nums', DUE_TONE[step.due_state] ?? 'text-text-muted', className)}
       title={`${new Date(step.due_at).toLocaleDateString()}${step.due_source ? ` · ${t(`tickets.dueSource.${step.due_source}`)}` : ''}`}
     >
-      <CalendarClock size={11} aria-hidden />
+      <CalendarClock size={14} aria-hidden />
       {label}
     </span>
   )
@@ -141,7 +141,7 @@ export function TicketWorkSection({
                 title={t('tickets.deadlineClear')}
                 aria-label={t('tickets.deadlineClear')}
               >
-                <X size={12} aria-hidden />
+                <X size={14} aria-hidden />
               </Button>
             </>
           ) : null}
@@ -167,7 +167,7 @@ export function TicketWorkSection({
       {items.length > 0 ? (
         <div>
           <p className="mb-0.5 flex items-center gap-1 text-2xs text-text-muted">
-            <ListChecks size={11} aria-hidden />
+            <ListChecks size={14} aria-hidden />
             {t('tickets.checklist')}
           </p>
           <ul className="space-y-0.5">
@@ -180,7 +180,7 @@ export function TicketWorkSection({
 
       {proposals.length > 0 ? (
         <p className="flex items-center gap-1 text-2xs text-status-warning">
-          <Sparkles size={11} aria-hidden />
+          <Sparkles size={14} aria-hidden />
           {t('tickets.proposalsWaiting', { count: proposals.length })}
         </p>
       ) : null}
@@ -219,7 +219,7 @@ function ChecklistRow({
               : 'border-border hover:border-accent',
         )}
       >
-        {done || proposed ? <Check size={10} aria-hidden /> : null}
+        {done || proposed ? <Check size={14} aria-hidden /> : null}
       </Button>
       <span className={cn('min-w-0 flex-1 truncate', done ? 'text-text-muted line-through' : 'text-text-secondary')}>
         {item.label}

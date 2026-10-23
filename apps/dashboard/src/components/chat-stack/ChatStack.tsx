@@ -425,7 +425,7 @@ export default function ChatStack() {
                   decorative
                 />
               ) : (
-                <MessagesSquare size={18} aria-hidden />
+                <MessagesSquare size={20} aria-hidden />
               )}
               <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-2xs font-semibold tabular-nums text-accent-fg">
                 {cards.length}

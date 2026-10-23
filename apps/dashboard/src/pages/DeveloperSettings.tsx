@@ -277,7 +277,7 @@ function ApiTokensSection({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-heading">
-            <KeyRound size={15} className="text-text-muted" />
+            <KeyRound size={16} className="text-text-muted" />
             {t('developersPage.tokensTitle')}
           </h2>
           <p className="mt-1 text-sm leading-relaxed text-text-secondary">
@@ -390,7 +390,7 @@ function ApiTokensSection({
                 toast.success(t('developersPage.copied'))
               }}
             >
-              <Copy size={13} className="mr-1" />
+              <Copy size={14} className="mr-1" />
               {t('developersPage.copy')}
             </Button>
           </div>
@@ -470,7 +470,7 @@ function ApiTokensSection({
                   onClick={() => void handleRevoke(row)}
                   aria-label={t('developersPage.revokeAria')}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} />
                 </Button>
               ) : null}
             </div>
@@ -821,7 +821,7 @@ export default function DeveloperSettings() {
                     <div className="flex items-center gap-1.5">
                       <StatusPill endpoint={endpoint} />
                       <Button size="sm" variant="ghost" onClick={() => handleTest(endpoint)}>
-                        <Send size={13} className="mr-1" /> {t('developersPage.webhooks.test')}
+                        <Send size={14} className="mr-1" /> {t('developersPage.webhooks.test')}
                       </Button>
                       <Button
                         size="sm"
@@ -837,7 +837,7 @@ export default function DeveloperSettings() {
                         onClick={() => void handleDelete(endpoint)}
                         aria-label={t('developersPage.webhooks.removeAria')}
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                       </Button>
                     </div>
                   </div>
@@ -866,11 +866,11 @@ export default function DeveloperSettings() {
                       >
                         {copiedId === endpoint.id ? (
                           <>
-                            <Check size={11} /> {t('developersPage.webhooks.copied')}
+                            <Check size={14} /> {t('developersPage.webhooks.copied')}
                           </>
                         ) : (
                           <>
-                            <Copy size={11} /> {t('developersPage.webhooks.copy')}
+                            <Copy size={14} /> {t('developersPage.webhooks.copy')}
                           </>
                         )}
                       </button>

@@ -326,7 +326,7 @@ function ThreadListItem({
             )}
           >
             {thread.isPinned ? (
-              <Pin size={10} className="rotate-45 fill-text-muted text-text-muted" />
+              <Pin size={14} className="rotate-45 fill-text-muted text-text-muted" />
             ) : (
               <ThreadStatusDot
                 status={thread.status}
@@ -412,7 +412,7 @@ function ThreadListItem({
                   aria-label={t('threadList.deleteThread')}
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-status-error/10 hover:text-status-error')}
                 >
-                  <Trash2 size={13} />
+                  <Trash2 size={14} />
                 </button>
               ) : showActions && onClose ? (
                 <button
@@ -428,7 +428,7 @@ function ThreadListItem({
                   aria-label={t('threadList.closeThread')}
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
                 >
-                  <Archive size={13} />
+                  <Archive size={14} />
                 </button>
               ) : null}
               {showActions ? (
@@ -468,7 +468,7 @@ function ThreadListItem({
                   title={t('threadChrome.threadActions')}
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
                 >
-                  <MoreHorizontal size={13} />
+                  <MoreHorizontal size={14} />
                 </button>
                 <DropdownMenuContent
                   key={`${menuAnchor.x}:${menuAnchor.y}`}
@@ -479,12 +479,12 @@ function ThreadListItem({
                 >
                   {thread.hasUnread ? (
                     <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead?.(thread.id)}>
-                      <MailOpen size={13} className="text-text-muted" />
+                      <MailOpen size={14} className="text-text-muted" />
                       {t('threadChrome.markRead')}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem className="gap-2" onSelect={() => onMarkUnread?.(thread.id)}>
-                      <Mail size={13} className="text-text-muted" />
+                      <Mail size={14} className="text-text-muted" />
                       {t('threadChrome.markUnread')}
                     </DropdownMenuItem>
                   )}
@@ -493,9 +493,9 @@ function ThreadListItem({
                     onSelect={() => onTogglePin?.(thread.id, thread.isPinned)}
                   >
                     {thread.isPinned ? (
-                      <PinOff size={13} className="text-text-muted" />
+                      <PinOff size={14} className="text-text-muted" />
                     ) : (
-                      <Pin size={13} className="text-text-muted" />
+                      <Pin size={14} className="text-text-muted" />
                     )}
                     {thread.isPinned ? t('threadChrome.unpin') : t('threadChrome.pin')}
                   </DropdownMenuItem>
@@ -507,7 +507,7 @@ function ThreadListItem({
                         disabled={deleting}
                         onSelect={() => onDelete(thread.id)}
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                         {t('threadList.deleteThread')}
                       </DropdownMenuItem>
                     </>
@@ -556,11 +556,11 @@ function ThreadListItem({
                 data-testid="thread-row-schedule"
               >
                 {thread.hiddenUntil ? (
-                  <EyeOff size={11} aria-hidden />
+                  <EyeOff size={14} aria-hidden />
                 ) : thread.schedule?.repeat ? (
-                  <Repeat size={11} aria-hidden />
+                  <Repeat size={14} aria-hidden />
                 ) : (
-                  <CalendarClock size={11} aria-hidden />
+                  <CalendarClock size={14} aria-hidden />
                 )}
                 {scheduleChipLabel(scheduleAt, i18n.language)}
               </span>
@@ -585,7 +585,7 @@ function ThreadListItem({
                 aria-label={t('listItem.needsDecision')}
                 className="ml-auto inline-flex shrink-0 text-ai-ink"
               >
-                <ArrowLeft size={13} strokeWidth={2.25} aria-hidden />
+                <ArrowLeft size={14} aria-hidden />
               </span>
             ) : showNeedsReply ? (
               <span
@@ -593,7 +593,7 @@ function ThreadListItem({
                 aria-label={t('listItem.needsReply')}
                 className="ml-auto inline-flex shrink-0 text-accent"
               >
-                <ArrowLeft size={13} strokeWidth={2.25} aria-hidden />
+                <ArrowLeft size={14} aria-hidden />
               </span>
             ) : null}
           </div>

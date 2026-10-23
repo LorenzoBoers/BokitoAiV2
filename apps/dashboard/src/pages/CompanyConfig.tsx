@@ -388,7 +388,7 @@ export default function CompanyConfig() {
                     onClick={() => fileInputRef.current?.click()}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
                   >
-                    <Upload size={12} />
+                    <Upload size={14} />
                     {logoSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
                   </button>
                   {logoSrc ? (
@@ -421,7 +421,7 @@ export default function CompanyConfig() {
                     onClick={() => faviconInputRef.current?.click()}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-text-secondary hover:bg-bg-hover transition-colors"
                   >
-                    <Upload size={12} />
+                    <Upload size={14} />
                     {faviconSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
                   </button>
                   {faviconSrc ? (
@@ -454,7 +454,7 @@ export default function CompanyConfig() {
                     }}
                     aria-label={t('brandingPage.copyColor')}
                   >
-                    <Copy size={12} />
+                    <Copy size={14} />
                     {t('brandingPage.copyColor')}
                   </button>
                 </div>
@@ -534,7 +534,7 @@ export default function CompanyConfig() {
               <p className="text-sm font-medium text-text-primary">{t('brandingPage.chatWidgetTitle')}</p>
               <p className="text-xs text-text-muted mt-0.5">{t('brandingPage.chatWidgetDescription')}</p>
             </div>
-            <ArrowRight size={15} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
+            <ArrowRight size={16} className="text-text-muted group-hover:text-accent transition-colors shrink-0" />
           </button>
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-1">
             <Link to={inboxPath('open')} className="text-xs font-medium text-accent hover:underline">

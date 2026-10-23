@@ -111,7 +111,7 @@ export function ApplicationHubPanel({
                 }}
                 aria-label={t('integrations.hub.setup.back')}
               >
-                <ChevronLeft size={18} />
+                <ChevronLeft size={20} />
               </Button>
             ) : null}
             <IntegrationHostLogo

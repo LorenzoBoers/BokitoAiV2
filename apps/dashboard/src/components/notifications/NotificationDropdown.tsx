@@ -171,7 +171,7 @@ export default function NotificationDropdown() {
                 : 'border-border text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
             }`}
           >
-            <Inbox size={13} className="shrink-0 text-text-muted" aria-hidden />
+            <Inbox size={14} className="shrink-0 text-text-muted" aria-hidden />
             <span className="min-w-0 flex-1">
               {forYouCount > 0
                 ? t('notificationsUi.forYouLine', { count: forYouCount })
@@ -234,7 +234,7 @@ export default function NotificationDropdown() {
                     data-testid="bell-digest-toggle"
                     className="inline-flex items-center gap-1 px-1 py-1.5 text-xs font-medium text-text-muted hover:text-text-heading"
                   >
-                    {showDigest ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    {showDigest ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     {t('notificationsUi.digestGroup', { count: digestNotifications.length })}
                   </button>
                   {showDigest

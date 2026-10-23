@@ -268,7 +268,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
               aria-label={expanded ? t('composer.collapse') : t('composer.expand')}
               className="absolute right-2 top-1 rounded-md p-1 text-text-muted opacity-0 transition-all group-hover/composer:opacity-100 group-focus-within/composer:opacity-100 hover:bg-bg-hover hover:text-text-primary"
             >
-              {expanded ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+              {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
           </Tip>
         )}

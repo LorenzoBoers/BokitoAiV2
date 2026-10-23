@@ -64,7 +64,7 @@ export function AutonomyDial({
           </OptionCardGrid>
           {privacy ? (
             <p className="flex items-start gap-1.5 text-xs text-status-warning">
-              <ShieldAlert size={12} className="mt-0.5 shrink-0" />
+              <ShieldAlert size={14} className="mt-0.5 shrink-0" />
               {tc('aiHandling.clamped.privacy')}
             </p>
           ) : !overview.canRaise ? (

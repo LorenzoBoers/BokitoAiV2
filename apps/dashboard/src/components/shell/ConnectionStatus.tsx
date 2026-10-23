@@ -38,11 +38,10 @@ export default function ConnectionStatus({
   const mark =
     marker === 'check' ? (
       status === 'connected' ? (
-        <Check size={11} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden />
+        <Check size={14} className="shrink-0 text-text-muted" aria-hidden />
       ) : (
         <AlertCircle
-          size={11}
-          strokeWidth={2.5}
+          size={14}
           className={cn(
             'shrink-0',
             status === 'disconnected' ? 'text-status-error' : 'text-status-warning',

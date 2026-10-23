@@ -202,7 +202,7 @@ export function AgentRulesEditor({
                 disabled={saving}
                 onClick={() => void persist(rules.filter((r) => r.id !== rule.id))}
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
               </Button>
             ) : null}
           </div>
@@ -266,7 +266,7 @@ export function AgentRulesEditor({
               disabled={saving || !draft.text.trim() || hardTargetMissing}
               onClick={() => void addRule()}
             >
-              <Plus size={13} className="mr-1" />
+              <Plus size={14} className="mr-1" />
               {t('agentRules.add')}
             </Button>
           </div>
@@ -275,7 +275,7 @@ export function AgentRulesEditor({
 
       <div className="mt-4 border-t border-border pt-3">
         <p className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-          <FlaskConical size={12} aria-hidden />
+          <FlaskConical size={14} aria-hidden />
           {t('agentRules.tryTitle')}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">

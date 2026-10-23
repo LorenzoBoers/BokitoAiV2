@@ -74,7 +74,7 @@ function DialChip({
           }}
           onClick={(event) => event.stopPropagation()}
         >
-          <AudioLines size={11} aria-hidden />
+          <AudioLines size={14} aria-hidden />
           {label}
         </button>
       </TooltipTrigger>
@@ -393,7 +393,7 @@ export function ChatStackCard({
                 onTogglePin(card)
               }}
             >
-              {card.pinned ? <PinOff size={11} aria-hidden /> : <Pin size={11} aria-hidden />}
+              {card.pinned ? <PinOff size={14} aria-hidden /> : <Pin size={14} aria-hidden />}
             </Button>
             {!card.pinned ? (
               <Button
@@ -408,7 +408,7 @@ export function ChatStackCard({
                   onDismiss(card)
                 }}
               >
-                <X size={11} aria-hidden />
+                <X size={14} aria-hidden />
               </Button>
             ) : null}
           </div>

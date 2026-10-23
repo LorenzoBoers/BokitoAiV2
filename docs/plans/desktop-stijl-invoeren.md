@@ -475,6 +475,12 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - `.cursor/rules/dashboard-design-system.mdc` staat niet in het plan, maar noemde nog `AmbientSpotlights` en "geen andere fonts". Die regel is de korte vorm van `DESIGN_SYSTEM.md`, dus hij is in dezelfde commit gelijkgetrokken (serif, radius, geen glows, de nieuwe guard-regels).
 - Baseline: alleen `border-opacity` is toegevoegd (leeg, dus 0 per bestand). De vier bestaande ratchets zijn niet herschreven, hoewel 7 bestanden na de Button-codemod lager zitten; die gaan omlaag in de fase-8-stap waar ze bij horen.
 
+### Fase 8.2: iconen
+
+- De codemod en de guard (`icon-scale`) kijken naar `size={n}` en `strokeWidth` op namen die het bestand uit `lucide-react` importeert, ook in `components/ui`. Iconen die hun maat via `className` krijgen (146×) vallen erbuiten. 18 daarvan zitten onder de schaal (`h-3` 17×, `h-2.5` 1×); de rest staat al op 14, 16 of 20.
+- Iconen die als prop doorgegeven en elders getekend worden (`icon={Sparkles}`, `const Icon = …`) ziet de guard niet.
+- Visuele check van inbox-threadlijst en agenda: bij de dev-sync aan het eind.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

@@ -70,43 +70,43 @@ function NodeMark({ node }: { node: OrgFlowNode }) {
     case 'folder':
       return (
         <GlyphDisc className="bg-status-warning/15 text-status-warning">
-          <Folder size={11} strokeWidth={1.7} />
+          <Folder size={14} />
         </GlyphDisc>
       )
     case 'reply':
       return (
         <GlyphDisc className="bg-status-info/15 text-status-info">
-          <CornerUpLeft size={11} strokeWidth={1.7} />
+          <CornerUpLeft size={14} />
         </GlyphDisc>
       )
     case 'knowledge':
       return (
         <GlyphDisc className="bg-bg-elevated text-text-primary">
-          <Lightbulb size={11} strokeWidth={1.7} />
+          <Lightbulb size={14} />
         </GlyphDisc>
       )
     case 'connection':
       return (
         <GlyphDisc className="bg-status-success/15 text-status-success">
-          <Link2 size={11} strokeWidth={1.7} />
+          <Link2 size={14} />
         </GlyphDisc>
       )
     case 'unassigned':
       return (
         <GlyphDisc className="bg-status-warning/15 text-status-warning">
-          <AlertCircle size={11} strokeWidth={1.8} />
+          <AlertCircle size={14} />
         </GlyphDisc>
       )
     case 'sink_open':
       return (
         <GlyphDisc className="bg-bg-elevated text-text-secondary">
-          <Inbox size={11} strokeWidth={1.7} />
+          <Inbox size={14} />
         </GlyphDisc>
       )
     case 'sink_closed_without_result':
       return (
         <GlyphDisc className="bg-bg-elevated text-text-secondary">
-          <Archive size={11} strokeWidth={1.7} />
+          <Archive size={14} />
         </GlyphDisc>
       )
     default:
@@ -169,7 +169,7 @@ export function OrgIssuesList({
                     onMouseLeave={() => onHover(null)}
                     className="flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-left text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-heading"
                   >
-                    <AlertTriangle size={13} className="mt-0.5 shrink-0 text-status-warning" />
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-status-warning" />
                     <span>
                       {text}
                       {issue.department ? (
@@ -186,7 +186,7 @@ export function OrgIssuesList({
                     to={issue.href ?? '#'}
                     className="flex items-start gap-2 rounded-md px-1.5 py-1 text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-heading"
                   >
-                    <AlertTriangle size={13} className="mt-0.5 shrink-0 text-status-warning" />
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0 text-status-warning" />
                     <span>{text}</span>
                   </Link>
                 )}
@@ -454,7 +454,7 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
         <ul className="flex flex-col gap-1">
           {node.issues.map((issue) => (
             <li key={issue} className="flex items-start gap-2 text-xs text-status-warning">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               {t(`orgCanvas.issue.${issue}`, { name: names.node(node), count: node.open })}
             </li>
           ))}
@@ -516,7 +516,7 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
                 <FlowMark node={{ icon: row.icon ?? undefined, color: row.tone }} size={ROW_MARK} />
               ) : (
                 <GlyphDisc className="bg-bg-elevated text-text-muted">
-                  <Tag size={11} strokeWidth={1.7} />
+                  <Tag size={14} />
                 </GlyphDisc>
               )
               const body = (

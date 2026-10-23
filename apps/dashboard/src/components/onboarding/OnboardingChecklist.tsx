@@ -243,11 +243,11 @@ export default function OnboardingChecklist({
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
               {nextStep.id === 'email' ? (
-                <Mail size={18} />
+                <Mail size={20} />
               ) : nextStep.id === 'watching' ? (
-                <CalendarClock size={18} />
+                <CalendarClock size={20} />
               ) : (
-                <MessageSquare size={18} />
+                <MessageSquare size={20} />
               )}
             </div>
             <div className="min-w-0 flex-1 space-y-1">
@@ -268,7 +268,7 @@ export default function OnboardingChecklist({
           className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
         >
           {t('onboarding.openGuide')}
-          <ArrowRight size={13} />
+          <ArrowRight size={14} />
         </Link>
         <Link
           to={ASSISTANT_SETUP_TO}

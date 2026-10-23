@@ -45,7 +45,7 @@ export default function ConnectStepRail({
               )}
               aria-hidden
             >
-              {isDone && !isActive ? <Check size={11} strokeWidth={2.5} /> : number}
+              {isDone && !isActive ? <Check size={14} /> : number}
             </span>
             <span
               className={cn(

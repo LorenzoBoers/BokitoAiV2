@@ -123,7 +123,7 @@ function StatusLine({ row }: { row: CalendarConnection }) {
   if (status === 'reconnect') {
     return (
       <span className="inline-flex items-center gap-1 text-status-warning">
-        <AlertTriangle size={12} aria-hidden />
+        <AlertTriangle size={14} aria-hidden />
         {t('status.reconnect')}
       </span>
     )
@@ -131,7 +131,7 @@ function StatusLine({ row }: { row: CalendarConnection }) {
   if (status === 'error') {
     return (
       <span className="inline-flex items-center gap-1 text-status-error">
-        <AlertTriangle size={12} aria-hidden />
+        <AlertTriangle size={14} aria-hidden />
         {t('status.error', { error: row.sync_error || '' })}
       </span>
     )

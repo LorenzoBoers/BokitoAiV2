@@ -186,7 +186,7 @@ export function MarketplaceModuleCard({
             <ModulePartnerLogos applications={applications} extraHostSlugs={planned} />
             {installed ? (
               <p className="inline-flex items-center gap-1 text-xs font-medium text-status-success">
-                <Check size={12} aria-hidden />
+                <Check size={14} aria-hidden />
                 {t('integrations.modules.showcase.installedBadge', { defaultValue: 'Installed' })}
               </p>
             ) : null}

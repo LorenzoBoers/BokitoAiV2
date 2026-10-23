@@ -93,7 +93,7 @@ export function WebPageLinkIcon({
   if (!faviconUrl || failed) {
     return (
       <Globe
-        size={12}
+        size={14}
         aria-hidden
         className={cn(iconClass, 'text-current opacity-80')}
         style={sizeStyle}

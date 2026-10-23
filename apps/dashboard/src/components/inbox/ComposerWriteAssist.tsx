@@ -232,7 +232,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
             onClick={() => void run('compose')}
             className="mt-2 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-ai px-2.5 text-xs font-medium text-ai-fg hover:opacity-90 disabled:opacity-40"
           >
-            {busy ? <Spinner size="md" /> : <Wand2 size={13} />}
+            {busy ? <Spinner size="md" /> : <Wand2 size={14} />}
             {hasDraft && !intent.trim() ? t('composer.aiRedraft') : t('composer.aiGenerate')}
           </button>
         </div>

@@ -192,14 +192,14 @@ export default function WorkspaceSettings() {
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                  <Paintbrush size={15} className="text-accent" />
+                  <Paintbrush size={16} className="text-accent" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-text-heading">{t('brandingCardTitle')}</p>
                   <p className="text-xs text-text-muted">{t('brandingCardDescription')}</p>
                 </div>
               </div>
-              <ArrowRight size={15} className="text-text-muted group-hover:text-text-secondary transition-colors" />
+              <ArrowRight size={16} className="text-text-muted group-hover:text-text-secondary transition-colors" />
             </Link>
           </div>
         </div>
@@ -210,7 +210,7 @@ export default function WorkspaceSettings() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-3">
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10">
-                <Shield size={15} className="text-accent" />
+                <Shield size={16} className="text-accent" />
               </div>
               <div>
                 <p className="text-sm text-text-secondary">{t('platformSupportBody')}</p>

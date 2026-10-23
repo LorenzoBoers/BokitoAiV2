@@ -80,7 +80,7 @@ function ProviderBody({ provider, token }: { provider: AiToolProvider; token: st
                   downloadSnippet(snippet, t('developersPage.aiTools.downloaded', { file: snippet.fileName }))
                 }
               >
-                <Download size={13} />
+                <Download size={14} />
               </Button>
             ) : null}
             <McpCopyButton text={snippet.code} />
@@ -106,7 +106,7 @@ export function ConnectAiToolsSection({ token, grants }: Props) {
   return (
     <section id="connect-ai-tools" data-testid="connect-ai-tools">
       <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-heading">
-        <Plug size={15} className="text-text-muted" />
+        <Plug size={16} className="text-text-muted" />
         {t('developersPage.aiTools.title')}
       </h2>
       <p className="mt-1 text-sm leading-relaxed text-text-secondary">{t('developersPage.aiTools.body')}</p>

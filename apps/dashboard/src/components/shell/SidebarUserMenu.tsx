@@ -152,7 +152,7 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
                   <span className="truncate-fade text-sm font-medium text-text-heading">{name}</span>
                   {email ? <span className="truncate-fade text-2xs text-text-muted">{email}</span> : null}
                 </span>
-                <ChevronsUpDown size={12} className="shrink-0 text-text-muted" aria-hidden />
+                <ChevronsUpDown size={14} className="shrink-0 text-text-muted" aria-hidden />
               </>
             )}
           </button>

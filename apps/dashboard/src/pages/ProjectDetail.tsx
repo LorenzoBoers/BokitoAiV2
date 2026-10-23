@@ -159,7 +159,7 @@ export default function ProjectDetail() {
                     aria-label={t('projects.detail.moreActions')}
                     title={t('projects.detail.moreActions')}
                   >
-                    <MoreHorizontal size={15} />
+                    <MoreHorizontal size={16} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[200px]">

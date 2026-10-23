@@ -250,7 +250,7 @@ function BubbleDrafts({
               aria-label={t('decisionCard.removeBubble')}
               className="absolute right-1.5 top-1.5 rounded p-0.5 text-text-muted opacity-0 transition-opacity hover:bg-bg-hover hover:text-text-primary focus:opacity-100 group-hover:opacity-100"
             >
-              <X size={12} />
+              <X size={14} />
             </button>
           ) : null}
         </div>
@@ -971,7 +971,7 @@ export default function DecisionRequestMessage({
                 }}
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-body"
               >
-                <Copy size={11} />
+                <Copy size={14} />
               </button>
             </div>
           </details>
@@ -1049,7 +1049,7 @@ export default function DecisionRequestMessage({
                               : 'border-border text-text-muted hover:bg-bg-hover hover:text-text-body',
                           )}
                         >
-                          <UserRound size={11} aria-hidden />
+                          <UserRound size={14} aria-hidden />
                           {t('decisionCard.sendAs.you')}
                         </button>
                         <button
@@ -1063,7 +1063,7 @@ export default function DecisionRequestMessage({
                               : 'border-border text-text-muted hover:bg-bg-hover hover:text-text-body',
                           )}
                         >
-                          <Bot size={11} aria-hidden />
+                          <Bot size={14} aria-hidden />
                           {agentName || t('decisionCard.sendAs.agentFallback')}
                         </button>
                       </div>
@@ -1088,7 +1088,7 @@ export default function DecisionRequestMessage({
             {internalNote ? (
               <div className="mt-3 border-l-2 border-border pl-3">
                 <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-text-muted">
-                  <StickyNote size={12} className="shrink-0 text-text-muted" aria-hidden />
+                  <StickyNote size={14} className="shrink-0 text-text-muted" aria-hidden />
                   <span>{t('decisionCard.internalNote.title')}</span>
                   <span className="font-normal text-text-muted">
                     · {t('decisionCard.internalNote.notSent')}

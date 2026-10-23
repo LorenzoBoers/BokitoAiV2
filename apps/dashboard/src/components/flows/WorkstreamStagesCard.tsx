@@ -181,7 +181,7 @@ function StageWorkBlock({
                 className="text-text-muted hover:text-status-error"
                 aria-label={t('workstreamsPage.stages.checklistRemove')}
               >
-                <Trash2 size={12} aria-hidden />
+                <Trash2 size={14} aria-hidden />
               </Button>
             ) : null}
           </div>
@@ -194,7 +194,7 @@ function StageWorkBlock({
             className="px-2 text-xs"
             onClick={() => onUpdate({ checklist: [...items, { key: '', label: '', required: false, evidence: 'manual' }] })}
           >
-            <Plus size={12} aria-hidden />
+            <Plus size={14} aria-hidden />
             {t('workstreamsPage.stages.checklistAdd')}
           </Button>
         ) : null}
@@ -395,7 +395,7 @@ function SortablePhaseCard({
               name: stage.name || String(index + 1),
             })}
           >
-            <GripVertical size={15} />
+            <GripVertical size={16} />
           </button>
         ) : null}
         <StageProgressIcon kind={stage.kind} fill={fill} size={18} />
@@ -430,7 +430,7 @@ function SortablePhaseCard({
             aria-label={t('workstreamsPage.stages.remove')}
             onClick={onRemove}
           >
-            <Trash2 size={13} />
+            <Trash2 size={14} />
           </Button>
         ) : null}
       </header>
@@ -514,7 +514,7 @@ function StageFieldsBlock({
             className="flex w-full items-center gap-1.5 text-left text-xs font-medium text-text-muted hover:text-text-primary"
           >
             <ChevronDown
-              size={12}
+              size={14}
               className={cn('shrink-0 transition-transform', !fieldsOpen && '-rotate-90')}
               aria-hidden
             />
@@ -558,7 +558,7 @@ function StageFieldsBlock({
                       onUpdate({ fields })
                     }}
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={14} />
                   </Button>
                 ) : null}
               </div>
@@ -646,7 +646,7 @@ function StageFieldsBlock({
                             onUpdate({ fields })
                           }}
                         >
-                          <Trash2 size={11} />
+                          <Trash2 size={14} />
                         </Button>
                       ) : null}
                     </div>
@@ -664,7 +664,7 @@ function StageFieldsBlock({
                       }}
                       className="flex w-full items-center justify-center gap-1 rounded-md px-1 py-1 text-2xs text-text-muted hover:text-text-primary"
                     >
-                      <Plus size={11} />
+                      <Plus size={14} />
                       {t('workstreamsPage.stages.fieldOptionAdd')}
                     </button>
                   ) : null}
@@ -685,7 +685,7 @@ function StageFieldsBlock({
               }
               className="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-2xs text-text-muted hover:border-accent/40 hover:text-text-primary"
             >
-              <Plus size={12} />
+              <Plus size={14} />
               {t('workstreamsPage.stages.fieldAdd')}
             </button>
           ) : null}
@@ -1085,7 +1085,7 @@ export function WorkstreamStagesCard({
                   onClick={add}
                   className="flex min-h-[220px] w-[140px] min-w-[120px] max-w-[160px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-bg-muted/15 px-4 text-sm text-text-muted transition-colors hover:border-accent/50 hover:bg-bg-muted/35 hover:text-text-primary"
                 >
-                  <Plus size={18} />
+                  <Plus size={20} />
                   <span className="text-center text-xs font-medium leading-snug">
                     {t('workstreamsPage.stages.add')}
                   </span>

@@ -333,7 +333,7 @@ export default function ContactsPage() {
               onClick={() => void load()}
               className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
-              {loading ? <Spinner size="sm" /> : <RefreshCw size={12} />}
+              {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('contactsPage.refresh')}
             </button>
             {view === 'companies' ? (
@@ -352,7 +352,7 @@ export default function ContactsPage() {
                 onClick={() => setCreateOpen(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover"
               >
-                <Plus size={12} />
+                <Plus size={14} />
                 {t('contactsPage.newContact')}
               </button>
             )}
@@ -721,7 +721,7 @@ export default function ContactsPage() {
                           aria-label={t('contactsPage.writeEmail')}
                           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
                         >
-                          <Mail size={13} />
+                          <Mail size={14} />
                         </Link>
                       ) : null}
                     </span>

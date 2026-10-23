@@ -2051,7 +2051,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
   if (error && threadId != null) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <AlertCircle size={28} className="text-status-error" />
+        <AlertCircle size={24} className="text-status-error" />
         <div className="space-y-1">
           <p className="text-sm font-medium text-text-heading">
             {t('threadChrome.loadFailed', { id: threadId })}
@@ -2059,7 +2059,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           <p className="text-xs text-text-muted max-w-md break-words">{error}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={() => onRefresh()} className="gap-1.5">
-          <RefreshCw size={13} />
+          <RefreshCw size={14} />
           {t('threadChrome.tryAgain')}
         </Button>
       </div>
@@ -2350,7 +2350,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         <div className="relative z-20 shrink-0 bg-bg px-4 pt-1">
           <div className={CHAT_COLUMN_CLASS}>
             <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs">
-              <PenLine size={13} className="shrink-0 text-text-muted" />
+              <PenLine size={14} className="shrink-0 text-text-muted" />
               <button
                 type="button"
                 onClick={resumeStoredMailDraft}
@@ -2378,7 +2378,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                 aria-label={t('mailComposer.draftChipDiscard')}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
               >
-                <Trash2 size={12} />
+                <Trash2 size={14} />
               </button>
             </div>
           </div>
@@ -2439,7 +2439,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           replyDisabledNotice={
             mailboxDisconnected ? (
               <span className="flex flex-wrap items-center gap-2">
-                <AlertCircle size={13} className="shrink-0 text-status-warning" />
+                <AlertCircle size={14} className="shrink-0 text-status-warning" />
                 <span>
                   {mailboxNeedsSetup
                     ? t('composer.mailboxNeedsSetup')
@@ -2456,7 +2456,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
               </span>
             ) : thread.status === 'spam' ? (
               <span className="flex flex-wrap items-center gap-2">
-                <AlertCircle size={13} className="shrink-0 text-status-warning" />
+                <AlertCircle size={14} className="shrink-0 text-status-warning" />
                 <span>{t('composer.spamBlocked')}</span>
                 <button
                   type="button"

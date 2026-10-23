@@ -55,7 +55,7 @@ export default function DecisionGroupsBanner({ onDismissed }: Props) {
   return (
     <div className="border-b border-border bg-bg-elevated/60 px-3 py-2" data-testid="decision-groups-banner">
       <div className="mb-1 flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-text-muted">
-        <Layers size={11} aria-hidden />
+        <Layers size={14} aria-hidden />
         {t('decisionGroups.heading')}
       </div>
       <ul className="flex flex-col gap-1">

@@ -326,7 +326,7 @@ function RecipientField({
                   index === activeIndex ? 'bg-bg-hover/60' : 'hover:bg-bg-hover/60',
                 )}
               >
-                <UserIcon size={12} className="shrink-0 text-text-muted" />
+                <UserIcon size={14} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate-fade text-xs text-text-primary">{s.label}</span>
                   {s.label !== s.address ? (
@@ -924,7 +924,7 @@ export default function MailComposer({
                           )
                         : t('compose.from')}
                     </span>
-                    <ChevronDown size={11} className="shrink-0 opacity-70" />
+                    <ChevronDown size={14} className="shrink-0 opacity-70" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
@@ -953,7 +953,7 @@ export default function MailComposer({
                             <span className="block truncate-fade text-2xs text-text-muted">{row.address}</span>
                           ) : null}
                         </span>
-                        {active ? <Check size={12} className="shrink-0 text-accent" /> : null}
+                        {active ? <Check size={14} className="shrink-0 text-accent" /> : null}
                       </DropdownMenuItem>
                     )
                   })}
@@ -983,7 +983,7 @@ export default function MailComposer({
               aria-pressed={fullscreen}
               className="ml-auto text-text-muted"
             >
-              {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+              {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </Button>
             <button
               type="button"
@@ -992,7 +992,7 @@ export default function MailComposer({
               aria-label={t('compose.cancel')}
               className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
             >
-              <XIcon size={13} />
+              <XIcon size={14} />
             </button>
           </div>
 
@@ -1118,7 +1118,7 @@ export default function MailComposer({
                     title={t('mailComposer.signatureEditChannelHint')}
                     aria-label={t('mailComposer.signatureEditChannel')}
                   >
-                    <PenLine size={11} className="shrink-0" aria-hidden />
+                    <PenLine size={14} className="shrink-0" aria-hidden />
                     {t('mailComposer.signatureEdit')}
                   </Link>
                   <div
@@ -1140,7 +1140,7 @@ export default function MailComposer({
                   className="flex h-5 items-center rounded-full border border-border bg-bg-elevated px-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                   data-testid="mail-composer-quote-toggle"
                 >
-                  <MoreHorizontal size={13} />
+                  <MoreHorizontal size={14} />
                 </button>
                 {quoteOpen ? (
                   <QuotedMailFrame html={intent.quotedHtml} title={t('mailComposer.quoteTitle')} />
@@ -1202,7 +1202,7 @@ export default function MailComposer({
                   className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-40"
                   data-testid="mail-composer-send"
                 >
-                  <Send size={13} />
+                  <Send size={14} />
                   <span className="text-xs font-medium">
                     {sending ? t('compose.sending') : t('compose.send')}
                   </span>

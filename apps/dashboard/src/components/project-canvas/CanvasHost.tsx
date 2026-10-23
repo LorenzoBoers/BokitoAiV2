@@ -288,7 +288,7 @@ export function CanvasHost({
                 title={t('projects.canvas.add')}
                 aria-label={t('projects.canvas.add')}
               >
-                <Plus size={16} strokeWidth={2} aria-hidden />
+                <Plus size={16} aria-hidden />
               </button>
             ) : null}
           </TabsList>

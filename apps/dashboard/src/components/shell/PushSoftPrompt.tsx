@@ -88,7 +88,7 @@ export default function PushSoftPrompt() {
         aria-label={t('pushSoftPrompt.dismiss')}
         className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-secondary"
       >
-        <X size={13} aria-hidden />
+        <X size={14} aria-hidden />
       </button>
     </div>
   )

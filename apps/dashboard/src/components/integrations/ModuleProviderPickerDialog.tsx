@@ -91,7 +91,7 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
                     </span>
                     {planned ? (
                       <span className="inline-flex items-center gap-1 text-xs text-text-muted">
-                        <Clock size={12} aria-hidden />
+                        <Clock size={14} aria-hidden />
                         {t('integrations.actions.comingSoon', { defaultValue: 'Coming soon' })}
                       </span>
                     ) : null}

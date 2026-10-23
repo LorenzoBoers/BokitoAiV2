@@ -119,7 +119,7 @@ export function ConfirmDialog({
                 onClick={() => void copyPhrase()}
               >
                 <span className="min-w-0 break-all">{typeToConfirm}</span>
-                {copied ? <Check size={12} /> : <Copy size={12} />}
+                {copied ? <Check size={14} /> : <Copy size={14} />}
               </Button>
               <span>{t('confirmDialog.typeTail')}</span>
             </p>

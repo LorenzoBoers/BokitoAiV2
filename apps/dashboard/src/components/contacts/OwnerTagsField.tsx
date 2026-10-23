@@ -129,7 +129,7 @@ export function OwnerTagsField({
               title={t('tags.add')}
               className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border text-text-muted disabled:opacity-40"
             >
-              <Plus size={11} />
+              <Plus size={14} />
             </button>
           </>
         ) : (
@@ -141,7 +141,7 @@ export function OwnerTagsField({
             title={t('tags.add')}
             className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted ring-1 ring-inset ring-border/50 transition-colors hover:bg-bg-hover/70 hover:text-text-heading disabled:opacity-40"
           >
-            <Plus size={11} />
+            <Plus size={14} />
           </button>
         )}
       </div>
@@ -171,7 +171,7 @@ export function OwnerTagsField({
           onClick={add}
           className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs disabled:opacity-40"
         >
-          <Plus size={12} />
+          <Plus size={14} />
           {t('tags.add')}
         </button>
       </div>

@@ -334,7 +334,7 @@ export function FlowTicketBoard({
                         }}
                         className="absolute top-1/2 z-20 inline-flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg-elevated text-text-muted opacity-0 shadow-sm transition-opacity hover:border-border hover:text-text-heading focus-visible:opacity-100 group-hover/stages:opacity-100 disabled:opacity-40"
                       >
-                        <Plus size={12} aria-hidden />
+                        <Plus size={14} aria-hidden />
                       </button>
                     )
                   })
@@ -503,7 +503,7 @@ function BoardFieldFilters({
       data-testid="flow-board-field-filters"
     >
       <span className="inline-flex items-center gap-1 text-2xs font-medium text-text-muted">
-        <ListFilter size={12} aria-hidden />
+        <ListFilter size={14} aria-hidden />
         {t('workstreamsPage.board.filterLabel')}
       </span>
       {fields.map((field) => {
@@ -558,7 +558,7 @@ function BoardFieldFilters({
             className="gap-1 px-2 text-xs text-text-muted"
             onClick={onClear}
           >
-            <X size={12} aria-hidden />
+            <X size={14} aria-hidden />
             {t('workstreamsPage.board.filterClear')}
           </Button>
         </>
@@ -602,7 +602,7 @@ function StageColumnHeader({
           title={t('workstreamsPage.stages.editTitle')}
           className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted opacity-0 transition-opacity hover:bg-bg-hover hover:text-text-heading focus-visible:opacity-100 group-hover/col:opacity-100"
         >
-          <Pencil size={13} aria-hidden />
+          <Pencil size={14} aria-hidden />
         </button>
       ) : null}
       {showLeftEdge ? <ColumnBoundaryMark side="left" /> : null}
@@ -728,8 +728,8 @@ function LaneHeader({
         className="inline-flex items-center gap-1.5 rounded px-1 py-0.5 font-medium text-text-secondary transition-colors hover:bg-bg-muted/60 hover:text-text-heading"
         aria-expanded={!collapsed}
       >
-        <ChevronDown size={13} className={cn('transition-transform', collapsed && '-rotate-90')} aria-hidden />
-        <FolderKanban size={13} className="text-text-muted" aria-hidden />
+        <ChevronDown size={14} className={cn('transition-transform', collapsed && '-rotate-90')} aria-hidden />
+        <FolderKanban size={14} className="text-text-muted" aria-hidden />
         <span className={cn(!lane.id && 'italic text-text-muted')}>{label}</span>
       </button>
       <span className="text-2xs tabular-nums text-text-muted">{count}</span>

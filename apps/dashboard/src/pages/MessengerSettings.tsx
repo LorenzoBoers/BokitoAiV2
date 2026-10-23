@@ -712,7 +712,7 @@ function MessengerSettingsContent({
                           </button>
                         ) : (
                           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover">
-                            <Upload size={12} />
+                            <Upload size={14} />
                             {t('messengerPage.upload')}
                             <input type="file" accept="image/*" className="hidden" onChange={handleWidgetFaviconPick} />
                           </label>

@@ -137,7 +137,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
             >
               {t('whatsappCard.openMetaDocs')}
-              <ExternalLink size={12} aria-hidden />
+              <ExternalLink size={14} aria-hidden />
             </a>
           </StepPanel>
 
@@ -253,7 +253,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
           >
             {t('whatsappCard.openMetaConfig')}
-            <ExternalLink size={12} aria-hidden />
+            <ExternalLink size={14} aria-hidden />
           </a>
           <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3">
             <Link to={inboxPath('open')} className="text-sm font-medium text-accent hover:underline">
@@ -351,7 +351,7 @@ function CopyRow({
         onClick={onCopy}
         className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-heading"
       >
-        {copied ? <Check size={12} aria-hidden /> : <Copy size={12} aria-hidden />}
+        {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
         <span>{copyLabel}</span>
       </button>
     </div>

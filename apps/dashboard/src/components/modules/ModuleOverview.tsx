@@ -107,7 +107,7 @@ export function ModuleOverview({ module }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-muted/40 text-text-secondary">
-              {writesActive ? <PenLine size={15} aria-hidden /> : <Lock size={15} aria-hidden />}
+              {writesActive ? <PenLine size={16} aria-hidden /> : <Lock size={16} aria-hidden />}
             </span>
             <div>
               <p className="text-sm font-medium text-text-heading">
@@ -271,7 +271,7 @@ export function ModuleOverview({ module }: Props) {
             to={inboxPath('open')}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
-            <MessageSquare size={13} aria-hidden />
+            <MessageSquare size={14} aria-hidden />
             {t('integrations.connected.openCommunication', { defaultValue: 'Open Communication' })}
           </Link>
           <Link

@@ -141,7 +141,7 @@ export function TagRegistrySection({
           <p className="mt-0.5 text-xs text-text-secondary">{t('tagRegistry.description')}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={() => setCreating(true)}>
-          <Plus size={13} />
+          <Plus size={14} />
           {t('tagRegistry.newTag')}
         </Button>
       </div>
@@ -211,7 +211,7 @@ export function TagRegistrySection({
                         setIntoId('')
                       }}
                     >
-                      <GitMerge size={12} />
+                      <GitMerge size={14} />
                       {t('tagRegistry.merge')}
                     </Button>
                   ) : null}
@@ -228,7 +228,7 @@ export function TagRegistrySection({
                     aria-label={t('tagRegistry.delete')}
                     onClick={() => void remove(tag)}
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={14} />
                   </Button>
                 </>
               }

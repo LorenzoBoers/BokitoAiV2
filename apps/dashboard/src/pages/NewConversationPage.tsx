@@ -893,7 +893,7 @@ export default function NewConversationPage() {
           onClick={() => (showAgentHome ? navigate(lastInboxPath()) : setIntent(null))}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-text-muted hover:text-text-primary"
         >
-          <ArrowLeft size={13} />
+          <ArrowLeft size={14} />
           {showAgentHome ? t('newConversation.back') : t('newConversation.changeType')}
         </button>
         {showAgentHome && !noAgents ? null : (
@@ -955,7 +955,7 @@ export default function NewConversationPage() {
                     aria-label={t('mailComposer.draftChipDiscard')}
                     className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                   >
-                    <XIcon size={13} />
+                    <XIcon size={14} />
                   </button>
                 </div>
               ) : null}
@@ -982,7 +982,7 @@ export default function NewConversationPage() {
                       aria-label={t('newConversation.previousAgent')}
                       className="absolute left-0 top-1/2 z-[1] flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-heading"
                     >
-                      <ChevronLeft size={28} strokeWidth={2.25} aria-hidden />
+                      <ChevronLeft size={24} aria-hidden />
                     </button>
                     <button
                       type="button"
@@ -990,7 +990,7 @@ export default function NewConversationPage() {
                       aria-label={t('newConversation.nextAgent')}
                       className="absolute right-0 top-1/2 z-[1] flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-heading"
                     >
-                      <ChevronRight size={28} strokeWidth={2.25} aria-hidden />
+                      <ChevronRight size={24} aria-hidden />
                     </button>
                   </>
                 ) : null}
@@ -1101,7 +1101,7 @@ export default function NewConversationPage() {
                       title={t('newConversation.send')}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg opacity-40"
                     >
-                      <ArrowUp size={16} strokeWidth={2.25} />
+                      <ArrowUp size={16} />
                     </button>
                   </ComposerCard>
                 )
@@ -1154,7 +1154,7 @@ export default function NewConversationPage() {
                       title={t('newConversation.send')}
                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg opacity-40"
                     >
-                      <ArrowUp size={16} strokeWidth={2.25} />
+                      <ArrowUp size={16} />
                     </button>
                   </ComposerCard>
                 )
@@ -1297,7 +1297,7 @@ export default function NewConversationPage() {
                     title={t('newConversation.send')}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-text-heading text-bg transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
-                    {sending ? <Spinner size="md" /> : <ArrowUp size={16} strokeWidth={2.25} />}
+                    {sending ? <Spinner size="md" /> : <ArrowUp size={16} />}
                   </button>
                 </ComposerDictationRow>
               </ComposerCard>
@@ -1313,7 +1313,7 @@ export default function NewConversationPage() {
             <div className="mx-auto flex min-h-full max-w-[560px] flex-col justify-center gap-6 py-12">
               <HomeShortcuts />
               <div className="panel px-5 py-8 text-center">
-                <Bot size={28} className="mx-auto text-text-muted" />
+                <Bot size={24} className="mx-auto text-text-muted" />
                 <p className="mt-3 text-lg font-medium text-text-primary">
                   {t('newConversation.noAgentsAvailable')}
                 </p>

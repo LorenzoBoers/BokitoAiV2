@@ -624,7 +624,7 @@ export function ProfileSettingsContent() {
               className="shrink-0 rounded-lg px-3 text-xs"
               onClick={() => setSignatureEditorOpen(true)}
             >
-              <PenLine size={12} />
+              <PenLine size={14} />
               {user?.emailSignatureHtml?.trim() ? t('profile:signature.edit') : t('profile:signature.add')}
             </Button>
           </div>
@@ -725,9 +725,9 @@ export function ProfileSettingsContent() {
       {/* ── Appearance ── */}
       <Section title={t('profile:theme.title')} description={t('profile:theme.description')}>
         <div className="panel grid grid-cols-3 gap-2.5 p-3">
-          <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={12} />} active={mode === 'light'} onClick={() => setMode('light')} />
-          <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={12} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
-          <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={12} />} active={mode === 'system'} onClick={() => setMode('system')} />
+          <ThemeOption variant="light" label={t('profile:theme.light')} icon={<Sun size={14} />} active={mode === 'light'} onClick={() => setMode('light')} />
+          <ThemeOption variant="dark" label={t('profile:theme.dark')} icon={<Moon size={14} />} active={mode === 'dark'} onClick={() => setMode('dark')} />
+          <ThemeOption variant="system" label={t('profile:theme.system')} icon={<LaptopMinimal size={14} />} active={mode === 'system'} onClick={() => setMode('system')} />
         </div>
       </Section>
 
@@ -748,7 +748,7 @@ export function ProfileSettingsContent() {
               <div className="flex items-center gap-2">
                 {pwSaved && (
                   <span className="flex items-center gap-1 text-xs text-status-success">
-                    <Check size={12} />
+                    <Check size={14} />
                     {pwJustSet
                       ? t('profile:security.passwordSetSuccess')
                       : t('profile:security.passwordSuccess')}
@@ -760,7 +760,7 @@ export function ProfileSettingsContent() {
                   className="rounded-lg px-3 text-xs"
                   onClick={() => { setShowPasswordForm(true); setPwError(null) }}
                 >
-                  <Lock size={12} />
+                  <Lock size={14} />
                   {hasPassword
                     ? t('profile:security.changePassword')
                     : t('profile:security.setPassword')}
@@ -1171,7 +1171,7 @@ export function ProfileSettingsContent() {
               <p className="text-xs text-text-muted">{t('profile:account.signOutDescription')}</p>
             </div>
             <Button variant="secondary" size="sm" className="rounded-lg px-3 text-xs" onClick={() => void logout()}>
-              <LogOut size={12} />
+              <LogOut size={14} />
               {t('common:actions.signOut')}
             </Button>
           </div>

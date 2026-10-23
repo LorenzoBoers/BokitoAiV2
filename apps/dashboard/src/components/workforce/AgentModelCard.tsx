@@ -93,7 +93,7 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
   return (
     <Card className="px-4 py-3">
       <div className="flex items-center gap-2">
-        <Cpu size={15} className="text-accent" aria-hidden />
+        <Cpu size={16} className="text-accent" aria-hidden />
         <h3 className="text-base font-semibold text-text-heading">{t('workforce.agents.modelTitle')}</h3>
       </div>
       <p className="mt-1 text-sm text-text-muted">{t('workforce.agents.modelBody')}</p>
@@ -146,9 +146,9 @@ export function AgentModelCard({ agentId, currentModel, canEdit, onChanged }: Pr
         ) : (
           <p className="inline-flex items-center gap-2 text-sm text-text-primary">
             {mode === AUTOMATIC_MODE ? (
-              <Sparkles size={18} className="text-ai-ink" aria-hidden />
+              <Sparkles size={20} className="text-ai-ink" aria-hidden />
             ) : mode === INHERIT_MODE ? (
-              <Cpu size={18} className="text-text-muted" aria-hidden />
+              <Cpu size={20} className="text-text-muted" aria-hidden />
             ) : (
               <ModelIcon
                 slug={current?.slug || currentModel}

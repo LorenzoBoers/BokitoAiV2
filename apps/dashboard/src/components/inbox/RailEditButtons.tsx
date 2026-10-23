@@ -23,7 +23,7 @@ export function RailEyeButton({ label, onClick }: { label: string; onClick: () =
           onClick()
         }}
       >
-        <Eye size={12} strokeWidth={2} aria-hidden />
+        <Eye size={14} aria-hidden />
       </button>
     </Tip>
   )
@@ -42,7 +42,7 @@ export function RailPenButton({ label, onClick }: { label: string; onClick: () =
           onClick()
         }}
       >
-        <PenLine size={12} strokeWidth={2} aria-hidden />
+        <PenLine size={14} aria-hidden />
       </button>
     </Tip>
   )

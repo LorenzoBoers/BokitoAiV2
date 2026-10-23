@@ -132,6 +132,47 @@ const MARK_SIZE = new RegExp(
 const MARK_SIZE_MESSAGE =
   'Avatar size must be on the mark ladder: 16, 20, 24, 32, 40, 48, 64, 80, 96, 128 (lib/mark-scale.ts).'
 
+/** Lucide icons: size on the icon scale; stroke width comes from the base layer. */
+const ICON_SCALE = new Set([14, 16, 20, 24, 32, 40])
+const ICON_MESSAGE = 'Icon size is 14, 16 or 20 (24/32/40 for display); stroke comes from the base layer.'
+
+/** Local names imported from lucide-react in this file (aliases included). */
+function lucideNames(text) {
+  const names = new Set()
+  for (const match of text.matchAll(/import\s*\{([^}]*)\}\s*from\s*'lucide-react'/g)) {
+    for (const part of match[1].split(',')) {
+      const spec = part.trim().replace(/^type\s+/, '')
+      if (!spec) continue
+      const local = spec.includes(' as ') ? spec.split(' as ')[1].trim() : spec
+      if (/^[A-Z]/.test(local) && local !== 'LucideIcon' && local !== 'LucideProps') names.add(local)
+    }
+  }
+  return names
+}
+
+/** Opening JSX tags for `names`; braces and strings are skipped, so `=>` inside a prop is fine. */
+function* jsxTags(text, names) {
+  if (!names.size) return
+  const open = new RegExp(`<(${[...names].join('|')})(?=[\\s/>])`, 'g')
+  for (const match of text.matchAll(open)) {
+    let i = match.index + match[0].length
+    let depth = 0
+    let quote = null
+    for (; i < text.length; i++) {
+      const c = text[i]
+      if (quote) {
+        if (c === quote && text[i - 1] !== '\\') quote = null
+        continue
+      }
+      if (c === '"' || c === "'" || c === '`') quote = c
+      else if (c === '{') depth++
+      else if (c === '}') depth--
+      else if (c === '>' && depth === 0) break
+    }
+    yield { index: match.index, tag: text.slice(match.index, i + 1) }
+  }
+}
+
 /** Lines carrying this marker are exempt (use sparingly, with a reason). */
 const IGNORE_MARKER = 'design-system-ignore'
 
@@ -184,6 +225,15 @@ for (const file of walk(SRC)) {
       line,
       text: `size={${n}}`,
     })
+  }
+  for (const { index, tag } of jsxTags(text, lucideNames(text))) {
+    const line = text.slice(0, index).split('\n').length
+    if (lines[line - 1].includes(IGNORE_MARKER)) continue
+    const size = tag.match(/\bsize=\{(\d+(?:\.\d+)?)\}/)
+    const offScale = size && !ICON_SCALE.has(Number(size[1]))
+    if (offScale || /\sstrokeWidth=/.test(tag)) {
+      hits.push({ rule: { id: 'icon-scale', message: ICON_MESSAGE }, rel: relPosix, line, text: tag.slice(0, 140) })
+    }
   }
 }
 

@@ -311,7 +311,7 @@ export function BlurbEdit({
         {trimmed}
       </span>
       <Pencil
-        size={13}
+        size={14}
         className="pointer-events-none absolute bottom-1.5 right-2 text-text-muted opacity-0 transition-opacity duration-150 group-hover/blurb:opacity-100 group-focus-visible/blurb:opacity-100"
         aria-hidden
       />

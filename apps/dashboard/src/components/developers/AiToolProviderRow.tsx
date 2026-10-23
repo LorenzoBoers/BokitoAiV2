@@ -36,7 +36,7 @@ export function AiToolProviderRow({ brand, name, description, status, tone, chil
         </div>
         <Badge variant={TONE[tone]}>{status}</Badge>
         <ChevronDown
-          size={15}
+          size={16}
           className="shrink-0 text-text-muted transition-transform group-open:rotate-180"
           aria-hidden
         />

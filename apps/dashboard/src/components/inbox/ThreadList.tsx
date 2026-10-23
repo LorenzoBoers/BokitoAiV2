@@ -415,7 +415,7 @@ export default function ThreadList({
 
       {scopeLabel && onClearScope ? (
         <div className="flex items-center gap-1.5 border-b border-border bg-accent/5 px-3 py-1.5">
-          <Filter size={11} className="shrink-0 text-accent" />
+          <Filter size={14} className="shrink-0 text-accent" />
           <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-heading">
             {scopeLabel}
           </span>
@@ -425,7 +425,7 @@ export default function ThreadList({
             onClick={onClearScope}
             className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary transition-colors"
           >
-            <X size={11} />
+            <X size={14} />
           </button>
         </div>
       ) : null}

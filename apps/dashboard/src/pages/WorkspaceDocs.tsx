@@ -709,7 +709,7 @@ export default function WorkspaceDocs() {
               >
                 <ScopeIcon size={11} aria-hidden />
                 {scope === 'project' ? t('knowledgePage.openProject') : t('knowledgePage.openAgent')}
-                <ArrowUpRight size={11} aria-hidden />
+                <ArrowUpRight size={14} aria-hidden />
               </Link>
             ) : null}
             {lessons ? (
@@ -932,7 +932,7 @@ export default function WorkspaceDocs() {
                       title={t('knowledgePage.copyPath')}
                       className={cn(badgeVariants({ variant: 'neutral' }), 'gap-1 font-mono text-text-muted hover:text-text-secondary')}
                     >
-                      <Copy size={10} />
+                      <Copy size={14} />
                       {active.path}
                     </button>
                     {AI_MAINTAINED_KINDS.has(active.kind) ? (

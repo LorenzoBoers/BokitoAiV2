@@ -199,7 +199,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                   >
                     <FolderIcon size={12} className="shrink-0 text-text-muted" />
                     <span className="truncate" title={project.path ?? undefined}>{project.name}</span>
-                    <ChevronDown size={10} className="text-text-muted" />
+                    <ChevronDown size={14} className="text-text-muted" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="max-h-72 w-56 overflow-y-auto">
@@ -243,7 +243,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                 aria-label={t('tickets.openProject', { ns: 'nav' })}
                 title={t('tickets.openProject', { ns: 'nav' })}
               >
-                <ArrowUpRight size={12} />
+                <ArrowUpRight size={14} />
               </Link>
             ) : null}
           </span>
@@ -262,7 +262,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
                     >
                       <span className={`h-1 w-1 rounded-full ${priorityMeta.dot}`} />
                       {t(priorityMeta.labelKey)}
-                      <ChevronDown size={10} className="text-text-muted" />
+                      <ChevronDown size={14} className="text-text-muted" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-36">

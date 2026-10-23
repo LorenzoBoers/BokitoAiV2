@@ -321,7 +321,7 @@ export default function ChannelDetailPage() {
             to="/settings/channels"
             className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-text-muted hover:text-text-heading"
           >
-            <ArrowLeft size={12} />
+            <ArrowLeft size={14} />
             {t('channelsPage.backToList')}
           </Link>
           <h2 className="text-lg font-semibold tracking-[-0.01em] text-text-heading">{row.label}</h2>

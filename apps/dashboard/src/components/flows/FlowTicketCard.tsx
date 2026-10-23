@@ -128,7 +128,7 @@ export function FlowTicketCard({
             )}
             title={t('tickets.checkupNext', { when: relativeMoment(Date.parse(ticket.checkup_at), Date.now(), t) })}
           >
-            <ClipboardCheck size={11} aria-hidden />
+            <ClipboardCheck size={14} aria-hidden />
           </span>
         ) : null}
         {ticket.assignee_kind === 'agent' && !assignee ? (

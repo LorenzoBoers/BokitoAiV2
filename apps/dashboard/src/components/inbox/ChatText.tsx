@@ -150,7 +150,7 @@ function ChatCodeWindow({ text, lang }: { text: string; lang: string }) {
       data-testid="chat-code-window"
     >
       <div className="flex items-center gap-2 border-b border-border bg-bg-input/40 px-2 py-1">
-        <Code2 size={13} className="shrink-0 text-text-muted" aria-hidden />
+        <Code2 size={14} className="shrink-0 text-text-muted" aria-hidden />
         <span className="min-w-0 flex-1 truncate font-mono text-2xs text-text-muted">{label}</span>
         <button
           type="button"
@@ -158,7 +158,7 @@ function ChatCodeWindow({ text, lang }: { text: string; lang: string }) {
           className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-text-secondary hover:bg-bg-hover hover:text-text-heading"
           aria-label={copied ? t('actions.copied') : t('actions.copy')}
         >
-          {copied ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+          {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
           <span>{copied ? t('actions.copied') : t('actions.copy')}</span>
         </button>
       </div>

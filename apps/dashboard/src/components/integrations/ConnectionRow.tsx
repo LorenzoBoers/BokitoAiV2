@@ -95,7 +95,7 @@ export function ConnectionRow({
               </span>
               {row.access_restricted ? (
                 <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-2xs text-text-muted">
-                  <Lock size={10} aria-hidden />
+                  <Lock size={14} aria-hidden />
                   {t('integrations.connections.restricted')}
                 </span>
               ) : null}

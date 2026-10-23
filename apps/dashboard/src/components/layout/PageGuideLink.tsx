@@ -34,7 +34,7 @@ export function PageGuideLink({ page, variant, compact = false, className }: Pag
           className,
         )}
       >
-        <CircleHelp size={13} aria-hidden />
+        <CircleHelp size={14} aria-hidden />
         {compact ? null : <span>{label}</span>}
       </Link>
     </Tip>

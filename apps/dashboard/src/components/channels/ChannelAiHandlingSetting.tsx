@@ -72,7 +72,7 @@ export default function ChannelAiHandlingSetting({
               title={t('aiHandling.clamped.breaker')}
               data-testid="channel-ai-breaker"
             >
-              <ShieldAlert size={10} />
+              <ShieldAlert size={14} />
               {t('aiHandling.breakerBadge')}
             </Badge>
           ) : null}

@@ -74,7 +74,7 @@ export function DepartmentFlowPipeline({ flow }: { flow: DepartmentFlow }) {
             className="inline-flex items-center gap-0.5 pl-1 text-text-muted hover:text-accent"
           >
             {t('departmentPage.openBoard')}
-            <ArrowUpRight size={12} aria-hidden />
+            <ArrowUpRight size={14} aria-hidden />
           </Link>
         </div>
       </div>

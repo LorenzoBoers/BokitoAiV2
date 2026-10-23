@@ -73,7 +73,7 @@ export function ChannelExceptionsCard({
                     {row.breakerTrippedAt ? (
                       <>
                         <Badge variant="warning" className="gap-1 px-1.5 py-0 text-2xs">
-                          <ShieldAlert size={10} />
+                          <ShieldAlert size={14} />
                           {tc('aiHandling.breakerBadge')}
                         </Badge>
                         {group.scope === 'channel' ? (
@@ -101,7 +101,7 @@ export function ChannelExceptionsCard({
                         aria-label={t('ai.communication.exceptionClear')}
                         className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-bg-hover hover:text-text-primary"
                       >
-                        <X size={13} />
+                        <X size={14} />
                       </button>
                     ) : null}
                   </li>

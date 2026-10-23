@@ -596,7 +596,7 @@ export default function OnboardingWizardPage() {
             disabled={stepIndex === 0 || busy}
             className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted disabled:opacity-40 hover:bg-bg-hover/60 hover:text-text-primary"
           >
-            <ArrowLeft size={13} />
+            <ArrowLeft size={14} />
             {t('back')}
           </button>
           <button
@@ -606,7 +606,7 @@ export default function OnboardingWizardPage() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-60"
           >
             {busy ? t('saving') : stepIndex >= steps.length - 1 ? t('finish') : t('next')}
-            {!busy ? <ArrowRight size={13} /> : <Spinner size="md" />}
+            {!busy ? <ArrowRight size={14} /> : <Spinner size="md" />}
           </button>
         </div>
       </main>

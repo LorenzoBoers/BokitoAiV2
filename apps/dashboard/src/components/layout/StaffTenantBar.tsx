@@ -68,7 +68,7 @@ export default function StaffTenantBar() {
       className="flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-accent/30 pl-2 pr-1 text-xs"
       title={t('staffBar.viewing', { workspace: label })}
     >
-      <Building2 size={12} className="shrink-0 text-accent" aria-hidden />
+      <Building2 size={14} className="shrink-0 text-accent" aria-hidden />
       <span className="hidden shrink-0 text-2xs font-medium text-accent sm:inline">{t('staffBar.label')}</span>
       {loading ? (
         <StaffSelectSkeleton />

@@ -176,14 +176,14 @@ function LearnArticle({ slug }: { slug: string }) {
               to={backTo}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
-              <ArrowLeft size={12} aria-hidden />
+              <ArrowLeft size={14} aria-hidden />
               {t('pageGuides.back')}
             </Link>
             <Link
               to="/learn"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
-              <BookOpen size={12} aria-hidden />
+              <BookOpen size={14} aria-hidden />
               {t('pageGuides.allArticles')}
             </Link>
           </div>

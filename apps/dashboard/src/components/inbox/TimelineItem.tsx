@@ -207,13 +207,13 @@ function ContactHoverInfo({
     <div className="flex flex-col gap-1.5 min-w-[180px]">
       {hasName ? (
         <div className="flex items-center gap-2 text-text-heading">
-          <User size={12} className="text-text-muted shrink-0" />
+          <User size={14} className="text-text-muted shrink-0" />
           <span className="text-xs font-semibold truncate-fade">{name}</span>
         </div>
       ) : null}
       {hasEmail ? (
         <div className="flex items-center gap-2">
-          <Mail size={12} className="text-text-muted shrink-0" />
+          <Mail size={14} className="text-text-muted shrink-0" />
           <a
             href={`mailto:${email}`}
             className="text-xs text-text-secondary truncate-fade hover:text-accent"
@@ -225,7 +225,7 @@ function ContactHoverInfo({
       ) : null}
       {hasPhone ? (
         <div className="flex items-center gap-2">
-          <Phone size={12} className="text-text-muted shrink-0" />
+          <Phone size={14} className="text-text-muted shrink-0" />
           <a
             href={`tel:${phone}`}
             className="text-xs text-text-secondary truncate-fade hover:text-accent"
@@ -996,7 +996,7 @@ function MailReadOverlay({
             aria-label={t('mailComposer.exitFullscreen')}
             className="text-text-muted"
           >
-            <Minimize2 size={13} />
+            <Minimize2 size={14} />
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
@@ -1631,7 +1631,7 @@ function OwnerInlineChip({
     face = display ? (
       <UserAvatar name={display} email={email} avatarUrl={avatarUrl} size={16} decorative />
     ) : (
-      <Users size={10} className="shrink-0 opacity-80" aria-hidden />
+      <Users size={14} className="shrink-0 opacity-80" aria-hidden />
     )
   }
 
@@ -2482,14 +2482,14 @@ export function MessageTimelineItem({
     isEditableNote && !editingNote ? (
       <>
         <BubbleAction label={t('timeline.events.editNote')} disabled={noteBusy} onClick={startNoteEdit}>
-          <Pencil size={12} />
+          <Pencil size={14} />
         </BubbleAction>
         <BubbleAction
           label={t('timeline.events.deleteNote')}
           disabled={noteBusy}
           onClick={() => void removeNote()}
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} />
         </BubbleAction>
       </>
     ) : null
@@ -2619,7 +2619,7 @@ export function MessageTimelineItem({
             className="inline-flex min-w-0 items-center gap-1 truncate-fade rounded bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-status-error"
             title={String(message.sendStatus)}
           >
-            <AlertCircle size={11} className="shrink-0" aria-hidden />
+            <AlertCircle size={14} className="shrink-0" aria-hidden />
             {t('timeline.notDelivered')}
             {failReason ? ` - ${failReason}` : ''}
           </span>
@@ -2865,7 +2865,7 @@ export function MessageTimelineItem({
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex text-status-error" aria-label={t('timeline.notDelivered')}>
-              <AlertCircle size={11} className="shrink-0" aria-hidden />
+              <AlertCircle size={14} className="shrink-0" aria-hidden />
             </span>
           </TooltipTrigger>
           <TooltipContent side="top">{t('timeline.notDelivered')}</TooltipContent>
@@ -2883,7 +2883,7 @@ export function MessageTimelineItem({
               )}
               aria-label={t('timeline.sentOk')}
             >
-              <Check size={11} className="shrink-0" aria-hidden />
+              <Check size={14} className="shrink-0" aria-hidden />
             </span>
           </TooltipTrigger>
           <TooltipContent side="top">{t('timeline.sentOk')}</TooltipContent>
@@ -2898,7 +2898,7 @@ export function MessageTimelineItem({
     <Tooltip>
       <TooltipTrigger asChild>
         <span className="inline-flex opacity-70" aria-label={t('agentSession.internalHint')}>
-          <EyeOff size={11} className="shrink-0" aria-hidden />
+          <EyeOff size={14} className="shrink-0" aria-hidden />
         </span>
       </TooltipTrigger>
       <TooltipContent side="top">{t('agentSession.internalHint')}</TooltipContent>
@@ -2925,7 +2925,7 @@ export function MessageTimelineItem({
           )
         }}
       >
-        <Copy size={12} />
+        <Copy size={14} />
       </BubbleAction>
     ) : null
   const cancelSendAction =
@@ -2939,7 +2939,7 @@ export function MessageTimelineItem({
           )
         }}
       >
-        <XIcon size={12} />
+        <XIcon size={14} />
       </BubbleAction>
     ) : null
   const splitAction =
@@ -2954,7 +2954,7 @@ export function MessageTimelineItem({
   }
   const mailFullscreenAction = isMailCard ? (
     <BubbleAction label={t('mailComposer.fullscreen')} onClick={openMailFullscreen}>
-      <Maximize2 size={12} />
+      <Maximize2 size={14} />
     </BubbleAction>
   ) : null
   const mailActions =
@@ -2963,7 +2963,7 @@ export function MessageTimelineItem({
         {isInbound && authorKind === 'external' ? (
           <>
             <BubbleAction mailAction label={t('timeline.replyMail')} onClick={() => onMailAction(message, 'reply')}>
-              <Reply size={12} />
+              <Reply size={14} />
             </BubbleAction>
             <BubbleAction
               mailAction
@@ -2971,12 +2971,12 @@ export function MessageTimelineItem({
               onClick={() => onMailAction(message, 'reply_all')}
               disabled={!canReplyAll(message, mailOwnAddresses ?? [])}
             >
-              <ReplyAll size={12} />
+              <ReplyAll size={14} />
             </BubbleAction>
           </>
         ) : null}
         <BubbleAction mailAction label={t('timeline.forwardMail')} onClick={() => onMailAction(message, 'forward')}>
-          <Forward size={12} />
+          <Forward size={14} />
         </BubbleAction>
       </>
     ) : null

@@ -344,7 +344,7 @@ export function TagSetPicker({
         disabled={busy}
         trailing={
           allSelected && !allApplied ? (
-            <Check size={13} className="shrink-0" aria-hidden />
+            <Check size={14} className="shrink-0" aria-hidden />
           ) : row.viaContact ? (
             <span className="text-2xs text-text-muted">{t('tags.viaContact')}</span>
           ) : undefined

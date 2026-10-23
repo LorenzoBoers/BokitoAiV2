@@ -1707,7 +1707,7 @@ export default function Communication() {
     return (
       <div className="h-full min-h-0 flex flex-col items-center justify-center py-8 px-4 text-center">
         <div className="w-14 h-14 rounded-xl bg-accent/10 flex items-center justify-center mb-4">
-          <MessageSquare size={28} className="text-accent" />
+          <MessageSquare size={24} className="text-accent" />
         </div>
         <h2 className="text-lg font-semibold text-text-heading">{t('onboarding.emptyInboxTitle')}</h2>
         <p className="text-sm text-text-secondary mt-2 max-w-sm">{t('onboarding.emptyInboxBody')}</p>

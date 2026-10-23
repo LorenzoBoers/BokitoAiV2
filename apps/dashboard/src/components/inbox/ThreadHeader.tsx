@@ -295,7 +295,7 @@ export default function ThreadHeader({
               className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-primary"
               aria-label={t('threadChrome.customerRatingScore', { score: csat.score })}
             >
-              <Star size={11} className="fill-status-warning text-status-warning" />
+              <Star size={14} className="fill-status-warning text-status-warning" />
               {csat.score}/5
             </span>
           </TooltipTrigger>
@@ -322,7 +322,7 @@ export default function ThreadHeader({
             extraItems={
               held ? (
                 <DropdownMenuItem className="gap-2 text-xs" onSelect={() => void onChangeAiHandling(null)}>
-                  <Bot size={13} />
+                  <Bot size={14} />
                   {tc('aiHandling.handBack')}
                 </DropdownMenuItem>
               ) : null
@@ -419,7 +419,7 @@ export default function ThreadHeader({
             {!internal ? (
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger className="gap-2">
-                  <Flag size={13} />
+                  <Flag size={14} />
                   {t('threadChrome.setPriority')}
                   <span className={`ml-auto h-1.5 w-1.5 rounded-full ${priorityMeta.dot}`} />
                 </DropdownMenuSubTrigger>
@@ -442,7 +442,7 @@ export default function ThreadHeader({
             ) : null}
             {onPlan && thread.status !== 'spam' ? (
               <DropdownMenuItem className="gap-2" onClick={() => onPlan()}>
-                <CalendarClock size={13} />
+                <CalendarClock size={14} />
                 {t('threadChrome.plan')}
               </DropdownMenuItem>
             ) : null}
@@ -454,7 +454,7 @@ export default function ThreadHeader({
             ) : null}
             {onCloseAndFile && thread.status !== 'closed' && thread.status !== 'spam' ? (
               <DropdownMenuItem className="gap-2" onClick={() => onCloseAndFile()}>
-                <Archive size={13} />
+                <Archive size={14} />
                 {t('threadChrome.closeAndFile')}
               </DropdownMenuItem>
             ) : null}
@@ -469,7 +469,7 @@ export default function ThreadHeader({
                 )
               }}
             >
-              <Link2 size={13} />
+              <Link2 size={14} />
               {t('threadChrome.copyLink')}
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -481,7 +481,7 @@ export default function ThreadHeader({
                 )
               }}
             >
-              <Hash size={13} />
+              <Hash size={14} />
               {t('threadChrome.copyThreadId')}
             </DropdownMenuItem>
             {thread.graphConversationId ? (
@@ -494,13 +494,13 @@ export default function ThreadHeader({
                   )
                 }}
               >
-                <Hash size={13} />
+                <Hash size={14} />
                 {t('threadChrome.copyExternalId')}
               </DropdownMenuItem>
             ) : null}
             {onForward ? (
               <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => onForward()}>
-                <Forward size={13} />
+                <Forward size={14} />
                 {t('threadChrome.forwardAsEmail')}
               </DropdownMenuItem>
             ) : null}
@@ -513,7 +513,7 @@ export default function ThreadHeader({
                 disabled={closingSender}
                 onClick={() => void onAlwaysCloseSender()}
               >
-                <Archive size={13} />
+                <Archive size={14} />
                 {t('threadChrome.alwaysCloseFromSender')}
               </DropdownMenuItem>
             ) : null}
@@ -523,7 +523,7 @@ export default function ThreadHeader({
                 disabled={blockingContact}
                 onClick={() => void onBlockContact()}
               >
-                <ShieldBan size={13} />
+                <ShieldBan size={14} />
                 {t('threadChrome.blockContact', {
                   name:
                     contactDisplayName ||
@@ -537,19 +537,19 @@ export default function ThreadHeader({
                 className="gap-2"
                 onClick={() => void onPatch({ status: thread.status === 'spam' ? 'open' : 'spam' })}
               >
-                <OctagonAlert size={13} />
+                <OctagonAlert size={14} />
                 {thread.status === 'spam' ? t('threadChrome.notSpam') : t('threadChrome.markSpam')}
               </DropdownMenuItem>
             ) : null}
             {onMarkUnread && !thread.hasUnread ? (
               <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onMarkUnread()}>
-                <Mail size={13} />
+                <Mail size={14} />
                 {t('threadChrome.markUnread')}
               </DropdownMenuItem>
             ) : null}
             {onTogglePin ? (
               <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => void onTogglePin()}>
-                {thread.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+                {thread.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
                 {thread.isPinned ? t('threadChrome.unpinThread') : t('threadChrome.pinThread')}
               </DropdownMenuItem>
             ) : null}
@@ -576,7 +576,7 @@ export default function ThreadHeader({
                   })()
                 }}
               >
-                <BookMarked size={13} />
+                <BookMarked size={14} />
                 {thread.isExample
                   ? t('threadChrome.removeExample', { defaultValue: 'Stop using as example' })
                   : t('threadChrome.useAsExample', { defaultValue: 'Use as example' })}
@@ -588,7 +588,7 @@ export default function ThreadHeader({
                 className="gap-2 text-status-error"
                 onClick={() => void onDelete()}
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
                 {t('threadChrome.delete')}
               </DropdownMenuItem>
             ) : null}
@@ -603,7 +603,7 @@ export default function ThreadHeader({
                 aria-label={t('threadChrome.showDetails')}
                 className={`relative ${HEADER_ICON}`}
               >
-                <PanelRightOpen size={13} />
+                <PanelRightOpen size={14} />
                 {panelCount > 0 ? (
                   <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-text-heading px-1 text-2xs font-medium leading-none text-bg tabular-nums">
                     {panelCount > 9 ? '9+' : panelCount}

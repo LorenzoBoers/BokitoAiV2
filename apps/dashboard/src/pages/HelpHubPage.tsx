@@ -83,7 +83,7 @@ export default function HelpHubPage() {
 
       <section>
         <h3 className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent">
-          <LifeBuoy size={12} />
+          <LifeBuoy size={14} />
           {t('helpHub.supportTitle')}
         </h3>
         <p className="mb-2 max-w-xl text-xs text-text-muted">{t('helpHub.supportIntro')}</p>
@@ -113,7 +113,7 @@ function HubRow({ item }: { item: HubLink }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5 text-sm font-medium text-text-heading">
           {title}
-          {item.external ? <ExternalLink size={12} className="text-text-muted" /> : null}
+          {item.external ? <ExternalLink size={14} className="text-text-muted" /> : null}
         </span>
         <span className="mt-0.5 block text-xs text-text-muted">{description}</span>
       </span>

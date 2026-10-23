@@ -18,7 +18,7 @@ export function RegionBadge({ region, className }: Props) {
   return (
     <Tip label={label}>
       <Badge variant={variant} className={className}>
-        <Globe size={11} aria-hidden />
+        <Globe size={14} aria-hidden />
         {regionLabel(key, t)}
       </Badge>
     </Tip>

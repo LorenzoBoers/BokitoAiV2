@@ -423,7 +423,7 @@ export default function NotificationSettings() {
                 aria-label={t('notificationsPage.restoreDefaults')}
                 className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
               >
-                <RotateCcw size={13} aria-hidden />
+                <RotateCcw size={14} aria-hidden />
               </button>
             </Tip>
           </span>
@@ -518,7 +518,7 @@ export default function NotificationSettings() {
       </Card>
 
       <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
-        <Bell size={13} className="text-text-muted" />
+        <Bell size={14} className="text-text-muted" />
         {savedAt ? t('notificationsPage.saved') : t('notificationsPage.savedHint')}
       </div>
     </PageContent>

@@ -115,9 +115,9 @@ export default function SessionMarker({ session }: Props) {
             <span aria-hidden>·</span>
             <span className="truncate text-ai-ink/70">{summaryLine}</span>
             {expanded ? (
-              <ChevronDown size={12} className="shrink-0 text-ai-ink/70" />
+              <ChevronDown size={14} className="shrink-0 text-ai-ink/70" />
             ) : (
-              <ChevronRight size={12} className="shrink-0 text-ai-ink/70" />
+              <ChevronRight size={14} className="shrink-0 text-ai-ink/70" />
             )}
           </button>
         ) : (
@@ -144,7 +144,7 @@ export default function SessionMarker({ session }: Props) {
             <ul className="space-y-1 px-1">
               {session.actions.map((action, idx) => (
                 <li key={idx} className="flex items-center gap-1.5 text-xs text-text-secondary">
-                  <Wrench size={10} className="shrink-0 text-text-muted" />
+                  <Wrench size={14} className="shrink-0 text-text-muted" />
                   <span className="truncate-fade font-mono">{actionLabel(action)}</span>
                   {action.at ? (
                     <span className="ml-auto shrink-0 text-2xs text-text-muted">

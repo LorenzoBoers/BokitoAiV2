@@ -159,7 +159,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
       activity={currentAgentActivity}
     />
   ) : (
-    <UserRound size={14} strokeWidth={owned ? 2.25 : 1.75} />
+    <UserRound size={14} />
   )
 
   return (

@@ -115,7 +115,7 @@ export function AgentActionRulesCard({ isAdmin }: { isAdmin: boolean }) {
                       disabled={busyId === rule.id}
                       onClick={() => void remove(row.agentId, rule)}
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </Button>
                   ) : null}
                 </div>

@@ -292,7 +292,7 @@ export default function Login() {
           {workspaceSetup ? (
             <div className="space-y-5">
               <div className="flex flex-col items-center text-center">
-                <Building2 size={28} className="mb-2 text-accent" />
+                <Building2 size={24} className="mb-2 text-accent" />
                 <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.noWorkspaceTitle')}</h2>
                 <p className="mt-1 text-sm text-text-secondary">
                   {t('loginPage.noWorkspaceBody', { email: workspaceSetup.email })}
@@ -373,7 +373,7 @@ export default function Login() {
           ) : twoFactorChallenge ? (
             <form onSubmit={handleTotpSubmit} className="space-y-5">
               <div className="flex flex-col items-center text-center">
-                <ShieldCheck size={28} className="mb-2 text-accent" />
+                <ShieldCheck size={24} className="mb-2 text-accent" />
                 <h2 className="text-sm font-semibold text-text-heading">{t('loginPage.totpTitle')}</h2>
                 <p className="mt-1 text-sm text-text-secondary">
                   {t('loginPage.totpBody')}

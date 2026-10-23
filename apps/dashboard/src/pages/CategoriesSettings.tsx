@@ -274,7 +274,7 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
             disabled={busy}
             onClick={() => void act(() => promoteSignalBacklog(entry.key), t('categoriesPage.backlogPromoted'))}
           >
-            <Plus size={13} className="mr-1" />
+            <Plus size={14} className="mr-1" />
             {t('categoriesPage.backlogPromote')}
           </Button>
           <Button

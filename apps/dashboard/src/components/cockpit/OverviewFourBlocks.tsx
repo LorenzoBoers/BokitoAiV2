@@ -144,7 +144,7 @@ function Metric({
         {value}
       </span>
       <ArrowRight
-        size={12}
+        size={14}
         className="text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
       />
     </Link>
@@ -510,13 +510,13 @@ export default function OverviewFourBlocks() {
               to="/agenda?view=list"
               className="row-interactive group flex items-center gap-3 rounded-md border border-status-warning/30 bg-status-warning/5 px-3 py-2.5 transition-colors hover:bg-status-warning/10"
             >
-              <AlertTriangle size={13} className="shrink-0 text-status-warning" />
+              <AlertTriangle size={14} className="shrink-0 text-status-warning" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate-fade text-sm font-medium text-text-primary">{copy('agendaDue')}</span>
                 <span className="block truncate-fade text-xs text-text-muted">{copy('agendaDueDetail')}</span>
               </span>
               <span className="shrink-0 tabular-nums text-base font-semibold text-text-heading">{agenda.due}</span>
-              <ArrowRight size={12} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
+              <ArrowRight size={14} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
             </Link>
           ) : null}
           {running.length === 0 && agenda.upcoming.length === 0 && agenda.due === 0 ? <EmptyRow>{copy('emptyRunning')}</EmptyRow> : null}
@@ -526,14 +526,14 @@ export default function OverviewFourBlocks() {
               to={timeItemHref(item)}
               className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
             >
-              <CalendarClock size={13} className="shrink-0 text-text-muted" />
+              <CalendarClock size={14} className="shrink-0 text-text-muted" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate-fade text-sm font-medium text-text-primary">{item.title}</span>
                 <span className="block truncate-fade text-xs text-text-muted">
                   {formatAppTime(new Date(parseTimelineMs(item.start)), i18n.language)} · {agendaKindLabel(agendaKindOf(item), t)}
                 </span>
               </span>
-              <ArrowRight size={12} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
+              <ArrowRight size={14} className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent" />
             </Link>
           ))}
           {running.map((row) => (
@@ -544,14 +544,14 @@ export default function OverviewFourBlocks() {
             >
               <span className="relative flex h-3.5 w-3.5 shrink-0 items-center justify-center">
                 <span className="pulse-dot absolute h-1.5 w-1.5 rounded-full bg-accent" />
-                <Play size={13} className="relative text-accent opacity-90" />
+                <Play size={14} className="relative text-accent opacity-90" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate-fade text-sm font-medium text-text-primary">{row.label}</span>
                 <span className="block truncate-fade text-xs text-text-muted">{row.detail}</span>
               </span>
               <ArrowRight
-                size={12}
+                size={14}
                 className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
               />
             </Link>
@@ -581,7 +581,7 @@ export default function OverviewFourBlocks() {
             to="/settings/usage"
             className="row-interactive group flex items-center gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-bg-hover/70"
           >
-            <CircleDollarSign size={13} className="shrink-0 text-text-muted" />
+            <CircleDollarSign size={14} className="shrink-0 text-text-muted" />
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-text-primary">{copy('cost')}</span>
               <span className="block text-xs text-text-muted">{copy('costDetail')}</span>
@@ -590,7 +590,7 @@ export default function OverviewFourBlocks() {
               {data.usage ? formatAppUsdCents(data.usage.total_customer_cost_micros / 10_000, i18n.language) : '—'}
             </span>
             <ArrowRight
-              size={12}
+              size={14}
               className="shrink-0 text-text-muted transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-accent"
             />
           </Link>

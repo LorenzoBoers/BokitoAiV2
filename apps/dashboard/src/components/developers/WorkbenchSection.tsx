@@ -100,7 +100,7 @@ export function WorkbenchSection() {
   return (
     <section id="workbench" data-testid="workbench-providers">
       <h2 className="flex items-center gap-1.5 text-lg font-semibold text-text-heading">
-        <Hammer size={15} className="text-text-muted" />
+        <Hammer size={16} className="text-text-muted" />
         {t('developersPage.workbench.title')}
       </h2>
       <p className="mt-1 text-sm leading-relaxed text-text-secondary">{t('developersPage.workbench.body')}</p>

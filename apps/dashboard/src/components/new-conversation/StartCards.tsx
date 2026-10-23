@@ -76,7 +76,7 @@ export function TicketStart({
   if (categories.length === 0) {
     return (
       <div className="panel px-5 py-8 text-center">
-        <Hash size={28} className="mx-auto text-text-muted" />
+        <Hash size={24} className="mx-auto text-text-muted" />
         <p className="mt-3 text-sm text-text-primary">{t('newConversation.noActionTags')}</p>
         <Link to="/flows" className="mt-3 inline-block text-xs font-medium text-accent hover:underline">
           {t('newConversation.openFlows')}

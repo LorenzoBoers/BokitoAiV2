@@ -51,7 +51,7 @@ export default function ArticleFeedback({ slug, lang }: { slug: string; lang?: s
               aria-label={t('pageGuides.feedback.yes')}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-hover hover:text-accent disabled:opacity-50"
             >
-              <ThumbsUp size={13} aria-hidden />
+              <ThumbsUp size={14} aria-hidden />
             </button>
             <button
               type="button"
@@ -60,7 +60,7 @@ export default function ArticleFeedback({ slug, lang }: { slug: string; lang?: s
               aria-label={t('pageGuides.feedback.no')}
               className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-bg-hover hover:text-status-error disabled:opacity-50"
             >
-              <ThumbsDown size={13} aria-hidden />
+              <ThumbsDown size={14} aria-hidden />
             </button>
           </div>
         </>

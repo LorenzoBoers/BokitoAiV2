@@ -48,7 +48,7 @@ function ChannelKindsMark() {
     <BrandMark key="gmail" slug="gmail" size={13} />,
     <BrandMark key="whatsapp" slug="whatsapp" size={13} />,
     ...(isChannelParked('slack') ? [] : [<BrandMark key="slack" slug="slack" size={13} />]),
-    <MessageSquare key="widget" size={12} className="text-text-secondary" />,
+    <MessageSquare key="widget" size={14} className="text-text-secondary" />,
   ]
   return (
     <span className="relative isolate inline-flex items-center" aria-hidden>

@@ -380,7 +380,7 @@ function CreateFlowDialog({
             <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
               <p className="text-xs text-text-muted">{t('workstreamsPage.dialogNoMatch')}</p>
               <Button type="button" size="sm" className="mt-3" disabled={creating} onClick={() => choose(normalized)}>
-                <Plus size={13} className="mr-1" aria-hidden />
+                <Plus size={14} className="mr-1" aria-hidden />
                 {t('workstreamsPage.dialogCreateTag', { name: normalized })}
               </Button>
             </div>
@@ -506,7 +506,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
           <span className="italic">{t('workstreamsPage.meta.noProjects')}</span>
         )}
       </div>
-      <ChevronRight size={15} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />
+      <ChevronRight size={16} className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5" />
     </div>
   )
 }

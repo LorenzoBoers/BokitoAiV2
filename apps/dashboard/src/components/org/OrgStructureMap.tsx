@@ -112,7 +112,7 @@ export function OrgStructureMap() {
           <h2 className="text-sm font-semibold tracking-tight text-text-heading">{t('orgCanvas.legend')}</h2>
           <p className="mt-0.5 text-2xs leading-4 text-text-muted">{t('orgCanvas.legendHint')}</p>
           <label className="relative mt-2 block">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" strokeWidth={1.75} />
+            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
             <Input
               type="search"
               value={query}

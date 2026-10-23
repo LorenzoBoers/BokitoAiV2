@@ -110,7 +110,7 @@ export function MailMessageCard({
         {summary ? <span className="min-w-0 truncate text-text-muted">{summary}</span> : null}
         {canOpenEnvelope ? (
           <ChevronDown
-            size={12}
+            size={14}
             aria-hidden
             className={cn(
               'shrink-0 text-text-muted transition-transform',

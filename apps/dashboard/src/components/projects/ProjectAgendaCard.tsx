@@ -87,7 +87,7 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
             data-testid="project-agenda-open"
           >
             {t('projects.home.agendaOpen')}
-            <ArrowUpRight size={12} aria-hidden />
+            <ArrowUpRight size={14} aria-hidden />
           </Link>
         </CardHeaderActions>
       </CardHeader>

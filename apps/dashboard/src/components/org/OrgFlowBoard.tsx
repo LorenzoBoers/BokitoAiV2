@@ -51,7 +51,7 @@ function FaceInner({ node }: { node: OrgFlowNode }) {
     case 'unassigned':
       return (
         <span className={cn(round, 'bg-status-warning/15')}>
-          <AlertCircle size={14} strokeWidth={1.8} className="text-status-warning" />
+          <AlertCircle size={14} className="text-status-warning" />
         </span>
       )
     case 'flow':
@@ -59,21 +59,21 @@ function FaceInner({ node }: { node: OrgFlowNode }) {
     case 'reply':
       return (
         <span className={cn(round, 'bg-status-info/15')}>
-          <CornerUpLeft size={13} strokeWidth={1.7} className="text-status-info" />
+          <CornerUpLeft size={14} className="text-status-info" />
         </span>
       )
     case 'folder':
-      return <Folder size={18} strokeWidth={1.5} className="shrink-0 text-status-warning" />
+      return <Folder size={20} className="shrink-0 text-status-warning" />
     case 'knowledge':
       return (
         <span className={cn(round, 'bg-bg-elevated')}>
-          <Lightbulb size={13} strokeWidth={1.6} className="text-text-primary" />
+          <Lightbulb size={14} className="text-text-primary" />
         </span>
       )
     case 'connection':
       return (
         <span className={cn(round, 'bg-status-success/15')}>
-          <Link2 size={13} strokeWidth={1.7} className="text-status-success" />
+          <Link2 size={14} className="text-status-success" />
         </span>
       )
     default:
@@ -277,7 +277,7 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
                     key={item.key}
                     className="inline-flex max-w-[180px] items-center gap-1 truncate rounded-md border border-border px-2 py-px text-xs leading-4 text-text-primary"
                   >
-                    <Link2 size={10} className="shrink-0 text-text-muted" />
+                    <Link2 size={14} className="shrink-0 text-text-muted" />
                     <span className="truncate">{names.worksIn(item)}</span>
                   </span>
                 ) : (

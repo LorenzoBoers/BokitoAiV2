@@ -337,7 +337,7 @@ export function ModuleAgentsSection({
                         setAccessOpenId((open) => (open === row.id ? null : row.id))
                       }
                     >
-                      <Settings2 size={12} />
+                      <Settings2 size={14} />
                     </Button>
                   ) : null}
                   {!row.is_default ? (
@@ -355,7 +355,7 @@ export function ModuleAgentsSection({
                       {busyId === row.agent_id ? (
                         <Spinner size="sm" />
                       ) : (
-                        <Star size={12} />
+                        <Star size={14} />
                       )}
                     </Button>
                   ) : null}
@@ -371,7 +371,7 @@ export function ModuleAgentsSection({
                     {busyId === row.agent_id ? (
                       <Spinner size="sm" />
                     ) : (
-                      <X size={12} />
+                      <X size={14} />
                     )}
                   </Button>
                 </span>

@@ -153,7 +153,7 @@ export default function ChannelPanel({
                 onClick={() => actions.archive(row)}
                 data-testid="channel-archive"
               >
-                <Unplug size={13} />
+                <Unplug size={14} />
                 {t('channelsPage.disconnect')}
               </Button>
             </ChannelSetting>
@@ -167,7 +167,7 @@ export default function ChannelPanel({
                 onClick={() => actions.restore(row)}
                 data-testid="channel-restore"
               >
-                <ArchiveRestore size={13} />
+                <ArchiveRestore size={14} />
                 {t('channelsPage.restore')}
               </Button>
             </ChannelSetting>
@@ -181,7 +181,7 @@ export default function ChannelPanel({
                 onClick={() => actions.deletePermanently(row)}
                 data-testid="channel-delete"
               >
-                <Trash2 size={13} />
+                <Trash2 size={14} />
                 {t('channelsPage.delete')}
               </Button>
             </ChannelSetting>

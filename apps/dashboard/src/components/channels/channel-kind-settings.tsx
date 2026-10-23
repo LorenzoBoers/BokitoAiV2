@@ -45,7 +45,7 @@ function CopyAddress({ address }: { address: string }) {
         }
       }}
     >
-      {copied ? <Check size={13} /> : <Copy size={13} />}
+      {copied ? <Check size={14} /> : <Copy size={14} />}
       {copied ? t('channelsPage.copied') : t('channelsPage.copy')}
     </Button>
   )
@@ -120,7 +120,7 @@ function PrimarySetting({ row, busy, actions }: KindSettingsProps) {
     <ChannelSetting label={t('channelsPage.primarySender')} hint={t('channelsPage.primarySenderHint')}>
       {row.isPrimary ? (
         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-status-success">
-          <Star size={13} />
+          <Star size={14} />
           {t('channelsPage.primary')}
         </span>
       ) : (
@@ -142,7 +142,7 @@ function ReconnectSetting({ row, actions }: KindSettingsProps) {
   return (
     <ChannelSetting label={t('channelsPage.connection')} hint={t('channelsPage.connectionHint')}>
       <Button variant="secondary" size="sm" onClick={() => actions.reconnect(row)}>
-        <Wifi size={13} />
+        <Wifi size={14} />
         {t('channelsPage.reconnect')}
       </Button>
     </ChannelSetting>
@@ -156,7 +156,7 @@ function LinkSetting({ label, hint, to }: { label: string; hint: string; to: str
       <Button asChild variant="secondary" size="sm">
         <Link to={to}>
           {t('channelsPage.open')}
-          <ArrowRight size={12} />
+          <ArrowRight size={14} />
         </Link>
       </Button>
     </ChannelSetting>

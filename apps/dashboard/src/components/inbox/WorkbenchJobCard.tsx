@@ -86,7 +86,7 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
             onClick={() => void onFollowUp()}
             data-testid="workbench-follow-up"
           >
-            {busy === 'follow' ? <Spinner size="sm" /> : <MessageSquarePlus size={12} />}
+            {busy === 'follow' ? <Spinner size="sm" /> : <MessageSquarePlus size={14} />}
             {t('timeline.workbench.followUp')}
           </Button>
           <Button
@@ -98,7 +98,7 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
             onClick={() => void onStop()}
             data-testid="workbench-stop"
           >
-            {busy === 'stop' ? <Spinner size="sm" /> : <Square size={12} />}
+            {busy === 'stop' ? <Spinner size="sm" /> : <Square size={14} />}
             {t('timeline.workbench.stop')}
           </Button>
         </>

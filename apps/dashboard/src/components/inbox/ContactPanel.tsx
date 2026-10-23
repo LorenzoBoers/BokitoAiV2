@@ -381,7 +381,7 @@ export default function ContactPanel({
       data-testid="contact-link-open"
       className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
     >
-      <Plus size={11} />
+      <Plus size={14} />
       {t('contactPanel.link')}
     </button>
   ) : null
@@ -492,7 +492,7 @@ export default function ContactPanel({
                 {teammate.name || teammate.email}
               </p>
               <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 py-0.5 text-xs font-medium text-accent">
-                <Users size={11} />
+                <Users size={14} />
                 {isSelf ? t('contactPanel.you') : t('contactPanel.teammate')}
               </span>
               <IdentitySeenLine at={latestThreadActivityAt(threads) || threadActivityAt} />
@@ -529,7 +529,7 @@ export default function ContactPanel({
       <div className="px-4 py-4">
         {closeAction ? <div className="mb-1 flex justify-end">{closeAction}</div> : null}
         <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
-          <UserRound size={18} className="mx-auto text-text-muted" />
+          <UserRound size={20} className="mx-auto text-text-muted" />
           <p className="mt-2 text-sm font-medium text-text-primary">
             {humanizeContactName(fallbackName, fallbackEmail, t('contactPanel.widgetVisitor')) ||
               t('contactPanel.noContact')}
@@ -551,7 +551,7 @@ export default function ContactPanel({
                 }
                 className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-50"
               >
-                <OctagonAlert size={12} />
+                <OctagonAlert size={14} />
                 {threadStatus === 'spam'
                   ? t('threadChrome.notSpam')
                   : t('threadChrome.markSpam')}
@@ -746,7 +746,7 @@ export default function ContactPanel({
                   onClick={() => void saveNotes()}
                   className="flex items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-2xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
-                  <Check size={10} />
+                  <Check size={14} />
                   {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}
                 </button>
                 <span className="text-2xs text-status-warning">{t('contactPanel.notesUnsaved')}</span>
@@ -766,7 +766,7 @@ export default function ContactPanel({
                 onClick={() => void setStatus('approved')}
                 className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
-                <Check size={11} />
+                <Check size={14} />
                 {t('contactPanel.approve')}
               </button>
             ) : null}

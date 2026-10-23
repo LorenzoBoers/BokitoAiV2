@@ -81,7 +81,7 @@ export function EditableField({
             disabled={saving}
             aria-label={t('personalInformation.saveField', { label })}
           >
-            <Check size={13} />
+            <Check size={14} />
           </Button>
           <Button
             variant="secondary"
@@ -89,12 +89,12 @@ export function EditableField({
             onClick={cancel}
             aria-label={t('personalInformation.cancelEdit')}
           >
-            <X size={13} />
+            <X size={14} />
           </Button>
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-end gap-2">
-          {saved && <Check size={12} className="text-status-success" />}
+          {saved && <Check size={14} className="text-status-success" />}
           <button
             type="button"
             onClick={startEdit}
@@ -109,7 +109,7 @@ export function EditableField({
             aria-label={t('personalInformation.editField', { label })}
             className="text-text-muted"
           >
-            <Pencil size={12} />
+            <Pencil size={14} />
           </Button>
         </div>
       )}

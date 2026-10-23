@@ -116,7 +116,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
             >
-              <Settings size={12} strokeWidth={2} aria-hidden />
+              <Settings size={14} aria-hidden />
             </Link>
           </Tip>
         ) : null}
@@ -133,7 +133,7 @@ function EditorRow({ node, ancestorHidden = false, searching }: RowProps) {
                 onEye()
               }}
             >
-              {node.hidden ? <EyeOff size={12} strokeWidth={2} aria-hidden /> : <Eye size={12} strokeWidth={2} aria-hidden />}
+              {node.hidden ? <EyeOff size={14} aria-hidden /> : <Eye size={14} aria-hidden />}
             </button>
           </Tip>
         ) : null}

@@ -270,7 +270,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
             onClick={() => fileInputRef.current?.click()}
             className="gap-1.5 text-xs text-text-muted hover:text-text-primary"
           >
-            <Paperclip size={13} />
+            <Paperclip size={14} />
             {uploading ? t('compose.uploading') : t('compose.attach')}
           </Button>
           </div>
@@ -279,7 +279,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
               {t('compose.cancel')}
             </Button>
             <Button type="button" size="sm" disabled={!canSend} onClick={() => void handleSend()} title={t('composer.hintEmail')} className="gap-1.5">
-              <Send size={13} />
+              <Send size={14} />
               {sending
                 ? t('compose.sending')
                 : t('compose.send')}

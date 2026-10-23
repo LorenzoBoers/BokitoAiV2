@@ -174,7 +174,7 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             title={t('tags.add')}
             className="inline-flex h-6 w-6 items-center justify-center text-text-muted transition-colors hover:text-accent disabled:opacity-40"
           >
-            <Plus size={11} />
+            <Plus size={14} />
           </button>
         ) : null}
       </div>

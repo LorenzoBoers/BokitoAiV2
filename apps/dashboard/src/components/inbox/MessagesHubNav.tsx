@@ -124,7 +124,7 @@ function SectionGearLink({ to, label }: { to: string; label: string }) {
         className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover/70 hover:text-text-secondary"
         onClick={(e) => e.stopPropagation()}
       >
-        <Settings size={12} strokeWidth={2} aria-hidden />
+        <Settings size={14} aria-hidden />
       </Link>
     </Tip>
   )
@@ -213,7 +213,7 @@ function ComposePlusLink({ to, label }: { to: string; label: string }) {
         aria-label={label}
         className="inline-flex h-6 w-6 items-center justify-center rounded-md text-text-muted hover:bg-bg-hover hover:text-text-heading"
       >
-        <Plus size={13} />
+        <Plus size={14} />
       </Link>
     </Tip>
   )
@@ -453,7 +453,7 @@ function AgentFolderRow({
           {workHref ? (
             <Tip label={t('support.agents.currentWork')} side="right">
               <NavLink to={workHref} className="nav-row nav-sub-row h-[26px] text-xs">
-                <Activity size={12} className="shrink-0 text-ai-ink" aria-hidden />
+                <Activity size={14} className="shrink-0 text-ai-ink" aria-hidden />
                 <span className="min-w-0 flex-1 truncate-fade">{t('support.agents.workingNow')}</span>
               </NavLink>
             </Tip>

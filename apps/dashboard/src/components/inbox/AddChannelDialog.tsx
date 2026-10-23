@@ -313,7 +313,7 @@ export default function AddChannelDialog({
                 aria-label={t('channelsPage.back')}
                 className="mt-0.5 text-text-muted"
               >
-                <ArrowLeft size={15} />
+                <ArrowLeft size={16} />
               </Button>
             ) : null}
             <div className="min-w-0">
