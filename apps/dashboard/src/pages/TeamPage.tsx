@@ -15,9 +15,8 @@ import { Button } from '../components/ui/button'
 import { PageHeader } from '../components/ui/page-header'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
-import { AgentMark } from '../components/ui/AgentMark'
+import { Avatar } from '../components/ui/avatar'
 import { AvatarStack } from '../components/ui/AvatarStack'
-import { UserAvatar } from '../components/ui/UserAvatar'
 import { resolveTeamStackMembers } from '../lib/team-facepile'
 import { platformIcon } from '../lib/platform-icons'
 import { cn } from '../lib/utils'
@@ -393,10 +392,11 @@ function TeamDialog({
                 return (
                   <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    <UserAvatar
+                    <Avatar
+                      kind="person"
                       name={p.name}
                       email={p.email}
-                      avatarUrl={p.avatar_url}
+                      imageUrl={p.avatar_url}
                       size={20}
                       presence={p.presence.status}
                       decorative
@@ -410,7 +410,8 @@ function TeamDialog({
                 return (
                   <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
                     <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    <AgentMark
+                    <Avatar
+                      kind="agent"
                       agent={a}
                       size={20}
                       decorative={false}

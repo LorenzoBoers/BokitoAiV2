@@ -1,11 +1,8 @@
 import { Link } from 'react-router-dom'
 import type { AgentAvatarSource } from '../../lib/agent-avatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { openEntityPath } from '../../lib/open-entity'
 import { cn } from '../../lib/utils'
-import { AgentMark } from './AgentMark'
-import { TeamAvatar } from './TeamAvatar'
-import { UserAvatar } from './UserAvatar'
+import { Avatar, type TeamAvatarSource } from './avatar'
 
 /**
  * Circles in every people/agent pile. Three or fewer show as faces.
@@ -50,7 +47,7 @@ export type AvatarStackTeam = {
   key: string
   kind: 'team'
   name: string
-  team: Parameters<typeof toTeamAvatarProps>[0]
+  team: TeamAvatarSource
   title?: string
 }
 
@@ -73,7 +70,7 @@ type Props = {
 
 /**
  * Overlapping facepile for people and agents. Three members show as three
- * faces. With more, the third circle is +N. Agents use AgentMark unclipped
+ * faces. With more, the third circle is +N. Agents use the agent Avatar unclipped
  * with a silhouette surface outline (same cutout role as the people ring).
  * People stay circular with a surface ring. Agent faces link to the agent page
  * unless ``linkAgents`` is false.
@@ -107,7 +104,8 @@ export function AvatarStack({
 
         if (member.kind === 'agent') {
           const mark = (
-            <AgentMark
+            <Avatar
+              kind="agent"
               agent={member.agent}
               size={size}
               mode="static"
@@ -162,7 +160,7 @@ export function AvatarStack({
               data-testid="avatar-stack-team"
               data-active={active || undefined}
             >
-              <TeamAvatar {...toTeamAvatarProps(member.team, member.name)} size={size} decorative />
+              <Avatar kind="team" team={member.team} fallbackName={member.name} size={size} decorative />
             </span>
           )
         }
@@ -181,10 +179,11 @@ export function AvatarStack({
             data-testid="avatar-stack-user"
             data-active={active || undefined}
           >
-            <UserAvatar
+            <Avatar
+              kind="person"
               name={member.name}
               email={member.email}
-              avatarUrl={member.avatarUrl}
+              imageUrl={member.avatarUrl}
               size={size}
               decorative
             />

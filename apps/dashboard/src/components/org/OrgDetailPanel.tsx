@@ -4,7 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, AlertTriangle, Archive, CornerUpLeft, Folder, Inbox, Lightbulb, Link2, Tag, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { FlowMark } from './FlowMark'
 import { ChannelMark } from '../ui/ChannelMark'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
@@ -64,7 +64,7 @@ function NodeMark({ node }: { node: OrgFlowNode }) {
       return <ChannelMark channel={node.channel} size={ROW_MARK} />
     case 'agent':
     case 'user':
-      return <AgentMark agent={node.mark ?? { name: node.label }} size={ROW_MARK} mode="static" fallbackName={node.label} decorative />
+      return <Avatar kind="agent" agent={node.mark ?? { name: node.label }} size={ROW_MARK} mode="static" fallbackName={node.label} decorative />
     case 'flow':
       return <FlowMark node={node} size={ROW_MARK} />
     case 'folder':
@@ -381,7 +381,8 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
                   <div className="flex items-start gap-3">
                     {node.href ? (
                       <Link to={node.href} className="shrink-0" aria-label={names.node(node)}>
-                        <AgentMark
+                        <Avatar
+                          kind="agent"
                           agent={{ ...(node.mark ?? {}), name: node.mark?.name || names.node(node) }}
                           size={64}
                           mode={live ? 'live' : 'static'}
@@ -393,7 +394,8 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
                         />
                       </Link>
                     ) : (
-                      <AgentMark
+                      <Avatar
+                        kind="agent"
                         agent={{ ...(node.mark ?? {}), name: node.mark?.name || names.node(node) }}
                         size={64}
                         mode={live ? 'live' : 'static'}

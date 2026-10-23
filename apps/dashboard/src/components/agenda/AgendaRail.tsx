@@ -16,8 +16,7 @@ import { AgendaRailRowsSkeleton } from '../ui/skeleton'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { BrandMark } from '../integrations/BrandMark'
 import { Tip } from '../ui/Tip'
-import { UserAvatar } from '../ui/UserAvatar'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { formatAppDate } from '../../lib/app-locale'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { addDays, dayKey, startOfWeek, type AgendaLayer } from '../../lib/agenda-layout'
@@ -341,10 +340,11 @@ export default function AgendaRail(props: Props) {
                           data-testid="agenda-owner-toggle"
                         >
                           <ToggleBox on={on} className="bg-accent" />
-                          <UserAvatar
+                          <Avatar
+                            kind="person"
                             name={person.name}
                             email={person.email || person.name}
-                            avatarUrl={person.avatarUrl}
+                            imageUrl={person.avatarUrl}
                             size={16}
                             decorative
                           />
@@ -387,7 +387,8 @@ export default function AgendaRail(props: Props) {
                           data-testid="agenda-owner-toggle"
                         >
                           <ToggleBox on={on} className="bg-ai" />
-                          <AgentMark
+                          <Avatar
+                            kind="agent"
                             agent={agent} fallbackName={agent.name}
                             size={16}
                             decorative

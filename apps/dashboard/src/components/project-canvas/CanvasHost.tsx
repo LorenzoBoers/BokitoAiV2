@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Trash2 } from 'lucide-react'
 import { CANVAS_ICON, ENTITY_ICONS } from '../../lib/entity-icons'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { useConfirm } from '../ui/confirm-dialog'
 import { DropdownMenuItem } from '../ui/dropdown-menu'
@@ -321,7 +321,7 @@ export function CanvasHost({
                         className="inline-flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                         title={t('projects.canvas.ownerAgent')}
                       >
-                        <AgentMark agent={row.managing_agent} size={32} mode="static" />
+                        <Avatar kind="agent" agent={row.managing_agent} size={32} mode="static" />
                         <span className="truncate text-sm font-medium text-text-primary">
                           {row.managing_agent.name}
                         </span>

@@ -15,7 +15,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ProfileSkeleton } from '../ui/skeleton'
 import { ChannelGlyph, ChannelLabel, channelKind } from '../ui/ChannelGlyph'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
-import { PersonAvatar } from '../ui/PersonAvatar'
+import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
 import { useConfirm } from '../ui/confirm-dialog'
 import { useAuth } from '../../context/AuthContext'
@@ -352,7 +352,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           <section>
             <div className="flex items-center justify-between gap-3">
               <span className="flex min-w-0 items-center gap-2.5">
-                <PersonAvatar name={contact.displayName} email={contact.address} size={32} />
+                <Avatar kind="person" name={contact.displayName} email={contact.address} size={32} />
                 <h2 className="truncate-fade text-base font-semibold text-text-heading">{t('contactsPage.profile')}</h2>
               </span>
               <Badge size="sm" variant={STATUS_TONE[displayContactStatus(contact)]}>

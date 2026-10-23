@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Avatar } from '../ui/avatar'
 import type { AgentPassport } from '../../lib/workforce-api'
 import { agentStatusOf } from '../../lib/presence'
 import { useTranslation } from 'react-i18next'
@@ -26,14 +27,13 @@ import type { GovernToolRow } from '../../lib/govern-api'
 import type { InboxThread } from '../../lib/inbox-api'
 import type { RuntimeAgent } from '../../lib/workforce-api'
 import { threadStatusLabel } from '../../lib/status-labels'
-import { agentProfileAccentColor, resolveAgentAvatarColor, toAiAvatarProps } from '../../lib/agent-avatar'
+import { agentProfileAccentColor, resolveAgentAvatarColor } from '../../lib/agent-avatar'
 import { formatAgentModelLine } from '../../lib/model-label'
 import { agentChatPath } from '../../lib/messages-paths'
 import { withNavReveal } from '../../lib/nav-reveal'
 import { openEntityPath } from '../../lib/open-entity'
 import { threadHubPath } from '../../lib/message-composer'
 import { translateDecisionText } from '../../lib/activity-labels'
-import { AiAvatar } from '../ui/AiAvatar'
 import { ModelIcon } from '../ui/ModelIcon'
 import { SectionLabel } from '../ui/section-label'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
@@ -188,8 +188,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
         <div className="flex items-start gap-2.5">
           {view && agentId && workHref ? (
             <Link to={workHref} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50">
-              <AiAvatar
-                {...toAiAvatarProps(view, t('agentContext.workspaceAssistant'))}
+              <Avatar
+                kind="agent"
+                agent={view}
+                fallbackName={t('agentContext.workspaceAssistant')}
                 size={40}
                 decorative
                 mode="static"
@@ -197,8 +199,10 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
               />
             </Link>
           ) : (
-            <AiAvatar
-              {...toAiAvatarProps(view ?? agent, t('agentContext.workspaceAssistant'))}
+            <Avatar
+              kind="agent"
+              agent={view ?? agent}
+              fallbackName={t('agentContext.workspaceAssistant')}
               size={40}
               decorative
               mode="static"

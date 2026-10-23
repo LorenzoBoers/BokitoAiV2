@@ -1261,7 +1261,6 @@
     letter-spacing: 0.01em;
     color: rgb(var(--color-ai-ink));
     background: color-mix(in oklab, rgb(var(--color-ai)) 18%, rgb(var(--color-bg-surface)));
-    box-shadow: inset 0 0 0 1.5px rgb(var(--color-ai) / 0.55);
   }
   .ai-avatar > svg {
     position: relative;
@@ -1283,15 +1282,17 @@
   }
   :root[data-theme='light'] .ai-avatar {
     background: color-mix(in oklab, rgb(var(--color-ai)) 10%, rgb(var(--color-bg-surface)));
-    box-shadow: inset 0 0 0 1.5px rgb(var(--color-ai) / 0.45);
   }
   :root[data-theme='light'] .ai-avatar-image {
     background: rgb(var(--color-bg-elevated));
   }
-  /* Working: the ring softens and a violet streak orbits along it. The angle
-     animates (not the element) so nothing else moves. */
+  /* The ai ring only shows while the agent works, with a violet streak
+     orbiting along it. The angle animates (not the element) so nothing else moves. */
   .ai-avatar[data-working] {
-    box-shadow: inset 0 0 0 1.5px rgb(var(--color-ai) / 0.3);
+    box-shadow: inset 0 0 0 1.5px rgb(var(--color-ai) / 0.55);
+  }
+  :root[data-theme='light'] .ai-avatar[data-working] {
+    box-shadow: inset 0 0 0 1.5px rgb(var(--color-ai) / 0.45);
   }
   .ai-avatar[data-working]::after {
     content: '';

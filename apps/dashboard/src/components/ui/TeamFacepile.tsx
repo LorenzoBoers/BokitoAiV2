@@ -1,10 +1,9 @@
 import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { resolveTeamStackMembers } from '../../lib/team-facepile'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import type { PresenceStatus, TeamMemberRef } from '../../lib/teams-api'
 import { AvatarStack } from './AvatarStack'
-import { TeamAvatar } from './TeamAvatar'
+import { Avatar } from './avatar'
 
 type TeamSource = {
   id?: string | number | null
@@ -80,8 +79,9 @@ export function TeamFacepile({
     presence ??
     (typeof team?.presence === 'string' ? team.presence : team?.presence?.status)
   return (
-    <TeamAvatar
-      {...toTeamAvatarProps(team)}
+    <Avatar
+      kind="team"
+      team={team}
       size={size}
       decorative
       presence={teamPresence}

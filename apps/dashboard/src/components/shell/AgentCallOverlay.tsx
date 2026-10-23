@@ -1,4 +1,5 @@
 import { Card } from '../ui/card'
+import { Avatar } from '../ui/avatar'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Phone, PhoneOff } from 'lucide-react'
@@ -35,7 +36,6 @@ import {
   type LiveCall,
 } from '../../lib/agent-call-audio'
 import { useAgents } from '../../hooks/useAgents'
-import { AiAvatar } from '../ui/AiAvatar'
 import { Button } from '../ui/button'
 
 type CallPayload = {
@@ -548,13 +548,16 @@ export default function AgentCallOverlay() {
         }}
       >
         <div className="flex items-center gap-3">
-          <AiAvatar
-            name={agent?.name || name}
-            kind={agent?.avatar_kind}
-            icon={agent?.avatar_icon}
-            color={agent?.avatar_color}
-            shape={agent?.avatar_shape}
-            imageUrl={agent?.avatar_image_url}
+          <Avatar
+            kind="agent"
+            agent={{
+              name: agent?.name || name,
+              avatar_kind: agent?.avatar_kind,
+              avatar_icon: agent?.avatar_icon,
+              avatar_color: agent?.avatar_color,
+              avatar_shape: agent?.avatar_shape,
+              avatar_image_url: agent?.avatar_image_url,
+            }}
             size={64}
             mode="live"
             motion={motion}

@@ -14,7 +14,7 @@ import { timeAgo } from '../../lib/time-ago'
 import { cn } from '../../lib/utils'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { Hashtag } from '../ui/HashtagMark'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import { TicketDueBadge, TicketNextStepLine } from './TicketWork'
 
 const Bot = ENTITY_ICONS.agent
@@ -138,10 +138,11 @@ export function FlowTicketCard({
         ) : null}
         {assignee ? (
           <span className="ml-auto" title={assignee.name}>
-            <UserAvatar
+            <Avatar
+              kind="person"
               name={assignee.name}
               email={assignee.email}
-              avatarUrl={assignee.avatarUrl}
+              imageUrl={assignee.avatarUrl}
               size={16}
               decorative
             />

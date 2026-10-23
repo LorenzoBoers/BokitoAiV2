@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { DEFAULT_BRAND_MARK } from '../../lib/tenant-branding'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 
 function navItemClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
@@ -46,10 +46,11 @@ export default function WorkspaceHubNav() {
           title={t('nav.account')}
           className={({ isActive }) => `min-w-0 flex-1 ${navItemClass(isActive)}`}
         >
-          <UserAvatar
+          <Avatar
+            kind="person"
             name={displayName}
             email={email}
-            avatarUrl={user?.avatarUrl}
+            imageUrl={user?.avatarUrl}
             size={32}
             decorative
             className="rounded-md"

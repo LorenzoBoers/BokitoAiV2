@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, LaptopMinimal, Lock, LogOut, Moon, Pencil, PenLine, ShieldCheck, Sun, Trash2 } from 'lucide-react'
 import { Switch } from '../ui/switch'
 import { toast } from 'sonner'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
 import { authRoutes } from '../../api/routes/auth.routes'
@@ -537,7 +537,7 @@ export function ProfileSettingsContent() {
                 title={t('profile:personalInformation.uploadPhoto')}
                 aria-label={t('profile:personalInformation.uploadPhoto')}
               >
-                <UserAvatar name={user?.name ?? '?'} email={user?.email ?? ''} avatarUrl={user?.avatarUrl} size={48} />
+                <Avatar kind="person" decorative={false} name={user?.name ?? '?'} email={user?.email ?? ''} imageUrl={user?.avatarUrl} size={48} />
                 <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                   {avatarUploading
                     ? <Spinner size="md" className="text-white" />

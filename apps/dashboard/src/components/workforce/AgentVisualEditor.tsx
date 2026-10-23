@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { SectionLabel } from '../ui/section-label'
-import { BotOrbAvatar } from '../ui/BotOrbAvatar'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import {
   BOT_ORB_SHAPE_KEYS,
@@ -281,7 +281,7 @@ function ShapeButton({
         selected ? 'border-ai/50 bg-ai/10' : 'border-border bg-bg-input/30 hover:border-ai/30',
       )}
     >
-      <BotOrbAvatar color={color} shape={shapeKey} size={32} mode="static" decorative />
+      <Avatar kind="agent" agent={{ avatar_kind: 'orb', avatar_color: color, avatar_shape: shapeKey }} size={32} mode="static" decorative />
     </button>
   )
 }

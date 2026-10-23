@@ -115,7 +115,7 @@ function PersonFace({
   className,
 }: Omit<PersonProps, 'kind' | 'presence'> & { size: number; decorative: boolean; className?: string }) {
   if (!imageUrl && domain !== undefined && preferCompanyFavicon(name, email, domain)) {
-    return <DomainFavicon email={email} host={domain} name={name} size={size} className={className} />
+    return <DomainFavicon email={email} host={domain} name={name} size={snapMarkSize(size)} className={className} />
   }
 
   const rawName = (name ?? '').trim()

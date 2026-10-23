@@ -45,8 +45,7 @@ import { MessageReactions } from './MessageReactions'
 import { SubagentRow } from './SubagentRow'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
-import { ContactAvatar } from '../ui/ContactAvatar'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import { Tip } from '../ui/Tip'
 import { useConfirm } from '../ui/confirm-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -79,7 +78,6 @@ import { mentionMarkupToHtmlChips } from '../../lib/mentions'
 import { AiMark } from '../ai/AiMark'
 import { AiHandlingIcon } from '../ai/AiHandlingIcon'
 import { normalizeMode, type AiHandlingMode } from '../../lib/ai-handling'
-import { AiAvatar } from '../ui/AiAvatar'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import {
   BubbleAction,
@@ -252,7 +250,7 @@ function ContactAvatarWithHover({
   size?: number
 }) {
   const avatarNode = (
-    <ContactAvatar name={name} email={email} size={size} className="cursor-default" />
+    <Avatar kind="person" domain={null} name={name} email={email} size={size} className="cursor-default" />
   )
 
   const hasInfo = !!(name && name !== email) || !!email || !!phone
@@ -1615,8 +1613,10 @@ function OwnerInlineChip({
     const agent = id ? agents.find((row) => row.id === id) : undefined
     display = agent?.name || label
     face = (
-      <AiAvatar
-        {...toAiAvatarProps(agent ?? { id: id ?? display, name: display }, display)}
+      <Avatar
+        kind="agent"
+        agent={agent ?? { id: id ?? display, name: display }}
+        fallbackName={display}
         size={16}
         decorative
         mode="static"
@@ -1629,7 +1629,7 @@ function OwnerInlineChip({
     const email = member?.email || self?.email || display
     const avatarUrl = member?.avatarUrl ?? self?.avatarUrl ?? null
     face = display ? (
-      <UserAvatar name={display} email={email} avatarUrl={avatarUrl} size={16} decorative />
+      <Avatar kind="person" name={display} email={email} imageUrl={avatarUrl} size={16} decorative />
     ) : (
       <Users size={14} className="shrink-0 opacity-80" aria-hidden />
     )
@@ -2374,18 +2374,16 @@ export function MessageTimelineItem({
   // channel agent — otherwise Extra’s bubble shows Orchestrator’s name.
   const displayAgentName =
     liveAgent?.name || agentName || t('timeline.aiAgent')
-  const agentMarkProps = toAiAvatarProps(
-    preferLiveAgentAvatar(liveAgent, {
-      name: displayAgentName,
-      agentId: messageAgentId,
-      agentAvatarKind,
-      agentAvatarIcon,
-      agentAvatarColor,
-      agentAvatarShape,
-      agentAvatarImageUrl,
-    }),
-    t('timeline.aiAgent'),
-  )
+  const agentMarkSource = preferLiveAgentAvatar(liveAgent, {
+    name: displayAgentName,
+    agentId: messageAgentId,
+    agentAvatarKind,
+    agentAvatarIcon,
+    agentAvatarColor,
+    agentAvatarShape,
+    agentAvatarImageUrl,
+  })
+  const agentMarkProps = toAiAvatarProps(agentMarkSource, t('timeline.aiAgent'))
   const agentSlotId = `msg:${message.id}`
   const agentLiveSlot =
     messageAgentId && liveSeat ? liveSeat.slotIdFor(String(messageAgentId)) : null
@@ -2419,8 +2417,10 @@ export function MessageTimelineItem({
     />
   ) : (
     <span className="relative inline-flex shrink-0" style={{ width: CHAT_AVATAR_SIZE, height: CHAT_AVATAR_SIZE }}>
-      <AiAvatar
-        {...agentMarkProps}
+      <Avatar
+        kind="agent"
+        agent={agentMarkSource}
+        fallbackName={t('timeline.aiAgent')}
         size={CHAT_AVATAR_SIZE}
         decorative
         mode="static"
@@ -2466,10 +2466,12 @@ export function MessageTimelineItem({
       to={isOwn ? '/settings/profile' : author?.uuid ? '/team#directory' : null}
       label={t('timeline.openProfile', { name: userDisplayName })}
     >
-      <UserAvatar
+      <Avatar
+        kind="person"
+        decorative={false}
         name={userDisplayName}
         email={isOwn ? user?.email || authorEmail || authorName : authorEmail || authorName}
-        avatarUrl={isOwn ? user?.avatarUrl ?? authorAvatarUrl : authorAvatarUrl}
+        imageUrl={isOwn ? user?.avatarUrl ?? authorAvatarUrl : authorAvatarUrl}
         size={CHAT_AVATAR_SIZE}
       />
     </EntityAvatarLink>
@@ -3239,9 +3241,9 @@ function LiveAgentMark({
   const { agents } = useAgents()
   const live = agentId ? agents.find((row) => String(row.id) === String(agentId)) : undefined
   return (
-    <AiAvatar
-      {...toAiAvatarProps(
-        preferLiveAgentAvatar(live, {
+    <Avatar
+      kind="agent"
+      agent={preferLiveAgentAvatar(live, {
           name: name || live?.name,
           agentId,
           agentAvatarKind,
@@ -3249,9 +3251,8 @@ function LiveAgentMark({
           agentAvatarColor,
           agentAvatarShape,
           agentAvatarImageUrl,
-        }),
-        name || 'Agent',
-      )}
+        })}
+      fallbackName={name || 'Agent'}
       size={size}
       decorative
       mode="static"
@@ -3374,10 +3375,11 @@ export function EventClusterTimelineItem({
             to={isSelf ? '/settings/profile' : actorMember?.uuid ? '/team#directory' : null}
             label={t('timeline.openProfile', { name: actorName || '?' })}
           >
-            <UserAvatar
+            <Avatar
+              kind="person"
               name={actorName || '?'}
               email={actorMember?.email ?? ''}
-              avatarUrl={actorMember?.avatarUrl}
+              imageUrl={actorMember?.avatarUrl}
               size={CHAT_AVATAR_SIZE}
               decorative
             />

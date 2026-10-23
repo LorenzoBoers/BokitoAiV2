@@ -11,7 +11,7 @@ import {
 import type { BotOrbMotion } from '../../lib/bot-orb-motion'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
 import { cn } from '../../lib/utils'
-import { AiAvatar, type AiAvatarMode } from '../ui/AiAvatar'
+import { Avatar } from '../ui/avatar'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import { CHAT_AVATAR_SIZE } from './ThreadMeta'
 import type { AgentAvatarKind } from '../../lib/agent-avatar'
@@ -431,13 +431,19 @@ export function LiveAgentAvatarSlot({
   motion,
   pulseId,
   baseMotion,
-  ...avatarProps
+  name,
+  kind,
+  icon,
+  color,
+  shape,
+  imageUrl,
+  decorative = false,
 }: LiveAgentAvatarSlotProps) {
   const seat = useLiveAgentSeat()
   const rootRef = useRef<HTMLSpanElement>(null)
   const live = Boolean(seat && !forceStatic && seat.isLiveSlot(agentId, slotId))
   const spawnKey = live ? seat?.spawnKeyFor(agentId) : null
-  const mode: AiAvatarMode = live ? 'live' : 'static'
+  const mode = live ? 'live' : 'static'
   const claimSeat = seat?.claimSeat
   const registerSlotEl = seat?.registerSlotEl
   const wasLiveRef = useRef(live)
@@ -557,8 +563,17 @@ export function LiveAgentAvatarSlot({
     >
       {holdForSpawn ? null : (
         <span className="live-agent-face inline-flex" data-live={live || undefined}>
-          <AiAvatar
-            {...avatarProps}
+          <Avatar
+            kind="agent"
+            agent={{
+              name,
+              avatar_kind: kind,
+              avatar_icon: icon,
+              avatar_color: color,
+              avatar_shape: shape,
+              avatar_image_url: imageUrl,
+            }}
+            decorative={decorative}
             size={size}
             mode={mode}
             spawnKey={spawnKey}

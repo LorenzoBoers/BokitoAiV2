@@ -1,4 +1,5 @@
 import { Spinner } from '../ui/spinner'
+import { Avatar } from '../ui/avatar'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -10,7 +11,6 @@ import {
   DialogFooter,
   DialogTitle,
 } from '../ui/dialog'
-import { AiAvatar } from '../ui/AiAvatar'
 import { BlurbEdit, NameEdit } from '../ui/NameEdit'
 import { Tip } from '../ui/Tip'
 import { useAuth } from '../../context/AuthContext'
@@ -244,15 +244,19 @@ export function AgentIdentityDialog({
 
         <div className="flex shrink-0 flex-col items-center gap-1 pt-1 pb-3">
           <div className="relative" style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}>
-            <AiAvatar
-              name={name.trim() || agentName}
-              seed={agentId}
+            <Avatar
+              kind="agent"
+              decorative={false}
+              agent={{
+                name: name.trim() || agentName,
+                seed: agentId,
+                avatar_kind: kind,
+                avatar_icon: null,
+                avatar_color: kind === 'orb' ? color : null,
+                avatar_shape: kind === 'orb' ? shape : null,
+                avatar_image_url: null,
+              }}
               size={PREVIEW_SIZE}
-              kind={kind}
-              icon={null}
-              color={kind === 'orb' ? color : null}
-              shape={kind === 'orb' ? shape : null}
-              imageUrl={null}
               mode="live"
               className="relative z-[1]"
               motion={kind === 'orb' ? orbPreview.motion : undefined}

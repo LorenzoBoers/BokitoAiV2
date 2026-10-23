@@ -508,6 +508,21 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - In het mobiele actiemenu staan de `actions` als gewone knoppen, niet als menu-items; pijltjestoetsen springen er niet tussen.
 - `ContentHeader` en `PageIntro` zijn verwijderd. Alle imports zijn in dezelfde stap omgezet, dus de re-export uit het plan was niet nodig.
 
+### Fase 8.6: gezichten
+
+- "Agents tonen altijd hun orb" is gelezen als: de orb is de standaard en een agent krijgt nooit een persoonsschijf. Een agent die zelf een afbeelding, icoon of initialen koos, houdt die. `AgentIdentityDialog` biedt die keuze aan; haar weghalen staat niet in het plan.
+- De `ai`-ring om initialen, iconen en afbeeldingen van agents staat alleen nog aan bij `activity="working"` (met de draaiende streep). Rust: geen ring. De orb zelf had al alleen banen bij `working`.
+- `size` is `number` en wordt op de ladder afgerond, niet `MarkSize`. Veel aanroepen geven een berekende maat door (`ChatStackCard`, `LiveAgentSeat`, `FloatingThreadWindow` met `onCall ? 36 : 24`). De guard `mark-scale` blijft letterlijke maten vangen.
+- De agent-variant heeft naast `mode` en `activity` ook `motion`, `pulseId`, `baseMotion`, `paused`, `spawnKey`, `stackOutline` en `fallbackName`. Die gebruikten de call-, stapel- en tijdlijngezichten al. `team` kreeg `fallbackName`.
+- `AiAvatar.tsx` en `BotOrbAvatar.tsx` blijven als interne bestanden in `components/ui/`. Ze zijn het tekenwerk achter `kind="agent"` en staan niet in de export; de guard staat ze alleen binnen de catalogus toe.
+- `MARK_SIZE` controleert `Avatar`, `AvatarStack` en `TeamFacepile`. Alleen `<Avatar\b` zou de twee stapels niet meer vangen.
+- `Avatar` is standaard decoratief. Op 14 plekken die vroeger standaard niet-decoratief waren (`UserAvatar` en de identiteitsvoorbeelden) staat nu expliciet `decorative={false}`.
+- Plekken die `AiAvatar` losse velden gaven (call-overlay, chatstapel, meldingen, identiteitsvoorbeeld, onboarding) lopen nu ook door `toAiAvatarProps`. Een agentrij zonder enig avatarveld toont daar de grijze laadschijf in plaats van de standaard-orb, net als overal elders al.
+- `LiveAgentAvatarSlot` houdt zijn platte props (`name`, `kind`, `color` …) en bouwt intern de bron. De keten `ThreadDetail` → `AgentTurnLive` → slot omzetten naar bronnen valt buiten het plan.
+- `person` volgt de regels van `PersonAvatar`. Een teamlid zonder naam, of met een e-mailadres als naam, krijgt nu initialen uit het adres.
+- Het favicon van een contact volgt nu de ladder: 28 wordt 32, zoals de initialen al deden.
+- `ReplyComposer` importeerde `AgentMark` en `UserAvatar` zonder ze te gebruiken; die imports zijn weg.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

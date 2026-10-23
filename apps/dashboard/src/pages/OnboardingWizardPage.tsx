@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { Avatar } from '../components/ui/avatar'
 import { Spinner } from '../components/ui/spinner'
 import { PageHeader } from '../components/ui/page-header'
 import { useEffect, useMemo, useState } from 'react'
@@ -8,7 +9,6 @@ import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { WizardSkeleton } from '../components/ui/skeleton'
-import { AiAvatar } from '../components/ui/AiAvatar'
 import { OptionCard, OptionCardGrid } from '../components/ui/option-card'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { Switch } from '../components/ui/switch'
@@ -512,15 +512,19 @@ export default function OnboardingWizardPage() {
               <p className="mt-1 text-sm text-text-secondary">{t('agent.subtitle')}</p>
             </div>
             <div className="flex flex-col items-center pt-2">
-              <AiAvatar
-                name={agentName || 'A'}
-                seed={state.lead_agent?.id || 'agent'}
+              <Avatar
+                kind="agent"
+                decorative={false}
+                agent={{
+                  name: agentName || 'A',
+                  seed: state.lead_agent?.id || 'agent',
+                  avatar_kind: avatarKind,
+                  avatar_icon: null,
+                  avatar_color: avatarKind === 'orb' ? avatarColor : null,
+                  avatar_shape: avatarKind === 'orb' ? avatarShape : null,
+                  avatar_image_url: null,
+                }}
                 size={96}
-                kind={avatarKind}
-                icon={null}
-                color={avatarKind === 'orb' ? avatarColor : null}
-                shape={avatarKind === 'orb' ? avatarShape : null}
-                imageUrl={null}
                 mode="live"
                 baseMotion="idle"
               />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
 import { List, Mic, MicOff, PhoneOff, Settings } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,7 +23,6 @@ import {
 } from '../../lib/agent-call-live'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
-import { AiAvatar } from '../ui/AiAvatar'
 import ScrollFade from '../ui/ScrollFade'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import {
@@ -281,13 +281,16 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
           </ScrollFade>
         ) : null}
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <AiAvatar
-            name={name}
-            kind={agent?.avatar_kind}
-            icon={agent?.avatar_icon}
-            color={agent?.avatar_color}
-            shape={agent?.avatar_shape}
-            imageUrl={agent?.avatar_image_url}
+          <Avatar
+            kind="agent"
+            agent={{
+              name: name,
+              avatar_kind: agent?.avatar_kind,
+              avatar_icon: agent?.avatar_icon,
+              avatar_color: agent?.avatar_color,
+              avatar_shape: agent?.avatar_shape,
+              avatar_image_url: agent?.avatar_image_url,
+            }}
             size={32}
             mode="live"
             motion={speaking ? 'talking' : userSpeaking ? 'listening' : 'idle'}

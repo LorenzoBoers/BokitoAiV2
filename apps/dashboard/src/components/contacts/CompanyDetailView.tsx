@@ -11,7 +11,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { ProfileSkeleton } from '../ui/skeleton'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { DomainFavicon } from '../ui/DomainFavicon'
-import { PersonAvatar } from '../ui/PersonAvatar'
+import { Avatar } from '../ui/avatar'
 import { useConfirm } from '../ui/confirm-dialog'
 import { useAuth } from '../../context/AuthContext'
 import { PageHeader } from '../ui/page-header'
@@ -252,7 +252,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                     to={`/contacts/${c.id}`}
                     className="flex items-center gap-2.5 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-bg-hover"
                   >
-                    <PersonAvatar name={c.displayName} email={c.address} size={24} />
+                    <Avatar kind="person" name={c.displayName} email={c.address} size={24} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate-fade text-sm font-medium text-text-primary">
                         {humanizeContactName(c.displayName, c.address, t('contactsPage.widgetVisitor')) ||

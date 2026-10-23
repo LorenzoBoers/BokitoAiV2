@@ -11,7 +11,7 @@ import {
   Route,
   Webhook,
 } from 'lucide-react'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { Card } from '../ui/card'
 import { EmptyState } from '../ui/empty-state'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -343,7 +343,7 @@ export function AgentActivityTimeline({
                   className="group flex h-9 items-center gap-2 truncate rounded-md px-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/50 hover:text-text-heading"
                   title={lane.agentName}
                 >
-                  <AgentMark agent={lane} size={20} mode="static" />
+                  <Avatar kind="agent" agent={lane} size={20} mode="static" />
                   <span className="min-w-0 truncate group-hover:underline">{lane.agentName}</span>
                 </Link>
               ))}

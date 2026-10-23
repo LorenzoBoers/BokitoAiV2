@@ -14,8 +14,7 @@ import { PageHeader } from '../components/ui/page-header'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { AgentMark } from '../components/ui/AgentMark'
-import { UserAvatar } from '../components/ui/UserAvatar'
+import { Avatar } from '../components/ui/avatar'
 import { EmptyState } from '../components/ui/empty-state'
 import { SectionHeading } from '../components/ui/section-heading'
 import { StatGrid, StatTile } from '../components/ui/stat-tile'
@@ -179,9 +178,9 @@ function ParentBand({ parent }: { parent: DepartmentOverview['parent'] }) {
           {parent.members.map((member) => (
             <li key={`${member.kind}:${member.id}`} className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
               {member.kind === 'agent' ? (
-                <AgentMark agent={member} fallbackName={member.name} size={24} decorative mode="static" />
+                <Avatar kind="agent" agent={member} fallbackName={member.name} size={24} decorative mode="static" />
               ) : (
-                <UserAvatar name={member.name} email={member.name} size={24} decorative />
+                <Avatar kind="person" name={member.name} email={member.name} size={24} decorative />
               )}
               <span className="max-w-[9rem] truncate">{member.name}</span>
             </li>
@@ -429,9 +428,9 @@ function TeamCard({ data }: { data: DepartmentOverview }) {
           {data.members.map((member) => (
             <li key={`${member.kind}:${member.id}`} className="flex items-center gap-2.5 py-2 text-sm">
               {member.kind === 'agent' ? (
-                <AgentMark agent={{ id: member.id, name: member.name }} fallbackName={member.name} size={24} decorative mode="static" />
+                <Avatar kind="agent" agent={{ id: member.id, name: member.name }} fallbackName={member.name} size={24} decorative mode="static" />
               ) : (
-                <UserAvatar name={member.name} email={member.name} size={24} decorative />
+                <Avatar kind="person" name={member.name} email={member.name} size={24} decorative />
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-text-primary">{member.name}</p>

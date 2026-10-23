@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { CalendarDays, Inbox, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
-import { AgentMark } from '../components/ui/AgentMark'
+import { Avatar } from '../components/ui/avatar'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
@@ -129,7 +129,8 @@ function AgentLibraryCard({
         className="relative flex h-full flex-col gap-3 overflow-hidden border-border p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
       >
         <div className="relative z-[1] flex items-start gap-3">
-          <AgentMark
+          <Avatar
+            kind="agent"
             agent={agent}
             size={LIBRARY_MARK_SIZE}
             className="mt-0.5 shrink-0"

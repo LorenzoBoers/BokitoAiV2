@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Avatar } from '../ui/avatar'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -32,7 +33,6 @@ import {
   onAssistantOpen,
   setLauncherSuppressed,
 } from '../../lib/personal-assistant-widget'
-import { AiAvatar } from '../ui/AiAvatar'
 import { Button } from '../ui/button'
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { ChatStackCard, DIAL_KEYS, dialKeyIndex, StackFaces } from './ChatStackCard'
@@ -412,14 +412,17 @@ export default function ChatStack() {
               onClick={() => setSheetOpen(true)}
             >
               {face ? (
-                <AiAvatar
+                <Avatar
+                  kind="agent"
+                  agent={{
+                    name: face.name,
+                    avatar_kind: face.avatarKind ?? face.kind,
+                    avatar_icon: face.avatarIcon,
+                    avatar_color: face.avatarColor,
+                    avatar_shape: face.avatarShape,
+                    avatar_image_url: face.avatarImageUrl,
+                  }}
                   size={32}
-                  name={face.name}
-                  kind={face.avatarKind ?? face.kind}
-                  icon={face.avatarIcon}
-                  color={face.avatarColor}
-                  shape={face.avatarShape}
-                  imageUrl={face.avatarImageUrl}
                   mode={face.working ? 'live' : 'static'}
                   motion={face.working ? 'working' : null}
                   decorative

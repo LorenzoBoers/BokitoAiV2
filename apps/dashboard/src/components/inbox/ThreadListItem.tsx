@@ -14,12 +14,9 @@ import {
   Repeat,
   Trash2,
 } from 'lucide-react'
-import { AgentMark } from '../ui/AgentMark'
-import { AiAvatar } from '../ui/AiAvatar'
-import { ContactAvatar } from '../ui/ContactAvatar'
+import { Avatar } from '../ui/avatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
-import { UserAvatar } from '../ui/UserAvatar'
-import { preferLiveAgentAvatar, toAiAvatarProps } from '../../lib/agent-avatar'
+import { preferLiveAgentAvatar } from '../../lib/agent-avatar'
 import { agentPresenceOf } from '../../hooks/useAgentPresence'
 import { useAgents } from '../../hooks/useAgents'
 import { useTeams } from '../../hooks/useTeams'
@@ -356,9 +353,9 @@ function ThreadListItem({
         </span>
 
         {isDirect || isAgentThread ? (
-          <AiAvatar
-            {...toAiAvatarProps(
-              preferLiveAgentAvatar(
+          <Avatar
+            kind="agent"
+            agent={preferLiveAgentAvatar(
                 face.id
                   ? agents.find((row) => String(row.id) === String(face.id))
                   : undefined,
@@ -372,15 +369,16 @@ function ThreadListItem({
                   agentAvatarShape: face.avatarShape,
                   agentAvatarImageUrl: face.avatarImageUrl,
                 },
-              ),
-            )}
+              )}
             size={28}
             className="mt-0.5"
             decorative
             mode="static"
           />
         ) : (
-          <ContactAvatar
+          <Avatar
+            kind="person"
+            domain={null}
             name={thread.contactName}
             email={thread.contactEmail}
             size={32}
@@ -629,7 +627,8 @@ function ThreadListItem({
                           presence={assigneePresence}
                         />
                       ) : assigneeKind === 'agent' ? (
-                        <AgentMark
+                        <Avatar
+                          kind="agent"
                           agent={preferLiveAgentAvatar(
                             assigneeSeed ? agents.find((row) => row.id === assigneeSeed) : null,
                             {
@@ -649,10 +648,11 @@ function ThreadListItem({
                           activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
                         />
                       ) : (
-                        <UserAvatar
+                        <Avatar
+                          kind="person"
                           name={assigneeName ?? '?'}
                           email={assigneeEmail ?? assigneeName ?? ''}
-                          avatarUrl={assigneeAvatarUrl}
+                          imageUrl={assigneeAvatarUrl}
                           size={16}
                           decorative
                           presence={

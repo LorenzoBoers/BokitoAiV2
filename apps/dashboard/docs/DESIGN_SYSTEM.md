@@ -165,7 +165,7 @@ if (!(await confirm({ title: 'Delete key?', description: '...', destructive: tru
 <MetaLine>{channel}{timeAgo}{count ? `${count} messages` : null}</MetaLine>
 
 <EntityList>
-  <EntityRow leading={<UserAvatar ... />} title={name} badges={<Badge>Admin</Badge>} meta={<MetaLine>...</MetaLine>} trailing={<Button variant="ghost" size="iconSm">...</Button>} />
+  <EntityRow leading={<Avatar kind="person" ... />} title={name} badges={<Badge>Admin</Badge>} meta={<MetaLine>...</MetaLine>} trailing={<Button variant="ghost" size="iconSm">...</Button>} />
 </EntityList>
 
 <StatGrid><StatTile label="Tokens today" value="12.4k" hint="of 50k" /></StatGrid>
@@ -194,16 +194,30 @@ coloring a pill locally.
 ## Identity
 
 `IconTile` (`neutral`, `accent`, `ai`, `success`, `warning`, `error`; sizes
-`sm`, `md`, `lg`) holds one icon or logo. Every round face renders through
-`AvatarDisc` (image or initials). Face boxes share one ladder in
+`sm`, `md`, `lg`) holds one icon or logo. Every face is one `Avatar`:
+
+```tsx
+<Avatar kind="person" name={member.name} email={member.email} imageUrl={member.avatarUrl} presence={status} />
+<Avatar kind="person" name={contact.name} email={contact.address} domain={contact.host ?? null} />
+<Avatar kind="agent" agent={agentRow} mode="static" activity={presence} />
+<Avatar kind="team" team={teamRow} />
+```
+
+`person` is a photo, colored initials, or a quiet question mark for an
+unknown visitor. Pass `domain` (null derives it from the email) for external
+contacts so an organisation sender shows its favicon. `agent` takes the whole
+agent, thread or picker row; it shows the bot orb unless the agent picked an
+image, icon or initials. The violet `ai` ring only shows while the agent
+works; people never wear it. Faces are decorative by default; pass
+`decorative={false}` when the face stands alone without a name.
+
+Face boxes share one ladder in
 `lib/mark-scale.ts`: **16, 20, 24, 32, 40, 48, 64, 80, 96, 128**. A row uses
 one step and a 4px gap (`gap-1`, `gap-2`, `gap-3`) so names start on the same
-line. One face: `UserAvatar` (members),
-`PersonAvatar` (a name or email only), `AgentMark` (agents; wraps `AiAvatar`), `ContactAvatar` (external people and companies),
-`TeamAvatar` (empty-team fallback). A group of people and agents is
+line. A group of people and agents is
 `AvatarStack`: three faces when there are three people or agents; with more, the third circle is +N. Agent orbs use a
 silhouette cutout; people use a surface ring. `TeamFacepile` is that pile
-for a team (member faces, otherwise `TeamAvatar`). The thread participant
+for a team (member faces, otherwise the team `Avatar`). The thread participant
 row uses the same pile.
 
 Named things in a menu always wear that same mark. Use `ChoiceSelect` for a
@@ -239,6 +253,10 @@ Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 | `hover-tint` | `hover:bg-bg-hover` or `/50` |
 | `page-tint` | `bg-bg`, `.scrim` |
 | `raw-h1` | `PageHeader` (auth, docs and public trust pages are exempt) |
+| `legacy-avatar` | `Avatar kind="person"`, `"agent"` or `"team"` |
+
+Face `size` on `Avatar`, `AvatarStack` and `TeamFacepile` stays on the mark
+ladder (`mark-scale`).
 
 Lucide icons also follow the icon scale: `size` 14, 16 or 20 (24, 32, 40 for
 display) and no `strokeWidth`; the base layer sets 1.75.

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Avatar } from '../components/ui/avatar'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { PageContent } from '../components/layout/PageContent'
 import { SettingsSection } from '../components/layout/SettingsSection'
-import { BotOrbAvatar } from '../components/ui/BotOrbAvatar'
 import { Button } from '../components/ui/button'
 import { MemoryRowsSkeleton } from '../components/ui/skeleton'
 import { Card, CardContent } from '../components/ui/card'
@@ -84,12 +84,11 @@ export default function MyAssistantSettings() {
     <PageContent width="lg" className="space-y-4 py-1">
       <Card>
         <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-          <BotOrbAvatar
-            shape={DEFAULT_BOT_ORB_SHAPE}
-            color={DEFAULT_BOT_ORB_COLOR}
+          <Avatar
+            kind="agent"
+            agent={{ avatar_kind: 'orb', avatar_color: DEFAULT_BOT_ORB_COLOR, avatar_shape: DEFAULT_BOT_ORB_SHAPE }}
             size={80}
             decorative
-            label={t('assistantSettings.title')}
           />
           <div className="min-w-0 flex-1 space-y-3">
             <p className="text-sm leading-5 text-text-secondary">{t('assistantSettings.body')}</p>

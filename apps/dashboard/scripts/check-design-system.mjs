@@ -117,6 +117,12 @@ const RULES = [
     catalogOk: true,
     allow: /^(components\/auth\/|components\/docs\/|pages\/(Docs|ForgotPassword|ResetPassword|Login|Signup|VerifyEmail|AcceptInvite|PublicTrust|TrustPrivacy)(?:Page)?)/,
   },
+  {
+    id: 'legacy-avatar',
+    pattern: /<(UserAvatar|PersonAvatar|ContactAvatar|AgentMark|AiAvatar|BotOrbAvatar|TeamAvatar|AvatarDisc|ParticipantMark)\b/,
+    message: 'Use <Avatar kind="person|agent|team">.',
+    catalogOk: true,
+  },
 ]
 
 const RATCHET_RULES = [
@@ -153,7 +159,7 @@ const BASELINE_PATH = join(ROOT, 'scripts', 'design-system-baseline.json')
 /** Face components whose `size={n}` must sit on the mark ladder. */
 const MARK_SCALE = new Set([16, 20, 24, 32, 40, 48, 64, 80, 96, 128])
 const MARK_SIZE = new RegExp(
-  `<(?:UserAvatar|AiAvatar|AgentMark|ContactAvatar|TeamAvatar|PersonAvatar|AvatarStack|TeamFacepile|ParticipantMark|BotOrbAvatar)\\b[^>]*?\\bsize=\\{(\\d+)\\}`,
+  `<(?:Avatar|AvatarStack|TeamFacepile)\\b[^>]*?\\bsize=\\{(\\d+)\\}`,
   'gs',
 )
 const MARK_SIZE_MESSAGE =

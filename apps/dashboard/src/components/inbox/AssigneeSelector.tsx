@@ -7,11 +7,8 @@ import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import { agentPresenceOf, seedAgentPresence, useAgentPresence } from '../../hooks/useAgentPresence'
-import { AgentMark } from '../ui/AgentMark'
-import { TeamAvatar } from '../ui/TeamAvatar'
+import { Avatar } from '../ui/avatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
-import { UserAvatar } from '../ui/UserAvatar'
-import { toTeamAvatarProps } from '../../lib/team-avatar'
 import { Button } from '../ui/button'
 import { Textarea } from '../ui/textarea'
 import { cn } from '../../lib/utils'
@@ -131,26 +128,29 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
   }, [owner, candidates, agents])
 
   const triggerMark = currentMember ? (
-    <UserAvatar
+    <Avatar
+      kind="person"
       name={currentMember.name}
       email={currentMember.email}
-      avatarUrl={currentMember.avatarUrl}
+      imageUrl={currentMember.avatarUrl}
       size={20}
       presence={currentMember.presence}
       decorative
     />
   ) : owner?.kind === 'team' && currentTeam ? (
-    <TeamAvatar
-      {...toTeamAvatarProps({
+    <Avatar
+      kind="team"
+      team={{
         ...currentTeam,
         name: currentTeam.system ? tn(`teamPage.system.${currentTeam.kind}`) : currentTeam.name,
-      })}
+      }}
       size={20}
       decorative
       presence={currentTeam.presence?.status}
     />
   ) : owner?.kind === 'agent' && owner.agentId ? (
-    <AgentMark
+    <Avatar
+      kind="agent"
       agent={currentAgent}
       fallbackName={owner.agentId}
       size={20}
@@ -225,7 +225,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => void onAssign({ kind: 'user', id: p.id })}
                   className={cn('gap-2 text-xs', currentAssigneeId === p.id && 'bg-bg-hover')}
                 >
-                  <UserAvatar name={p.name} email={p.email} avatarUrl={p.avatarUrl} size={20} presence={p.presence} />
+                  <Avatar kind="person" decorative={false} name={p.name} email={p.email} imageUrl={p.avatarUrl} size={20} presence={p.presence} />
                   <span className="min-w-0 flex-1 truncate">{p.name}</span>
                   {!p.canHandle ? <span className="shrink-0 text-2xs text-text-muted">{blocked}</span> : null}
                 </DropdownMenuItem>
@@ -240,7 +240,8 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                   onSelect={() => setHandover({ kind: 'agent', id: a.id, name: a.name })}
                   className={cn('gap-2 text-xs', owner?.kind === 'agent' && owner.agentId === a.id && 'bg-bg-hover')}
                 >
-                  <AgentMark
+                  <Avatar
+                    kind="agent"
                     agent={preferLiveAgentAvatar(
                       agents.find((row) => row.id === a.id),
                       a,
@@ -287,7 +288,7 @@ export default function AssigneeSelector({ threadId, owner, currentAssigneeId, o
                 onSelect={() => void onAssign({ kind: 'user', id: m.id })}
                 className={cn('gap-2 text-xs', currentAssigneeId === m.id && 'bg-bg-hover')}
               >
-                <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={20} presence={m.presence} />
+                <Avatar kind="person" decorative={false} name={m.name} email={m.email} imageUrl={m.avatarUrl} size={20} presence={m.presence} />
                 {m.name}
               </DropdownMenuItem>
             ))

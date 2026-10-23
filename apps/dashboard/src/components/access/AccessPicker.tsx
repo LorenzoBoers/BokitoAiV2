@@ -7,10 +7,9 @@ import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { useIsAdmin } from '../../hooks/useIsAdmin'
 import { getTeamOverview, type TeamOverview } from '../../lib/teams-api'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { TeamFacepile } from '../ui/TeamFacepile'
-import { UserAvatar } from '../ui/UserAvatar'
 import { Switch } from '../ui/switch'
 import {
   Dialog,
@@ -216,10 +215,12 @@ function AccessDialog<L extends string>({
         id: p.uuid,
         label: p.name,
         avatar: (
-          <UserAvatar
+          <Avatar
+            kind="person"
+            decorative={false}
             name={p.name}
             email={p.email}
-            avatarUrl={p.avatar_url}
+            imageUrl={p.avatar_url}
             size={20}
             presence={p.deactivated ? undefined : p.presence?.status}
           />
@@ -233,7 +234,7 @@ function AccessDialog<L extends string>({
         kind: 'agent' as const,
         id: a.id,
         label: a.name,
-        avatar: <AgentMark agent={a} decorative={false} size={20} mode="static" />,
+        avatar: <Avatar kind="agent" agent={a} decorative={false} size={20} mode="static" />,
         locked: false,
         deactivated: Boolean(a.deactivated),
       }))

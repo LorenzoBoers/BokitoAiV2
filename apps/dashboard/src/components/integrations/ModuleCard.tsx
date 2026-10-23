@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
 import { moduleSpecialistVisual } from './ModuleSpecialistCallout'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import {
@@ -214,7 +214,8 @@ export function MarketplaceModuleCard({
             </div>
           </div>
           <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
-            <AgentMark
+            <Avatar
+              kind="agent"
               agent={specialist.avatar}
               size={40}
               mode="live"

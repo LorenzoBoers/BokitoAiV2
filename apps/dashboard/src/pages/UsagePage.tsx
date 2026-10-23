@@ -1,4 +1,5 @@
 import { Card } from '../components/ui/card'
+import { Avatar } from '../components/ui/avatar'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -35,8 +36,6 @@ import { formatAppNumber, formatAppUsdCents } from '../lib/app-number'
 import { workspaceBrandName } from '../lib/tenant-branding'
 import { forYouPath, inboxPath } from '../lib/messages-paths'
 import { ModelIcon } from '../components/ui/ModelIcon'
-import { AiAvatar } from '../components/ui/AiAvatar'
-import { toAiAvatarProps } from '../lib/agent-avatar'
 import { humanizeModelId } from '../lib/model-label'
 import { RegionBadge } from '../components/models/RegionBadge'
 import { parseUsageDays, usageBreakdownToCsv } from '../lib/usage-csv'
@@ -627,9 +626,9 @@ export default function UsagePage() {
                     const body = (
                       <>
                         <div className="flex min-w-0 items-center gap-2.5">
-                          <AiAvatar
-                            {...toAiAvatarProps(
-                              {
+                          <Avatar
+                            kind="agent"
+                            agent={{
                                 id: row.agent_id,
                                 name: row.agent_name,
                                 avatar_kind: row.avatar_kind,
@@ -637,9 +636,8 @@ export default function UsagePage() {
                                 avatar_color: row.avatar_color,
                                 avatar_shape: row.avatar_shape,
                                 avatar_image_url: row.avatar_image_url,
-                              },
-                              row.agent_name,
-                            )}
+                              }}
+                            fallbackName={row.agent_name}
                             size={32}
                             decorative
                             mode="static"

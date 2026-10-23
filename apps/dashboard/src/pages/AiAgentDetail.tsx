@@ -49,7 +49,7 @@ import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 const AGENTS_DEFAULT_PATH = '/agents'
-import { AgentMark } from '../components/ui/AgentMark'
+import { Avatar } from '../components/ui/avatar'
 import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
@@ -390,7 +390,8 @@ export default function AiAgentDetail() {
                     style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
                     aria-label={t('workforce.agents.editIdentity')}
                   >
-                    <AgentMark
+                    <Avatar
+                      kind="agent"
                       agent={agent}
                       size={HERO_MARK_SIZE}
                       className="overflow-visible"
@@ -408,7 +409,8 @@ export default function AiAgentDetail() {
                     </span>
                   </button>
                 ) : (
-                  <AgentMark
+                  <Avatar
+                    kind="agent"
                     agent={agent}
                     size={HERO_MARK_SIZE}
                     className="relative z-[1]"

@@ -26,7 +26,7 @@ import { CanvasKindBody } from '../project-canvas/CanvasKindBody'
 import { CanvasWindow } from '../project-canvas/CanvasWindow'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
 import { canvasIsPending, canvasKindOf, isEmptyCanvasTree, type CanvasNode } from '../../lib/project-canvas/types'
-import { agentProfileAccentColor, toAiAvatarProps } from '../../lib/agent-avatar'
+import { agentProfileAccentColor } from '../../lib/agent-avatar'
 import { cn } from '../../lib/utils'
 import { BrandTile } from '../integrations/BrandMark'
 import { ModuleInstallControls } from '../integrations/ModuleInstallControls'
@@ -34,9 +34,7 @@ import { ModulePartnerLogos } from '../integrations/ModuleCard'
 import { patchIntegrationModule, type IntegrationModuleRow } from '../../lib/integrations-api'
 import { EntityRow } from '../ui/entity-row'
 import { IconTile } from '../ui/icon-tile'
-import { UserAvatar } from '../ui/UserAvatar'
-import { ContactAvatar } from '../ui/ContactAvatar'
-import { AiAvatar } from '../ui/AiAvatar'
+import { Avatar } from '../ui/avatar'
 
 type IconComponent = ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>
 
@@ -120,16 +118,16 @@ function brandSlugForItem(item: ProposalItem): string | null {
 
 function ItemLeading({ item }: { item: ProposalItem }) {
   if (item.type === 'user') {
-    return <UserAvatar name={item.title} email={item.subtitle} avatarUrl={item.imageUrl} size={32} />
+    return <Avatar kind="person" decorative={false} name={item.title} email={item.subtitle} imageUrl={item.imageUrl} size={32} />
   }
   if (item.type === 'contact') {
-    return <ContactAvatar name={item.title} email={item.subtitle} size={32} />
+    return <Avatar kind="person" domain={null} name={item.title} email={item.subtitle} size={32} />
   }
   if (item.type === 'agent') {
     return (
-      <AiAvatar
-        {...toAiAvatarProps(
-          {
+      <Avatar
+        kind="agent"
+        agent={{
             name: item.title,
             agentId: item.id,
             avatarKind: item.avatarKind,
@@ -137,9 +135,8 @@ function ItemLeading({ item }: { item: ProposalItem }) {
             avatarColor: item.avatarColor,
             avatarShape: item.avatarShape,
             avatarImageUrl: item.avatarImageUrl ?? item.imageUrl,
-          },
-          'Agent',
-        )}
+          }}
+        fallbackName={'Agent'}
         size={32}
         decorative
         mode="static"
@@ -485,8 +482,9 @@ function ModuleShowcaseCard({
             </div>
           </div>
           <div className="flex w-max max-w-[42%] shrink-0 flex-col items-center text-center">
-            <AiAvatar
-              {...toAiAvatarProps({
+            <Avatar
+              kind="agent"
+              agent={{
                 id: slug,
                 name: agentName,
                 avatar_kind: item.avatarKind,
@@ -494,7 +492,7 @@ function ModuleShowcaseCard({
                 avatar_color: item.avatarColor,
                 avatar_shape: item.avatarShape,
                 avatar_image_url: item.avatarImageUrl,
-              })}
+              }}
               size={40}
               mode="live"
               decorative

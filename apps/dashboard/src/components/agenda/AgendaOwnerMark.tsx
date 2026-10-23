@@ -4,10 +4,8 @@ import { useAgents } from '../../hooks/useAgents'
 import { useMembers } from '../../hooks/useMembers'
 import { useTeams } from '../../hooks/useTeams'
 import type { AgendaOwner } from '../../lib/agenda-layout'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { AiAvatar } from '../ui/AiAvatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import { cn } from '../../lib/utils'
 
 /** Face for a person, team or agent so Agenda items show who at a glance. */
@@ -29,11 +27,10 @@ export function AgendaOwnerMark({
   const name = owner.name || (owner.kind === 'team' ? 'Team' : owner.kind === 'agent' ? 'Agent' : '')
   const mark =
     owner.kind === 'agent' ? (
-      <AiAvatar
-        {...toAiAvatarProps(
-          agents.find((row) => row.id === owner.id) ?? { id: owner.id, name },
-          name || 'Agent',
-        )}
+      <Avatar
+        kind="agent"
+        agent={agents.find((row) => row.id === owner.id) ?? { id: owner.id, name }}
+        fallbackName={name || 'Agent'}
         size={size}
         decorative
         mode="static"
@@ -51,7 +48,7 @@ export function AgendaOwnerMark({
       const email = member?.email || self?.email || faceName
       const avatarUrl = member?.avatarUrl ?? self?.avatarUrl ?? null
       return faceName ? (
-        <UserAvatar name={faceName} email={email} avatarUrl={avatarUrl} size={size} decorative />
+        <Avatar kind="person" name={faceName} email={email} imageUrl={avatarUrl} size={size} decorative />
       ) : (
         <span
           className="inline-flex shrink-0 items-center justify-center rounded-full bg-bg-elevated text-text-muted"

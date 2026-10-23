@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
 import { AudioLines, PhoneOff, Pin, PinOff, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -11,7 +12,6 @@ import {
   useAgentCallUserSpeaking,
 } from '../../lib/agent-call-live'
 import { cn } from '../../lib/utils'
-import { AiAvatar } from '../ui/AiAvatar'
 import { Tooltip, TooltipContent, TooltipLabel, TooltipTrigger } from '../ui/tooltip'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import { Button } from '../ui/button'
@@ -138,14 +138,17 @@ function StackFace({
       onMouseLeave={() => setHot(false)}
     >
       <span className="relative" style={{ zIndex: hot || onCall ? 30 : 20 - index }}>
-      <AiAvatar
+      <Avatar
+        kind="agent"
+        agent={{
+          name: agent.name,
+          avatar_kind: agent.avatarKind ?? agent.kind,
+          avatar_icon: agent.avatarIcon,
+          avatar_color: agent.avatarColor,
+          avatar_shape: agent.avatarShape,
+          avatar_image_url: agent.avatarImageUrl,
+        }}
         size={size}
-        name={agent.name}
-        kind={agent.avatarKind ?? agent.kind}
-        icon={agent.avatarIcon}
-        color={agent.avatarColor}
-        shape={agent.avatarShape}
-        imageUrl={agent.avatarImageUrl}
         mode="live"
         motion={onCall ? (speaking ? 'talking' : userSpeaking ? 'listening' : 'idle') : agent.working ? 'working' : 'idle'}
         decorative

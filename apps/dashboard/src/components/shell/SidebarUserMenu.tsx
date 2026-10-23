@@ -8,7 +8,7 @@ import { useTheme, type ThemeMode } from '../../context/ThemeContext'
 import { useMembers } from '../../hooks/useMembers'
 import { selfVisiblePresence } from '../../lib/presence'
 import { getTeamOverview, setMyAvailability, type PresenceStatus } from '../../lib/teams-api'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import { PresenceDot } from '../ui/PresenceDot'
 import { Tip } from '../ui/Tip'
 import {
@@ -120,10 +120,12 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
 
   const avatar = (
     <span className="relative shrink-0">
-      <UserAvatar
+      <Avatar
+        kind="person"
+        decorative={false}
         name={name}
         email={email}
-        avatarUrl={user?.avatarUrl}
+        imageUrl={user?.avatarUrl}
         size={collapsed ? 24 : 24}
         presence={presence}
       />

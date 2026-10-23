@@ -17,8 +17,7 @@ import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { ContactSideSkeleton } from '../ui/skeleton'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
-import { ContactAvatar } from '../ui/ContactAvatar'
-import { PersonAvatar } from '../ui/PersonAvatar'
+import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
 import { MetaLine } from '../ui/meta-line'
 import { SettingRow } from '../ui/entity-row'
@@ -482,7 +481,8 @@ export default function ContactPanel({
         <div className="flex flex-col">
           <div className="border-b border-border px-4 pb-3 pt-4">
           <div className="flex items-start gap-2.5">
-            <PersonAvatar
+            <Avatar
+              kind="person"
               name={teammate.name}
               email={teammate.email}
               size={40}
@@ -606,10 +606,10 @@ export default function ContactPanel({
               to={`/contacts/${contact.id}`}
               className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50"
             >
-              <ContactAvatar name={contact.displayName} email={contact.address} size={CONTACT_MARK_SIZE} />
+              <Avatar kind="person" domain={null} name={contact.displayName} email={contact.address} size={CONTACT_MARK_SIZE} />
             </Link>
           ) : (
-            <ContactAvatar name={contact.displayName} email={contact.address} size={CONTACT_MARK_SIZE} />
+            <Avatar kind="person" domain={null} name={contact.displayName} email={contact.address} size={CONTACT_MARK_SIZE} />
           )}
           <div className="min-w-0 flex-1">
             {namedHeadline ? (

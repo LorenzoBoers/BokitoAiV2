@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { InboxMember } from '../../lib/inbox-api'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import { cn } from '../../lib/utils'
 
 /** Who settled a decision — shown on the cloud, not as a chat bubble. */
@@ -29,10 +29,11 @@ export function DecisionResolvedBy({
       className={cn('inline-flex items-center gap-1.5 text-2xs text-text-muted', className)}
       data-testid="decision-resolved-by"
     >
-      <UserAvatar
+      <Avatar
+        kind="person"
         name={display}
         email={member?.email || display}
-        avatarUrl={member?.avatarUrl ?? null}
+        imageUrl={member?.avatarUrl ?? null}
         size={16}
         decorative
       />

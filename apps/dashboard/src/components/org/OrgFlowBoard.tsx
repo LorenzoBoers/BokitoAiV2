@@ -18,7 +18,7 @@ import {
   type GridLens,
 } from '../../lib/org-flow-layout'
 import { cn } from '../../lib/utils'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { ChannelMark } from '../ui/ChannelMark'
 import { FlowMark } from './FlowMark'
 import { useGridNames } from './org-flow-names'
@@ -47,7 +47,7 @@ function FaceInner({ node }: { node: OrgFlowNode }) {
       return <ChannelMark channel={node.channel} size={24} />
     case 'agent':
     case 'user':
-      return <AgentMark agent={node.mark ?? { name: node.label }} size={24} mode="static" fallbackName={node.label} />
+      return <Avatar kind="agent" agent={node.mark ?? { name: node.label }} size={24} mode="static" fallbackName={node.label} />
     case 'unassigned':
       return (
         <span className={cn(round, 'bg-status-warning/15')}>

@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import { AgentOptionRow } from '../ui/AgentOptionRow'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { agentProfileAccentColor } from '../../lib/agent-avatar'
 import type { IntegrationModuleRow } from '../../lib/integrations-api'
 import { cn } from '../../lib/utils'
@@ -107,7 +107,8 @@ export function ModuleSpecialistCallout({
   const portrait = (
     <div className="flex min-w-0 items-center justify-center gap-4">
       <div className="relative shrink-0" style={{ width: 128, height: 128 }}>
-        <AgentMark
+        <Avatar
+          kind="agent"
           agent={avatar}
           size={128}
           mode="live"

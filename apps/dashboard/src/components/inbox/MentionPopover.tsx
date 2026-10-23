@@ -1,9 +1,8 @@
 import { Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
 import { TeamFacepile } from '../ui/TeamFacepile'
-import { UserAvatar } from '../ui/UserAvatar'
 import { preferLiveAgentAvatar } from '../../lib/agent-avatar'
 import { useAgents } from '../../hooks/useAgents'
 import { useTeams } from '../../hooks/useTeams'
@@ -51,7 +50,8 @@ export function MentionCandidateRow({ item, active, selected, onSelect, onHover 
         </span>
       ) : null}
       {item.type === 'agent' ? (
-        <AgentMark
+        <Avatar
+          kind="agent"
           agent={preferLiveAgentAvatar(
             agents.find((row) => row.id === item.id),
             item,
@@ -79,10 +79,12 @@ export function MentionCandidateRow({ item, active, selected, onSelect, onHover 
           presence={item.presence}
         />
       ) : (
-        <UserAvatar
+        <Avatar
+          kind="person"
+          decorative={false}
           name={item.name}
           email={item.email ?? ''}
-          avatarUrl={item.avatarUrl ?? null}
+          imageUrl={item.avatarUrl ?? null}
           size={24}
           presence={item.presence}
         />

@@ -17,7 +17,7 @@ import { BRAND_ASSETS } from '../../lib/brand-assets'
 import { hostSlugForProvider } from '../../lib/integration-brand'
 import { DEFAULT_BRAND_MARK } from '../../lib/tenant-branding'
 import type { OrgGraphMark, OrgGraphNode } from '../../lib/teams-api'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { labelMarkIcon, labelMarkInk } from '../ui/label-marks'
 
@@ -51,7 +51,8 @@ export function OrgNodeFace({
   const mark: OrgGraphMark = node.mark ?? {}
   if (node.kind === 'agent' || node.kind === 'user') {
     return (
-      <AgentMark
+      <Avatar
+        kind="agent"
         agent={{
           avatar_kind: mark.avatar_kind,
           avatar_icon: mark.avatar_icon,

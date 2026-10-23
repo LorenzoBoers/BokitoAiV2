@@ -2,10 +2,8 @@ import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
-import { AgentMark } from '../components/ui/AgentMark'
-import { AiAvatar } from '../components/ui/AiAvatar'
-import { UserAvatar } from '../components/ui/UserAvatar'
-import { agentProfileAccentColor, resolveAgentAvatarColor, type AgentAvatarProps } from '../lib/agent-avatar'
+import { Avatar } from '../components/ui/avatar'
+import { agentProfileAccentColor, resolveAgentAvatarColor, type AgentAvatarSource } from '../lib/agent-avatar'
 import {
   type OverviewAgent,
   type PresenceStatus,
@@ -105,18 +103,18 @@ const INVITE_ROLE_VALUES: MemberRole[] = ['admin', 'member']
 const CEILING_MODES: AutonomyMode[] = ['manual', 'assisted', 'autonomous']
 
 /** Showcase orb pool for the hire-agents banner (pick four at random per visit). */
-const MARKETPLACE_BANNER_POOL: AgentAvatarProps[] = [
-  { name: 'Nova', kind: 'orb', color: '#9159fe', shape: 'bokito' },
-  { name: 'Atlas', kind: 'orb', color: '#1084fe', shape: 'blob' },
-  { name: 'Kai', kind: 'orb', color: '#00c972', shape: 'pebble' },
-  { name: 'Mira', kind: 'orb', color: '#ff6700', shape: 'squircle' },
-  { name: 'Rio', kind: 'orb', color: '#ff309b', shape: 'hex' },
-  { name: 'Sky', kind: 'orb', color: '#00bca6', shape: 'capsule' },
-  { name: 'Leo', kind: 'orb', color: '#ff9800', shape: 'egg' },
-  { name: 'Ada', kind: 'orb', color: '#ff263c', shape: 'crystal' },
+const MARKETPLACE_BANNER_POOL: AgentAvatarSource[] = [
+  { name: 'Nova', avatar_kind: 'orb', avatar_color: '#9159fe', avatar_shape: 'bokito' },
+  { name: 'Atlas', avatar_kind: 'orb', avatar_color: '#1084fe', avatar_shape: 'blob' },
+  { name: 'Kai', avatar_kind: 'orb', avatar_color: '#00c972', avatar_shape: 'pebble' },
+  { name: 'Mira', avatar_kind: 'orb', avatar_color: '#ff6700', avatar_shape: 'squircle' },
+  { name: 'Rio', avatar_kind: 'orb', avatar_color: '#ff309b', avatar_shape: 'hex' },
+  { name: 'Sky', avatar_kind: 'orb', avatar_color: '#00bca6', avatar_shape: 'capsule' },
+  { name: 'Leo', avatar_kind: 'orb', avatar_color: '#ff9800', avatar_shape: 'egg' },
+  { name: 'Ada', avatar_kind: 'orb', avatar_color: '#ff263c', avatar_shape: 'crystal' },
 ]
 
-function pickMarketplaceBannerAgents(count = 4): AgentAvatarProps[] {
+function pickMarketplaceBannerAgents(count = 4): AgentAvatarSource[] {
   const pool = [...MARKETPLACE_BANNER_POOL]
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -719,7 +717,7 @@ export default function MemberManagement({
         <div className="relative z-[1] flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
           <div className="flex items-center gap-1.5" aria-hidden>
             {marketplaceBannerAgents.map((agent, index) => (
-              <AiAvatar key={agent.name ?? index} {...agent} size={40} decorative mode="static" />
+              <Avatar kind="agent" key={agent.name ?? index} agent={agent} size={40} decorative mode="static" />
             ))}
           </div>
           <div className="min-w-0 flex-1">
@@ -840,10 +838,12 @@ export default function MemberManagement({
                     <TableRow key={`m-${m.id}`}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <UserAvatar
+                          <Avatar
+                            kind="person"
+                            decorative={false}
                             name={m.name}
                             email={m.email}
-                            avatarUrl={m.avatarUrl}
+                            imageUrl={m.avatarUrl}
                             size={32}
                             presence={meta?.presence}
                           />
@@ -1064,7 +1064,8 @@ export default function MemberManagement({
                         to={`/agents/${agent.id}`}
                         className="flex items-center gap-2 overflow-visible hover:underline"
                       >
-                        <AgentMark
+                        <Avatar
+                          kind="agent"
                           agent={agent}
                           size={32}
                           className="shrink-0 overflow-visible"

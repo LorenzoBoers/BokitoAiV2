@@ -26,7 +26,7 @@ import {
 import { cn } from '../../lib/utils'
 import { useAgents } from '../../hooks/useAgents'
 import { KnowledgeMark } from '../knowledge/KnowledgeMark'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { ImageGenerationFrames } from './ImageGenerationFrame'
 import { LiveEllipsis, THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
 
@@ -207,7 +207,8 @@ function InviteMark({ item, size }: { item: ActivityItem; size: number; live?: b
   const name = agent?.name || target?.name || ''
   if (!agent && !name) return <UserRound size={size} className="shrink-0" />
   return (
-    <AgentMark
+    <Avatar
+        kind="agent"
         agent={agent ?? { name, id: target?.id }}
       size={size}
       mode="static"

@@ -15,7 +15,7 @@ import { Activity, Inbox, Mail, Plus, Settings, Sunrise } from 'lucide-react'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { GRID_ICON, GRID_PATH, OVERVIEW_PATH } from '../../lib/navigation'
 import { useTranslation } from 'react-i18next'
-import { AgentMark } from '../ui/AgentMark'
+import { Avatar } from '../ui/avatar'
 import { TeamFacepile } from '../ui/TeamFacepile'
 import { asAgentStatus } from '../../lib/presence'
 import { useAgentLive, seedAgentPresence } from '../../hooks/useAgentPresence'
@@ -425,7 +425,8 @@ function AgentFolderRow({
       baseLeaf={baseLeaf}
       label={agent.name}
       icon={
-        <AgentMark
+        <Avatar
+          kind="agent"
           agent={agent}
           size={16}
           decorative
@@ -797,7 +798,7 @@ export default function MessagesHubNav() {
     for (const agent of companyAgents) {
       icons.set(
         agentItemId(agent.id),
-        <AgentMark agent={agent} size={16} decorative mode="static" />,
+        <Avatar kind="agent" agent={agent} size={16} decorative mode="static" />,
       )
     }
     for (const team of teams) {

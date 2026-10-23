@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
+import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
 import { Maximize2, Minus, Pin, PinOff, X } from 'lucide-react'
 import ThreadDetail from '../inbox/ThreadDetail'
@@ -21,7 +22,6 @@ import {
   useAgentCallUserSpeaking,
 } from '../../lib/agent-call-live'
 import { cn } from '../../lib/utils'
-import { AiAvatar } from '../ui/AiAvatar'
 import { Button } from '../ui/button'
 
 const DRAG_MARGIN = 8
@@ -361,14 +361,17 @@ export function FloatingThreadWindow({
         onPointerCancel={endDrag}
       >
         {front ? (
-          <AiAvatar
+          <Avatar
+            kind="agent"
+            agent={{
+              name: front.name,
+              avatar_kind: front.avatarKind ?? front.kind,
+              avatar_icon: front.avatarIcon,
+              avatar_color: front.avatarColor,
+              avatar_shape: front.avatarShape,
+              avatar_image_url: front.avatarImageUrl,
+            }}
             size={onCall ? 36 : 24}
-            name={front.name}
-            kind={front.avatarKind ?? front.kind}
-            icon={front.avatarIcon}
-            color={front.avatarColor}
-            shape={front.avatarShape}
-            imageUrl={front.avatarImageUrl}
             mode="live"
             motion={
               onCall ? (speaking ? 'talking' : userSpeaking ? 'listening' : 'idle') : front.working ? 'working' : 'idle'

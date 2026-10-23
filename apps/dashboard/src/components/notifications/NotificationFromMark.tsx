@@ -1,6 +1,4 @@
-import { AiAvatar } from '../ui/AiAvatar'
-import { ContactAvatar } from '../ui/ContactAvatar'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 import type { NotificationFrom } from '../../lib/notification-from'
 
 type Props = {
@@ -13,15 +11,18 @@ type Props = {
 export function NotificationFromMark({ from, size = 36, className }: Props) {
   if (from.kind === 'agent') {
     return (
-      <AiAvatar
-        name={from.name}
-        seed={from.id || from.name}
+      <Avatar
+        kind="agent"
+        agent={{
+          name: from.name,
+          seed: from.id || from.name,
+          avatar_kind: from.avatar_kind,
+          avatar_icon: from.avatar_icon,
+          avatar_color: from.avatar_color,
+          avatar_shape: from.avatar_shape,
+          avatar_image_url: from.avatar_image_url,
+        }}
         size={size}
-        kind={from.avatar_kind}
-        icon={from.avatar_icon}
-        color={from.avatar_color}
-        shape={from.avatar_shape}
-        imageUrl={from.avatar_image_url}
         decorative
         mode="static"
         className={className}
@@ -30,20 +31,22 @@ export function NotificationFromMark({ from, size = 36, className }: Props) {
   }
   if (from.kind === 'contact') {
     return (
-      <ContactAvatar
+      <Avatar
+        kind="person"
         name={from.name}
         email={from.email}
-        host={from.host}
+        domain={from.host ?? null}
         size={size}
         className={className}
       />
     )
   }
   return (
-    <UserAvatar
+    <Avatar
+      kind="person"
       name={from.name}
       email={from.email || from.name}
-      avatarUrl={from.avatar_url}
+      imageUrl={from.avatar_url}
       size={size}
       decorative
       className={className}

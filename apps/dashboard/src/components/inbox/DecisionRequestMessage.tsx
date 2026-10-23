@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Avatar } from '../ui/avatar'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -69,8 +70,6 @@ import { getAgent } from '../../lib/agents-api'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { Button } from '../ui/button'
 import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
-import { AiAvatar } from '../ui/AiAvatar'
-import { toAiAvatarProps } from '../../lib/agent-avatar'
 import { DocumentTurn } from './ChatBubble'
 import ActivityTrail from './ActivityTrail'
 import { CHAT_AVATAR_SIZE, THREAD_INDENT } from './ThreadMeta'
@@ -666,21 +665,19 @@ export default function DecisionRequestMessage({
     })
   }
 
-  const agentMark = toAiAvatarProps(
-    {
-      name: agentName || agentDisplayName,
-      agentId,
-      agentAvatarKind,
-      agentAvatarIcon,
-      agentAvatarColor,
-      agentAvatarShape,
-      agentAvatarImageUrl,
-    },
-    'Agent',
-  )
   const agentAvatar = (
-    <AiAvatar
-      {...agentMark}
+    <Avatar
+      kind="agent"
+      agent={{
+        name: agentName || agentDisplayName,
+        agentId,
+        agentAvatarKind,
+        agentAvatarIcon,
+        agentAvatarColor,
+        agentAvatarShape,
+        agentAvatarImageUrl,
+      }}
+      fallbackName="Agent"
       size={CHAT_AVATAR_SIZE}
       decorative
       mode="static"

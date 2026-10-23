@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { UserAvatar } from '../ui/UserAvatar'
+import { Avatar } from '../ui/avatar'
 
 type Props = {
   count: number
@@ -148,7 +148,7 @@ export default function BulkActionsBar({
                   className="gap-2 text-xs"
                   onSelect={() => onAction('assign', m.id)}
                 >
-                  <UserAvatar name={m.name} email={m.email} avatarUrl={m.avatarUrl} size={20} presence={m.presence} />
+                  <Avatar kind="person" decorative={false} name={m.name} email={m.email} imageUrl={m.avatarUrl} size={20} presence={m.presence} />
                   {m.name}
                 </DropdownMenuItem>
               ))

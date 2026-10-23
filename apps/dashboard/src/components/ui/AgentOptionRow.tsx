@@ -1,4 +1,4 @@
-import { AgentMark } from './AgentMark'
+import { Avatar } from './avatar'
 import { cn } from '../../lib/utils'
 import type { AgentPresenceStatus } from '../../lib/teams-api'
 
@@ -25,7 +25,8 @@ type Props = {
 export function AgentOptionRow({ agent, size = 20, className, trailing, activity }: Props) {
   return (
     <span className={cn('flex min-w-0 items-center gap-2', className)}>
-      <AgentMark
+      <Avatar
+        kind="agent"
         agent={agent}
         size={size}
         decorative

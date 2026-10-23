@@ -24,8 +24,7 @@ import { startOnboardingSetupThread } from '../lib/onboarding-wizard-api'
 import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target'
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
-import { AgentMark } from '../components/ui/AgentMark'
-import { UserAvatar } from '../components/ui/UserAvatar'
+import { Avatar } from '../components/ui/avatar'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
@@ -1009,7 +1008,8 @@ export default function NewConversationPage() {
                     <div className="flex h-20 items-center justify-center">
                       {activeCarousel.kind === 'agent' ? (
                         <div className="relative" style={{ width: 80, height: 80 }} data-dot-field-agent>
-                          <AgentMark
+                          <Avatar
+                            kind="agent"
                             agent={activeCarousel.agent}
                             size={80}
                             decorative={false}
@@ -1018,10 +1018,12 @@ export default function NewConversationPage() {
                           />
                         </div>
                       ) : activeCarousel.kind === 'member' ? (
-                        <UserAvatar
+                        <Avatar
+                          kind="person"
+                          decorative={false}
                           name={activeCarousel.member.name || activeCarousel.member.email}
                           email={activeCarousel.member.email}
-                          avatarUrl={activeCarousel.member.avatarUrl}
+                          imageUrl={activeCarousel.member.avatarUrl}
                           presence={activeCarousel.member.presence}
                           size={80}
                         />

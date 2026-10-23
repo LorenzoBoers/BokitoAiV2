@@ -1,13 +1,12 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { AgentMark } from './AgentMark'
+import { Avatar } from './avatar'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import type { TeamMemberRef } from '../../lib/teams-api'
 import { BrandMark } from '../integrations/BrandMark'
 import { HashtagMark } from './HashtagMark'
 import { FLOW_LABEL_COLOR, FLOW_LABEL_ICON, labelMarkIcon, labelMarkInk } from './label-marks'
 import { TeamFacepile } from './TeamFacepile'
-import { UserAvatar } from './UserAvatar'
 import { cn } from '../../lib/utils'
 import type { AgentVisualFields } from './AgentOptionRow'
 
@@ -63,16 +62,17 @@ export function ChoiceMark({ item, size = 18 }: { item: ChoiceItem; size?: numbe
   if (item.kind === 'agent') {
     const agent = item.agent ?? { id: item.value, name: item.label }
     return (
-      <AgentMark agent={agent} fallbackName={item.label} size={size} decorative mode="static" />
+      <Avatar kind="agent" agent={agent} fallbackName={item.label} size={size} decorative mode="static" />
     )
   }
   if (item.kind === 'person') {
     const person = item.person ?? { name: item.label }
     return (
-      <UserAvatar
+      <Avatar
+        kind="person"
         name={person.name || item.label}
         email={person.email || person.name || item.label}
-        avatarUrl={person.avatarUrl}
+        imageUrl={person.avatarUrl}
         size={size}
         decorative
       />
