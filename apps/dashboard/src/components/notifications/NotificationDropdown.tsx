@@ -143,9 +143,9 @@ export default function NotificationDropdown() {
               {unreadCount > 0 ? (
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="xs"
                   onClick={markAllAsRead}
-                  className="h-7 px-2 text-xs text-text-secondary"
+                  className="px-2 text-xs text-text-secondary"
                 >
                   {t('notificationsUi.markAll')}
                 </Button>

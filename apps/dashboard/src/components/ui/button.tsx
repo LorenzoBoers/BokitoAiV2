@@ -8,15 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'btn-elevated bg-accent text-accent-fg hover:bg-accent-hover',
+        default: 'bg-accent text-accent-fg hover:bg-accent-hover',
         secondary:
           'border border-border bg-bg-surface text-text-heading hover:border-border-light hover:bg-bg-hover/70',
         ghost: 'text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
-        ai: 'btn-elevated bg-ai text-ai-fg hover:bg-ai/90',
+        ai: 'bg-ai text-ai-fg hover:bg-ai/90',
         destructive: 'border border-status-error/30 text-status-error hover:bg-status-error/10',
       },
       size: {
-        sm: 'h-8 px-3 text-xs',
+        xs: 'h-7 px-2.5 text-xs',
+        sm: 'h-8 px-3 text-sm',
         md: 'h-9 px-3.5 text-sm',
         lg: 'h-10 px-4 text-sm',
         icon: 'h-8 w-8',
@@ -25,7 +26,7 @@ const buttonVariants = cva(
     },
     defaultVariants: {
       variant: 'default',
-      size: 'md',
+      size: 'sm',
     },
   },
 )

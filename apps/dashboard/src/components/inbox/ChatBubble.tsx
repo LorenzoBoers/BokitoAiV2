@@ -24,11 +24,10 @@ export type { BubbleStack }
 const TONE: Record<BubbleVariant, string> = {
   external: 'bg-bg-surface ring-1 ring-inset ring-border/60 shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
   team: 'bg-bg-elevated ring-1 ring-inset ring-border/40',
-  // Clean paper + hairline ring + AI violet spine (not a lavender wash).
+  // No fill: the reply reads as prose beside the avatar.
   agent: 'chat-bubble-agent',
-  // Solid fill like iMessage / WhatsApp.
-  self:
-    'chat-bubble-self bg-accent text-accent-fg shadow-[0_1px_2px_rgb(0_0_0/0.10)] [&_.text-text-muted]:text-accent-fg/70 [&_.text-text-heading]:text-accent-fg [&_.text-accent]:text-accent-fg [&_a]:text-accent-fg [&_code]:bg-accent-fg/15',
+  // Soft neutral fill; text keeps the normal ink.
+  self: 'chat-bubble-self bg-bg-hover text-text-primary',
   // Human team note (amber) vs agent team note (AI violet, dashed).
   note: 'bg-status-warning/[0.07] ring-1 ring-inset ring-status-warning/25',
   ai_note: 'chat-bubble-ai-note',
@@ -242,8 +241,7 @@ export function ChatBubbleShell({
             : undefined
         }
         className={cn(
-          'relative w-full px-3.5 py-2 text-lg leading-relaxed',
-          variant === 'self' ? 'text-accent-fg' : 'text-text-primary',
+          'relative w-full px-3.5 py-2 text-lg leading-relaxed text-text-primary',
           shapeFor(side, stack),
           TONE[variant],
           onClick && 'text-left transition-colors hover:brightness-[0.98]',
@@ -255,17 +253,12 @@ export function ChatBubbleShell({
         {showFooter ? (
           <div
             className={cn(
-              'mt-1 flex items-center justify-end gap-1.5 text-2xs leading-none tabular-nums',
-              variant === 'self' ? 'text-accent-fg/70' : 'text-text-muted',
+              'mt-1 flex items-center justify-end gap-1.5 text-2xs leading-none tabular-nums text-text-muted',
             )}
           >
             {actions ? (
               <div
-                className={cn(
-                  'flex shrink-0 items-center gap-px',
-                  variant === 'self' &&
-                    '[&_button]:text-accent-fg/75 [&_button:hover]:bg-accent-fg/15 [&_button:hover]:text-accent-fg',
-                )}
+                className="flex shrink-0 items-center gap-px"
                 onClick={(event) => event.stopPropagation()}
               >
                 {actions}

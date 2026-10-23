@@ -981,7 +981,7 @@ export default function MailComposer({
               title={fullscreen ? t('mailComposer.exitFullscreen') : t('mailComposer.fullscreen')}
               aria-label={fullscreen ? t('mailComposer.exitFullscreen') : t('mailComposer.fullscreen')}
               aria-pressed={fullscreen}
-              className="ml-auto h-6 w-6 text-text-muted"
+              className="ml-auto text-text-muted"
             >
               {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
             </Button>

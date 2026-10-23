@@ -553,9 +553,9 @@ function BoardFieldFilters({
           </span>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="h-7 gap-1 px-2 text-xs text-text-muted"
+            className="gap-1 px-2 text-xs text-text-muted"
             onClick={onClear}
           >
             <X size={12} aria-hidden />

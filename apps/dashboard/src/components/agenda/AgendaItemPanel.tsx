@@ -59,7 +59,7 @@ export default function AgendaItemPanel(props: Props) {
         <Button variant="ghost" size="iconSm"
           type="button"
           onClick={onClose}
-          className="h-6 w-6 text-text-muted"
+          className="text-text-muted"
           aria-label={t('agendaPage.panel.close')}
         >
           <X className="h-4 w-4" aria-hidden />

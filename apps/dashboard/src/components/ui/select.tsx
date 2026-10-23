@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 
 /** Compact closed control shared by selects and menu chips. */
 export const controlChipClass =
-  'inline-flex h-6 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
+  'inline-flex h-7 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
 
 /** Side-panel value without a chip border or fill — icon + label only. */
 export const controlTextClass =
@@ -33,7 +33,7 @@ function SelectTrigger({
       className={cn(
         chip
           ? controlChipClass
-          : 'flex h-9 w-full items-center justify-between rounded-md border border-border bg-bg-input px-3 text-sm text-text-primary placeholder:text-text-muted outline-none focus:border-border-focus',
+          : 'flex h-9 w-full items-center justify-between rounded-md border border-border-light bg-bg-input px-3 text-sm text-text-primary placeholder:text-text-muted outline-none transition-[border-color,box-shadow] duration-150 focus:border-border-focus focus:ring-[3px] focus:ring-border-focus/20',
         className,
       )}
       {...props}
@@ -85,7 +85,7 @@ function SelectItem({
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex min-h-9 w-full min-w-0 cursor-default select-none items-center overflow-hidden rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none',
+        'relative flex min-h-8 w-full min-w-0 cursor-default select-none items-center overflow-hidden rounded-md px-2.5 py-1 text-sm text-text-primary outline-none',
         'data-[highlighted]:bg-bg-hover/80 data-[state=checked]:bg-accent/15 data-[highlighted]:data-[state=checked]:bg-accent/20',
         className,
       )}

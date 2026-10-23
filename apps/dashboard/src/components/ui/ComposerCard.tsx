@@ -209,13 +209,11 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
     <div
       ref={cardRef}
       className={cn(
-        'group/composer relative rounded-xl border bg-bg-elevated/40 px-3 pb-2 pt-3 transition-[border-color,box-shadow] duration-200',
+        'group/composer relative rounded-[22px] border border-transparent bg-bg-surface px-4 pb-2.5 pt-3.5 shadow-composer transition-[border-color,box-shadow] duration-200',
         tone === 'ai' &&
-          'border-ai/55 bg-bg-surface focus-within:border-ai/80 focus-within:shadow-[0_0_0_3px_rgb(var(--color-ai)/0.22)]',
+          'border-ai/55 focus-within:border-ai/80 focus-within:shadow-[0_0_0_3px_rgb(var(--color-ai)/0.22)]',
         tone === 'note' &&
-          'border-border/80 focus-within:border-border focus-within:shadow-[0_0_0_3px_rgb(var(--color-border)/0.32)]',
-        tone === 'default' &&
-          'border-border/60 focus-within:border-accent/55 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.16)]',
+          'border-border-light focus-within:border-border-light focus-within:shadow-[0_0_0_3px_rgb(var(--color-border)/0.32)]',
         className,
       )}
     >
@@ -282,7 +280,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
             <div
               ref={highlightRef}
               aria-hidden
-              className="composer-ai-flash-text pointer-events-none absolute inset-0 min-w-0 overflow-hidden whitespace-pre-wrap break-words text-base leading-[22px] text-text-primary"
+              className="composer-ai-flash-text pointer-events-none absolute inset-0 min-w-0 overflow-hidden whitespace-pre-wrap break-words text-lg leading-6 text-text-primary"
             >
               {highlighter}
             </div>
@@ -297,7 +295,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
               textareaProps.onScroll?.(event)
             }}
             className={cn(
-              'relative block min-h-0 min-w-0 w-full resize-none bg-transparent text-base leading-[22px] placeholder:truncate placeholder:text-text-muted focus:outline-none disabled:opacity-50',
+              'relative block min-h-0 min-w-0 w-full resize-none bg-transparent text-lg leading-6 placeholder:truncate placeholder:text-text-muted focus:outline-none disabled:opacity-50',
               highlighter ? 'text-transparent caret-[rgb(var(--color-text-primary))]' : 'text-text-primary',
               textareaClassName,
             )}

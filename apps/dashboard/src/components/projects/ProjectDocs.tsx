@@ -274,10 +274,10 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                 className="h-8 text-sm"
                 autoFocus
               />
-              <Button type="button" size="sm" className="h-8" disabled={saving || !newPath.trim()} onClick={() => void createDoc()}>
+              <Button type="button" size="sm" disabled={saving || !newPath.trim()} onClick={() => void createDoc()}>
                 {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
               </Button>
-              <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => setCreating(false)}>
+              <Button type="button" size="sm" variant="ghost" className="px-2" onClick={() => setCreating(false)}>
                 <X size={13} />
               </Button>
             </div>

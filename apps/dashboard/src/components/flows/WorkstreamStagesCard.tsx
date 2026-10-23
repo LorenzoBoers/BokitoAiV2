@@ -189,9 +189,9 @@ function StageWorkBlock({
         {canEdit && items.length < MAX_CHECKLIST ? (
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="h-7 px-2 text-xs"
+            className="px-2 text-xs"
             onClick={() => onUpdate({ checklist: [...items, { key: '', label: '', required: false, evidence: 'manual' }] })}
           >
             <Plus size={12} aria-hidden />
@@ -423,9 +423,9 @@ function SortablePhaseCard({
         {canEdit ? (
           <Button
             type="button"
-            size="sm"
+            size="iconSm"
             variant="ghost"
-            className="h-7 w-7 shrink-0 p-0 text-text-muted hover:text-status-error"
+            className="shrink-0 p-0 text-text-muted hover:text-status-error"
             disabled={!canRemove}
             aria-label={t('workstreamsPage.stages.remove')}
             onClick={onRemove}
@@ -549,9 +549,9 @@ function StageFieldsBlock({
                 {canEdit ? (
                   <Button
                     type="button"
-                    size="sm"
+                    size="iconSm"
                     variant="ghost"
-                    className="h-7 w-7 shrink-0 p-0 text-text-muted hover:text-status-error"
+                    className="shrink-0 p-0 text-text-muted hover:text-status-error"
                     aria-label={t('workstreamsPage.stages.fieldRemove')}
                     onClick={() => {
                       const fields = (stage.fields ?? []).filter((_, i) => i !== fieldIndex)
@@ -635,9 +635,9 @@ function StageFieldsBlock({
                       {canEdit && (field.options?.length ?? 0) > 2 ? (
                         <Button
                           type="button"
-                          size="sm"
+                          size="iconSm"
                           variant="ghost"
-                          className="h-7 w-7 shrink-0 p-0 text-text-muted hover:text-status-error"
+                          className="shrink-0 p-0 text-text-muted hover:text-status-error"
                           aria-label={t('workstreamsPage.stages.fieldOptionRemove')}
                           onClick={() => {
                             const options = (field.options ?? []).filter((_, i) => i !== optionIndex)

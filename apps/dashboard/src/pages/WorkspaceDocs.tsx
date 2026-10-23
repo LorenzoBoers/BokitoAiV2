@@ -557,8 +557,7 @@ export default function WorkspaceDocs() {
                 <PageGuideLink page="knowledge" compact />
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
+                  size="iconSm"
                   title={t('knowledgePage.refresh')}
                   onClick={() => void refresh()}
                 >
@@ -566,8 +565,7 @@ export default function WorkspaceDocs() {
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
+                  size="iconSm"
                   title={t('knowledgePage.upload')}
                   disabled={uploading}
                   onClick={() => uploadInputRef.current?.click()}
@@ -580,8 +578,7 @@ export default function WorkspaceDocs() {
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
+                  size="iconSm"
                   title={t('knowledgePage.newDoc')}
                   onClick={() => setCreating((v) => !v)}
                 >
@@ -623,7 +620,7 @@ export default function WorkspaceDocs() {
                   }}
                   autoFocus
                 />
-                <Button size="sm" className="h-8" onClick={() => void handleCreate()} disabled={!newTitle.trim()}>
+                <Button size="sm" onClick={() => void handleCreate()} disabled={!newTitle.trim()}>
                   {t('knowledgePage.add')}
                 </Button>
               </div>
@@ -747,7 +744,7 @@ export default function WorkspaceDocs() {
                   className="h-8 pl-7 text-xs"
                 />
               </div>
-              <Button size="sm" variant="secondary" className="h-8" onClick={() => void runSearch()}>
+              <Button size="sm" variant="secondary" onClick={() => void runSearch()}>
                 {t('knowledgePage.search')}
               </Button>
             </div>
@@ -1016,7 +1013,6 @@ export default function WorkspaceDocs() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
                         title={t('knowledgePage.delete')}
                         onClick={() => void handleDelete()}
                       >

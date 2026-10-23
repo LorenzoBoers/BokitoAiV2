@@ -677,7 +677,7 @@ function MiniMonth({
         <span className="flex">
           <Button variant="ghost" size="iconSm"
             type="button"
-            className="h-6 w-6 text-text-muted"
+            className="text-text-muted"
             aria-label={t('agendaPage.prevMonth')}
             onClick={() => onPickDay(shiftMonth(anchor, -1))}
           >
@@ -685,7 +685,7 @@ function MiniMonth({
           </Button>
           <Button variant="ghost" size="iconSm"
             type="button"
-            className="h-6 w-6 text-text-muted"
+            className="text-text-muted"
             aria-label={t('agendaPage.nextMonth')}
             onClick={() => onPickDay(shiftMonth(anchor, 1))}
           >

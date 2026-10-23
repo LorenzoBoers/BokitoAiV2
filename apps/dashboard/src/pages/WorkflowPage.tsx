@@ -220,14 +220,14 @@ export default function WorkflowPage() {
           <FlowLegend lens={lens} />
           {view === '3d' ? (
             <div className="ml-auto flex shrink-0 items-center gap-1 border-l border-border/40 pl-2">
-              <Button variant="ghost" size="sm" type="button" className="h-7 px-2.5" onClick={() => zoomApiRef.current?.zoomBy(1 / 1.15)}>
+              <Button variant="ghost" size="xs" type="button" className="px-2.5" onClick={() => zoomApiRef.current?.zoomBy(1 / 1.15)}>
                 -
               </Button>
               <span className="min-w-[3rem] text-center text-2xs tabular-nums text-text-muted">{zoomPct}%</span>
-              <Button variant="ghost" size="sm" type="button" className="h-7 px-2.5" onClick={() => zoomApiRef.current?.zoomBy(1.15)}>
+              <Button variant="ghost" size="xs" type="button" className="px-2.5" onClick={() => zoomApiRef.current?.zoomBy(1.15)}>
                 +
               </Button>
-              <Button variant="ghost" size="sm" type="button" className="h-7 px-2.5" onClick={() => zoomApiRef.current?.reset()}>
+              <Button variant="ghost" size="xs" type="button" className="px-2.5" onClick={() => zoomApiRef.current?.reset()}>
                 {t('orgCanvas.reset')}
               </Button>
             </div>

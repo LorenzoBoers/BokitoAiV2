@@ -620,7 +620,7 @@ export function ProfileSettingsContent() {
             <Button
               variant="secondary"
               size="sm"
-              className="h-8 shrink-0 rounded-lg px-3 text-xs"
+              className="shrink-0 rounded-lg px-3 text-xs"
               onClick={() => setSignatureEditorOpen(true)}
             >
               <PenLine size={12} />
@@ -756,7 +756,7 @@ export function ProfileSettingsContent() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="h-8 rounded-lg px-3 text-xs"
+                  className="rounded-lg px-3 text-xs"
                   onClick={() => { setShowPasswordForm(true); setPwError(null) }}
                 >
                   <Lock size={12} />
@@ -792,7 +792,7 @@ export function ProfileSettingsContent() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="h-8 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
+                    className="rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
                     disabled={disconnectDisabled}
                     onClick={() => void handleSsoDisconnect(provider)}
                   >
@@ -854,7 +854,7 @@ export function ProfileSettingsContent() {
                       <Button
                         variant="default"
                         size="sm"
-                        className="h-8 rounded-lg px-3 text-xs"
+                        className="rounded-lg px-3 text-xs"
                         disabled={ssoBusy === provider || !configured}
                         onClick={() => void handleSsoConnect(provider)}
                       >
@@ -910,7 +910,7 @@ export function ProfileSettingsContent() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="h-8 shrink-0 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
+                  className="shrink-0 rounded-lg px-3 text-xs text-status-error hover:bg-status-error/10 hover:text-status-error"
                   onClick={() => { setShowTotpDisable(true); setTotpError(null) }}
                 >
                   {t('profile:security.totpDisable')}
@@ -919,7 +919,7 @@ export function ProfileSettingsContent() {
                 <Button
                   variant="default"
                   size="sm"
-                  className="h-8 shrink-0 rounded-lg px-3 text-xs"
+                  className="shrink-0 rounded-lg px-3 text-xs"
                   disabled={totpBusy}
                   onClick={() => void startTotpSetup()}
                 >
@@ -1073,8 +1073,8 @@ export function ProfileSettingsContent() {
                   </code>
                   <Button
                     variant="secondary"
-                    size="sm"
-                    className="h-7 shrink-0 rounded-lg px-2.5 text-xs"
+                    size="xs"
+                    className="shrink-0 rounded-lg px-2.5 text-xs"
                     onClick={() => {
                       void navigator.clipboard.writeText(totpSetup.secret)
                       toast.success(t('common:actions.copied'))
@@ -1169,7 +1169,7 @@ export function ProfileSettingsContent() {
               <p className="text-sm font-medium text-text-heading">{t('profile:account.signOutTitle')}</p>
               <p className="text-xs text-text-muted">{t('profile:account.signOutDescription')}</p>
             </div>
-            <Button variant="secondary" size="sm" className="h-8 rounded-lg px-3 text-xs" onClick={() => void logout()}>
+            <Button variant="secondary" size="sm" className="rounded-lg px-3 text-xs" onClick={() => void logout()}>
               <LogOut size={12} />
               {t('common:actions.signOut')}
             </Button>

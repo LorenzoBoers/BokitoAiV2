@@ -109,9 +109,9 @@ function ItemCard({
       {canRemove ? (
         <Button
           type="button"
-          size="sm"
+          size="xs"
           variant="ghost"
-          className="mr-1 h-6 px-1.5 text-text-muted hover:text-status-error"
+          className="mr-1 px-1.5 text-text-muted hover:text-status-error"
           disabled={busy}
           title={t('projects.worksIn.remove')}
           onClick={onRemove}
@@ -218,7 +218,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
           {t('projects.worksIn.title')}
         </h2>
         {canEdit && !adding ? (
-          <Button type="button" size="sm" variant="secondary" className="h-7" onClick={() => setAdding(true)}>
+          <Button type="button" size="xs" variant="secondary" onClick={() => setAdding(true)}>
             <Plus size={13} className="mr-1" />
             {t('projects.worksIn.add')}
           </Button>
@@ -305,11 +305,11 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
               : t(`projects.worksIn.addHint.${kind}`)}
           </p>
           <div className="flex justify-end gap-1.5">
-            <Button type="button" size="sm" variant="ghost" className="h-7" onClick={reset}>
+            <Button type="button" size="xs" variant="ghost" onClick={reset}>
               <X size={12} className="mr-1" />
               {t('projects.work.cancel')}
             </Button>
-            <Button type="button" size="sm" className="h-7" disabled={busy || !canSubmit} onClick={() => void add()}>
+            <Button type="button" size="xs" disabled={busy || !canSubmit} onClick={() => void add()}>
               {busy ? <Loader2 size={12} className="mr-1 animate-spin" /> : <Plus size={12} className="mr-1" />}
               {t('projects.work.add')}
             </Button>

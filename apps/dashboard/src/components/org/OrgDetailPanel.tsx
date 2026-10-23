@@ -145,7 +145,7 @@ export function OrgIssuesList({
               type="button"
               aria-label={t('orgCanvas.panel.close')}
               onClick={onClose}
-              className="-mr-1 h-6 w-6 text-text-muted"
+              className="-mr-1 text-text-muted"
             >
               <X size={14} />
             </Button>
@@ -445,7 +445,7 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
             type="button"
             aria-label={t('orgCanvas.panel.close')}
             onClick={() => onSelect(null)}
-            className="h-6 w-6 text-text-muted"
+            className="text-text-muted"
           >
             <X size={14} />
           </Button>

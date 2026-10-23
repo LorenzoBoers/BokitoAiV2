@@ -194,19 +194,19 @@ export function ThreadCategory({ signalId, version }: Props) {
             <div className="flex flex-wrap items-center gap-1.5">
               <Button
                 type="button"
-                size="sm"
+                size="xs"
                 disabled={busy}
-                className="h-7 px-2.5 text-xs"
+                className="px-2.5 text-xs"
                 onClick={() => void patch({ status: 'open' }, t('tickets.acceptError'))}
               >
                 {t('tickets.confirm')}
               </Button>
               <Button
                 type="button"
-                size="sm"
+                size="xs"
                 variant="ghost"
                 disabled={busy}
-                className="h-7 px-2.5 text-xs"
+                className="px-2.5 text-xs"
                 onClick={() => void patch({ status: 'dismissed' }, t('tickets.acceptError'))}
               >
                 {t('tickets.dismiss')}

@@ -37,9 +37,9 @@ export default function ImpersonationBanner() {
       {error ? <span className="shrink-0 text-status-error">{error}</span> : null}
       <Button
         type="button"
-        size="sm"
+        size="xs"
         variant="secondary"
-        className="h-6 shrink-0 px-2 text-2xs"
+        className="shrink-0 px-2 text-2xs"
         disabled={stopping}
         onClick={() => void onStop()}
       >

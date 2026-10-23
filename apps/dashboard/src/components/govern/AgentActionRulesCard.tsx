@@ -108,9 +108,9 @@ export function AgentActionRulesCard({ isAdmin }: { isAdmin: boolean }) {
                   {canRemove ? (
                     <Button
                       type="button"
-                      size="sm"
+                      size="iconSm"
                       variant="ghost"
-                      className="h-7 w-7 shrink-0 p-0 text-text-muted"
+                      className="shrink-0 p-0 text-text-muted"
                       aria-label={t('agentActionRules.remove')}
                       disabled={busyId === rule.id}
                       onClick={() => void remove(row.agentId, rule)}

@@ -325,9 +325,9 @@ export function ModuleAgentsSection({
                   {moduleSlug === 'accounting' ? (
                     <Button
                       type="button"
-                      size="sm"
+                      size="xs"
                       variant="ghost"
-                      className="h-6 px-1.5"
+                      className="px-1.5"
                       disabled={busyId !== null}
                       title={t('integrations.modules.agents.access', {
                         defaultValue: 'Access: scope and write permission',
@@ -342,9 +342,9 @@ export function ModuleAgentsSection({
                   {!row.is_default ? (
                     <Button
                       type="button"
-                      size="sm"
+                      size="xs"
                       variant="ghost"
-                      className="h-6 px-1.5"
+                      className="px-1.5"
                       disabled={busyId !== null}
                       title={t('integrations.modules.agents.makeDefault', {
                         defaultValue: 'Make default for setup chat',
@@ -360,9 +360,9 @@ export function ModuleAgentsSection({
                   ) : null}
                   <Button
                     type="button"
-                    size="sm"
+                    size="xs"
                     variant="ghost"
-                    className="h-6 px-1.5 text-text-muted hover:text-status-error"
+                    className="px-1.5 text-text-muted hover:text-status-error"
                     disabled={busyId !== null}
                     title={t('integrations.modules.agents.remove', { defaultValue: 'Remove' })}
                     onClick={() => void remove(row.agent_id)}

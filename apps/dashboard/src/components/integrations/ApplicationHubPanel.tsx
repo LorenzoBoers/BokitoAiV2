@@ -96,8 +96,8 @@ export function ApplicationHubPanel({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="mt-1 h-8 w-8 shrink-0 p-0"
+                size="icon"
+                className="mt-1 shrink-0 p-0"
                 onClick={() => {
                   if (step === 'offer-setup') {
                     setStep('offer-detail')

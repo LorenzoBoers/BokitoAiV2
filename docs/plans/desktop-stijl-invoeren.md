@@ -456,6 +456,12 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - Andere tweede rails met hetzelfde `border-r border-border/60`-patroon vallen buiten de opgesomde drie (inbox, agenda, instellingen) en hebben hun rand nog: `WorkforceLayout`, `ProjectsLayout` (Mappen) en de `aside` in `WorkspaceDocs`. De agenda-rail had al geen rand.
 - `h-topbar` komt uit `shellHeight.topbar` in `packages/ui-tokens/src/spacing.ts`. `emit.mjs` schrijft hem als `height.topbar` in de preset.
 
+### Fase 5: catalogus
+
+- De Button-codemod (`h-N` in `className` wordt een `size`) raakt ook twee bestanden die de andere agent nog bewerkt: `FlowSchemaEditor.tsx` en `WorksInSection.tsx`. Alleen het `size`/`className` van `<Button>` is veranderd. Reken daar op een kleine merge-conflict.
+- De `padding`-prop van `Card` is niet aangepast. `.panel` heeft nu radius 16 en een effen rand; de padding volgt in 8.4.
+- Na fase 5 kloppen de screenshots in `docs/product-help/assets/` niet meer met het scherm (knoppen, bubbels, composer, shell). Opnieuw vastleggen staat niet in het plan; beter na fase 8 in één keer met `capture_product_help_screenshots.py`.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

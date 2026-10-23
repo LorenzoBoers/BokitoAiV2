@@ -44,7 +44,7 @@ export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
           }}
           placeholder={placeholder ?? t('search.placeholder')}
           className={cn(
-            'w-full rounded-md border border-border/70 bg-bg-input pl-8 text-sm text-text-primary placeholder:text-text-muted outline-none transition-[border-color,box-shadow] duration-150 hover:border-border-light focus:border-border-focus focus:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.15)] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:[-webkit-appearance:none] [&::-webkit-search-decoration]:hidden',
+            'w-full rounded-md border border-border-light bg-bg-input pl-8 text-sm text-text-primary placeholder:text-text-muted outline-none transition-[border-color,box-shadow] duration-150 focus:border-border-focus focus:ring-[3px] focus:ring-border-focus/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:[-webkit-appearance:none] [&::-webkit-search-decoration]:hidden',
             size === 'sm' ? 'h-8' : 'h-9',
             showShortcut ? 'pr-16' : 'pr-8',
             readOnly && 'cursor-pointer',

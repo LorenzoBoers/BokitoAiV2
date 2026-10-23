@@ -3,12 +3,12 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '../../lib/utils'
 
 /**
- * The one pill. Soft fill, darker ink, no border, rounded-lg (never a
- * capsule). Map domain values to a tone with `lib/badge-tones.ts`.
+ * The one pill. Soft fill, darker ink, no border, rounded-full.
+ * Map domain values to a tone with `lib/badge-tones.ts`.
  * Tones: neutral, accent, ai, success, warning, error, info.
  */
 const badgeVariants = cva(
-  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border-0 font-medium leading-none',
+  'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-0 font-medium leading-none',
   {
     variants: {
       variant: {
@@ -22,7 +22,7 @@ const badgeVariants = cva(
       },
       size: {
         sm: 'px-1.5 py-0.5 text-2xs',
-        md: 'px-2.5 py-0.5 text-xs',
+        md: 'h-[1.375rem] px-2.5 text-xs',
       },
     },
     defaultVariants: {

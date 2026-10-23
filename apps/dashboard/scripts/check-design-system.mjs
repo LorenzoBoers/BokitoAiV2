@@ -63,7 +63,13 @@ const RULES = [
     pattern: /["'`][^"'`]*\brounded-full\b[^"'`]*\bpx-[1-4](\.5)?\b[^"'`]*\btext-(2xs|xs)\b[^"'`]*["'`]|["'`][^"'`]*\btext-(2xs|xs)\b[^"'`]*\bpx-[1-4](\.5)?\b[^"'`]*\brounded-full\b[^"'`]*["'`]/,
     // Numeric count bubbles stay round.
     skip: /\b(min-w-\S+|count-pop|tabular-nums)\b/,
-    message: 'Pills are <Badge> (rounded-lg); filters are <FilterChip>.',
+    message: 'Pills are <Badge>; filters are <FilterChip>.',
+    catalogOk: true,
+  },
+  {
+    id: 'button-height-override',
+    pattern: /<Button\b[^>]*className=["'`{][^>]*\bh-(5|6|7|8|9|10|11)\b/,
+    message: 'Use size="xs|sm|md|lg|icon|iconSm".',
     catalogOk: true,
   },
   {

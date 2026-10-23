@@ -82,9 +82,9 @@ function AgentQuickLinks({
       {actions.map(({ label, icon: Icon, go }) => (
         <Button
           key={label}
-          size="sm"
+          size="xs"
           variant="ghost"
-          className="h-7 gap-1 px-2 text-xs text-text-secondary hover:text-text-heading"
+          className="gap-1 px-2 text-xs text-text-secondary hover:text-text-heading"
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()

@@ -324,19 +324,19 @@ export default function ThreadListQuickFilters({
             <DropdownMenuSeparator />
             <div className="flex flex-wrap gap-1 px-1 pb-1">
               {onSelectAll ? (
-                <Button variant="ghost" size="sm"
+                <Button variant="ghost" size="xs"
                   type="button"
                   onClick={onSelectAll}
-                  className="h-7 px-2"
+                  className="px-2"
                 >
                   {t('bulkActions.selectAll')}
                 </Button>
               ) : null}
               {onMarkAllRead && unreadCount > 0 ? (
-                <Button variant="ghost" size="sm"
+                <Button variant="ghost" size="xs"
                   type="button"
                   onClick={onMarkAllRead}
-                  className="h-7 px-2"
+                  className="px-2"
                 >
                   {t('threadList.markAllRead')}
                 </Button>

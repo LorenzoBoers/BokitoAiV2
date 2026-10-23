@@ -193,9 +193,9 @@ export function IntegrationDetailPanel({
             {isConnected && servers.length > 0 ? (
               <Button
                 type="button"
-                size="sm"
+                size="xs"
                 variant="ghost"
-                className="h-7 gap-1 px-2 text-xs"
+                className="gap-1 px-2 text-xs"
                 disabled={toolsBusy}
                 onClick={() => void refreshTools()}
               >

@@ -99,7 +99,7 @@ function DepartmentIcon({
               const Icon = platformIcon(id)
               if (!Icon) return null
               return (
-                <Button
+                <Button size="icon"
                   key={id}
                   type="button"
                   variant="ghost"
@@ -114,7 +114,7 @@ function DepartmentIcon({
                       setOpen(false)
                     })
                   }}
-                  className={cn('h-8 w-8 p-0 text-accent', icon === id && 'ring-1 ring-text-heading')}
+                  className={cn('p-0 text-accent', icon === id &&'ring-1 ring-text-heading')}
                 >
                   <Icon size={15} aria-hidden />
                 </Button>
@@ -261,12 +261,12 @@ export function AwarenessEditor({
             <Button
               key={value}
               type="button"
-              size="sm"
+              size="xs"
               variant={mode === value ? 'secondary' : 'ghost'}
               disabled={!canEdit}
               aria-pressed={mode === value}
               onClick={() => setMode(value)}
-              className={cn('h-7 border text-xs', mode === value ? 'border-accent/60 text-text-primary' : 'border-border/60 text-text-secondary')}
+              className={cn('border text-xs', mode === value ?'border-accent/60 text-text-primary':'border-border/60 text-text-secondary')}
             >
               {t(`departmentPage.awareness.modes.${value}`)}
             </Button>
@@ -288,12 +288,12 @@ export function AwarenessEditor({
               <Button
                 key={kind}
                 type="button"
-                size="sm"
+                size="xs"
                 variant={on ? 'secondary' : 'ghost'}
                 disabled={!canEdit}
                 aria-pressed={on}
                 onClick={() => setFollows((cur) => (on ? cur.filter((k) => k !== kind) : [...cur, kind]))}
-                className={cn('h-7 border text-xs', on ? 'border-accent/60 text-text-primary' : 'border-border/60 text-text-secondary')}
+                className={cn('border text-xs', on ?'border-accent/60 text-text-primary':'border-border/60 text-text-secondary')}
               >
                 {t(`departmentPage.awareness.follow.${kind}`, { defaultValue: kind })}
               </Button>
@@ -699,9 +699,9 @@ export default function DepartmentPage() {
               )}
               <Button
                 type="button"
-                size="sm"
+                size="icon"
                 variant="secondary"
-                className="h-8 w-8 px-0 text-text-muted"
+                className="px-0 text-text-muted"
                 aria-label={t('departmentPage.settings')}
                 onClick={() => setSettingsOpen(true)}
               >

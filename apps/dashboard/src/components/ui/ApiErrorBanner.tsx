@@ -17,7 +17,7 @@ export function ApiErrorBanner({ message, onRetry, className }: ApiErrorBannerPr
       className={className}
       actions={
         onRetry ? (
-          <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onRetry}>
+          <Button type="button" size="xs" variant="ghost" className="px-2 text-xs" onClick={onRetry}>
             {t('actions.retry')}
           </Button>
         ) : null

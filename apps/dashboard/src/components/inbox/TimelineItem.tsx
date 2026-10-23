@@ -994,7 +994,7 @@ function MailReadOverlay({
             onClick={onClose}
             title={t('mailComposer.exitFullscreen')}
             aria-label={t('mailComposer.exitFullscreen')}
-            className="h-6 w-6 text-text-muted"
+            className="text-text-muted"
           >
             <Minimize2 size={13} />
           </Button>

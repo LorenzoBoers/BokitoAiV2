@@ -744,9 +744,9 @@ export default function DecisionRequestMessage({
                 {onEditDraft ? (
                   <Button
                     type="button"
-                    size="sm"
+                    size="xs"
                     variant={activeInComposer ? 'ghost' : 'secondary'}
-                    className="h-7 shrink-0 px-2.5 text-base"
+                    className="shrink-0 px-2.5 text-base"
                     onClick={takeOver}
                   >
                     {activeInComposer

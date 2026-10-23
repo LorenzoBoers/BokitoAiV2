@@ -24,7 +24,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      'flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none focus:bg-bg-hover data-[state=open]:bg-bg-hover',
+      'flex cursor-default select-none items-center min-h-8 rounded-md px-2 py-1 text-sm outline-none focus:bg-bg-hover data-[state=open]:bg-bg-hover',
       inset && 'pl-8',
       className
     )}
@@ -80,7 +80,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none transition-colors focus:bg-bg-hover focus:text-text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center min-h-8 rounded-md px-2 py-1 text-sm outline-none transition-colors focus:bg-bg-hover focus:text-text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       inset && 'pl-8',
       className
     )}
@@ -96,7 +96,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-md py-1.5 pl-7 pr-2 text-sm outline-none transition-colors focus:bg-bg-hover focus:text-text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex cursor-default select-none items-center min-h-8 rounded-md py-1 pl-7 pr-2 text-sm outline-none transition-colors focus:bg-bg-hover focus:text-text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className
     )}
     checked={checked}
@@ -119,7 +119,7 @@ const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      'relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none transition-colors focus:bg-bg-hover focus:text-text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[state=checked]:bg-accent/15',
+      'relative flex cursor-default select-none items-center min-h-8 rounded-md px-2 py-1 text-sm outline-none transition-colors focus:bg-bg-hover focus:text-text-heading data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[state=checked]:bg-accent/15',
       className
     )}
     {...props}

@@ -132,9 +132,9 @@ function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
             <Button
               key={`${item.name}-${itemIndex}`}
               type="button"
-              size="sm"
+              size="xs"
               variant={itemIndex === index ? 'secondary' : 'ghost'}
-              className="h-7 px-2 text-xs"
+              className="px-2 text-xs"
               onClick={() => setIndex(itemIndex)}
             >
               {item.name}

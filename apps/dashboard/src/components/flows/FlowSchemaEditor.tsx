@@ -792,14 +792,11 @@ export function FlowSchemaEditor({
                       type="button"
                       variant="ghost"
                       size="iconSm"
-                      className={cn(
-                        'absolute z-10 h-7 w-auto max-w-[150px] -translate-x-1/2 -translate-y-1/2 justify-start gap-1 border px-2 text-2xs font-normal shadow-sm',
-                        active
-                          ? 'border-accent bg-accent text-accent-fg hover:bg-accent hover:text-accent-fg'
-                          : edge.when || extra
-                            ? 'border-accent/50 bg-bg-surface text-text-primary hover:border-accent hover:bg-bg-surface'
-                            : 'w-7 justify-center border-border/70 bg-bg-surface px-0 text-text-muted hover:border-border hover:bg-bg-surface',
-                      )}
+                      className={cn('absolute z-10 w-auto max-w-[150px] -translate-x-1/2 -translate-y-1/2 justify-start gap-1 border px-2 text-2xs font-normal shadow-sm',
+ active
+ ?'border-accent bg-accent text-accent-fg hover:bg-accent hover:text-accent-fg': edge.when || extra
+ ?'border-accent/50 bg-bg-surface text-text-primary hover:border-accent hover:bg-bg-surface':'justify-center border-border/70 bg-bg-surface px-0 text-text-muted hover:border-border hover:bg-bg-surface',
+ )}
                       style={{ left: at.x, top: at.y }}
                       data-edge={index}
                       aria-label={t('workstreamsPage.schema.configureLine')}
@@ -1470,9 +1467,9 @@ function ArrowList({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
+                size="xs"
                 onClick={() => onSelect(row.index)}
-                className="h-7 w-full justify-start gap-1.5 px-2 text-left font-normal text-text-primary"
+                className="w-full justify-start gap-1.5 px-2 text-left font-normal text-text-primary"
               >
                 <ArrowRight size={12} className="shrink-0 text-text-muted" aria-hidden />
                 <span className="truncate">{row.name}</span>

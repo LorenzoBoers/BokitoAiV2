@@ -211,8 +211,7 @@ export function DocSectionsEditor({
                 <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
+                    size="iconSm"
                     title={t('knowledgePage.sectionEdit')}
                     onClick={() => startEdit(section)}
                   >
@@ -220,8 +219,7 @@ export function DocSectionsEditor({
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
+                    size="iconSm"
                     title={t('knowledgePage.delete')}
                     onClick={() => void removeSection(section)}
                   >

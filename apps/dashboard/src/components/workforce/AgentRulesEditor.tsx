@@ -195,9 +195,9 @@ export function AgentRulesEditor({
             {!rule.inherited && canEdit ? (
               <Button
                 type="button"
-                size="sm"
+                size="iconSm"
                 variant="ghost"
-                className="h-7 w-7 shrink-0 p-0 text-text-muted"
+                className="shrink-0 p-0 text-text-muted"
                 aria-label={t('agentRules.remove')}
                 disabled={saving}
                 onClick={() => void persist(rules.filter((r) => r.id !== rule.id))}

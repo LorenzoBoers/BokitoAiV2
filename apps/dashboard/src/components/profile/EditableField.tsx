@@ -107,7 +107,7 @@ export function EditableField({
             size="iconSm"
             onClick={startEdit}
             aria-label={t('personalInformation.editField', { label })}
-            className="h-6 w-6 text-text-muted"
+            className="text-text-muted"
           >
             <Pencil size={12} />
           </Button>

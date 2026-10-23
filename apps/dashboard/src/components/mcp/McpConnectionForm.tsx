@@ -208,7 +208,7 @@ export function McpConnectionForm({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 px-2"
+              className="px-2"
               onClick={() => setAdministraties((rows) => [...rows, newAdministratieRow()])}
             >
               <Plus size={14} />
@@ -226,7 +226,6 @@ export function McpConnectionForm({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
                     onClick={() =>
                       setAdministraties((rows) => rows.filter((item) => item.id !== row.id))
                     }

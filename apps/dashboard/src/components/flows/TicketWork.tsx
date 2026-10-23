@@ -137,7 +137,7 @@ export function TicketWorkSection({
                 size="iconSm"
                 disabled={busy}
                 onClick={() => onPatch({ due_at: null })}
-                className="h-6 w-6 text-text-muted"
+                className="text-text-muted"
                 title={t('tickets.deadlineClear')}
                 aria-label={t('tickets.deadlineClear')}
               >
@@ -229,10 +229,10 @@ function ChecklistRow({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="xs"
           disabled={busy}
           onClick={() => onPatch({ checklist: { [item.key]: 'done' } })}
-          className="h-5 shrink-0 px-1 text-2xs text-accent"
+          className="shrink-0 px-1 text-2xs text-accent"
         >
           {t('tickets.checklistConfirm')}
         </Button>

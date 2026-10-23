@@ -104,9 +104,8 @@ export function KnowledgeMarkdownEditor({
           <div className="ml-1 flex items-center gap-0.5">
             <Button
               type="button"
-              size="icon"
+              size="iconSm"
               variant="ghost"
-              className="h-7 w-7"
               onClick={() => editor.chain().focus().toggleBold().run()}
               title="Bold"
             >
@@ -114,9 +113,8 @@ export function KnowledgeMarkdownEditor({
             </Button>
             <Button
               type="button"
-              size="icon"
+              size="iconSm"
               variant="ghost"
-              className="h-7 w-7"
               onClick={() => editor.chain().focus().toggleItalic().run()}
               title="Italic"
             >
@@ -124,9 +122,8 @@ export function KnowledgeMarkdownEditor({
             </Button>
             <Button
               type="button"
-              size="icon"
+              size="iconSm"
               variant="ghost"
-              className="h-7 w-7"
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
               title="Heading"
             >
@@ -134,9 +131,8 @@ export function KnowledgeMarkdownEditor({
             </Button>
             <Button
               type="button"
-              size="icon"
+              size="iconSm"
               variant="ghost"
-              className="h-7 w-7"
               onClick={() => editor.chain().focus().toggleBulletList().run()}
               title="Bullet list"
             >
@@ -144,9 +140,8 @@ export function KnowledgeMarkdownEditor({
             </Button>
             <Button
               type="button"
-              size="icon"
+              size="iconSm"
               variant="ghost"
-              className="h-7 w-7"
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
               title="Numbered list"
             >

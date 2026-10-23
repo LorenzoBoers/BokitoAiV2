@@ -78,9 +78,9 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
         <>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="h-7 gap-1 px-2 text-xs"
+            className="gap-1 px-2 text-xs"
             disabled={!!busy}
             onClick={() => void onFollowUp()}
             data-testid="workbench-follow-up"
@@ -90,9 +90,9 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
           </Button>
           <Button
             type="button"
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="h-7 gap-1 px-2 text-xs text-danger"
+            className="gap-1 px-2 text-xs text-danger"
             disabled={!!busy}
             onClick={() => void onStop()}
             data-testid="workbench-stop"

@@ -342,7 +342,7 @@ export default function WorkstreamDetail() {
                     type="button"
                     size="sm"
                     variant="secondary"
-                    className="h-8 gap-1.5 px-2.5"
+                    className="gap-1.5 px-2.5"
                     onClick={() => setEditorOpen(true)}
                   >
                     <Pencil size={14} aria-hidden />
@@ -351,9 +351,9 @@ export default function WorkstreamDetail() {
                 ) : null}
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon"
                   variant="secondary"
-                  className="h-8 w-8 px-0 text-text-muted"
+                  className="px-0 text-text-muted"
                   aria-label={t('workstreamsPage.openSettings')}
                   onClick={() => setSettingsOpen(true)}
                 >
@@ -364,9 +364,9 @@ export default function WorkstreamDetail() {
                     <DropdownMenu.Trigger asChild>
                       <Button
                         type="button"
-                        size="sm"
+                        size="icon"
                         variant="secondary"
-                        className="h-8 w-8 px-0 text-text-muted"
+                        className="px-0 text-text-muted"
                         aria-label={t('workstreamsPage.moreActions')}
                       >
                         <MoreHorizontal size={16} aria-hidden />

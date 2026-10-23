@@ -543,8 +543,8 @@ export default function ChatStack() {
             <Button
               type="button"
               variant="secondary"
-              size="sm"
-              className="absolute bottom-3 h-7 min-w-7 rounded-full px-2 tabular-nums shadow-overlay transition-[right] duration-300"
+              size="xs"
+              className="absolute bottom-3 min-w-7 rounded-full px-2 tabular-nums shadow-overlay transition-[right] duration-300"
               style={{
                 right: expanded ? visible * (CARD_WIDTH + 10) : CARD_WIDTH + 8,
               }}

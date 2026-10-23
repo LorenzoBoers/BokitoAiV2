@@ -1801,9 +1801,9 @@ export function OrgMakeScene({
       <div ref={hostRef} className="absolute inset-0 z-0 touch-none" />
       <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center gap-2 px-3">
         <div className={cn('pointer-events-auto flex items-center gap-1 rounded-full px-1.5 py-1', ORG_FLOAT_GLASS)}>
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="xs"
             type="button"
-            className="h-7 px-2.5"
+            className="px-2.5"
             onClick={() =>
               controlsRef.current?.zoomTo(
                 Math.max(
@@ -1817,9 +1817,9 @@ export function OrgMakeScene({
             -
           </Button>
           <span className="min-w-[3rem] text-center text-2xs tabular-nums text-text-muted">{zoomPct}%</span>
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="xs"
             type="button"
-            className="h-7 px-2.5"
+            className="px-2.5"
             onClick={() =>
               controlsRef.current?.zoomTo(
                 Math.min(
@@ -1832,9 +1832,9 @@ export function OrgMakeScene({
           >
             +
           </Button>
-          <Button variant="ghost" size="sm"
+          <Button variant="ghost" size="xs"
             type="button"
-            className="h-7 px-2.5"
+            className="px-2.5"
             onClick={() => {
               const controls = controlsRef.current
               if (!controls) return
