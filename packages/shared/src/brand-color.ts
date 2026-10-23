@@ -42,7 +42,7 @@ export const BRAND_FG_LIGHT: Rgb = [255, 255, 255]
 export const BRAND_FG_DARK: Rgb = [17, 24, 39]
 export const BRAND_DEFAULT_BG: Record<BrandTheme, Rgb> = {
   light: [250, 250, 248],
-  dark: [36, 36, 35],
+  dark: [35, 35, 35],
 }
 
 /** WCAG AA for text: the label on the brand fill. */

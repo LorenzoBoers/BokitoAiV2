@@ -450,7 +450,7 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 - **Keuze per thema.** Letterlijk "wit onder 4,5:1 wordt donkere inkt" zou de standaard-mint in het lichte thema donkere tekst geven, tegen het lichte palet in (diepgroen met wit). Daarom geldt:
   - Donker thema: wit alleen als het op de vulling al 4,5:1 haalt, anders donkere inkt.
   - Licht thema: de vulling wordt verdonkerd tot wit 4,5:1 haalt, waar dat 3:1 was. Erg lichte zaden (geel) krijgen donkere inkt, zoals nu.
-- `BRAND_DEFAULT_BG` volgt de nieuwe `bg` (dark `36 36 35`, light `250 250 248`; eerst `38 37 35` en `251 250 246`, na de PR iets minder warm gemaakt). Die waarde staat los in `packages/shared` en is geen import uit `ui-tokens`.
+- `BRAND_DEFAULT_BG` volgt de nieuwe `bg` (dark `35 35 35`, light `250 250 248`; eerst `38 37 35` en `251 250 246`, na de PR in twee stappen minder warm gemaakt). Die waarde staat los in `packages/shared` en is geen import uit `ui-tokens`.
 - `applyBrandColor` overschrijft `--color-accent*` en `--color-border-focus` altijd, ook zonder tenant-kleur, want het seed wordt dan `#32BF8E`. De accent-waarden uit `palette.mjs` zie je daardoor alleen waar geen branding geladen is, zoals login en docs. Om de palet-accenten zichtbaar te maken zou het standaard-seed het palet moeten gebruiken. Dat staat niet in het plan.
 
 ### Fase 4: shell
