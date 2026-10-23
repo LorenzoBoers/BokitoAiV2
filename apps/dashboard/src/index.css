@@ -130,46 +130,6 @@
 
 @layer components {
   /*
-   * Sonner chrome: solid elevated sheet (same as menus/dialogs). Beat Sonner's
-   * theme-scoped richColors pastels so success is not mint-on-mint when the
-   * brand accent (e.g. gold) paints the Undo button — green stays on text/icon.
-   */
-  [data-sonner-toaster],
-  [data-sonner-toaster][data-sonner-theme='light'],
-  [data-sonner-toaster][data-sonner-theme='dark'] {
-    --normal-bg: rgb(var(--color-bg-elevated));
-    --normal-border: rgb(var(--color-border) / 0.7);
-    --normal-text: rgb(var(--color-text-heading));
-    --success-bg: rgb(var(--color-bg-elevated));
-    --success-border: rgb(var(--color-border) / 0.7);
-    --success-text: rgb(var(--color-status-success));
-    --error-bg: rgb(var(--color-bg-elevated));
-    --error-border: rgb(var(--color-border) / 0.7);
-    --error-text: rgb(var(--color-status-error));
-    --info-bg: rgb(var(--color-bg-elevated));
-    --info-border: rgb(var(--color-border) / 0.7);
-    --info-text: rgb(var(--color-status-info));
-    --warning-bg: rgb(var(--color-bg-elevated));
-    --warning-border: rgb(var(--color-border) / 0.7);
-    --warning-text: rgb(var(--color-status-warning));
-  }
-  /* Custom notification body owns the glass card — keep the Sonner shell clear. */
-  [data-sonner-toast]:has([data-testid='notification-toast']) {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-  }
-  /* Live notification card: solid elevated sheet, same as menus and dialogs. */
-  .notification-toast-glass {
-    background: rgb(var(--color-bg-elevated));
-    border: 1px solid rgb(var(--color-border) / 0.7);
-    box-shadow: var(--shadow-overlay);
-  }
-
-  /*
    * THE card recipe. Solid surface, hairline border, no shadow.
    * Use `<Card>` / `<InsetPanel>` — do not hand-roll shadows/borders.
    * Radius ladder: shell sheet xl > Card, Badge, OptionCard lg > InsetPanel,

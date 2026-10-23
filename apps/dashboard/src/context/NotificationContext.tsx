@@ -187,16 +187,6 @@ export function announceNotification(
       id: raw.id,
       duration: 6000,
       closeButton: false,
-      // Own glass chrome — strip Sonner's opaque card around the custom body.
-      // Inline style beats Sonner's `--normal-bg` variable; CSS :has() is the backup.
-      className: '!bg-transparent !border-0 !shadow-none !p-0',
-      style: {
-        background: 'transparent',
-        border: 'none',
-        boxShadow: 'none',
-        padding: 0,
-      },
-      unstyled: true,
     },
   );
 }

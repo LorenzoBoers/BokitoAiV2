@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, isRouteErrorResponse, RouterProvider, useRouteError } from 'react-router-dom'
-import { Toaster } from 'sonner'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { NotificationProvider } from './context/NotificationContext'
@@ -12,6 +11,7 @@ import { AppErrorBoundary } from './components/layout/AppErrorBoundary'
 import { NativeTitleTooltipBridge } from './components/ui/NativeTitleTooltipBridge'
 import { TooltipProvider } from './components/ui/tooltip'
 import { ConfirmProvider } from './components/ui/confirm-dialog'
+import { Toaster } from './components/ui/toaster'
 import App from './App'
 import i18n, { ensureLanguage } from './i18n'
 import { PLATFORM_DEFAULT_LANGUAGE } from './lib/api.config'
@@ -126,23 +126,7 @@ const router = createBrowserRouter([
                       <App />
                     </ConfirmProvider>
                     <NativeTitleTooltipBridge />
-                    <Toaster
-                      richColors
-                      closeButton
-                      position="top-right"
-                      toastOptions={{
-                        duration: 3400,
-                        classNames: {
-                          toast: 'shadow-overlay',
-                          actionButton:
-                            '!bg-accent !text-accent-fg hover:!bg-accent-hover',
-                          cancelButton:
-                            '!bg-bg-hover !text-text-secondary',
-                          closeButton:
-                            '!border-border !bg-bg-elevated/80 !text-text-muted hover:!bg-bg-hover hover:!text-text-heading',
-                        },
-                      }}
-                    />
+                    <Toaster />
                   </ValidationProvider>
                 </NotificationProvider>
               </IntegrationBrandProvider>

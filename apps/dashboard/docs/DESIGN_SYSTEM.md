@@ -52,6 +52,12 @@ its mood in its face only. An agent reply has no bubble: serif text beside the
 avatar. Your own message is a `bg-hover` bubble with normal ink. Toasts and
 overlays are solid elevated surfaces.
 
+Toasts come from `ui/toaster` (Sonner, `unstyled`), top right under the
+topbar. Text is heading ink; only the Lucide icon carries the status color.
+The action ("Undo", "Open") is a quiet `ghost` `xs` button in `accent-ink`, and
+the close control sits last in the row and shows on hover or focus. A
+`toast.custom` body uses the same card and `TOAST_CLOSE_CLASS`.
+
 ## Surfaces
 
 ```tsx

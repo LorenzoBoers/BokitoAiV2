@@ -2,6 +2,8 @@ import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { Button } from '../ui/button'
+import { Pressable } from '../ui/pressable'
+import { TOAST_CLOSE_CLASS } from '../ui/toaster'
 import { TextLink } from '../ui/text-link'
 import { NotificationFromMark } from './NotificationFromMark'
 import { notificationFromHref, type NotificationFrom } from '../../lib/notification-from'
@@ -27,8 +29,9 @@ export type NotificationToastProps = {
 }
 
 /**
- * Live conversation toast: glassy surface, accent Open, avatar when a sender
- * is known (user / agent / contact). System notices without `from` stay text-only.
+ * Live conversation toast body inside the shared toast card: avatar when a
+ * sender is known (user / agent / contact), quiet Open action. System notices
+ * without `from` stay text-only.
  */
 export function NotificationToast({
   toastId,
@@ -43,19 +46,7 @@ export function NotificationToast({
   const description = stripLeadingFromName((body || '').trim(), from?.name)
 
   return (
-    <div
-      className="notification-toast-glass relative pointer-events-auto flex w-[min(380px,calc(100vw-1.5rem))] items-start gap-3 rounded-xl p-3"
-      data-testid="notification-toast"
-    >
-      <Button variant="ghost" size="iconSm"
-        type="button"
-        onClick={() => toast.dismiss(toastId)}
-        className="absolute -left-1.5 -top-1.5 backdrop-blur-md"
-        aria-label="Close"
-      >
-        <X size={14} aria-hidden />
-      </Button>
-
+    <div className="flex min-w-0 flex-1 items-center gap-3" data-testid="notification-toast">
       {from ? (
         fromHref ? (
           <Link
@@ -64,16 +55,16 @@ export function NotificationToast({
             className="mt-0.5 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
             aria-label={from.name}
           >
-            <NotificationFromMark from={from} size={36} />
+            <NotificationFromMark from={from} size={32} />
           </Link>
         ) : (
-          <div className="mt-0.5 shrink-0">
-            <NotificationFromMark from={from} size={36} />
+          <div className="shrink-0">
+            <NotificationFromMark from={from} size={32} />
           </div>
         )
       ) : null}
 
-      <div className="min-w-0 flex-1 pt-0.5">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-medium leading-snug text-text-heading">{title}</p>
         {from ? (
           <p className="mt-0.5 text-xs text-text-secondary">
@@ -101,8 +92,9 @@ export function NotificationToast({
       {href && onOpen ? (
         <Button
           type="button"
-          size="sm"
-          className="shrink-0 self-center"
+          variant="ghost"
+          size="xs"
+          className="shrink-0 text-accent-ink hover:text-accent-ink"
           onClick={() => {
             toast.dismiss(toastId)
             onOpen()
@@ -111,6 +103,9 @@ export function NotificationToast({
           {openLabel}
         </Button>
       ) : null}
+      <Pressable onClick={() => toast.dismiss(toastId)} className={TOAST_CLOSE_CLASS} aria-label="Close">
+        <X size={14} aria-hidden />
+      </Pressable>
     </div>
   )
 }
