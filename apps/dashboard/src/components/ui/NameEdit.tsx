@@ -74,7 +74,7 @@ export function NameEdit({
     el.style.width = `${Math.max(el.scrollWidth, 48)}px`
   }, [editing, value])
 
-  const type = cn('min-w-0 font-semibold tracking-[-0.01em] text-text-heading', TEXT[size])
+  const type = cn('min-w-0 font-semibold tracking-tight text-text-heading', TEXT[size])
 
   if (editing) {
     return (

@@ -78,7 +78,7 @@ export function initialsAvatarHtml(name: string, size = 48): string {
     `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
     `<tr><td width="${size}" height="${size}" align="center" valign="middle" ` +
     `style="width:${size}px;height:${size}px;background:#4652f2;border-radius:${Math.round(size / 2)}px;` +
-    `color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:${font}px;` +
+    `color:#ffffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:${font}px;` + // design-system-ignore: email HTML, mail clients do not load app fonts
     `font-weight:600;line-height:${size}px;text-align:center">${escapeHtml(initials)}</td></tr></table>`
   )
 }
@@ -124,7 +124,7 @@ function initialsAvatarSvgSrc(name: string, size = 48): string {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 48 48">` +
     `<circle cx="24" cy="24" r="24" fill="#4652f2"/>` +
     `<text x="24" y="26" text-anchor="middle" dominant-baseline="middle" fill="#ffffff" ` +
-    `font-family="system-ui,sans-serif" font-size="16" font-weight="600">${escapeHtml(initials)}</text></svg>`
+    `font-family="system-ui,sans-serif" font-size="16" font-weight="600">${escapeHtml(initials)}</text></svg>` // design-system-ignore: email HTML, mail clients do not load app fonts
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
@@ -286,7 +286,7 @@ export function composeAvatarSignatureHtml(opts: SignatureIdentityVars): string 
   const closing = signatureClosingText(opts.language)
   const avatar = avatarMarkHtml(opts.avatarUrl, vars.name, 48)
   return (
-    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` +
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` + // design-system-ignore: email HTML, mail clients do not load app fonts
     `font-size:14px;line-height:1.45;color:#1f2937">` +
     `<p style="margin:0 0 14px 0">${escapeHtml(closing)},</p>` +
     `<table cellpadding="0" cellspacing="0" border="0" role="presentation" style="border-collapse:collapse">` +
@@ -303,7 +303,7 @@ export function composeDefaultSignatureHtml(opts: SignatureIdentityVars): string
   const vars = signatureIdentityMap(opts)
   const closing = signatureClosingText(opts.language)
   return (
-    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` +
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;` + // design-system-ignore: email HTML, mail clients do not load app fonts
     `font-size:14px;line-height:1.45;color:#1f2937">` +
     `<p style="margin:0 0 14px 0">${escapeHtml(closing)},</p>` +
     `<div style="padding-left:14px;border-left:2px solid #e5e7eb">${signatureDetailBits(vars)}</div>` +

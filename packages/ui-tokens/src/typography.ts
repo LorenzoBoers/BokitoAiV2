@@ -18,18 +18,23 @@ export const fontSize = {
 
 export type FontSizeToken = keyof typeof fontSize
 
+/**
+ * One family for the whole web UI. `display` is its own role so an accent face
+ * (marketing) can replace it without touching components; today it is Geist.
+ * The @fontsource-variable packages register "Geist Variable" and "Geist Mono Variable".
+ */
 export const fontFamily = {
-  sans: 'Inter',
-  serif: 'Source Serif 4',
-  mono: 'JetBrains Mono',
-  /** Loaded names from @expo-google-fonts. */
+  sans: 'Geist',
+  display: 'Geist',
+  mono: 'Geist Mono',
+  /** Native still loads Inter and JetBrains Mono from @expo-google-fonts. */
   sansNative: 'Inter_400Regular',
   sansMediumNative: 'Inter_500Medium',
   sansSemiboldNative: 'Inter_600SemiBold',
   monoNative: 'JetBrainsMono_400Regular',
-  cssSans: "'Inter', system-ui, sans-serif",
-  cssSerif: "'Source Serif 4', Georgia, serif",
-  cssMono: "'JetBrains Mono', ui-monospace, monospace",
+  cssSans: "'Geist Variable', 'Geist', system-ui, sans-serif",
+  cssDisplay: "'Geist Variable', 'Geist', system-ui, sans-serif",
+  cssMono: "'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace",
 } as const
 
 /**
@@ -50,9 +55,35 @@ export const webFontSize = {
   display: ['2.75rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
 } as const
 
-/** Utilities reference the CSS variables, not the raw family stack. */
+/** Utilities reference the CSS variables, not the raw family stack. `display` is reached through the title roles only. */
 export const tailwindFontFamily = {
   sans: 'var(--font-sans)',
-  serif: 'var(--font-serif)',
   mono: 'var(--font-mono)',
 } as const
+
+/** Letter-spacing outside the title roles: small caps labels and one-time codes. */
+export const letterSpacing = {
+  eyebrow: '0.01em',
+  caps: '0.06em',
+  code: '0.3em',
+} as const
+
+export type TitleRole = {
+  fontSize: number
+  lineHeight?: number
+  fontWeight: 500 | 600
+  letterSpacing: string
+  color: 'text-heading' | 'text-muted'
+}
+
+/** Title ladder: page > dialog > section > card > eyebrow. Emitted as `.title-*` classes. */
+export const titleRoles = {
+  page: { fontSize: 30, lineHeight: 36, fontWeight: 600, letterSpacing: '-0.035em', color: 'text-heading' },
+  dialog: { fontSize: 20, lineHeight: 28, fontWeight: 600, letterSpacing: '-0.025em', color: 'text-heading' },
+  section: { fontSize: 17, lineHeight: 24, fontWeight: 600, letterSpacing: '-0.02em', color: 'text-heading' },
+  card: { fontSize: 14, lineHeight: 21, fontWeight: 500, letterSpacing: 'normal', color: 'text-heading' },
+  eyebrow: { fontSize: 12.5, lineHeight: 18, fontWeight: 500, letterSpacing: letterSpacing.eyebrow, color: 'text-muted' },
+} as const satisfies Record<string, TitleRole>
+
+/** Agent replies in a thread: the same sans as the UI, one step above body text. */
+export const agentChatText = { fontSize: 15, lineHeight: 24, fontWeight: 400 } as const

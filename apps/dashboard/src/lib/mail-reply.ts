@@ -148,7 +148,7 @@ export function buildQuotedHtml(
   return (
     `<div class="bokito-quote">` +
     `<hr style="display:inline-block;width:98%" tabindex="-1">` +
-    `<div dir="ltr" style="font-family:Calibri,sans-serif;font-size:11pt;color:#000">` +
+    `<div dir="ltr" style="font-family:Calibri,sans-serif;font-size:11pt;color:#000">` + // design-system-ignore: email HTML, mail clients do not load app fonts
     headerRows.join('<br>') +
     `</div><br>` +
     body +

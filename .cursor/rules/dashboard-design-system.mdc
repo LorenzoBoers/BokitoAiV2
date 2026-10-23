@@ -50,7 +50,7 @@ Rare one-off styles fold into the nearest catalog component.
 
 ## Tokens
 
-- Fonts: `--font-sans` (Inter), `--font-serif` (Source Serif 4, headings and agent text only) and `--font-mono` (JetBrains Mono) in `index.css`. No other families.
+- Fonts: Geist for everything (`--font-sans`, `--font-display`), Geist Mono for code and ids (`--font-mono`), generated from `packages/ui-tokens/src/typography.ts`. No serif, no `font-family` or `tracking-[...]` in components; titles use `.title-*`, agent replies `.text-agent-chat`. The display role exists for a possible accent face on marketing.
 - Size ladder: `text-2xs`, `xs`, `sm`, `base`, `lg`, `xl`, `2xl`. Never `text-[Npx]`.
 - Radius ladder: `Card`, `Dialog` `xl` > `Callout` `lg` > input, button, menu item `md`. `rounded-full` for `Badge`, avatars, dots, switches and count bubbles.
 - No glows, no opacity steps on `border-border` or `text-text-muted`. Button height comes from `size`, never `h-*` in `className`. `size="icon"` / `"iconSm"` is icon-only (no visible label); a sometimes-labelled button switches size with the label.
@@ -62,7 +62,8 @@ Rare one-off styles fold into the nearest catalog component.
 `npm run lint` in `apps/dashboard` runs `scripts/check-design-system.mjs`. It fails on
 `window.confirm`, native `<select>`, `text-[Npx]`, hand-rolled card strings,
 `bg-bg-elevated/40`, raw status colors, capsule chips, `h-*` on a `<Button>`, a visible label in an icon-size `<Button>`,
-`text-text-muted/NN`, removed legacy classes, `border-border/NN` and a raw `<button>` outside `components/ui`.
+`text-text-muted/NN`, removed legacy classes, `border-border/NN`, a raw `<button>` outside `components/ui`,
+serif (`serif-font`) and a `font-family` outside `tokens.generated.css` (`raw-font-family`, TSX and CSS).
 Exempt a line only with a `design-system-ignore` comment and a reason.
 
 Ratchet rules (`raw-input`, `hex-color`, `arbitrary-radius`, `loose-empty-copy`) compare per-file

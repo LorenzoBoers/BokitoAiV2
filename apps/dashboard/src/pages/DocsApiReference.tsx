@@ -28,7 +28,7 @@ const SCALAR_CUSTOM_CSS = `
 }
 .scalar-app, .scalar-api-reference, .section-flare, .section, #scalar-root {
   background: #000000 !important;
-  font-family: inherit !important;
+  font-family: inherit !important; /* design-system-ignore: Scalar embed inherits the app font */
 }
 .t-doc__sidebar, .sidebar, .sidebar-group {
   background: #000000 !important;

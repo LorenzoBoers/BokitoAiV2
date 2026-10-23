@@ -158,7 +158,7 @@ export default function SignatureEditor({
         name: t('signatureEditor.templateModern'),
         html:
           `<p style="margin:0 0 14px 0">${signatureClosingText(i18n.language)},</p>` +
-          `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;color:#1f2937;` +
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;color:#1f2937;` + // design-system-ignore: email HTML, mail clients do not load app fonts
           `padding-left:14px;border-left:2px solid #e5e7eb">` +
           `<div style="font-weight:600;color:#111827">{{name}}</div>` +
           `<div style="color:#6b7280;font-size:13px;margin-top:2px">{{function}}</div>` +
@@ -351,7 +351,7 @@ export default function SignatureEditor({
                     ref={initEditor}
                     contentEditable
                     className="min-h-[200px] p-4 focus:outline-none focus:ring-2 focus:ring-accent/20 text-sm"
-                    style={{ fontFamily: 'system-ui, sans-serif' }}
+                    style={{ fontFamily: 'system-ui, sans-serif' /* design-system-ignore: previews the email signature as mail clients render it */ }}
                     onInput={handleContentChange}
                     suppressContentEditableWarning
                   />

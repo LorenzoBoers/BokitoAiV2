@@ -36,6 +36,12 @@
   --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.9);
   --shadow-overlay: 0 0 0 1px rgb(255 255 255 / 0.06), 0 18px 48px -18px rgb(0 0 0 / 0.7);
   --shadow-composer: 0 0 0 1px rgb(var(--color-border)), 0 4px 18px -6px rgb(0 0 0 / 0.45);
+  --font-sans: 'Geist Variable', 'Geist', system-ui, sans-serif;
+  --font-display: 'Geist Variable', 'Geist', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, monospace;
+  --tracking-eyebrow: 0.01em;
+  --tracking-caps: 0.06em;
+  --tracking-code: 0.3em;
   --motion-duration-120: 120ms;
   --motion-duration-160: 160ms;
   --motion-duration-180: 180ms;
@@ -85,4 +91,53 @@
   --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.85);
   --shadow-overlay: 0 0 0 1px rgb(30 25 15 / 0.06), 0 16px 40px -16px rgb(30 25 15 / 0.2);
   --shadow-composer: 0 0 0 1px rgb(var(--color-border)), 0 4px 16px -8px rgb(30 25 15 / 0.14);
+}
+
+@layer components {
+  .title-page {
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+    font-weight: 600;
+    letter-spacing: -0.035em;
+    color: rgb(var(--color-text-heading));
+  }
+  .title-dialog {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    color: rgb(var(--color-text-heading));
+  }
+  .title-section {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: rgb(var(--color-text-heading));
+  }
+  .title-card {
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.3125rem;
+    font-weight: 500;
+    letter-spacing: normal;
+    color: rgb(var(--color-text-heading));
+  }
+  .title-eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.78125rem;
+    line-height: 1.125rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgb(var(--color-text-muted));
+  }
+  .text-agent-chat {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.5rem;
+    font-weight: 400;
+  }
 }

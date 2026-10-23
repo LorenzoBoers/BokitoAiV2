@@ -141,6 +141,18 @@ const RULES = [
     pattern: /(?<![\w-])border-border\/\d/,
     message: 'Use border-border (or border-border-light for a quieter edge), not an opacity step.',
   },
+  {
+    id: 'serif-font',
+    pattern: /\bfont-serif\b|--font-serif\b|Source Serif/,
+    message: 'Geist is the only UI family. Titles use .title-page|dialog|section|card|eyebrow.',
+    css: true,
+  },
+  {
+    id: 'raw-font-family',
+    pattern: /font-family\s*[:=]|\bfontFamily\s*[:=]/,
+    message: 'Fonts come from the tokens: font-sans, font-mono or a .title-* role. Email HTML carries design-system-ignore with a reason.',
+    css: true,
+  },
 ]
 
 const RATCHET_RULES = [
@@ -269,6 +281,9 @@ function hasVisibleLabel(body) {
   return /[A-Za-z]{2,}/.test(rest.replace(/\{[^{}]*\}/g, ' ').replace(/\{[^{}]*\}/g, ' '))
 }
 
+/** Generated from packages/ui-tokens: the only place a font family or a title role is written out. */
+const TOKEN_FILES = new Set(['styles/tokens.generated.css'])
+
 /** Lines carrying this marker are exempt (use sparingly, with a reason). */
 const IGNORE_MARKER = 'design-system-ignore'
 
@@ -277,7 +292,7 @@ function walk(dir, out = []) {
     const full = join(dir, name)
     const st = statSync(full)
     if (st.isDirectory()) walk(full, out)
-    else if (/\.(tsx|ts)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(full)
+    else if (/\.(tsx|ts|css)$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(full)
   }
   return out
 }
@@ -292,6 +307,16 @@ for (const file of walk(SRC)) {
   const relPosix = rel.split(sep).join('/')
   const inCatalog = rel.startsWith(CATALOG_DIR)
   const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+  if (relPosix.endsWith('.css')) {
+    if (TOKEN_FILES.has(relPosix)) continue
+    lines.forEach((line, index) => {
+      if (line.includes(IGNORE_MARKER)) return
+      for (const rule of RULES) {
+        if (rule.css && rule.pattern.test(line)) hits.push({ rule, rel: relPosix, line: index + 1, text: line.trim() })
+      }
+    })
+    continue
+  }
   lines.forEach((line, index) => {
     if (line.includes(IGNORE_MARKER)) return
     for (const rule of RULES) {

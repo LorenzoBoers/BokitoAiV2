@@ -413,10 +413,10 @@ function SortablePhaseCard({
               title={t('workstreamsPage.stages.editNameHint', {
                 defaultValue: 'Click to edit',
               })}
-              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-[0.03em] text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted hover:border-border hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
+              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-caps text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted hover:border-border hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
             />
           ) : (
-            <p className="truncate text-xs font-semibold uppercase tracking-[0.03em] text-text-heading">
+            <p className="truncate text-xs font-semibold uppercase tracking-caps text-text-heading">
               {stage.name.trim() || t('workstreamsPage.stages.namePlaceholder')}
             </p>
           )}

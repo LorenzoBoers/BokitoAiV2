@@ -348,11 +348,11 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
       {columns.map((col) => (
         <div
           key={col.title}
-          className="absolute top-3 text-2xs font-semibold uppercase leading-4 tracking-[0.08em] text-text-muted"
+          className="absolute top-3 text-2xs font-semibold uppercase leading-4 tracking-caps text-text-muted"
           style={{ left: col.x }}
         >
           {col.title}
-          {col.sub ? <span className="font-medium tracking-[0.04em]"> · {col.sub}</span> : null}
+          {col.sub ? <span className="font-medium"> · {col.sub}</span> : null}
         </div>
       ))}
 

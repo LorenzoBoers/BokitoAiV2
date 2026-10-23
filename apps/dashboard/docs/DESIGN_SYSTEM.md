@@ -17,21 +17,22 @@ catalog in short form. `npm run lint` enforces it.
   rather than becoming a new one.
 - **Add deliberately.** A new primitive needs a second real use, an entry in
   this file and the rule, and an export in `index.ts`.
-- **Calm Bokito feel.** Inter for the interface, Source Serif 4 for headings
-  and agent text, warm-neutral surfaces, one border strength, flat controls,
+- **Calm Bokito feel.** Geist for the whole interface, Geist Mono for code
+  and ids, warm-neutral surfaces, one border strength, flat controls,
   no emoji, Lucide icons only.
 
 ## Tokens
 
 | Token | Values |
 |---|---|
-| Font | `--font-sans` Inter, `--font-serif` Source Serif 4, `--font-mono` JetBrains Mono (`index.css`) |
-| Serif | Headings and agent text only: `.title-page`, `.title-dialog`, `.title-section` and the text of an agent reply. Everything else, own messages included, is sans |
+| Font | Geist for everything: `--font-sans` and `--font-display` Geist, `--font-mono` Geist Mono, generated from `typography.ts` into `tokens.generated.css`. The display role exists for a possible accent face on marketing; components never name it. No serif |
+| Numbers | Tables get `tabular-nums` in the base layer; KPIs and counters use the `tabular-nums` utility |
+| Letter-spacing | Title roles carry their own; elsewhere `tracking-eyebrow`, `tracking-caps` (uppercase labels) or `tracking-code` (one-time codes). No `tracking-[...]` |
 | Size (px) | `text-2xs` 11.5/15, `xs` 13/19, `sm` 14/21, `base` 15/23, `lg` 16/25, `xl` 19/27, `2xl` 24/31 (size/line height, `packages/ui-tokens/src/typography.ts`) |
 | Radius (px) | `sm` 4, `DEFAULT` 8, `md` 10, `lg` 12, `xl` 16, `2xl` 20, `3xl` 24, `full`. Card, Dialog `xl`; Callout `lg`; input, button, menu item `md`; Badge, avatars, dots, switches `full`. Two fixed shapes: chat bubble 18, composer 22 |
 | Shadow | Buttons and cards are flat (`btn`, `card` = none). `shadow-overlay` for menus, popovers, drawers and dialogs; `shadow-composer` for the floating composer only |
 | Border | `border-border` at full strength; `border-border-light` for fields. No opacity steps (`border-border/60`) |
-| Titles | `.title-page` (h1, serif 30/36), `.title-dialog` (serif 20/28), `.title-section` (serif 18/26), `.title-card` (sans 14, 500), `.title-eyebrow` (sans 12.5, muted) in `index.css`; primitives use them, so pages rarely set a heading size |
+| Titles | `.title-page` (h1, 30/36, 600, -0.035em), `.title-dialog` (20/28, 600, -0.025em), `.title-section` (17/24, 600, -0.02em), `.title-card` (14, 500), `.title-eyebrow` (12.5, 500, 0.01em, muted), generated from `titleRoles`; primitives use them, so pages rarely set a heading size. Agent replies use `.text-agent-chat` (15/24, 400). The active nav row is 600 |
 | Shell | Topbar `h-topbar` 52px, transparent, no bottom rule. Sidebar and second rails `bg-bg-sidebar` without an edge line. `.nav-row` 34px, `.nav-folder` 28px |
 | Icons | Lucide at stroke width 1.75 by default (`svg.lucide` in the base layer); pass `strokeWidth` only for a deliberate exception |
 | Width | `max-w-form` 40rem, `reading` 56rem, `page` 62.5rem, `dense` 75rem, `shell` 77.5rem, `canvas` 112.5rem; rail `w-rail` / `w-rail-collapsed` |
@@ -48,7 +49,7 @@ sizes (`text-[13px]`) and opacity steps on `text-text-muted` or
 
 No glows. AI is marked by color (`ai`, `ai-ink`) and the agent's mark,
 never by a blur, halo, wash, drop shadow or pulsing ring; the bot orb shows
-its mood in its face only. An agent reply has no bubble: serif text beside the
+its mood in its face only. An agent reply has no bubble: plain text beside the
 avatar. Your own message is a `bg-hover` bubble with normal ink. Toasts and
 overlays are solid elevated surfaces.
 
@@ -333,6 +334,8 @@ the separate person, agent and team avatars (use `Avatar`), `.panel` (use
 | `icon-button-label` (visible text in `size="icon"` / `"iconSm"`) | a text size (`xs`, `sm`), or a size that follows the label |
 | `muted-text-opacity` | `text-text-muted` |
 | `legacy-class` | `Badge`, `InsetPanel`, `font-sans` |
+| `serif-font` (`font-serif`, `--font-serif`, Source Serif; TSX and CSS) | Geist via `font-sans` and the `.title-*` roles |
+| `raw-font-family` (`font-family` / `fontFamily` outside `tokens.generated.css`) | `font-sans`, `font-mono`, a `.title-*` role; email HTML keeps system fonts with `design-system-ignore` and a reason |
 | `raw-spinner` | `Spinner` |
 | `hover-tint` | `hover:bg-bg-hover` or `/50` |
 | `page-tint` | `bg-bg`, `.scrim` |
@@ -362,7 +365,8 @@ After a cleanup, run `node scripts/check-design-system.mjs --update-baseline`
 to lock in the lower counts.
 
 The chat widget and the mobile app read the same palette and type from
-`@bokito/ui-tokens` (Inter, JetBrains Mono). Radius and font size reach the
+`@bokito/ui-tokens`. The web uses Geist; the mobile app still loads Inter and
+JetBrains Mono (`fontFamily.sansNative`). Radius and font size reach the
 mobile `theme.generated.ts` as well. Only the tenant brand color
 varies in the widget.
 

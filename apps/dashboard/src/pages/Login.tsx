@@ -391,7 +391,7 @@ export default function Login() {
                     e.target.form?.requestSubmit();
                   }
                 }}
-                className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-center font-mono text-lg tracking-[0.4em] text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
+                className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-center font-mono text-lg tracking-code text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
                 placeholder={t('loginPage.totpPlaceholder')}
               />
               {error && (

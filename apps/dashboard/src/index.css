@@ -14,11 +14,7 @@
 @layer base {
   :root {
     color-scheme: dark;
-    /* Type: Inter for UI, Source Serif 4 for headings and agent text, JetBrains Mono for code and ids. Change here only. */
-    --font-sans: 'Inter', system-ui, sans-serif;
-    --font-serif: 'Source Serif 4', Georgia, serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    /* Color, elevation, motion and --body-bg live in styles/tokens.generated.css. */
+    /* Fonts, color, elevation, motion and --body-bg live in styles/tokens.generated.css. */
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
     /* Bot-orb think/type badge edge (paired with theme-aware drop-shadow). */
@@ -51,12 +47,16 @@
   body {
     background: var(--body-bg);
     color: rgb(var(--color-text-primary));
-    font-family: var(--font-sans);
+    @apply font-sans;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 160ms ease, color 160ms ease;
     line-height: 1.45;
-    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  /* Numbers in tables line up; KPIs and counters use the tabular-nums utility. */
+  table {
+    font-variant-numeric: tabular-nums;
   }
 
   /* Icon line weight. Lucide writes stroke-width="2" by default; other values are deliberate and stay. */
@@ -80,34 +80,10 @@
   }
 
   /*
-   * Title ladder. Page > dialog > section > card > eyebrow label.
-   * Primitives (PageHeader, DialogTitle, SidePanel, SectionHeading, CardTitle) use these.
-   * Page, dialog and section titles are serif; card and eyebrow stay sans.
+   * Title ladder (.title-page, -dialog, -section, -card, -eyebrow) is generated from
+   * packages/ui-tokens/src/typography.ts. PageHeader, DialogTitle, SidePanel,
+   * SectionHeading and CardTitle use it.
    */
-  .title-page {
-    @apply font-serif font-medium text-text-heading;
-    font-size: 1.875rem;
-    line-height: 2.25rem;
-    letter-spacing: -0.01em;
-  }
-  .title-dialog {
-    @apply font-serif font-medium text-text-heading;
-    font-size: 1.25rem;
-    line-height: 1.75rem;
-  }
-  .title-section {
-    @apply font-serif font-medium text-text-heading;
-    font-size: 1.125rem;
-    line-height: 1.625rem;
-  }
-  .title-card {
-    @apply text-sm font-medium text-text-heading;
-  }
-  .title-eyebrow {
-    @apply font-medium text-text-muted;
-    font-size: 0.78125rem;
-    line-height: 1.125rem;
-  }
 
   ::-webkit-scrollbar {
     width: 6px;
@@ -186,7 +162,7 @@
   }
   .nav-row[data-active='true'],
   .nav-row[aria-current='page'] {
-    @apply bg-bg-hover text-text-heading font-medium;
+    @apply bg-bg-hover text-text-heading font-semibold;
     --color-cutout: var(--color-bg-hover);
   }
   .nav-row > svg {
@@ -1218,7 +1194,6 @@
     user-select: none;
     font-weight: 600;
     line-height: 1;
-    letter-spacing: 0.01em;
     color: rgb(var(--color-ai-ink));
     background: color-mix(in oklab, rgb(var(--color-ai)) 18%, rgb(var(--color-bg-surface)));
   }
@@ -1375,7 +1350,6 @@
     background: transparent;
     box-shadow: none;
     vertical-align: middle;
-    letter-spacing: -0.01em;
   }
   .chat-tag-chip:hover {
     background: transparent;
@@ -1396,11 +1370,9 @@
     flex-direction: column;
     gap: 0.28em;
   }
-  /* Agent replies read as prose in serif; own messages and the rest of the UI stay sans. */
+  /* Agent replies read one step above body text, in the same sans. */
   .chat-bubble-agent .chat-text {
-    font-family: var(--font-serif);
-    font-size: 1.0625rem;
-    line-height: 1.75rem;
+    @apply text-agent-chat;
   }
   .chat-text-gap {
     height: 0.4em;
@@ -2536,7 +2508,7 @@
   color: var(--docs-fg);
   font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  @apply tracking-eyebrow;
 }
 .docs-site .docs-nav-link {
   color: var(--docs-muted);

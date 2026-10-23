@@ -725,7 +725,7 @@ a { color: #60a5fa; }
   // tall mail is clipped by the outer wrapper, not by the iframe itself.
   const wrappedHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><base target="_blank"><style>
 html { background: transparent; overflow: hidden !important; }
-html, body { margin: 0; padding: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; overflow: hidden !important; }
+html, body { /* design-system-ignore: email HTML renders in mail-client fonts */ margin: 0; padding: 0; color: #1f2937; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 13px; line-height: 1.5; word-break: break-word; overflow: hidden !important; }
 body { padding: 2px 0; background: transparent; }
 img { max-width: 100%; height: auto; }
 table { max-width: 100% !important; }

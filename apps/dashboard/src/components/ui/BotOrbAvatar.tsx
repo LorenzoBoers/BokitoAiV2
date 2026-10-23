@@ -291,7 +291,7 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
         <g transform="translate(48 10) rotate(12)">
           <g className="bot-orb__think-mark">
             <text
-              className="bot-orb__badge-glyph"
+              className="bot-orb__badge-glyph font-sans"
               x="0"
               y="0"
               fill={BOT_ORB_BADGE_FILL}
@@ -301,7 +301,6 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
               strokeLinejoin="round"
               fontSize="19"
               fontWeight="700"
-              fontFamily="var(--font-sans), system-ui, sans-serif"
               textAnchor="middle"
               dominantBaseline="central"
             >
@@ -335,7 +334,7 @@ function MoodChrome({ motion }: { motion: BotOrbMotion }) {
       )
     case 'sleeping':
       return (
-        <g className="bot-orb__fx" fontFamily="var(--font-sans), system-ui, sans-serif" fontWeight="700">
+        <g className="bot-orb__fx font-sans" fontWeight="700">
           <text className="bot-orb__zz" x="48" y="14" fontSize="11">
             z
           </text>

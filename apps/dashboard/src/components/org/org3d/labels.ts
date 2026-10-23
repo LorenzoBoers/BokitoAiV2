@@ -119,7 +119,7 @@ export function makeTitle(text: string, sub: string, color: string): CSS2DObject
   el.style.cssText = [
     'pointer-events:none',
     'font:600 10.5px/14px var(--font-sans), system-ui, sans-serif',
-    'letter-spacing:0.08em',
+    'letter-spacing:var(--tracking-caps)',
     'text-transform:uppercase',
     `color:${color}`,
     'white-space:nowrap',

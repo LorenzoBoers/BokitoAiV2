@@ -42,7 +42,7 @@ export default function NavCountBadge({
 
   return (
     <span
-      className={`count-pop pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none ${colorClass} ${className}`}
+      className={`count-pop pointer-events-none absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none tabular-nums ${colorClass} ${className}`}
       aria-hidden
     >
       {label}

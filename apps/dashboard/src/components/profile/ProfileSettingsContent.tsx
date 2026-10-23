@@ -994,7 +994,7 @@ export function ProfileSettingsContent() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') void handleChangePassword()
                   }}
-                  className="h-9 rounded-lg text-center font-mono text-sm tracking-[0.3em]"
+                  className="h-9 rounded-lg text-center font-mono text-sm tracking-code"
                   placeholder={t('profile:security.totpCodePlaceholder')}
                 />
                 <p className="text-xs text-text-muted">{t('profile:security.passwordTotpHint')}</p>
@@ -1081,7 +1081,7 @@ export function ProfileSettingsContent() {
                   value={totpEnrollCode}
                   onChange={(e) => setTotpEnrollCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="000000"
-                  className="h-9 w-36 rounded-lg text-center font-mono text-sm tracking-[0.25em]"
+                  className="h-9 w-36 rounded-lg text-center font-mono text-sm tracking-code"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && totpEnrollCode.length === 6 && !totpBusy) {

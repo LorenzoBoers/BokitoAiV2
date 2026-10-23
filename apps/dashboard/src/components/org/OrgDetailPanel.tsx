@@ -44,7 +44,7 @@ function agentIdOf(node: OrgFlowNode | null): string | null {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-2xs font-semibold uppercase leading-4 tracking-[0.08em] text-text-muted">{children}</h3>
+  return <h3 className="text-2xs font-semibold uppercase leading-4 tracking-caps text-text-muted">{children}</h3>
 }
 
 const ROW_MARK = 20

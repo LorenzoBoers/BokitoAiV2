@@ -99,8 +99,12 @@ module.exports = {
       },
       fontFamily: {
         sans: "var(--font-sans)",
-        serif: "var(--font-serif)",
         mono: "var(--font-mono)",
+      },
+      letterSpacing: {
+        eyebrow: "var(--tracking-eyebrow)",
+        caps: "var(--tracking-caps)",
+        code: "var(--tracking-code)",
       },
       height: {
         topbar: "3.25rem",

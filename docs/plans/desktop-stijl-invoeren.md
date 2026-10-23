@@ -62,12 +62,16 @@ De waarden hierboven halen dat allemaal (gecontroleerd). Een nieuwe waarde die z
 
 ## Fase 2 · Typografie (typography.ts + fonts)
 
-1. Voeg `@fontsource/source-serif-4` toe, gewichten 400, 500 en 600, alleen latin. Importeer in `main.tsx` naast Inter.
-2. Voeg aan `fontFamily` het volgende toe:
-   - `serif: 'Source Serif 4'`;
-   - `cssSerif: "'Source Serif 4', Georgia, serif"`;
-   - in `tailwindFontFamily`: `serif: 'var(--font-serif)'`;
-   - in `index.css`: `--font-serif`.
+Eén font voor de hele UI: Geist voor koppen, navigatie, knoppen en inhoud, Geist Mono voor code, ID's en technische waarden. Geen serif. (Eerst stond hier Source Serif 4 voor koppen en agent-tekst; dat is vervangen.)
+
+1. Self-hosted via `@fontsource-variable/geist` en `@fontsource-variable/geist-mono`, geïmporteerd in `main.tsx`. Geen CDN. Inter, JetBrains Mono en Source Serif 4 zijn uit het dashboard verwijderd.
+2. `fontFamily` in `typography.ts`:
+   - `sans` en `display`: Geist. `display` blijft een eigen rol, zodat een accentfont later kan zonder componenten aan te raken;
+   - `mono`: Geist Mono;
+   - geen `serif` meer;
+   - de CSS-stacks beginnen met `'Geist Variable'` en `'Geist Mono Variable'`, de namen die de variabele pakketten registreren.
+
+   `emit.mjs` schrijft `--font-sans`, `--font-display` en `--font-mono` naar `tokens.generated.css`. Tailwind kent `font-sans` en `font-mono`; `display` loopt alleen via de titelrollen.
 3. Nieuwe ladder, in `fontSize` (px) en `webFontSize` (rem, gedeeld door 16):
 
 | stap | px / regelhoogte | letterSpacing |
@@ -81,17 +85,21 @@ De waarden hierboven halen dat allemaal (gecontroleerd). Een nieuwe waarde die z
 | 2xl | 24 / 31 | -0.015em |
 
    De docs-stappen en `display` blijven zoals ze zijn.
-4. Titelrollen in `index.css`:
+4. Titelrollen staan in `titleRoles` (`typography.ts`) en worden als `.title-*` naar `tokens.generated.css` geschreven:
 
 | Rol | Font | Grootte | Overig |
 |---|---|---|---|
-| `.title-page` | serif 500 | 30/36 | -0.01em |
-| `.title-section` | serif 500 | 18/26 | |
-| `.title-dialog` | serif 500 | 20/28 | |
+| `.title-page` | display 600 | 30/36 | -0.035em |
+| `.title-dialog` | display 600 | 20/28 | -0.025em |
+| `.title-section` | display 600 | 17/24 | -0.02em |
 | `.title-card` | sans 500 | 14/21 | |
-| `.title-eyebrow` | sans 500 | 12.5/18 | muted |
+| `.title-eyebrow` | sans 500 | 12.5/18 | 0.01em, muted |
 
-5. Agent-tekst: alleen in de agent-bubbel gebruikt `.chat-text` de serif op 17/28. Eigen berichten en de rest van de UI blijven sans.
+5. Agent-tekst: `.text-agent-chat` (`agentChatText`), sans 400 op 15/24. De agent-bubbel gebruikt die rol.
+6. Actief nav-item: gewicht 600.
+7. Cijfers: tabellen krijgen `tabular-nums` in de basislaag; `StatTile`, `CapBar` en tellers gebruiken de utility `tabular-nums`.
+8. Letter-spacing buiten de titelrollen loopt via `letterSpacing` (`tracking-eyebrow`, `tracking-caps`, `tracking-code`). Geen `tracking-[...]` in componenten.
+9. Guard: `serif-font` en `raw-font-family` falen in TSX en CSS buiten `tokens.generated.css`. E-mail-HTML (handtekening, citaat, voorbeeld) houdt systeemfonts met `design-system-ignore` en een reden.
 
 ## Fase 3 · Vorm (radius.ts + elevation.ts)
 
@@ -597,3 +605,8 @@ In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, o
 
 - `apps/dashboard/src/components/flows/FlowSchemaEditor.tsx` (hardcoded "Del")
 - `apps/dashboard/src/components/projects/WorksInSection.test.tsx` ("grant")
+
+### Geist: mobiel en screenshots
+
+- De mobiele app laadt nog geen Geist. `apps/mobile` laadt Inter en JetBrains Mono via `@expo-google-fonts`, en `fontFamily.sansNative`/`monoNative` wijzen daar nog naar. Niet zelf gebouwd. Nodig: Geist als Expo-font laden en de native namen in `typography.ts` omzetten.
+- De screenshots in `docs/product-help/assets` tonen nog Inter en serif-koppen. De tekst klopt nog; het font in de beelden niet. Opnieuw vastleggen met `capture_product_help_screenshots.py` hoort bij een volgende ronde.

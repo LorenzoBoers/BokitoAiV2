@@ -156,7 +156,7 @@ function QuotedMailFrame({ html, title }: { html: string; title: string }) {
       ref={frameRef}
       sandbox="allow-same-origin"
       scrolling="no"
-      srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;overflow:hidden;font:13px/1.45 -apple-system,'Segoe UI',sans-serif;color:#374151;overflow-wrap:break-word}img{max-width:100%;height:auto}</style></head><body>${html}</body></html>`}
+      srcDoc={`<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;overflow:hidden;font:13px/1.45 -apple-system,'Segoe UI',sans-serif;color:#374151;overflow-wrap:break-word}img{max-width:100%;height:auto}</style></head><body>${html}</body></html>` /* design-system-ignore: email preview HTML, mail clients do not load app fonts */}
       title={title}
       onLoad={() => {
         const frame = frameRef.current
