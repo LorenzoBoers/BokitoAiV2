@@ -8,8 +8,9 @@
  *   undefined there, so no hue is ever invented
  * - chromatic seeds keep their hue; lightness is clamped per theme, chroma is
  *   capped and reduced (never channel-clipped) to stay inside sRGB
- * - button text is white or near-black; the fill is nudged until that text
- *   reaches `MIN_FG_CONTRAST`
+ * - button text is white or near-black and reaches `MIN_FG_CONTRAST`; in dark
+ *   mode white is kept only when it already does, otherwise the label turns
+ *   dark ink; in light mode a white label darkens the fill until it does
  * - the fill reaches `MIN_SURFACE_CONTRAST` against the theme background
  * - `ink` (accent text on the page) reaches `MIN_INK_CONTRAST` on the theme bg
  */
@@ -40,12 +41,12 @@ const RETIRED_DEFAULT_HEXES = new Set(['#00FF99', '#00D986', '#0D9488'])
 export const BRAND_FG_LIGHT: Rgb = [255, 255, 255]
 export const BRAND_FG_DARK: Rgb = [17, 24, 39]
 export const BRAND_DEFAULT_BG: Record<BrandTheme, Rgb> = {
-  light: [250, 250, 249],
-  dark: [18, 18, 19],
+  light: [251, 250, 246],
+  dark: [38, 37, 35],
 }
 
-/** WCAG AA for UI components and bold labels. */
-export const MIN_FG_CONTRAST = 3
+/** WCAG AA for text: the label on the brand fill. */
+export const MIN_FG_CONTRAST = 4.5
 export const MIN_INK_CONTRAST = 4.5
 /** A filled button must stand out from the page, even with a pale seed. */
 export const MIN_SURFACE_CONTRAST = 1.4
@@ -190,7 +191,8 @@ export function brandPalette(
 
   let solidL = neutral ? NEUTRAL_SOLID_L[theme] : clamp(seedL, ...SOLID_L[theme])
   solidL = walkLightness(solidL, theme === 'light' ? L_MIN : L_MAX, (l) => contrastRatio(at(l), bg) >= MIN_SURFACE_CONTRAST)
-  const whiteFg = solidL <= WHITE_FG_MAX_L
+  const whiteFg =
+    theme === 'dark' ? contrastRatio(BRAND_FG_LIGHT, at(solidL)) >= MIN_FG_CONTRAST : solidL <= WHITE_FG_MAX_L
   const fg = whiteFg ? BRAND_FG_LIGHT : BRAND_FG_DARK
   solidL = whiteFg
     ? walkLightness(solidL, L_MIN, (l) => contrastRatio(BRAND_FG_LIGHT, at(l)) >= MIN_FG_CONTRAST)

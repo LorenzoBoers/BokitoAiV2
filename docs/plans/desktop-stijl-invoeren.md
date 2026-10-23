@@ -443,6 +443,14 @@ Deze acht `<button>`s dragen `// design-system-ignore: call-UI WIP, migreert in 
 
 Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore. Het is dezelfde `entityChipClass`-chip als zijn negen buren en gaat in 8.7 met hen mee.
 
+### Fase 1: merkkleur-engine
+
+- **Keuze per thema.** Letterlijk "wit onder 4,5:1 wordt donkere inkt" zou de standaard-mint in het lichte thema donkere tekst geven, tegen het lichte palet in (diepgroen met wit). Daarom geldt:
+  - Donker thema: wit alleen als het op de vulling al 4,5:1 haalt, anders donkere inkt.
+  - Licht thema: de vulling wordt verdonkerd tot wit 4,5:1 haalt, waar dat 3:1 was. Erg lichte zaden (geel) krijgen donkere inkt, zoals nu.
+- `BRAND_DEFAULT_BG` volgt de nieuwe `bg` (dark `38 37 35`, light `251 250 246`). Die waarde staat los in `packages/shared` en is geen import uit `ui-tokens`.
+- `applyBrandColor` overschrijft `--color-accent*` en `--color-border-focus` altijd, ook zonder tenant-kleur, want het seed wordt dan `#32BF8E`. De accent-waarden uit `palette.mjs` zie je daardoor alleen waar geen branding geladen is, zoals login en docs. Om de palet-accenten zichtbaar te maken zou het standaard-seed het palet moeten gebruiken. Dat staat niet in het plan.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

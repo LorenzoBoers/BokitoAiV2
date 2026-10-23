@@ -111,11 +111,20 @@ describe('brandPalette invariants', () => {
     }
   })
 
-  it('puts white text on the platform mint and dark text on yellow', () => {
+  it('puts dark ink on the platform mint in dark mode, white in light mode, and dark text on yellow', () => {
+    expect(brandPalette('#32BF8E', 'dark').fg).toBe(BRAND_FG_DARK)
+    expect(brandPalette('#32BF8E', 'light').fg).toBe(BRAND_FG_LIGHT)
+    for (const theme of THEMES) expect(brandPalette('#FFCD00', theme).fg).toBe(BRAND_FG_DARK)
+  })
+
+  it('keeps the dev tenant teal label at 4.5:1 and switches to dark ink where white falls short', () => {
+    const seed = rgbToHex([20, 164, 180])
+    expect(contrastRatio(BRAND_FG_LIGHT, [20, 164, 180])).toBeLessThan(MIN_FG_CONTRAST)
     for (const theme of THEMES) {
-      expect(brandPalette('#32BF8E', theme).fg).toBe(BRAND_FG_LIGHT)
-      expect(brandPalette('#FFCD00', theme).fg).toBe(BRAND_FG_DARK)
+      const p = brandPalette(seed, theme)
+      expect(contrastRatio(p.fg, p.solid), theme).toBeGreaterThanOrEqual(4.5)
     }
+    expect(brandPalette(seed, 'dark').fg).toBe(BRAND_FG_DARK)
   })
 
   it('treats invalid input exactly like the default', () => {
