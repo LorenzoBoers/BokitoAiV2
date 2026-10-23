@@ -90,7 +90,7 @@ export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 
 // Identity
 export { IconTile, type IconTileTone } from './icon-tile'
-export { AvatarDisc } from './AvatarDisc'
+export { Avatar, type AvatarProps, type TeamAvatarSource } from './avatar'
 export { UserAvatar } from './UserAvatar'
 export { PersonAvatar } from './PersonAvatar'
 export { AgentMark } from './AgentMark'
