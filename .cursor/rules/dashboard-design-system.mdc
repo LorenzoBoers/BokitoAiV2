@@ -38,7 +38,7 @@ Rare one-off styles fold into the nearest catalog component.
 | | `ApiErrorBanner` | API error with retry (a Callout preset) |
 | Data | `Badge` + `lib/badge-tones.ts` | Every pill: status, role, type, count label |
 | | `MetaLine` | "a · b · c" muted facts |
-| | `EntityRow`, `EntityList`, `DescriptionRow` | Rows of people, agents, keys; label/value pairs |
+| | `EntityRow` (`leading`, `title`, `badges`, `description`, `meta`, `trailing`, `actions`; `href`, `interactive`, `selected`, `unread`, `density`), `EntityList` (`empty`, `loading`), `DescriptionRow` | Every list row; label/value pairs |
 | | `StatTile`, `StatGrid` | KPIs |
 | | `Chart` | Bar, line, area, and sparkline (`showAxes={false}`). Canvas, Overview, Usage. Swimlanes (`AgentActivityTimeline`) stay custom |
 | | `CapBar` | Usage against a cap |
@@ -62,10 +62,10 @@ Rare one-off styles fold into the nearest catalog component.
 `npm run lint` in `apps/dashboard` runs `scripts/check-design-system.mjs`. It fails on
 `window.confirm`, native `<select>`, `text-[Npx]`, hand-rolled card strings,
 `bg-bg-elevated/40`, raw status colors, capsule chips, `h-*` on a `<Button>`,
-`text-text-muted/NN`, removed legacy classes and a raw `<button>` outside `components/ui`.
+`text-text-muted/NN`, removed legacy classes, `border-border/NN` and a raw `<button>` outside `components/ui`.
 Exempt a line only with a `design-system-ignore` comment and a reason.
 
-Ratchet rules (`raw-input`, `hex-color`, `arbitrary-radius`, `border-opacity`, `loose-empty-copy`) compare per-file
+Ratchet rules (`raw-input`, `hex-color`, `arbitrary-radius`, `loose-empty-copy`) compare per-file
 counts against `scripts/design-system-baseline.json`: a file may not gain hits. After removing
 debt, run `node scripts/check-design-system.mjs --update-baseline` to lock in the lower count.
 

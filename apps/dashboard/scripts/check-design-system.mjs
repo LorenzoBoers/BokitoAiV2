@@ -136,6 +136,11 @@ const RULES = [
     message: 'Use <Button>, <Pressable>, <TextLink>, <FilterChip> or <SegmentedControl> from components/ui.',
     catalogOk: true,
   },
+  {
+    id: 'border-opacity',
+    pattern: /(?<![\w-])border-border\/\d/,
+    message: 'Use border-border (or border-border-light for a quieter edge), not an opacity step.',
+  },
 ]
 
 const RATCHET_RULES = [
@@ -154,11 +159,6 @@ const RATCHET_RULES = [
     id: 'arbitrary-radius',
     pattern: /\brounded(-[trblxyse]{1,2})?-\[\d/,
     message: 'Use the radius ladder: rounded-sm, md, lg, xl, 2xl, full.',
-  },
-  {
-    id: 'border-opacity',
-    pattern: /(?<![\w-])border-border\/\d/,
-    message: 'Use border-border (or border-border-light for a quieter edge), not an opacity step.',
   },
   {
     id: 'loose-empty-copy',

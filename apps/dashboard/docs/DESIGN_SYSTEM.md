@@ -185,8 +185,17 @@ carries `design-system-ignore` with a reason.
 <Badge variant={roleTone(member.role)}>{roleLabel}</Badge>
 <MetaLine>{channel}{timeAgo}{count ? `${count} messages` : null}</MetaLine>
 
-<EntityList>
-  <EntityRow leading={<Avatar kind="person" ... />} title={name} badges={<Badge>Admin</Badge>} meta={<MetaLine>...</MetaLine>} trailing={<Button variant="ghost" size="iconSm">...</Button>} />
+<EntityList loading={loading} empty="No members yet">
+  <EntityRow
+    href={`/contacts/${id}`}
+    leading={<Avatar kind="person" ... />}
+    title={name}
+    badges={<Badge>Admin</Badge>}
+    description={email}
+    meta={timeAgo}
+    actions={<Button variant="ghost" size="iconSm" aria-label="Remove">...</Button>}
+    trailing={<Badge variant="success">Active</Badge>}
+  />
 </EntityList>
 
 <StatGrid><StatTile label="Tokens today" value="12.4k" hint="of 50k" /></StatGrid>
@@ -199,6 +208,31 @@ carries `design-system-ignore` with a reason.
   yLabel="Items"
 />
 ```
+
+## Lists
+
+Every list row is `EntityRow`. Slots: `leading` (Avatar or IconTile),
+`title`, `badges`, `description` (one line, truncated), `meta` (top right,
+for example a time), `trailing` (always visible) and `actions` (shown on
+hover or focus). `density` is `sm` (44px) or `md` (56px); `selected`,
+`unread` (title 600 and an accent dot), `href` (the main zone is a link) and
+`interactive` with `onClick` (the main zone is a `Pressable`). Actions and
+trailing sit outside the click zone. `EntityList` draws the dividers and
+takes `empty` (a title or an `EmptyState`) and `loading`. A new list without
+`EntityRow` comes back in review.
+
+| List | Component | On `EntityRow` |
+|---|---|---|
+| Contacts, companies | `pages/ContactsPage` | yes |
+| Members, invites, agents | `pages/MemberManagement` | yes |
+| Teams | `pages/TeamPage` | yes |
+| Connections per program | `integrations/ConnectionSections` | yes |
+| Folders | `pages/ProjectsPage` | yes |
+| Labels | `inbox/TagRegistrySection` | yes |
+| Proposal items | `inbox/ProposalItemPreview` | yes |
+| Conversations | `inbox/ThreadListItem` | no (planned) |
+| Tickets on a flow | `flows/FlowTicketBoard` | no: a board of `FlowTicketCard`, no list view |
+| Dense data (runs, MCP servers, Ops, usage) | `Table` | no: tables stay tables |
 
 `Chart` (`bar`, `line`, `area`) is the only quantitative plot. `showAxes={false}`
 is the sparkline. `tone` is `accent` (default) or `ai` (violet first). Canvas
@@ -253,6 +287,20 @@ State dots are `StatusDot` (8px): `PresenceDot` for availability,
 Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 `TAG_PILL_SIZE` from `label-marks.ts`.
 
+## Rules
+
+- Icons are 14, 16 or 20 (24, 32, 40 for display).
+- Hover is `bg-bg-hover` at full strength or `/50`, nothing in between.
+- One spinner: `Spinner`.
+- Every page starts with `PageHeader`.
+- No bare `button`: use `Button`, or `Pressable` for a click area without chrome.
+- An empty list or page is always `EmptyState`.
+- Every list row is `EntityRow`.
+
+Gone from the catalog: `PageIntro` (use `PageHeader`), `ParticipantMark` and
+the separate person, agent and team avatars (use `Avatar`), `.panel` (use
+`Card padding`) and `TeamCardsSkeleton` (use `EntityList loading`).
+
 ## Guard
 
 `npm run lint` runs `scripts/check-design-system.mjs`:
@@ -277,6 +325,7 @@ Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 | `legacy-avatar` | `Avatar kind="person"`, `"agent"` or `"team"` |
 | `raw-button` | `Button`, `Pressable`, `TextLink`, `FilterChip`, `SegmentedControl` |
 | `hand-overlay` | `Dialog`, `SidePanel` (the tour is exempt) |
+| `border-opacity` | `border-border`, `border-border-light` |
 
 Face `size` on `Avatar`, `AvatarStack` and `TeamFacepile` stays on the mark
 ladder (`mark-scale`).
@@ -292,7 +341,6 @@ a file may not gain more than its baseline:
 | `raw-input` | `Input`, `SearchField`, `Checkbox` |
 | `hex-color` | color tokens |
 | `arbitrary-radius` | radius scale |
-| `border-opacity` | `border-border`, `border-border-light` |
 | `loose-empty-copy` | `EmptyState` (counted by `scripts/list-empty-copy.mjs`) |
 
 After a cleanup, run `node scripts/check-design-system.mjs --update-baseline`
