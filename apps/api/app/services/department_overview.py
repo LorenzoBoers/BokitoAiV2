@@ -232,6 +232,7 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
         "name": dept.name,
         "description": dept.description or "",
         "icon": department_icon(dept),
+        "parent": await _parent_view(session, tenant_id, dept),
         "lead": (
             {
                 "id": str(lead.id),
@@ -272,6 +273,60 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
         ],
         "outcomes": await _outcomes(session, tenant_id, flows, history),
         "grid_href": f"/workforce/workflow?department={dept.id}",
+    }
+
+
+async def _parent_view(session: AsyncSession, tenant_id: UUID, dept: Department) -> dict[str, Any] | None:
+    """The department above this one, with the people and agents who sit on it.
+
+    Most departments hang under the All root. The child page names that parent;
+    membership still does not grant the child the parent's work.
+    """
+    from app.models.team import is_root_department
+    from app.services.agent_avatar import avatar_payload
+
+    if dept.parent_id is None:
+        return None
+    parent = await session.get(Department, dept.parent_id)
+    if parent is None or parent.tenant_id != tenant_id or parent.deleted_at is not None:
+        return None
+    members = (
+        await session.execute(
+            select(DepartmentMember)
+            .where(DepartmentMember.tenant_id == tenant_id, DepartmentMember.department_id == parent.id)
+            .order_by(DepartmentMember.position)
+        )
+    ).scalars().all()
+    user_ids = [m.user_id for m in members if m.member_kind == "user" and m.user_id]
+    agent_ids = [m.agent_id for m in members if m.member_kind == "agent" and m.agent_id]
+    users = {
+        u.id: u for u in (await session.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
+    } if user_ids else {}
+    agents = {
+        a.id: a for a in (await session.execute(select(Agent).where(Agent.id.in_(agent_ids)))).scalars().all()
+    } if agent_ids else {}
+    people: list[dict[str, Any]] = []
+    for member in members:
+        if member.member_kind == "user" and member.user_id in users:
+            user = users[member.user_id]
+            people.append({
+                "kind": "user",
+                "id": str(user.id),
+                "name": user.display_name or user.email,
+            })
+        elif member.member_kind == "agent" and member.agent_id in agents:
+            agent = agents[member.agent_id]
+            people.append({
+                "kind": "agent",
+                "id": str(agent.id),
+                "name": agent.name,
+                **{k: v for k, v in avatar_payload(agent).items() if k.startswith("avatar_")},
+            })
+    return {
+        "id": str(parent.id),
+        "name": parent.name,
+        "is_root": is_root_department(parent),
+        "members": people,
     }
 
 

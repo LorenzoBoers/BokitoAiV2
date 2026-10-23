@@ -7,7 +7,7 @@ import type { InboxThread, PatchThreadInput, ProposalItem } from '../../lib/inbo
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { isInternalThread } from '../../lib/message-composer'
 import { canvasOnThreadPath, openEntityPath } from '../../lib/open-entity'
-import { listCanvasesForThread, type ProjectCanvas } from '../../lib/project-canvas-api'
+import { CANVAS_REMOVED_EVENT, listCanvasesForThread, type ProjectCanvas } from '../../lib/project-canvas-api'
 import { findNavRowPath, type NavRow } from '../../lib/signals-api'
 import { CanvasShowcaseCard } from './ProposalItemPreview'
 import {
@@ -139,6 +139,16 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
       cancel = true
     }
   }, [thread.id])
+
+  useEffect(() => {
+    function onRemoved(event: Event) {
+      const id = (event as CustomEvent<string>).detail
+      if (!id) return
+      setCanvases((rows) => rows.filter((row) => row.id !== id))
+    }
+    window.addEventListener(CANVAS_REMOVED_EVENT, onRemoved)
+    return () => window.removeEventListener(CANVAS_REMOVED_EVENT, onRemoved)
+  }, [])
 
   return (
     <div className="space-y-2 border-t border-border/40 px-4 py-3">

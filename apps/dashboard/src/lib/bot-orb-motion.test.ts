@@ -27,6 +27,9 @@ describe('bot-orb-motion', () => {
       expect(isBotOrbBusyLoop(motion)).toBe(true)
     }
     expect(isBotOrbBusyLoop('listening')).toBe(false)
+    expect(isBotOrbBusyLoop('talking')).toBe(false)
+    expect(isBotOrbMotion('talking')).toBe(true)
+    expect(isBotOrbOneShot('talking')).toBe(false)
     expect(isBotOrbOneShot('done')).toBe(true)
     expect(isBotOrbOneShot('leave')).toBe(true)
     expect(isBotOrbMotion('leave')).toBe(true)

@@ -1005,7 +1005,7 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         ).scalars().all()
     )
     for tag in tags:
-        add(f"label:{tag.id}", "label", f"#{tag.name}", f"/communication/tag/{tag.name}")
+        add(f"label:{tag.id}", "label", tag.name, f"/communication/tag/{tag.name}")
     for flow in flows:
         add(f"flow:{flow.id}", "flow", flow.name, f"/flows/{flow.id}")
     for folder in folders:

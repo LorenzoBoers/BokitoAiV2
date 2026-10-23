@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { toastMovedToBin } from '../lib/bin-toast'
-import { ArrowLeft, Loader2, MoreHorizontal, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, MoreHorizontal, Pencil, Settings, Trash2 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ENTITY_ICONS } from '../lib/entity-icons'
 import { PageContent } from '../components/layout/PageContent'
@@ -28,8 +28,8 @@ import { NameEdit } from '../components/ui/NameEdit'
 import { LabelMarkDialog } from '../components/ui/LabelMark'
 import { TagPill } from '../components/ui/TagPill'
 import { Tip } from '../components/ui/Tip'
-import { FlowDestination } from '../components/flows/FlowDestination'
 import { FlowRecipe } from '../components/flows/FlowRecipe'
+import { FlowSchemaEditor } from '../components/flows/FlowSchemaEditor'
 import { FlowStageEntryControl } from '../components/flows/FlowStageEntryControl'
 import { FlowTicketBoard, FlowTicketBoardSkeleton } from '../components/flows/FlowTicketBoard'
 import { StageProgressIcon } from '../components/flows/StageProgressIcon'
@@ -54,6 +54,12 @@ const CalendarClock = ENTITY_ICONS.agenda
 const FlowIcon = ENTITY_ICONS.flow
 
 const KIND_ORDER: TicketStageKind[] = ['open', 'waiting', 'done', 'closed']
+
+function countByStage(tickets: FlowBoard['tickets']): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const ticket of tickets) counts[ticket.stage_key] = (counts[ticket.stage_key] ?? 0) + 1
+  return counts
+}
 
 /**
  * A flow: the stage pipeline of one action tag. The live ticket board is the
@@ -83,6 +89,7 @@ export default function WorkstreamDetail() {
   const [savingMark, setSavingMark] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [freeTags, setFreeTags] = useState<SignalTag[]>([])
   const [bindingTag, setBindingTag] = useState(false)
@@ -141,11 +148,21 @@ export default function WorkstreamDetail() {
   }, [token])
 
   const saveDepartment = async (next: string) => {
-    if (!workstream) return
+    if (!workstream || !tag || !token) return
     setSavingReview(true)
     try {
-      const updated = await patchWorkstream(workstream.id, { department_id: next || null })
-      setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))
+      await updateSignalTag(token, tag.id, { department_id: next || null })
+      const departmentId = next || ''
+      setWorkstream((prev) =>
+        prev
+          ? {
+              ...prev,
+              tags: (prev.tags ?? []).map((row) =>
+                row.id === tag.id ? { ...row, department_id: departmentId } : row,
+              ),
+            }
+          : prev,
+      )
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('workstreamsPage.saveError')))
     } finally {
@@ -312,7 +329,7 @@ export default function WorkstreamDetail() {
                     size="md"
                     color={(tag.color || '') as LabelColor}
                     icon={tag.icon}
-                    title={isAdmin ? t('workstreamsPage.mark.title', { defaultValue: 'Label' }) : `#${tag.name.replace(/^#/, '')}`}
+                    title={isAdmin ? t('workstreamsPage.mark.title', { defaultValue: 'Label' }) : tag.name.replace(/^#/, '')}
                     onClick={isAdmin ? () => setMarkOpen(true) : undefined}
                   />
                 ) : null}
@@ -320,6 +337,18 @@ export default function WorkstreamDetail() {
               </div>
               <div className="flex h-8 shrink-0 items-center gap-2">
                 <OpenInGridButton kind="flow" id={workstream.id} />
+                {isAdmin ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 gap-1.5 px-2.5"
+                    onClick={() => setEditorOpen(true)}
+                  >
+                    <Pencil size={14} aria-hidden />
+                    {t('workstreamsPage.schema.edit')}
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"
@@ -374,6 +403,19 @@ export default function WorkstreamDetail() {
             ) : null}
           </header>
 
+          <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+            <DialogContent className="flex h-[min(960px,94vh)] w-[calc(100%-1.5rem)] max-w-[1440px] flex-col gap-0 overflow-hidden p-0">
+              <FlowSchemaEditor
+                workstreamId={workstream.id}
+                stages={workstream.stages}
+                initial={workstream.flow_graph ?? { nodes: [], edges: [], errors: [] }}
+                counts={board ? countByStage(board.tickets) : undefined}
+                onSaved={(row) => setWorkstream((prev) => (prev ? { ...prev, ...row } : prev))}
+                onClose={() => setEditorOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
             <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0">
               <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
@@ -381,12 +423,6 @@ export default function WorkstreamDetail() {
                 <DialogDescription>{t('workstreamsPage.settingsHint')}</DialogDescription>
               </DialogHeader>
               <div className="max-h-[min(760px,calc(92vh-5.5rem))] space-y-5 overflow-y-auto px-5 py-4">
-                <FlowDestination
-                  flow={workstream}
-                  canEdit={isAdmin}
-                  onSaved={(updated) => setWorkstream((prev) => (prev ? { ...prev, ...updated } : prev))}
-                />
-
                 <FlowRecipe
                   flow={workstream}
                   canEdit={isAdmin}
@@ -440,12 +476,12 @@ export default function WorkstreamDetail() {
                   <p className="text-xs text-text-muted">{t('workstreamsPage.recipe.autonomyLooserInGovern')}</p>
                 </div>
 
-                {departments.length > 0 ? (
+                {departments.length > 0 && tag ? (
                   <div className="flex flex-col gap-1.5" data-testid="flow-department">
                     <Label>{t('workstreamsPage.departmentLabel')}</Label>
                     <ChoiceSelect
                       aria-label={t('workstreamsPage.departmentLabel')}
-                      value={workstream.department_id || '__none__'}
+                      value={tag.department_id || workstream.department_id || '__none__'}
                       onValueChange={(value) => void saveDepartment(value === '__none__' ? '' : value)}
                       disabled={!isAdmin || savingReview}
                       groups={[
@@ -552,7 +588,7 @@ export default function WorkstreamDetail() {
               open
               destructive
               title={t('workstreamsPage.deleteTitle')}
-              typeToConfirm={actionTag ? `#${actionTag}` : titleName}
+              typeToConfirm={actionTag || titleName}
               description={t('workstreamsPage.deleteImpact')}
               busy={deleting}
               onCancel={() => setDeleteOpen(false)}

@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import Index, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 DOC_KINDS = ("doc", "memory", "persona", "skill", "daily_log", "heartbeat", "project_doc")
@@ -110,4 +110,53 @@ class DocChunk(SQLModel, table=True):
     embedding_json: str = Field(default="[]")
     metadata_json: str = Field(default="{}")
     internal: bool = Field(default=True, index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class DocSectionTagLink(SQLModel, table=True):
+    """Labels on one knowledge section. A label change patches chunk metadata."""
+
+    __tablename__ = "doc_section_tag_links"
+    __table_args__ = (
+        Index("ix_doc_section_tag_links_tenant_tag", "tenant_id", "tag_id"),
+    )
+
+    section_id: uuid.UUID = Field(foreign_key="doc_sections.id", primary_key=True)
+    tag_id: uuid.UUID = Field(foreign_key="signal_tags.id", primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+LESSON_EVIDENCE_KINDS = (
+    "correction",
+    "verdict",
+    "intuition",
+    "call",
+    "pattern",
+    "human",
+)
+
+
+class KnowledgeEvidence(SQLModel, table=True):
+    """One independent signal that a section is a lesson.
+
+    The unique pair (section_id, source_ref) makes a repeated job a no-op.
+    A lesson is a section that has at least one of these rows.
+    """
+
+    __tablename__ = "knowledge_evidence"
+    __table_args__ = (
+        UniqueConstraint("section_id", "source_ref", name="uq_knowledge_evidence_source"),
+    )
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
+    section_id: uuid.UUID = Field(foreign_key="doc_sections.id", index=True)
+    kind: str = Field(default="intuition", index=True)
+    signal_id: Optional[uuid.UUID] = Field(default=None, foreign_key="signals.id", index=True)
+    source_ref: str = ""
+    agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id")
+    tag_ids_json: str = Field(default="[]")
+    excerpt: str = ""
+    deferred_until: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utcnow)

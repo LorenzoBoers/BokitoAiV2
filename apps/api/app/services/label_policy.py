@@ -98,7 +98,7 @@ async def check_new_label(
     if twin:
         return _refuse(
             "near_duplicate",
-            f"#{twin} already covers this. Use it, or merge the spare label into #{twin}.",
+            f"{twin} already covers this. Use it, or merge the spare label into {twin}.",
             [twin],
         )
 
@@ -128,7 +128,7 @@ async def check_new_label(
                     rest_twin = by_stem.get(stem(rest))
                     hint.append(rest_twin or rest)
                     who = (
-                        f"#{existing} is already a label"
+                        f"{existing} is already a label"
                         if existing
                         else f"{part} is a company, so its label goes on the company"
                     )

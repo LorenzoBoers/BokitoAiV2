@@ -33,7 +33,7 @@ def test_module_catalog_omits_prompts_and_step_goals():
     agent = package["agent_template"]
     assert "system_prompt" not in agent
     assert "extra_tools" not in agent
-    assert agent["name"] == "Boekhouder"
+    assert agent["name"] == "Boekito"
     assert agent["job_title"] == "Controller"
     assert agent["avatar_shape"] == "shield"
     assert agent["role_blurb"]

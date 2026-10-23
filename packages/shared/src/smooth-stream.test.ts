@@ -75,7 +75,22 @@ describe('advanceSmoothStream', () => {
     expect(visible).toBe(goal)
   })
 
-  it('resets when the goal no longer extends the previous visible text', () => {
+  it('falls back to the shared prefix when the goal no longer extends the visible text', () => {
+    const result = advanceSmoothStream({
+      goal: 'Ik begin met het dashboard.',
+      prev: 'Ik begin met het bouwen van',
+      active: true,
+      holdLead: true,
+      nowMs: 2000,
+      lastMs: 1984,
+      startedAtMs: 1000,
+      carry: 0.5,
+    })
+    expect(result.visible).toBe('Ik begin met het ')
+    expect(result.reset).toBe(true)
+  })
+
+  it('clears only when nothing is shared', () => {
     const result = advanceSmoothStream({
       goal: 'new text',
       prev: 'old',
@@ -84,10 +99,9 @@ describe('advanceSmoothStream', () => {
       nowMs: 2000,
       lastMs: 1984,
       startedAtMs: 1000,
-      carry: 0.5,
+      carry: 0,
     })
     expect(result.visible).toBe('')
-    expect(result.reset).toBe(true)
   })
 })
 

@@ -481,6 +481,7 @@ def serialize_tag(row: SignalTag, count: int = 0, *, flow_live: bool | None = No
         "workstream_id": str(row.workstream_id) if live else None,
         "show_in_nav": bool(row.show_in_nav),
         "ai_auto_tag": bool(row.ai_auto_tag),
+        "department_id": str(row.department_id) if row.department_id else None,
     }
 
 
@@ -544,6 +545,8 @@ async def update_tag(
     icon: str | None = None,
     show_in_nav: bool | None = None,
     ai_auto_tag: bool | None = None,
+    department_id: UUID | None = None,
+    set_department: bool = False,
     commit: bool = True,
 ) -> SignalTag:
     """Rename, describe or place a tag. Renaming onto an existing free tag merges the two."""
@@ -555,7 +558,7 @@ async def update_tag(
         other = (await _registry_by_name(session, tenant_id)).get(clean)
         if other is not None and other.id != row.id:
             if row.workstream_id is not None or other.workstream_id is not None:
-                raise ValueError(f"#{clean} is already in use; pick another name")
+                raise ValueError(f"{clean} is already in use; pick another name")
             await _merge_into(session, row, other)
             row = other
         else:
@@ -600,6 +603,14 @@ async def update_tag(
         row.show_in_nav = bool(show_in_nav)
     if ai_auto_tag is not None:
         row.ai_auto_tag = bool(ai_auto_tag)
+    if set_department:
+        if department_id is not None:
+            from app.models.team import Department
+
+            dept = await session.get(Department, department_id)
+            if dept is None or dept.tenant_id != tenant_id or dept.deleted_at is not None:
+                raise ValueError("Department not found")
+        row.department_id = department_id
     row.updated_at = utcnow()
     session.add(row)
     await session.flush()
@@ -752,7 +763,7 @@ async def merge_tags(
     if source.workstream_id is not None or target.workstream_id is not None:
         flow = source if source.workstream_id is not None else target
         raise ValueError(
-            f"#{flow.name} is a flow label. Merge free labels only; rename the flow on its page."
+            f"{flow.name} is a flow label. Merge free labels only; rename the flow on its page."
         )
     await _merge_into(session, source, target)
     if commit:
@@ -786,7 +797,7 @@ async def delete_tag(session: AsyncSession, tenant_id: UUID, tag_id: UUID, *, co
     )
     if folders:
         raise ValueError(
-            f"#{row.name} is the tag of folder {folders[0]}"
+            f"{row.name} is the label of folder {folders[0]}"
             + (f" and {len(folders) - 1} more" if len(folders) > 1 else "")
             + ". Remove or retag the folder first."
         )

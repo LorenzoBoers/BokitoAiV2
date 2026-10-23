@@ -11,9 +11,15 @@ import { useTranslation } from 'react-i18next'
 import { Maximize2, Minus, Pin, PinOff, X } from 'lucide-react'
 import ThreadDetail from '../inbox/ThreadDetail'
 import { useThreadDetail } from '../../hooks/useThreadDetail'
+import { useMailboxConnections } from '../../hooks/useMailboxConnections'
 import { usePinnedIds } from '../../hooks/usePinnedIds'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import type { StackCard } from '../../hooks/useChatStack'
+import {
+  useAgentCallLive,
+  useAgentCallSpeaking,
+  useAgentCallUserSpeaking,
+} from '../../lib/agent-call-live'
 import { cn } from '../../lib/utils'
 import { AiAvatar } from '../ui/AiAvatar'
 import { Button } from '../ui/button'
@@ -104,7 +110,18 @@ export function FloatingThreadWindow({
   onTogglePin,
 }: FloatingThreadWindowProps) {
   const { t } = useTranslation('communication')
+  const call = useAgentCallLive()
+  const speaking = useAgentCallSpeaking()
+  const userSpeaking = useAgentCallUserSpeaking()
+  const onCall =
+    call?.signalId === threadId && (call.status === 'live' || call.status === 'connecting')
   const { pinnedIds } = usePinnedIds()
+  const { activeConnections, setupNeededConnections, loading: mailboxesLoading } = useMailboxConnections()
+  // While mailboxes load, don't claim the thread has no mailbox.
+  const canSendEmail = mailboxesLoading || activeConnections.length > 0
+  const mailboxNeedsSetup =
+    !mailboxesLoading && activeConnections.length === 0 && setupNeededConnections.length > 0
+  const [mailOpen, setMailOpen] = useState(false)
   const {
     detail,
     loading,
@@ -126,6 +143,10 @@ export function FloatingThreadWindow({
   const rootRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef(false)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const onMailSurfaceChange = useCallback((open: boolean) => {
+    setMailOpen(open)
+    if (open) setOffset({ x: 0, y: 0 })
+  }, [])
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; origX: number; origY: number } | null>(
     null,
@@ -293,14 +314,28 @@ export function FloatingThreadWindow({
   const pinned = card?.pinned ?? pinnedIds.includes(threadId)
   const front = card?.faces.find((f) => f.working) ?? card?.faces[0] ?? null
 
-  const style: CSSProperties = {
-    right,
-    bottom,
-    width: 'min(420px, calc(100vw - 24px))',
-    height: `min(720px, calc(100vh - ${bottom + 56}px))`,
-    transformOrigin: 'bottom right',
-    transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
-  }
+  const style: CSSProperties = mailOpen
+    ? {
+        right: 16,
+        bottom: 16,
+        width: 'min(720px, calc(100vw - 32px))',
+        height: 'min(860px, calc(100vh - 32px))',
+        transformOrigin: 'bottom right',
+        transition: dragging
+          ? 'none'
+          : 'width 380ms cubic-bezier(0.22, 1, 0.36, 1), height 380ms cubic-bezier(0.22, 1, 0.36, 1), right 380ms cubic-bezier(0.22, 1, 0.36, 1), bottom 380ms cubic-bezier(0.22, 1, 0.36, 1)',
+      }
+    : {
+        right,
+        bottom,
+        width: 'min(420px, calc(100vw - 24px))',
+        height: `min(720px, calc(100vh - ${bottom + 56}px))`,
+        transformOrigin: 'bottom right',
+        transform: offset.x || offset.y ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
+        transition: dragging
+          ? 'none'
+          : 'width 380ms cubic-bezier(0.22, 1, 0.36, 1), height 380ms cubic-bezier(0.22, 1, 0.36, 1), right 380ms cubic-bezier(0.22, 1, 0.36, 1), bottom 380ms cubic-bezier(0.22, 1, 0.36, 1), transform 380ms cubic-bezier(0.22, 1, 0.36, 1)',
+      }
 
   return (
     <div
@@ -308,7 +343,10 @@ export function FloatingThreadWindow({
       role="dialog"
       aria-label={title}
       data-floating-thread={threadId}
-      className="fixed z-[60] flex flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-elevated shadow-overlay"
+      className={cn(
+        'fixed z-[60] flex flex-col overflow-hidden rounded-xl border bg-bg-elevated shadow-overlay',
+        onCall ? 'border-ai shadow-[0_0_32px_rgb(var(--color-ai)/0.35)]' : 'border-border/70',
+      )}
       style={style}
     >
       <div
@@ -324,15 +362,17 @@ export function FloatingThreadWindow({
       >
         {front ? (
           <AiAvatar
-            size={24}
+            size={onCall ? 36 : 24}
             name={front.name}
             kind={front.avatarKind ?? front.kind}
             icon={front.avatarIcon}
             color={front.avatarColor}
             shape={front.avatarShape}
             imageUrl={front.avatarImageUrl}
-            mode={front.working ? 'live' : 'static'}
-            motion={front.working ? 'working' : null}
+            mode="live"
+            motion={
+              onCall ? (speaking ? 'talking' : userSpeaking ? 'listening' : 'idle') : front.working ? 'working' : 'idle'
+            }
             decorative
           />
         ) : null}
@@ -424,6 +464,9 @@ export function FloatingThreadWindow({
           }
           onDecisionResolved={() => void refresh(true)}
           mode="customer"
+          canSendEmail={canSendEmail}
+          mailboxNeedsSetup={mailboxNeedsSetup}
+          onMailSurfaceChange={onMailSurfaceChange}
         />
       </div>
     </div>

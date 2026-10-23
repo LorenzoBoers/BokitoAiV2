@@ -908,7 +908,7 @@ async def _activity(
             continue
         status = _ACTIVITY_EVENTS[event.event_type]
         detail = {
-            "filed": f"#{payload.get('category')}" if payload.get("category") else "",
+            "filed": str(payload.get("category") or "").lstrip("#") if payload.get("category") else "",
             "stage": payload.get("to_stage") or "",
             "assigned": names.payload_owner(payload.get("after")),
             "closed": "",

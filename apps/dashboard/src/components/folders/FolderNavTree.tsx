@@ -665,7 +665,7 @@ export function FolderNavTree({
       }
       offerUndo(
         t('projects.detail.tagMovedToRoot', {
-          defaultValue: 'Moved #{{tag}} to the top level',
+          defaultValue: 'Moved {{tag}} to the top level',
           tag: bare,
         }),
         async () => {
@@ -919,7 +919,7 @@ function RootDropZone({
   const lit = highlight || isOver
   const hint = movingTag
     ? t('projects.detail.rootDropTagHint', {
-        defaultValue: 'Drop to place #{{tag}} at the top level',
+        defaultValue: 'Drop to place {{tag}} at the top level',
         tag: tagName ?? '',
       })
     : placement === 'end'

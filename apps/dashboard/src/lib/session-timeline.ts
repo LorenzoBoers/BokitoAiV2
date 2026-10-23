@@ -3,9 +3,10 @@
  *
  * A session is an assistant conversation attached to a customer thread. Its
  * messages live on the session signal, so the thread detail does not carry
- * them; this adapter maps the chat payload onto `InboxMessage` so the same
- * bubble renderer (stacking, activity trail, feedback) draws them next to the
- * customer mail. The `agent_session_id` payload key marks them internal.
+ * them; this adapter maps the chat payload onto `InboxMessage` so the timeline
+ * draws them next to the customer thread. The operator's question stays a
+ * bubble; the agent's answer is a document, not a customer bubble.
+ * The `agent_session_id` payload key marks them internal.
  */
 import type { InboxMessage } from './inbox-api'
 import type { ChatMessage, ThreadSession } from './signals-api'

@@ -653,8 +653,8 @@ async def test_approved_file_ticket_decision_runs_the_tool_once(client: AsyncCli
     decision = DecisionRequest(
         tenant_id=tenant.id,
         signal_id=signal.id,
-        title="File as #retour",
-        summary="File as #retour",
+        title="File as retour",
+        summary="File as retour",
         options_json=_json.dumps(
             [{"id": "yes", "action_type": "file_ticket", "payload": {"tag_id": category["id"]}}]
         ),

@@ -11,6 +11,7 @@ import {
   nudgeChatStack,
   orderStackCards,
   setChatStackIds,
+  stabilizeStackOrder,
   type ChatStackAgent,
   type ChatStackItem,
   type StackCardState,
@@ -71,6 +72,10 @@ export function useChatStack() {
   const pinKey = pinnedIds.join(',')
   const lastEventAt = useRef(new Map<string, number>())
   const itemIdsRef = useRef(new Set<string>())
+  const orderHold = useRef<string[] | null>(null)
+  const callBusy =
+    activeCall?.status === 'live' || activeCall?.status === 'connecting' || activeCall?.status === 'ringing'
+  if (!callBusy) orderHold.current = null
 
   const fetchSeq = useRef(0)
   const refetch = useCallback(async () => {
@@ -212,11 +217,12 @@ export function useChatStack() {
         faces.push({ ...agent, working })
       }
       const front = faces.find((f) => f.working) ?? null
+      const shown = front ?? faces[0] ?? null
       const callPhase =
         activeCall && activeCall.signalId === item.id ? activeCall.status : null
       return {
         ...item,
-        faces: faces.slice(0, 3),
+        faces: shown ? [shown] : [],
         live: Boolean(front) || callPhase === 'live' || callPhase === 'connecting',
         liveSummary:
           callPhase === 'ringing' || callPhase === 'live' || callPhase === 'connecting'
@@ -226,10 +232,12 @@ export function useChatStack() {
         callPhase,
       }
     })
-    return orderStackCards(merged)
+    const ordered = orderStackCards(merged)
+    if (!callBusy || !orderHold.current?.length) return ordered
+    return stabilizeStackOrder(ordered, orderHold.current)
     // agentVersion re-reads the live agent table.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, agents, agentVersion, activeCall])
+  }, [items, agents, agentVersion, activeCall, callBusy])
 
   // Hide the open full-screen thread, unless an in-app call is on it —
   // then the stack card stays as the live call mark.
@@ -237,6 +245,9 @@ export function useChatStack() {
     () => cards.filter((card) => card.id !== openThreadId || Boolean(card.callPhase)),
     [cards, openThreadId],
   )
+  if (callBusy && !orderHold.current?.length && visibleCards.length) {
+    orderHold.current = visibleCards.map((card) => card.id)
+  }
 
   return { cards: visibleCards, loaded, refetch, follow, unfollow, openThreadId }
 }

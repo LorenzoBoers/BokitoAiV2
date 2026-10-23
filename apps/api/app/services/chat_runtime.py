@@ -138,10 +138,22 @@ async def start_agent_turn(
         tool_signal_id=tool_signal_id,
         surface=surface,
     )
+    # A voice consult is one short lookup. A long loop kept posting notes and
+    # a second copy of the same answer next to the live bubble.
+    if surface == "agent_call":
+        loop.max_loops = min(loop.max_loops, 2)
     text, tokens = await loop.run_chat(
         [{"role": "user", "content": user_text}],
         extra_context=extra_system or "",
     )
+    saved = await loop.persist_turn(
+        signal,
+        metadata={"source": surface or trust, "trust": trust},
+    )
+    if saved:
+        text = "\n\n".join(
+            (row.body_text or "").strip() for row in saved if (row.body_text or "").strip()
+        ) or text
     return {"ok": True, "text": text, "tokens": tokens}
 
 

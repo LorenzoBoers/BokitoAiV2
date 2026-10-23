@@ -1272,7 +1272,12 @@ async def reclaim_orphaned_chat_runs() -> int:
         agent_ids = {run.agent_id for run in runs if run.agent_id}
         signal_ids = {run.signal_id for run in runs if run.signal_id}
         for run in runs:
-            await _finalize_run(session, run, status="failed")
+            await _finalize_run(
+                session,
+                run,
+                status="failed",
+                reason="Orphaned chat run reclaimed after API restart.",
+            )
             clear_cancel(run.id)
         for signal_id in signal_ids:
             signal = await session.get(Signal, signal_id)
@@ -1303,7 +1308,6 @@ async def _bin_empty_canvases_for_signal(session, signal: Signal) -> int:
     from sqlalchemy import select
 
     from app.models.project_canvas import ProjectCanvas
-    from app.services.canvas_content import content_is_empty
     from app.services.project_canvas import delete_canvas
     from app.services.project_canvas_compile import is_empty_tree
 
@@ -1321,10 +1325,9 @@ async def _bin_empty_canvases_for_signal(session, signal: Signal) -> int:
         kind = str(getattr(row, "kind", None) or "dashboard")
         if kind != "dashboard":
             continue
-        empty = content_is_empty(kind, row.source)
-        if not empty and is_empty_tree(getattr(row, "tree_json", None)):
-            empty = content_is_empty(kind, None)
-        if not empty:
+        # A dashboard's source column is empty once the body is blocks.
+        # Emptiness is the tree.
+        if not is_empty_tree(getattr(row, "tree_json", None)):
             continue
         await delete_canvas(session, signal.tenant_id, row.id)
         removed += 1
@@ -1350,7 +1353,12 @@ async def _ensure_session_idle(
         )
         from app.services.agent.turn_persist import end_dead_turns
 
-        await _finalize_run(session, busy, status="failed")
+        await _finalize_run(
+            session,
+            busy,
+            status="failed",
+            reason="Orphaned chat run reclaimed (stale or no live turn).",
+        )
         signal = await session.get(Signal, conversation_id)
         if signal is not None:
             await end_dead_turns(
@@ -1488,6 +1496,7 @@ async def _finalize_run(
     status: str,
     tokens: dict | None = None,
     error: BaseException | None = None,
+    reason: str | None = None,
 ) -> None:
     """Close the run record; callers commit. Runs must never stay 'running'."""
     if run is None:
@@ -1498,6 +1507,17 @@ async def _finalize_run(
         from app.services.run_errors import record_run_error
 
         record_run_error(run, error)
+    elif status == "failed":
+        from app.services.run_errors import record_run_failure
+
+        record_run_failure(
+            run,
+            reason
+            or "The assistant stopped unexpectedly while working.",
+            error_code="run_failed",
+        )
+    if status == "failed" and not (run.stop_reason or "").strip():
+        run.stop_reason = "error"
     if isinstance(tokens, dict):
         run.tokens_input = int(tokens.get("input_tokens") or 0)
         run.tokens_output = int(tokens.get("output_tokens") or 0)

@@ -99,6 +99,31 @@ def _settings_of(tenant: Any) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _next_utc_midnight(now: datetime) -> datetime:
+    tomorrow = now + timedelta(days=1)
+    return tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _next_utc_month_start(now: datetime) -> datetime:
+    if now.month == 12:
+        return now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    return now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def block_until(kind: str, error: BaseException | str, *, now: datetime | None = None) -> datetime:
+    """When inbound/triggers may try again after this block kind."""
+    stamp = now or utcnow()
+    if kind == BLOCK_SPEND_CAP:
+        # Daily token cap resets at UTC midnight; monthly at month start.
+        # A 60-minute window reopened one failed email run every hour.
+        text = str(error or "").lower()
+        if "monthly" in text:
+            return _next_utc_month_start(stamp)
+        return _next_utc_midnight(stamp)
+    minutes = _BLOCK_BACKOFF_MINUTES.get(kind, LLM_BLOCK_BACKOFF_MINUTES)
+    return stamp + timedelta(minutes=minutes)
+
+
 def active_workspace_block(tenant: Any, *, now: datetime | None = None) -> dict[str, Any] | None:
     """The current block when its backoff window has not passed yet."""
     block = _settings_of(tenant).get(LLM_BLOCK_SETTINGS_KEY)
@@ -120,12 +145,23 @@ def open_workspace_block(tenant: Any, *, kind: str, error: BaseException | str) 
     settings = _settings_of(tenant)
     previous = settings.get(LLM_BLOCK_SETTINGS_KEY)
     previous = previous if isinstance(previous, dict) else {}
-    minutes = _BLOCK_BACKOFF_MINUTES.get(kind, LLM_BLOCK_BACKOFF_MINUTES)
+    until = block_until(kind, error, now=now)
+    # Extending an open block must not shrink the window (e.g. spend_cap → midnight).
+    try:
+        previous_until = (
+            datetime.fromisoformat(str(previous.get("until")))
+            if previous.get("until")
+            else None
+        )
+    except ValueError:
+        previous_until = None
+    if previous_until is not None and previous_until > until and previous.get("kind") == kind:
+        until = previous_until
     block = {
         "kind": kind,
         "error": (str(error) or kind)[:500],
         "since": previous.get("since") or now.isoformat(),
-        "until": (now + timedelta(minutes=minutes)).isoformat(),
+        "until": until.isoformat(),
         "deferred_signal_ids": list(previous.get("deferred_signal_ids") or []),
     }
     settings[LLM_BLOCK_SETTINGS_KEY] = block
@@ -158,18 +194,32 @@ def close_workspace_block(tenant: Any) -> list[str]:
     return [str(x) for x in block.get("deferred_signal_ids") or []]
 
 
-def record_run_error(run: Any, exc: BaseException) -> None:
-    """Merge ``error`` / ``error_code`` into ``run.result_json`` (caller commits)."""
+def record_run_failure(
+    run: Any,
+    message: str,
+    *,
+    error_code: str | None = None,
+) -> None:
+    """Merge a plain failure note into ``run.result_json`` (caller commits)."""
     try:
         data = json.loads(run.result_json or "{}")
     except (TypeError, json.JSONDecodeError):
         data = {}
     if not isinstance(data, dict):
         data = {}
-    data["error"] = error_summary(exc)
-    block = workspace_block(exc)
-    if block:
-        data["error_code"] = block
-    elif isinstance(exc, AppError):
-        data["error_code"] = exc.code
+    text = " ".join(str(message or "").split())[:1000] or "run failed"
+    data["error"] = text
+    if error_code:
+        data["error_code"] = error_code
     run.result_json = json.dumps(data)
+    if not getattr(run, "stop_reason", None):
+        run.stop_reason = "error"
+
+
+def record_run_error(run: Any, exc: BaseException) -> None:
+    """Merge ``error`` / ``error_code`` into ``run.result_json`` (caller commits)."""
+    block = workspace_block(exc)
+    code = block
+    if code is None and isinstance(exc, AppError):
+        code = exc.code
+    record_run_failure(run, error_summary(exc), error_code=code)

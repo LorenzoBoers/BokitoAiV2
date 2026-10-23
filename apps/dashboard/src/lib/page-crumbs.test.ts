@@ -7,6 +7,7 @@ describe('extra crumbs', () => {
     expect(extraCrumbsForPath('/agents/knowledge')).toEqual([{ labelKey: 'tabs.knowledge.title' }])
     expect(extraCrumbsForPath('/workforce/grid')).toEqual([{ labelKey: 'tabs.grid.title' }])
     expect(extraCrumbsForPath('/workforce/workflow')).toEqual([{ labelKey: 'tabs.workflow.title' }])
+    expect(extraCrumbsForPath('/workforce/organogram')).toEqual([{ labelKey: 'tabs.organogram.title' }])
     expect(extraCrumbsForPath('/contacts/abc')).toEqual([{ labelKey: 'crumbs.person' }])
     expect(extraCrumbsForPath('/contacts/companies/acme')).toEqual([{ labelKey: 'crumbs.company' }])
     expect(extraCrumbsForPath('/agents/lead-1')).toEqual([{ labelKey: 'crumbs.agent' }])

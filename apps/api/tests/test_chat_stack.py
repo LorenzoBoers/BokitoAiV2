@@ -57,6 +57,22 @@ async def test_stack_pinned_first_then_following(client: AsyncClient, session_ov
 
 
 @pytest.mark.asyncio
+async def test_stack_holds_three_conversations(client: AsyncClient, session_override):
+    headers = await _auth_headers(client)
+    ids = [await _thread(client, headers, f"Pin {n}") for n in range(4)]
+    for thread_id in ids:
+        assert (await client.post(f"/api/signals/{thread_id}/pin", headers=headers)).status_code == 200
+
+    res = await client.get("/api/signals/stack", headers=headers)
+    assert res.status_code == 200
+    assert [i["id"] for i in res.json()["items"]] == ids[1:]
+
+    followed = await _thread(client, headers, "Followed now")
+    res = await client.get(f"/api/signals/stack?follow={followed}", headers=headers)
+    assert [i["id"] for i in res.json()["items"]] == [ids[2], ids[3], followed]
+
+
+@pytest.mark.asyncio
 async def test_stack_drops_other_tenant_and_caps_following(client: AsyncClient, session_override):
     headers = await _auth_headers(client)
     other = Tenant(slug="other", name="Other")
@@ -96,6 +112,7 @@ async def test_stack_shows_working_agent(client: AsyncClient, session_override):
     assert res.status_code == 200
     card = res.json()["items"][0]
     assert card["agents"][0]["name"] == "Test Assistant"
+    assert len(card["agents"]) == 1
     assert card["agents"][0]["working"] is True
     assert card["agents"][0]["summary"] == "Drafting a reply"
 

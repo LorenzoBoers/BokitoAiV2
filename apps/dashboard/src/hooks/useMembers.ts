@@ -23,7 +23,8 @@ export function setSelfPresenceLive(live: boolean) {
 }
 
 function asPresence(status: string | undefined): NonNullable<InboxMember['presence']> {
-  return status === 'available' || status === 'away' ? status : 'offline'
+  if (status === 'available' || status === 'away' || status === 'unavailable') return status
+  return 'offline'
 }
 
 function resolvePresence(

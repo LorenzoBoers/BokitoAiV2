@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError
 from app.core.time import utcnow
 from app.models.audit import AuditEvent
 from app.models.learning import EvalScore, Feedback
@@ -937,7 +938,7 @@ async def run_tenant_learning_cycle(session: AsyncSession, tenant_id: UUID) -> d
                     triggered_by_id="learning_cycle",
                 )
                 workstream_enqueued = True
-            except HTTPException:
+            except (HTTPException, AppError):
                 workstream_enqueued = False
 
     return {

@@ -112,8 +112,8 @@ register_tool(
             "list_docs are type knowledge with the doc id. Connectors: type marketplace + catalog slug "
             "(github, slack, notion, google_calendar, whatsapp, …). Type integration "
             "only for a connected connection id (falls back to marketplace when not "
-            "connected). Remote images: type image with url (https). Tags in prose: "
-            "#name. Use propose_action when the operator must choose or approve."
+            "connected). Remote images: type image with url (https). Name a label "
+            "without a leading #. Use propose_action when the operator must choose or approve."
         ),
         category="messaging",
         input_schema={

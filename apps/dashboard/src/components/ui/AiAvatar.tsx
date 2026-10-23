@@ -162,12 +162,11 @@ export function AiAvatar({
       </span>
     )
   } else if (resolved === 'pending') {
-    // Quick-load shell: solid circle in the agent tint, no initials flash.
+    // Quick-load shell: translucent grey skeleton circle, not the default orb.
     face = (
       <span
-        style={{ ...style, background: orbColor }}
-        className={cn('ai-avatar ai-avatar-pending', activity ? '' : className)}
-        data-working={working || undefined}
+        style={style}
+        className={cn('ai-avatar-pending skeleton-shimmer', activity ? '' : className)}
         data-testid="ai-avatar-pending"
         {...a11yProps}
       />

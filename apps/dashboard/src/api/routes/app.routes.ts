@@ -194,6 +194,7 @@ export const appRoutes = {
       `/departments/${id}/domain/questions/${encodeURIComponent(key)}`,
     awareness: (id: string) => `/departments/${id}/awareness`,
     myAway: '/departments/me/away',
+    myAvailability: '/departments/me/availability',
     room: (id: string) => `/departments/${id}/room`,
     graph: '/org/graph',
     flow: (days: number) => `/org/flow?days=${days}`,

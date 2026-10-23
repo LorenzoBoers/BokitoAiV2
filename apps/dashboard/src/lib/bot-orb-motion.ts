@@ -11,6 +11,7 @@ import type { AgentPresenceStatus } from './teams-api'
 export type BotOrbMotion =
   | 'idle'
   | 'listening'
+  | 'talking'
   | 'thinking'
   | 'working'
   | 'searching'
@@ -33,6 +34,7 @@ export type BotOrbDrive = {
 export const BOT_ORB_LOOPS = [
   'idle',
   'listening',
+  'talking',
   'thinking',
   'working',
   'searching',

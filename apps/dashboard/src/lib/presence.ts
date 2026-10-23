@@ -9,6 +9,7 @@ export type PresenceBadgeVariant = 'success' | 'warning' | 'neutral' | 'ai' | 'e
 const DOT_CLASS: Record<PresenceKind, string> = {
   available: 'bg-status-success',
   away: 'bg-status-warning',
+  unavailable: 'bg-text-muted',
   offline: 'bg-text-muted/50',
   standby: 'presence-standby-dot',
   working: 'presence-working-dot',
@@ -19,6 +20,7 @@ const DOT_CLASS: Record<PresenceKind, string> = {
 const BADGE_VARIANT: Record<PresenceKind, PresenceBadgeVariant> = {
   available: 'success',
   away: 'warning',
+  unavailable: 'neutral',
   offline: 'neutral',
   standby: 'ai',
   working: 'ai',
@@ -29,6 +31,7 @@ const BADGE_VARIANT: Record<PresenceKind, PresenceBadgeVariant> = {
 const TEXT_CLASS: Record<PresenceKind, string> = {
   available: 'text-status-success',
   away: 'text-status-warning',
+  unavailable: 'text-text-muted',
   offline: 'text-text-muted',
   standby: 'text-ai-ink',
   working: 'text-ai-ink',
@@ -38,18 +41,21 @@ const TEXT_CLASS: Record<PresenceKind, string> = {
 
 /** Account menu: this tab is open, so the operator is not offline. */
 export function selfVisiblePresence(
-  status: 'available' | 'away' | 'offline' | undefined,
-): 'available' | 'away' {
-  return status === 'away' ? 'away' : 'available'
+  status: 'available' | 'away' | 'offline' | 'unavailable' | undefined,
+): 'available' | 'away' | 'unavailable' {
+  if (status === 'away') return 'away'
+  if (status === 'unavailable') return 'unavailable'
+  return 'available'
 }
 
 /** Live socket for this user beats a stale REST offline seed. */
 export function overlaySelfPresence(
   userId: string | undefined,
-  status: 'available' | 'away' | 'offline',
+  status: 'available' | 'away' | 'offline' | 'unavailable',
   selfId: string | null,
   selfLive: boolean,
-): 'available' | 'away' | 'offline' {
+): 'available' | 'away' | 'offline' | 'unavailable' {
+  if (status === 'unavailable') return 'unavailable'
   if (status === 'offline' && selfLive && userId && selfId && userId === selfId) {
     return 'available'
   }
@@ -63,6 +69,7 @@ export function asPresenceKind(value: string | null | undefined): PresenceKind {
   if (
     raw === 'available' ||
     raw === 'away' ||
+    raw === 'unavailable' ||
     raw === 'offline' ||
     raw === 'standby' ||
     raw === 'working' ||

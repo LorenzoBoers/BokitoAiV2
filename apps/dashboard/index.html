@@ -12,45 +12,12 @@
 </head>
 <body>
   <div id="root"></div>
-  <script>
-    (function () {
-      var publicPath = /^\/(login|signup|forgot-password|reset-password)$/;
-      function sync() {
-        var node = document.getElementById('bokito-about');
-        var onPublic = publicPath.test(location.pathname);
-        var already = (document.body.innerText || '').indexOf('Bokito AI runs conversations') !== -1;
-        if (!onPublic || (already && node)) {
-          if (node) node.remove();
-          return;
-        }
-        if (!onPublic || already || node) return;
-        var host = document.querySelector('.max-w-sm');
-        if (!host) return;
-        var p = document.createElement('p');
-        p.id = 'bokito-about';
-        p.style.cssText = 'margin:16px 0 0;text-align:center;font:12px/1.5 Inter,system-ui,sans-serif;color:#9aa3b5';
-        p.appendChild(document.createTextNode('Bokito AI runs conversations, the agenda, and agents for your company. '));
-        var a = document.createElement('a');
-        a.href = '/privacy.html';
-        a.style.color = '#c5cedd';
-        a.textContent = 'Privacy';
-        p.appendChild(a);
-        host.appendChild(p);
-      }
-      var push = history.pushState;
-      history.pushState = function () {
-        var result = push.apply(this, arguments);
-        sync();
-        return result;
-      };
-      window.addEventListener('popstate', sync);
-      var ticks = 0;
-      var timer = setInterval(function () {
-        sync();
-        if (++ticks > 24) clearInterval(timer);
-      }, 500);
-    })();
-  </script>
+  <noscript>
+    <p style="margin:2rem auto;max-width:24rem;text-align:center;font:14px/1.5 system-ui,sans-serif;color:#9aa3b5">
+      Bokito AI runs conversations, the agenda, and agents for your company.
+      <a href="/privacy.html" style="color:#c5cedd">Privacy</a>
+    </p>
+  </noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

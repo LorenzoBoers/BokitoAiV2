@@ -17,39 +17,17 @@
     /* Type: Inter for UI, JetBrains Mono for code and ids. Change here only. */
     --font-sans: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
-    /* Color triplets and --body-bg live in styles/tokens.generated.css. */
-    --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+    /* Color, elevation, motion and --body-bg live in styles/tokens.generated.css. */
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
-    /*
-     * Elevation. Cards are flat (border carries the edge); only overlays float.
-     * --shadow-inset-highlight / --shadow-chip-active stay as very soft helpers.
-     */
-    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
-    --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
-    --shadow-card: 0 0 0 0 transparent;
-    --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.9);
-    --shadow-overlay:
-      0 0 0 1px rgba(255, 255, 255, 0.04),
-      0 16px 48px -16px rgba(0, 0, 0, 0.7);
     /* Bot-orb think/type badge edge (paired with theme-aware drop-shadow). */
     --bot-orb-badge-edge: rgb(var(--color-bg-root));
   }
 
   :root[data-theme='light'] {
     color-scheme: light;
-    --shadow-btn:
-      0 1px 0 rgba(255, 255, 255, 0.18) inset,
-      0 1px 2px rgba(20, 20, 18, 0.12);
     --body-glow-top: transparent;
     --body-glow-bottom: transparent;
-    --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
-    --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
-    --shadow-card: 0 1px 0 rgba(20, 20, 18, 0.02);
-    --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.85);
-    --shadow-overlay:
-      0 0 0 1px rgba(24, 24, 22, 0.035),
-      0 12px 32px -12px rgba(24, 24, 22, 0.14);
     --bot-orb-badge-edge: rgb(var(--color-bg-surface));
   }
 
@@ -351,6 +329,7 @@
    * fade only shows when the text really overflows.
    */
   .truncate-fade {
+    --truncate-fade: 28px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -369,8 +348,19 @@
     @keyframes truncate-fade-mask {
       from,
       to {
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-        mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--truncate-fade)), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - var(--truncate-fade)), transparent);
+      }
+    }
+    /* Dock titles fade across the right side, so the line is gone before the dial. */
+    .truncate-fade.chat-stack-title {
+      animation-name: chat-stack-title-fade;
+    }
+    @keyframes chat-stack-title-fade {
+      from,
+      to {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 11rem), transparent);
+        mask-image: linear-gradient(to right, #000 calc(100% - 11rem), transparent);
       }
     }
   }
@@ -939,6 +929,28 @@
   .bot-orb[data-motion='listening'] .bot-orb__body {
     animation: bot-orb-breathe 3.4s ease-in-out infinite;
   }
+  /* Talking: a mouth on the muzzle. Hidden in every other mood. */
+  .bot-orb__mouth {
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0;
+  }
+  .bot-orb[data-motion='talking']:not(.bot-orb--paused) .bot-orb__mouth {
+    opacity: 1;
+    animation: bot-orb-talk 0.22s ease-in-out infinite;
+  }
+  @keyframes bot-orb-talk {
+    0%,
+    100% {
+      transform: scaleX(0.82) scaleY(0.22);
+    }
+    35% {
+      transform: scaleX(1.08) scaleY(1.35);
+    }
+    68% {
+      transform: scaleX(0.92) scaleY(0.45);
+    }
+  }
   /* Working: shrink so the orbits clear the body. */
   .bot-orb[data-motion='working'] .bot-orb__figure {
     transform: scale(0.84);
@@ -1486,6 +1498,15 @@
   }
   .ai-avatar-image > img {
     border-radius: inherit;
+  }
+  /* Agent mark while the catalog hydrates: grey circle, not every bot orb. */
+  .ai-avatar-pending {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    opacity: 0.55;
+    box-shadow: inset 0 0 0 1px rgb(var(--color-border) / 0.45);
   }
   :root[data-theme='light'] .ai-avatar {
     background: color-mix(in oklab, rgb(var(--color-ai)) 10%, rgb(var(--color-bg-surface)));
@@ -2556,14 +2577,17 @@
   }
 }
 
-/* Chat stack (bottom-right): cards sit stacked, fan out to the left on hover
-   with a springy overshoot and a per-card stagger, and nudge on new activity. */
+/* Chat stack (bottom-right): one card when idle, fan out to the left on hover.
+   No spring overshoot or permanent will-change — those left ghost copies while
+   cards reshuffled under a working agent. */
 .chat-stack-card {
   transition:
-    transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 220ms ease;
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease;
   transition-delay: var(--stack-delay, 0ms);
-  will-change: transform;
+}
+.chat-stack-card[data-hidden='true'] {
+  pointer-events: none;
 }
 .chat-stack-card-body {
   transition:
@@ -2620,9 +2644,27 @@
     background-position: -150% 0;
   }
 }
+/* Dial label sits on the title. A halo in the card color keeps the glyphs readable. */
+.chat-stack-dial {
+  text-shadow:
+    0 0 1px rgb(var(--color-bg-elevated)),
+    0 0 3px rgb(var(--color-bg-elevated)),
+    0 0 6px rgb(var(--color-bg-elevated)),
+    0 0 10px rgb(var(--color-bg-elevated)),
+    1px 0 4px rgb(var(--color-bg-elevated)),
+    -1px 0 4px rgb(var(--color-bg-elevated)),
+    0 1px 4px rgb(var(--color-bg-elevated)),
+    0 -1px 4px rgb(var(--color-bg-elevated));
+  filter:
+    drop-shadow(0 0 2px rgb(var(--color-bg-elevated)))
+    drop-shadow(0 0 7px rgb(var(--color-bg-elevated)));
+}
 /* Faces ride the top edge; a working orb breathes. */
 .chat-stack-face[data-working='true'] {
   animation: chat-stack-breathe 1.8s ease-in-out infinite;
+}
+.chat-stack-face[data-calling='true'] {
+  filter: drop-shadow(0 0 8px rgb(var(--color-ai) / 0.65));
 }
 @keyframes chat-stack-breathe {
   0%,
@@ -2909,3 +2951,5 @@
   border-color: var(--docs-border) !important;
   border-radius: 0.75rem;
 }
+
+

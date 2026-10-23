@@ -37,7 +37,7 @@ export function FlowRecipe({
     }
   }
 
-  if (!canEdit && !flow.instructions && !flow.expected_outcome && !flow.direct) return null
+  if (!canEdit && !flow.instructions && !flow.expected_outcome) return null
 
   return (
     <section className="flex max-w-2xl flex-col gap-2 text-xs text-text-secondary" data-testid="flow-recipe">
@@ -76,20 +76,6 @@ export function FlowRecipe({
         />
       ) : flow.instructions ? (
         <p className="whitespace-pre-line text-sm text-text-secondary">{flow.instructions}</p>
-      ) : null}
-      {canEdit ? (
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={Boolean(flow.direct)}
-            disabled={saving}
-            onChange={(e) => void save({ direct: e.target.checked })}
-            className="h-3.5 w-3.5 accent-[var(--color-accent)]"
-          />
-          <span>{t('workstreamsPage.recipe.direct')}</span>
-        </label>
-      ) : flow.direct ? (
-        <p className="text-text-muted">{t('workstreamsPage.recipe.direct')}</p>
       ) : null}
       {flow.capabilities?.length ? (
         <p className="text-text-muted">

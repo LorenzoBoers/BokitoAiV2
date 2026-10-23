@@ -297,6 +297,31 @@ export async function bokitoCreateAgent(token: string, input: CreateAgentInput) 
   })
 }
 
+export async function bokitoPreviewAgentVoice(
+  token: string,
+  input: { voice: string; speed: number; language: string; name: string },
+): Promise<Blob> {
+  const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.agents.voicePreview()}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    try {
+      throw new Error(parseBokitoErrorBody(JSON.parse(text)))
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'Unknown error') throw err
+      throw new Error(text.trim() || `HTTP ${res.status}`)
+    }
+  }
+  return res.blob()
+}
+
 export async function bokitoUpdateAgent(
   token: string,
   agentId: string,
@@ -316,6 +341,9 @@ export async function bokitoUpdateAgent(
     avatar_color?: string | null
     avatar_shape?: string | null
     avatar_image_url?: string | null
+    call_voice?: string
+    call_speed?: number
+    call_language?: string
   },
 ) {
   return bokitoFetch<{ ok: boolean; agent: RuntimeAgent }>(

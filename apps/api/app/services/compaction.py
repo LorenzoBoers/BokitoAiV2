@@ -230,6 +230,93 @@ async def maybe_compact(
     return signal.compacted_count != before
 
 
+# --- Hard fit so a single turn cannot exceed the provider window ----------
+
+
+def estimate_payload_tokens(
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
+) -> int:
+    total = estimate_tokens(messages)
+    if tools:
+        try:
+            total += len(json.dumps(tools, default=str)) // CHARS_PER_TOKEN
+        except (TypeError, ValueError):
+            total += sum(len(str(t)) for t in tools) // CHARS_PER_TOKEN
+    return total
+
+
+def is_prompt_too_long(exc: BaseException) -> bool:
+    text = str(exc or "").lower()
+    return any(
+        marker in text
+        for marker in (
+            "prompt_too_long",
+            "maximum context length",
+            "context_length_exceeded",
+            "context window",
+            "too many tokens",
+            "prompt is too long",
+        )
+    )
+
+
+def fit_messages_to_window(
+    messages: list[dict[str, Any]],
+    *,
+    window: int,
+    reserve_tokens: int = 4096,
+    tools: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Truncate message bodies so messages + tools fit under ``window - reserve``.
+
+    Keeps role structure. Shrinks the longest string contents first (usually the
+    system prompt on canvas-refresh wakes with a large agent purpose).
+    """
+    if window <= 0:
+        return messages
+    budget = max(2048, int(window) - int(reserve_tokens))
+    fitted = [dict(m) for m in messages]
+
+    def _size() -> int:
+        return estimate_payload_tokens(fitted, tools)
+
+    if _size() <= budget:
+        return fitted
+
+    # Drop older non-system turns first (keep system + last user/assistant).
+    while _size() > budget and len(fitted) > 2:
+        # Prefer dropping the oldest non-system message.
+        drop_at = next((i for i, m in enumerate(fitted) if m.get("role") != "system"), None)
+        if drop_at is None or drop_at >= len(fitted) - 1:
+            break
+        fitted.pop(drop_at)
+
+    if _size() <= budget:
+        return fitted
+
+    # Halve the largest string content until we fit or hit a floor.
+    for _ in range(24):
+        if _size() <= budget:
+            break
+        longest_i = -1
+        longest_len = 0
+        for i, m in enumerate(fitted):
+            content = m.get("content")
+            if isinstance(content, str) and len(content) > longest_len:
+                longest_i = i
+                longest_len = len(content)
+        if longest_i < 0 or longest_len < 800:
+            break
+        content = fitted[longest_i]["content"]
+        keep = max(400, longest_len // 2)
+        fitted[longest_i] = {
+            **fitted[longest_i],
+            "content": content[:keep] + "\n\n[…truncated to fit the model context window…]",
+        }
+    return fitted
+
+
 # --- Tool-result pruning inside one turn -----------------------------------
 
 

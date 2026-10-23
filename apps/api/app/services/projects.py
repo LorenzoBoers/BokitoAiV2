@@ -10,18 +10,17 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.orchestration import QUEUE_ITEM_KINDS, AgentTask
 from app.models.project import Project, ProjectTagLink
 from app.models.project_work import ProjectResource
 from app.models.signal import Signal, SignalTag
 
-_GONE = HTTPException(status_code=410, detail="This endpoint was removed")
+_GONE = status_error(status_code=410, detail="This endpoint was removed")
 
 
 def _parse_json(raw: str | None) -> Any:
@@ -493,7 +492,7 @@ async def _slug_in_use(
 async def _default_folder_name(session: AsyncSession, tenant_id: UUID, tag_ids: list[UUID]) -> str:
     names = await _tag_names(session, tenant_id, tag_ids)
     parts = [names[t] for t in tag_ids if t in names]
-    return " · ".join(f"#{n}" for n in parts) if parts else "Folder"
+    return " · ".join(n for n in parts) if parts else "Folder"
 
 
 async def find_folder_with_tag_set(
@@ -567,7 +566,7 @@ async def create_project(
     resolved = await _resolve_tag_ids(session, tenant_id, tag_ids=tag_ids, tags=tags, user_id=user_id)
     clean_name = (name or "").strip()
     if not clean_name and not resolved:
-        raise HTTPException(status_code=422, detail="A folder needs a name or at least one label")
+        raise status_error(status_code=422, detail="A folder needs a name or at least one label")
     if not clean_name:
         clean_name = await _default_folder_name(session, tenant_id, resolved)
     if parent_id is not None:
@@ -619,7 +618,7 @@ async def nest_folder(
     if onto_folder_id is not None:
         await get_project_row(session, tenant_id, onto_folder_id)
         if await _would_create_cycle(session, tenant_id, project.id, onto_folder_id):
-            raise HTTPException(status_code=422, detail="Cannot nest a folder under its own descendant")
+            raise status_error(status_code=422, detail="Cannot nest a folder under its own descendant")
     project.parent_id = onto_folder_id
     project.updated_at = utcnow()
     session.add(project)
@@ -650,7 +649,7 @@ async def patch_project(
     if name is not None:
         clean = name.strip()
         if not clean:
-            raise HTTPException(status_code=422, detail="Folder name cannot be empty")
+            raise status_error(status_code=422, detail="Folder name cannot be empty")
         project.name = clean
     if description is not None:
         project.description = description
@@ -663,7 +662,7 @@ async def patch_project(
         if next_parent is not None:
             await get_project_row(session, tenant_id, next_parent)
             if await _would_create_cycle(session, tenant_id, project.id, next_parent):
-                raise HTTPException(
+                raise status_error(
                     status_code=422, detail="Cannot nest a folder under its own descendant"
                 )
         project.parent_id = next_parent

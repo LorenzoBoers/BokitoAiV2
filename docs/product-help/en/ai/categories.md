@@ -29,21 +29,21 @@ When a channel has an **AI agent** linked, that agent reads each inbound message
 *The Ticket panel shows the flow, a stage bar, the folder and the flow's custom fields.*
 
 1. Open a conversation in **Communication**. Under **This conversation**, choose **Add labels**.
-2. Type with a soft `#` and pick a label with a flow (marked **Label**), or a free tag. An unknown name asks whether to add it as a tag or **Attach a flow**.
+2. Type the name and pick a label with a flow (marked **Label**), or a free label. An unknown name asks whether to add it as a label or **Attach a flow**.
 3. Filing does not ask for a folder. The conversation matches every saved map whose tags it fully covers; the header shows those maps. Canvas and docs live on the folder hub under **Folders**.
 4. The ticket starts in the first stage of the flow. The list row shows the label with the stage and a colored dot. Changing to another label asks to **Replace** (or split the conversation for a second request). Under **Labels**, take the label off from its remove mark. A dialog shows the label and asks you to confirm; **Unlink** takes the ticket off the conversation.
-5. In the composer, `/ticket #name` files the same ticket.
+5. In the composer, `/ticket name` files the same ticket.
 
 ## Confirm what the AI proposed
 
-1. An unsure read shows on the conversation as "Looks like #complaint" with **Confirm** and **Dismiss**.
+1. An unsure read shows on the conversation as "Looks like complaint" with **Confirm** and **Dismiss**.
 2. Nothing routes and no flow starts before someone confirms. Members can always file a ticket themselves; **Who may confirm tickets** on **Settings** → **Labels** decides who may confirm a proposal. On the same card, **Stage moves by agents** sets the default for flows without their own setting, and **Deadline is near** sets how many days before a deadline a ticket counts as near.
 3. Proposals do not count as filed tickets on Today until they are confirmed.
 4. Set the **Tickets** posture on [Govern](/docs/govern/govern) if agents should stop filing tickets.
 
 ## Move a ticket through its stages
 
-1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow or folder board, drag the card to another column instead; see [Folders](/docs/ai/folders). On a board card, the contact name is a link to that contact when the conversation is linked to one.
+1. In the **Ticket** panel, click a segment of the stage bar to move the ticket to that stage; **Stage 2 of 3** shows where it is, followed by the next check-up when the stage has one. On a flow board, or on the department's folder tab, drag the card to another column instead; see [Workforce](/docs/getting-started/team). On a board card, the contact name is a link to that contact when the conversation is linked to one.
 2. If the target stage has required fields that are still empty, a dialog asks for them. The ticket stays on its current stage until those values are filled. The same dialog appears when you drag a card. Closing the conversation moves its ticket to the done stage in the same step. If that stage still needs required fields, a dialog asks for them, and neither the conversation nor the ticket closes until they are filled.
 3. Every move shows in the timeline, for example **Ticket moved to Waiting**. The ticket's status always follows the kind of its stage: open, waiting or done.
 4. Under the folder, every custom field of the flow has its own row. Click a value to edit it; it saves when you press Enter, leave the field, or pick an option. A `*` marks a required field and turns orange while it is empty.
@@ -76,7 +76,7 @@ Agents propose labels as one plan you approve once; each line says where the lab
 1. Ask an agent to propose labels, or choose **Suggest labels** on a Grid node in [Workforce](/docs/getting-started/team).
 2. The card lists each label with **new** or **existing**, how many conversations it covers, and where it lands: on the conversations, **on company** (every conversation from that company shows it), or **rule on** a sender or domain (the next mail is labelled on its own).
 3. Tick the lines you want and choose **Approve selected**, or **Approve all**. Nothing changes before that.
-4. Agents reuse existing labels first and keep one idea per label: a supplier goes on the company, the kind of work (for example `#facturen`) is the label. They do not invent a label per invoice or per document type, and the platform refuses names that join a company and a topic.
+4. Agents reuse existing labels first and keep one idea per label: a supplier goes on the company, the kind of work (for example `facturen`) is the label. They do not invent a label per invoice or per document type, and the platform refuses names that join a company and a topic.
 5. On their own, agents only attach labels that already exist. A request that fits none of them shows up under **What we missed**.
 
 ## Merge two labels

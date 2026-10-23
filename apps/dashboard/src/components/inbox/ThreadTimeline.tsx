@@ -33,6 +33,7 @@ import type { MailDraftMode } from '../../lib/mail-reply'
 import { assignBubbleStacks, CHAT_COLUMN_CLASS, CHAT_STACK_GAP_MS } from '../../lib/chat-layout'
 import { parseDecisionOptions } from '../../lib/decision-options'
 import { sessionIdOf } from '../../lib/session-timeline'
+import { isWorkTranscript } from '../../lib/work-transcript'
 import { threadPatchHasMeaning, withTagDiffs } from '../../lib/thread-events'
 import { cn } from '../../lib/utils'
 import { DotGridBackground } from '../ui/DotGridBackground'
@@ -629,7 +630,7 @@ function TimelineFooter() {
   const liveTrace = useContext(TimelineLiveContext)
   const attachFooter = useContext(TimelineFooterAttachContext)
   return (
-    <div ref={attachFooter} className="px-4">
+    <div ref={attachFooter} data-testid="virtuoso-footer" className="px-4">
       <div className={CHAT_COLUMN_CLASS}>
         {liveTrace ? <div className="mb-4">{liveTrace}</div> : null}
         <div className="h-4" aria-hidden />
@@ -827,6 +828,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         // only the footer box leaves the margin under the newest row.
         if (grew < 1) return
         flushTail()
+        window.requestAnimationFrame(() => flushTail())
       })
       footerRoRef.current = ro
       ro.observe(node)
@@ -885,6 +887,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     rowCountRef.current = next
     if (!grew) return
     flushTail()
+    const frame = window.requestAnimationFrame(() => flushTail())
+    return () => window.cancelAnimationFrame(frame)
   }, [virtuosoData.length, flushTail])
 
   useEffect(() => {
@@ -922,35 +926,59 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     const onPointerUp = () => {
       pointerDown = false
     }
-    // Virtuoso's first child is a fixed viewport. The list sizer is the
-    // element whose height is the thread. Follow that, and close the whole
-    // gap when it grows. Adding only part of the growth is the air under
-    // a new row. A frame loop that retargets every tick is the shake.
-    const listEl = () => el.querySelector<HTMLElement>('[data-testid="virtuoso-item-list"]')
-    let lastList = listEl()?.offsetHeight ?? el.scrollHeight
+    // The list sizer, the footer and a late item measure all change
+    // scrollHeight. Follow that number, not one element: an agent row, a
+    // tool line or a live turn grows a different box than a saved message.
+    // Rebinding this watcher on every new row resets the baseline after the
+    // growth and drops those items under the fold.
+    let lastHeight = el.scrollHeight
     let lastClient = el.clientHeight
+    let followUp = 0
     const compensateGrowth = () => {
-      const nextList = listEl()?.offsetHeight ?? el.scrollHeight
+      const nextHeight = el.scrollHeight
       const nextClient = el.clientHeight
-      const grew = nextList - lastList
+      const grew = nextHeight - lastHeight
       const viewportShrunk = lastClient - nextClient
-      lastList = nextList
+      lastHeight = nextHeight
       lastClient = nextClient
       if (grew <= 1 && viewportShrunk <= 1) return
       flushTail()
       lastTop = el.scrollTop
+      // Virtuoso commits the row's real height a frame later. Agent lines,
+      // tool rows and the live turn show up in that second measure.
+      if (followUp) return
+      followUp = window.requestAnimationFrame(() => {
+        followUp = 0
+        if (!el.isConnected || readingHistoryRef.current) return
+        const again = el.scrollHeight
+        const client = el.clientHeight
+        const more = again - lastHeight > 1 || lastClient - client > 1
+        lastHeight = again
+        lastClient = client
+        if (!more) return
+        flushTail()
+        lastTop = el.scrollTop
+      })
     }
     const contentRo = new ResizeObserver(compensateGrowth)
-    contentRo.observe(el)
+    const watch = (node: Element | null) => {
+      if (node) contentRo.observe(node)
+    }
+    watch(el)
+    const watchTree = () => {
+      const list = el.querySelector('[data-testid="virtuoso-item-list"]')
+      watch(list)
+      if (list) {
+        for (const child of list.children) watch(child)
+      }
+      watch(el.querySelector('[data-testid="virtuoso-footer"]'))
+    }
+    watchTree()
     const listMo = new MutationObserver(() => {
-      const list = listEl()
-      if (!list) return
-      contentRo.observe(list)
-      listMo.disconnect()
+      watchTree()
+      compensateGrowth()
     })
-    const initialList = listEl()
-    if (initialList) contentRo.observe(initialList)
-    else listMo.observe(el, { childList: true, subtree: true })
+    listMo.observe(el, { childList: true, subtree: true })
     const onScroll = () => {
       const top = el.scrollTop
       const delta = top - lastTop
@@ -1000,8 +1028,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       el.removeEventListener('scroll', onScroll)
       contentRo.disconnect()
       listMo.disconnect()
+      if (followUp) window.cancelAnimationFrame(followUp)
     }
-  }, [threadId, virtuosoData.length, noteWheel, releaseFollow, onAtBottomChange, flushTail])
+  }, [threadId, rows.length > 0, noteWheel, releaseFollow, onAtBottomChange, flushTail])
 
   useEffect(() => () => footerRoRef.current?.disconnect(), [])
 
@@ -1179,7 +1208,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     const focused = focusedMessageId != null && String(message.id) === focusedMessageId
     const unreadFlash = unreadHighlightIds.includes(String(message.id))
     const stack = bubbleStacks.get(row.id) ?? 'single'
-    const tightBelow = stack === 'start' || stack === 'middle'
+    const workTurn =
+      message.kind === 'decision_request' || isWorkTranscript(message, channel)
+    const tightBelow = !workTurn && (stack === 'start' || stack === 'middle')
     // Reaction dock adds its own clearance; keep a little more air between runs.
     return (
       <div

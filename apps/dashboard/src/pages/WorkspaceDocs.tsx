@@ -38,6 +38,7 @@ import {
   createWorkspaceDoc,
   deleteWorkspaceDoc,
   getWorkspaceDoc,
+  listLessons,
   listPlatformSkills,
   listWorkspaceDocsPage,
   publishWorkspaceDoc,
@@ -47,6 +48,7 @@ import {
   type PlatformSkillRow,
   type WorkspaceDocKind,
   type WorkspaceDocRow,
+  type LessonRow,
   type WorkspaceSearchHit,
 } from '../lib/workspace-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
@@ -140,6 +142,7 @@ export default function WorkspaceDocs() {
   const [draft, setDraft] = useState('')
   const [saving, setSaving] = useState(false)
   const [query, setQuery] = useState('')
+  const [lessons, setLessons] = useState<LessonRow[] | null>(null)
   const [hits, setHits] = useState<WorkspaceSearchHit[] | null>(null)
   const [searchCapped, setSearchCapped] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -629,6 +632,22 @@ export default function WorkspaceDocs() {
               <button
                 type="button"
                 onClick={() => {
+                  if (lessons) {
+                    setLessons(null)
+                    return
+                  }
+                  void listLessons({ status: 'draft' }).then(setLessons).catch(() => setLessons([]))
+                }}
+                className={entityChipClass(lessons !== null)}
+              >
+                <span className="max-w-full truncate-fade text-xs font-medium">
+                  {t('knowledgePage.draftLessons')}
+                  {lessons ? ` (${lessons.length})` : ''}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setScope('organization')
                   setScopeProjectId('')
                   setScopeAgentId('')
@@ -695,6 +714,24 @@ export default function WorkspaceDocs() {
                 {scope === 'project' ? t('knowledgePage.openProject') : t('knowledgePage.openAgent')}
                 <ArrowUpRight size={11} aria-hidden />
               </Link>
+            ) : null}
+            {lessons ? (
+              <ul className="flex flex-col gap-1">
+                {lessons.map((lesson) => (
+                  <li key={lesson.id} className="flex items-center gap-2 text-xs text-text-secondary">
+                    <span className="font-medium text-text-heading">{lesson.heading || t('knowledgePage.draftLessons')}</span>
+                    {lesson.tags.map((tag) => (
+                      <span key={tag.id}>{tag.name.replace(/^#/, '')}</span>
+                    ))}
+                    <span>{t('knowledgePage.lessonSignals', { count: lesson.signals })}</span>
+                    {lesson.signal_id ? (
+                      <Link to={`/communication/${lesson.signal_id}`} className="text-accent hover:underline">
+                        {t('knowledgePage.openAgent')}
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
             ) : null}
             <div className="flex items-center gap-1.5">
               <div className="relative flex-1">

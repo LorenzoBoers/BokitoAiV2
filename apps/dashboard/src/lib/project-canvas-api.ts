@@ -81,6 +81,13 @@ export async function deleteCanvas(canvasId: string): Promise<void> {
   await workforceDelete(canvasesRoutes.byId(canvasId))
 }
 
+/** Fired after a canvas is moved to the Bin, so open lists drop the card. */
+export const CANVAS_REMOVED_EVENT = 'bokito:canvas-removed'
+
+export function notifyCanvasRemoved(canvasId: string): void {
+  window.dispatchEvent(new CustomEvent(CANVAS_REMOVED_EVENT, { detail: canvasId }))
+}
+
 function saveBlob(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')

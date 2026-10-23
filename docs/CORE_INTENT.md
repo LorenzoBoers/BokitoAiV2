@@ -25,8 +25,8 @@ Long-term aim: an operational **digital twin** the business can run on, observe 
 Apply these to every feature request.
 
 1. **Everything is reachable from a conversation.** Pages stay for browsing and for tools people use side by side with chat (a calendar, a list of agents). But nothing may exist only on a page: every agent, playbook, folder, contact, and setting must also open from the thread that needs it, and every action a page offers must have a chat path.
-2. **One object per idea.** Operators name eight things: Conversation, Action tag (a hashtag that starts a ticket flow; the conversation is then a Ticket), Flow, Folder, Contact (with its Organization), Agent, Decision, Department. A Department is the domain that runs flows: a lead agent, an accountable person, members (people and agents, freelancers scoped to it), and one room where the lead posts the orientation and scorecard proposals. A free hashtag is a label on a conversation, not a ninth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the eight cannot give.
-3. **Modules add types and flows. They never add screens.** Installing accounting adds hashtags, a flow, and tools. It does not add a rail item, a queue, or a settings page. Hiring agents is adding a department: a module lands as a new department or joins one that already does that work, with its specialist as lead or member.
+2. **One object per idea.** Operators name eight things: Conversation, Label (a name on a conversation, never written with a leading `#`; a label with a flow starts a ticket and the conversation is then a Ticket), Flow, Folder, Contact (with its Organization), Agent, Decision, Department. A Department is the domain that runs flows: a lead agent, an accountable person, members (people and agents, freelancers scoped to it), and one room where the lead posts the orientation and scorecard proposals. Extra labels sit next to the ticket label; they are not a ninth object. Plumbing behind them (Connection, Trigger, WorkJob, Message) never appears as a noun in the UI. A new operator-facing noun needs a reason the eight cannot give.
+3. **Modules add types and flows. They never add screens.** Installing accounting adds labels, a flow, and tools. It does not add a rail item, a queue, or a settings page. Hiring agents is adding a department: a module lands as a new department or joins one that already does that work, with its specialist as lead or member.
 4. **The system reads first, people correct.** Every message is interpreted. Manual actions exist to fix a miss, not as the normal path.
 5. **Autonomy is one dial in one place.** Govern owns manual / assisted / autonomous as the workspace ceiling; an action tag or flow may sit below it, also in Govern. No per-folder, per-channel, or per-page copy of it.
 6. **The thread is the log.** What an agent did on a conversation appears in that conversation as a message. Govern keeps the full trace; nobody has to go there to know what happened.
@@ -40,8 +40,8 @@ Apply these to every feature request.
 | EN | NL | Role | Table (internal) |
 |----|----|------|------------------|
 | Conversation | Gesprek | The chat | `signals` |
-| Action tag | Actietag | A hashtag that starts a ticket flow, shown with an accent `#`. A conversation carries at most one; filing it makes the conversation a **Ticket** that moves through the flow's stages. Free hashtags sit next to it | `signal_tags` (`workstream_id`) |
-| Flow | Flow | The stage pipeline for exactly one action tag. The list/detail show an operator **title** with the action-tag **label** (`#klacht`) beside it; the tag stays the filing identity | `workstreams` |
+| Label | Label | A name on a conversation, never written with a leading `#`. A label with a flow starts a ticket; a conversation carries at most one. Filing it makes the conversation a **Ticket** that moves through the flow's stages. Other labels sit next to it | `signal_tags` (`workstream_id`) |
+| Flow | Flow | The stage pipeline for exactly one action tag. The list/detail show an operator **title** with the action-tag **label** beside it, never with a leading `#`; the tag stays the filing identity | `workstreams` |
 | Folder | Map | A named place in a free tree (`parent_id`) with optional AND label rules (`project_tag_links`). Conversations match when they carry every label in the set (including contact labels). Nesting moves the node; labels stay independent. The internal table stays `projects` | `projects` + `project_tag_links` |
 | Contact | Contact | Person you are talking to | `contacts` |
 | Agent | Agent | AI or company agent | `agents` |
@@ -49,7 +49,7 @@ Apply these to every feature request.
 
 Do **not** add Task as an eighth operator noun. A free "look again later" is a dated next look-at on the Conversation (`Signal.follow_up_at`); typed work is a Ticket (a Conversation filed under an Action tag). Snooze parks the conversation; a look-at stays visible. `AgentTask` remains internal ledger plumbing.
 
-Avoid operator-facing words such as Smarttag, Smartflow, Ticket-hashtag, or a separate Draaiboek/Playbook title next to `#name`. Internally keep `SignalTag` + `Workstream`; do not add an eighth schema noun. Older docs may still say Category/Playbook for the same nodes.
+Avoid operator-facing words such as Smarttag, Smartflow, hashtag, or a separate Draaiboek/Playbook title next to the label name. Never write a label with a leading `#`. Internally keep `SignalTag` + `Workstream`; do not add an eighth schema noun. Older docs may still say Category/Playbook for the same nodes.
 
 Overview, Govern, and Agents stay English loanwords in the Dutch UI. Communication / Communicatie is the rail hub name (not Messages / Berichten).
 
@@ -114,9 +114,9 @@ Intelligence Stack layers are **conceptual lanes** on the canvas and in metrics 
 Everything important should map to a **small set of canonical entity types**. Prefer extending:
 
 - `Signal` / `SignalMessage` — conversation context (external and internal)
-- `SignalTag` — the hashtag registry; a hashtag with `workstream_id` is an **Action tag** (actietag). The conversation carries the ticket itself (`Signal.ticket_tag_id`, `ticket_status`, `stage_key`, `project_id`); there is no separate Case object
+- `SignalTag` — the label registry; a label with `workstream_id` starts a ticket. The conversation carries the ticket itself (`Signal.ticket_tag_id`, `ticket_status`, `stage_key`, `project_id`); there is no separate Case object
 - `ChannelAccount` — one entity for every channel (mailbox, Bokito relay address, website chat, WhatsApp, Slack); lifecycle **state**, **capabilities** and **checks** are derived per kind in `services/channel_registry.py`
-- `Agent`, `Workstream` (operator: Flow, title + action-tag `#hashtag`), `AgentRun` — orchestration
+- `Agent`, `Workstream` (operator: Flow, title + its label, never a leading `#`), `AgentRun` — orchestration
 - `DecisionRequest` — human action objects **within** threads, not parallel list UIs
 - `WorkspaceDoc`, `DocChunk` — workspace knowledge
 - `Project` — shows the boards of its flows (`workstream_projects`) and the conversations filed on it; optional workbench connection for coding tools
@@ -192,7 +192,7 @@ The product is in the **initial building phase**. Prefer the cleanest design tha
 
 Prefer the **simplest design** that fits the node model. If a feature needs a second mental model for users or a parallel schema for agents, reconsider before building.
 
-**Example (wrong direction):** separate Cases hub and Decisions tab for the same conversation context. **Right direction:** Communication hub with hashtags and ticket stages on rows, rail rows per category and project, and inline decision cards.
+**Example (wrong direction):** separate Cases hub and Decisions tab for the same conversation context. **Right direction:** Communication hub with labels and ticket stages on rows, rail rows per label and folder, and inline decision cards.
 
 ### Minimalist UI
 

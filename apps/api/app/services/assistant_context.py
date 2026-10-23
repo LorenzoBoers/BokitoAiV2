@@ -127,11 +127,11 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
         flow = flows.get(tag.workstream_id)
         direct = "; handled directly" if flow and recipe_of(flow)["direct"] else ""
         what = f"; {tag.description.strip()[:160]}" if tag.description.strip() else ""
-        lines.append(f"#{tag.name} -> flow {flow.name if flow else '?'}{what}{direct}{where}")
+        lines.append(f"{tag.name} -> flow {flow.name if flow else '?'}{what}{direct}{where}")
     return (
         f"{shape}\n\n"
         "## Categories\n"
-        "A label with a flow is a hashtag that starts a ticket. Filing one makes this "
+        "A label with a flow starts a ticket. Filing one makes this "
         "conversation a ticket in that flow's stages. A conversation has at most one; "
         "a second request is a split. Use list_categories then file_ticket. The folder "
         "follows from the conversation's labels (own, the label with a flow, contact). "
@@ -144,7 +144,7 @@ async def category_map_block(session: AsyncSession, tenant_id: UUID) -> str:
 
 def _hash_list(names: list[str]) -> str:
     cleaned = [n for n in names if n]
-    return ", ".join(f"#{n}" for n in cleaned) if cleaned else "none"
+    return ", ".join(n.lstrip("#") for n in cleaned) if cleaned else "none"
 
 
 async def conversation_filing_brief(session: AsyncSession, signal) -> str:
@@ -167,7 +167,7 @@ async def conversation_filing_brief(session: AsyncSession, signal) -> str:
     if ticket:
         stage = (ticket.get("stage") or {}).get("name") or ticket.get("stage_key") or "unset"
         flow = ticket.get("workstream_name") or "unset"
-        action = f"#{ticket.get('name')} in flow {flow}, stage {stage}"
+        action = f"{str(ticket.get('name') or '').lstrip('#')} in flow {flow}, stage {stage}"
     else:
         action = "none"
     return (

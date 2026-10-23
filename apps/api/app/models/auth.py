@@ -72,6 +72,9 @@ class User(SQLModel, table=True):
     last_seen_at: Optional[datetime] = None
     away: bool = False
     away_until: Optional[datetime] = None
+    # online | away | unavailable. Agents read this before they call or ring.
+    availability: str = Field(default="online")
+    availability_until: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utcnow)
 
 

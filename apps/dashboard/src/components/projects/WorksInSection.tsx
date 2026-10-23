@@ -133,6 +133,9 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
   const [items, setItems] = useState<WorksInItem[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(() => canEdit && hash === WORKS_IN_ADD_HASH)
+  useEffect(() => {
+    if (canEdit && hash === WORKS_IN_ADD_HASH) setAdding(true)
+  }, [canEdit, hash])
   const [busy, setBusy] = useState(false)
   const [kind, setKind] = useState<WorksInAddKind>('canvas')
   const [title, setTitle] = useState('')

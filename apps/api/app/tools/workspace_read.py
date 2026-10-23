@@ -9,6 +9,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from app.exceptions import AppError
 from app.models.auth import Tenant
 from app.tools._common import (
 
@@ -24,14 +25,18 @@ logger = logging.getLogger(__name__)
 
 
 async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.workspace import hybrid_search
+    from app.services.workspace import conversation_tag_ids, hybrid_search
 
+    tag_ids = None
+    if ctx.signal_id:
+        tag_ids = await conversation_tag_ids(ctx.session, ctx.tenant_id, ctx.signal_id) or None
     results = await hybrid_search(
         ctx.session,
         ctx.tenant_id,
         tool_input.get("query", ""),
         tool_input.get("top_k", 8),
         agent_id=ctx.agent.id if ctx.agent is not None else None,
+        tag_ids=tag_ids,
     )
     return {"results": results}
 
@@ -787,7 +792,7 @@ register_tool(
             "Summarize Signal threads (subject, channel, status, last activity, path). "
             "This is the only thread list — do not invent list_open_internal_threads. "
             "Open internal threads: channel=internal (status defaults to open). "
-            "Open tickets for a label (#bug, #feature, …): pass tag (name without #, or "
+            "Open tickets for a label (bug, feature, …): pass tag (the label name, or "
             "comma-separated / list). Prefer this over list_queue_items for "
             "'which bugs/features are open' — those are filed conversations, not folder "
             "queue rows. A lookup does not show cards. Call attach_items "
@@ -812,8 +817,8 @@ register_tool(
                 "channel": {"type": "string"},
                 "tag": {
                     "description": (
-                        "Label name without # (e.g. bug), comma-separated names, "
-                        "or a list. Matches ticket labels and free hashtags."
+                        "Label name (e.g. bug), comma-separated names, "
+                        "or a list. Matches ticket labels and other labels."
                     ),
                     "oneOf": [
                         {"type": "string"},
@@ -821,7 +826,7 @@ register_tool(
                     ],
                 },
                 "tags": {
-                    "description": "Alias for tag (list of label names without #).",
+                    "description": "Alias for tag (list of label names).",
                     "type": "array",
                     "items": {"type": "string"},
                 },
@@ -960,7 +965,7 @@ async def _get_flow(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, A
         return {"error": "playbook_id must be a valid id"}
     try:
         workstream = await get_workstream(ctx.session, ctx.tenant_id, playbook_id)
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
     return serialize_workstream(workstream)
 
@@ -1134,6 +1139,44 @@ register_tool(
         },
         handler=_list_triggers,
         mutating=False,
+        gated=False,
+    )
+)
+
+
+async def _review_lessons(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from app.services.knowledge_lessons import review_lessons
+
+    raw = tool_input.get("section_ids") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    return await review_lessons(
+        ctx.session,
+        ctx.tenant_id,
+        action=str(tool_input.get("action") or ""),
+        section_ids=[str(item) for item in raw],
+        actor_id=str(ctx.user_id or ""),
+    )
+
+
+register_tool(
+    ToolSpec(
+        name="review_lessons",
+        description=(
+            "Confirm, defer or discard concept lessons. "
+            "action is promote, defer or discard. section_ids are lesson section ids."
+        ),
+        category="workspace",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["promote", "defer", "discard"]},
+                "section_ids": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["action", "section_ids"],
+        },
+        handler=_review_lessons,
+        mutating=True,
         gated=False,
     )
 )

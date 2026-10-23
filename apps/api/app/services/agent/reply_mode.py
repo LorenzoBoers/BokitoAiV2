@@ -1,12 +1,13 @@
-"""How an agent reply is shaped: one structured email, or several chat messages.
+"""How an agent reply is shaped: a document, one email, or several chat messages.
 
 - ``mail``: email threads. One complete, structured message (HTML at send).
-- ``chat``: every conversation that is not email (inline/assistant chat,
-  internal threads, sessions, WhatsApp, website chat, Slack, future DMs).
-  The agent sends several short messages, one paragraph each. A list is
-  cards on the bubble, not lines of text.
-- ``document``: runs without a conversation (triggers, workstreams). Output is
-  a result, not a reply, so structured markdown stays allowed.
+- ``chat``: a reply the customer reads on a chat channel (WhatsApp, widget,
+  Slack, Instagram, Messenger), and a reply in a team room. Several short
+  messages, one paragraph each. A list is cards on the bubble, not lines of text.
+- ``document``: the agent's answer in a direct chat with the operator
+  (``assistant``, including sessions) and runs without a conversation
+  (triggers, workstreams). One prose answer. Structured markdown stays allowed.
+  The operator's own messages and team rooms stay chat bubbles in the UI.
 
 ``split_chat_messages`` is mirrored in ``@bokito/shared``
 (``packages/shared/src/chat-messages.ts``; dashboard and chat-widget import
@@ -32,7 +33,10 @@ INTERNAL_CHANNELS = frozenset({"assistant", "internal", "team"})
 
 
 def reply_mode_for(channel: str | None) -> str:
-    if not channel:
+    # No channel: a trigger or flow run, written as one document.
+    # Assistant (and the sessions on that channel): the agent writing to the operator.
+    # Team rooms and customer chat stay short bubbles.
+    if not channel or channel == "assistant":
         return DOCUMENT
     if channel in MAIL_CHANNELS:
         return MAIL

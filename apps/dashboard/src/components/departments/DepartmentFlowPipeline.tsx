@@ -42,7 +42,7 @@ export function DepartmentFlowPipeline({ flow }: { flow: DepartmentFlow }) {
           <Link to={flow.board_href} className="truncate text-sm font-semibold text-text-heading hover:text-accent">
             {flow.name}
           </Link>
-          {flow.label ? <span className="shrink-0 text-xs text-text-muted">#{flow.label}</span> : null}
+          {flow.label ? <span className="shrink-0 text-xs text-text-muted">{flow.label.replace(/^#/, '')}</span> : null}
         </div>
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <Badge size="sm">

@@ -101,6 +101,23 @@ module.exports = {
         sans: "var(--font-sans)",
         mono: "var(--font-mono)",
       },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
+        overlay: "var(--shadow-overlay)",
+      },
+      animation: {
+        "fade-in": "fade-in var(--motion-duration-180) var(--motion-easing-out)",
+        "pop-in": "pop-in var(--motion-duration-220) var(--motion-easing-enter)",
+        "dialog-in": "dialog-in var(--motion-duration-220) var(--motion-easing-enter)",
+        "page-enter": "page-enter var(--motion-duration-340) var(--motion-easing-enter)",
+        "content-enter": "content-enter var(--motion-duration-280) var(--motion-easing-enter)",
+        "slide-in-left": "slide-in-left var(--motion-duration-240) var(--motion-easing-enter)",
+        "panel-in": "panel-in var(--motion-duration-240) var(--motion-easing-enter)",
+        "list-row-enter": "list-row-enter var(--motion-duration-280) var(--motion-easing-enter) both",
+        "issues-in": "issues-in var(--motion-duration-160) var(--motion-easing-enter) both",
+        "issues-out": "issues-out var(--motion-duration-120) var(--motion-easing-exit) both",
+      },
     },
   },
 }

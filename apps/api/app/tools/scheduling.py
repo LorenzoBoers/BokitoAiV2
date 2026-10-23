@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 
+from app.exceptions import AppError
 from app.tools._common import (
     _parse_when,
 )
@@ -95,7 +96,7 @@ async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> 
     raw_owner = tool_input.get("owner") or tool_input.get("agent_id")
     try:
         owner = await resolve_owner(ctx.session, ctx.tenant_id, raw_owner) if raw_owner else ...
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
     if owner is None and ctx.user_id:
         owner = ("user", ctx.user_id)
@@ -163,7 +164,7 @@ async def _set_thread_schedule(ctx: ToolContext, tool_input: dict[str, Any]) -> 
             actor_id=str(ctx.agent.id if ctx.agent else ctx.user_id or ""),
             enabled=tool_input.get("enabled") is not False,
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
     await ctx.session.commit()
     from app.gateway.publish import publish_thread_update
@@ -383,7 +384,7 @@ register_tool(
         name="upsert_trigger",
         description=(
             "Alias of set_thread_schedule for an agent wake (one-off or recurring); "
-            "same scheduled conversation, same Agenda. With flow (a label hashtag with a "
+            "same scheduled conversation, same Agenda. With flow (a label with a "
             "flow) and cron it is a recurring ticket instead: each period a new "
             "conversation on that flow, in folder, named from title ({month}, {maand}, "
             "{week}, {date}). One rule per flow and folder; calling again updates it."
@@ -394,7 +395,7 @@ register_tool(
             "properties": {
                 **_THREAD_SCHEDULE_PROPS,
                 "name": {"type": "string"},
-                "flow": {"type": "string", "description": "Recurring ticket: label hashtag of the flow."},
+                "flow": {"type": "string", "description": "Recurring ticket: label name of the flow."},
                 "folder": {"type": "string", "description": "Recurring ticket: folder id, slug or name."},
                 "title": {"type": "string", "description": "Recurring ticket: title template, e.g. 'Maandcontent {maand}'."},
                 "cron": {"type": "string", "description": "Recurring ticket: 5-field cron, e.g. '0 7 1 * *'."},

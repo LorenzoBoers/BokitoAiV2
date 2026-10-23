@@ -21,8 +21,8 @@ TO_TARGET_SCHEMA = {
 PROPOSAL_ITEMS_SCHEMA = {
     "type": "array",
     "description": (
-        "Showcase cards inside your message (EntityRow previews). Prefer #name "
-        "for tags in prose. Types: conversation | trash_entry | trigger | file | "
+        "Showcase cards inside your message (EntityRow previews). Name a label "
+        "without a leading #. Types: conversation | trash_entry | trigger | file | "
         "image | user | agent | tag | flow | folder | canvas | contact | "
         "integration | marketplace | module | help_doc | knowledge | message. Pass id (tag: name; file: "
         "message_id + name/index; image: https url in url or id; "

@@ -1462,6 +1462,36 @@ async def run_agent_turns_job(ctx, signal_id: str):
 WorkerSettings.functions.append(run_agent_turns_job)
 
 
+async def scan_turn_for_lesson(ctx, message_id: str):
+    """Look for one reusable lesson after a finished turn. Idempotent on the message."""
+    from uuid import UUID
+
+    from app.services.knowledge_lessons import scan_message
+
+    async with async_session_factory() as session:
+        outcome = await scan_message(session, UUID(message_id))
+        await session.commit()
+        return {"action": outcome.action, "reason": outcome.reason}
+
+
+WorkerSettings.functions.append(scan_turn_for_lesson)
+
+
+async def scan_call_for_lesson(ctx, call_id: str):
+    """Learn from one finished call. Idempotent on the call."""
+    from uuid import UUID
+
+    from app.services.knowledge_lessons import scan_call
+
+    async with async_session_factory() as session:
+        outcome = await scan_call(session, UUID(call_id))
+        await session.commit()
+        return {"action": outcome.action, "reason": outcome.reason}
+
+
+WorkerSettings.functions.append(scan_call_for_lesson)
+
+
 async def sweep_agent_turns_job(ctx):
     """Expired leases back to the queue, stale rows cancelled, lost bells rung."""
     from app.services.agent_turns import sweep

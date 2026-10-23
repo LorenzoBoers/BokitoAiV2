@@ -41,6 +41,17 @@ describe('ingestMemberPresence', () => {
     expect(getLive<InboxMember>(TABLE, SELF)?.presence).toBe('available')
   })
 
+  it('keeps unavailable while the socket is live', () => {
+    setSelfPresenceContext(SELF)
+    setSelfPresenceLive(true)
+    ingestMemberPresence({
+      event: 'presence',
+      topics: ['presence'],
+      data: { user_id: SELF, status: 'unavailable' },
+    })
+    expect(getLive<InboxMember>(TABLE, SELF)?.presence).toBe('unavailable')
+  })
+
   it('applies away even while the socket is live', () => {
     setSelfPresenceContext(SELF)
     setSelfPresenceLive(true)

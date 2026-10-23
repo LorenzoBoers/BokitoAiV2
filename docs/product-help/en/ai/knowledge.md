@@ -59,6 +59,14 @@ Customer help articles live in Knowledge, not under a separate **Help center** s
 2. Choose **Publish**. Confirm the public help site prompt.
 3. Share the help URL with customers. Unpublish when the article should leave the public site.
 
+## Review a draft lesson
+
+A draft lesson is a section an agent took from a correction, a customer reply or a finished turn. It applies to the whole workspace. Labels decide when it ranks first. It becomes final when you confirm it, or when the same lesson shows up in a second conversation on the same label.
+
+1. Open Knowledge and choose the **Draft lessons** chip.
+2. Read the heading, the label and how many conversations support it. Open the conversation it came from.
+3. Set the section to **Final** when the rule is right, or choose not to keep it on the card in that conversation.
+
 ## What to do next
 
-Keep folder-specific docs on the [Folders](/docs/ai/folders) Documentation tab — they appear under Knowledge when you click that name (the chip still reads **Folder**). Point agents at Skills and Memory so replies stay grounded.
+Keep folder-specific docs on the department's folder tab ([Workforce](/docs/getting-started/team)) — they appear under Knowledge when you click that name (the chip still reads **Folder**). Point agents at Skills and Memory so replies stay grounded.

@@ -271,6 +271,100 @@ async def _ai_breaker(action: DecisionAction) -> None:
     )
 
 
+@decision_action("accept_lesson_change")
+async def _accept_lesson_change(action: DecisionAction) -> None:
+    from app.services.workspace import set_section_status, update_section
+
+    raw = str(action.payload.get("section_id") or "").strip()
+    body = str(action.payload.get("body") or "").strip()
+    if not raw or not body:
+        return
+    heading = action.payload.get("heading")
+    try:
+        section_id = UUID(raw)
+        await update_section(
+            action.session,
+            action.tenant_id,
+            section_id,
+            heading=str(heading).strip() if heading else None,
+            content=body,
+            actor_type="user",
+            actor_id=str(action.user_id or ""),
+            commit=False,
+        )
+        await set_section_status(
+            action.session,
+            action.tenant_id,
+            section_id,
+            "final",
+            actor_type="user",
+            actor_id=str(action.user_id or ""),
+            commit=False,
+        )
+    except Exception as exc:
+        raise _error(action, exc) from exc
+
+
+@decision_action("promote_lesson")
+async def _promote_lesson(action: DecisionAction) -> None:
+    from app.services.workspace import set_section_status
+
+    raw = str(action.payload.get("section_id") or "").strip()
+    if not raw:
+        return
+    try:
+        await set_section_status(
+            action.session,
+            action.tenant_id,
+            UUID(raw),
+            "final",
+            actor_type="user",
+            actor_id=str(action.user_id or ""),
+            commit=False,
+        )
+    except Exception as exc:
+        raise _error(action, exc) from exc
+
+
+@decision_action("defer_lesson")
+async def _defer_lesson(action: DecisionAction) -> None:
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.core.time import utcnow
+    from app.models.workspace import KnowledgeEvidence
+
+    raw = str(action.payload.get("section_id") or "").strip()
+    if not raw:
+        return
+    until = utcnow() + timedelta(days=1)
+    rows = (
+        await action.session.execute(
+            select(KnowledgeEvidence).where(
+                KnowledgeEvidence.tenant_id == action.tenant_id,
+                KnowledgeEvidence.section_id == UUID(raw),
+            )
+        )
+    ).scalars().all()
+    for row in rows:
+        row.deferred_until = until
+        action.session.add(row)
+
+
+@decision_action("discard_lesson")
+async def _discard_lesson(action: DecisionAction) -> None:
+    from app.services.workspace import delete_section
+
+    raw = str(action.payload.get("section_id") or "").strip()
+    if not raw:
+        return
+    try:
+        await delete_section(action.session, action.tenant_id, UUID(raw), commit=False)
+    except Exception as exc:
+        raise _error(action, exc) from exc
+
+
 @decision_action("contact_link", "contact_create")
 async def _contact(action: DecisionAction) -> None:
     from app.services.contact_identity import apply_decided_link

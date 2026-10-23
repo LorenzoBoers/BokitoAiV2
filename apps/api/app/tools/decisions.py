@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.exceptions import AppError
 from app.core.time import utcnow
 
 import json
@@ -557,7 +558,7 @@ async def _propose_agent_rule(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             proposer_agent=ctx.agent,
             signal_id=ctx.signal_id,
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
 
 

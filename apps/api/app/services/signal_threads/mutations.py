@@ -7,12 +7,11 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.gateway.publish import publish_thread_update
 from app.models.agent import Agent
 from app.models.auth import User, user_numeric_id
@@ -168,7 +167,7 @@ async def patch_thread(
     before_owner = owner_payload(signal)
     if channel_account_id_set:
         if channel_account_id is None:
-            raise HTTPException(status_code=422, detail="channel_account_id is required")
+            raise status_error(status_code=422, detail="channel_account_id is required")
         await _rebind_email_account_for_reply(
             session,
             signal,
@@ -193,7 +192,7 @@ async def patch_thread(
         try:
             owner_id = await resolve_assignee(session, tenant_id, signal, kind, assignee.get("id"))
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            raise status_error(status_code=422, detail=str(exc)) from exc
         if kind == "user" and owner_id != signal.assigned_user_id and owner_id != user_id:
             newly_assigned = owner_id
         set_owner(signal, kind, owner_id, by_user_id=user_id)
@@ -221,7 +220,7 @@ async def patch_thread(
         except LookupError as exc:
             raise NotFoundError("Folder not found") from exc
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise status_error(status_code=400, detail=str(exc)) from exc
     signal.updated_at = utcnow()
     if signal.status != before_status and signal.status in {"pending", "closed", "spam"}:
         parked = {
@@ -455,7 +454,7 @@ async def bulk_update_threads(
     """Apply one operator action to many threads at once (inbox bulk bar)."""
     from app.services.signal_threads.serialize import _user_map
     if action not in BULK_ACTIONS:
-        raise HTTPException(status_code=400, detail=f"Unknown bulk action: {action}")
+        raise status_error(status_code=400, detail=f"Unknown bulk action: {action}")
     assignee_uuid: UUID | None = None
     if action == "assign":
         user_map = await _user_map(session, tenant_id)

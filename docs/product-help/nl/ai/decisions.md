@@ -29,21 +29,21 @@ Vraag je een agent iets te doen waar jouw OK voor nodig is, dan stelt zijn laats
 ![Een voorstel van een agent met een item uit de prullenbak en knoppen onder het bericht](/api/docs/assets/decisions/inline-proposal.png)
 *Het item dat de agent wil terugzetten staat in zijn bericht; de knoppen staan eronder.*
 
-1. Lees het bericht van de agent. Tags zoals `#klacht` (label) en `#storing` (tag) staan als chips in de tekst. Objecten waar het voorstel over gaat, staan eronder als showcase-kaarten: een gesprek, item in de prullenbak, agenda-item, bestand, afbeelding, teamlid, agent, koppeling, module, hulp-artikel, bericht, werk, map, canvas of contact. Canvaskaarten gebruiken hetzelfde layout-template-icoon als Vandaag **Canvas** en het tabblad **Canvas** van een map. Bij een open voorstel kiest een kaart die optie; zonder voorstel opent de kaart het object.
-2. Kies een knop onder het bericht, bijvoorbeeld **Goedkeuren** of een label dat de agent schreef. Die keuze geldt **deze keer**. Stuurt de agent meerdere wolken, dan komen die na elkaar binnen en volgt de keuze op de laatste. Mag je meerdere keuzes maken, selecteer dan de opties (of kaarten) en kies **Bevestigen**. **Afwijzen** zegt nee. Een keuze die tekst vraagt opent een klein veld; typ je antwoord en kies **Antwoord versturen**.
+1. Lees het bericht van de agent. Tags zoals `klacht` (label) en `storing` (tag) staan als chips in de tekst. Objecten waar het voorstel over gaat, staan eronder als showcase-kaarten: een gesprek, item in de prullenbak, agenda-item, bestand, afbeelding, teamlid, agent, koppeling, module, hulp-artikel, bericht, werk, map, canvas of contact. Canvaskaarten gebruiken hetzelfde layout-template-icoon als Vandaag **Canvas** en het tabblad **Canvas** van een map. Bij een open voorstel kiest een kaart die optie; zonder voorstel opent de kaart het object.
+2. Kies een knop onder het bericht, bijvoorbeeld **Goedkeuren** of een label dat de agent schreef. Die keuze geldt **deze keer**. Stuurt de agent meerdere berichten, dan komen die na elkaar binnen en volgt de keuze op de laatste. Mag je meerdere keuzes maken, selecteer dan de opties (of kaarten) en kies **Bevestigen**. **Afwijzen** zegt nee. Een keuze die tekst vraagt opent een klein veld; typ je antwoord en kies **Antwoord versturen**.
 3. In een chat met de agent doet een gewoon **Ja** / **Nee** in **Vraag** hetzelfde als de bijbehorende Ja/Nee-knoppen wanneer precies één open kaart dat soort keuze is. Multi-select en tekstantwoorden blijven via de knoppen. Meerdere Ja/Nee-kaarten tegelijk ook.
 4. Als de actie de agent kan leren, staat onder de knoppen **Volgende keer:** met **Dit mag je voortaan zelf**, **Altijd vragen** of **Dit nooit doen** (ook in het meer-menu). Zie *Leer de agent voor de volgende keer* hieronder.
-5. Na je antwoord blijft het bericht van de agent staan. De opties blijven eronder als stilstaande chips (jouw keuze is gemarkeerd) en de knoppen verdwijnen. Jouw reply verschijnt als eigen bubbel met het gekozen label en eventuele showcase-kaarten. In chats met een agent volgt een korte bevestiging als de keuze het werk al deed (een tool, of iets dat de kaart zelf uitvoert, zoals een automatiseringsregel). Soft Ja zonder andere open kaarten laat de agent verdergaan in het gesprek. Een voorstel dat de agent door een nieuwer verving, toont *Vervangen door nieuwer voorstel*.
+5. Na je antwoord blijft het bericht van de agent staan. De opties blijven eronder als stilstaande chips (jouw keuze is gemarkeerd) en de knoppen verdwijnen. Jouw reply verschijnt als eigen bubbel, met het gekozen label en eventuele showcase-kaarten. In chats met een agent volgt een korte bevestiging als de keuze het werk al deed (een tool, of iets dat de kaart zelf uitvoert, zoals een automatiseringsregel). Soft Ja zonder andere open kaarten laat de agent verdergaan in het gesprek. Een voorstel dat de agent door een nieuwer verving, toont *Vervangen door nieuwer voorstel*.
 6. Zolang de agent nog bezig is, laat *Voorstel klaarzetten...* zien dat er knoppen aankomen.
 
 ## Meerdere acties tegelijk goedkeuren
 
-Heeft een agent in dezelfde beurt jouw OK nodig voor meer dan één wijziging (bijvoorbeeld vijf nieuwe hashtags), dan toont het gesprek één kaart met een rij per actie in plaats van een kaart per actie.
+Heeft een agent in dezelfde beurt jouw OK nodig voor meer dan één wijziging (bijvoorbeeld vijf nieuwe labels), dan toont het gesprek één kaart met een rij per actie in plaats van een kaart per actie.
 
 ![Eén kaart met meerdere agentacties, selectievakjes en Alles goedkeuren](/api/docs/assets/decisions/action-bundle.png)
 *Elke rij is één actie; keur ze allemaal goed, kies er een paar, of wijs de rest af.*
 
-1. Lees de rijen onder het bericht van de agent. Elke rij noemt de actie en het object, bijvoorbeeld **Hashtag #vip aanmaken**, **Koppeling GitHub verbinden** of **Module Accounting aanzetten**, met de toolnaam als klein label. De kop telt hoeveel er nog wachten.
+1. Lees de rijen onder het bericht van de agent. Elke rij noemt de actie en het object, bijvoorbeeld **Label vip aanmaken**, **Koppeling GitHub verbinden** of **Module Accounting aanzetten**, met de toolnaam als klein label. De kop telt hoeveel er nog wachten.
 2. Kies **Alles goedkeuren** om elke open rij uit te voeren. Wil je een deel, vink dan de rijen aan en kies **Geselecteerde goedkeuren**; de andere blijven open. **Afwijzen** (of **Rest afwijzen**) zegt nee tegen elke rij die nog open staat.
 3. Open het menu op een rij voor **Alleen nu** (alleen deze rij uitvoeren) of **Deze afwijzen**.
 4. Een rij die mislukt blijft open en toont *Mislukt*; de andere houden hun resultaat. Los de oorzaak op en keur de rij opnieuw goed.
@@ -67,7 +67,7 @@ Wanneer een check-in of agent dezelfde vraag vaak heeft gesteld (bijvoorbeeld *G
 
 ## Leer de agent voor de volgende keer
 
-Elk oordeel geldt voor **deze agent en deze actie**: Mila mag zelf hashtags aanmaken, terwijl Otto nog vraagt.
+Elk oordeel geldt voor **deze agent en deze actie**: Mila mag zelf labels aanmaken, terwijl Otto nog vraagt.
 
 1. Op een kaart die vraagt voor een actie biedt de rij **Volgende keer:** de keuzes. Onder een agentbericht staan ze in het menu **Meer opties**; op een kaart met meerdere acties open je het menu op een rij en kijk je onder **Volgende keer, {agent}:**. Is een eerder concept opzij gezet omdat de persoon elders verderging, dan biedt de afgehandelde regel **Actief openen** om naar dat gesprek te springen.
 2. **Altijd toestaan voor {agent}** (of **Dit mag je voortaan zelf**) laat de agent deze actie zonder vragen uitvoeren; staat de rij nog open, dan voert hij hem ook nu uit. **Altijd vragen** blijft vragen. **Niet toestaan** (of **Dit nooit doen**) blokkeert de actie voor deze agent; een open rij wordt afgewezen.

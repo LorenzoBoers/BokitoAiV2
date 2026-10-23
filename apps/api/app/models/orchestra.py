@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import Text
 from sqlmodel import Field, SQLModel
 
 WORKSTREAM_STEP_KINDS = (
@@ -62,11 +63,6 @@ class Workstream(SQLModel, table=True):
     # auto_above. Empty / null follow the workspace ticket policy.
     stage_entry_policy: str = Field(default="")
     stage_entry_threshold: Optional[int] = Field(default=None)
-    # "Delivers to": a folder plus optionally one of its Works in keys; an
-    # empty key means the folder itself. A ticket reaching a done stage
-    # records a delivery there.
-    deliver_folder_id: Optional[uuid.UUID] = Field(default=None, foreign_key="projects.id", index=True)
-    deliver_works_in_key: str = Field(default="", max_length=80)
     # The recipe: how the work its label names is handled (services/workstreams.apply_recipe).
     # The working method the agent gets, the tools and connections it may use
     # (names / ids, not copies), and what "done" produces in free text.
@@ -76,6 +72,8 @@ class Workstream(SQLModel, table=True):
     # Ticket pipeline: [{"key", "name", "kind": open|waiting|done}]; "[]" means
     # the default Open / Waiting / Done.
     stages_json: str = Field(default="[]")
+    # The notation: steps, arrows, and what each arrow carries. Empty follows the columns.
+    flow_source: str = Field(default="", sa_type=Text)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     deleted_at: Optional[datetime] = Field(default=None, index=True)

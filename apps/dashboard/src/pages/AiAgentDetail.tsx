@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
-import { Archive, ArrowLeft, CalendarDays, Copy, MessageSquare, MoreHorizontal, Pencil, RotateCcw, Settings, ShieldCheck } from 'lucide-react'
+import { Archive, ArrowLeft, CalendarDays, Copy, History, MessageSquare, MoreHorizontal, Pencil, RotateCcw, Settings, ShieldCheck } from 'lucide-react'
 import { NameEdit } from '../components/ui/NameEdit'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
@@ -40,7 +40,9 @@ import { agendaKindOf, listTimeItems, parseTimelineMs, timeItemHref, type TimeIt
 import { formatAppDateTime, formatAppWeekdayDateTime } from '../lib/app-locale'
 import { TAB_PATHS, AUTONOMY_PATH } from '../lib/navigation'
 import { listThreads, type InboxThread } from '../lib/inbox-api'
-import { archiveAgent, restoreAgent } from '../lib/workforce-api'
+import { archiveAgent, getAgentAwareness, patchAgentAwareness, restoreAgent } from '../lib/workforce-api'
+import { AwarenessEditor } from './DepartmentPage'
+import type { DepartmentAwareness } from '../lib/teams-api'
 import { listAgentPassports } from '../lib/govern-api'
 import { listProjects, type ProjectRow } from '../lib/projects-api'
 import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
@@ -89,6 +91,13 @@ export default function AiAgentDetail() {
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false)
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [awareness, setAwareness] = useState<DepartmentAwareness | null>(null)
+
+  useEffect(() => {
+    if (!settingsOpen || !token || !agentId) return
+    void getAgentAwareness(token, agentId).then(setAwareness).catch(() => setAwareness(null))
+  }, [settingsOpen, token, agentId])
 
   const load = useCallback(async () => {
     if (!agentId || workLogId) return
@@ -298,25 +307,34 @@ export default function AiAgentDetail() {
               >
                 <Settings size={16} aria-hidden />
               </Button>
-              {isAdmin ? (
-                <DropdownMenu.Root>
-                  <DropdownMenu.Trigger asChild>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      className="h-8 w-8 px-0 text-text-muted"
-                      aria-label={t('workforce.agents.moreActions')}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 w-8 px-0 text-text-muted"
+                    aria-label={t('workforce.agents.moreActions')}
+                  >
+                    <MoreHorizontal size={16} aria-hidden />
+                  </Button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={4}
+                    className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
+                  >
+                    <DropdownMenu.Item
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                      onSelect={() => setHistoryOpen(true)}
                     >
-                      <MoreHorizontal size={16} aria-hidden />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.Content
-                      align="end"
-                      sideOffset={4}
-                      className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
-                    >
+                      <History size={14} />
+                      {t('workforce.agents.historyMenu')}
+                    </DropdownMenu.Item>
+                    {isAdmin ? (
+                      <>
+                      <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
                       {agent.kind !== 'personal' ? (
                         <DropdownMenu.Item
                           className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
@@ -351,10 +369,11 @@ export default function AiAgentDetail() {
                           {t('workforce.agents.archive')}
                         </DropdownMenu.Item>
                       )}
-                    </DropdownMenu.Content>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Root>
-              ) : null}
+                      </>
+                    ) : null}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             </div>
 
             <div className="flex flex-col items-center text-center">
@@ -564,7 +583,6 @@ export default function AiAgentDetail() {
               <p className="mt-2 text-center text-sm text-status-error">{actionError}</p>
             ) : null}
           </section>
-          <AgentActivityTimeline agentId={agent.id} />
           <NewAgentDialog
             open={duplicateOpen}
             onOpenChange={setDuplicateOpen}
@@ -590,6 +608,12 @@ export default function AiAgentDetail() {
               avatarIcon={agent.avatar_icon}
               avatarColor={agent.avatar_color}
               avatarShape={agent.avatar_shape}
+              callVoice={agent.call_voice}
+              callSpeed={agent.call_speed}
+              callLanguage={agent.call_language}
+              callVoices={agent.call_voices}
+              callSpeeds={agent.call_speeds}
+              callLanguages={agent.call_languages}
               onChanged={() => void load()}
             />
           ) : null}
@@ -737,6 +761,24 @@ export default function AiAgentDetail() {
                     onChanged={() => void load()}
                   />
                 ) : null}
+                {agent.kind !== 'personal' ? (
+                  <Card className="px-4 py-3" data-testid="agent-wake">
+                    <h3 className="mb-3 text-base font-semibold text-text-heading">{t('departmentPage.awareness.mode')}</h3>
+                    {awareness ? (
+                      <AwarenessEditor
+                        awareness={awareness}
+                        canEdit={isAdmin}
+                        onSave={async (patch) => {
+                          if (!token) return
+                          const next = await patchAgentAwareness(token, agent.id, patch)
+                          setAwareness(next)
+                        }}
+                      />
+                    ) : (
+                      <p className="text-sm text-text-muted">{t('departmentPage.none')}</p>
+                    )}
+                  </Card>
+                ) : null}
                 <AgentModelCard
                   agentId={agent.id}
                   currentModel={agent.model}
@@ -800,7 +842,15 @@ export default function AiAgentDetail() {
             </DialogContent>
           </Dialog>
 
-          <div className="space-y-2">
+          <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+            <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-4xl gap-0 overflow-hidden p-0">
+              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+                <DialogTitle>{t('workforce.agents.historyMenu')}</DialogTitle>
+                <DialogDescription>{t('workforce.agents.historyHint')}</DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[min(760px,calc(92vh-5.5rem))] space-y-6 overflow-y-auto px-5 py-4">
+                <AgentActivityTimeline agentId={agent.id} />
+                <div className="space-y-2">
             <h3 className="text-base font-semibold text-text-heading">
               {t('workforce.agents.historyTitle')}
             </h3>
@@ -847,7 +897,10 @@ export default function AiAgentDetail() {
                 {loadingMoreRuns ? t('workforce.agents.loadingMoreRuns') : t('workforce.agents.loadMoreRuns')}
               </Button>
             ) : null}
-          </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <PageRelatedLinks
             links={[

@@ -201,6 +201,8 @@ async def department_of_signal(session: AsyncSession, signal: Signal) -> UUID | 
         held_by_all = holder.id
     if signal.ticket_tag_id:
         tag = await session.get(SignalTag, signal.ticket_tag_id)
+        if tag is not None and tag.department_id:
+            return tag.department_id
         if tag is not None and tag.workstream_id:
             flow = await session.get(Workstream, tag.workstream_id)
             if flow is not None and flow.department_id:

@@ -462,7 +462,7 @@ def describe_rule(rule_payload: dict[str, Any], *, lang: str = "en") -> str:
     """One sentence that says exactly when the rule fires and what it does."""
     text = _card_text(lang)
     action = str(rule_payload.get("action"))
-    tags = ", ".join(f"#{t}" for t in rule_payload.get("labels") or [] if isinstance(t, str))
+    tags = ", ".join(str(t).lstrip("#") for t in rule_payload.get("labels") or [] if isinstance(t, str))
     match = text["match"].get(str(rule_payload.get("match_type")), text["match"]["sender"]).format(
         value=rule_payload.get("match_value") or ""
     )

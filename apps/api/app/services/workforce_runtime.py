@@ -7,12 +7,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, ForbiddenError, NotFoundError
+from app.exceptions import AppError, ForbiddenError, NotFoundError, status_error
 from app.models.agent import Agent, AgentRun, RunEvent
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal
@@ -81,7 +80,7 @@ async def assert_unique_agent_name(
         stmt = stmt.where(Agent.id != exclude_id)
     clash = (await session.execute(stmt.limit(1))).scalar_one_or_none()
     if clash is not None:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="An active agent with this name already exists in this workspace",
         )
@@ -231,6 +230,22 @@ def serialize_agent(
             "ask_target": agent_ask_target(agent),
         }
     )
+    from app.config import get_settings
+
+    if get_settings().agent_calls_enabled:
+        from app.services.agent_call_voice import public_agent_call_defaults
+
+        defaults = public_agent_call_defaults(agent.settings_json)
+        payload.update(
+            {
+                "call_voice": defaults["voice"],
+                "call_speed": defaults["speed"],
+                "call_language": defaults["language"],
+                "call_voices": defaults["voices"],
+                "call_speeds": defaults["speeds"],
+                "call_languages": defaults["languages"],
+            }
+        )
     return payload
 
 
@@ -608,7 +623,7 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     if not agent:
         raise NotFoundError("Agent not found")
     if agent.acts_for_user:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="The Bokito system agent cannot be deactivated.",
         )
@@ -646,7 +661,7 @@ async def restore_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
     if not agent:
         raise NotFoundError("Agent not found")
     if agent.acts_for_user:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="The Bokito system agent cannot be deactivated.",
         )
@@ -824,6 +839,10 @@ async def create_agent(
         settings_json=json.dumps(default_orb_mark()),
     )
     session.add(agent)
+    await session.flush()
+    from app.services.teams import ensure_agent_on_all
+
+    await ensure_agent_on_all(session, tenant_id, agent.id)
     await session.commit()
     await session.refresh(agent)
     return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
@@ -851,6 +870,9 @@ async def update_agent(
     avatar_shape: str | None = None,
     avatar_image_url: str | None = None,
     ask_target: dict[str, Any] | None = None,
+    call_voice: str | None = None,
+    call_speed: float | None = None,
+    call_language: str | None = None,
 ) -> dict[str, Any]:
     """Edit a company agent's identity, description, system prompt, signature, avatar, and who it asks."""
     result = await session.execute(
@@ -887,6 +909,9 @@ async def update_agent(
         or avatar_color is not None
         or avatar_shape is not None
         or avatar_image_url is not None
+        or call_voice is not None
+        or call_speed is not None
+        or call_language is not None
     )
     if settings_touch:
         stored = _parse_json(agent.settings_json)
@@ -933,7 +958,21 @@ async def update_agent(
                     avatar_image_url=avatar_image_url,
                 )
             except ValueError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
+                raise status_error(status_code=400, detail=str(exc)) from exc
+        if call_voice is not None or call_speed is not None or call_language is not None:
+            from app.services.agent_call_voice import apply_agent_call_defaults
+
+            try:
+                stored = _parse_json(
+                    apply_agent_call_defaults(
+                        json.dumps(stored),
+                        voice=call_voice,
+                        speed=call_speed,
+                        language=call_language,
+                    )
+                )
+            except ValueError as exc:
+                raise status_error(status_code=422, detail=str(exc)) from exc
         agent.settings_json = json.dumps(stored)
     if ask_target is not None:
         from app.services.addressee import parse_target, set_agent_ask_target
@@ -947,7 +986,7 @@ async def update_agent(
         try:
             set_agent_ask_target(agent, kind, UUID(target["id"]) if target else None)
         except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise status_error(status_code=400, detail=str(exc)) from exc
     agent.updated_at = utcnow()
     session.add(agent)
     await session.commit()

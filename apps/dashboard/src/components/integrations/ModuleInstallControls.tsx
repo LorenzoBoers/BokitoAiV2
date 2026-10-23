@@ -285,7 +285,7 @@ function AddDepartmentDialog({
                 <li>{t('integrations.modules.shipsSpecialist', { defaultValue: 'Specialist: {{name}}', name: ships.specialist })}</li>
               ) : null}
               {ships?.labels.length ? (
-                <li>{t('integrations.modules.shipsLabels', { defaultValue: 'Labels: {{list}}', list: ships.labels.map((l) => `#${l}`).join(', ') })}</li>
+                <li>{t('integrations.modules.shipsLabels', { defaultValue: 'Labels: {{list}}', list: ships.labels.map((l) => l.replace(/^#/, '')).join(', ') })}</li>
               ) : null}
               {ships?.flows.length ? (
                 <li>{t('integrations.modules.shipsFlows', { defaultValue: 'Flows: {{list}}', list: ships.flows.join(', ') })}</li>

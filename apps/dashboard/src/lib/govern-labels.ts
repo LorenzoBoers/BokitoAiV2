@@ -12,7 +12,7 @@ export const RESOURCE_TYPE_LABELS: Record<string, string> = {
   canvas_edge: 'Canvas connection',
   autonomy_posture: 'How much agents can do',
   persona_review: 'Voice review',
-  signal_tag: 'Hashtag',
+  signal_tag: 'Label',
 }
 
 export const CHANGE_KIND_LABELS: Record<string, string> = {

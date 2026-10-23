@@ -48,6 +48,14 @@ def test_tier_two_and_three_never_push():
     assert digest == {"inapp"}
 
 
+def test_unavailable_gets_no_bell_and_no_push():
+    from app.services.presence import UNAVAILABLE
+
+    prefs = parse_prefs(None)
+    assert channels_for(prefs, tier=TIER_NOW, category="decisions", status=UNAVAILABLE) == set()
+    assert channels_for(prefs, tier=TIER_NOW, category=None, status=UNAVAILABLE, critical=True) == set()
+
+
 def test_away_lets_only_critical_tier_one_through():
     prefs = parse_prefs('{"tiers": {"1": {"email": true}}}')
     assert channels_for(prefs, tier=TIER_NOW, category="mentions", status=AWAY) == {"inapp"}

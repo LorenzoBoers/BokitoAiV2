@@ -7,13 +7,12 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.core.time import utcnow
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, status_error
 from app.models.auth import Tenant
 from app.models.trash import RESOURCE_TYPES, TrashEntry
 from app.services.audit import record_audit
@@ -217,7 +216,7 @@ async def move_to_bin(
     batch_id: UUID | None = None,
 ) -> TrashEntry:
     if resource_type not in RESOURCE_TYPES:
-        raise HTTPException(status_code=400, detail=f"Unknown trash type: {resource_type}")
+        raise status_error(status_code=400, detail=f"Unknown trash type: {resource_type}")
     if getattr(row, "deleted_at", None) is not None:
         existing = await _entry_for_resource(session, tenant.id, resource_type, row.id)
         if existing:
@@ -421,7 +420,7 @@ async def restore_entry(
             )
         ).scalar_one_or_none()
         if parent is not None:
-            raise HTTPException(
+            raise status_error(
                 status_code=409,
                 detail={
                     "message": "Restore the parent item first.",

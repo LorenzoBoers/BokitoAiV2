@@ -175,7 +175,7 @@ async def test_turn_decisions_share_bundle_and_attach_to_bubble(client: AsyncCli
     assert len(rows) == 2
     by_name = {row["action"]["args"]["name"]: row for row in rows}
     assert by_name["een"]["action"]["tool"] == "create_tag"
-    assert by_name["een"]["action"]["fallback"] == "Create tag #een"
+    assert by_name["een"]["action"]["fallback"] == "Create tag een"
     assert by_name["een"]["learn"]["agent_id"] == str(agent.id)
     assert by_name["twee"]["action"]["tool"] == "create_tag"
 

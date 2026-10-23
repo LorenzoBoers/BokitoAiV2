@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+
+from app.exceptions import AppError
 from app.core.time import utcnow
 
 import json
@@ -801,7 +803,7 @@ async def _react_to_message(ctx: ToolContext, tool_input: dict[str, Any]) -> dic
         logger.warning('messaging tool failed', exc_info=True)
         from fastapi import HTTPException
 
-        if isinstance(exc, HTTPException):
+        if isinstance(exc, (HTTPException, AppError)):
             return {"error": str(exc.detail)}
         return {"error": str(exc)}
 
@@ -1843,7 +1845,7 @@ register_tool(
             "optional ticket_category (one flow label from list_categories whose description fits; "
             "the flow label is the kind of work and picks the approach; leave it empty when no "
             "flow fits), optional free tags from the catalog, and optional unknown_signal when no "
-            "hashtag fits. Call this once early on every inbound turn before drafting. "
+            "label fits. Call this once early on every inbound turn before drafting. "
             "Low certainty keeps priority at normal and only proposes tickets. When the ticket "
             "waits on the customer's approval and this message answers it, pass verdict "
             "(approved moves to the next stage; changes_requested moves back and adds feedback "
@@ -1934,7 +1936,7 @@ async def _split_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             agent_id=ctx.agent.id,
             reason=str(tool_input.get("reason") or ""),
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
 
 
@@ -1959,7 +1961,7 @@ register_tool(
                 },
                 "category": {
                     "type": "string",
-                    "description": "Label hashtag (name without #) or id for the new conversation",
+                    "description": "Label name or id for the new conversation",
                 },
                 "reason": {"type": "string", "description": "One sentence for the team"},
             },

@@ -69,7 +69,7 @@ function useFileThreadsOntoRail() {
         await Promise.all(threadIds.map((id) => fileTicket(id, tagId)))
         toast.success(
           t('support.flows.filedToast', {
-            defaultValue: 'Filed on #{{name}}',
+            defaultValue: 'Filed on {{name}}',
             name: flowLabel,
           }),
         )

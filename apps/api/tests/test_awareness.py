@@ -12,7 +12,7 @@ from app.models.auth import Membership, Tenant, User
 from app.models.orchestra import Workstream
 from app.models.signal import Signal, SignalTag
 from app.models.trigger import Trigger
-from app.services.awareness import department_snapshot, ensure_orientations, orientation_prompt, render_snapshot
+from app.services.awareness import department_snapshot, ensure_orientations, render_snapshot
 from app.services.platform_watch import set_platform_watch, watch_status
 from app.services.teams import create_team, set_team_members
 from scripts.seed import TEST_EMAIL
@@ -76,16 +76,17 @@ async def test_snapshot_lists_what_asks_for_action(client: AsyncClient, session_
 
 
 @pytest.mark.asyncio
-async def test_orientation_runs_in_the_department_room(client: AsyncClient, session_override):
-    tenant, team, agent = await _setup(session_override)
+async def test_orientation_is_not_an_agenda_item(client: AsyncClient, session_override):
+    tenant, _team, _agent = await _setup(session_override)
     rows = await ensure_orientations(session_override, tenant.id)
     await session_override.commit()
-    assert len(rows) == 1 and rows[0].agent_id == agent.id and rows[0].purpose == "orientation"
-    again = await ensure_orientations(session_override, tenant.id)
-    assert [r.id for r in again] == [rows[0].id]
-    monday = datetime(2026, 10, 19, 7, 30)
-    prompt = await orientation_prompt(session_override, rows[0], monday)
-    assert "Orientation snapshot: Content" in prompt and "start of the week" in prompt
+    assert rows == []
+    stored = (
+        await session_override.execute(
+            select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.purpose == "orientation")
+        )
+    ).scalars().all()
+    assert stored == []
 
 
 @pytest.mark.asyncio
@@ -97,7 +98,13 @@ async def test_platform_watch_uses_orientations_with_departments(client: AsyncCl
     heartbeat = (
         await session_override.execute(select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.kind == "heartbeat"))
     ).scalars().first()
-    assert heartbeat is None or heartbeat.enabled is False
+    orientations = (
+        await session_override.execute(
+            select(Trigger).where(Trigger.tenant_id == tenant.id, Trigger.purpose == "orientation")
+        )
+    ).scalars().all()
+    assert orientations == []
+    assert heartbeat is not None and heartbeat.enabled is True
     assert (await watch_status(session_override, tenant.id))["trigger"]["id"] == status["trigger_id"]
     off = await set_platform_watch(session_override, tenant.id, False)
     assert off["enabled"] is False

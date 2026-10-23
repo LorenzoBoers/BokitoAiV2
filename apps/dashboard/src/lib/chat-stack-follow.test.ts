@@ -9,7 +9,7 @@ import {
   shouldFollowOnLeave,
   touchFollow,
 } from './chat-stack-follow'
-import { orderStackCards, type StackCardState } from './chat-stack'
+import { orderStackCards, stabilizeStackOrder, type StackCardState } from './chat-stack'
 
 const NOW = 1_800_000_000_000
 
@@ -79,13 +79,27 @@ function card(id: string, patch: Partial<StackCardState> = {}): StackCardState {
 }
 
 describe('stack card order', () => {
-  it('puts working, then unread, then most recent first', () => {
+  it('puts call, then unread, then most recent first (live does not reshuffle)', () => {
     const ordered = orderStackCards([
       card('old', { lastActivityAt: '2026-01-01T00:00:00Z' }),
       card('recent', { lastActivityAt: '2026-02-01T00:00:00Z' }),
       card('unread', { unread: true }),
-      card('live', { live: true }),
+      card('live', { live: true, lastActivityAt: '2026-01-15T00:00:00Z' }),
+      card('ringing', { callPhase: 'ringing' }),
     ])
-    expect(ordered.map((c) => c.id)).toEqual(['live', 'unread', 'recent', 'old'])
+    expect(ordered.map((c) => c.id)).toEqual(['ringing', 'unread', 'recent', 'live', 'old'])
+  })
+
+  it('keeps the other cards still while a call stays in front', () => {
+    const ordered = stabilizeStackOrder(
+      [
+        card('b', { lastActivityAt: '2026-03-01T00:00:00Z' }),
+        card('fresh', { lastActivityAt: '2026-04-01T00:00:00Z' }),
+        card('a', { lastActivityAt: '2026-01-01T00:00:00Z' }),
+        card('call', { callPhase: 'live', lastActivityAt: '2026-02-01T00:00:00Z' }),
+      ],
+      ['call', 'a', 'b'],
+    )
+    expect(ordered.map((c) => c.id)).toEqual(['call', 'a', 'b', 'fresh'])
   })
 })

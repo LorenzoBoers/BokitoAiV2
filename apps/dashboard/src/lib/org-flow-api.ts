@@ -62,6 +62,8 @@ export type OrgFlowNode = {
   autonomous_pct?: number | null
   channels?: string[]
   works_in?: OrgFlowWorksIn[]
+  /** Home department's folder tab, where Works in is edited. */
+  works_in_href?: string | null
   children?: number
   subtitle?: string
 }

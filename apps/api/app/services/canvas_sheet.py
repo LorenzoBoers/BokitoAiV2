@@ -17,10 +17,10 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import status_error
 from app.models.integration import IntegrationConnection
 from app.modules.documents.adapters import google_drive
 
@@ -183,13 +183,13 @@ async def publish_google_sheet(
         )
     ).scalar_one_or_none()
     if conn is None:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="Connect Google Drive under Connections first.",
         )
     token = await _access_token(session, conn)
     if not token:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="Google Drive needs to be connected again under Connections.",
         )
@@ -204,18 +204,18 @@ async def publish_google_sheet(
         except google_drive.DriveAuthError:
             token = await _access_token(session, conn, force_refresh=True)
             if not token:
-                raise HTTPException(
+                raise status_error(
                     status_code=409,
                     detail="Google Drive needs to be connected again under Connections.",
                 ) from None
             created = await google_drive.sheets_create(token, payload)
     except google_drive.DriveAuthError as exc:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="Google Drive needs to be connected again under Connections.",
         ) from exc
     except google_drive.DriveError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise status_error(status_code=502, detail=str(exc)) from exc
     return {
         "spreadsheet_id": str(created.get("spreadsheet_id") or ""),
         "url": str(created.get("url") or ""),

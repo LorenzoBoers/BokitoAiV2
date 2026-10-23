@@ -55,7 +55,7 @@ export function parseComposerVerb(body: string): ParsedComposerVerb | null {
 
 export function composerVerbHelp(locale: 'en' | 'nl' = 'en'): string {
   if (locale === 'nl') {
-    return 'Commando’s: /assign <naam>, /ticket #hashtag, /approve, /handmatig, /geassisteerd, /autonoom'
+    return 'Commando’s: /assign <naam>, /ticket <label>, /approve, /handmatig, /geassisteerd, /autonoom'
   }
-  return 'Commands: /assign <name>, /ticket #hashtag, /approve, /manual, /assisted, /autonomous'
+  return 'Commands: /assign <name>, /ticket <label>, /approve, /manual, /assisted, /autonomous'
 }

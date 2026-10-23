@@ -8,3 +8,5 @@ export {
 export { fontFamily, fontSize, type FontSizeToken } from './typography'
 export { radius } from './radius'
 export { spacing } from './spacing'
+export { elevation } from './elevation'
+export { motion } from './motion'

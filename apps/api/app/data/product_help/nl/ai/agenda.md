@@ -9,7 +9,7 @@ related: agents,folders,flows,communication,agent-runs,koppelingen
 
 # Zo werkt Agenda
 
-Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden. De lijst links is **Wanneer** (de minikalender), **Wat** (dezelfde `#`-boom als Communicatie), vinkjes per persoon en agent, plus je Google- of Outlook-agenda's. **Sync** haalt de afgelopen 90 dagen en de komende 180 dagen op. Agenda's die uit staan tonen **Uit**; aanzetten start de synchronisatie. **Vandaag** springt terug naar de huidige dag, en het zoekveld filtert de periode die je bekijkt.
+Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en agents. Je gekoppelde agenda's staan in hetzelfde rooster, zodat afspraken en werk niet om aandacht strijden. De lijst links is **Wanneer** (de minikalender), **Wat** (dezelfde labelboom als Communicatie), vinkjes per persoon en agent, plus je Google- of Outlook-agenda's. **Sync** haalt de afgelopen 90 dagen en de komende 180 dagen op. Agenda's die uit staan tonen **Uit**; aanzetten start de synchronisatie. **Vandaag** springt terug naar de huidige dag, en het zoekveld filtert de periode die je bekijkt.
 
 ## Zie wat er wanneer gebeurt
 
@@ -18,7 +18,7 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 
 1. Open **Agenda**. Het hulp-icoon naast de titel in de bovenbalk opent deze gids. **Dag** is de standaard; wissel op dezelfde rij als **Nieuw** naar **Week**, **Maand** of **Lijst**, of druk op D, W, M of L.
 2. Gebruik **Vandaag** en de pijlen (of de pijltjestoetsen) om door de tijd te bewegen. In **Lijst** begint de huidige dag bovenaan; scroll omhoog voor eerdere dagen, kies een datum op de minikalender onder **Wanneer**, of gebruik **Terug naar boven** na omlaag scrollen. De rail blijft zichtbaar terwijl de lijst scrollt.
-3. Links blijft de minikalender vast staan. Sleep daaronder de sectiekoppen (**Wat**, personen, agents, **Agenda's**) om de volgorde te wijzigen. **Wat** is dezelfde `#`-boom als Communicatie: één actieve tak filtert taken en activiteit die aan een gesprek hangen. Gekoppelde agenda's negeren die filter. Vink mensen en agents aan of uit zoals bij agenda's. Zet elke Google- of Outlook-agenda aan of uit onder **Agenda's**. Het plusje naast **Agenda's** opent Koppelingen gefilterd op agenda's.
+3. Links blijft de minikalender vast staan. Sleep daaronder de sectiekoppen (**Wat**, personen, agents, **Agenda's**) om de volgorde te wijzigen. **Wat** is dezelfde labelboom als Communicatie: één actieve tak filtert taken en activiteit die aan een gesprek hangen. Gekoppelde agenda's negeren die filter. Vink mensen en agents aan of uit zoals bij agenda's. Zet elke Google- of Outlook-agenda aan of uit onder **Agenda's**. Het plusje naast **Agenda's** opent Koppelingen gefilterd op agenda's.
 4. Kies een item om rechts de details te openen, met wie verantwoordelijk is (een persoon, een team of een agent), en links naar het gesprek, de map of de agent.
 
 ## Handel wat aandacht vraagt
@@ -32,7 +32,7 @@ Agenda toont wat er gebeurde, wat openstaat en wat gepland is, voor mensen en ag
 
 1. Open een Werk en kies **Bewerken**. Elke fase heeft een **Eigenaar** (een persoon, agent of team, of **Huidige eigenaar houden**) en een **Check-up**-ritme (**Uit**, uren, dagen of een week).
 2. Komt een ticket in die fase, dan maakt Agenda een terugkerende taak voor wie het gesprek bezit. Agents pakken hem op als wake; mensen zien hem in hun agenda en krijgen het gesprek ongelezen wanneer hij due is.
-3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Werk met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Werken](/docs/ai/flows).
+3. Het ticketpaneel in Communicatie toont wanneer de volgende opvolging is. Een Werk met check-ups linkt onder de titel naar **Check-ups in Agenda**. Zie [Werk](/docs/ai/flows).
 4. Een ticket met een deadline staat op die datum als item voor de hele dag met **Deadline**, de bron en de eigenaar; een te late blijft gemarkeerd tot het ticket klaar is. Bij de deadline komt de check-up eerder: aan het begin van de periode waarin de deadline nadert, de dag ervoor en op de dag zelf, daarna dagelijks als de datum voorbij is.
 5. Op een contactpagina toont elk gesprek zijn label, fase en volgende geplande taak.
 
@@ -54,7 +54,7 @@ De leidende agent van elke afdeling kijkt elke werkdag naar het werk en zegt wat
 
 1. Zet de check-in aan: in de [setupgids](/docs/getting-started/setup-guide) heeft **Laat de assistent waken** de knop **Check-in aanzetten**, of vraag het de assistent. Elke afdeling met een **Leidende agent** krijgt dan een oriëntatie in plaats van de uurlijkse check-in: werkdagen om 07:30 in het afdelingsgesprek.
 2. De briefing noemt tickets over hun deadline, tickets die langer op een klant wachten dan de check-up van de fase, verplichte velden of checklistpunten die nog open staan, mensen die boven hun **Uren per week** zijn ingepland, en koppelingen die opnieuw verbonden moeten worden.
-3. Op maandag kijkt de briefing ook hoe de scorekaarten van de werken bewogen en noemt een verbetering om te proberen.
+3. Op maandag kijkt de briefing ook hoe de scorekaarten van het werk bewogen en noemt een verbetering om te proberen.
 4. De oriëntatie staat in de **Agenda** onder routines en in het afdelingsgesprek als volgende wake.
 
 ## Krijg trends per klant
@@ -62,14 +62,14 @@ De leidende agent van elke afdeling kijkt elke werkdag naar het werk en zegt wat
 Een afdeling die naar buiten kijkt, zoals Research, kijkt in plaats daarvan eens per week buiten.
 
 1. Op maandag om 08:00 leest de leider van Research de klantmappen met een doc **Profiel**, en zoekt op het web wat er voor die klanten veranderde.
-2. Voor elke klant waarbij een trend past, opent die een intern gesprek met label `#trend` in de map van die klant: voor wie, waarom, hoe je het inzet, en de bronnen.
-3. Open de map in [Communicatie](/docs/inbox/communication) of filter op `#trend` om ze te lezen. Reageer in het gesprek om er werk van te maken, of sluit het.
+2. Voor elke klant waarbij een trend past, opent die een intern gesprek met label `trend` in de map van die klant: voor wie, waarom, hoe je het inzet, en de bronnen.
+3. Open de map in [Communicatie](/docs/inbox/communication) of filter op `trend` om ze te lezen. Reageer in het gesprek om er werk van te maken, of sluit het.
 
 ## Toon je Google- of Outlook-agenda's
 
 1. Kies het plusje naast **Agenda's**. Dat opent **Koppelingen** gefilterd op agenda's. Kies onder **Agenda-accounts** **Google Calendar koppelen** of **Outlook Calendar koppelen**.
-2. Rond de aanmelding af. Onder **Beheren** bij het account zet je aan welke provider-agenda's synchroniseren. Elke aangezette agenda wordt een **workspace-agenda**: sync uit, hashtags voor filters in Agenda, en wie **gebruiken** (afspraken zien) of **beheren** (sync, tags en toegang wijzigen) mag.
-3. In Agenda staan onder elk account de agenda's met kleur en schakelaar. Hashtag-chips op een agenda filteren het raster op agenda's met die tag. Verbergen op dit apparaat wijzigt geen gedeelde sync of toegang.
+2. Rond de aanmelding af. Onder **Beheren** bij het account zet je aan welke provider-agenda's synchroniseren. Elke aangezette agenda wordt een **workspace-agenda**: sync uit, labels voor filters in Agenda, en wie **gebruiken** (afspraken zien) of **beheren** (sync, tags en toegang wijzigen) mag.
+3. In Agenda staan onder elk account de agenda's met kleur en schakelaar. Label-chips op een agenda filteren het raster op agenda's met die tag. Verbergen op dit apparaat wijzigt geen gedeelde sync of toegang.
 4. Kies een afspraak om de agenda, het account en de details te zien. **Bewerken** en **Verwijderen** verschijnen alleen als je een schrijfbare agenda mag gebruiken.
 5. Toont een account **Opnieuw inloggen**, dan is de aanmelding verlopen. Kies het en rond de aanmelding af; afspraken blijven tot dan zichtbaar.
 

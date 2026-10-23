@@ -17,12 +17,11 @@ from datetime import datetime, timedelta
 from typing import Any, Iterable
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.signal import Signal, SignalEvent
 from app.models.trigger import Trigger
@@ -322,7 +321,7 @@ async def resolve_owner(
         matches = [u for u in members if lowered and lowered in (u.display_name or "").lower()]
         if len(matches) == 1:
             return "user", matches[0].id
-    raise HTTPException(status_code=422, detail=f"Owner not found: {text}")
+    raise status_error(status_code=422, detail=f"Owner not found: {text}")
 
 
 def _repeat_from(
@@ -372,11 +371,11 @@ async def apply_thread_schedule(
     at, ends_at = naive_utc(at), naive_utc(ends_at)
     repeat = _repeat_from(cron=cron, every_minutes=every_minutes)
     if repeat and repeat[0] == "cron" and next_cron_run(repeat[1], utcnow()) is None:
-        raise HTTPException(status_code=422, detail="Invalid cron expression")
+        raise status_error(status_code=422, detail="Invalid cron expression")
     if ends_at and at and ends_at < at:
-        raise HTTPException(status_code=422, detail="ends_at is before the start")
+        raise status_error(status_code=422, detail="ends_at is before the start")
     if surface_before_minutes not in SURFACE_BEFORE_MINUTES:
-        raise HTTPException(status_code=422, detail="surface_before_minutes must be 0, 15, 30, 60 or 1440")
+        raise status_error(status_code=422, detail="surface_before_minutes must be 0, 15, 30, 60 or 1440")
 
     target: tuple[str, UUID] | None = None
     if owner is not ...:
@@ -399,9 +398,9 @@ async def apply_thread_schedule(
 
     if signal is None:
         if not (title or "").strip():
-            raise HTTPException(status_code=422, detail="A title is required for a new agenda item")
+            raise status_error(status_code=422, detail="A title is required for a new agenda item")
         if at is None and repeat is None:
-            raise HTTPException(status_code=422, detail="Give a moment or a repeat")
+            raise status_error(status_code=422, detail="Give a moment or a repeat")
         signal = await create_schedule_thread(
             session, tenant_id, subject=title, agent=agent, project_id=project_id
         )

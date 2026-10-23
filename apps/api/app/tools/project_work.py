@@ -15,6 +15,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from app.exceptions import AppError
 from app.models.project import Project
 from app.models.signal import Signal
 from app.services.work_items import serialize_work_item
@@ -769,7 +770,7 @@ async def _get_project_canvas(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             slug=slug,
         )
         return {**canvas, "path": _canvas_link(canvas)}
-    except HTTPException:
+    except (HTTPException, AppError):
         listed = await canvas_svc.list_canvases_for_signal(
             ctx.session, ctx.tenant_id, ctx.signal_id
         )
@@ -843,7 +844,7 @@ async def _update_project_canvas(
         }
     notes = str(tool_input.get("notes") or "").strip()
     source = tool_input.get("source")
-    tree = tool_input.get("tree")
+    blocks = tool_input.get("blocks")
     reset = bool(tool_input.get("reset"))
     has_meta = any(
         tool_input.get(key) not in (None, "")
@@ -851,13 +852,41 @@ async def _update_project_canvas(
     )
     image_prompt = str(tool_input.get("image_prompt") or "").strip()
     image_url = str(tool_input.get("image_url") or "").strip()
-    if not reset and source is None and tree is None and not has_meta and not image_prompt and not image_url:
+    if (
+        not reset
+        and source is None
+        and blocks is None
+        and not has_meta
+        and not image_prompt
+        and not image_url
+    ):
         return {
             "error": (
-                "Pass source for this canvas, image_prompt or image_url for an image, "
-                "or reset=true to clear it."
+                "Pass blocks for a dashboard, source for another kind, "
+                "image_prompt or image_url for an image, or reset=true to clear it."
             )
         }
+    design_notes: list[str] = []
+    if blocks is not None:
+        from app.services.canvas_blocks import polish_blocks, render_problems, validate_blocks
+
+        cleaned, errors = validate_blocks(blocks)
+        problems = render_problems(cleaned) if not errors else []
+        if errors or problems:
+            found = errors or problems
+            return {
+                "status": "invalid",
+                "error": found[0],
+                "errors": found,
+                "hint": (
+                    "Fix only the paths named above and call edit_canvas again with the "
+                    "same canvas_id. Put fields on the block itself, e.g. "
+                    '{"type": "bar_chart", "title": "Trend", "labels": ["a", "b"], '
+                    '"series": [{"name": "Aantal", "values": [1, 2]}]}. '
+                    "Do not paste the blocks in chat."
+                ),
+            }
+        blocks, design_notes = polish_blocks(cleaned)
     after: dict[str, Any] = {
         "signal_id": str(ctx.signal_id) if ctx.signal_id else None,
         "slug": slug or None,
@@ -870,10 +899,10 @@ async def _update_project_canvas(
         after["canvas_id"] = canvas_id
     if tool_input.get("title") is not None:
         after["title"] = str(tool_input.get("title") or "")
-    if source is not None:
+    if blocks is not None:
+        after["blocks"] = blocks
+    elif source is not None:
         after["source"] = _canvas_source(source)
-    if isinstance(tree, dict):
-        after["tree"] = tree
     if tool_input.get("language"):
         after["language"] = str(tool_input.get("language") or "")
     if image_prompt:
@@ -923,7 +952,16 @@ async def _update_project_canvas(
             await ctx.session.commit()
         showcase = await _stash_canvas_showcase(ctx, canvas)
         reply = _canvas_reply(result, showcase)
-        reply["next"] = "Call finish_canvas with this canvas_id. That is the done step."
+        reply["next"] = (
+            "Call finish_canvas with this canvas_id. That is the done step. "
+            "Do not paste blocks or source in chat."
+        )
+        if design_notes:
+            reply["design_notes"] = design_notes
+            reply["next"] = (
+                "Saved. The design_notes are optional improvements: apply them with "
+                "one more edit_canvas only if the data allows, then finish_canvas."
+            )
         return reply
     return result
 
@@ -965,6 +1003,16 @@ def revision_canvas(listed: list[dict[str, Any]], tool_input: dict[str, Any]) ->
     if not has_body:
         return None
     return existing_canvas_of_kind(listed, tool_input)
+
+
+def _with_skill(reply: dict[str, Any], kind: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """A dashboard reply carries its skill guide, read right before edit_canvas."""
+    if kind != "dashboard":
+        return reply
+    from app.services.canvas_skills import skill_brief
+
+    reply["skill"] = skill_brief(str(tool_input.get("skill") or ""))
+    return reply
 
 
 async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -1022,6 +1070,9 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
             canvas_id = str(existing["id"])
             # Do not showcase an empty shell — that left "writing" ghosts when the
             # turn died before edit_canvas. Point the model at edit instead.
+            from app.services.canvas_content import edit_body_hint
+
+            kind = str(existing.get("kind") or tool_input.get("kind") or "dashboard")
             body = {
                 "status": "exists",
                 "canvas_id": canvas_id,
@@ -1029,11 +1080,12 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
                 "path": _canvas_link(existing),
                 "message": (
                     "This conversation already has that canvas. "
-                    "Call edit_canvas with this canvas_id and the full source, "
+                    f"Call edit_canvas with this canvas_id and {edit_body_hint(kind)}, "
                     "then finish_canvas. Do not call create_canvas again."
                 ),
                 "next": "edit_canvas then finish_canvas",
             }
+            _with_skill(body, kind, tool_input)
             if not existing.get("empty"):
                 showcase = await _stash_canvas_showcase(ctx, existing)
                 return _canvas_reply(body, showcase)
@@ -1050,13 +1102,16 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     if isinstance(canvas, dict) and canvas.get("id"):
         # Empty create only returns the id. edit_canvas / finish_canvas attach
         # the card once there is something to show — no permanent writing ghost.
+        from app.services.canvas_content import edit_body_hint
+
+        kind = str(canvas.get("kind") or tool_input.get("kind") or "dashboard")
         reply = {
             **result,
             "canvas_id": str(canvas["id"]),
             "path": _canvas_link(canvas),
             "next": (
-                "Call edit_canvas with this canvas_id and the full source, "
-                "then finish_canvas. Do not paste the source in chat."
+                f"Call edit_canvas with this canvas_id and {edit_body_hint(kind)}, "
+                "then finish_canvas. Do not paste blocks or source in chat."
             ),
         }
         if canvas.get("reused") and not canvas.get("empty"):
@@ -1075,7 +1130,7 @@ async def _create_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
                 "Call edit_canvas with this canvas_id, then finish_canvas."
             )
             reply["next"] = "edit_canvas then finish_canvas"
-        return reply
+        return _with_skill(reply, kind, tool_input)
     return result
 
 
@@ -1094,16 +1149,27 @@ async def _finish_canvas_tool(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         canvas = await canvas_svc.get_canvas(
             ctx.session, ctx.tenant_id, canvas_id=_UUID(canvas_id)
         )
-    except HTTPException:
+    except (HTTPException, AppError):
         return {"error": "Canvas not found. Pass the canvas_id from edit_canvas."}
     except Exception:
         return {"error": "Canvas not found. Pass the canvas_id from edit_canvas."}
-    if canvas.get("empty"):
+    problems: list[str] = []
+    if (canvas.get("kind") or "dashboard") == "dashboard":
+        from app.services.canvas_blocks import render_problems
+
+        problems = render_problems(canvas.get("blocks") or [])
+    if canvas.get("empty") or problems:
+        from app.services.canvas_content import edit_body_hint
+
+        kind = str(canvas.get("kind") or "dashboard")
+        found = problems or [
+            f"The canvas is still empty. Call edit_canvas with {edit_body_hint(kind)} "
+            "first, then finish_canvas."
+        ]
         return {
-            "error": (
-                "The canvas is still empty. Call edit_canvas with the full source first, "
-                "then finish_canvas."
-            ),
+            "status": "invalid",
+            "error": found[0],
+            "errors": found,
             "canvas_id": canvas_id,
         }
     showcase = await _stash_canvas_showcase(ctx, canvas)
@@ -1214,8 +1280,9 @@ register_tool(
     ToolSpec(
         name="get_folder_canvas",
         description=(
-            "Read a snapshot canvas. Returns bokito/canvas source and tree. Not "
-            "live queue/budget data. Pass canvas_id, or slug on this conversation. "
+            "Read a snapshot canvas. A dashboard comes back as blocks (not JSX). "
+            "Other kinds come back as source. Not live queue/budget data. "
+            "Pass canvas_id, or slug on this conversation. "
             "A lookup does not show a card. Call attach_items (type canvas) when "
             "you want a preview card. Link the returned path inline, for example "
             "[Title](path)."
@@ -1234,17 +1301,32 @@ register_tool(
     )
 )
 
-_EDIT_CANVAS_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "canvas_id": {"type": "string"},
-        "project_id": {"type": "string"},
-        "slug": {"type": "string"},
-        "source": {"type": "string"},
-        "tree": {"type": "object"},
-        "title": {"type": "string"},
-        "notes": {"type": "string"},
-        "reset": {"type": "boolean"},
+def _canvas_skill_ids() -> list[str]:
+    from app.services.canvas_skills import skill_ids
+
+    return skill_ids()
+
+
+def _edit_canvas_schema() -> dict[str, Any]:
+    from app.services.canvas_blocks import blocks_json_schema
+
+    return {
+        "type": "object",
+        "properties": {
+            "canvas_id": {"type": "string"},
+            "project_id": {"type": "string"},
+            "slug": {"type": "string"},
+            "blocks": blocks_json_schema(),
+            "source": {
+                "type": "string",
+                "description": (
+                    "Body for a non-dashboard canvas: markdown, mermaid, SVG, code, "
+                    "email JSON, or sheet JSON. Dashboards use blocks, not source."
+                ),
+            },
+            "title": {"type": "string"},
+            "notes": {"type": "string"},
+            "reset": {"type": "boolean"},
         "refresh_cadence": {
             "type": "string",
             "enum": ["manual", "hourly", "daily", "weekly", "monthly", "custom"],
@@ -1254,21 +1336,33 @@ _EDIT_CANVAS_SCHEMA = {
         "language": {"type": "string"},
         "image_prompt": {"type": "string"},
         "image_url": {"type": "string"},
-    },
-}
+        },
+    }
+
+
+_EDIT_CANVAS_SCHEMA = _edit_canvas_schema()
 
 _EDIT_CANVAS_DESCRIPTION = (
     "Edit step: write the full body onto one existing canvas. Pass canvas_id "
     "from create_canvas or from the canvases already on this conversation. "
-    "While this runs the operator sees the writing animation on that pane. "
+    "While this runs the operator sees the writing animation. "
     "It does not create another canvas. "
-    "dashboard source is bokito/canvas JSX (Stat, BarChart, LineChart, PieChart "
-    "inside <> or <Stack>). No HTML comments (<!-- -->), no ScatterPlot/Heatmap/"
-    "BoxPlot, no lowercase tags. document is markdown. diagram is mermaid. drawing "
-    "is one SVG. image takes image_prompt or image_url. code takes language and "
-    "source. email is JSON subject/preheader/body_html. sheet is JSON columns "
-    "and rows. If this returns an error, rewrite and call edit_canvas again "
-    "with the same canvas_id. After a successful edit, call finish_canvas."
+    "A dashboard takes blocks: a flat list in reading order, for example "
+    '[{"type":"heading","text":"Omzet 12% boven plan"},'
+    '{"type":"stat","label":"Omzet","value":"EUR 84k","delta":"+12%","status":"good"},'
+    '{"type":"bar_chart","title":"Per regio","labels":["Noord","Zuid"],'
+    '"series":[{"name":"Omzet","values":[48,36]}]}]. '
+    "The server lays it out: stats in a row become the KPI strip, charts in a "
+    "row share columns (wide=true for full width). Do not use grid or card for layout. "
+    "Chart values must be numbers and the same length as labels. "
+    "Types: heading, text, callout, stat, bar_chart, line_chart, area_chart, "
+    "pie_chart, table, list, divider. No JSX, no BoxPlot, no ScatterPlot. "
+    "A successful edit may return design_notes: optional improvements. "
+    "document is markdown. diagram is mermaid. drawing is one SVG. image takes "
+    "image_prompt or image_url. code takes language and source. email is JSON "
+    "subject/preheader/body_html. sheet is JSON columns and rows. "
+    "If this returns an error, fix the blocks and call edit_canvas again with "
+    "the same canvas_id. After a successful edit, call finish_canvas."
 )
 
 register_tool(
@@ -1303,20 +1397,22 @@ register_tool(
         name="create_canvas",
         description=(
             "Create step: open an empty canvas on this conversation in one short "
-            "call (title, kind, optional refresh). Do not pass source, "
-            "image_prompt, or image_url here — that belongs on edit_canvas next. "
+            "call (title, kind, optional refresh). Do not pass blocks or source "
+            "here — that belongs on edit_canvas next. "
             "kind is dashboard (default), document, diagram, drawing, image, "
-            "code, email, or sheet. A dashboard chart uses Stat, BarChart, "
-            "LineChart, or PieChart. Drawing is one <svg>; diagram is Mermaid; "
-            "document is markdown. "
+            "code, email, or sheet. For a dashboard pass skill (overview, trend, "
+            "breakdown, comparison, report); the result returns that recipe with "
+            "rules and an example to follow on edit_canvas. Drawing is one SVG; "
+            "diagram is Mermaid; document is markdown. "
             "When this conversation already has exactly one canvas of this kind, "
             "create_canvas returns that canvas_id — call edit_canvas then "
             "finish_canvas; do not create another. Pass force_new only when they "
             "asked for a separate canvas. "
             "Order for a new canvas: one short sentence, create_canvas (empty), "
-            "edit_canvas (full source), finish_canvas. "
+            "edit_canvas (blocks for dashboard, Mermaid source for diagram, …), "
+            "finish_canvas. "
             "Order for a change to an existing canvas: edit_canvas, finish_canvas. "
-            "Never paste the body into the chat message."
+            "Never paste blocks or source into the chat message."
         ),
         category="projects",
         input_schema={
@@ -1348,6 +1444,14 @@ register_tool(
                     ],
                 },
                 "language": {"type": "string"},
+                "skill": {
+                    "type": "string",
+                    "enum": _canvas_skill_ids(),
+                    "description": (
+                        "Dashboard recipe. The result returns its rules, steps and an "
+                        "example; follow them on edit_canvas."
+                    ),
+                },
             },
             "required": ["title"],
         },

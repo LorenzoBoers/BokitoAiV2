@@ -217,7 +217,7 @@ export function ModuleShowcaseModal({
               <p className="text-xs text-text-secondary">
                 {t('integrations.modules.showcase.labelsFlowsIntro', {
                   defaultValue:
-                    'Hashtags and flows the specialist can file work on. Installing may add the default hashtag for you.',
+                    'Labels and flows the specialist can file work on. Installing may add the default label for you.',
                 })}
               </p>
               {packageTags.length > 0 ? (
@@ -240,7 +240,7 @@ export function ModuleShowcaseModal({
                       key={flow.slug}
                       className="rounded-lg border border-border/60 px-3 py-2 text-sm text-text-secondary"
                     >
-                      <span className="font-medium text-text-heading">#{flow.name}</span>
+                      <span className="font-medium text-text-heading">{flow.name.replace(/^#/, '')}</span>
                       {flow.description ? (
                         <span className="mt-0.5 block text-xs text-text-muted">
                           {flow.description}

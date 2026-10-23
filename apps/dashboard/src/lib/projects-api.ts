@@ -66,13 +66,52 @@ export async function createProject(input: {
   return foldersPost<ProjectRow>(foldersRoutes.list, input)
 }
 
-export async function listFolderFiles(
+export type FolderContentLabel = {
+  id: string
+  name: string
+  color: string
+  icon: string
+  count?: number | null
+}
+
+export type FolderContentItem = {
+  kind: 'folder' | 'conversation' | 'image' | 'file' | 'canvas'
+  id: string
+  title: string
+  subtitle: string
+  updated_at?: string | null
+  href_target: string
+  thumb_url?: string | null
+  channel?: string | null
+  status?: string | null
+  unread?: boolean | null
+  labels: FolderContentLabel[]
+  canvas_kind?: string | null
+  signal_id?: string | null
+  open_count?: number | null
+  closed_count?: number | null
+  child_count?: number | null
+}
+
+export type FolderContentsPage = {
+  items: FolderContentItem[]
+  counts: {
+    all: number
+    folder: number
+    conversation: number
+    image: number
+    file: number
+    canvas: Record<string, number>
+  }
+  labels: FolderContentLabel[]
+  next_page: number | null
+}
+
+export async function listFolderContents(
   folderId: string,
-): Promise<{ name: string; url?: string | null; signal_id: string; subject: string }[]> {
-  const data = await foldersGet<{ files?: { name: string; url?: string | null; signal_id: string; subject: string }[] }>(
-    foldersRoutes.files(folderId),
-  )
-  return data.files ?? []
+  params?: { type?: string; q?: string; labelIds?: string[]; page?: number; perPage?: number },
+): Promise<FolderContentsPage> {
+  return foldersGet<FolderContentsPage>(foldersRoutes.contents(folderId, params))
 }
 
 export async function patchProject(

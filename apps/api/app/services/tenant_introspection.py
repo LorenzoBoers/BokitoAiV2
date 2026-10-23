@@ -390,7 +390,7 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
             if not name:
                 continue
             kind = "actietag" if tag.get("kind") == "action_tag" else "tag"
-            bits.append(f"#{name} ({kind})")
+            bits.append(f"{name} ({kind})")
         if bits:
             lines.append(
                 "Tags: "

@@ -25,7 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.orchestra import Workstream
 from app.models.project import Project
 from app.models.signal import (
@@ -357,7 +357,7 @@ def missing_required_stage_fields(
 
 def raise_stage_fields_required(stage: dict[str, Any], missing: list[dict[str, Any]]) -> None:
     names = ", ".join(str(field.get("name") or field.get("key")) for field in missing)
-    raise HTTPException(
+    raise status_error(
         status_code=400,
         detail={
             "code": "stage_fields_required",
@@ -382,18 +382,18 @@ def normalize_ticket_fields(
             try:
                 float(value.replace(",", "."))
             except ValueError as exc:
-                raise HTTPException(
+                raise status_error(
                     status_code=400, detail=f"Field '{field['name']}' must be a number"
                 ) from exc
         if field.get("type") == "enum" and value:
             options = {str(opt) for opt in (field.get("options") or [])}
             if value not in options:
-                raise HTTPException(
+                raise status_error(
                     status_code=400,
                     detail=f"Field '{field['name']}' must be one of the allowed options",
                 )
         if require and field.get("required") and not value:
-            raise HTTPException(
+            raise status_error(
                 status_code=400, detail=f"Field '{field['name']}' is required"
             )
         if value:
@@ -416,17 +416,17 @@ def validate_stages(raw: Any) -> str:
             raise AppError("Each stage needs a name and a kind", code="app_error", status_code=400)
         key = slugify(str(item.get("key") or name))
         if key in seen:
-            raise HTTPException(status_code=400, detail=f"Duplicate stage '{name}'")
+            raise status_error(status_code=400, detail=f"Duplicate stage '{name}'")
         seen.add(key)
         fields = parse_stage_fields(item.get("fields"))
         if len(item.get("fields") or []) > MAX_FIELDS_PER_STAGE:
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail=f"At most {MAX_FIELDS_PER_STAGE} fields per stage",
             )
         for field in fields:
             if field["type"] == "enum" and len(field.get("options") or []) < 2:
-                raise HTTPException(
+                raise status_error(
                     status_code=400,
                     detail=f"Choice list '{field['name']}' needs at least two options",
                 )
@@ -448,17 +448,17 @@ def validate_stages(raw: Any) -> str:
     if not any(s["kind"] == "done" for s in out):
         raise AppError("A pipeline needs at least one done stage", code="app_error", status_code=400)
     if out[0]["kind"] != "open":
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="The first stage must be not-started",
         )
     if sum(1 for s in out if s["kind"] == "open") > 1:
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="A pipeline has only one not-started stage",
         )
     if not stage_kinds_in_order([s["kind"] for s in out]):
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Stages must run not-started, then active, then done",
         )
@@ -596,7 +596,7 @@ async def get_category(session: AsyncSession, tenant_id: UUID, tag_id: UUID) -> 
     if row is None or row.tenant_id != tenant_id:
         raise NotFoundError("Category not found")
     if row.workstream_id is None:
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="This label has no flow.",
         )
@@ -727,18 +727,18 @@ async def install_tag_template(
 
 
 def category_catalog_lines_from_rows(rows: list[SignalTag]) -> list[str]:
-    """`#name - when to use it` lines from already-loaded category rows."""
+    """`name - when to use it` lines from already-loaded category rows."""
     lines: list[str] = []
     for row in rows:
         if not bool(row.ai_auto_tag):
             continue
         description = (row.description or "").strip()
-        lines.append(f"#{row.name} - {description}" if description else f"#{row.name}")
+        lines.append(f"{row.name} - {description}" if description else row.name)
     return lines
 
 
 async def category_catalog_lines(session: AsyncSession, tenant_id: UUID) -> list[str]:
-    """`#name - when to use it` lines for the triage prompt."""
+    """`name - when to use it` lines for the triage prompt."""
     return category_catalog_lines_from_rows(await list_categories(session, tenant_id))
 
 
@@ -957,14 +957,10 @@ async def move_ticket_stage(
             actor_id=actor_id,
             stage_name=str(target.get("name") or target["key"]),
         )
-    if target.get("kind") == "done":
-        from app.services.deliveries import deliver_flow_ticket
+    if target.get("kind") == "done" and signal.status == "closed":
+        from app.services.deliveries import settle_outcome
 
-        await deliver_flow_ticket(session, signal, ws, actor_type=actor_type, actor_id=actor_id)
-        if signal.status == "closed":
-            from app.services.deliveries import settle_outcome
-
-            await settle_outcome(session, signal)
+        await settle_outcome(session, signal)
     from app.services.stage_checkups import on_stage_entered
 
     await on_stage_entered(session, signal, target, actor_type=actor_type, actor_id=actor_id)
@@ -1010,10 +1006,10 @@ async def resolve_open_ticket_for_close(
             actor_id=actor_id,
             ws=ws,
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         if detail.get("code") in ("stage_fields_required", "checklist_required"):
-            raise HTTPException(
+            raise status_error(
                 status_code=409,
                 detail={
                     **detail,
@@ -1052,7 +1048,7 @@ async def settle_ticket_on_close(
                 actor_type=actor_type,
                 actor_id=actor_id,
             )
-        except HTTPException:
+        except (HTTPException, AppError):
             moved = False
     await settle_outcome(session, signal)
     return moved
@@ -1199,8 +1195,8 @@ async def _ask_operator(
     await create_decision(
         session,
         signal.tenant_id,
-        title=f"#{tag.name}: {signal.subject or tag.name}",
-        summary=summary or f"Review this #{tag.name} ticket from the conversation.",
+        title=f"{tag.name}: {signal.subject or tag.name}",
+        summary=summary or f"Review this {tag.name} ticket from the conversation.",
         options=options,
         user_id=user_id,
         agent_id=agent_id,
@@ -1277,7 +1273,7 @@ async def file_ticket(
                 await session.commit()
             return {"ticket": await ticket_payload(session, signal, tag=tag), "existing": True}
         if signal.ticket_tag_id != tag.id and actor != "operator":
-            raise HTTPException(
+            raise status_error(
                 status_code=409,
                 detail=(
                     "This conversation already has a label with a flow. Split the conversation "
@@ -1407,7 +1403,7 @@ async def _place_new_ticket(
             agent_id=agent_id,
             actor_id=actor_id,
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         if detail.get("code") != "stage_moves_by_people":
             raise
@@ -1607,7 +1603,7 @@ async def _agent_stage_request(
         score = None
     policy, threshold = work.entry_policy(ws, await session.get(Tenant, signal.tenant_id))
     if policy == "first_stage":
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail={
                 "code": "stage_moves_by_people",

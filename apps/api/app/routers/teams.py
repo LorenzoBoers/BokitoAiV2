@@ -145,6 +145,11 @@ class AwayBody(BaseModel):
     until: datetime | None = None
 
 
+class AvailabilityBody(BaseModel):
+    mode: str
+    until: datetime | None = None
+
+
 async def _team_or_404(session: AsyncSession, tenant_id: UUID, team_id: str):
     try:
         tid = UUID(team_id)
@@ -621,11 +626,30 @@ class DepartmentQuestionRow(BaseModel):
     message_id: str | None = None
 
 
+class DepartmentParentMember(BaseModel):
+    kind: Literal["user", "agent"]
+    id: str
+    name: str
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_shape: str | None = None
+    avatar_image_url: str | None = None
+
+
+class DepartmentParentOut(BaseModel):
+    id: str
+    name: str
+    is_root: bool = False
+    members: list[DepartmentParentMember] = Field(default_factory=list)
+
+
 class DepartmentOverviewOut(BaseModel):
     id: str
     name: str
     description: str
     icon: str = "building-2"
+    parent: DepartmentParentOut | None = None
     lead: DepartmentRef | None = None
     accountable: DepartmentRef | None = None
     autonomy: str | None = None
@@ -727,6 +751,8 @@ async def answer_domain_question(
 
 class AwarenessPatch(BaseModel):
     follows: list[str] | None = None
+    mode: str | None = None
+    cron: str | None = None
     daily_cost_cents: int | None = Field(default=None, ge=0, le=100_000)
     max_proposals: int | None = Field(default=None, ge=0, le=10)
     scope: dict | None = None
@@ -799,5 +825,24 @@ async def set_my_away(
     status = presence.user_status(user)
     await publish_presence(
         auth.tenant.id, user_id=user.id, device="dashboard", online=status != "offline", status=status
+    )
+    return presence.serialize_presence(user)
+
+
+@router.put("/me/availability", response_model=PresenceOut)
+async def set_my_availability(
+    body: AvailabilityBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Online, away or unavailable. Agents skip calls and the bell when unavailable."""
+    until = body.until.replace(tzinfo=None) if body.until and body.until.tzinfo else body.until
+    try:
+        user = await presence.set_availability(session, auth.user, body.mode, until=until)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    status = presence.user_status(user)
+    await publish_presence(
+        auth.tenant.id, user_id=user.id, device="dashboard", online=status == "available", status=status
     )
     return presence.serialize_presence(user)

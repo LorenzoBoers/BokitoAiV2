@@ -17,7 +17,8 @@ class AgentCall(SQLModel, table=True):
     signal_id: uuid.UUID = Field(foreign_key="signals.id", index=True)
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)
     # Soft link: DecisionRequest.message_id already points at the card.
-    decision_id: uuid.UUID = Field(index=True)
+    # Empty for a voice conversation the person started themselves.
+    decision_id: Optional[uuid.UUID] = Field(default=None, index=True)
     run_id: Optional[uuid.UUID] = Field(default=None, index=True)
     user_id: uuid.UUID = Field(foreign_key="users.id", index=True)
     # ringing | live | missed | declined | ended
@@ -26,3 +27,7 @@ class AgentCall(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     answered_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
+    # The one browser tab that holds the voice session. Other tabs do not
+    # get a realtime secret while this lease is fresh.
+    voice_client: str = Field(default="", max_length=80)
+    voice_seen_at: Optional[datetime] = None

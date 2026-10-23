@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useTheme, type ThemeMode } from '../../context/ThemeContext'
 import { useMembers } from '../../hooks/useMembers'
 import { selfVisiblePresence } from '../../lib/presence'
-import { getTeamOverview, setMyAway, type PresenceStatus } from '../../lib/teams-api'
+import { getTeamOverview, setMyAvailability, type PresenceStatus } from '../../lib/teams-api'
 import { UserAvatar } from '../ui/UserAvatar'
 import { PresenceDot } from '../ui/PresenceDot'
 import { Tip } from '../ui/Tip'
@@ -25,8 +25,15 @@ import {
 import WorkspaceIdHint from './WorkspaceIdHint'
 import { useGoToWorkspacesHub } from './SidebarWorkspaceSwitcher'
 
-const PRESENCE_OPTIONS: Array<'available' | 'away'> = ['available', 'away']
-type MenuPresence = 'available' | 'away' | 'offline'
+const PRESENCE_OPTIONS: Array<{
+  presence: 'available' | 'away' | 'unavailable'
+  mode: 'online' | 'away' | 'unavailable'
+}> = [
+  { presence: 'available', mode: 'online' },
+  { presence: 'away', mode: 'away' },
+  { presence: 'unavailable', mode: 'unavailable' },
+]
+type MenuPresence = 'available' | 'away' | 'unavailable' | 'offline'
 
 function emailsMatch(left: string, right: string) {
   return left.trim().toLowerCase() === right.trim().toLowerCase()
@@ -62,14 +69,14 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
 
   const loadPresence = useCallback(async () => {
     if (!token || !email) return
-    if (members.some((person) => emailsMatch(person.email, email) && (person.presence === 'available' || person.presence === 'away'))) {
+    if (members.some((person) => emailsMatch(person.email, email) && (person.presence === 'available' || person.presence === 'away' || person.presence === 'unavailable'))) {
       return
     }
     try {
       const overview = await getTeamOverview(token)
       const me = overview.people.find((p) => emailsMatch(p.email, email))
       const next = me?.presence.status
-      if (next === 'available' || next === 'away' || next === 'offline') {
+      if (next === 'available' || next === 'away' || next === 'unavailable' || next === 'offline') {
         setPresence(selfVisiblePresence(next))
       }
     } catch {
@@ -80,7 +87,7 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
   useEffect(() => {
     const me = members.find((person) => emailsMatch(person.email, email))
     const next = me?.presence
-    if (next === 'available' || next === 'away' || next === 'offline') {
+    if (next === 'available' || next === 'away' || next === 'unavailable' || next === 'offline') {
       setPresence(selfVisiblePresence(next))
     }
   }, [members, email])
@@ -89,15 +96,15 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
     void loadPresence()
   }, [loadPresence])
 
-  const changePresence = async (next: 'available' | 'away') => {
-    if (!token || presenceBusy || next === presence) return
+  const changePresence = async (next: (typeof PRESENCE_OPTIONS)[number]) => {
+    if (!token || presenceBusy || next.presence === presence) return
     const previous = presence
-    setPresence(next)
+    setPresence(next.presence)
     setPresenceBusy(true)
     try {
-      const result = await setMyAway(token, next === 'away')
+      const result = await setMyAvailability(token, next.mode)
       const nextStatus = result.status as PresenceStatus
-      if (nextStatus === 'available' || nextStatus === 'away') setPresence(nextStatus)
+      if (nextStatus === 'available' || nextStatus === 'away' || nextStatus === 'unavailable') setPresence(nextStatus)
     } catch (err) {
       setPresence(previous)
       toast.error(err instanceof Error ? err.message : t('topbar.presenceError'))
@@ -216,10 +223,10 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-36">
             {PRESENCE_OPTIONS.map((value) => {
-              const selected = presence === value
+              const selected = presence === value.presence
               return (
                 <DropdownMenuItem
-                  key={value}
+                  key={value.presence}
                   disabled={presenceBusy}
                   onSelect={(event) => {
                     event.preventDefault()
@@ -227,8 +234,8 @@ export default function SidebarUserMenu({ collapsed, onNavigate }: SidebarUserMe
                   }}
                   className={selected ? 'bg-bg-hover' : undefined}
                 >
-                  <PresenceDot status={value} className="mr-2" />
-                  {tCommon(`presence.${value}`)}
+                  <PresenceDot status={value.presence} className="mr-2" />
+                  {tCommon(`presence.${value.presence}`)}
                   {selected ? (
                     <Check size={14} className="ml-auto shrink-0 text-text-heading" aria-hidden />
                   ) : null}

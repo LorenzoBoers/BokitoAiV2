@@ -36,6 +36,8 @@ EVENT_KIND: dict[str, str] = {etype: kind for kind, types in FOLLOWABLE.items() 
 DEFAULT_FOLLOWS = ("stage_change", "deadline", "decision", "escalation")
 DEFAULT_DAILY_COST_CENTS = 300
 DEFAULT_MAX_PROPOSALS = 3
+CHECKIN_MODES = ("off", "on_conversation", "daily", "custom")
+DEFAULT_CHECKIN_CRON = "30 7 * * 1-5"
 MAX_DAILY_COST_CENTS = 100_000
 BRIEF_CHARS = 1200
 
@@ -74,8 +76,11 @@ def awareness_config(agent: Agent) -> dict[str, Any]:
     except (TypeError, ValueError):
         proposals = DEFAULT_MAX_PROPOSALS
     brief = raw.get("brief") if isinstance(raw.get("brief"), dict) else None
+    mode = raw.get("mode") if raw.get("mode") in CHECKIN_MODES else "daily"
     return {
         "follows": follows,
+        "mode": mode,
+        "cron": str(raw.get("cron") or DEFAULT_CHECKIN_CRON),
         "daily_cost_cents": max(0, min(cost, MAX_DAILY_COST_CENTS)),
         "max_proposals": max(0, min(proposals, 10)),
         "scope": {
@@ -105,12 +110,30 @@ def set_awareness(agent: Agent, patch: dict[str, Any]) -> dict[str, Any]:
             if value < 0 or value > top:
                 raise ValueError(f"{key} must be between 0 and {top}")
             current[key] = value
+    if "mode" in patch:
+        if patch["mode"] not in CHECKIN_MODES:
+            raise ValueError(f"mode must be one of: {', '.join(CHECKIN_MODES)}")
+        current["mode"] = patch["mode"]
+    mode = current.get("mode") if current.get("mode") in CHECKIN_MODES else "daily"
+    # Dagelijks is the weekday 07:30 cadence. A leftover custom cron must not keep firing.
+    if mode == "daily":
+        current["cron"] = DEFAULT_CHECKIN_CRON
+    elif "cron" in patch and str(patch["cron"] or "").strip():
+        current["cron"] = str(patch["cron"]).strip()[:80]
     if isinstance(patch.get("scope"), dict):
         scope = current.get("scope") if isinstance(current.get("scope"), dict) else {}
         for key in ("flows", "folders", "organizations"):
             if key in patch["scope"]:
                 scope[key] = _ids(patch["scope"][key])
         current["scope"] = scope
+    if mode in {"off", "on_conversation"}:
+        current.pop("next_wake_at", None)
+    elif "mode" in patch or "cron" in patch or not current.get("next_wake_at"):
+        from app.services.triggers import next_cron_run
+
+        when = next_cron_run(str(current.get("cron") or DEFAULT_CHECKIN_CRON), utcnow())
+        if when is not None:
+            current["next_wake_at"] = when.isoformat()
     data["awareness"] = current
     agent.settings_json = json.dumps(data)
     return awareness_config(agent)
@@ -134,7 +157,10 @@ async def spent_today_cents(session: AsyncSession, tenant_id: UUID, agent_id: UU
 
 async def role_line(session: AsyncSession, agent: Agent) -> str:
     """One sentence: which departments, which duty, which flows, which stages."""
+    from sqlalchemy import or_, select
+
     from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
     from app.services.department_domain import agent_departments
     from app.services.tickets import workstream_stages
 
@@ -143,13 +169,20 @@ async def role_line(session: AsyncSession, agent: Agent) -> str:
     other = [d for d, duty in depts if d.parent_id is not None and d not in led]
     parts: list[str] = []
     if led:
+        dept_ids = [d.id for d in led]
         flows = (
             await session.execute(
-                select(Workstream.name).where(
+                select(Workstream.name)
+                .outerjoin(SignalTag, SignalTag.workstream_id == Workstream.id)
+                .where(
                     Workstream.tenant_id == agent.tenant_id,
-                    Workstream.department_id.in_([d.id for d in led]),
                     Workstream.deleted_at.is_(None),
+                    or_(
+                        SignalTag.department_id.in_(dept_ids),
+                        Workstream.department_id.in_(dept_ids),
+                    ),
                 )
+                .distinct()
             )
         ).scalars().all()
         line = f"Lead of {', '.join(d.name for d in led)}"
@@ -247,33 +280,26 @@ async def aware_context(session: AsyncSession, agent: Agent) -> str:
 
 
 async def awareness_view(session: AsyncSession, agent: Agent) -> dict[str, Any]:
-    """The configuration as the department page shows it."""
-    from app.models.trigger import Trigger
-    from app.services.awareness import ORIENTATION
-
+    """The wake stand as the agent page shows it. Not an agenda item."""
     config = awareness_config(agent)
-    orientation = (
-        await session.execute(
-            select(Trigger).where(
-                Trigger.tenant_id == agent.tenant_id,
-                Trigger.agent_id == agent.id,
-                Trigger.purpose == ORIENTATION,
-                Trigger.deleted_at.is_(None),
-            )
-        )
-    ).scalars().first()
+    raw = _settings(agent).get("awareness")
+    raw = raw if isinstance(raw, dict) else {}
+    next_wake = str(raw.get("next_wake_at") or "") or None
+    brief = config["brief"] or {}
     return {
         "agent_id": str(agent.id),
         "agent_name": agent.name,
-        "role": (config["brief"] or {}).get("role") or await role_line(session, agent),
+        "role": brief.get("role") or await role_line(session, agent),
         "follows": config["follows"],
         "followable": list(FOLLOWABLE),
+        "mode": config["mode"],
+        "cron": config["cron"],
         "daily_cost_cents": config["daily_cost_cents"],
         "spent_today_cents": await spent_today_cents(session, agent.tenant_id, agent.id),
         "max_proposals": config["max_proposals"],
-        "cadence": orientation.cron_expr if orientation else None,
-        "next_wake_at": orientation.next_run_at.isoformat() + "Z" if orientation and orientation.next_run_at else None,
-        "last_orientation_at": orientation.last_run_at.isoformat() + "Z" if orientation and orientation.last_run_at else None,
+        "cadence": config["cron"] if config["mode"] in {"daily", "custom"} else None,
+        "next_wake_at": next_wake,
+        "last_orientation_at": brief.get("at"),
         "brief": config["brief"],
         "scope": config["scope"],
     }

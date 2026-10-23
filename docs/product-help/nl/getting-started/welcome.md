@@ -16,8 +16,8 @@ Bokito is een operations-platform voor afdelingen die AI echt werk willen laten 
 ![Bokito-zijbalk](/api/docs/assets/welcome/rail.png)
 *Eén zijbalk: Vandaag en Communicatie bovenaan, daarna Werk, AI en Organisatie.*
 
-- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [Autonomie](/docs/inbox/inbox-ai) bepaalt of de AI zelf antwoordt, concepten ter controle maakt of stil blijft. [Labels](/docs/ai/categories) zijn hashtags; een label met een werk maakt van een gesprek een ticket dat door de fasen van dat werk gaat. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
-- [Agents](/docs/ai/agents) zijn collega's met een doel, kennis en tools. [Werken](/docs/ai/flows) zijn de faseborden waar tickets doorheen gaan.
+- [Communicatie](/docs/inbox/communication) verzamelt e-mail, websitechat en WhatsApp. [Autonomie](/docs/inbox/inbox-ai) bepaalt of de AI zelf antwoordt, concepten ter controle maakt of stil blijft. [Labels](/docs/ai/categories) zijn labels; een label met een werk maakt van een gesprek een ticket dat door de fasen van dat werk gaat. [Govern](/docs/govern/govern) bepaalt welke tools een agent mag gebruiken en wanneer een mens moet goedkeuren.
+- [Agents](/docs/ai/agents) zijn collega's met een doel, kennis en tools. [Werk](/docs/ai/flows) zijn de faseborden waar tickets doorheen gaan.
 - Keuzekaarten verschijnen in het gesprek wanneer een stap oordeel vraagt. Structurele wijzigingen landen als concepten op Govern.
 
 ## Hoe een dag loopt

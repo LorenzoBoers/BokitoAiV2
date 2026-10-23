@@ -1,21 +1,21 @@
 ---
-title: Zo werken Werken
-intro: Een werk hoort bij precies één label. De lijst en pagina tonen een titel met dat label (`#klacht`) ernaast, en een live bord met de tickets, met een baan per map. Het label is alleen gekleurd zolang het werk bestaat.
+title: Zo werkt Werk
+intro: Een werk hoort bij precies één label. De lijst en pagina tonen een titel met dat label (`klacht`) ernaast, en een live bord met de tickets, met een baan per map. Het label is alleen gekleurd zolang het werk bestaat.
 description: Maak een werk voor een label, volg de tickets per fase en per map, bewerk of voeg fasen toe op het bord, en verwijder hem.
-keywords: werken, workstreams, draaiboeken, levert op in, bestemming, fasen, eigenaar, check-up, pijplijn, tickets, hashtags, labels, mappen, bord, banen
+keywords: werk, workstreams, draaiboeken, fasen, eigenaar, check-up, pijplijn, tickets, labels, labels, mappen, bord, banen
 sort: 45
 related: categories,folders,agenda,agents,knowledge
 ---
 
-# Zo werken Werken
+# Zo werkt Werk
 
-Een werk is de pijplijn voor werk dat onder één label terugkomt: een klacht, een reparatie, een aangifte. Elk werk heeft precies één label. De Werken-lijst en de werkpagina tonen een operator-titel met het workflow-icoon links en rechts het label (`#klacht`); het bord toont tickets per fase, en mappen tonen dezelfde fasen als bord.
+Een werk is de pijplijn voor werk dat onder één label terugkomt: een klacht, een reparatie, een aangifte. Elk werk heeft precies één label. De lijst Werk en de werkpagina tonen een operator-titel met het workflow-icoon links en rechts het label (`klacht`); het bord toont tickets per fase, en mappen tonen dezelfde fasen als bord.
 
 ## Een werk aanmaken
 
-1. Open **Werken** (groep Werk) en kies **Nieuw werk**. De dialoog toont eerst de bestaande werklabels; die pillen zijn uitgeschakeld. Typ in het zoekveld om te versmallen tot tags die nog vrij zijn, of typ een nieuwe hashtag.
-2. Kies een vrije tag, of **Tag aanmaken** als niets overeenkomt. Onderaan verschijnt een label-instelling: kies een kleur en een icoon. De iconenlijst is lang en scrollbaar (eerst populair, daarna de hele Lucide-set); typ om te filteren op naam of Nederlandse/Engelse trefwoorden. Een nieuw label start blauw met het werk-teken. **Aanmaken** koppelt die hashtag aan het werk; een bestaande vrije hashtag wordt hergebruikt. Een hashtag die al bij een ander werk hoort, blijft uitgeschakeld en kan geen tweede werk starten.
-3. De lijst **Werken** toont per werk het pad-icoon, de titel en rechts het label, plus de fasen, open tickets per fase, mappen waarin hij gebruikt wordt en de laatste activiteit.
+1. Open **Werk** (groep Werk) en kies **Nieuw werk**. De dialoog toont eerst de bestaande werklabels; die pillen zijn uitgeschakeld. Typ in het zoekveld om te versmallen tot tags die nog vrij zijn, of typ een nieuwe label.
+2. Kies een vrije tag, of **Tag aanmaken** als niets overeenkomt. Onderaan verschijnt een label-instelling: kies een kleur en een icoon. De iconenlijst is lang en scrollbaar (eerst populair, daarna de hele Lucide-set); typ om te filteren op naam of Nederlandse/Engelse trefwoorden. Een nieuw label start blauw met het werk-teken. **Aanmaken** koppelt dat label aan het werk; een bestaand vrij label wordt hergebruikt. Een label dat al bij een ander werk hoort, blijft uitgeschakeld en kan geen tweede werk starten.
+3. De lijst **Werk** toont per werk het pad-icoon, de titel en rechts het label, plus de fasen, open tickets per fase, mappen waarin hij gebruikt wordt en de laatste activiteit.
 
 ## Tickets volgen op het werkbord
 
@@ -30,7 +30,7 @@ Een werk is de pijplijn voor werk dat onder één label terugkomt: een klacht, e
 
 ## Fasen bewerken op het bord
 
-1. Beheerders wijzigen de werknaam door op de titel te hoveren: die wordt een pil met een pennetje, en Enter slaat de naam op. De beschrijving staat eronder en slaat op als je het veld verlaat. De titel is alleen de werknaam; hernoem het label onder **Labels** als de hashtag zelf moet wijzigen.
+1. Beheerders wijzigen de werknaam door op de titel te hoveren: die wordt een pil met een pennetje, en Enter slaat de naam op. De beschrijving staat eronder en slaat op als je het veld verlaat. De titel is alleen de werknaam; hernoem het label onder **Labels** als het label zelf moet wijzigen.
 2. Elke kolomkop toont de fasenaam met het aantal tickets ernaast. Hover over de kop en het tandwiel verschijnt naast de naam. Het opent een venster om de naam, het soort (niet gestart, wachtend, klaar, gesloten) en de invoervelden te wijzigen, of om de fase te verwijderen. Houd minstens één klaar-fase. **Naar links** en **Naar rechts** blijven alleen beschikbaar als de fase in zijn groep blijft. **Opslaan** schrijft die fase meteen weg.
 3. Hover over de koppen en in elke tussenruimte verschijnt een plus. Eén klik voegt een fase in van hetzelfde soort als de kolom links, met die soortnaam tot je hem hernoemt. **Fase toevoegen** rechts voegt nog een fase toe van het soort van de laatste kolom. Niet gestart staat nooit na Wachtend, en Klaar nooit ervoor. Elk werk start met Niet gestart, Wachtend en Klaar, in de taal van de werkruimte.
 4. In **Invoervelden** voeg je tekst-, lange-tekst-, getal- of keuzelijstvelden toe, en kies je **Eigenaar** en **Check-up**. Op een klaar-fase zet je **Gesprek automatisch sluiten** aan als binnenkomen in die fase de thread moet sluiten. Velden op de eerste fase worden gevraagd bij het vastleggen van het label. Verplichte velden op een latere fase moeten ingevuld zijn voordat een ticket die fase in kan. **Opslaan** in dat venster schrijft de fase meteen weg. Klaar-fasen checken nooit; een check-up verschijnt op [Agenda](/docs/ai/agenda) voor de eigenaar.
@@ -56,18 +56,19 @@ Een fase kan opsommen wat er moet zijn voordat het werk verder gaat, en zeggen o
 
 ## Mappen en banen op het werkbord
 
-1. Een map wordt een baan op het werk wanneer de labels van die map het actielabel van het werk bevatten. Op **Werken** toont elke rij die gedeelde mappen als chips; een chip opent die map, de rest van de rij opent het werk.
+1. Een map wordt een baan op het werk wanneer de labels van die map het actielabel van het werk bevatten. Op **Werk** toont elke rij die gedeelde mappen als chips; een chip opent die map, de rest van de rij opent het werk.
 2. Lege banen (mappen zonder tickets) blijven verborgen. Zet **Toon lege mappen** aan op de werkpagina om ze te zien.
-3. Op een [map](/docs/ai/folders) verschijnt een werk onder **Werken** zodra een gesprek in die map (of een map daarin) het label van het werk als ticket heeft.
+3. Op het maptabblad van de [afdeling](/docs/getting-started/team) verschijnt een werk als bord zodra een gesprek in die map (of een map daarin) het label van het werk als ticket heeft.
 
-## Kiezen waar een werk oplevert
+## De flow van start tot eind tekenen
 
-Een werk kan de map noemen, en eventueel de plek onder [Werkt in](/docs/ai/folders), waar afgeronde tickets landen, bijvoorbeeld **Levert op in Administratie › Exact**.
+De stappen en de pijlen ertussen staan in één editor. Een pijl zegt wanneer hij geldt en wat hij meeneemt.
 
-1. Open het werk en kies het tandwiel rechtsboven. **Levert op in** toont de bestemming; eigenaren en beheerders kiezen **Bestemming kiezen** of **Wijzigen**.
-2. Kies een map, daarna **De map zelf** of een van de plekken onder Werkt in, en kies **Opslaan**.
-3. Bereikt een ticket van dit werk een fase van soort klaar, dan toont het gesprek **Opgeleverd in** die plek, tenzij het werk al in een map was opgeleverd.
-4. **Verwijderen** haalt de bestemming weg; tickets leveren dan alleen op waar hun agents schreven.
+1. Open het werk en kies **Bewerken** rechtsboven, naast **Open in Grid**.
+2. Het diagram houdt altijd de hele flow in beeld, ook nadat je een stap toevoegt of verplaatst. Elke fase toont het voortgangsicoon en het aantal tickets, net als op het bord.
+3. Klik een stap om rechts wie, stand, max, tools, krijgt, geeft, faalt en stil in te stellen. Klik een pijl om in te stellen wanneer hij geldt en wat hij meeneemt, of richt hem op een andere stap. Rechtsklik op een stap, een pijl of de achtergrond voor een menu met **Nieuwe stap hierna**, **Pijl naar**, wie en stand, **Richting omdraaien**, **Nieuwe stap hier** en **Verwijderen**.
+4. Sleep vanaf de stip rechts op een stap naar een andere stap voor een nieuwe pijl. Laat je los op een lege plek, dan komt daar een nieuwe stap met die pijl. **Stap** en **Pijl toevoegen naar** in het paneel doen hetzelfde zonder slepen. Een losse stap sleep je naar een andere kolom, boven of onder een stap; **Automatisch plaatsen** zet hem terug. **Notatie** toont dezelfde flow als tekst en controleert die terwijl je typt.
+5. **Opslaan** bewaart de notatie op het werk. Het bord houdt de kolommen tot de overgangen daarop worden toegepast.
 
 ## Beschrijven hoe het werk zijn werk afhandelt
 
@@ -75,21 +76,21 @@ Een werk is ook de aanpak voor één soort werk: het label zegt wat het is, het 
 
 1. Open het werk en kies het tandwiel rechtsboven. Schrijf bij **Klaar betekent** in een zin wat klaar oplevert, bijvoorbeeld **De posts van de maand staan ingepland**.
 2. Schrijf bij **Werkwijze** in een paar zinnen hoe de agent dit werk afhandelt. Het slaat op als je het veld verlaat. Agents op de gesprekken van dit werk krijgen de werkwijze, de tools en koppelingen die hij gebruikt (**Gebruikt**) en wat klaar betekent.
-3. Zet **Direct afgehandeld** aan voor kort werk zoals een vraag: het werk heeft geen wachtfase en geen bord in mappen, en het ticket sluit als het werk klaar is.
+3. Een werk zonder wachtfase heeft geen bord in mappen. De fases zelf bepalen of er een wachtstap is.
 4. Een agent kan dezelfde wijzigingen in een gesprek voorstellen met `update_flow`; het voorstel volgt [Govern](/docs/govern/govern).
 
 ## Autonomie en afdeling van een werk instellen
 
-Elk werk heeft een eigen knop onder het plafond van de workspace, en hoort bij de afdeling die hem draait.
+Elk werk heeft een eigen knop onder het plafond van de workspace. De afdeling staat op het label van het werk.
 
 1. Open het werk en kies het tandwiel rechtsboven. **Autonomie** toont **Standaard van de workspace**, **Handmatig**, **Geassisteerd** of **Autonoom**. Eigenaren en beheerders kiezen er een.
 2. Strenger dan de workspace geldt meteen. Losser wacht op akkoord in [Govern](/docs/govern/autonomy); het venster zegt **Losser dan nu gaat via Govern**. Op **Geassisteerd** wordt elk antwoord op een ticket van dit werk een concept dat een mens verstuurt, ook als het gesprek op Autonoom staat. De modus in de gesprekskop zegt dan dat hij op het werk is ingesteld.
-3. Kies bij **Afdeling** de afdeling die dit werk draait. De leidende agent neemt de tickets van het werk mee in de ochtendbriefing, en de [afdelingspagina](/docs/getting-started/team) toont het werk met zijn scorekaart.
+3. Kies bij **Afdeling** de afdeling van het label. De leidende agent neemt de tickets van het werk mee in de ochtendbriefing, en de [afdelingspagina](/docs/getting-started/team) toont het werk met zijn scorekaart.
 4. Laat de scorekaart van een werk genoeg schone uitkomsten zien, dan stelt de afdelingsleider in het afdelingsgesprek een lossere stand voor (zie het volgende deel).
 
 ## De afdelingsleider een werk laten verbeteren
 
-Eens per dag leest de leidende agent van een afdeling de scorekaarten van zijn werken en stelt verbeteringen voor in het afdelingsgesprek.
+Eens per dag leest de leidende agent van een afdeling de scorekaarten van zijn werk en stelt verbeteringen voor in het afdelingsgesprek.
 
 1. Open de afdeling in het menu links. Onder **Verbetervoorstellen** toont elk open voorstel wat het wijzigt: **Autonomie**, **Instructies**, **Capabilities** of **Nieuw werk**. Kies **Openen** om naar het afdelingsgesprek te gaan.
 2. **Autonomie:** na genoeg tickets zonder correctie of afgewezen beslissing stelt de leider **Autonoom** voor; hebben veel tickets een correctie nodig, dan stelt die een stap terug naar **Geassisteerd** voor. Het aantal schone tickets is een werkruimte-instelling (standaard 20).
@@ -102,7 +103,7 @@ Eens per dag leest de leidende agent van een afdeling de scorekaarten van zijn w
 
 Werk dat terugkomt, zoals maandcontent of een weekrapport, opent zichzelf als ticket op het werk.
 
-1. Vraag het een agent in een gesprek, bijvoorbeeld: **Open elke eerste van de maand een #maandcontent-ticket in map Klanten/Studio Veluwe.**
+1. Vraag het een agent in een gesprek, bijvoorbeeld: **Open elke eerste van de maand een maandcontent-ticket in map Klanten/Studio Veluwe.**
 2. De agent zet een regel met het werklabel, de map, de titel (bijvoorbeeld **Maandcontent {maand}**) en het schema. Een regel per werk en map: opnieuw vragen past hem aan.
 3. Op die datum opent Bokito een gesprek, legt het vast op het werk in die map en geeft het aan de agent. Heeft de regel instructies, dan begint de agent meteen.
 4. De regel staat in de [Agenda](/docs/ai/agenda) onder routines. Pauzeer of verwijder hem daar.
@@ -122,4 +123,4 @@ Een fase die op de klant wacht, gaat verder op het antwoord van de klant.
 
 ## Wat daarna
 
-Leg een label met een werk vast via **Hashtags toevoegen** op een gesprek in [Communicatie](/docs/inbox/communication); zie [Labels en tickets](/docs/ai/categories).
+Leg een label met een werk vast via **Labels toevoegen** op een gesprek in [Communicatie](/docs/inbox/communication); zie [Labels en tickets](/docs/ai/categories).

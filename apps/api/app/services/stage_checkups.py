@@ -27,6 +27,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import status_error
 from app.core.time import utcnow
 from app.models.orchestra import Workstream
 from app.models.signal import Signal, SignalEvent, SignalTag
@@ -80,7 +81,7 @@ async def sync_checkup(
             await session.flush()
         return None
     now = utcnow()
-    name = f"Check-up #{tag.name} · {stage.get('name') or stage['key']}"
+    name = f"Check-up {tag.name} · {stage.get('name') or stage['key']}"
     if row is None:
         row = Trigger(
             tenant_id=signal.tenant_id,
@@ -202,7 +203,6 @@ async def resync_flow(session: AsyncSession, ws: Workstream) -> int:
 
 async def validate_stage_owners(session: AsyncSession, tenant_id: UUID, stages_json: str) -> None:
     """Every stage owner must be a person, agent or team of this workspace."""
-    from fastapi import HTTPException
 
     from app.models.agent import Agent
     from app.models.auth import Membership
@@ -224,7 +224,7 @@ async def validate_stage_owners(session: AsyncSession, tenant_id: UUID, stages_j
         else:
             stmt = select(Team.id).where(Team.tenant_id == tenant_id, Team.id == owner_id)
         if (await session.execute(stmt)).first() is None:
-            raise HTTPException(
+            raise status_error(
                 status_code=400, detail=f"Stage '{stage.get('name')}' has an unknown owner"
             )
 
@@ -246,7 +246,7 @@ def _brief(signal: Signal, tag: SignalTag, stage: dict[str, Any]) -> str:
 
     fields = parse_ticket_fields(signal.ticket_fields_json)
     lines = [
-        f"Scheduled check-up of the #{tag.name} ticket \"{signal.subject or tag.name}\".",
+        f"Scheduled check-up of the {tag.name} ticket \"{signal.subject or tag.name}\".",
         f"It is in stage \"{stage.get('name') or stage['key']}\" and you own it.",
         "Read the conversation, decide whether it can move on, and act through your tools "
         "(reply draft, move the stage, ask a person). Finish with a two-line status for the team.",
@@ -381,7 +381,7 @@ async def fire_checkup(session: AsyncSession, trigger: Trigger) -> dict[str, Any
             kind="assignment",
             recipients=[signal.assigned_user_id],
             title=f"Check-up: {signal.subject or '#' + tag.name}",
-            body=f"#{tag.name} is in {stage.get('name') or stage['key']}. Time to look at it.",
+            body=f"{tag.name} is in {stage.get('name') or stage['key']}. Time to look at it.",
             tier=TIER_LATER,
             category="assigned-to-me",
             signal_id=signal.id,

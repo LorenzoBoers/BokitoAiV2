@@ -127,6 +127,7 @@
   "presence": {
     "available": "Available",
     "away": "Away",
+    "unavailable": "Unavailable",
     "offline": "Offline",
     "standby": "Standby",
     "working": "Working",

@@ -1,9 +1,11 @@
 import type { ReactElement, ReactNode } from 'react'
-import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip'
+import { Tooltip, TooltipContent, TooltipLabel, TooltipTrigger } from './tooltip'
 
 type TipProps = {
   /** Hover label. Empty / missing skips the wrapper so call sites stay cheap. */
   label?: ReactNode
+  /** Lighter second part, usually a shortcut. */
+  detail?: ReactNode
   children: ReactElement
   side?: 'top' | 'right' | 'bottom' | 'left'
   align?: 'start' | 'center' | 'end'
@@ -19,6 +21,7 @@ type TipProps = {
  */
 export function Tip({
   label,
+  detail,
   children,
   side = 'top',
   align = 'center',
@@ -30,7 +33,7 @@ export function Tip({
     <Tooltip delayDuration={delayDuration}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent side={side} align={align} className={className}>
-        {label}
+        {detail ? <TooltipLabel detail={detail}>{label}</TooltipLabel> : label}
       </TooltipContent>
     </Tooltip>
   )

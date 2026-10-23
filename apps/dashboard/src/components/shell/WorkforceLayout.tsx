@@ -1,11 +1,12 @@
 import { Suspense } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Building2, Users, Waypoints, type LucideIcon } from 'lucide-react'
+import { Building2, GitFork, Users, Waypoints, type LucideIcon } from 'lucide-react'
 import {
   DEPARTMENTS_PATH,
   GRID_ICON,
   GRID_PATH,
+  ORGANOGRAM_PATH,
   TAB_PATHS,
   WORKFLOW_PATH,
 } from '../../lib/navigation'
@@ -22,7 +23,7 @@ type WorkforceNavItem = {
 
 /**
  * Workforce hub: second rail flush against the main menu (Settings pattern).
- * People · Departments · Grid · Workflow live here; the page fills the rest.
+ * People · Departments · Grid · Workflow · Organogram live here; the page fills the rest.
  */
 export default function WorkforceLayout() {
   const { t } = useTranslation('nav')
@@ -30,8 +31,10 @@ export default function WorkforceLayout() {
   const tab = new URLSearchParams(search).get('tab')
   const onGrid = pathname.startsWith(GRID_PATH)
   const onWorkflow = pathname.startsWith(WORKFLOW_PATH)
-  const onDepartments = !onGrid && !onWorkflow && (tab === 'departments' || tab === 'teams')
-  const onPeople = !onGrid && !onWorkflow && !onDepartments
+  const onOrganogram = pathname.startsWith(ORGANOGRAM_PATH)
+  const onCanvas = onGrid || onWorkflow || onOrganogram
+  const onDepartments = !onCanvas && (tab === 'departments' || tab === 'teams')
+  const onPeople = !onCanvas && !onDepartments
 
   const items: WorkforceNavItem[] = [
     {
@@ -57,6 +60,12 @@ export default function WorkforceLayout() {
       labelKey: 'tabs.workflow.title',
       icon: Waypoints,
       active: onWorkflow,
+    },
+    {
+      to: ORGANOGRAM_PATH,
+      labelKey: 'tabs.organogram.title',
+      icon: GitFork,
+      active: onOrganogram,
     },
   ]
 
@@ -98,7 +107,7 @@ export default function WorkforceLayout() {
         <div
           className={cn(
             'min-h-0 flex-1',
-            onGrid || onWorkflow ? 'overflow-hidden' : 'overflow-y-auto px-6 pb-8 pt-4',
+            onCanvas ? 'overflow-hidden' : 'overflow-y-auto px-6 pb-8 pt-4',
           )}
         >
           <Suspense fallback={<RouteShellSkeleton />}>

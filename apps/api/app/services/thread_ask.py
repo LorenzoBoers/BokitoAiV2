@@ -14,7 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFoundError
+from app.exceptions import AppError, NotFoundError
 from app.models.auth import User
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, is_internal_channel
@@ -149,7 +149,7 @@ async def prepare_ask(
     if not continue_pending and plain and not has_attachments:
         try:
             resolved = await _soft_decision(session, tenant_id, user.id, signal_id, plain)
-        except HTTPException:
+        except (HTTPException, AppError):
             resolved = None
         if resolved is not None:
             return resolved

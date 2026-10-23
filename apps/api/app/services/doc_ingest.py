@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 import re
 
-from fastapi import HTTPException
+from app.exceptions import status_error
 
 # Extensions ingested by simple text decoding.
 _TEXT_EXTENSIONS = {"txt", "md", "markdown", "csv", "tsv", "rst", "log", "json"}
@@ -33,12 +33,12 @@ def _extract_pdf(data: bytes) -> str:
     try:
         from pypdf import PdfReader
     except ImportError as exc:  # pragma: no cover - dependency is declared
-        raise HTTPException(status_code=500, detail="PDF support is not installed") from exc
+        raise status_error(status_code=500, detail="PDF support is not installed") from exc
     try:
         reader = PdfReader(io.BytesIO(data))
         pages = [page.extract_text() or "" for page in reader.pages]
     except Exception as exc:
-        raise HTTPException(status_code=422, detail="Could not read this PDF file") from exc
+        raise status_error(status_code=422, detail="Could not read this PDF file") from exc
     return "\n\n".join(p.strip() for p in pages if p.strip())
 
 
@@ -46,11 +46,11 @@ def _extract_docx(data: bytes) -> str:
     try:
         import docx
     except ImportError as exc:  # pragma: no cover - dependency is declared
-        raise HTTPException(status_code=500, detail="Word support is not installed") from exc
+        raise status_error(status_code=500, detail="Word support is not installed") from exc
     try:
         document = docx.Document(io.BytesIO(data))
     except Exception as exc:
-        raise HTTPException(status_code=422, detail="Could not read this Word file") from exc
+        raise status_error(status_code=422, detail="Could not read this Word file") from exc
     parts: list[str] = [p.text for p in document.paragraphs if p.text.strip()]
     for table in document.tables:
         for row in table.rows:
@@ -74,7 +74,7 @@ def extract_text(filename: str, data: bytes) -> str:
     """
     ext = _extension(filename)
     if ext not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(
+        raise status_error(
             status_code=415,
             detail=(
                 "Unsupported file type. Supported: "
@@ -89,7 +89,7 @@ def extract_text(filename: str, data: bytes) -> str:
         text = _decode_text(data)
     text = _normalize_whitespace(text)
     if not text:
-        raise HTTPException(
+        raise status_error(
             status_code=422,
             detail="No readable text found in this file (scanned documents are not supported yet).",
         )

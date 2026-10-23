@@ -34,6 +34,13 @@ export const workspaceRoutes = {
   docSection: (docId: string, sectionId: string) =>
     `/workspace/docs/${encodeURIComponent(docId)}/sections/${encodeURIComponent(sectionId)}`,
   search: () => '/workspace/search',
+  lessons: (params?: { status?: string; tag_id?: string; agent_id?: string }) => {
+    const search = new URLSearchParams()
+    if (params?.status) search.set('status', params.status)
+    if (params?.tag_id) search.set('tag_id', params.tag_id)
+    if (params?.agent_id) search.set('agent_id', params.agent_id)
+    return withQuery('/workspace/lessons', search)
+  },
   platformSkills: (lang: string) =>
     withQuery('/workspace/platform-skills', new URLSearchParams({ lang })),
   debugDom: () => '/workspace/debug-dom',

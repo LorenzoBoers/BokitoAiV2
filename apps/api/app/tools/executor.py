@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError
 from app.models.auth import Tenant
 from app.services.audit import record_audit
 from app.tools.decision_copy import format_policy_decision, schedule_intent_key
@@ -578,7 +579,7 @@ async def _invoke_handler(session: AsyncSession, spec: Any, ctx: ToolContext, to
         return await spec.handler(ctx, tool_input)
     except asyncio.CancelledError:
         raise
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         try:
             await session.rollback()
         except Exception:

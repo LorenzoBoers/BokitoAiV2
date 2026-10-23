@@ -9,11 +9,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import ForbiddenError
+from app.exceptions import ForbiddenError, status_error
 from app.models.agent import Agent, AgentChatUser
 from app.models.auth import User, UserPreference
 
@@ -89,7 +88,7 @@ async def resolve_chat_target(
         session, tenant_id, user.id, is_admin=is_admin
     )
     if not company:
-        raise HTTPException(status_code=409, detail=NO_AGENTS_DETAIL)
+        raise status_error(status_code=409, detail=NO_AGENTS_DETAIL)
 
     if agent_id is None:
         if len(company) == 1:
@@ -97,7 +96,7 @@ async def resolve_chat_target(
         leads = [a for a in company if a.is_lead]
         if len(leads) == 1:
             return leads[0]
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Choose which agent to talk to",
         )

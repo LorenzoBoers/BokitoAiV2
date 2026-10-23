@@ -25,7 +25,7 @@ Autonomie is één dial op [Govern](/docs/govern/govern): **Handmatig**, **Geass
 
 1. Een kanaal of één open gesprek kan lager staan. Die staan onder **Per kanaal** op dezelfde pagina; kies **Weer de standaard volgen** om er een weg te halen. Zie [Autonomie](/docs/inbox/inbox-ai).
 2. Elke agent heeft een eigen niveau (zie [Agents](/docs/ai/agents)). Een gesprek dat die agent afhandelt gaat nooit hoger.
-3. Elk werk heeft een eigen **Autonomie** op de werkpagina. Strenger dan de dial geldt meteen; losser wacht hier op akkoord. Een werk op **Geassisteerd** houdt elk antwoord op zijn tickets een concept. Zie [Werken](/docs/ai/flows).
+3. Elk werk heeft een eigen **Autonomie** op de werkpagina. Strenger dan de dial geldt meteen; losser wacht hier op akkoord. Een werk op **Geassisteerd** houdt elk antwoord op zijn tickets een concept. Zie [Werk](/docs/ai/flows).
 4. **Privacy** die AI weghoudt van berichtinhoud zet alles op Handmatig, en een geactiveerde noodrem houdt een kanaal op Geassisteerd tot iemand het hervat.
 
 Ga met de muis over de modus in een gesprekskop om te zien welke van deze besliste.
@@ -69,7 +69,7 @@ Klantberichten, webpagina's en toolresultaten kunnen tekst bevatten die de AI wi
 
 1. Zet de dial eerst op **Geassisteerd** terwijl je leert hoe de werkruimte zich gedraagt.
 2. Kijk welke concepten ongewijzigd de deur uit gaan. Bokito stelt Autonoom voor zodra minstens 80% van 50 of meer concepten ongewijzigd verstuurd is.
-3. Zet werken die altijd gecontroleerd moeten worden op de werkpagina op **Geassisteerd** voordat je de dial verhoogt.
+3. Zet werk dat altijd gecontroleerd moeten worden op de werkpagina op **Geassisteerd** voordat je de dial verhoogt.
 
 Websitebezoekers wijzigen de werkruimte nooit zelf, wat de dial ook zegt.
 

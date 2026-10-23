@@ -18,7 +18,6 @@ import { cn } from '../../lib/utils'
 import { NO_LABEL_KEY, suggestOrgFlowLabels, type OrgFlow, type OrgFlowNode } from '../../lib/org-flow-api'
 import { labelHex, labelKeyOf, OTHER_LABEL_KEY, pathsOf } from '../../lib/org-flow-layout'
 import { workstreamPath } from '../../lib/workstream-ui'
-import { WORKS_IN_ADD_HASH } from '../projects/WorksInSection'
 import { useGridNames } from './org-flow-names'
 
 const ROW_LINK =
@@ -249,7 +248,7 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
       }
       rows.push({
         key: labelKeyOf(label),
-        name: `#${label.name}`,
+        name: label.name.replace(/^#/, ''),
         color: labelHex(label.color),
         tone: label.color,
         icon: label.icon || null,
@@ -563,9 +562,11 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
             <Button asChild size="sm">
               <Link to={node.href}>{t('orgCanvas.panel.openFolder')}</Link>
             </Button>
-            <Button asChild size="sm" variant="secondary">
-              <Link to={`${node.href}${WORKS_IN_ADD_HASH}`}>{t('orgCanvas.panel.addWorksIn')}</Link>
-            </Button>
+            {node.works_in_href ? (
+              <Button asChild size="sm" variant="secondary">
+                <Link to={node.works_in_href}>{t('orgCanvas.panel.addWorksIn')}</Link>
+              </Button>
+            ) : null}
           </>
         ) : null}
         {node.threads_href ? (

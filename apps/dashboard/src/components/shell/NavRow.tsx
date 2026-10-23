@@ -14,6 +14,8 @@ type NavRowBaseProps = {
   trailing?: ReactNode
   /** Icon-only rendering (collapsed rail). Label becomes the tooltip. */
   iconOnly?: boolean
+  /** Lighter shortcut shown beside the tooltip label. */
+  tipDetail?: string
   /** Visual nesting inside a folder. */
   depth?: 0 | 1
   active?: boolean
@@ -51,9 +53,14 @@ function rowClass({ iconOnly, depth, active, className }: NavRowBaseProps) {
   )
 }
 
-function tipLabel(title: string | undefined, iconOnly: boolean | undefined, label: ReactNode) {
+function tipLabel(
+  title: string | undefined,
+  iconOnly: boolean | undefined,
+  label: ReactNode,
+  tipDetail?: string,
+) {
   if (title) return title
-  if (iconOnly && typeof label === 'string') return label
+  if ((iconOnly || tipDetail) && typeof label === 'string') return label
   return undefined
 }
 
@@ -61,11 +68,11 @@ type NavRowLinkProps = NavRowBaseProps & Omit<NavLinkProps, 'className' | 'child
 
 /** Router-aware nav row. Uses `aria-current="page"` from NavLink for the active state. */
 export const NavRowLink = forwardRef<HTMLAnchorElement, NavRowLinkProps>(function NavRowLink(
-  { icon, label, count, unread, trailing, iconOnly, depth, active, className, title, ...linkProps },
+  { icon, label, count, unread, trailing, iconOnly, tipDetail, depth, active, className, title, ...linkProps },
   ref,
 ) {
   const base = { icon, label, count, unread, trailing, iconOnly, depth, active, className }
-  const tip = tipLabel(typeof title === 'string' ? title : undefined, iconOnly, label)
+  const tip = tipLabel(typeof title === 'string' ? title : undefined, iconOnly, label, tipDetail)
   const link = (
     <NavLink
       ref={ref}
@@ -78,7 +85,7 @@ export const NavRowLink = forwardRef<HTMLAnchorElement, NavRowLinkProps>(functio
     </NavLink>
   )
   return tip ? (
-    <Tip label={tip} side="right">
+    <Tip label={tip} detail={tipDetail} side="right">
       {link}
     </Tip>
   ) : (
@@ -90,11 +97,11 @@ type NavRowButtonProps = NavRowBaseProps & Omit<ComponentPropsWithoutRef<'button
 
 /** Button-shaped nav row for actions (new chat, open menu, toggle). */
 export const NavRowButton = forwardRef<HTMLButtonElement, NavRowButtonProps>(function NavRowButton(
-  { icon, label, count, unread, trailing, iconOnly, depth, active, className, title, type = 'button', ...buttonProps },
+  { icon, label, count, unread, trailing, iconOnly, tipDetail, depth, active, className, title, type = 'button', ...buttonProps },
   ref,
 ) {
   const base = { icon, label, count, unread, trailing, iconOnly, depth, active, className }
-  const tip = tipLabel(title, iconOnly, label)
+  const tip = tipLabel(title, iconOnly, label, tipDetail)
   const button = (
     <button
       ref={ref}
@@ -108,7 +115,7 @@ export const NavRowButton = forwardRef<HTMLButtonElement, NavRowButtonProps>(fun
     </button>
   )
   return tip ? (
-    <Tip label={tip} side="right">
+    <Tip label={tip} detail={tipDetail} side="right">
       {button}
     </Tip>
   ) : (

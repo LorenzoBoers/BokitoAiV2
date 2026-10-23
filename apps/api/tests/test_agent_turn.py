@@ -16,6 +16,7 @@ from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalMessage
 from app.services.agent.reply_mode import (
     CHAT,
+    DOCUMENT,
     MAIL,
     format_for_channel,
     reply_mode_for,
@@ -56,8 +57,11 @@ def _segments() -> list[dict]:
 def test_reply_mode_per_channel():
     assert reply_mode_for("email") == MAIL
     assert reply_mode_for("whatsapp") == CHAT
-    assert reply_mode_for("assistant") == CHAT
-    assert reply_mode_for(None) == "document"
+    assert reply_mode_for("widget") == CHAT
+    assert reply_mode_for("assistant") == DOCUMENT
+    assert reply_mode_for("internal") == CHAT
+    assert reply_mode_for("team") == CHAT
+    assert reply_mode_for(None) == DOCUMENT
 
 
 def test_split_chat_messages_merges_fragments_and_caps():
@@ -158,6 +162,12 @@ def test_mail_turn_is_one_message_and_earlier_speech_becomes_a_note():
     assert ("other", "note") in kinds
     note = next(a for a in message["activity"] if a.get("label") == "note")
     assert note["text"] == "Let me check your order."
+
+
+def test_work_conversation_is_one_document_not_chat_bubbles():
+    [message] = plan_turn_messages(_segments(), DOCUMENT)
+    assert message["text"] == "Found it.\n\nIt ships today."
+    assert "bubble_index" not in message
 
 
 def test_trailing_activity_hangs_under_the_last_bubble():

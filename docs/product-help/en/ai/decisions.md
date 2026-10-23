@@ -29,21 +29,21 @@ When you ask an agent to do something that needs your OK, its last message asks 
 ![An agent proposal with a Bin item and buttons under the message](/api/docs/assets/decisions/inline-proposal.png)
 *The item the agent wants to restore sits inside its message; the buttons sit under it.*
 
-1. Read the agent's message. Tags such as `#klacht` (label) and `#storing` (tag) appear as chips in the text. Objects the proposal is about show under it as showcase cards: a conversation, Bin item, agenda item, file, image, teammate, agent, connection, module, help article, message, flow, folder, canvas or contact. Canvas cards use the same layout-template icon as Today **Canvas** and the folder **Canvas** tab. With an open proposal, select a card to choose that option; without a proposal, select a card to open it.
-2. Choose a button under the message, for example **Approve** or an agent-written label. That choice applies **this time**. When the agent sends several bubbles, they appear one after another and the choice follows the last one. When the agent allows several picks, select the options (or cards) you want and choose **Confirm**. **Reject** declines. A choice that needs text opens a small field; type the answer and choose **Submit answer**.
+1. Read the agent's message. Tags such as `klacht` (label) and `storing` (tag) appear as chips in the text. Objects the proposal is about show under it as showcase cards: a conversation, Bin item, agenda item, file, image, teammate, agent, connection, module, help article, message, flow, folder, canvas or contact. Canvas cards use the same layout-template icon as Today **Canvas** and the folder **Canvas** tab. With an open proposal, select a card to choose that option; without a proposal, select a card to open it.
+2. Choose a button under the message, for example **Approve** or an agent-written label. That choice applies **this time**. When the agent sends several messages, they appear one after another and the choice follows the last one. When the agent allows several picks, select the options (or cards) you want and choose **Confirm**. **Reject** declines. A choice that needs text opens a small field; type the answer and choose **Submit answer**.
 3. On a chat with the agent, a plain **Yes** / **No** (or **Ja** / **Nee**) in **Ask** does the same as the matching Ja/Nee buttons when exactly one open card is that kind of choice. Multi-select and text answers still need the buttons. Several Ja/Nee cards at once also stay button-only.
 4. When the action can teach the agent, a **Next time** line offers **You may do this yourself from now on**, **Always ask** or **Never do this** (also under the more menu). See *Teach the agent for next time* below.
-5. After you answer, the agent's message stays. The options remain under it as static chips (the one you picked is marked) and the buttons disappear. Your reply appears as your own bubble with the chosen label and any selected showcase cards. On chats with an agent, a short confirm follows when the choice already did the work (a tool, or something the card itself applies, such as an automation rule). Soft Yes with no other open cards lets the agent continue in the thread. A proposal the agent replaced with a newer one reads *Replaced by a newer proposal*.
+5. After you answer, the agent's message stays. The options remain under it as static chips (the one you picked is marked) and the buttons disappear. Your reply appears as your own bubble, with the chosen label and any selected showcase cards. On chats with an agent, a short confirm follows when the choice already did the work (a tool, or something the card itself applies, such as an automation rule). Soft Yes with no other open cards lets the agent continue in the thread. A proposal the agent replaced with a newer one reads *Replaced by a newer proposal*.
 6. While the agent is still working, *Preparing proposal...* shows that buttons are on the way.
 
 ## Approve several actions at once
 
-When an agent needs your OK for more than one change in the same turn (for example five new hashtags), the thread shows one card with a row per action instead of a card per action.
+When an agent needs your OK for more than one change in the same turn (for example five new labels), the thread shows one card with a row per action instead of a card per action.
 
 ![One card listing several agent actions with checkboxes and Approve all](/api/docs/assets/decisions/action-bundle.png)
 *Each row is one action; approve them all, pick some, or decline the rest.*
 
-1. Read the rows under the agent's message. Each row names the action and the object, for example **Create hashtag #vip**, **Connect GitHub**, or **Turn on Accounting**, with the tool name as a small chip. The header counts how many still wait.
+1. Read the rows under the agent's message. Each row names the action and the object, for example **Create label vip**, **Connect GitHub**, or **Turn on Accounting**, with the tool name as a small chip. The header counts how many still wait.
 2. Choose **Approve all** to run every open row. To approve a part, tick the rows you want and choose **Approve selected**; the others stay open. **Decline** (or **Decline the rest**) answers no to every row that is still open.
 3. Open the menu on a row for **Only this time** (run just this row) or **Decline this one**.
 4. A row that fails stays open and reads *Failed*; the others keep their result. Fix the cause and approve the row again.
@@ -67,7 +67,7 @@ When a check-in or agent asked the same question many times (for example *Set up
 
 ## Teach the agent for next time
 
-Every verdict is for **this agent and this action**: Mila may create hashtags on her own, while Otto still asks.
+Every verdict is for **this agent and this action**: Mila may create labels on her own, while Otto still asks.
 
 1. On a card that asks before an action, the row **Next time:** offers the choices. Under an agent's message they sit in the **More options** menu; on a card with several actions, open the menu on a row and look under **Next time, {agent}:**. When an earlier draft was set aside because the person continued elsewhere, the resolved line offers **Open active** to jump to that conversation.
 2. **Always allow for {agent}** (or **You may do this yourself from now on**) lets the agent run this action without asking; when the row is still open it also runs it now. **Always ask** keeps asking. **Never allow** (or **Never do this**) blocks the action for this agent; an open row is declined.

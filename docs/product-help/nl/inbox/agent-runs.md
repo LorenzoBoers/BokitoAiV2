@@ -9,7 +9,7 @@ related: communication,decisions,agenda,agents
 
 # Agentactiviteit volgen
 
-De **Activiteit**-swimlane op [Agents](/docs/ai/agents) is de live werktijdlijn van je AI: alles wat agents deden en aan het doen zijn. Die staat op de Agents-bibliotheek (alle agents) en opnieuw op elke agentpagina (alleen die agent). Open goedkeuringen staan op hun eigen gesprek — zie [Beslissingen](/docs/ai/decisions).
+De **Activiteit**-swimlane op [Agents](/docs/ai/agents) is de live werktijdlijn van je AI: alles wat agents deden en aan het doen zijn. Die staat op de Agents-bibliotheek (alle agents). Op een agentpagina open je dezelfde tijdlijn, alleen voor die agent, via het menu met drie puntjes, **Geschiedenis**. Open goedkeuringen staan op hun eigen gesprek — zie [Beslissingen](/docs/ai/decisions).
 
 ## Open de Activiteit-tijdlijn
 
@@ -23,8 +23,8 @@ De **Activiteit**-swimlane op [Agents](/docs/ai/agents) is de live werktijdlijn 
 
 ## Controleer het werklog van één agent
 
-1. Open de agent vanuit de bibliotheek. De tijdlijn staat op die pagina.
-2. Op de agentpagina toont dezelfde swimlane alleen het werk van die agent. Je chats met de agent blijven in Communicatie onder zijn map.
+1. Open de agent vanuit de bibliotheek. Kies het menu met drie puntjes en dan **Geschiedenis**.
+2. De modal toont de swimlane alleen voor die agent, en daaronder de recente runs. Je chats met de agent blijven in Communicatie onder zijn map.
 
 ## Open een run en beslis
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   AtSign,
+  AudioLines,
   Check,
   ChevronDown,
   Plus,
@@ -16,8 +17,12 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
+import { callRoutes } from '../../api/routes/calls.routes'
+import { apiPost } from '../../lib/api'
+import { callTabId, requestAgentVoiceStart, useAgentCallLive } from '../../lib/agent-call-live'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Callout } from '../ui/callout'
+import { Tip } from '../ui/Tip'
 import { ComposerCard } from '../ui/ComposerCard'
 import { ChannelGlyph } from '../ui/ChannelGlyph'
 import { AiMark } from '../ai/AiMark'
@@ -148,6 +153,8 @@ type Props = {
   lastInboundText?: string | null
   /** Bound mailbox UUID for email threads (default From). */
   channelAccountId?: string | null
+  /** Set when this conversation has an agent, so voice mode can start. */
+  voiceThreadId?: string | null
   /** Contact whose other addresses and numbers can switch the reply channel. */
   contactId?: string | null
   customerEmail?: string | null
@@ -235,6 +242,7 @@ export default function ReplyComposer({
   suggestedCc,
   lastInboundText,
   channelAccountId: boundChannelAccountId,
+  voiceThreadId = null,
   contactId = null,
   customerEmail = null,
   customerPhone = null,
@@ -250,7 +258,9 @@ export default function ReplyComposer({
 }: Props) {
   const { t } = useTranslation('communication')
   const navigate = useNavigate()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const liveCall = useAgentCallLive()
+  const [voiceBusy, setVoiceBusy] = useState(false)
   const [selectedChannelAccountId, setSelectedChannelAccountId] = useState<string | null>(
     boundChannelAccountId ?? null,
   )
@@ -1502,6 +1512,36 @@ export default function ReplyComposer({
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
               </button>
             ) : null}
+            {user?.agentCallsEnabled && voiceThreadId ? (
+              <button
+                type="button"
+                disabled={saving || disabled || voiceBusy || Boolean(liveCall)}
+                title={liveCall ? t('agentCall.voiceModeBusy') : t('agentCall.voiceMode')}
+                aria-label={t('agentCall.voiceMode')}
+                onClick={() => {
+                  if (dictation.listening) dictation.stop()
+                  setVoiceBusy(true)
+                  void apiPost<{
+                    call_id: string
+                    user_id: string
+                    signal_id: string
+                    agent_id?: string | null
+                    agent_name?: string
+                    title?: string
+                    summary?: string
+                    client_secret: string
+                  }>(callRoutes.voice, { signal_id: voiceThreadId, client_id: callTabId() })
+                    .then((session) => requestAgentVoiceStart(session))
+                    .catch((err: unknown) => {
+                      toast.error(formatApiErrorMessage(err, t('agentCall.voiceFailed')))
+                    })
+                    .finally(() => setVoiceBusy(false))
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+              >
+                <AudioLines size={16} />
+              </button>
+            ) : null}
             <ComposerDictationRow
               supported={dictation.supported}
               listening={dictation.listening}
@@ -1517,6 +1557,25 @@ export default function ReplyComposer({
                 isReply || isAsk ? 'border-border' : 'border-text-muted',
               )}
             >
+            <Tip
+              side="top"
+              label={
+                isAsk
+                  ? t('composer.sendTeam')
+                  : isNote
+                    ? t('composer.sendIntern')
+                    : closesByPolicy
+                      ? t('composer.sendAndClose')
+                      : t('composer.sendTitle')
+              }
+              detail={
+                isAsk || isNote
+                  ? undefined
+                  : surface.channel === 'email' || closesByPolicy
+                    ? t('composer.sendShortcut')
+                    : 'Enter'
+              }
+            >
             <button
               type="button"
               disabled={!canSend || busy || disabled || uploading}
@@ -1524,17 +1583,6 @@ export default function ReplyComposer({
                 void (closesByPolicy ? handleSubmit('send_and_close') : handleSubmit('send'))
               }
               data-testid="composer-send"
-              title={
-                isAsk
-                  ? t('composer.sendTeam')
-                    : isNote
-                      ? t('composer.sendIntern')
-                      : closesByPolicy
-                        ? `${t('composer.sendAndClose')} — ${t('composer.closesByPolicy')}`
-                        : surface.channel === 'email'
-                          ? `${t('composer.sendTitle')} — ${t('composer.hintEmail')}`
-                          : `${t('composer.sendTitle')} — ${t('composer.hintChat')}`
-              }
               className={cn(
                 'flex h-8 items-center justify-center gap-1.5 px-2.5 transition-colors disabled:opacity-40',
                 isAsk || isReply
@@ -1553,6 +1601,7 @@ export default function ReplyComposer({
                 <span className="text-2xs font-medium opacity-90">{t('composer.sendShortcut')}</span>
               ) : null}
             </button>
+            </Tip>
             {isReply && showCustomerActions ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

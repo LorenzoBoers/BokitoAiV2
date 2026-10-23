@@ -28,7 +28,21 @@ export function moduleSpecialistVisual(module: IntegrationModuleRow, moduleName:
   const genericHired =
     !hiredName ||
     / specialist$/i.test(hiredName) ||
-    ['Noor Vale', 'Kas Lind', 'Jules Hart', 'Ada Quill', 'Vale', 'Kas', 'Vega', 'Finny', 'Stocko', 'Quill', 'Audito'].includes(hiredName)
+    [
+      'Noor Vale',
+      'Kas Lind',
+      'Jules Hart',
+      'Ada Quill',
+      'Vale',
+      'Kas',
+      'Vega',
+      'Finny',
+      'Stocko',
+      'Quill',
+      'Audito',
+      'Boekhouder',
+      'Accountant',
+    ].includes(hiredName)
   const agentName = genericHired
     ? t(`integrations.modules.showcase.personas.${module.slug}.name`, {
         defaultValue: template?.name || `${moduleName} specialist`,

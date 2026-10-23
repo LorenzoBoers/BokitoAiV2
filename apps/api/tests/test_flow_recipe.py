@@ -53,15 +53,16 @@ async def test_patch_flow_recipe_validates_and_returns_it(client, session_overri
 
 
 @pytest.mark.asyncio
-async def test_direct_flow_drops_waiting_stage_and_board(client, session_override):
+async def test_flow_without_waiting_stage_has_no_board(client, session_override):
     from app.services.tickets import project_board
 
     headers = await _headers(client)
     ws_id = await _flow(client, headers, f"quick-{uuid4().hex[:4]}")
     detail = (await client.get(f"/api/flows/{ws_id}", headers=headers)).json()
     assert detail["direct"] is False
+    kept = [next(stage for stage in detail["stages"] if stage["kind"] == kind) for kind in ("open", "done")]
 
-    direct = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"direct": True})
+    direct = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"stages": kept})
     assert direct.status_code == 200, direct.text
     assert direct.json()["direct"] is True
     assert [s["kind"] for s in direct.json()["stages"]] == ["open", "done"]
@@ -83,7 +84,7 @@ async def test_direct_flow_drops_waiting_stage_and_board(client, session_overrid
     await session_override.commit()
     assert await project_board(session_override, tenant.id, folder.id) == []
 
-    staged = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"direct": False})
+    staged = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"stages": detail["stages"]})
     assert [s["kind"] for s in staged.json()["stages"]] == ["open", "waiting", "done"]
     assert len(await project_board(session_override, tenant.id, folder.id)) == 1
 

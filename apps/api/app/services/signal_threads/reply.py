@@ -9,12 +9,11 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.gateway.publish import publish_signal_message, publish_thread_update
 from app.models.auth import User
 from app.models.channel import ChannelAccount
@@ -45,7 +44,7 @@ async def _rebind_email_account_for_reply(
     from app.services.channel_registry import account_can_send
 
     if signal.channel != "email":
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="channel_account_id is only valid on email threads",
         )
@@ -64,7 +63,7 @@ async def _rebind_email_account_for_reply(
     if account.channel != "email":
         raise AppError("Selected channel is not an email mailbox", code="app_error", status_code=400)
     if not account.is_enabled or not account_can_send(account):
-        raise HTTPException(status_code=409, detail="Selected mailbox cannot send")
+        raise status_error(status_code=409, detail="Selected mailbox cannot send")
 
     if signal.channel_account_id != account.id:
         signal.channel_account_id = account.id

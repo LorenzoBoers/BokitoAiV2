@@ -85,6 +85,7 @@ import {
   BubbleAction,
   BubbleHeader,
   ChatMessageBubble,
+  DocumentTurn,
   RoleChip,
   type BubbleStack,
   type BubbleVariant,
@@ -93,10 +94,12 @@ import MessageAttachments from './MessageAttachments'
 import ChatText, { type ChatMention } from './ChatText'
 import ActivityTrail from './ActivityTrail'
 import { PRIORITY_META } from './ConversationWorkSection'
+import { CallRecord } from './CallRecord'
 import { CHAT_AVATAR_SIZE, THREAD_ICON, THREAD_INDENT, ThreadMetaBlock, ThreadMetaRow } from './ThreadMeta'
 import { TimelineScrollContext } from './timeline-scroll'
 import { isCustomerChannel } from '../../lib/chatMessages'
 import { isSessionMessage } from '../../lib/session-timeline'
+import { isWorkTranscript } from '../../lib/work-transcript'
 import { authorizeUploadUrls } from '../../lib/email-upload-auth'
 import {
   canReplyAll,
@@ -1102,7 +1105,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   folder_set: (t, p) => {
     const path = typeof p.path === 'string' && p.path ? p.path : ''
     const tags = Array.isArray(p.tags) ? p.tags.filter((n): n is string => typeof n === 'string') : []
-    const label = path || (tags[0] ? `#${tags[0]}` : '')
+    const label = path || (tags[0] ? String(tags[0]).replace(/^#/, '') : '')
     return label
       ? t('timeline.events.folderSet', { path: label })
       : t('timeline.events.folderSetGeneric')
@@ -1213,13 +1216,13 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
       extras.push(String(p.priority))
     }
     if (typeof p.ticket_tag === 'string' && p.ticket_tag) {
-      extras.push(`#${p.ticket_tag}`)
+      extras.push(String(p.ticket_tag).replace(/^#/, ''))
     }
     if (Array.isArray(p.tags_applied) && p.tags_applied.length > 0) {
       extras.push(
         p.tags_applied
           .filter((tag): tag is string => typeof tag === 'string' && tag.length > 0)
-          .map((tag) => `#${tag}`)
+          .map((tag) => String(tag).replace(/^#/, ''))
           .join(' '),
       )
     }
@@ -1935,8 +1938,16 @@ export function handledExternallyLabel(
   return note ? `${base} - ${note}` : base
 }
 
+function CallLogItem({ message }: { message: InboxMessage }) {
+  return <CallRecord message={message} />
+}
+
 function SystemEventTimelineItem({ message, threadId }: { message: InboxMessage; threadId?: ThreadId }) {
   const { t } = useTranslation('communication')
+  const callLog = message.payload?.call_log
+  if (message.payload?.source === 'agent_call' && callLog && typeof callLog === 'object') {
+    return <CallLogItem message={message} />
+  }
   const raw = (message.bodyText || message.bodyPreview || '').trim()
   if (message.payload?.kind === 'subagent' && threadId && typeof message.payload.run_id === 'string') {
     return (
@@ -2684,6 +2695,8 @@ export function MessageTimelineItem({
   // (MailMessageCard). Author and recipients live in the envelope band, so the
   // bubble header and CC line are not used here.
   // Decision-button echoes are operator UI, never outbound mail.
+  // An agent's answer to the operator is a document. Own lines and team chats stay bubbles.
+  const workTranscript = isWorkTranscript(message, channel)
   const isMailCard =
     layout === 'email' &&
     !isInternal &&
@@ -2981,6 +2994,20 @@ export function MessageTimelineItem({
   // looks like the delivered card — only the spinner next to the time differs.
   const mailStillSending =
     message.sendStatus === 'scheduled' || message.sendStatus === 'sending'
+  const documentName =
+    authorKind === 'agent' || isAgentNote
+      ? displayAgentName
+      : isOwn
+        ? t('timeline.events.you')
+        : authorKind === 'teammate'
+          ? authorName
+          : inboundName
+  const documentChip =
+    authorKind === 'agent' || isAgentNote ? (
+      <RoleChip kind="ai" />
+    ) : authorKind === 'teammate' ? (
+      <RoleChip kind="team" />
+    ) : undefined
   const bubble = isMailCard ? (
     <MailMessageCard
       side={side}
@@ -3013,6 +3040,18 @@ export function MessageTimelineItem({
       onToggleCollapsed={() => setMailCollapsed(false)}
       preview={mailPreview}
       expandAria={t('timeline.envelope.openMail')}
+    />
+  ) : workTranscript ? (
+    <DocumentTurn
+      avatar={avatar}
+      showAvatar={stack === 'single' || stack === 'start'}
+      name={documentName}
+      chip={documentChip}
+      body={bubbleBodyWithMeta}
+      meta={timeMeta}
+      actions={actions}
+      reactions={reactionOverlay}
+      enter={playEnter}
     />
   ) : (
     <ChatMessageBubble
@@ -3051,11 +3090,11 @@ export function MessageTimelineItem({
           ? message.payload.workbench_kind
           : undefined
       }
-      className={isOwn ? 'ml-auto' : 'ml-9'}
+      className={isOwn && !workTranscript ? 'ml-auto' : 'ml-9'}
     />
   ) : null
 
-  const traceIndent = isOwn ? 'ml-auto' : THREAD_INDENT
+  const traceIndent = isOwn && !workTranscript ? 'ml-auto' : THREAD_INDENT
   const canvasAside = canvasItems.length ? (
     <div className={cn(traceIndent, 'w-full max-w-2xl')}>
       <ProposalItemList items={canvasItems} />
@@ -3132,7 +3171,7 @@ export function MessageTimelineItem({
       )
     }
     return (
-      <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
+      <div className={cn('flex flex-col gap-1.5', isOwn && !workTranscript ? 'items-end' : 'items-start')}>
         <div className="w-full">{bubble}</div>
         {canvasAside}
         {proposalActions}
@@ -3144,7 +3183,7 @@ export function MessageTimelineItem({
 
   const loadDetail = message.activityDetail ? undefined : () => void ensureFullMessage()
   return (
-    <div className={cn('flex flex-col gap-1.5', isOwn ? 'items-end' : 'items-start')}>
+    <div className={cn('flex flex-col gap-1.5', isOwn && !workTranscript ? 'items-end' : 'items-start')}>
       {activityBefore.length > 0 ? (
         <ActivityTrail
           items={activityBefore}

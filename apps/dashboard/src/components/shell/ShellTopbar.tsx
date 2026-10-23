@@ -86,7 +86,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
 
       {/* Centered command palette. Conversation search lives in the thread list. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-11 items-center justify-center sm:flex">
-        <Tip label={t('topbar.openPalette')}>
+        <Tip label={t('topbar.openPalette')} detail={isMac ? 'Cmd K' : 'Ctrl K'}>
           <div className="pointer-events-auto w-64">
             <SearchField
               value=""
@@ -122,7 +122,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         </Tip>
       ) : null}
 
-      <Tip label={t('topbar.helpHint')}>
+      <Tip label={t('topbar.help')} detail="?">
         <button
           type="button"
           onClick={() => openAssistant()}
@@ -132,7 +132,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
           <span>{t('topbar.help')}</span>
         </button>
       </Tip>
-      <Tip label={t('topbar.helpHint')}>
+      <Tip label={t('topbar.help')} detail="?">
         <button
           type="button"
           onClick={() => openAssistant()}
@@ -143,14 +143,16 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         </button>
       </Tip>
 
-      <button
-        type="button"
-        onClick={onOpenPalette}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary sm:hidden"
-        aria-label={t('topbar.search')}
-      >
-        <Search size={14} />
-      </button>
+      <Tip label={t('topbar.openPalette')} detail={isMac ? 'Cmd K' : 'Ctrl K'}>
+        <button
+          type="button"
+          onClick={onOpenPalette}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-bg-hover/70 hover:text-text-primary sm:hidden"
+          aria-label={t('topbar.search')}
+        >
+          <Search size={14} />
+        </button>
+      </Tip>
 
         <NotificationDropdown />
       </div>

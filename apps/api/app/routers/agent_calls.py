@@ -33,6 +33,14 @@ class EndCallBody(BaseModel):
     transcript: list[TranscriptLine] = Field(default_factory=list)
 
 
+class CallSettingsBody(BaseModel):
+    voice: str | None = None
+    speed: float | None = None
+    language: str | None = None
+    client_id: str = ""
+    push_to_talk: bool = False
+
+
 @router.get("/ringing")
 async def ringing(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -59,14 +67,47 @@ async def request_call(
     return agent_calls.serialize_call(call)
 
 
-@router.post("/{call_id}/accept")
-async def accept_call(
-    call_id: UUID,
+class VoiceCallBody(BaseModel):
+    signal_id: UUID
+    client_id: str = ""
+    push_to_talk: bool = False
+
+
+class VoiceClientBody(BaseModel):
+    client_id: str = ""
+
+
+@router.post("/voice")
+async def start_voice(
+    body: VoiceCallBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
     _: Annotated[None, Depends(_require_calls)],
 ):
-    payload = await agent_calls.accept_call(session, auth.tenant.id, auth.user.id, call_id)
+    """Voice mode: the person starts a live line with the agent on this conversation."""
+    payload = await agent_calls.start_voice_call(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        body.signal_id,
+        body.client_id,
+        push_to_talk=body.push_to_talk,
+    )
+    await session.commit()
+    return payload
+
+
+@router.post("/{call_id}/accept")
+async def accept_call(
+    call_id: UUID,
+    body: VoiceClientBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[None, Depends(_require_calls)],
+):
+    payload = await agent_calls.accept_call(
+        session, auth.tenant.id, auth.user.id, call_id, body.client_id
+    )
     await session.commit()
     return payload
 
@@ -113,6 +154,62 @@ async def call_tool(
     )
     await session.commit()
     return {"output": output}
+
+
+@router.post("/{call_id}/settings")
+async def call_settings(
+    call_id: UUID,
+    body: CallSettingsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[None, Depends(_require_calls)],
+):
+    """Voice, speed and spoken language for the live line."""
+    payload = await agent_calls.update_call_settings(
+        session,
+        auth.tenant.id,
+        auth.user.id,
+        call_id,
+        voice=body.voice,
+        speed=body.speed,
+        language=body.language,
+        client_id=body.client_id,
+        push_to_talk=body.push_to_talk,
+    )
+    await session.commit()
+    return payload
+
+
+@router.post("/{call_id}/hold")
+async def hold_call(
+    call_id: UUID,
+    body: VoiceClientBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[None, Depends(_require_calls)],
+):
+    """Keep this tab's lease. Another tab cannot open the voice line."""
+    await agent_calls.hold_voice_line(
+        session, auth.tenant.id, auth.user.id, call_id, body.client_id
+    )
+    await session.commit()
+    return {"ok": True}
+
+
+@router.post("/{call_id}/resume")
+async def resume_call(
+    call_id: UUID,
+    body: VoiceClientBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    _: Annotated[None, Depends(_require_calls)],
+):
+    """Rejoin a live call from the tab that holds it. Does not change call status."""
+    payload = await agent_calls.resume_call(
+        session, auth.tenant.id, auth.user.id, call_id, body.client_id
+    )
+    await session.commit()
+    return payload
 
 
 @router.post("/{call_id}/end")

@@ -60,6 +60,7 @@ function LiveBubble({
   enterClass,
   hideGutter = false,
   accent,
+  documentMode = false,
 }: {
   text: string
   writing: boolean
@@ -72,6 +73,8 @@ function LiveBubble({
   enterClass: string
   hideGutter?: boolean
   accent?: string | null
+  /** Work conversation: prose on the page, not a messenger bubble. */
+  documentMode?: boolean
 }) {
   const { t } = useTranslation('communication')
   const lead = stack === 'single' || stack === 'start'
@@ -83,6 +86,27 @@ function LiveBubble({
   }, [text, writing])
   // Confirm is a ring only — no scale, so the timeline height stays still
   // when the reveal finishes.
+  if (documentMode) {
+    return (
+      <div className={cn(enterClass, 'w-full text-lg leading-relaxed text-text-primary')}>
+        {lead && header ? <div className="mb-1">{header}</div> : null}
+        {text || items?.length ? (
+          <div>
+            {text ? <ChatText content={text} streaming={writing} /> : null}
+            {writing && !text ? <TypingDots label={t('activity.writing')} /> : null}
+            {items?.length ? <ProposalItemList items={items} /> : null}
+          </div>
+        ) : writing ? (
+          <TypingDots label={t('activity.writing')} />
+        ) : null}
+        {canvasItems?.length ? (
+          <div className="mt-1.5 max-w-2xl">
+            <ProposalItemList items={canvasItems} />
+          </div>
+        ) : null}
+      </div>
+    )
+  }
   return (
     <div className={cn(enterClass, 'flex w-full items-start gap-2')}>
       {hideGutter ? null : <span className={THREAD_GUTTER}>{lead ? avatar : null}</span>}
@@ -152,6 +176,7 @@ function LiveSpeech({
   onRevealed,
   hideGutter = false,
   accent,
+  documentMode = false,
 }: {
   text: string
   /** False once the gateway closed the turn — drain faster and stop the cursor. */
@@ -169,6 +194,7 @@ function LiveSpeech({
   attached?: ProposalItem[]
   onRevealed?: (done: boolean) => void
   accent?: string | null
+  documentMode?: boolean
 }) {
   // Follow the backend buffer at cruise. holdReserve keeps a short lead
   // while the model is still sending; after that the leftover drains.
@@ -199,6 +225,7 @@ function LiveSpeech({
             avatar={avatar}
             hideGutter={hideGutter}
             accent={accent}
+            documentMode={documentMode}
             items={isLast ? inlineItems : undefined}
             canvasItems={isLast ? canvasItems : undefined}
             enterClass={index === 0 ? 'msg-bubble-enter-live' : 'bubble-pop-enter'}
@@ -229,6 +256,7 @@ export default function AgentTurnLive({
   continuesRun = false,
   onPlaybackDone,
   onSpeechShown,
+  documentMode = false,
 }: {
   turn: LiveTurn
   /** The working agent's avatar (28px); the generic AI mark when unknown. */
@@ -247,6 +275,8 @@ export default function AgentTurnLive({
   onPlaybackDone?: (streamId: string) => void
   /** The reader has seen this turn's words, so the saved bubble must not replay them. */
   onSpeechShown?: (streamId: string) => void
+  /** The agent's answer in an assistant chat or a session, as a document. */
+  documentMode?: boolean
 }) {
   const { t } = useTranslation('communication')
   const seat = useLiveAgentSeat()
@@ -388,7 +418,7 @@ export default function AgentTurnLive({
       </span>
       {/* Same 85% cap as ChatBubbleShell on a saved row, relative to the
           full timeline width — not to the leftover after the gutter. */}
-      <div className="min-w-0 w-full max-w-[85%] space-y-1.5">
+      <div className={cn('min-w-0 w-full space-y-1.5', documentMode ? 'flex-1' : 'max-w-[85%]')}>
         {openingLine ? (
           <ActivityTrail items={[]} live showLine holdLabel={liveLine} frames={frames} />
         ) : blocks.length === 0 ? (
@@ -419,6 +449,7 @@ export default function AgentTurnLive({
                   avatar={null}
                   hideGutter
                   accent={avatarMark?.color}
+                  documentMode={documentMode}
                   attached={index === lastSpeechIndex ? attached : undefined}
                   onRevealed={(done) => markRevealed(block.key, done)}
                 />

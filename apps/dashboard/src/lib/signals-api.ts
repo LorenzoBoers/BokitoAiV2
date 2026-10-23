@@ -1014,6 +1014,8 @@ export type SignalTag = {
   folders: TagFolderRef[]
   /** When false, triage does not offer or apply this tag. */
   aiAutoTag: boolean
+  /** Department this label belongs to. Empty when unset. */
+  departmentId: string | null
 }
 
 function normalizeLabelColor(raw: unknown): LabelColor {
@@ -1060,6 +1062,7 @@ function normalizeSignalTag(raw: unknown): SignalTag | null {
     showInNav: row.show_in_nav === true,
     folders: normalizeTagFolders(row.folders),
     aiAutoTag: row.ai_auto_tag !== false,
+    departmentId: typeof row.department_id === 'string' ? row.department_id : null,
   }
 }
 
@@ -1119,6 +1122,7 @@ export async function updateSignalTag(
     icon?: string
     show_in_nav?: boolean
     ai_auto_tag?: boolean
+    department_id?: string | null
   },
 ): Promise<SignalTag | null> {
   const payload = await apiPatch<unknown>(appRoutes.signals.tag(tagId), patch, token)
@@ -1480,7 +1484,10 @@ export async function listSignalMembers(token: string): Promise<InboxMember[]> {
         email: asString(raw.email),
         avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,
         role: asString(raw.role) || null,
-        presence: raw.presence === 'available' || raw.presence === 'away' ? raw.presence : 'offline',
+        presence:
+          raw.presence === 'available' || raw.presence === 'away' || raw.presence === 'unavailable'
+            ? raw.presence
+            : 'offline',
       }
     })
     .filter((m): m is InboxMember => m !== null)
@@ -1539,7 +1546,10 @@ export async function listSignalAssignees(token: string, threadId: string): Prom
         email: asString(raw.email),
         avatarUrl: typeof raw.avatar_url === 'string' && raw.avatar_url ? raw.avatar_url : null,
         role: null,
-        presence: raw.presence === 'available' || raw.presence === 'away' ? raw.presence : 'offline',
+        presence:
+          raw.presence === 'available' || raw.presence === 'away' || raw.presence === 'unavailable'
+            ? raw.presence
+            : 'offline',
         canHandle: raw.can_handle !== false,
         reason: reason(raw.reason),
       }

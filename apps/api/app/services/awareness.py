@@ -230,7 +230,7 @@ def render_snapshot(snap: dict[str, Any]) -> str:
     block("Required fields or checklist still open", snap["incomplete"], lambda r: f"{r['subject']} ({r['flow']}, {r['stage']}): {', '.join(r['missing'])} [signal {r['signal_id']}]")
     block("Hours planned against hours available", snap["capacity"], lambda r: f"{r['name']}: {r['planned_hours']} h planned, {r['hours_per_week'] if r['hours_per_week'] is not None else 'unknown'} h a week{' (over)' if r['over'] else ''}")
     block("Connections that need attention", snap["connections"], lambda r: f"{r['name']}: {r['health']}")
-    block("Scorecard over the last week", snap["scorecard_shift"], lambda r: f"#{r['label']}: autonomous {r['autonomous_from']}% to {r['autonomous_to']}%")
+    block("Scorecard over the last week", snap["scorecard_shift"], lambda r: f"{r['label']}: autonomous {r['autonomous_from']}% to {r['autonomous_to']}%")
     block("Your improvements still waiting for a decision", snap.get("proposals") or [], lambda r: f"{r['summary']} [decision {r['decision_id']}]")
     block("Domain questions the person accountable has not answered", snap.get("domain_questions") or [], lambda r: f"{r['question']} (asked {str(r.get('asked_at') or '')[:10]})")
     if len(lines) == 2:
@@ -297,58 +297,7 @@ async def record_orientation(
 
 
 async def ensure_orientations(session: AsyncSession, tenant_id: UUID) -> list[Trigger]:
-    """One orientation per department with a lead agent, in the department room."""
-    from app.services.department_access import department_leads
-    from app.services.teams import get_or_create_team_room
-    from app.services.thread_schedule import mirror_next_at
-    from app.services.trends import OUTWARD, OUTWARD_CRON, department_lens
-    from app.services.triggers import compute_next_run
+    """Orientation is an ambient wake, not an agenda item. No trigger is created."""
+    del session, tenant_id
+    return []
 
-    out: list[Trigger] = []
-    departments = (
-        await session.execute(
-            select(Department).where(
-                Department.tenant_id == tenant_id,
-                Department.deleted_at.is_(None),
-                Department.parent_id.is_not(None),
-            )
-        )
-    ).scalars().all()
-    for dept in departments:
-        lead = (await department_leads(session, tenant_id, dept.id))["lead_agent_id"]
-        if lead is None:
-            continue
-        room = await get_or_create_team_room(session, tenant_id, dept)
-        await session.flush()
-        existing = (
-            await session.execute(
-                select(Trigger).where(
-                    Trigger.tenant_id == tenant_id,
-                    Trigger.purpose == ORIENTATION,
-                    Trigger.signal_id == room.id,
-                    Trigger.deleted_at.is_(None),
-                )
-            )
-        ).scalars().first()
-        cron = OUTWARD_CRON if department_lens(dept) == OUTWARD else ORIENTATION_CRON
-        row = existing or Trigger(
-            tenant_id=tenant_id,
-            name=f"Orientation {dept.name}",
-            kind="cron",
-            cron_expr=cron,
-            purpose=ORIENTATION,
-            signal_id=room.id,
-        )
-        row.agent_id = lead
-        row.enabled = True
-        if row.cron_expr != cron:
-            row.cron_expr = cron
-            row.next_run_at = None
-        if row.next_run_at is None:
-            row.next_run_at = compute_next_run(row)
-        session.add(row)
-        await session.flush()
-        mirror_next_at(room, row)
-        session.add(room)
-        out.append(row)
-    return out

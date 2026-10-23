@@ -1,6 +1,7 @@
 import { workforceRoutes } from '../api/routes/workforce.routes'
 import { WORKFORCE_API_BASE } from './api.config'
-import { requireAccessToken } from './api'
+import { requireAccessToken, workforceGet, workforcePatch } from './api'
+import type { DepartmentAwareness } from './teams-api'
 import type { AgentPresenceStatus } from './teams-api'
 
 const AGENT_RUNTIME_API_BASE = WORKFORCE_API_BASE
@@ -109,6 +110,13 @@ export interface RuntimeAgent extends AgentPassport {
   /** Real awaiting-decision threads for this agent (excludes no-reply tips). */
   awaiting_decision?: number
   updated_at: number
+  /** Default voice on a call. Present when agent calls are on. */
+  call_voice?: string
+  call_speed?: number
+  call_language?: string
+  call_voices?: { id: string; label: string }[]
+  call_speeds?: number[]
+  call_languages?: string[]
 }
 
 export interface TriggerAgentPayload {
@@ -314,6 +322,18 @@ export type AgentChatAccess = {
   agent_id: string
   mode: ChatAccessMode
   members: ChatAccessMember[]
+}
+
+export function getAgentAwareness(token: string | undefined, agentId: string): Promise<DepartmentAwareness> {
+  return workforceGet(workforceRoutes.agents.awareness(agentId), token)
+}
+
+export function patchAgentAwareness(
+  token: string | undefined,
+  agentId: string,
+  patch: Partial<Pick<DepartmentAwareness, 'follows' | 'mode' | 'cron' | 'daily_cost_cents' | 'max_proposals'>>,
+): Promise<DepartmentAwareness> {
+  return workforcePatch(workforceRoutes.agents.awareness(agentId), patch, token)
 }
 
 export async function getAgentChatAccess(

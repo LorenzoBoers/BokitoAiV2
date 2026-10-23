@@ -30,12 +30,11 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError
+from app.exceptions import AppError, status_error
 from app.models.signal import Signal, SignalEvent, SignalTag
 
 ENTRY_POLICIES = ("first_stage", "propose", "auto_above")
@@ -99,7 +98,7 @@ def validate_checklist_keys(stages: list[dict[str, Any]]) -> None:
         for item in stage.get("checklist") or []:
             other = seen.get(item["key"])
             if other is not None:
-                raise HTTPException(
+                raise status_error(
                     status_code=400,
                     detail=f"Checklist item '{item['label']}' appears in '{other}' and '{stage['name']}'",
                 )
@@ -212,11 +211,11 @@ async def propose_stage(
     await _supersede(session, signal, STAGE_PROPOSAL)
     sure = f" (certainty {certainty}/10)" if certainty is not None else ""
     where = f"from {current['name']} " if current else ""
-    summary = (reason.strip() or f"Move this #{tag.name} ticket {where}to {target['name']}.") + sure
+    summary = (reason.strip() or f"Move this {tag.name} ticket {where}to {target['name']}.") + sure
     decision, _message = await create_decision(
         session,
         signal.tenant_id,
-        title=f"#{tag.name}: move to {target['name']}?",
+        title=f"{tag.name}: move to {target['name']}?",
         summary=summary[:500],
         options=[
             {
@@ -355,7 +354,7 @@ async def propose_due(
     decision, _message = await create_decision(
         session,
         signal.tenant_id,
-        title=f"#{tag.name}: deadline {day}?",
+        title=f"{tag.name}: deadline {day}?",
         summary=(basis or f"Proposed {source} deadline for this ticket.")[:500],
         options=[
             {"id": "approve", "label": f"Set deadline {day}", "action_type": "update_ticket", "payload": payload},
@@ -434,7 +433,7 @@ def guard_checklist_exit(
     if not missing:
         return
     names = ", ".join(item["label"] for item in missing)
-    raise HTTPException(
+    raise status_error(
         status_code=400,
         detail={
             "code": "checklist_required",
@@ -463,7 +462,7 @@ def apply_checklist(
     changes = {(key if key in known else slugify(str(key))): value for key, value in changes.items()}
     unknown = [key for key in changes if key not in known]
     if unknown:
-        raise HTTPException(status_code=400, detail=f"Unknown checklist item: {', '.join(unknown)}")
+        raise status_error(status_code=400, detail=f"Unknown checklist item: {', '.join(unknown)}")
     state = checklist_state(signal)
     agent = actor_type == "agent"
     now = utcnow().replace(microsecond=0).isoformat()

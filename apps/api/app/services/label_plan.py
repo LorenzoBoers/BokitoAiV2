@@ -135,7 +135,7 @@ async def validate_entries(
         row = registry.get(name)
         if row is not None and row.workstream_id is not None:
             errors.append(
-                {**line, "error": "flow_label", "message": f"#{name} has a flow; file it with file_ticket."}
+                {**line, "error": "flow_label", "message": f"{name} has a flow; file it with file_ticket."}
             )
             continue
         is_new = row is None
@@ -261,7 +261,7 @@ async def apply_entry(
         )
         created = True
     elif row.workstream_id is not None:
-        return {"error": "flow_label", "message": f"#{name} has a flow; file it with file_ticket."}
+        return {"error": "flow_label", "message": f"{name} has a flow; file it with file_ticket."}
 
     scope = str(entry.get("scope") or "conversation")
     result: dict[str, Any] = {"ok": True, "label": name, "created": created, "scope": scope}

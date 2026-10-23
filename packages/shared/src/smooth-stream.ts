@@ -163,9 +163,14 @@ export function advanceSmoothStream(input: SmoothStreamAdvanceInput): SmoothStre
   }
 
   if (!goal.startsWith(prev) && prev.length > 0) {
+    // A server rewrite keeps what both texts share; only the changed tail
+    // is typed again. Restarting from '' read as the reply starting over.
+    let shared = 0
+    const max = Math.min(goal.length, prev.length)
+    while (shared < max && goal.charCodeAt(shared) === prev.charCodeAt(shared)) shared += 1
     return {
-      visible: '',
-      startedAtMs: nowMs,
+      visible: goal.slice(0, shared),
+      startedAtMs: input.startedAtMs ?? nowMs,
       carry: 0,
       lastMs: last,
       reset: true,

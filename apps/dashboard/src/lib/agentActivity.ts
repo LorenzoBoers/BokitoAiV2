@@ -60,6 +60,7 @@ const KNOWLEDGE_TOOLS = new Set([
   'read_doc',
   'write_doc',
   'search_product_help',
+  'knowledge_lesson',
   'record_thread_read',
 ])
 const HANDOFF_TOOLS = new Set(['handoff_to_human', 'request_callback'])
@@ -897,10 +898,17 @@ export function applyTurnEvent(
       current = { ...current, blocks: null }
       const segmentId = str(data.segment_id) || 'speech'
       const text = str(data.text)
-      const entries = current.entries.filter(
-        (row) => !(row.type === 'speech' && row.segmentId === segmentId),
-      )
-      if (text) entries.push({ type: 'speech', segmentId, text })
+      // Replace in place. Moving the bubble to the end remounts it and the
+      // typed text restarts from the first letter.
+      const at = current.entries.findIndex((row) => row.type === 'speech' && row.segmentId === segmentId)
+      if (at < 0) {
+        return text
+          ? { ...current, active: true, entries: [...current.entries, { type: 'speech', segmentId, text }] }
+          : { ...current, active: true }
+      }
+      const entries = current.entries.slice()
+      if (text) entries[at] = { type: 'speech', segmentId, text }
+      else entries.splice(at, 1)
       return { ...current, active: true, entries }
     }
     case 'message.delta': {

@@ -16,12 +16,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.orchestration import (
     QUEUE_ITEM_KINDS,
     TASK_PRIORITIES,
@@ -252,7 +251,7 @@ async def link_item_to_doc(
 ) -> TaskDocLink:
     """Document-level queue ↔ knowledge link (preferred over section links)."""
     if relation not in QUEUE_LINK_RELATIONS:
-        raise HTTPException(status_code=400, detail=f"Invalid link relation: {relation}")
+        raise status_error(status_code=400, detail=f"Invalid link relation: {relation}")
     item = await get_queue_item(session, tenant_id, item_id)
     doc = (
         await session.execute(
@@ -516,9 +515,9 @@ async def create_queue_item(
     )
 
     if kind not in QUEUE_ITEM_KINDS:
-        raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
+        raise status_error(status_code=400, detail=f"Invalid queue item kind: {kind}")
     if priority not in TASK_PRIORITIES:
-        raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
+        raise status_error(status_code=400, detail=f"Invalid priority: {priority}")
     if not title.strip():
         raise AppError("Title is required", code="app_error", status_code=400)
 
@@ -658,13 +657,13 @@ async def transition_queue_item(
 ) -> AgentTask:
     """Validated status transition + audit + thread echo + analysis kickoff."""
     if status not in TASK_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid queue item status: {status}")
+        raise status_error(status_code=400, detail=f"Invalid queue item status: {status}")
     item = await get_queue_item(session, tenant_id, item_id)
     previous = item.status
     if status == previous:
         return item
     if status not in QUEUE_TRANSITIONS.get(previous, set()):
-        raise HTTPException(
+        raise status_error(
             status_code=400, detail=f"Cannot move queue item from {previous} to {status}"
         )
     now = utcnow()
@@ -741,11 +740,11 @@ async def update_queue_item(
         item.description = body
     if kind is not None:
         if kind not in QUEUE_ITEM_KINDS:
-            raise HTTPException(status_code=400, detail=f"Invalid queue item kind: {kind}")
+            raise status_error(status_code=400, detail=f"Invalid queue item kind: {kind}")
         item.kind = kind
     if priority is not None:
         if priority not in TASK_PRIORITIES:
-            raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
+            raise status_error(status_code=400, detail=f"Invalid priority: {priority}")
         item.priority = priority
     if assigned_agent_id is not None:
         item.assignee_agent_id = assigned_agent_id
@@ -781,7 +780,7 @@ async def link_item_to_section(
     commit: bool = True,
 ) -> TaskDocLink:
     if relation not in QUEUE_LINK_RELATIONS:
-        raise HTTPException(status_code=400, detail=f"Invalid link relation: {relation}")
+        raise status_error(status_code=400, detail=f"Invalid link relation: {relation}")
     item = await get_queue_item(session, tenant_id, item_id)
     row = (
         await session.execute(
@@ -921,7 +920,7 @@ async def create_resource(
     created_by_id: str = "",
 ) -> dict[str, Any]:
     if resource_type not in PROJECT_RESOURCE_TYPES:
-        raise HTTPException(status_code=400, detail=f"Invalid resource type: {resource_type}")
+        raise status_error(status_code=400, detail=f"Invalid resource type: {resource_type}")
     if resource_type == "connection":
         from app.models.integration import IntegrationConnection
 
@@ -940,7 +939,7 @@ async def create_resource(
             )
         ).first()
         if duplicate is not None:
-            raise HTTPException(status_code=409, detail="This connection is already linked")
+            raise status_error(status_code=409, detail="This connection is already linked")
         provider = conn.provider
         label = label or conn.display_name or conn.provider
         external_ref = str(conn.id)
@@ -1002,7 +1001,7 @@ async def patch_resource(
         resource.config_json = json.dumps(config)
     if status is not None:
         if status not in PROJECT_RESOURCE_STATUSES:
-            raise HTTPException(status_code=400, detail=f"Invalid resource status: {status}")
+            raise status_error(status_code=400, detail=f"Invalid resource status: {status}")
         resource.status = status
     resource.updated_at = utcnow()
     session.add(resource)

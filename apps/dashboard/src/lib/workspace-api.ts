@@ -84,6 +84,24 @@ export async function listPlatformSkills(lang: string): Promise<PlatformSkillRow
   return res.skills ?? []
 }
 
+export type LessonRow = {
+  id: string
+  doc_id: string
+  heading: string
+  status: string
+  signals: number
+  signal_id: string | null
+  tags: { id: string; name: string }[]
+}
+
+export async function listLessons(params?: {
+  status?: string
+  tag_id?: string
+}): Promise<LessonRow[]> {
+  const res = await apiGet<{ lessons: LessonRow[] }>(workspaceRoutes.lessons(params))
+  return res.lessons ?? []
+}
+
 export async function listWorkspaceDocsPage(
   params?: WorkspaceDocsQuery | string,
 ): Promise<{ docs: WorkspaceDocRow[]; nextOffset: number | null }> {

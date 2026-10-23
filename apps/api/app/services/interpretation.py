@@ -122,9 +122,9 @@ async def _propose_file_tag(
         return
     lang = resolve_workspace_language(tenant)
     title = (
-        f"Dien in als #{category.name}"
+        f"Dien in als {category.name}"
         if lang == "nl"
-        else f"File as #{category.name}"
+        else f"File as {category.name}"
     )
     since = utcnow() - timedelta(days=7)
     existing = (

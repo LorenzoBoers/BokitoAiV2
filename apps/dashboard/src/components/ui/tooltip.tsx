@@ -36,13 +36,13 @@ const TooltipTrigger = TooltipPrimitive.Trigger
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 8, ...props }, ref) => (
+>(({ className, sideOffset = 6, ...props }, ref) => (
   <TooltipPrimitive.Portal>
     <TooltipPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 overflow-hidden rounded-md border border-border/60 bg-bg-elevated px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-overlay animate-fade-in',
+        'z-50 overflow-hidden rounded-md border border-border/80 bg-bg px-2 py-1 text-xs font-medium leading-snug text-text-heading shadow-overlay animate-fade-in',
         className,
       )}
       {...props}
@@ -51,4 +51,20 @@ const TooltipContent = React.forwardRef<
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+/** One line: the action in medium, the shortcut or key in a lighter weight. */
+function TooltipLabel({
+  children,
+  detail,
+}: {
+  children: React.ReactNode
+  detail?: React.ReactNode
+}) {
+  return (
+    <span className="flex items-baseline gap-2">
+      <span>{children}</span>
+      {detail ? <span className="font-normal text-text-muted">{detail}</span> : null}
+    </span>
+  )
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipLabel, TooltipProvider }

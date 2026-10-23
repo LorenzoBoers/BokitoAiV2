@@ -116,7 +116,7 @@ In Communication, a thread that cannot send yet shows **Finish channel setup** w
 Newsletters, receipts and no-reply notifications do not need an answer, but they still land in **Open** and ask the team to look. Turn this on per mailbox and they file themselves.
 
 1. Click the mailbox row and scroll to **Mailbox**.
-2. Turn on **Archive automated mail**. Bokito closes each newsletter, receipt or no-reply message on arrival and tags it `#automated`; the thread stays searchable under **Closed**.
+2. Turn on **Archive automated mail**. Bokito closes each newsletter, receipt or no-reply message on arrival and tags it `automated`; the thread stays searchable under **Closed**.
 3. Leave it off to keep the current behaviour: the AI notes that no reply is needed and the thread stays in **Open** until someone closes it.
 4. When the same bulk sender keeps arriving, the AI proposes an **Automation rule** for it as a card in the conversation. Choose **Activate** to auto-close that sender from then on, or **Later**. See [Autonomy](/docs/inbox/inbox-ai).
 

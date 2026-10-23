@@ -47,6 +47,7 @@ class SearchBody(BaseModel):
     source_types: list[str] | None = None
     department_id: UUID | None = None
     agent_id: UUID | None = None
+    tag_ids: list[UUID] | None = None
 
 
 class SectionCreateBody(BaseModel):
@@ -412,6 +413,26 @@ async def delete_workspace_doc(
     return {"ok": True}
 
 
+@router.get("/lessons")
+async def list_knowledge_lessons(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    status: str | None = None,
+    tag_id: UUID | None = None,
+    agent_id: UUID | None = None,
+):
+    from app.services.knowledge_lessons import list_lessons
+
+    lessons = await list_lessons(
+        session,
+        auth.tenant.id,
+        status=status,
+        tag_id=tag_id,
+        agent_id=agent_id,
+    )
+    return {"lessons": lessons}
+
+
 @router.post("/search")
 async def search_workspace(
     body: SearchBody,
@@ -426,6 +447,7 @@ async def search_workspace(
         source_types=body.source_types,
         department_id=body.department_id,
         agent_id=body.agent_id,
+        tag_ids=body.tag_ids,
     )
     return {"results": results}
 

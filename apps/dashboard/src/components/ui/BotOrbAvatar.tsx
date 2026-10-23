@@ -883,6 +883,14 @@ export function BotOrbAvatar({
                   </g>
                 </g>
               </g>
+              <ellipse
+                className="bot-orb__mouth"
+                cx="32"
+                cy="46"
+                rx="5.2"
+                ry="3.1"
+                fill="var(--bot-orb-ink)"
+              />
             </g>
           </g>
         </g>

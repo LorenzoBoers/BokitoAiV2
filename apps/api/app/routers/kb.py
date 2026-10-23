@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError
 from app.db.session import get_session
 from app.dependencies import AuthContext, get_current_auth
 from app.models.auth import user_numeric_id
@@ -238,7 +239,7 @@ async def create_document(
             # PDF/Word parsing is CPU-bound: keep it off the event loop.
             content = await asyncio.to_thread(extract_text, filename, data)
             index_status = "indexed"
-        except HTTPException as exc:
+        except (HTTPException, AppError) as exc:
             index_status = "unsupported" if exc.status_code == 415 else "failed"
             index_error = str(exc.detail)
 

@@ -234,7 +234,7 @@
       "persona_review": "Stemreview",
       "agent_rule": "Agentregel",
       "routing_rule": "Routeringsregel",
-      "signal_tag": "Hashtag"
+      "signal_tag": "Label"
     },
     "changeKind": {
       "create": "Aanmaken",

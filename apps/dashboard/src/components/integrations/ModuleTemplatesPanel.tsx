@@ -63,7 +63,7 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
       await refresh()
       toast.success(
         t('integrations.modules.templates.tagInstalled', {
-          defaultValue: 'Hashtag installed. Open Labels to file conversations on it.',
+          defaultValue: 'Label installed. Open Labels to file conversations on it.',
         }),
         {
           action: {
@@ -85,12 +85,12 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
     <section>
       <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-text-primary">
         <Route size={14} />
-        {t('integrations.modules.templates.title', { defaultValue: 'Flows & hashtags' })}
+        {t('integrations.modules.templates.title', { defaultValue: 'Flows & labels' })}
       </h3>
       <p className="mb-3 max-w-2xl text-xs text-text-muted">
         {t('integrations.modules.templates.intro', {
           defaultValue:
-            'Flows and hashtags this module ships. Installing copies them into your workspace; you own and can edit the copies.',
+            'Flows and labels this module ships. Installing copies them into your workspace; you own and can edit the copies.',
         })}
       </p>
       {error ? <p className="mb-2 text-xs text-destructive">{error}</p> : null}
@@ -145,7 +145,7 @@ export function ModuleTemplatesPanel({ slug }: { slug: string }) {
       {tags.length > 0 ? (
         <div className="mt-6 space-y-2">
           <h3 className="text-sm font-semibold text-text-primary">
-            {t('integrations.modules.templates.hashtagsTitle', { defaultValue: 'Hashtags' })}
+            {t('integrations.modules.templates.hashtagsTitle', { defaultValue: 'Labels' })}
           </h3>
           {tags.map((row) => (
             <div

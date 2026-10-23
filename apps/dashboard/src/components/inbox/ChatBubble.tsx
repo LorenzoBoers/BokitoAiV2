@@ -6,11 +6,14 @@ import { cn } from '../../lib/utils'
 import { AI_PILL_CLASS } from '../ai/AiMark'
 
 /**
- * Chat bubble primitives for every conversation surface (customer threads,
- * suggested replies, agent sessions). One shell, six tones, WhatsApp-style
- * grouping: the first bubble of a run carries avatar, name and the pointed
- * corner; follow-ups hug it with flattened inner corners. Feedback / copy
- * sit bottom-right next to the time.
+ * Chat bubble primitives for a message the customer sees on a chat channel.
+ * One shell, six tones, WhatsApp-style grouping: the first bubble of a run
+ * carries avatar, name and the pointed corner; follow-ups hug it with
+ * flattened inner corners. Feedback / copy sit bottom-right next to the time.
+ *
+ * An agent's answer in a chat with the operator uses `DocumentTurn`:
+ * full column, no fill, name and time on one line. Own messages and team
+ * chats stay bubbles.
  */
 
 export type BubbleVariant = 'external' | 'team' | 'agent' | 'self' | 'note' | 'ai_note'
@@ -351,6 +354,63 @@ export function ChatMessageBubble({
     <div className={row}>
       {avatarSlot}
       {bubble}
+    </div>
+  )
+}
+
+/**
+ * One turn of the work conversation. Prose on the page, not a messenger bubble.
+ * The avatar gutter matches a customer bubble so a mixed thread stays aligned.
+ */
+export function DocumentTurn({
+  avatar,
+  showAvatar = true,
+  name,
+  chip,
+  body,
+  meta,
+  actions,
+  reactions,
+  enter = true,
+  className,
+}: {
+  avatar?: ReactNode
+  /** False on a follow-up in a run; the gutter stays so the text column holds. */
+  showAvatar?: boolean
+  name?: ReactNode
+  chip?: ReactNode
+  body?: ReactNode
+  meta?: ReactNode
+  actions?: ReactNode
+  reactions?: ReactNode
+  enter?: boolean
+  className?: string
+}) {
+  const hasLine = name != null || chip != null || meta != null || Boolean(actions)
+  return (
+    <div
+      data-transcript="document"
+      className={cn(enter && 'msg-bubble-enter', 'flex w-full items-start gap-2', className)}
+    >
+      <span className={THREAD_GUTTER}>{showAvatar ? avatar : null}</span>
+      <div className="min-w-0 flex-1 text-lg leading-relaxed text-text-primary">
+        {hasLine ? (
+          <div className="mb-1 flex items-baseline justify-between gap-3 text-xs leading-4">
+            <span className="flex min-w-0 items-center gap-1.5">
+              {name != null ? (
+                <span className="truncate-fade font-semibold text-text-heading">{name}</span>
+              ) : null}
+              {chip}
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-text-muted">
+              {actions ? <span className="flex items-center gap-px">{actions}</span> : null}
+              {meta}
+            </span>
+          </div>
+        ) : null}
+        {body}
+        {reactions}
+      </div>
     </div>
   )
 }

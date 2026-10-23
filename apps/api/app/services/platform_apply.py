@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.integration import IntegrationConnection, McpServer
 from app.models.orchestra import Workstream
@@ -117,6 +117,18 @@ async def apply_agent_change(
             agent.tools_json = json.dumps(after["tools"])
         if "permission_scopes" in after:
             agent.permission_scopes_json = json.dumps(after["permission_scopes"])
+        if any(field in after for field in ("call_voice", "call_speed", "call_language")):
+            from app.services.agent_call_voice import apply_agent_call_defaults
+
+            try:
+                agent.settings_json = apply_agent_call_defaults(
+                    agent.settings_json,
+                    voice=after.get("call_voice") if "call_voice" in after else None,
+                    speed=after.get("call_speed") if "call_speed" in after else None,
+                    language=after.get("call_language") if "call_language" in after else None,
+                )
+            except ValueError as exc:
+                raise status_error(status_code=422, detail=str(exc)) from exc
         agent.updated_at = utcnow()
         await session.flush()
         restored = bool(after.get("restore")) or (
@@ -589,7 +601,7 @@ async def apply_category_change(
         try:
             await delete_tag(session, tenant_id, tag_id, commit=False)
         except LookupError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise status_error(status_code=404, detail=str(exc)) from exc
         return {"tag_id": str(tag_id), "status": "deleted"}
 
     if change_kind == "update":
@@ -603,7 +615,7 @@ async def apply_category_change(
                     session, tenant_id, row.id, workstream_id=_as_uuid(after.get("workstream_id")), commit=False
                 )
             except LookupError as exc:
-                raise HTTPException(status_code=404, detail=str(exc)) from exc
+                raise status_error(status_code=404, detail=str(exc)) from exc
         apply_category_config(row, after)
         if after.get("description") is not None:
             row.description = str(after["description"]).strip()[:300]
@@ -642,13 +654,12 @@ async def apply_category_change(
         row.description = str(after["description"]).strip()[:300]
     apply_category_config(row, after)
     department_id = _as_uuid(after.get("department_id"))
-    if department_id is not None and ws.department_id is None:
+    if department_id is not None and row.department_id is None:
         from app.models.team import Department
 
         dept = await session.get(Department, department_id)
         if dept is not None and dept.tenant_id == tenant_id:
-            ws.department_id = dept.id
-            session.add(ws)
+            row.department_id = dept.id
     session.add(row)
     await session.flush()
     if after.get("backlog_key"):
@@ -732,7 +743,7 @@ async def apply_project_change(
             return {"status": "invalid", "error": "project_id must be a folder UUID"}
         try:
             project, _ = await get_project_row(session, tenant_id, project_id)
-        except HTTPException as exc:
+        except (HTTPException, AppError) as exc:
             return {"status": "error", "error": str(exc.detail)}
         confirm = str(after.get("confirm_name") or after.get("name") or project.name or "").strip()
         if not confirm:
@@ -746,7 +757,7 @@ async def apply_project_change(
                 permanent=False,
                 commit=False,
             )
-        except HTTPException as exc:
+        except (HTTPException, AppError) as exc:
             return {"status": "error", "error": str(exc.detail)}
         except Exception as exc:  # noqa: BLE001 — surface to Govern
             logger.warning('platform apply failed', exc_info=True)

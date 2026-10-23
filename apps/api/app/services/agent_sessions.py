@@ -13,12 +13,11 @@ from datetime import timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import ForbiddenError, NotFoundError
+from app.exceptions import ForbiddenError, NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.auth import User
 from app.models.notification import DecisionRequest, Notification
@@ -124,7 +123,7 @@ async def _load_host_thread(session: AsyncSession, tenant_id: UUID, thread_id: U
     if thread is None:
         raise NotFoundError("Thread not found")
     if is_internal_channel(thread.channel):
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Agent sessions only apply to conversations with people outside the workspace",
         )
@@ -357,7 +356,7 @@ async def resolve_session_agent(
         session, tenant_id, user, thread_id, is_admin=is_admin
     )
     if not candidates:
-        raise HTTPException(status_code=409, detail="No agent available for this workspace")
+        raise status_error(status_code=409, detail="No agent available for this workspace")
 
     candidate_ids = {c["id"] for c in candidates}
     wanted = str(agent_id) if agent_id else candidates[0]["id"]

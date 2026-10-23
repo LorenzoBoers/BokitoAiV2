@@ -9,12 +9,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.integration_catalog import IntegrationCatalogHost, IntegrationCatalogProvider
 from app.services.mcp_remote_catalog import catalog_hosts, catalog_providers
 
@@ -260,7 +259,7 @@ def _reject_core_slug(slug: str) -> None:
     from app.services.integrations_catalog import CORE_PROVIDER_SLUGS
 
     if slug in CORE_PROVIDER_SLUGS:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail=f"Slug '{slug}' is reserved for a native core integration.",
         )
@@ -321,7 +320,7 @@ async def delete_host(session: AsyncSession, slug: str) -> None:
         ).limit(1)
     )
     if linked.first():
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Host still has providers; delete or reassign them first.",
         )
@@ -336,10 +335,10 @@ async def create_provider(session: AsyncSession, body: dict[str, Any]) -> Integr
         raise AppError("slug is required", code="app_error", status_code=400)
     _reject_core_slug(slug)
     if await get_catalog_provider(session, slug):
-        raise HTTPException(status_code=409, detail="Provider slug already exists")
+        raise status_error(status_code=409, detail="Provider slug already exists")
     host_slug = str(body.get("host_slug") or "custom").strip() or "custom"
     if not await get_catalog_host(session, host_slug):
-        raise HTTPException(status_code=400, detail=f"Unknown host_slug '{host_slug}'")
+        raise status_error(status_code=400, detail=f"Unknown host_slug '{host_slug}'")
     url = str(body.get("mcp_remote_url") or "").strip()
     auth = str(body.get("auth_type") or "mcp_remote_oauth")
     status = _normalize_status(auth, url, str(body.get("status") or "available"))
@@ -378,7 +377,7 @@ async def update_provider(
     if "host_slug" in body and body["host_slug"] is not None:
         host_slug = str(body["host_slug"]).strip() or "custom"
         if not await get_catalog_host(session, host_slug):
-            raise HTTPException(status_code=400, detail=f"Unknown host_slug '{host_slug}'")
+            raise status_error(status_code=400, detail=f"Unknown host_slug '{host_slug}'")
         row.host_slug = host_slug
     for field in (
         "static_id",

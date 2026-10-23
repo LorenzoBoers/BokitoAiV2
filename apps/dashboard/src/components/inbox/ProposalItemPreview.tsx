@@ -20,7 +20,7 @@ import {
 import type { ProposalItem } from '../../lib/inbox-api'
 import { CANVAS_ICON } from '../../lib/entity-icons'
 import { openEntityPath, type EntityRef } from '../../lib/open-entity'
-import { getCanvasById, type ProjectCanvas } from '../../lib/project-canvas-api'
+import { CANVAS_REMOVED_EVENT, getCanvasById, type ProjectCanvas } from '../../lib/project-canvas-api'
 import { CanvasKindBody } from '../project-canvas/CanvasKindBody'
 import { CanvasWindow } from '../project-canvas/CanvasWindow'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
@@ -327,6 +327,13 @@ export function CanvasShowcaseCard({
       cancel = true
     }
   }, [item.id, item.missing])
+  useEffect(() => {
+    function onRemoved(event: Event) {
+      if ((event as CustomEvent<string>).detail === item.id) setGone(true)
+    }
+    window.addEventListener(CANVAS_REMOVED_EVENT, onRemoved)
+    return () => window.removeEventListener(CANVAS_REMOVED_EVENT, onRemoved)
+  }, [item.id])
   // Claude-style integrity: incomplete artifacts are not sticky chat cards.
   if (settled && (gone || emptyShell || item.empty || item.missing)) {
     return null

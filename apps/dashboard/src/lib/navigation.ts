@@ -62,6 +62,7 @@ export const OVERVIEW_PATH = '/communication/today' as const
 export const KNOWLEDGE_PATH = '/agents/knowledge' as const
 export const GRID_PATH = '/workforce/grid' as const
 export const WORKFLOW_PATH = '/workforce/workflow' as const
+export const ORGANOGRAM_PATH = '/workforce/organogram' as const
 export const DEPARTMENTS_PATH = '/workforce?tab=departments' as const
 export const CONNECTIONS_PATH = '/connections' as const
 export const AUTONOMY_PATH = '/settings/govern?tab=policy' as const
@@ -102,7 +103,7 @@ const TAB_SUBTITLES: Record<Tab, string> = {
   folders: 'A tag with a place: conversations, boards and documents under one path',
   workstreams: 'Stages for one kind of ticket',
   agents: 'AI teammates, their knowledge and what they may do',
-  team: 'People, agents, departments and the Grid',
+  team: 'People, agents, departments, the organogram, Grid and Workflow',
   connections: 'Installed modules, partner logins and tools',
   settings: 'Workspace settings',
 }

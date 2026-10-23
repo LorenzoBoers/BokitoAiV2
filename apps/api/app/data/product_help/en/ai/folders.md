@@ -1,15 +1,15 @@
 ---
 title: How Folders works
-intro: A folder is a named place in your tree with optional label rules — matching conversations land here, with canvas, docs and boards on the same hub.
-description: Create named folders, nest them freely, set label rules for membership, file conversations, and keep canvas and docs on the folder hub.
-keywords: folders, maps, labels, tags, filterset, works in, general, canvas, tickets, flows, boards, documentation, communication, nest
+intro: A folder is a container in your tree. It lists the subfolders, conversations, images, files and canvases that belong there.
+description: Create named folders, nest them freely, set label rules for membership, and find what is inside with search, type tabs and a label filter.
+keywords: folders, maps, labels, tags, filterset, search, canvases, files, images, conversations, nest
 sort: 40
 related: flows,categories,agenda,knowledge,communication
 ---
 
 # How Folders works
 
-A folder has a **name** and a place in a free tree. Optional **labels** decide which conversations match: one of those labels on the conversation is enough. Nesting only changes the tree — labels stay the same. Open **Folders** for the hub: conversations, tickets, canvas, docs and files. There is no per-folder agent, budget or repository.
+A folder has a **name** and a place in a free tree. Optional **labels** decide which conversations match: one of those labels on the conversation is enough. Nesting only changes the tree — labels stay the same. The folder page lists what is inside: subfolders, conversations, images, files and every canvas kind. Flow boards, the agenda, Works in and folder docs live on the department's folder tab. See [Workforce](/docs/getting-started/team).
 
 ## Create or open a folder
 
@@ -18,7 +18,7 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 
 1. Open **Folders**. The left menu shows the tree. Choose **New folder**, give it a name, and optionally pick labels that define membership.
 2. Confirm. The folder appears in the tree at the root (or under a parent if you chose one). Its card counts open and closed conversations in the folder and the folders under it, the same number as on the Communication rail. A folder without a name shows the labels that set it apart from its parent, or **Unnamed folder**.
-3. Open a card. You land on **Today**. Admins hover the folder name: it becomes a pill with a pencil, and a click renames the folder. Labels sit in one field beside the name; **+** adds labels, and the cross on a pill removes it. Members can read; they cannot delete.
+3. Open a card. Admins hover the folder name: it becomes a pill with a pencil, and a click renames the folder. Labels sit in one field beside the name; **+** adds labels, and the cross on a pill removes it. Members can read; they cannot delete. **Open in Grid** and the more menu (copy id, nest, delete) stay in the header.
 
 ## Nest a folder under another
 
@@ -44,62 +44,45 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 2. Use **File in folder** (or close-and-file) and pick the folder. Bokito applies that folder's labels to the thread.
 3. The conversation then matches that folder (and any others whose labels it also carries).
 
-## Read Today
+## Find something in a folder
 
-1. The header shows the folder name and the label field with its pills beside it. **Open in Communication** jumps to the same scope in the Communication rail. **Who works here** names the department the folder belongs to, marked **Home department of this folder**, and every department with open tickets in it or its subfolders. Choose one to open its department page.
-2. Hover a tree row for the labels and **Under:** the parent folder when nested.
-3. **Flows** shows each board that already has a ticket on a conversation in this folder (or a folder under it) — stages as columns, tickets as cards. Drag a card to change stage, or open the **Tickets** tab for the same board. **Recent conversations** lists the matches; **All conversations** opens the Conversations tab. What an agent did stays in that conversation. Canvas, docs and files stay on this hub when you use them.
+1. Open the folder. The search field above the list matches a conversation subject or contact, a file name, or a canvas title.
+2. **All (n)** lists subfolders first, then everything else by last activity. A count above 99 shows as **99+**. Other tabs appear only when that kind is present: **Conversations**, **Images**, **Files**, **Folders**, and one tab per canvas kind (Sheet, Dashboard, Document, and the rest).
+3. Open a row. A conversation opens in Communication, in this folder. A canvas opens on this page. An image or file opens its file, with a **Conversation** link back to the thread it came from. **Load more** fetches the next page.
 
-## Add a place to Works in
+## Filter by label
 
-**Works in** sits at the top of **Today** and lists every place where work from this folder lands: the board and files (in Bokito, once they hold something), each canvas (in Bokito), and connections or file folders outside Bokito.
+1. Choose **Labels**. The menu lists only labels that occur on conversations in this folder.
+2. Tick one or more. The list keeps items whose conversation carries every ticked label. Images, files and canvases follow the conversation they belong to.
+3. Clear a tick to widen the list again.
 
-1. Open the folder. Each card shows its name and whether it lives in **Bokito** or is a **Connection**; a click opens it.
-2. Admins choose **Add to Works in** and pick **Canvas**, **Connection** or **File folder**.
-3. For a canvas, give it a name; for a connection, pick one of the active connections; for a file folder, give a name and the URL or folder id. Choose **Add**.
-4. A connection or file folder leaves Works in with the bin icon on its card. Work that has no folder lands in the folder **General**; installing the Accounting module creates the folder **Administration** with its connection, or a canvas **Figures** when none is connected yet.
-5. When an agent writes through a connection, updates a canvas, or a coding tool finishes a pull request for this folder, the conversation shows **Delivered in {folder} › {place}**; a click opens that place. A connection that sits in no folder delivers nothing and shows up as an issue instead.
+## Switch rows and cards
 
-## See conversations in a folder
-
-1. Open the **Conversations** tab, or use **Folders** in Communication. All maps appear in the rail, including empty ones.
-2. Each row matches this folder or a folder nested under it (by labels or by filed home). Filing a conversation into a map adds those labels.
-3. Contact labels apply automatically (shown as inherited); they are not copied onto the thread.
-
-## Move a ticket on a board
-
-![Flow boards on a folder](/api/docs/assets/folders/boards.png)
-*One board per flow on the folder, with that flow's stages as columns.*
-
-1. Open the folder on **Today**, or the **Tickets** tab.
-2. Drag a card to another column to change the stage. Click a card to open it in [Communication](/docs/inbox/communication).
-3. Flows stay the flow label axis; the folder only shows flows that already have matching tickets here. See [Flows](/docs/ai/flows) and [Labels with a flow](/docs/ai/categories).
+1. Next to search, choose **Rows** or **Cards**. Rows are a single list. Cards are a grid; images show a larger preview.
+2. The choice stays in the address bar and is remembered the next time you open a folder.
+3. Admins see **New folder** with the subfolders. That creates a folder underneath this one.
 
 ## Ask an agent to write a canvas
 
-1. Open the **Canvas** tab and choose **Add canvas**. Pick the agent who will own it.
-2. That opens a conversation: the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Keep talking in that thread to change it. Above the canvas the owner agent shows as avatar and name next to the last-updated time and refresh period. The canvas sits in a window: its title bar names the kind and version and holds **Preview** / **Code**, copy, download, refresh, and the **⋯** menu with **Delete**. Every canvas lives in a folder; it also shows under **Works in**. Only a **Dashboard** has a refresh period.
+1. Open a canvas from the folder list, then choose **Add canvas** in the viewer. Pick the agent who will own it. New places where work lands (a connection or a file folder) are added on the department's folder tab, under **Works in**. See [Workforce](/docs/getting-started/team).
+2. That opens a conversation: the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Keep talking in that thread to change it. A dashboard is the picture: charts, stats and tables. The agent does not paste that into the chat. It picks a recipe that fits the question (overview, trend, breakdown, comparison or report). A dashboard opens with a heading that states the finding, then a row of key figures with their change, target or status, then the chart that explains it, and the detail table last. Bokito arranges the columns itself, so a dashboard looks the same in the side panel and full screen.
+3. Tap a figure, or the title of a chart, pie or table, to show the read that produced it and the time. Above the canvas the owner shows next to the last-updated time and refresh period. The window title bar names the kind. A dashboard shows the picture. Other kinds also have **Preview** / **Code**, copy and download. Refresh and **Delete** sit in the title bar. **Back to folder** returns to the list. Only a **Dashboard** has a refresh period.
 
 ## Keep more than a dashboard on a canvas
 
-A canvas belongs to its conversation. The folder of that conversation is where the canvas shows on the Canvas tab (including subfolders). That conversation can hold several canvases. The agent picks the kind: **Document** (a report in Markdown), **Diagram** (a Mermaid flow), **Drawing** (an SVG, which may include a picture stored in Bokito), **Image** (a generated picture kept with the conversation), **Code** (a script you can download), **Email** (a letter with subject and body), or **Sheet** (a table). Logo and colours stay in Settings. A short answer stays in the chat.
+A canvas belongs to its conversation. The folder of that conversation is where the canvas shows in the list (including subfolders). That conversation can hold several canvases. The agent picks the kind: **Document** (a report in Markdown), **Diagram** (a Mermaid flow), **Drawing** (an SVG, which may include a picture stored in Bokito), **Image** (a generated picture kept with the conversation), **Code** (a script you can download), **Email** (a letter with subject and body), or **Sheet** (a table). Logo and colours stay in Settings. A short answer stays in the chat.
 
 1. In the canvas conversation, ask for the piece, for example a diagram, a picture to keep, or a table.
-2. Open the **Canvas** tab, or the window under the agent's reply. The title bar shows the kind. Every kind uses the same window; the expand icon opens the canvas beside the conversation. The conversation stays on the left, the canvas fills the right, and the divider between them can be dragged. Close returns to the conversation.
+2. Open the canvas from the folder list, or the window under the agent's reply. The title bar shows the kind. Every kind uses the same window; the expand icon opens the canvas beside the conversation. The conversation stays on the left, the canvas fills the right, and the divider between them can be dragged. **More actions** on that window includes **Delete**, which moves the canvas to the Bin and stops its Agenda refresh. Close returns to the conversation.
 3. Use the download icon in the title bar. A document downloads as Markdown, a diagram as Mermaid, a drawing as SVG, code as its file type. On a sheet, choose **CSV**, **Excel**, or **Google Sheets**. CSV and Excel download a file. Google Sheets creates a spreadsheet in the connected Google Drive and opens it. Connect Google Drive under Connections when that export asks for it.
 4. Change it in that same conversation. The canvas does not get a second conversation.
-
-## Track documentation
-
-1. Open the **Documentation** tab for docs scoped to this folder. Create or edit like Knowledge; agents only change folder docs inside a [flow](/docs/ai/flows) run.
-2. Choose **Open in Knowledge hub** to edit the same document under Knowledge.
 
 ## Keep a content calendar for a client
 
 Planned posts are items in the client's folder, and Bokito keeps a Google Sheet in step with them.
 
 1. Connect **Google Drive** under [Connections](/docs/integrations/integrations). In the folder, add the client's sheet to **Works in** as a **Spreadsheet**. Bokito writes to the tab **Kalender**.
-2. Ask an agent to plan the posts, or let a `#maandcontent` ticket do it. Each post becomes an item with a date, channel, caption and image.
+2. Ask an agent to plan the posts, or let a `maandcontent` ticket do it. Each post becomes an item with a date, channel, caption and image.
 3. When a post is added, changed or moves on, the sheet gets the whole calendar again: date, channel, caption, image, status and title. Edits in the sheet are not read back.
 4. On a workspace set to **Manual**, the sheet only updates when you ask for it in a conversation.
 
@@ -114,5 +97,5 @@ A client folder holds its posts as items, and Bokito keeps a Google Sheet in ste
 
 ## Agenda and the rail
 
-1. In Communication and Agenda **What**, maps share one `#` tree with the same structure as Folders.
+1. In Communication and Agenda **What**, maps share one label tree with the same structure as Folders.
 2. Counts and filters follow the folder subtree you select.

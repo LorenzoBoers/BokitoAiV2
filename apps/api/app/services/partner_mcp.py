@@ -12,12 +12,11 @@ import secrets
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.exceptions import UnauthorizedError
+from app.exceptions import UnauthorizedError, status_error
 from app.models.integration import McpServer
 
 PARTNER_KING = "king"
@@ -61,7 +60,7 @@ def partner_tools(partner_slug: str) -> list[dict[str, str]]:
         from app.services.king_finance import KING_NATIVE_TOOLS
 
         return [dict(t) for t in KING_NATIVE_TOOLS]
-    raise HTTPException(status_code=404, detail=f"Unknown partner MCP '{partner_slug}'")
+    raise status_error(status_code=404, detail=f"Unknown partner MCP '{partner_slug}'")
 
 
 def _parse_auth(raw: str | None) -> dict[str, Any]:
@@ -121,7 +120,7 @@ async def call_partner_tool(
                 },
             }
         return await call_king_tool(auth, tool_name, arguments or {})
-    raise HTTPException(status_code=404, detail=f"Unknown partner MCP '{partner_slug}'")
+    raise status_error(status_code=404, detail=f"Unknown partner MCP '{partner_slug}'")
 
 
 async def list_attached_mcp_tools_by_module(

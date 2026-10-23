@@ -242,7 +242,7 @@ async def test_uninstalled_module_snapshot_matches_marketplace_card(
     card = items[0]
     assert card["type"] == "module"
     assert card["slug"] == "accounting"
-    assert card["name"] == "Boekhouder"
+    assert card["name"] == "Boekito"
     assert card["job_title"]
     assert card["subtitle"]
     assert card["tool_count"] > 0

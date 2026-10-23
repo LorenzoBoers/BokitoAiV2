@@ -128,9 +128,9 @@ export function filtersetPlainLabel(tagNames: string[]): string {
   return tagNames.map((name) => name.replace(/^#/, '')).filter(Boolean).join(' · ')
 }
 
-/** With `#` prefixes — copy, tooltips, and non-React surfaces. */
+/** Label names joined for copy, tooltips, and non-React surfaces. */
 export function filtersetLabel(tagNames: string[]): string {
-  return tagNames.map((name) => `#${name.replace(/^#/, '')}`).join(' · ')
+  return tagNames.map((name) => name.replace(/^#/, '')).filter(Boolean).join(' · ')
 }
 
 /**

@@ -14,12 +14,12 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import status_error
 from app.core.time import utcnow
 from app.models.channel import ChannelAccount
 from app.models.signal import Signal
@@ -33,7 +33,7 @@ def is_archived(account: ChannelAccount | None) -> bool:
 
 def require_not_archived(account: ChannelAccount) -> None:
     if is_archived(account):
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="This channel is archived. Restore it or reconnect it first.",
         )
@@ -130,7 +130,7 @@ async def delete_channel_permanently(
 
     count = await conversation_count(session, account)
     if count and not is_archived(account):
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail="Archive the channel before deleting it with its conversations.",
         )

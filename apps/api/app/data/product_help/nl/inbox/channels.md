@@ -116,7 +116,7 @@ In Communicatie toont een gesprek dat nog niet kan versturen **Kanaal afmaken** 
 Nieuwsbrieven, bonnetjes en no-reply meldingen hoeven geen antwoord, maar ze belanden wel in **Open** en vragen aandacht van het team. Zet dit per mailbox aan en ze bergen zichzelf op.
 
 1. Klik op de mailboxrij en scroll naar **Mailbox**.
-2. Zet **Automatische mail archiveren** aan. Bokito sluit elke nieuwsbrief, bon of no-reply mail bij binnenkomst en tagt die met `#automated`; het gesprek blijft vindbaar onder **Gesloten**.
+2. Zet **Automatische mail archiveren** aan. Bokito sluit elke nieuwsbrief, bon of no-reply mail bij binnenkomst en tagt die met `automated`; het gesprek blijft vindbaar onder **Gesloten**.
 3. Laat het uit om het huidige gedrag te houden: de AI noteert dat er geen antwoord nodig is en het gesprek blijft in **Open** tot iemand het sluit.
 4. Blijft dezelfde bulkafzender binnenkomen, dan stelt de AI een **Automatiseringsregel** voor als kaart in het gesprek. Kies **Activeren** om die afzender voortaan automatisch te sluiten, of **Later**. Zie [Autonomie](/docs/inbox/inbox-ai).
 

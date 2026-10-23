@@ -209,7 +209,7 @@ def channels_for(
     email interrupt. Away lets only critical tier 1 notices interrupt outside
     the app. Available users still get push when that channel is on.
     """
-    from app.services.presence import AWAY
+    from app.services.presence import AWAY, UNAVAILABLE
 
     tier = tier if tier in TIERS else TIER_LATER
     enabled = {
@@ -228,6 +228,10 @@ def channels_for(
     if tier == TIER_DIGEST:
         # Digest email goes out in the daily mail, not per event.
         enabled.discard("email")
+    if status == UNAVAILABLE:
+        if category and str(category).startswith("ops-"):
+            return {"inapp"} if "inapp" in enabled else set()
+        return set()
     if status == AWAY and not (critical and tier == TIER_NOW):
         enabled -= {"push", "email"}
     return enabled

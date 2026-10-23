@@ -97,6 +97,8 @@ async def test_department_overview(client: AsyncClient, session_override):
     res = await client.get(f"/api/departments/{team.id}/overview", headers=headers)
     assert res.status_code == 200, res.text
     body = res.json()
+    assert body["parent"]["is_root"] is True
+    assert body["parent"]["name"] == "All"
     assert body["lead"]["id"] == str(agent.id)
     assert body["accountable"]["id"] == str(owner.id)
     assert [(f["name"], f["open"], f["waiting"]) for f in body["flows"]] == [("Maandcontent", 1, 0)]

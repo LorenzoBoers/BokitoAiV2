@@ -7,7 +7,7 @@ import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 export type TeamKind = 'custom'
 export type TeamPickup = 'people' | 'agent_first' | 'round_robin' | 'least_open'
 /** People: available|away|offline. Agents/teams may also use standby|working. */
-export type PresenceStatus = 'available' | 'away' | 'offline' | 'standby' | 'working'
+export type PresenceStatus = 'available' | 'away' | 'offline' | 'standby' | 'working' | 'unavailable'
 
 export type AgentPresenceStatus = 'standby' | 'working' | 'error'
 
@@ -20,7 +20,8 @@ export function parsePresenceStatus(value: unknown): PresenceStatus | undefined 
     raw === 'away' ||
     raw === 'offline' ||
     raw === 'standby' ||
-    raw === 'working'
+    raw === 'working' ||
+    raw === 'unavailable'
   ) {
     return raw
   }
@@ -202,6 +203,8 @@ export type DepartmentAwareness = {
   role: string
   follows: string[]
   followable: string[]
+  mode: 'off' | 'on_conversation' | 'daily' | 'custom'
+  cron: string
   daily_cost_cents: number
   spent_today_cents: number
   max_proposals: number
@@ -266,6 +269,22 @@ export type DepartmentOverview = {
   description: string
   /** Lucide icon id shown in the left menu. */
   icon: string
+  /** The department above this one. Null on the root. */
+  parent: {
+    id: string
+    name: string
+    is_root: boolean
+    members: Array<{
+      kind: 'user' | 'agent'
+      id: string
+      name: string
+      avatar_kind?: string | null
+      avatar_icon?: string | null
+      avatar_color?: string | null
+      avatar_shape?: string | null
+      avatar_image_url?: string | null
+    }>
+  } | null
   lead: {
     id: string
     name: string
@@ -366,7 +385,7 @@ export function answerDomainQuestion(
 export function patchDepartmentAwareness(
   token: string,
   id: string,
-  patch: Partial<Pick<DepartmentAwareness, 'follows' | 'daily_cost_cents' | 'max_proposals' | 'scope'>>,
+  patch: Partial<Pick<DepartmentAwareness, 'follows' | 'mode' | 'cron' | 'daily_cost_cents' | 'max_proposals' | 'scope'>>,
 ): Promise<DepartmentAwareness> {
   return apiPatch<DepartmentAwareness>(appRoutes.teams.awareness(id), patch, token)
 }
@@ -411,6 +430,14 @@ export function setTeamMembers(token: string, id: string, members: TeamMemberRef
 
 export function deleteTeam(token: string, id: string): Promise<unknown> {
   return apiDelete(appRoutes.teams.byId(id), token).then(announceDepartments)
+}
+
+export function setMyAvailability(
+  token: string,
+  mode: 'online' | 'away' | 'unavailable',
+  until?: string | null,
+): Promise<Presence> {
+  return apiPut<Presence>(appRoutes.teams.myAvailability, { mode, until: until ?? null }, token)
 }
 
 export function setMyAway(token: string, away: boolean, until?: string | null): Promise<Presence> {

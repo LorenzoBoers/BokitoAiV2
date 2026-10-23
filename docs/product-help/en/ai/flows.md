@@ -1,20 +1,20 @@
 ---
 title: How Flows work
-intro: A flow belongs to exactly one label. The list and page show a title with that label (`#klacht`) beside it, and a live board of its tickets with a lane per folder. The label is colored only while the flow exists.
+intro: A flow belongs to exactly one label. The list and page show a title with that label (`klacht`) beside it, and a live board of its tickets with a lane per folder. The label is colored only while the flow exists.
 description: Create a flow for a label, follow its tickets per stage and folder lane, edit or add stages on the board, and delete it.
-keywords: flows, workstreams, autonomy, department, recurring ticket, client approval, delivers to, destination, stages, owner, check-up, pipeline, tickets, hashtags, labels, folders, board, lanes
+keywords: flows, workstreams, autonomy, department, recurring ticket, client approval, stages, owner, check-up, pipeline, tickets, labels, labels, folders, board, lanes
 sort: 45
 related: categories,folders,agenda,agents,knowledge
 ---
 
 # How Flows work
 
-A flow is the pipeline for work that comes back under one label: a complaint, a repair, a filing. Each flow has exactly one label. The Flows list and the flow page show an operator title with the workflow mark on the left and the label (`#klacht`) on the right; the board shows tickets per stage, and folders show the same stages as a board.
+A flow is the pipeline for work that comes back under one label: a complaint, a repair, a filing. Each flow has exactly one label. The Flows list and the flow page show an operator title with the workflow mark on the left and the label (`klacht`) on the right; the board shows tickets per stage, and folders show the same stages as a board.
 
 ## Create a flow
 
-1. Open **Flows** (Work group) and choose **New flow**. The dialog lists existing flow labels first; those pills are disabled. Type in the search field to narrow to tags that are still free, or type a new hashtag.
-2. Choose a free tag, or **Create tag** when nothing matches. A label setup appears at the bottom: pick a color and an icon. The icon list is long and scrollable (popular marks first, then the full Lucide set); type to filter by name or Dutch/English keywords. A new label starts blue with the flow mark. **Create** attaches that hashtag to the flow; an existing free hashtag is reused. A hashtag that already belongs to another flow stays disabled and cannot start a second one.
+1. Open **Flows** (Work group) and choose **New flow**. The dialog lists existing flow labels first; those pills are disabled. Type in the search field to narrow to tags that are still free, or type a new label.
+2. Choose a free tag, or **Create tag** when nothing matches. A label setup appears at the bottom: pick a color and an icon. The icon list is long and scrollable (popular marks first, then the full Lucide set); type to filter by name or Dutch/English keywords. A new label starts blue with the flow mark. **Create** attaches that label to the flow; an existing free label is reused. A label that already belongs to another flow stays disabled and cannot start a second one.
 3. The **Flows** list shows each flow with the route icon, the title, and its label beside it, plus stages, open tickets per stage, folders it is used in, and last activity.
 
 ## Follow tickets on the flow board
@@ -30,7 +30,7 @@ A flow is the pipeline for work that comes back under one label: a complaint, a 
 
 ## Edit stages on the board
 
-1. Admins change the flow name by hovering the title: it becomes a pill with a pencil, and Enter saves the name. The description sits under it and saves when you leave the field. The title is the flow name only; rename the label under **Labels** when the hashtag itself should change.
+1. Admins change the flow name by hovering the title: it becomes a pill with a pencil, and Enter saves the name. The description sits under it and saves when you leave the field. The title is the flow name only; rename the label under **Labels** when the label itself should change.
 2. Each column header shows the stage name with the ticket count beside it. Hover the header and the gear appears next to the name. It opens a dialog to change the name, the kind (not started, waiting, done, closed) and the intake fields, or to remove the stage. Keep at least one done stage. **Move left** and **Move right** only stay available when the stage stays in its group. **Save** writes that stage immediately.
 3. Hover the headers and a plus appears in each gap. One click inserts a stage of the same kind as the column on the left, named after that kind until you rename it. **Add stage** on the right adds another stage of the last column's kind. Not started never sits after Waiting, and Done never sits before Waiting. Every flow starts with Not started, Waiting and Done, named in the workspace language.
 4. In **Intake fields** you add text, long text, number or choice-list fields, and pick an **Owner** and a **Check-up**. On a done stage, turn on **Auto-close conversation** when entering it should close the thread. Fields on the first stage are asked when someone files the label. Required fields on a later stage must be filled before a ticket can enter that stage. **Save** in that dialog writes the stage immediately. Done stages never check up; a check-up shows on [Agenda](/docs/ai/agenda) for the owner.
@@ -58,33 +58,34 @@ A stage can list what has to be there before the work moves on, and say who it w
 
 1. A folder becomes a lane on the flow when that folder's labels include the flow's label. On **Flows**, each row shows those shared folders as chips; a chip opens that folder, the rest of the row opens the flow.
 2. Empty lanes (folders with no tickets yet) stay hidden. Turn on **Show empty folders** on the flow page to see them.
-3. On a [folder](/docs/ai/folders), a flow appears under **Flows** once a conversation in that folder (or a nested folder) has the flow's label filed as a ticket.
-
-## Set where a flow delivers
-
-A flow can name the folder, and optionally the place in its [Works in](/docs/ai/folders), where finished tickets land, for example **Delivers to Administration › Exact**.
-
-1. Open the flow and choose the gear at the top right. **Delivers to** shows the destination; owners and admins choose **Set destination** or **Change**.
-2. Pick a folder, then **The folder itself** or one of its Works in places, and choose **Save**.
-3. When a ticket of this flow reaches a done stage, its conversation shows **Delivered in** that place, unless the work was already delivered into a folder.
-4. **Remove** clears the destination; tickets then deliver only where their agents wrote.
+3. On the department's folder tab ([Workforce](/docs/getting-started/team)), a flow appears as a board once a conversation in that folder (or a nested folder) has the flow's label filed as a ticket.
 
 ## Describe how the flow handles its work
+
+## Draw the flow from start to end
+
+The steps and the arrows between them live in one editor. An arrow says when it applies and what it carries.
+
+1. Open the flow and choose **Edit** at the top right, next to **Open in Grid**.
+2. The diagram always fits the whole flow in the window, also after you add or move a step. Each stage shows its progress icon and ticket count, as on the board.
+3. Click a step to set who, mode, max, tools, expects, gives, on failure and on silence in the panel on the right. Click an arrow to set when it applies and what it carries, or point it at another step. Right-click a step, an arrow or the background for a menu with **New step after this**, **Arrow to**, who and mode, **Reverse direction**, **New step here** and **Remove**.
+4. Drag from the dot on the right of a step to another step for a new arrow. Release on an empty spot and a new step appears there with that arrow. **Step** and **Add arrow to** in the panel do the same without dragging. Drag an extra step to another column, above or below a step; **Place automatically** puts it back. **Notation** shows the same flow as text and checks it as you type.
+5. **Save** stores the notation on the flow. The board keeps its columns until those transitions are applied there.
 
 A flow is also the approach for one kind of work: the label says what it is, the flow says how the agent works and what done produces.
 
 1. Open the flow and choose the gear at the top right. In **Done means**, write what done produces in one sentence, for example **The posts of the month are scheduled**.
 2. In **Working method**, write in a few sentences how the agent handles this work. It saves when you leave the field. Agents on this flow's conversations get the working method, the tools and connections it uses (**Uses**), and what done means.
-3. Turn on **Handled directly** for short work such as a question: the flow has no waiting stage and no board in folders, and the ticket closes when the work is done.
+3. A flow with no waiting stage has no board in folders. The stages themselves decide whether there is a waiting step.
 4. An agent can propose the same changes in a conversation with `update_flow`; the proposal follows [Govern](/docs/govern/govern).
 
 ## Set the autonomy and department of a flow
 
-Each flow has its own dial under the workspace ceiling, and belongs to the department that runs it.
+Each flow has its own dial under the workspace ceiling. The department lives on the flow's label.
 
 1. Open the flow and choose the gear at the top right. **Autonomy** shows **Workspace default**, **Manual**, **Assisted** or **Autonomous**. Owners and admins pick one.
 2. Stricter than the workspace applies at once. Looser waits for approval in [Govern](/docs/govern/autonomy); the window says **Looser than now goes through Govern**. On **Assisted**, every reply on a ticket of this flow becomes a draft a person sends, even when the conversation is on Autonomous. Hover the mode in the conversation header to see that the flow set it.
-3. Under **Department**, pick the department that runs this flow. Its lead agent includes the flow's tickets in the morning briefing, and the [department page](/docs/getting-started/team) shows the flow with its scorecard.
+3. Under **Department**, pick the department of the label. Its lead agent includes the flow's tickets in the morning briefing, and the [department page](/docs/getting-started/team) shows the flow with its scorecard.
 4. When a flow's scorecard shows enough clean outcomes, the department lead proposes a looser dial in the department conversation (see the next section).
 
 ## Let the department lead improve a flow
@@ -102,7 +103,7 @@ Once a day the lead agent of a department reads the scorecards of its flows and 
 
 Work that comes back, such as monthly content or a weekly report, opens itself as a ticket on the flow.
 
-1. Ask an agent in a conversation, for example: **Open a #maandcontent ticket in folder Klanten/Studio Veluwe on the first of every month.**
+1. Ask an agent in a conversation, for example: **Open a maandcontent ticket in folder Klanten/Studio Veluwe on the first of every month.**
 2. The agent sets a rule with the flow label, the folder, the title (for example **Maandcontent {maand}**) and the schedule. One rule per flow and folder: asking again updates it.
 3. On that date, Bokito opens one conversation, files it on the flow in that folder, and gives it to the agent. When the rule has instructions, the agent starts right away.
 4. The rule shows on [Agenda](/docs/ai/agenda) under routines. Pause or delete it there.
@@ -122,4 +123,4 @@ A stage that waits on the customer moves on the client's answer.
 
 ## What to do next
 
-File a label with a flow from **Add hashtags** on a conversation in [Communication](/docs/inbox/communication); see [Labels and tickets](/docs/ai/categories).
+File a label with a flow from **Add labels** on a conversation in [Communication](/docs/inbox/communication); see [Labels and tickets](/docs/ai/categories).

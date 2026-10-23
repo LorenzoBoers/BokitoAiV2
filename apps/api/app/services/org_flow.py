@@ -323,7 +323,10 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
             autonomous_pct=card.get("autonomous_pct") if card else None,
         )
         # A flow sits in the lane of its department; All's flows run in the free lane.
-        nodes[f"flow:{flow.id}"]["zones"] = [str(flow.department_id)] if flow.department_id in departments else []
+        dept_id = (
+            flow_tag.department_id if flow_tag is not None and flow_tag.department_id else flow.department_id
+        )
+        nodes[f"flow:{flow.id}"]["zones"] = [str(dept_id)] if dept_id in departments else []
 
     tag_ids = {s.ticket_tag_id for s in signals if s.ticket_tag_id}
     links = (
@@ -624,6 +627,10 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
             for i in await works_in_items(session, tenant_id, folder.id)
         ]
         subfolders = [f for fid, f in all_folders.items() if fid != folder.id and root_of[fid] == folder.id]
+        if folder.department_id:
+            node["works_in_href"] = (
+                f"/departments/{folder.department_id}?folder={folder.id}#works-in-add"
+            )
         node["children_count"] = len(subfolders)
         node["children"] = len(subfolders)
         node["subtitle"] = ""

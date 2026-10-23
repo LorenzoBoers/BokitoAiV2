@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { CanvasNotice } from '../../components/project-canvas/sdk'
 import {
+  AreaChart,
   Badge,
   BarChart,
   Callout,
@@ -20,6 +22,19 @@ import { asNumber, asString, asStringList, type CanvasNode } from './types'
 
 function prop(node: CanvasNode, key: string): unknown {
   return node.props?.[key]
+}
+
+function sourceLine(raw: unknown): string {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const rec = raw as Record<string, unknown>
+    return [asString(rec.tool), asString(rec.as_of)].filter((part) => part.length > 0).join(' · ')
+  }
+  return asString(raw)
+}
+
+function parseNumbers(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((item) => asNumber(item, Number.NaN)).filter((item) => Number.isFinite(item))
 }
 
 function parseSlices(raw: unknown): { name: string; value: number }[] {
@@ -126,7 +141,13 @@ export function renderCanvasTree(node: CanvasNode | null | undefined): ReactNode
         value={asString(prop(node, 'value'))}
         unit={asString(prop(node, 'unit'))}
         hint={asString(prop(node, 'hint'))}
-        source={asString(prop(node, 'source'))}
+        source={sourceLine(prop(node, 'source'))}
+        delta={asString(prop(node, 'delta'))}
+        trend={asString(prop(node, 'trend'))}
+        status={asString(prop(node, 'status'))}
+        target={asString(prop(node, 'target'))}
+        spark={parseNumbers(prop(node, 'spark'))}
+        tile={prop(node, 'tile') === true}
       />
     )
   }
@@ -137,18 +158,19 @@ export function renderCanvasTree(node: CanvasNode | null | undefined): ReactNode
       .map((row) => (Array.isArray(row) ? row.map((cell) => String(cell ?? '')) : []))
       .filter((row) => row.some((cell) => cell.length > 0))
     return (
-      <Table title={asString(prop(node, 'title'))} columns={columns} rows={rows} source={asString(prop(node, 'source'))} />
+      <Table title={asString(prop(node, 'title'))} columns={columns} rows={rows} source={sourceLine(prop(node, 'source'))} />
     )
   }
-  if (type === 'BarChart' || type === 'LineChart') {
-    const Chart = type === 'LineChart' ? LineChart : BarChart
+  if (type === 'BarChart' || type === 'LineChart' || type === 'AreaChart') {
+    const Chart = type === 'LineChart' ? LineChart : type === 'AreaChart' ? AreaChart : BarChart
     return (
       <Chart
         title={asString(prop(node, 'title'))}
         xLabel={asString(prop(node, 'xLabel') || prop(node, 'x_label'))}
         yLabel={asString(prop(node, 'yLabel') || prop(node, 'y_label'))}
-        source={asString(prop(node, 'source'))}
+        source={sourceLine(prop(node, 'source'))}
         series={parseSeries(prop(node, 'series'))}
+        stacked={prop(node, 'stacked') === true}
       />
     )
   }
@@ -156,10 +178,15 @@ export function renderCanvasTree(node: CanvasNode | null | undefined): ReactNode
     return (
       <PieChart
         title={asString(prop(node, 'title'))}
-        source={asString(prop(node, 'source'))}
+        source={sourceLine(prop(node, 'source'))}
         slices={parseSlices(prop(node, 'slices') ?? prop(node, 'series'))}
       />
     )
   }
-  return children.length ? <>{children}</> : null
+  return (
+    <>
+      <CanvasNotice k="unknown" />
+      {children}
+    </>
+  )
 }

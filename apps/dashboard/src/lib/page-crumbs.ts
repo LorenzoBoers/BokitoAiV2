@@ -9,6 +9,7 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/agents/knowledge')) return [{ labelKey: 'tabs.knowledge.title' }]
   if (pathname.startsWith('/workforce/grid')) return [{ labelKey: 'tabs.grid.title' }]
   if (pathname.startsWith('/workforce/workflow')) return [{ labelKey: 'tabs.workflow.title' }]
+  if (pathname.startsWith('/workforce/organogram')) return [{ labelKey: 'tabs.organogram.title' }]
   if (pathname.startsWith('/contacts/companies/')) return [{ labelKey: 'crumbs.company' }]
   if (/^\/contacts\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.person' }]
   if (/^\/agents\/[^/]+/.test(pathname)) return [{ labelKey: 'crumbs.agent' }]

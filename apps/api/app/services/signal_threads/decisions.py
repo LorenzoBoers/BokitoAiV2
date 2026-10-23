@@ -145,25 +145,31 @@ async def resolve_message_decision(
                 await session.get(SignalTag, thread.ticket_tag_id) if thread and thread.ticket_tag_id else None
             )
             category = (flow_label.name if flow_label else "") or "general"
-            session.add(
-                Feedback(
-                    tenant_id=tenant_id,
-                    subject_type="draft_edit",
-                    subject_id=str(message.decision_id),
-                    user_id=user_id,
-                    comment=body[:2000],
-                    correction_key=f"reply:{category}"[:160],
-                    metadata_json=json.dumps(
-                        {
-                            "original": original[:2000],
-                            "sent": body[:2000],
-                            "customer": (inbound or "")[:2000],
-                            "category": category,
-                            "signal_id": str(signal_id),
-                        }
-                    ),
-                )
+            feedback = Feedback(
+                tenant_id=tenant_id,
+                subject_type="draft_edit",
+                subject_id=str(message.decision_id),
+                user_id=user_id,
+                comment=body[:2000],
+                correction_key=f"reply:{category}"[:160],
+                metadata_json=json.dumps(
+                    {
+                        "original": original[:2000],
+                        "sent": body[:2000],
+                        "customer": (inbound or "")[:2000],
+                        "category": category,
+                        "signal_id": str(signal_id),
+                    }
+                ),
             )
+            session.add(feedback)
+            try:
+                from app.services.knowledge_lessons import propose_lesson_from_correction
+
+                async with session.begin_nested():
+                    await propose_lesson_from_correction(session, feedback)
+            except Exception:
+                logger.exception("lesson from draft edit skipped")
             from app.services.deliveries import TARGET_KNOWLEDGE, record_delivery
 
             await record_delivery(
@@ -539,7 +545,7 @@ async def resolve_decision_bundle(
                 user_id=user_id,
                 option_id=option_id,
             )
-        except HTTPException as exc:
+        except (HTTPException, AppError) as exc:
             # The resolver already reopened the card and committed.
             failed_labels.append(label)
             results.append({"decision_id": did, "status": "awaiting_human", "error": str(exc.detail)})
@@ -776,7 +782,7 @@ def _decision_confirm_text(
     name = str(payload.get("name") or payload.get("tag") or "").strip().lstrip("#")
     if action in ("rejected", "reject"):
         if name:
-            return f"Oké, #{name} blijft staan."
+            return f"Oké, {name} blijft staan."
         return "Oké."
     # Leftover wrap-up cards: never echo English button labels like "Keep going".
     if action_type == "session_checkout" or payload.get("session_checkout"):
@@ -785,7 +791,7 @@ def _decision_confirm_text(
             return "Oké, we gaan door."
         return "Sessie afgerond."
     if action_type == "delete_tag" and name:
-        return f"#{name} is verwijderd."
+        return f"{name} is verwijderd."
     if option_labels:
         return f"Gedaan: {option_labels[0]}."
     return "Gedaan."

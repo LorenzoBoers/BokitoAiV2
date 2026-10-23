@@ -1,7 +1,9 @@
 /**
- * Soft chime for live notices — same two-tone shape as the chat widget
- * ``incoming`` sound (Web Audio, no asset file).
+ * Live notices play ``/sounds/notification.mp3``. Dictation blips stay
+ * short Web Audio tones.
  */
+
+const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3'
 
 const SOUND_PREF_KEY = 'bokito-notification-sound'
 
@@ -57,6 +59,19 @@ export function setNotificationSoundEnabled(enabled: boolean): void {
   }
 }
 
+function primeNotificationClip(): void {
+  if (typeof Audio === 'undefined') return
+  const audio = new Audio(NOTIFICATION_SOUND_URL)
+  audio.muted = true
+  void audio.play().then(() => {
+    audio.pause()
+    audio.currentTime = 0
+    audio.muted = false
+  }).catch(() => {
+    // The next real notice retries after this gesture.
+  })
+}
+
 /** Call once from the shell so the first notice is not blocked by autoplay policy. */
 export function unlockNotificationAudio(): void {
   if (typeof window === 'undefined' || unlockBound) return
@@ -65,6 +80,7 @@ export function unlockNotificationAudio(): void {
     try {
       const ctx = ensureContext()
       if (ctx?.state === 'suspended') void ctx.resume()
+      primeNotificationClip()
     } catch {
       // ignore
     }
@@ -73,28 +89,6 @@ export function unlockNotificationAudio(): void {
   }
   window.addEventListener('pointerdown', unlock, { once: true })
   window.addEventListener('keydown', unlock, { once: true })
-}
-
-function tone(
-  ctx: AudioContext,
-  freq: number,
-  duration: number,
-  gain = 0.15,
-  delay = 0,
-  type: OscillatorType = 'sine',
-) {
-  const osc = ctx.createOscillator()
-  const vol = ctx.createGain()
-  osc.connect(vol)
-  vol.connect(ctx.destination)
-  osc.type = type
-  const t0 = ctx.currentTime + delay
-  osc.frequency.setValueAtTime(freq, t0)
-  vol.gain.setValueAtTime(0, t0)
-  vol.gain.linearRampToValueAtTime(gain, t0 + 0.01)
-  vol.gain.exponentialRampToValueAtTime(0.0001, t0 + duration)
-  osc.start(t0)
-  osc.stop(t0 + duration + 0.01)
 }
 
 /**
@@ -150,15 +144,13 @@ export async function playDictationStopSound(): Promise<void> {
 
 /** Play when a conversation notice arrives while the dashboard is open. */
 export async function playIncomingNotificationSound(opts?: { force?: boolean }): Promise<void> {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return
   if (!opts?.force && !isNotificationSoundEnabled()) return
   try {
-    const ctx = ensureContext()
-    if (!ctx) return
-    if (ctx.state === 'suspended') await ctx.resume()
-    // Match chat-widget ``incoming``: C5 then E5.
-    tone(ctx, 523, 0.12, 0.18)
-    tone(ctx, 659, 0.22, 0.14, 0.11)
+    const audio = new Audio(NOTIFICATION_SOUND_URL)
+    audio.preload = 'auto'
+    await audio.play()
   } catch {
-    // Autoplay or missing Web Audio — ignore.
+    // Autoplay blocked — ignore.
   }
 }

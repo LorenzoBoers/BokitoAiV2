@@ -125,6 +125,8 @@ type Props = {
    * 'page': static full-height card (New conversation page).
    */
   variant?: 'thread' | 'page'
+  /** Fill the parent (floating window that has become the mail composer). */
+  fill?: boolean
   saving: boolean
   onSend: (payload: MailSendPayload) => Promise<void>
   onCancel: () => void
@@ -352,6 +354,7 @@ export default function MailComposer({
   preferSeedBody = false,
   restoreDraft = true,
   variant = 'thread',
+  fill = false,
   saving,
   onSend,
   onCancel,
@@ -402,7 +405,7 @@ export default function MailComposer({
   // Thread variant mounts collapsed at composer height, then grows — the
   // standard composer visually transforms into the mail surface. The page
   // variant renders at full height right away.
-  const [expanded, setExpanded] = useState(variant === 'page')
+  const [expanded, setExpanded] = useState(variant === 'page' || fill)
   const [fullscreen, setFullscreen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -851,9 +854,11 @@ export default function MailComposer({
       className={
         fullscreen
           ? 'fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4'
-          : variant === 'thread'
-            ? 'relative shrink-0 bg-bg px-4 pb-4 pt-1'
-            : undefined
+          : fill
+            ? 'relative flex min-h-0 flex-1 flex-col'
+            : variant === 'thread'
+              ? 'relative shrink-0 bg-bg px-4 pb-4 pt-1'
+              : undefined
       }
       onMouseDown={
         fullscreen
@@ -863,7 +868,7 @@ export default function MailComposer({
           : undefined
       }
     >
-      {variant === 'thread' && !fullscreen ? (
+      {variant === 'thread' && !fullscreen && !fill ? (
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-full z-10 h-12 bg-gradient-to-t from-bg from-20% to-transparent"
@@ -871,11 +876,18 @@ export default function MailComposer({
       ) : null}
       <div
         className={cn(
-          !fullscreen && variant === 'thread' && CHAT_COLUMN_CLASS,
+          !fullscreen && !fill && variant === 'thread' && CHAT_COLUMN_CLASS,
           'overflow-hidden transition-[height] duration-300 ease-out',
+          fill && !fullscreen && 'min-h-0 flex-1',
           fullscreen && 'w-full max-w-3xl',
         )}
-        style={fullscreen ? { height: 'min(92vh, 900px)' } : { height: expanded ? 'min(62vh, 640px)' : '148px' }}
+        style={
+          fullscreen
+            ? { height: 'min(92vh, 900px)' }
+            : fill
+              ? { height: '100%' }
+              : { height: expanded ? 'min(62vh, 640px)' : '148px' }
+        }
         onKeyDown={onKeyDown}
         onDragOver={(event) => {
           if (event.dataTransfer?.types?.includes('Files')) event.preventDefault()

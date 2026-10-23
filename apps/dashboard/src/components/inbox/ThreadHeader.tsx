@@ -60,7 +60,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import { Tooltip, TooltipContent, TooltipLabel, TooltipTrigger } from '../ui/tooltip'
 import AssigneeSelector from './AssigneeSelector'
 import AiHandlingPicker from '../ai/AiHandlingPicker'
 import { AI_HANDLING_CHANNELS, type AiHandlingMode } from '../../lib/ai-handling'
@@ -392,9 +392,11 @@ export default function ThreadHeader({
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {thread.status === 'closed' || thread.status === 'pending'
-              ? t('threadChrome.reopen')
-              : t('threadChrome.close')}
+            {thread.status === 'closed' || thread.status === 'pending' ? (
+              t('threadChrome.reopen')
+            ) : (
+              <TooltipLabel detail="E">{t('threadChrome.close')}</TooltipLabel>
+            )}
           </TooltipContent>
         </Tooltip>
         <DropdownMenu>

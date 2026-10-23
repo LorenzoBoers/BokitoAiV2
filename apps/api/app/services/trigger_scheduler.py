@@ -36,6 +36,12 @@ async def trigger_scheduler_loop() -> None:
         error: str | None = None
         try:
             async with async_session_factory() as session:
+                from app.services.ambient import process_ambient_wakes
+
+                wakes = await process_ambient_wakes(session)
+                if wakes:
+                    logger.info("Ambient wake for %s agent(s)", wakes)
+
                 count = await process_due_triggers(session)
                 if count:
                     logger.info("Trigger scheduler fired %s trigger(s)", count)

@@ -3,6 +3,8 @@ import { withQuery } from '../url'
 /** Workstream hub routes on the app API group base (`/api/flows`). */
 export const workstreamsRoutes = {
   list: '/flows',
+  schemaParse: '/flows/schema/parse',
+  schemaRender: '/flows/schema/render',
   listQuery: (params: URLSearchParams) => withQuery('/flows', params),
   byId: (workstreamId: string) => `/flows/${encodeURIComponent(workstreamId)}`,
   runs: (workstreamId: string) => `/flows/${encodeURIComponent(workstreamId)}/runs`,

@@ -251,6 +251,24 @@ async def explain_thread(session: AsyncSession, tenant: Tenant, signal_id: UUID)
             lines.extend(_line("knowledge_doc", ref["href"], title=ref["title"]) for ref in knowledge)
         else:
             lines.append(_line("knowledge_none", "/knowledge"))
+        for ref in _meta(last).get("knowledge_refs") or []:
+            if isinstance(ref, dict) and ref.get("unconfirmed") == "1":
+                lines.append(
+                    _line(
+                        "lesson_used",
+                        f"/knowledge?section={ref.get('section_id') or ''}",
+                        title=ref.get("title") or "",
+                    )
+                )
+        for item in _meta(last).get("activity") or []:
+            if isinstance(item, dict) and item.get("tool") == "knowledge_lesson":
+                lines.append(
+                    _line(
+                        "lesson_recorded",
+                        f"/knowledge?section={item.get('section_id') or ''}",
+                        title=str(item.get("label") or ""),
+                    )
+                )
     folder = placement["folder"]
     if folder:
         if folder.get("origin"):

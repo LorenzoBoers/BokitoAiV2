@@ -19,10 +19,12 @@ import {
   bokitoGetCockpitSummary,
   bokitoGetUsageBreakdown,
   type CockpitImprovement,
+  type TimeSavedAction,
   type UsageBreakdown,
 } from '../../lib/bokito-api'
 import { bulkUpdateSignalThreads } from '../../lib/signals-api'
 import { Button } from '../ui/button'
+import { Chart } from '../ui'
 import { RecurringWakeBanner } from './RecurringWakeBanner'
 import { formatAppUsdCents } from '../../lib/app-number'
 import { formatAppTime } from '../../lib/app-locale'
@@ -48,6 +50,7 @@ type OverviewData = {
   jobs: WorkLogRow[]
   govern: PlatformChangeRow[]
   usage: UsageBreakdown | null
+  timeSaved: TimeSavedAction[]
   agenda: TimeItem[]
 }
 
@@ -60,6 +63,7 @@ const EMPTY: OverviewData = {
   jobs: [],
   govern: [],
   usage: null,
+  timeSaved: [],
   agenda: [],
 }
 
@@ -186,6 +190,7 @@ export default function OverviewFourBlocks() {
       jobs: value(3, [] as WorkLogRow[]),
       govern: value(4, [] as PlatformChangeRow[]),
       usage: value(5, null as UsageBreakdown | null),
+      timeSaved: summary?.time_saved_breakdown ?? [],
       quiet: (value(6, null as Awaited<ReturnType<typeof bokitoGetCockpitSummary>> | null)?.quiet_threads ?? [])
         .slice(0, 5)
         .map((row) => ({
@@ -259,6 +264,53 @@ export default function OverviewFourBlocks() {
   }, [data.categories, data.playbookRuns])
 
   const proposedCount = data.categories.reduce((total, row) => total + row.proposed, 0)
+
+  const openTicketChart = useMemo(() => {
+    const rows = openCategories.slice(0, 6)
+    const point = (row: CategoryRow, value: number) => ({ x: row.name.replace(/^#/, ''), y: value })
+    return {
+      open: rows.map((row) => point(row, row.open)),
+      waiting: rows.map((row) => point(row, row.waiting)),
+    }
+  }, [openCategories])
+
+  const weekChart = useMemo(
+    () => ({
+      current: [
+        { x: copy('chartFiled'), y: trajectory.filed[0] },
+        { x: copy('chartFinished'), y: trajectory.completed[0] },
+      ],
+      previous: [
+        { x: copy('chartFiled'), y: trajectory.filed[1] },
+        { x: copy('chartFinished'), y: trajectory.completed[1] },
+      ],
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trajectory, i18n.language],
+  )
+
+  const agentChart = useMemo(
+    () =>
+      (data.usage?.by_agent ?? [])
+        .filter((row) => row.tokens > 0)
+        .sort((a, b) => b.tokens - a.tokens)
+        .slice(0, 6)
+        .map((row) => ({ x: row.agent_name || copy('chartUnknownAgent'), y: row.tokens })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data.usage, i18n.language],
+  )
+
+  const savedChart = useMemo(
+    () =>
+      data.timeSaved
+        .filter((row) => row.minutes > 0 && row.action !== 'manual_reply')
+        .sort((a, b) => b.minutes - a.minutes)
+        .map((row) => ({
+          x: t(`ops.timeSaved.actions.${row.action}`, { defaultValue: row.action }),
+          y: row.minutes,
+        })),
+    [data.timeSaved, t],
+  )
 
   const trajectoryRows = [
     { label: copy('filedTickets'), values: trajectory.filed, to: '/settings/labels' },
@@ -355,6 +407,58 @@ export default function OverviewFourBlocks() {
 
       <AiHandlingMetricsBlock />
 
+      <p className="px-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">{copy('charts')}</p>
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <Block title={copy('chartOpenTitle')} hint={copy('chartOpenHint')} index={2}>
+          <Chart
+            kind="bar"
+            stack
+            height={168}
+            ariaLabel={copy('chartOpenTitle')}
+            emptyLabel={copy('emptySignals')}
+            series={
+              openTicketChart.open.length
+                ? [
+                    { name: copy('open'), points: openTicketChart.open },
+                    { name: copy('waiting'), points: openTicketChart.waiting },
+                  ]
+                : []
+            }
+          />
+        </Block>
+        <Block title={copy('chartWeekTitle')} hint={copy('chartWeekHint')} index={3}>
+          <Chart
+            kind="bar"
+            height={168}
+            ariaLabel={copy('chartWeekTitle')}
+            series={[
+              { name: copy('chartThisWeek'), points: weekChart.current },
+              { name: copy('chartLastWeek'), points: weekChart.previous },
+            ]}
+          />
+        </Block>
+        <Block title={copy('chartAgentsTitle')} hint={copy('chartAgentsHint')} index={4}>
+          <Chart
+            kind="bar"
+            tone="ai"
+            height={168}
+            ariaLabel={copy('chartAgentsTitle')}
+            emptyLabel={copy('chartAgentsEmpty')}
+            series={agentChart.length ? [{ name: copy('chartTokens'), points: agentChart }] : []}
+          />
+        </Block>
+        <Block title={copy('chartSavedTitle')} hint={copy('chartSavedHint')} index={5}>
+          <Chart
+            kind="bar"
+            tone="ai"
+            height={168}
+            ariaLabel={copy('chartSavedTitle')}
+            emptyLabel={copy('chartSavedEmpty')}
+            series={savedChart.length ? [{ name: copy('chartMinutes'), points: savedChart }] : []}
+          />
+        </Block>
+      </div>
+
       {data.improvements.length > 0 ? (
         <Block title={copy('improved')} hint={copy('improvedHint')} index={1}>
           {data.improvements.map((row) => (
@@ -384,7 +488,7 @@ export default function OverviewFourBlocks() {
           {openCategories.length === 0 ? <EmptyRow>{copy('emptySignals')}</EmptyRow> : openCategories.map((row) => (
             <Metric
               key={row.id}
-              label={`#${row.name}`}
+              label={row.name.replace(/^#/, '')}
               value={String(row.open + row.waiting)}
               detail={`${copy('open')} ${row.open} · ${copy('waiting')} ${row.waiting}`}
               to={withNavReveal(tagPath(row.name, 'open'))}

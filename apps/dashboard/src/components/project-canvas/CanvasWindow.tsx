@@ -124,7 +124,7 @@ function useDownloads(canvas: ProjectCanvas | null): DownloadOption[] {
       ]
     }
     default:
-      return [file('jsx', source)]
+      return source ? [file('jsx', source)] : []
   }
 }
 

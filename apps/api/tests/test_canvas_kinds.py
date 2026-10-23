@@ -194,11 +194,16 @@ async def test_google_sheet_export_creates_a_spreadsheet():
 
 
 def test_diagram_and_code_are_stored_without_the_jsx_compiler():
+    from app.services.canvas_content import edit_body_hint
+
     diagram, _ = prepare_content("diagram", "flowchart TD\n  A-->B", language=None, tenant_id="T")
     assert diagram.startswith("flowchart")
     code, lang = prepare_content("code", "select 1\n", language="sql", tenant_id="T")
     assert lang == "sql"
     assert "select 1" in code
+    assert "Mermaid" in edit_body_hint("diagram")
+    assert "blocks" in edit_body_hint("dashboard")
+    assert "markdown" in edit_body_hint("document")
 
 
 @pytest.mark.asyncio

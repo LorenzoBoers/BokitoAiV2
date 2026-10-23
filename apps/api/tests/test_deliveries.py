@@ -204,11 +204,11 @@ async def test_unknown_target_or_signal_is_ignored(session_override):
     assert await deliveries.record_delivery(session_override, tenant.id, signal.id, target_kind="nope") is None
 
 
-async def _flow_ticket(session, tenant, folder, *, key=""):
+async def _flow_ticket(session, tenant, folder):
     from app.models.orchestra import Workstream
     from app.models.signal import SignalTag
 
-    flow = Workstream(tenant_id=tenant.id, name="VAT filing", deliver_folder_id=folder.id, deliver_works_in_key=key)
+    flow = Workstream(tenant_id=tenant.id, name="VAT filing")
     session.add(flow)
     await session.flush()
     action = SignalTag(tenant_id=tenant.id, name=f"vat-{uuid4().hex[:4]}", workstream_id=flow.id)
@@ -221,24 +221,14 @@ async def _flow_ticket(session, tenant, folder, *, key=""):
 
 
 @pytest.mark.asyncio
-async def test_done_stage_delivers_to_flow_destination(session_override):
+async def test_done_stage_does_not_write_a_flow_delivery(session_override):
     from app.services.tickets import move_ticket_stage
 
     tenant, folder, _signal = await _setup(session_override)
-    item = (await works_in.add_item(session_override, tenant.id, folder.id, kind="canvas", title="Cijfers")).get("item") or {}
-    flow, signal = await _flow_ticket(session_override, tenant, folder, key=item["key"])
+    flow, signal = await _flow_ticket(session_override, tenant, folder)
     assert await move_ticket_stage(session_override, signal, status="done", ws=flow)
     await session_override.commit()
-    (event,) = await _events(session_override, signal.id)
-    assert event["target_kind"] == "works_in"
-    assert event["flow_id"] == str(flow.id)
-    assert event["item_label"] == "Cijfers"
-
-    from app.services.workstreams import serialize_workstream_full
-
-    body = await serialize_workstream_full(session_override, flow)
-    assert body["deliver_to"]["folder_name"] == "Klant A"
-    assert body["deliver_to"]["item_label"] == "Cijfers"
+    assert await _events(session_override, signal.id) == []
 
 
 @pytest.mark.asyncio
@@ -274,7 +264,7 @@ async def test_label_scorecard_from_outcomes(session_override):
 
 
 @pytest.mark.asyncio
-async def test_done_stage_skips_when_already_delivered(session_override):
+async def test_done_stage_keeps_a_delivery_the_agent_wrote(session_override):
     from app.services.tickets import move_ticket_stage
 
     tenant, folder, _signal = await _setup(session_override)
@@ -288,35 +278,3 @@ async def test_done_stage_skips_when_already_delivered(session_override):
     await session_override.commit()
     events = await _events(session_override, signal.id)
     assert sorted(e["ref"] for e in events) == ["m1", "pr-1"]
-
-
-@pytest.mark.asyncio
-async def test_patch_flow_validates_destination(client, session_override):
-    from scripts.seed import TEST_EMAIL, TEST_PASSWORD
-
-    login = await client.post("/api/auth/login", json={"email": TEST_EMAIL, "password": TEST_PASSWORD})
-    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
-    folder = await client.post("/api/folders", headers=headers, json={"name": "Administratie", "slug": "adm", "tags": ["adm"]})
-    folder_id = folder.json()["id"]
-    created = await client.post("/api/labels", headers=headers, json={"name": "vat"})
-    ws_id = created.json()["workstream_id"]
-
-    bad_key = await client.patch(
-        f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": folder_id, "deliver_works_in_key": "canvas:nope"}
-    )
-    assert bad_key.status_code == 422
-    bad_folder = await client.patch(
-        f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": str(uuid4())}
-    )
-    assert bad_folder.status_code == 422
-
-    ok = await client.patch(
-        f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": folder_id, "deliver_works_in_key": "board"}
-    )
-    assert ok.status_code == 200, ok.text
-    assert ok.json()["deliver_to"]["folder_name"] == "Administratie"
-    assert ok.json()["deliver_to"]["works_in_key"] == "board"
-
-    cleared = await client.patch(f"/api/flows/{ws_id}", headers=headers, json={"deliver_folder_id": None})
-    assert cleared.json()["deliver_to"] is None
-    assert cleared.json()["deliver_works_in_key"] == ""

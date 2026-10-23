@@ -167,6 +167,7 @@ export default function ShellSidebar({ collapsed, onToggleCollapsed, onNavigate 
             onClick={() => onNavigate?.()}
             icon={SquarePen}
             label={t('tabs.newChat.title', { defaultValue: 'New chat' })}
+            tipDetail="N"
             iconOnly={collapsed}
             active={pathname === '/new' || pathname.startsWith('/communication/new')}
             className="nav-row-accent"

@@ -121,6 +121,7 @@ team:
     - /workforce
     - /workforce/grid
     - /workforce/workflow
+    - /workforce/organogram
     - /departments/:id
     - /workforce/departments/:id
     - /settings/members
@@ -132,6 +133,9 @@ team:
     - apps/api/app/services/awareness.py
     - apps/dashboard/src/pages/OrgCanvasPage.tsx
     - apps/dashboard/src/pages/WorkflowPage.tsx
+    - apps/dashboard/src/pages/OrganogramPage.tsx
+    - apps/dashboard/src/components/workforce/DepartmentOrganogram.tsx
+    - apps/dashboard/src/lib/department-tree.ts
     - apps/dashboard/src/components/org/**
     - apps/dashboard/src/lib/org-flow-api.ts
     - apps/dashboard/src/lib/org-flow-layout.ts
@@ -370,12 +374,14 @@ folders:
     - apps/api/app/services/module_department.py
     - apps/api/app/services/project_canvas.py
     - apps/api/app/services/project_canvas_compile.py
+    - apps/api/app/services/canvas_blocks.py
+    - apps/api/app/services/canvas_skills.py
     - apps/api/app/routers/projects.py
     - apps/api/app/models/project.py
     - apps/api/app/models/project_canvas.py
   screenshots:
     - project
-    - boards
+    # The flow board moved to the department folder tab. Recapture when Playwright can log in:
     # Recapture create/nest when Playwright can log in (BOKITO_DOCS_ONLY=folders):
     # - create
     # - nest

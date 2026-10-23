@@ -79,6 +79,7 @@ const CompanyConfig = lazy(() => import('./pages/CompanyConfig'))
 const TeamPage = lazy(() => import('./pages/TeamPage'))
 const OrgCanvasPage = lazy(() => import('./pages/OrgCanvasPage'))
 const WorkflowPage = lazy(() => import('./pages/WorkflowPage'))
+const OrganogramPage = lazy(() => import('./pages/OrganogramPage'))
 const DepartmentPage = lazy(() => import('./pages/DepartmentPage'))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
@@ -473,6 +474,7 @@ export default function App() {
             <Route path="/workforce" element={<TeamPage />} />
             <Route path="/workforce/grid" element={<OrgCanvasPage />} />
             <Route path="/workforce/workflow" element={<WorkflowPage />} />
+            <Route path="/workforce/organogram" element={<OrganogramPage />} />
           </Route>
           <Route
             path="/workforce/departments/:id"

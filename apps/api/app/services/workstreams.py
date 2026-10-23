@@ -11,12 +11,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.agent import AgentRun
 from app.models.orchestra import (
     WORKSTREAM_INPUT_KINDS,
@@ -58,9 +57,11 @@ def serialize_workstream(
     tags: list[dict[str, str]] | None = None,
     steps_count: int | None = None,  # deprecated alias ignored
 ) -> dict[str, Any]:
+    from app.services.flow_schema import display_nodes, graph_for
     from app.services.tickets import workstream_stages
 
     stages = workstream_stages(ws)
+    schema = graph_for(getattr(ws, "flow_source", "") or "", stages)
     tag_rows = tags or []
     # ``name`` is the operator title; ``tags[0]`` is the action-tag label beside it.
     # Fall back to the tag only when the stored title is empty (legacy rows).
@@ -77,10 +78,14 @@ def serialize_workstream(
         # Own setting only; "" / null follow the workspace ticket policy.
         "stage_entry_policy": ws.stage_entry_policy or "",
         "stage_entry_threshold": ws.stage_entry_threshold,
-        "deliver_folder_id": str(ws.deliver_folder_id) if ws.deliver_folder_id else None,
-        "deliver_works_in_key": ws.deliver_works_in_key or "",
         **recipe_of(ws),
         "stages": stages,
+        "flow_source": schema["source"],
+        "flow_graph": {
+            "nodes": display_nodes(schema),
+            "edges": schema["edges"],
+            "errors": schema["errors"],
+        },
         "stages_count": stages_count if stages_count is not None else len(stages),
         "tags": tag_rows,
         "created_at": _iso(ws.created_at),
@@ -89,7 +94,7 @@ def serialize_workstream(
     return out
 
 
-RECIPE_FIELDS = ("instructions", "capabilities", "expected_outcome", "direct")
+RECIPE_FIELDS = ("instructions", "capabilities", "expected_outcome")
 CONNECTION_CAPABILITY = "connection:"
 MAX_INSTRUCTIONS = 4000
 MAX_CAPABILITIES = 40
@@ -130,7 +135,7 @@ async def apply_recipe(session: AsyncSession, ws: Workstream, patch: dict[str, A
     if patch.get("capabilities") is not None:
         raw = patch["capabilities"]
         if not isinstance(raw, list):
-            raise HTTPException(status_code=422, detail="capabilities must be a list")
+            raise status_error(status_code=422, detail="capabilities must be a list")
         caps: list[str] = []
         for item in raw[:MAX_CAPABILITIES]:
             cap = str(item or "").strip()
@@ -140,26 +145,14 @@ async def apply_recipe(session: AsyncSession, ws: Workstream, patch: dict[str, A
                 try:
                     conn_id = UUID(cap[len(CONNECTION_CAPABILITY):])
                 except ValueError:
-                    raise HTTPException(status_code=422, detail=f"Unknown connection {cap}") from None
+                    raise status_error(status_code=422, detail=f"Unknown connection {cap}") from None
                 conn = await session.get(IntegrationConnection, conn_id)
                 if conn is None or conn.tenant_id != ws.tenant_id:
-                    raise HTTPException(status_code=422, detail=f"Unknown connection {cap}")
+                    raise status_error(status_code=422, detail=f"Unknown connection {cap}")
             elif get_tool_spec(cap) is None:
-                raise HTTPException(status_code=422, detail=f"Unknown tool {cap}")
+                raise status_error(status_code=422, detail=f"Unknown tool {cap}")
             caps.append(cap)
         ws.capabilities_json = json.dumps(caps)
-    if patch.get("direct") is not None and bool(patch["direct"]) != before["direct"]:
-        from app.models.auth import Tenant
-        from app.services.tickets import (
-            direct_stages_json,
-            staged_json,
-            workspace_language,
-            workstream_stages,
-        )
-
-        language = workspace_language(await session.get(Tenant, ws.tenant_id))
-        stages = workstream_stages(ws)
-        ws.stages_json = direct_stages_json(stages, language) if patch["direct"] else staged_json(stages, language)
     return recipe_of(ws) != before
 
 
@@ -179,7 +172,7 @@ async def set_flow_autonomy(
 
     value = (value or "").strip().lower()
     if value not in FLOW_AUTONOMY:
-        raise HTTPException(status_code=422, detail="autonomy must be manual, assisted, autonomous or empty")
+        raise status_error(status_code=422, detail="autonomy must be manual, assisted, autonomous or empty")
     before = ws.autonomy or ""
     base = workspace_mode(tenant)
     target = value or base
@@ -235,7 +228,7 @@ async def recipe_block(session: AsyncSession, signal: Any) -> str:
     recipe = recipe_of(ws)
     if not (recipe["instructions"] or recipe["capabilities"] or recipe["expected_outcome"] or recipe["direct"]):
         return ""
-    lines = [f"## Approach: flow {ws.name or tag.name} (#{tag.name})"]
+    lines = [f"## Approach: flow {ws.name or tag.name} ({tag.name})"]
     if tag.description:
         lines.append(f"Handles: {tag.description}")
     if recipe["direct"]:
@@ -276,7 +269,7 @@ async def apply_stage_entry(
     before = {"stage_entry_policy": ws.stage_entry_policy or "", "stage_entry_threshold": ws.stage_entry_threshold}
     if policy is not None:
         if policy and policy not in ENTRY_POLICIES:
-            raise HTTPException(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
+            raise status_error(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
         ws.stage_entry_policy = policy
     if threshold is not None:
         if threshold != -1 and not 0 <= threshold <= 10:
@@ -309,7 +302,14 @@ async def playbook_tags_map(
     from app.models.signal import SignalTag
 
     rows = await session.execute(
-        select(SignalTag.workstream_id, SignalTag.id, SignalTag.name, SignalTag.color, SignalTag.icon)
+        select(
+            SignalTag.workstream_id,
+            SignalTag.id,
+            SignalTag.name,
+            SignalTag.color,
+            SignalTag.icon,
+            SignalTag.department_id,
+        )
         .where(
             SignalTag.tenant_id == tenant_id,
             SignalTag.workstream_id.in_(workstream_ids),
@@ -319,7 +319,7 @@ async def playbook_tags_map(
     out: dict[UUID, list[dict[str, str]]] = {}
     from app.services.signal_tags import flow_label_color, flow_label_icon
 
-    for ws_id, tag_id, name, color, icon in rows.all():
+    for ws_id, tag_id, name, color, icon, department_id in rows.all():
         if ws_id is None:
             continue
         out.setdefault(ws_id, []).append(
@@ -328,6 +328,7 @@ async def playbook_tags_map(
                 "name": name,
                 "color": flow_label_color(color),
                 "icon": flow_label_icon(icon),
+                "department_id": str(department_id) if department_id else "",
             }
         )
     return out
@@ -420,18 +421,14 @@ async def flow_folder_map(
 async def serialize_workstream_full(
     session: AsyncSession, ws: Workstream, *, stages_count: int | None = None
 ) -> dict[str, Any]:
-    from app.services.deliveries import flow_destination
-
     projects = await flow_folder_map(session, ws.tenant_id, [ws.id])
     tags = await playbook_tags_map(session, ws.tenant_id, [ws.id])
-    out = serialize_workstream(
+    return serialize_workstream(
         ws,
         stages_count=stages_count,
         project_ids=projects.get(ws.id, []),
         tags=tags.get(ws.id, []),
     )
-    out["deliver_to"] = await flow_destination(session, ws)
-    return out
 
 
 async def get_workstream(
@@ -567,7 +564,7 @@ async def replace_steps(
     workstream_id: UUID,
     steps: list[dict[str, Any]],
 ) -> list[WorkstreamStep]:
-    raise HTTPException(status_code=410, detail="Workstream steps are retired; use stages.")
+    raise status_error(status_code=410, detail="Workstream steps are retired; use stages.")
 
 
 async def delete_workstream(
@@ -633,7 +630,7 @@ async def install_template(
         raise NotFoundError("Unknown workstream template")
     problems = await check_template_requirements(session, tenant_id, template)
     if problems:
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Template requirements not met: " + " ".join(problems),
         )
@@ -655,7 +652,7 @@ async def install_template(
 # Run engine (retired — stages live on Signal; attribution on AgentRun)
 
 
-_RETIRED_RUN = HTTPException(
+_RETIRED_RUN = status_error(
     status_code=410,
     detail="Workstream runs are retired; ticket stages live on the conversation.",
 )
@@ -683,7 +680,7 @@ async def start_run(
     """Stages-only: validate the playbook and return an in-memory receipt."""
     del advance
     if input_kind not in WORKSTREAM_INPUT_KINDS:
-        raise HTTPException(status_code=400, detail=f"Invalid input kind: {input_kind}")
+        raise status_error(status_code=400, detail=f"Invalid input kind: {input_kind}")
     ws = await get_workstream(session, tenant_id, workstream_id)
     now = utcnow()
     return WorkstreamRun(

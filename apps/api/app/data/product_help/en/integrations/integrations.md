@@ -9,7 +9,7 @@ related: mcp,models,channels,govern,categories
 
 # Connections
 
-Connections are partner logins. A **module** is one package of hashtags, flows and a department, plus the tools allowed for its listed partners. **Connections** in the rail at `/connections` is one page for all of it: what is connected on top, then one grid with every module, integration and AI tool. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
+Connections are partner logins. A **module** is one package of labels, flows and a department, plus the tools allowed for its listed partners. **Connections** in the rail at `/connections` is one page for all of it: what is connected on top, then one grid with every module, integration and AI tool. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
 ## See what is connected
 
@@ -27,7 +27,7 @@ Connections are partner logins. A **module** is one package of hashtags, flows a
 
 1. Under **All**, use the category chips: **Communication**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** and **AI tools**. Each chip shows its count. Search covers names and descriptions across every category, and also matches a module when you type one of its partner names (for example **Moneybird** surfaces **Accounting**). The chip lives in the URL (`/connections?kind=mcp` for Tools, `?kind=modules`, `?kind=ai_tools`), so a link always opens the category it names.
 2. Cards are one flat list — never nested inside a module, never grouped under a vendor. Module packages (Moneybird API, KING, Bjorn Lunden, and the same pattern for Banking / Documents when those ship) do **not** get their own catalog card; you connect them only from the module page. Hosted MCP cards (for example **Moneybird MCP**) stay in the grid next to the module. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card. A module card carries a **Module** label. The specialist sits on the right, only as wide as the name and role, with a glow in that color. The description, tool count and partner logos fill the rest. Coming-soon modules are faded until they ship.
-3. Choose a **module** or **integration** card. A showcase modal opens: modules open with the expert (name, role, living avatar) and three benefits with a check, partners, Labels & flows (packaged hashtags), and the agent tool names (the full list via Show details, including which can run in website chat), with **Install** / **Open module**; connections show description, endpoint, capabilities and **Connect**. Finish OAuth or setup and you return here with the modal open. A login stays on Connections until you attach it to a module.
+3. Choose a **module** or **integration** card. A showcase modal opens: modules open with the expert (name, role, living avatar) and three benefits with a check, partners, Labels & flows (packaged labels), and the agent tool names (the full list via Show details, including which can run in website chat), with **Install** / **Open module**; connections show description, endpoint, capabilities and **Connect**. Finish OAuth or setup and you return here with the modal open. A login stays on Connections until you attach it to a module.
 4. Agents link straight to this modal: a card in a conversation opens `/connections?connect=slack_mcp` with the Slack modal already open. A module-package mention such as Moneybird opens the **Accounting** module page instead.
 5. Communication apps add queues (email, WhatsApp). Code apps attach to a [folder](/docs/ai/folders). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Tools** or **Custom MCP servers**. See [MCP](/docs/integrations/mcp).
 
@@ -58,11 +58,11 @@ Bokito tests every connection once a day.
 ## Install a business module
 
 1. Open **Connections** in the rail under **Organization**. Installed modules sit in the **Connected** strip; use the **Modules** chip to find a preset that is not installed yet.
-2. Open **Accounting** (or another live module), then choose **Add department**. A module is a department in a box: a specialist agent, labels and flows. Under **Department**, pick **New department** or an existing department that already does similar work; Bokito suggests the best match. Choose the **Accountable person**. When the department already has a lead, tick **Let the specialist lead instead** to make the specialist primary; otherwise it joins as a member. Bokito copies the packaged hashtags, flows, sources and skill. The catalog card shows **Installed** with a check and **Manage**. Later edits on that department stay yours.
+2. Open **Accounting** (or another live module), then choose **Add department**. A module is a department in a box: a specialist agent, labels and flows. Under **Department**, pick **New department** or an existing department that already does similar work; Bokito suggests the best match. Choose the **Accountable person**. When the department already has a lead, tick **Let the specialist lead instead** to make the specialist primary; otherwise it joins as a member. Bokito copies the packaged labels, flows, sources and skill. The catalog card shows **Installed** with a check and **Manage**. Later edits on that department stay yours.
 3. The toast offers **Talk to specialist**. On the module page you can open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module's tools. **Uninstall** archives the specialist. A department the module created is soft-deleted; a department it joined stays with its own work. Partner logins stay on Connections.
 4. Review **What agents can do**: each action shows a short description, the path (`accounting_list_companies`, …), **Read** or **Needs approval**, and **Website chat** when the tool can run in the installable widget (enable under Today). When partners are attached, **Tools from connected MCP servers** lists discovered MCP names.
 5. At the top of the module page, under **Connections**, choose **New registration** to connect the module package (Moneybird, KING, or Bjorn Lunden) and attach it in one step, or **Use an existing connection** when a login already exists. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Today**, **Sources**, and **Setup**.
-6. Attach a partner login when you want live data. Until then the module is installed but shows as incomplete for connections; after attach it is **Connected**. Hashtags and flows stay on their existing surfaces; the module adds no rail item.
+6. Attach a partner login when you want live data. Until then the module is installed but shows as incomplete for connections; after attach it is **Connected**. Labels and flows stay on their existing surfaces; the module adds no rail item.
 
 ## Connect an optional accounting integration
 
@@ -134,7 +134,7 @@ Each Google or Microsoft account is one connection; add as many as you need and 
 
 ## Install a flow template
 
-Modules ship one catalog package containing hashtags and pre-built flows. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
+Modules ship one catalog package containing labels and pre-built flows. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
 
 1. Open the module page from **Connections**. When the module is on, the **Flow templates** panel lists what it ships, with the step count per template.
 2. A template that cannot run yet shows why (module connection missing, required agent role not assigned). Fix the requirement first.
@@ -154,11 +154,11 @@ Modules ship one catalog package containing hashtags and pre-built flows. Exampl
 3. The default assigned agent walks you through optional connections, defaults and sources, and can put decisions on the thread when something needs approval.
 4. Return to the module page and choose **Finish setup** when the checklist is done.
 
-## Turn on customer chat tools and module hashtags
+## Turn on customer chat tools and module labels
 
 1. Open an installed module such as **Accounting**.
 2. Under **Customer chat tools**, turn a verb on only when the website widget may look up that visitor's own records after they confirm a short email link.
-3. Under **Hashtags**, choose **Install** on a template (for example billing inquiry). Attach a flow to the hashtag so chat can file a ticket on it; see [Categories and tickets](/docs/ai/categories).
+3. Under **Labels**, choose **Install** on a template (for example billing inquiry). Attach a flow to the label so chat can file a ticket on it; see [Categories and tickets](/docs/ai/categories).
 
 ## Set what agents may call
 

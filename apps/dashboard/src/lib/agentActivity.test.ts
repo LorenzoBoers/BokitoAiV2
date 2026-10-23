@@ -395,6 +395,16 @@ describe('applyTurnEvent', () => {
     ])
   })
 
+  it('keeps a rewritten bubble in its place before later activity', () => {
+    let turn = applyTurnEvent(EMPTY_TURN, 'message.delta', { stream_id: 's1', segment_id: 'a', delta: 'Ik begin.' })
+    turn = applyTurnEvent(turn, 'agent.activity', {
+      stream_id: 's1',
+      item: { id: 't1', kind: 'work', tool: 'create_canvas', label: 'Create canvas', status: 'ok' },
+    })
+    turn = applyTurnEvent(turn, 'message.part', { stream_id: 's1', segment_id: 'a', text: 'Ik begin nu.' })
+    expect(turn.entries[0]).toMatchObject({ type: 'speech', segmentId: 'a', text: 'Ik begin nu.' })
+  })
+
   it('starts fresh on a new stream and ignores a late end of an old one', () => {
     const first = applyTurnEvent(EMPTY_TURN, 'message.delta', { stream_id: 's1', delta: 'a' })
     const second = applyTurnEvent(first, 'message.delta', { stream_id: 's2', delta: 'b' })

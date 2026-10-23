@@ -6,8 +6,11 @@ const STORED = 'data-bokito-tip'
 const LAYER = 'data-bokito-tip-layer'
 const DERIVED_LABEL = 'data-bokito-tip-label'
 
+const DETAIL = 'data-bokito-tip-detail'
+
 type TipState = {
   text: string
+  detail: string | null
   x: number
   y: number
   place: 'top' | 'bottom'
@@ -102,6 +105,7 @@ export function NativeTitleTooltipBridge() {
       const preferTop = rect.top >= 40
       setTip({
         text,
+        detail: el.getAttribute(DETAIL)?.trim() || null,
         x: rect.left + rect.width / 2,
         y: preferTop ? rect.top - gap : rect.bottom + gap,
         place: preferTop ? 'top' : 'bottom',
@@ -214,12 +218,19 @@ export function NativeTitleTooltipBridge() {
       data-bokito-tip-layer=""
       role="tooltip"
       className={cn(
-        'pointer-events-none fixed z-[200] max-w-64 -translate-x-1/2 rounded-md border border-border/60 bg-bg-elevated px-2.5 py-1.5 text-xs font-medium text-text-primary shadow-overlay animate-fade-in',
+        'pointer-events-none fixed z-[200] max-w-xs -translate-x-1/2 rounded-md border border-border/80 bg-bg px-2 py-1 text-xs font-medium leading-snug text-text-heading shadow-overlay animate-fade-in',
         tip.place === 'top' ? '-translate-y-full' : undefined,
       )}
       style={{ left: tip.x, top: tip.y }}
     >
-      {tip.text}
+      {tip.detail ? (
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span>{tip.text}</span>
+          <span className="font-normal text-text-muted">{tip.detail}</span>
+        </span>
+      ) : (
+        tip.text
+      )}
     </div>,
     document.body,
   )

@@ -971,7 +971,7 @@ def _module_persona(module: ModuleSpec) -> ModuleAgentTemplate:
         name=f"{module.name} specialist",
         job_title="Specialist",
         role_blurb=(
-            f"Owns {module.name}: its tools, hashtags and flows. "
+            f"Owns {module.name}: its tools, labels and flows. "
             f"Hands anything outside this module back to the lead."
         ),
         system_prompt=_specialist_prompt(module, f"{module.name} specialist", "Specialist"),
@@ -981,7 +981,7 @@ def _module_persona(module: ModuleSpec) -> ModuleAgentTemplate:
 def _specialist_prompt(module: ModuleSpec, name: str, job_title: str) -> str:
     return (
         f"You are {name}, {job_title}, the expert hired for the {module.name} module. "
-        f"You can use every tool, hashtag and flow that shipped with this module. "
+        f"You can use every tool, label and flow that shipped with this module. "
         f"Read tools you may call directly. Propose and apply tools only through a "
         f"decision the operator approves. Workspace basics are yours too: folders, "
         f"labels, contacts and conversations. Hand work that belongs to another "
@@ -996,7 +996,7 @@ def _specialist_prompt(module: ModuleSpec, name: str, job_title: str) -> str:
 # card are translated in the dashboard; hire stores these English fields.
 _MODULE_PERSONAS: dict[str, ModuleAgentTemplate] = {
     "accounting": ModuleAgentTemplate(
-        name="Boekhouder",
+        name="Boekito",
         job_title="Controller",
         role_blurb=(
             "Keeps the books for this workspace: administrations, contacts, "

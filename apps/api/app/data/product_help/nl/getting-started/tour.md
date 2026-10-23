@@ -1,7 +1,7 @@
 ---
 title: Producttour
 intro: Een snelle kaart van de interface — waar elk gebied voor is en wanneer je het gebruikt.
-description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Mappen, Werken, Grid, Agents en Instellingen.
+description: Een gids van Bokito: de zijbalk, het commandopalet, Communicatie, Mappen, Werk, Grid, Agents en Instellingen.
 keywords: tour, interface, navigatie, commandopalet, zijbalk
 sort: 40
 related: welcome,cockpit,communication
@@ -31,7 +31,7 @@ Bokito heeft één zijbalk. Vastgezette items staan boven drie groepen: Werk, AI
 ## Werk en AI
 
 - **Mappen** — een map in Bokito is de plek waar al het werk over één onderwerp samenkomt: gesprekken, borden, bestanden en koppelingen. Zie [Mappen](/docs/ai/folders).
-- **Werken** — werken, elk met het label als titel. Zie [Werken](/docs/ai/flows).
+- **Werk** — werk, elk met het label als titel. Zie [Werk](/docs/ai/flows).
 - **Agenda** — wanneer agents wakker worden; staat onder **Werk**. Zie [Agenda](/docs/ai/agenda).
 - **Agents** — aannemen en briefen. Zie [Agents](/docs/ai/agents).
 - **Kennis** — documenten, vaardigheden en geheugen; gelijkwaardig naast Agents. Zie [Kennis](/docs/ai/knowledge).

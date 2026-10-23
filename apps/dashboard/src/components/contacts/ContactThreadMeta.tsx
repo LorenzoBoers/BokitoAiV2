@@ -53,13 +53,13 @@ export function ContactFolderChips({ threads }: { threads: InboxThread[] }) {
   )
 }
 
-/** `#klacht · Waiting - ` before a contact's conversation status, when it is a ticket. */
+/** `klacht · Waiting - ` before a contact's conversation status, when it is a ticket. */
 export function ThreadTicketPrefix({ thread }: { thread: InboxThread }) {
   const ticket = thread.ticket
   if (!ticket || ticket.status === 'proposed') return null
   return (
     <span className="font-medium text-accent">
-      #{ticket.name}
+      {ticket.name.replace(/^#/, '')}
       {ticket.stage?.name ? ` · ${ticket.stage.name}` : ''}
       {' - '}
     </span>

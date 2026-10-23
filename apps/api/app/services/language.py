@@ -58,6 +58,20 @@ def platform_default_ui_language() -> str:
     return normalize_platform_language(get_settings().platform_default_language)
 
 
+def resolve_user_ui_language(settings_json: str | None) -> str:
+    """Profile language (Settings → Profile). Empty or unknown becomes the platform default."""
+    try:
+        stored = json.loads(settings_json or "{}")
+    except json.JSONDecodeError:
+        stored = {}
+    if not isinstance(stored, dict):
+        stored = {}
+    code = stored.get("ui_language")
+    if isinstance(code, str) and code.strip().lower() in ("en", "nl"):
+        return code.strip().lower()
+    return platform_default_ui_language()
+
+
 def _tenant_settings(tenant: Tenant | None) -> dict[str, Any]:
     if tenant is None:
         return {}

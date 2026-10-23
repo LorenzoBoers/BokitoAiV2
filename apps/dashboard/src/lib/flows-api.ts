@@ -23,7 +23,7 @@ export type WorkstreamRow = {
   /** Folders whose filterset includes this flow's action tag (derived, not an attach list). */
   project_ids: string[]
   /** Action tags linked to this flow (hashtags with workstream_id). */
-  tags?: Array<{ id: string; name: string; color?: string; icon?: string }>
+  tags?: Array<{ id: string; name: string; color?: string; icon?: string; department_id?: string }>
   stages: TicketStage[]
   stages_count?: number
   /** This flow's mode under the Govern ceiling; empty follows channel and workspace. */
@@ -36,31 +36,52 @@ export type WorkstreamRow = {
   stage_entry_policy?: string
   /** Certainty (0-10) for `auto_above`; null follows the workspace. */
   stage_entry_threshold?: number | null
-  deliver_folder_id?: string | null
-  deliver_works_in_key?: string
   /** The recipe: the working method, tools / `connection:{id}`, what done produces (free text). */
   instructions?: string
   capabilities?: string[]
   expected_outcome?: string
   /** No waiting stage: handled in the conversation, no board. */
   direct?: boolean
-  /** Detail only: the resolved "Delivers to" with labels. */
-  deliver_to?: FlowDestination | null
   /** List only: live tickets per stage key. */
   ticket_counts?: Record<string, number>
   /** List only: latest message on any of the flow's tickets. */
   last_activity_at?: string | null
+  /** Notation of steps and arrows. Empty on the server follows the columns. */
+  flow_source?: string
+  flow_graph?: FlowSchemaGraph
   created_at?: string | null
   updated_at?: string | null
 }
 
-export type FlowDestination = {
-  folder_id: string
-  folder_name: string
-  works_in_key: string
-  item_kind: string
-  item_label: string
-  href: string
+export type FlowSchemaNode = {
+  name: string
+  text: string
+  wie: string
+  tools: string
+  geeft: string
+  krijgt: string
+  faalt: string
+  stil: string
+  max: string
+  stand: string
+  /** Diagram cell as `column,row`; empty lets the editor place the step. */
+  plek: string
+}
+
+export type FlowSchemaEdge = {
+  src: string
+  dst: string
+  when: string
+  geeft: string
+  faalt: string
+  stil: string
+}
+
+export type FlowSchemaGraph = {
+  nodes: FlowSchemaNode[]
+  edges: FlowSchemaEdge[]
+  errors: Array<{ line: number; message: string }>
+  source?: string
 }
 
 export type WorkstreamDetail = WorkstreamRow
@@ -163,12 +184,11 @@ export async function patchWorkstream(
       | 'stages'
       | 'autonomy'
       | 'department_id'
-      | 'deliver_folder_id'
-      | 'deliver_works_in_key'
       | 'instructions'
       | 'capabilities'
       | 'expected_outcome'
       | 'direct'
+      | 'flow_source'
     >
   > & {
     /** The flow's one action tag (at most one id); empty detaches it. */
@@ -180,6 +200,17 @@ export async function patchWorkstream(
   },
 ): Promise<WorkstreamRow> {
   return apiPatch<WorkstreamRow>(workstreamsRoutes.byId(workstreamId), patch)
+}
+
+export async function parseFlowSchema(source: string): Promise<FlowSchemaGraph> {
+  return apiPost<FlowSchemaGraph>(workstreamsRoutes.schemaParse, { source })
+}
+
+export async function renderFlowSchema(graph: {
+  nodes: FlowSchemaNode[]
+  edges: FlowSchemaEdge[]
+}): Promise<FlowSchemaGraph> {
+  return apiPost<FlowSchemaGraph>(workstreamsRoutes.schemaRender, graph)
 }
 
 export async function getWorkstreamBoard(workstreamId: string): Promise<FlowBoard> {

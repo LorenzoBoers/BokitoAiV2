@@ -71,7 +71,7 @@ import { Button } from '../ui/button'
 import { AI_TEXT_CLASS, AiMark } from '../ai/AiMark'
 import { AiAvatar } from '../ui/AiAvatar'
 import { toAiAvatarProps } from '../../lib/agent-avatar'
-import { ChatMessageBubble } from './ChatBubble'
+import { DocumentTurn } from './ChatBubble'
 import ActivityTrail from './ActivityTrail'
 import { CHAT_AVATAR_SIZE, THREAD_INDENT } from './ThreadMeta'
 import { TextLink } from '../ui/text-link'
@@ -717,11 +717,8 @@ export default function DecisionRequestMessage({
     return (
       <div className="flex flex-col gap-1">
         {activityTrail}
-        <ChatMessageBubble
-          side="left"
+        <DocumentTurn
           avatar={agentAvatar}
-          variant="agent"
-          accent={agentMark.color}
           reactions={reactions}
           body={
             <div className="flex min-w-0 flex-col gap-1.5">
@@ -836,10 +833,8 @@ export default function DecisionRequestMessage({
     return (
       <div className="flex flex-col gap-1">
         {activityTrail}
-        <ChatMessageBubble
-          side="left"
+        <DocumentTurn
           avatar={agentAvatar}
-          variant="external"
           reactions={reactions}
           body={
             <div className="flex min-w-0 flex-col gap-1">
@@ -876,10 +871,8 @@ export default function DecisionRequestMessage({
   if (isActionSuggestion && proposalResolutionReason(message) === 'superseded_by_newer_read') {
     return (
       <div className="flex flex-col gap-1" data-testid="no-reply-superseded">
-        <ChatMessageBubble
-          side="left"
+        <DocumentTurn
           avatar={agentAvatar}
-          variant="external"
           reactions={reactions}
           body={
             <span className="block min-w-0 truncate-fade text-xs text-text-muted">
@@ -895,11 +888,8 @@ export default function DecisionRequestMessage({
   return (
     <div className="flex flex-col gap-1">
       {activityTrail}
-      <ChatMessageBubble
-      side="left"
+      <DocumentTurn
       avatar={agentAvatar}
-      variant="agent"
-      accent={agentMark.color}
       reactions={reactions}
       body={
         <>

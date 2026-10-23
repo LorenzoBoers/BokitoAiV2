@@ -10,12 +10,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, status_error
 from app.models.agent import Agent
 
 # Titles the wizard used before the company assistant had a fixed function name.
@@ -96,9 +95,9 @@ async def set_lead_agent(
     if not agent or agent.kind != "company":
         raise NotFoundError("Agent not found")
     if agent.acts_for_user:
-        raise HTTPException(status_code=409, detail="The Bokito helper cannot be the lead agent")
+        raise status_error(status_code=409, detail="The Bokito helper cannot be the lead agent")
     if not agent.is_active:
-        raise HTTPException(status_code=409, detail="A paused agent cannot become the lead agent")
+        raise status_error(status_code=409, detail="A paused agent cannot become the lead agent")
 
     now = utcnow()
     current = await session.execute(

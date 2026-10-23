@@ -30,6 +30,32 @@ import { AgentMark } from '../ui/AgentMark'
 import { ImageGenerationFrames } from './ImageGenerationFrame'
 import { LiveEllipsis, THREAD_ICON, THREAD_META, ThreadMetaRow } from './ThreadMeta'
 
+type StepsOutcome = 'ok' | 'recovered' | 'failed'
+
+/** Failed when a tool's last call errored; recovered when an error was retried and then worked. */
+function stepsOutcome(items: ActivityItem[]): StepsOutcome {
+  const last = new Map<string, ActivityItem['status']>()
+  let anyError = false
+  for (const item of items) {
+    if (item.status === 'running') continue
+    if (item.status === 'error') anyError = true
+    last.set(item.tool || item.id, item.status)
+  }
+  if ([...last.values()].some((status) => status === 'error')) return 'failed'
+  return anyError ? 'recovered' : 'ok'
+}
+
+function OutcomeIcon({ outcome }: { outcome: StepsOutcome }) {
+  const { t } = useTranslation('communication')
+  if (outcome === 'failed') {
+    return <AlertCircle size={THREAD_ICON} className="text-status-error" aria-label={t('activity.failed')} />
+  }
+  if (outcome === 'recovered') {
+    return <AlertCircle size={THREAD_ICON} className="text-status-warning" aria-label={t('activity.recovered')} />
+  }
+  return <Check size={THREAD_ICON} className="text-status-success" aria-hidden />
+}
+
 function ProviderLogo({ provider, size }: { provider: string; size: number }) {
   const brand = useIntegrationBrand(provider)
   if (!brand.logoUrl) return <Wrench size={size} className="shrink-0" />
@@ -433,7 +459,6 @@ export function ActivityGroupLine({
   const { agents } = useAgents()
   const [expanded, setExpanded] = useState(false)
   const current = group.items[group.items.length - 1]
-  const hasError = group.items.some((i) => i.status === 'error')
   const invited = current ? inviteTarget(current) : null
   const invitedAgent = invited?.id ? agents.find((row) => String(row.id) === invited.id) : undefined
   const liveInvite = current ? inviteLine(current, t, invitedAgent?.name || invited?.name || '') : null
@@ -491,7 +516,7 @@ export function ActivityGroupLine({
             suffix={
               <>
                 <GroupIconStrip items={group.items} />
-                {hasError ? <AlertCircle size={THREAD_ICON} className="text-status-error" /> : <Check size={THREAD_ICON} className="text-status-success" />}
+                <OutcomeIcon outcome={stepsOutcome(group.items)} />
                 {expanded ? (
                 <ChevronDown size={THREAD_ICON} className="opacity-70" />
               ) : (
@@ -561,7 +586,7 @@ function SavedHistory({
             suffix={
               <>
                 {iconItems.length ? <GroupIconStrip items={iconItems} /> : null}
-                <Check size={THREAD_ICON} className="text-status-success" />
+                <OutcomeIcon outcome={stepsOutcome(items)} />
                 {index === history.rows.length - 1 ? (
                 expanded ? (
                   <ChevronDown size={THREAD_ICON} className="opacity-70" />

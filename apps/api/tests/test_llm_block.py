@@ -41,11 +41,36 @@ def test_block_opens_with_backoff_and_keeps_deferred_threads():
 
 def test_block_expires_after_backoff_window():
     tenant = Tenant(slug="blk", name="Block")
-    open_workspace_block(tenant, kind="spend_cap", error="cap")
+    open_workspace_block(tenant, kind="provider_credits", error="credits")
     later = datetime.utcnow() + timedelta(minutes=LLM_BLOCK_BACKOFF_MINUTES + 1)
     assert active_workspace_block(tenant, now=later) is None
     # Expired but not yet closed: the deferred list is still there to release.
     assert LLM_BLOCK_SETTINGS_KEY in json.loads(tenant.settings_json)
+
+
+def test_spend_cap_block_lasts_until_utc_midnight(monkeypatch):
+    from app.services import run_errors
+    from app.services.run_errors import block_until
+
+    fixed = datetime(2026, 10, 22, 14, 0, 0)
+    monkeypatch.setattr(run_errors, "utcnow", lambda: fixed)
+
+    tenant = Tenant(slug="blk", name="Block")
+    open_workspace_block(
+        tenant,
+        kind="spend_cap",
+        error="Daily LLM token budget exhausted. Raise the cap in Usage settings or wait until tomorrow.",
+    )
+    # Still blocked an hour later (the old 60-minute window).
+    assert active_workspace_block(tenant, now=fixed + timedelta(hours=1)) is not None
+    # Clears at next UTC midnight.
+    assert active_workspace_block(tenant, now=datetime(2026, 10, 23, 0, 0, 0)) is None
+    until = block_until(
+        "spend_cap",
+        "Monthly LLM spend cap reached.",
+        now=fixed,
+    )
+    assert until == datetime(2026, 11, 1, 0, 0, 0)
 
 
 def test_close_returns_deferred_and_clears_settings():
@@ -87,6 +112,19 @@ async def test_release_requeues_deferred_threads(session_override):
     with patch("app.workers.tasks.enqueue_signal_processing", new=AsyncMock()) as enqueue:
         assert await release_workspace_block(session, tenant) == 0
     enqueue.assert_not_awaited()
+
+
+def test_record_run_failure_always_sets_error_and_stop_reason():
+    from types import SimpleNamespace
+
+    from app.services.run_errors import record_run_failure
+
+    run = SimpleNamespace(result_json="{}", stop_reason="")
+    record_run_failure(run, "Orphaned chat run reclaimed after API restart.", error_code="run_failed")
+    data = json.loads(run.result_json)
+    assert data["error"].startswith("Orphaned")
+    assert data["error_code"] == "run_failed"
+    assert run.stop_reason == "error"
 
 
 def test_assisted_mode_keeps_module_reads_and_blocks_writes():

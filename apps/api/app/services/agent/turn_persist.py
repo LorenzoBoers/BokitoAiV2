@@ -967,7 +967,12 @@ def knowledge_refs(hits: list[dict[str, Any]] | None) -> list[dict[str, str]]:
         if not doc_id or doc_id in seen or not _is_uuid(doc_id):
             continue
         seen.add(doc_id)
-        out.append({"doc_id": doc_id, "title": str(hit.get("title") or "")[:160]})
+        row = {"doc_id": doc_id, "title": str(hit.get("title") or "")[:160]}
+        if hit.get("section_id"):
+            row["section_id"] = str(hit["section_id"])
+        if hit.get("unconfirmed"):
+            row["unconfirmed"] = "1"
+        out.append(row)
         if len(out) >= MAX_KNOWLEDGE_REFS:
             break
     return out

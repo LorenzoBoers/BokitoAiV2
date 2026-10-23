@@ -32,12 +32,11 @@ from datetime import datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.auth import Tenant
 from app.models.channel import ChannelAccount, Contact
 from app.models.signal import Signal, SignalEvent
@@ -732,7 +731,7 @@ async def set_ai_handling(
 ) -> AiHandling:
     """Write one layer. Checks direction permission, audits, logs on threads.
 
-    Commits. Raises HTTPException(400/403/404) on invalid input.
+    Commits. Raises AppError (400/403/404) on invalid input.
     """
     from app.services.audit import record_audit
 
@@ -774,7 +773,7 @@ async def set_ai_handling(
         inherited_effective = resolve_ai_handling(tenant, account, scope="channel").effective
 
     if not can_set(role, scope, mode, inherited_effective=inherited_effective):
-        raise HTTPException(
+        raise status_error(
             status_code=403,
             detail="Only an owner or admin can raise AI handling to autonomous here",
         )

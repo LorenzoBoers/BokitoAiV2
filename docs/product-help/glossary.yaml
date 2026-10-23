@@ -41,7 +41,7 @@ terms:
     slug: ""
     forbidden: []
   - id: flow
-    # Stage pipeline for one label. Dutch noun is "werk" (het werk / de werken).
+    # Stage pipeline for one label. Dutch noun is "werk" (het werk; UI uses singular/collective, not "werken").
     # English stays Flow. Do not put Flow on forbidden: EN copy still uses it.
     nl: Werk
     en: Flow
@@ -190,6 +190,9 @@ bad_outcomes:
   - "een flow"
   - "Geen flow"
   - "Nog geen flows"
+  - "Werken"
+  - "Alle werken"
+  - "Nog geen werken"
 
 loanwords:
   - Agents

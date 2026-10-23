@@ -43,7 +43,8 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      'z-50 min-w-[9rem] overflow-hidden rounded-lg border border-border/60 bg-bg-surface p-1 text-text-primary shadow-overlay data-[state=open]:animate-pop-in',
+      // Above floating thread (z-60) and call overlay (z-80); same as Select.
+      'z-[100] min-w-[9rem] overflow-hidden rounded-lg border border-border/60 bg-bg-surface p-1 text-text-primary shadow-overlay data-[state=open]:animate-pop-in',
       className
     )}
     {...props}
@@ -60,7 +61,8 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-[9rem] overflow-hidden rounded-lg border border-border/60 bg-bg-surface p-1 text-text-primary shadow-overlay data-[state=open]:animate-pop-in',
+        // Above floating thread (z-60) and call overlay (z-80); same as Select.
+        'z-[100] min-w-[9rem] overflow-hidden rounded-lg border border-border/60 bg-bg-surface p-1 text-text-primary shadow-overlay data-[state=open]:animate-pop-in',
         className
       )}
       {...props}

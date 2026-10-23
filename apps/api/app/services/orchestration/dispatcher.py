@@ -8,12 +8,11 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.orchestra import Workstream
 from app.models.orchestration import AgentTask, TaskArtifact
@@ -265,12 +264,12 @@ async def complete_agent_task(session: AsyncSession, tenant_id: UUID, task_id: U
     if task.status in ("completed", "cancelled", "rejected"):
         return task
     if task.assignee_kind != "human":
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Only human follow-ups can be completed; cancel agent tasks instead",
         )
     if task.status not in ("awaiting_human", "queued", "paused"):
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail=f"Cannot complete a task in status {task.status}",
         )
@@ -333,12 +332,12 @@ async def resume_agent_task(session: AsyncSession, tenant_id: UUID, task_id: UUI
     if not task:
         raise NotFoundError("Task not found")
     if task.assignee_kind == "human":
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Human follow-ups cannot be resumed as agent runs; complete them instead",
         )
     if task.status not in ("paused", "awaiting_human", "queued"):
-        raise HTTPException(status_code=400, detail=f"Cannot resume task in status {task.status}")
+        raise status_error(status_code=400, detail=f"Cannot resume task in status {task.status}")
     task.status = "running"
     task.pause_reason = None
     session.add(task)

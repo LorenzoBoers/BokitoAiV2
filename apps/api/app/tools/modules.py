@@ -221,6 +221,8 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
 
     from fastapi import HTTPException
 
+    from app.exceptions import AppError
+
     from app.services.audit import record_audit
     from app.services.connection_access import (
         connection_access,
@@ -237,7 +239,7 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
     raw_id = str(tool_input.get("connection_id") or "").strip()
     try:
         conn = await get_tenant_connection(ctx.session, ctx.tenant_id, UUID(raw_id))
-    except (ValueError, HTTPException):
+    except (ValueError, HTTPException, AppError):
         return {"error": f"Unknown connection '{raw_id}'. Use the connection_id from list_module_connections."}
     has_projects = "project_ids" in tool_input and tool_input["project_ids"] is not None
     has_access = "access" in tool_input

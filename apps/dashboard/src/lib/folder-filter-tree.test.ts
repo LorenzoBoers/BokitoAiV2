@@ -74,7 +74,7 @@ describe('folderFilterSubtreeIds', () => {
 
 describe('filtersetLabel', () => {
   it('joins hashtag names', () => {
-    expect(filtersetLabel(['sales', 'urgent'])).toBe('#sales · #urgent')
+    expect(filtersetLabel(['sales', 'urgent'])).toBe('sales · urgent')
   })
 })
 

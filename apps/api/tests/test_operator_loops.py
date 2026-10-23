@@ -71,7 +71,7 @@ async def test_certain_read_without_auto_tag_asks_to_file(client: AsyncClient, s
         )
     ).scalars().first()
     assert decision is not None
-    assert decision.title in (f"Dien in als #{tag.name}", f"File as #{tag.name}")
+    assert decision.title in (f"Dien in als {tag.name}", f"File as {tag.name}")
     options = json.loads(decision.options_json)
     assert options[0]["action_type"] == "file_ticket"
     assert options[0]["payload"]["tag_id"] == str(tag.id)

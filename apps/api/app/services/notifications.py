@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError
 from app.core.time import utcnow
 from app.gateway.publish import publish_decision, publish_signal_message
 from app.models.notification import DecisionRequest, Notification
@@ -151,7 +152,7 @@ async def resolve_decision(
             await reject_platform_change(
                 session, tenant_id, decision.platform_change_id, user_id, commit=False
             )
-        except HTTPException:
+        except (HTTPException, AppError):
             logger.warning("reject platform change on decision failed", exc_info=True)
             pass
 

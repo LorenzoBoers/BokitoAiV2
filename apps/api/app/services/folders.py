@@ -54,7 +54,7 @@ class FilterSet:
 
     def label(self) -> str:
         return self.name or (
-            " · ".join(f"#{n}" for n in self.tag_names) if self.tag_names else "Folder"
+            " · ".join(n for n in self.tag_names) if self.tag_names else "Folder"
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -91,7 +91,7 @@ def folder_display_name(
 ) -> str:
     """The one name a folder shows everywhere: its own name, else its distinguishing labels.
 
-    A name that only lists the folder's own labels (the auto name ``#a · #b``)
+    A name that only lists the folder's own labels (the auto name ``a · b``)
     counts as unnamed. Empty when the folder has neither; the client renders
     its localized fallback.
     """
@@ -273,7 +273,7 @@ def _cluster_siblings(nodes: list[DerivedNode], catalog: FolderCatalog) -> list[
             rewritten: list[DerivedNode] = []
             for member in group:
                 local = _local_tag_names(member.tag_names, names)
-                display = " · ".join(f"#{n}" for n in local) if local else member.name
+                display = " · ".join(n for n in local) if local else member.name
                 rewritten.append(
                     DerivedNode(
                         key=member.key,
@@ -289,7 +289,7 @@ def _cluster_siblings(nodes: list[DerivedNode], catalog: FolderCatalog) -> list[
             out.append(
                 DerivedNode(
                     key="cluster:" + ",".join(str(t) for t in overlap_ids),
-                    name=" · ".join(f"#{n}" for n in names if n),
+                    name=" · ".join(n for n in names if n),
                     tag_ids=overlap_ids,
                     project_id=None,
                     virtual=True,
@@ -357,7 +357,7 @@ async def load_tree(session: AsyncSession, tenant_id: UUID) -> FolderCatalog:
 
 def folder_path_label(folder: FilterSet) -> str:
     if folder.tag_names:
-        return " / ".join(f"#{n}" for n in folder.tag_names)
+        return " / ".join(n for n in folder.tag_names)
     return folder.name
 
 

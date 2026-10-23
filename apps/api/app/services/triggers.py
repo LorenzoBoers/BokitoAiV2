@@ -17,12 +17,11 @@ from difflib import SequenceMatcher
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.agent import Agent, AgentRun
 from app.models.auth import Tenant
 from app.models.trigger import TRIGGER_KINDS, Trigger
@@ -253,11 +252,11 @@ async def create_trigger(
     from app.services.thread_schedule import convert_event_trigger, ensure_trigger_thread
 
     if kind not in TRIGGER_KINDS:
-        raise HTTPException(status_code=400, detail=f"Invalid trigger kind: {kind}")
+        raise status_error(status_code=400, detail=f"Invalid trigger kind: {kind}")
     if kind == "cron" and next_cron_run(cron_expr, utcnow()) is None:
         raise AppError("Invalid cron expression", code="app_error", status_code=400)
     if kind in ("once", "event") and run_at is None:
-        raise HTTPException(status_code=400, detail=f"run_at is required for kind={kind}")
+        raise status_error(status_code=400, detail=f"run_at is required for kind={kind}")
     trigger = Trigger(
         tenant_id=tenant_id,
         name=name,
@@ -573,6 +572,14 @@ async def fire_trigger(
 
         return await fire_recurring_ticket(session, trigger, manual=manual)
 
+    if trigger.purpose == "orientation":
+        trigger.enabled = False
+        trigger.next_run_at = None
+        trigger.last_status = "retired"
+        session.add(trigger)
+        await session.commit()
+        return {"status": "retired"}
+
     # Soft-deleted canvases used to leave refresh cron enabled.
     from app.models.project_canvas import ProjectCanvas
     from app.services.project_canvas import is_canvas_refresh_trigger
@@ -695,16 +702,7 @@ async def fire_trigger(
         checklist = await _heartbeat_checklist(session, trigger.tenant_id)
         if checklist:
             prompt_parts.append(f"## Checklist\n{checklist}")
-    orientation = None
-    if trigger.purpose == "orientation":
-        from app.services.awareness import orientation_prompt
-
-        orientation = await orientation_prompt(session, trigger, now)
-    if orientation:
-        prompt_parts.append(orientation)
-        if trigger.instructions.strip():
-            prompt_parts.append(f"## Also\n{trigger.instructions.strip()}")
-    elif trigger.instructions.strip():
+    if trigger.instructions.strip():
         prompt_parts.append(f"## Your task\n{trigger.instructions.strip()}")
     elif trigger.kind != "heartbeat":
         prompt_parts.append("## Your task\nExecute the scheduled wake.")
@@ -818,11 +816,6 @@ async def fire_trigger(
         await _surface_result(session, trigger, agent, loop, text)
     else:
         await _wake_event(session, signal, "wake_quiet", trigger, agent)
-    if orientation:
-        from app.services.awareness import record_orientation
-
-        await record_orientation(session, trigger, agent, text, quiet=suppressed or repeated)
-
     trigger.last_run_at = now
     trigger.last_status = "ok" if suppressed else "unchanged" if repeated else "reported"
     _advance()

@@ -49,8 +49,9 @@ async def list_pins(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> di
     return {"thread_ids": [str(tid) for tid in pinned]}
 
 
+STACK_LIMIT = 3
 STACK_FOLLOW_LIMIT = 1
-STACK_AGENTS_PER_CARD = 3
+STACK_AGENTS_PER_CARD = 1
 
 
 def _stack_title(signal: Signal, agent: Agent | None) -> str:
@@ -79,13 +80,14 @@ async def list_stack(
 ) -> dict[str, Any]:
     """Cards for the chat stack: the user's pinned threads, then followed ones.
 
-    Pinned threads come first in pin order; followed ids the client carries
-    (threads the user just left) follow, capped at ``STACK_FOLLOW_LIMIT``.
+    The dock holds at most ``STACK_LIMIT`` conversations. A followed thread
+    keeps a seat. The remaining seats are the newest pins. Older pins stay
+    pinned on the conversation and leave the dock.
     Threads outside the tenant or outside mailbox visibility drop out.
     Soft-deleted conversations still appear when the user explicitly pinned
     or followed them (pins and the call stack must stay in sync); they leave
     when the user dismisses or unpins. Personal-assistant threads stay out.
-    Each card lists the agents in the thread, working ones first.
+    Each card shows one agent: whoever is working, else whoever sent the last agent message, else the thread owner.
     """
     from app.services.pass_stick import viewer_unread_ids
     from app.services.personal_assistant import PERSONAL_THREAD_SOURCE
@@ -122,7 +124,9 @@ async def list_stack(
         query = query.where(acl)
     rows = {s.id: s for s in (await session.execute(query)).scalars().all()}
     visible_following = [fid for fid in following if fid in rows][:STACK_FOLLOW_LIMIT]
-    threads = [rows[sid] for sid in pinned + visible_following if sid in rows]
+    pin_room = max(0, STACK_LIMIT - len(visible_following))
+    kept_pins = pinned[-pin_room:] if pin_room else []
+    threads = [rows[sid] for sid in kept_pins + visible_following if sid in rows]
     if not threads:
         return {"items": []}
     thread_ids = [t.id for t in threads]
@@ -157,15 +161,16 @@ async def list_stack(
     for t in threads:
         owner_agent = agents_by_id.get(t.agent_id) if t.agent_id else None
         working = working_by_thread.get(t.id, [])
-        working_ids = {a.id for a in working}
-        agents: list[dict[str, Any]] = [_stack_agent(a, working=True) for a in working]
-        for face_id in (floor_speaker_id(t), speaker_ids.get(t.id), t.agent_id):
-            if len(agents) >= STACK_AGENTS_PER_CARD:
+        floor_id = floor_speaker_id(t)
+        busy = next((a for a in working if a.id == floor_id), working[0] if working else None)
+        agents: list[dict[str, Any]] = [_stack_agent(busy, working=True)] if busy is not None else []
+        if not agents:
+            for face_id in (speaker_ids.get(t.id), t.agent_id):
+                face = agents_by_id.get(face_id) if face_id else None
+                if face is None:
+                    continue
+                agents.append(_stack_agent(face, working=False))
                 break
-            face = agents_by_id.get(face_id) if face_id else None
-            if face is None or face.id in working_ids or any(a["id"] == str(face.id) for a in agents):
-                continue
-            agents.append(_stack_agent(face, working=False))
         preview, direction, by_agent = previews.get(t.id, ("", "", False))
         speaker = agents_by_id.get(speaker_ids[t.id]) if t.id in speaker_ids else None
         if by_agent:

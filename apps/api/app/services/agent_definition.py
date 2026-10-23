@@ -27,7 +27,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from fastapi import HTTPException
+from app.exceptions import status_error
+
 
 CAPABILITY_MODES = ("read-only", "read-write", "all")
 PROMPT_MODES = ("extend", "full")
@@ -180,17 +181,17 @@ def validate_definition(payload: dict[str, Any]) -> dict[str, str]:
         out["disallowed_tools_json"] = json.dumps(_str_list(payload["disallowed_tools"]))
     if payload.get("capability_mode") is not None:
         if payload["capability_mode"] not in CAPABILITY_MODES:
-            raise HTTPException(status_code=422, detail="capability_mode is read-only, read-write or all")
+            raise status_error(status_code=422, detail="capability_mode is read-only, read-write or all")
         out["capability_mode"] = payload["capability_mode"]
     if payload.get("prompt_mode") is not None:
         if payload["prompt_mode"] not in PROMPT_MODES:
-            raise HTTPException(status_code=422, detail="prompt_mode is extend or full")
+            raise status_error(status_code=422, detail="prompt_mode is extend or full")
         out["prompt_mode"] = payload["prompt_mode"]
     if payload.get("effort") is not None:
         from app.services.agent.effort_policy import EFFORTS
 
         if payload["effort"] not in EFFORTS:
-            raise HTTPException(status_code=422, detail="effort is low, medium or high")
+            raise status_error(status_code=422, detail="effort is low, medium or high")
         out["effort"] = payload["effort"]
     if "skills" in payload and payload["skills"] is not None:
         out["skills_json"] = json.dumps(_str_list(payload["skills"]))
@@ -201,7 +202,7 @@ def validate_definition(payload: dict[str, Any]) -> dict[str, str]:
     if "mcp_inheritance" in payload and payload["mcp_inheritance"] is not None:
         raw = payload["mcp_inheritance"]
         if isinstance(raw, dict) and raw.get("mode") not in (None, *MCP_INHERITANCE_MODES):
-            raise HTTPException(status_code=422, detail="mcp_inheritance.mode is all, none, named or except")
+            raise status_error(status_code=422, detail="mcp_inheritance.mode is all, none, named or except")
         out["mcp_inheritance_json"] = json.dumps(normalize_mcp_inheritance(raw))
     return out
 
@@ -329,16 +330,16 @@ def tenant_roles(tenant: Any) -> dict[str, Role]:
 def validate_catalog(kind: str, raw: Any) -> dict[str, dict[str, Any]]:
     """Persona/role catalog from the API; raises 422 on a bad entry."""
     if not isinstance(raw, dict):
-        raise HTTPException(status_code=422, detail=f"{kind} is an object keyed by name")
+        raise status_error(status_code=422, detail=f"{kind} is an object keyed by name")
     out: dict[str, dict[str, Any]] = {}
     for name, value in raw.items():
         key = str(name).strip().lower()
         if not _NAME_RE.match(key):
-            raise HTTPException(status_code=422, detail=f"Invalid name {name!r}")
+            raise status_error(status_code=422, detail=f"Invalid name {name!r}")
         try:
             parsed = parse_persona(key, value) if kind == "personas" else parse_role(key, value)
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            raise status_error(status_code=422, detail=str(exc)) from exc
         out[key] = {k: v for k, v in parsed.__dict__.items() if k != "name"}
     return out
 

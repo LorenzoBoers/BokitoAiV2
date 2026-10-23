@@ -8,11 +8,10 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.module_agent import ModuleAgent
 from app.modules.catalog import MODULE_BY_SLUG, MODULE_TOOL_PREFIXES, get_module
@@ -253,7 +252,7 @@ async def add_module_agent(
         )
     ).scalar_one_or_none()
     if existing:
-        raise HTTPException(status_code=409, detail="Agent is already on this module")
+        raise status_error(status_code=409, detail="Agent is already on this module")
     count = await module_agent_count(session, tenant_id, module_slug)
     make_default = is_default or count == 0
     row = ModuleAgent(
@@ -295,7 +294,7 @@ async def set_module_agent_default(
         row.is_default = True
     else:
         if row.is_default:
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail="Assign another default agent before clearing this one",
             )
@@ -401,7 +400,7 @@ async def remove_module_agent(
     states = await tenant_module_install_states(session, tenant_id)
     state = states.get(module_slug, "not_installed")
     if state == "installed" and count <= 1:
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Installed modules need at least one assigned agent",
         )

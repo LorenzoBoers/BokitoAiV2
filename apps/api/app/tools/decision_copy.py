@@ -135,7 +135,7 @@ def _short(value: Any, limit: int = 60) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-# Tools whose title reads better with the hashtag they touch: "Create tag #vip".
+# Tools whose title names the label they touch.
 _HASHTAG_TOOLS = frozenset(
     {
         "create_tag",
@@ -156,9 +156,9 @@ def _named_target(tool_name: str, payload: dict[str, Any]) -> str:
     name = str(payload.get("name") or payload.get("tag") or "").strip().lstrip("#")
     new_name = str(payload.get("new_name") or payload.get("into") or "").strip().lstrip("#")
     if name and new_name:
-        return f"#{name} -> #{new_name}"
+        return f"{name} -> {new_name}"
     if name:
-        return f"#{name}"
+        return name
     return ""
 
 

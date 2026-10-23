@@ -400,6 +400,18 @@ async function listeningLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
   }
 }
 
+async function talkingLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
+  rig.setFace('neutral')
+  rig.set({ gx: 0, gy: 0.6, bx: 0, br: 0 })
+  while (!signal.aborted) {
+    rig.set({ by: 0.7, sy: 0.97, gy: 1.4 })
+    await sleep(130, signal)
+    rig.set({ by: -0.35, sy: 1.02, gy: 0.1 })
+    await sleep(150, signal)
+    if (Math.random() < 0.14) rig.blink(50)
+  }
+}
+
 async function thinkingLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
   rig.setFace('calm')
   let last = 0
@@ -530,6 +542,7 @@ async function sleepingLoop(rig: BotOrbRig, { signal }: DirectorCtx) {
 const LOOPS: Partial<Record<BotOrbMotion, (rig: BotOrbRig, ctx: DirectorCtx) => Promise<void>>> = {
   idle: idleLoop,
   listening: listeningLoop,
+  talking: talkingLoop,
   thinking: thinkingLoop,
   working: workingLoop,
   searching: searchingLoop,
@@ -679,6 +692,7 @@ export function restingFace(motion: BotOrbMotion): BotOrbFace {
       return 'sleepy'
     case 'thinking':
     case 'listening':
+    case 'talking':
     case 'writing':
       return 'calm'
     case 'working':

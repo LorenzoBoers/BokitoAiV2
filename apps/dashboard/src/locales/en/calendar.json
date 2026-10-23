@@ -52,7 +52,7 @@
     "empty": "Switch a calendar on above to create it in this workspace.",
     "configure": "Tags and access",
     "tags": "Tags",
-    "tagsHint": "Hashtags for filtering in Agenda (same tags as conversations).",
+    "tagsHint": "Labels for filtering in Agenda (same tags as conversations).",
     "tagsPlaceholder": "team, holidays",
     "saveTags": "Save tags",
     "tagsError": "Could not save tags.",

@@ -127,6 +127,7 @@
   "presence": {
     "available": "Beschikbaar",
     "away": "Afwezig",
+    "unavailable": "Niet beschikbaar",
     "offline": "Offline",
     "standby": "Standby",
     "working": "Bezig",

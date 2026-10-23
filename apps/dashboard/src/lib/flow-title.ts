@@ -22,7 +22,6 @@ export function flowTitleWithHash(ws: {
   tags?: Array<{ name: string }> | null
 }): string {
   const tag = flowActionTag(ws)
-  if (tag) return `#${tag}`
-  const name = flowTitle(ws)
-  return name ? `#${name}` : ''
+  if (tag) return tag
+  return flowTitle(ws)
 }

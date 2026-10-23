@@ -14,3 +14,5 @@ export {
 export { fontFamily, fontSize, type TypeStep, type FontSizeToken } from './typography'
 export { spacing } from './spacing'
 export { radius } from './radius'
+export { elevation, elevationCssName } from './elevation'
+export { motion } from './motion'

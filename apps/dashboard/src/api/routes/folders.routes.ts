@@ -8,7 +8,20 @@ export const foldersRoutes = {
   list: '',
   byId: (folderId: string) => base(folderId),
   nest: (folderId: string) => `${base(folderId)}/nest`,
-  files: (folderId: string) => `${base(folderId)}/files`,
+  contents: (
+    folderId: string,
+    params?: { type?: string; q?: string; labelIds?: string[]; page?: number; perPage?: number },
+  ) => {
+    const search = new URLSearchParams()
+    if (params?.type && params.type !== 'all') search.set('type', params.type)
+    if (params?.q) search.set('q', params.q)
+    for (const id of params?.labelIds ?? []) search.append('label_ids', id)
+    if (params?.page && params.page > 1) search.set('page', String(params.page))
+    if (params?.perPage) search.set('per_page', String(params.perPage))
+    const qs = search.toString()
+    const path = `${base(folderId)}/contents`
+    return qs ? `${path}?${qs}` : path
+  },
   board: (folderId: string) => `${base(folderId)}/board`,
   queue: (folderId: string, params?: { status?: string; kind?: string }) => {
     const search = new URLSearchParams()

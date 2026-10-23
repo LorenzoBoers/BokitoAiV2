@@ -1,4 +1,4 @@
-"""Canvas nodes in folders: compile, CRUD, Govern, refresh trigger."""
+"""Canvas nodes in folders: blocks, CRUD, Govern, refresh trigger."""
 
 from __future__ import annotations
 
@@ -6,13 +6,6 @@ import pytest
 from fastapi import HTTPException
 from app.exceptions import AppError
 from httpx import AsyncClient
-
-from app.services.project_canvas_compile import (
-    CanvasCompileError,
-    _collect_bindings,
-    compile_canvas,
-    parse_source,
-)
 
 
 async def _auth_headers(client: AsyncClient) -> dict[str, str]:
@@ -23,311 +16,9 @@ async def _auth_headers(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
-def test_fragment_format_call_and_prop_map_compile():
-    source = """
-import { Heading, Stat, Table, BarChart } from "bokito/canvas"
-
-export const kpiData = { bereik: 45200, groei: 12.5 }
-export const contentData = [
-  { datum: "2026-10-22", kanaal: "Instagram" },
-  { datum: "2026-10-23", kanaal: "LinkedIn" }
-]
-
-export default function Canvas() {
-  return (
-    <>
-      <Heading>Test</Heading>
-      <Stat label="Bereik" value={kpiData.bereik.toLocaleString()} />
-      <Table
-        columns={contentData.map(item => ({ key: item.datum, header: item.datum }))}
-        rows={contentData.map(item => ({
-          [item.datum]: `${item.kanaal}`
-        }))}
-      />
-      <BarChart data={contentData} />
-    </>
-  )
-}
-"""
-    _compiled, tree = compile_canvas(source=source)
-    assert tree["type"] == "Stack"
-    assert tree["children"][0]["props"]["text"] == "Test"
-    assert tree["children"][1]["props"]["value"] == 45200
-    assert tree["children"][2]["props"]["columns"] == ["2026-10-22", "2026-10-23"]
-    assert tree["children"][2]["props"]["rows"][1]["2026-10-23"] == "LinkedIn"
-
-
-def test_compile_bokito_canvas_wrapper():
-    source = """
-<bokito/canvas>
-  <Stat title="Engagement Rate" value="12.5%" />
-  <Heading level="2" text="Doelgroep" />
-</bokito/canvas>
-"""
-    _compiled, tree = compile_canvas(source=source)
-    assert tree["type"] == "Stack"
-    assert [child["type"] for child in tree["children"]] == ["Stat", "Heading"]
-    assert tree["children"][0]["props"]["value"] == "12.5%"
-
-
-def test_compile_hyphen_wrapper_and_pie():
-    """The shape agents actually send when they add charts to a dashboard."""
-    source = """
-<bokito-canvas>
-  <Stat title="Willekeurige Cijfers" value="{randomNumber: 42}" />
-  <BarChart title="Verdeling" series={[
-    {label: "0-10", value: 3},
-    {label: "11-20", value: 5}
-  ]} />
-  <Card title="Gemiddelde" value="{average: 20.33}" />
-  <PieChart title="Cijferverdeling" series={[
-    {label: "Laag", percentage: 25},
-    {label: "Hoog", percentage: 75}
-  ]} />
-</bokito-canvas>
-"""
-    _compiled, tree = compile_canvas(source=source)
-    assert tree["type"] == "Stack"
-    stat, chart, card, pie = tree["children"]
-    assert stat["props"]["value"] == 42
-    assert chart["props"]["series"][0]["points"][0] == {"x": "0-10", "y": 3}
-    assert card["children"][0]["props"]["text"] == "20.33"
-    assert pie["type"] == "PieChart"
-    assert pie["props"]["slices"] == [
-        {"name": "Laag", "value": 25},
-        {"name": "Hoog", "value": 75},
-    ]
-
-
-def test_compile_source_roundtrip():
-    source = """
-import { Stack, Grid, Stat, Heading } from "bokito/canvas"
-
-export default function Canvas() {
-  return (
-    <Stack>
-      <Heading>Launch</Heading>
-      <Grid columns={2}>
-        <Stat title="Open items" value="4" unit="items" source="Queue · today" />
-        <Stat title="Done" value="2" />
-      </Grid>
-    </Stack>
-  )
-}
-"""
-    compiled_source, tree = compile_canvas(source=source)
-    assert tree["type"] == "Stack"
-    assert tree["children"][0]["type"] == "Heading"
-    assert tree["children"][1]["type"] == "Grid"
-    assert tree["children"][1]["children"][0]["props"]["value"] == "4"
-    again, tree2 = compile_canvas(source=compiled_source)
-    assert tree2["type"] == "Stack"
-    assert again
-
-
-def test_compile_inlines_const_bindings():
-    source = """
-import { Stack, BarChart, Stat } from "bokito/canvas"
-export default function Canvas() {
-  const total = 12500
-  const randomData = {
-    sales: [
-      { month: "Jan", value: 4500 },
-      { month: "Feb", value: 5200 }
-    ]
-  }
-  return (
-    <Stack>
-      <Stat title="Omzet" value={total} />
-      <BarChart title="Sales" series={randomData.sales} />
-    </Stack>
-  )
-}
-"""
-    _source, tree = compile_canvas(source=source)
-    stat, chart = tree["children"]
-    assert stat["props"]["value"] == 12500
-    points = chart["props"]["series"][0]["points"]
-    assert points[0] == {"x": "Jan", "y": 4500}
-    assert points[1] == {"x": "Feb", "y": 5200}
-
-
-def test_collect_bindings_always_advances():
-    source = "const x =\nconst x =\nreturn (<Stack />)"
-    assert _collect_bindings(source) == {}
-
-
-def test_compile_drops_jsx_comment_braces():
-    source = """
-import { Stack, Heading, Callout } from "bokito/canvas"
-export default function C() {
-  return (
-    <Stack>
-      {/* Header */}
-      <Heading>Test Dashboard</Heading>
-      {}
-      <Callout>Body</Callout>
-    </Stack>
-  )
-}
-"""
-    _source, tree = compile_canvas(source=source)
-    types = [child["type"] for child in tree["children"]]
-    assert types == ["Heading", "Callout"]
-    assert all(
-        (child.get("props") or {}).get("text") not in ("{", "}", "{}")
-        for child in tree["children"]
-    )
-
-
-def test_compile_drops_html_comments():
-    """Models paste <!-- ... -->; that used to raise Expected a component name."""
-    source = """
-<Stack>
-  <!-- Balkdiagram voor frequentie -->
-  <Card title="Frequentie">
-    <BarChart data={[{label: "1", value: 5}]} />
-  </Card>
-</Stack>
-"""
-    _source, tree = compile_canvas(source=source)
-    assert tree["type"] == "Stack"
-    assert tree["children"][0]["type"] == "Card"
-
-
-def test_compile_unrolls_const_map():
-    source = """
-import { Stack, Stat, Card } from "bokito/canvas"
-export default function C() {
-  const rows = [{ label: "A", value: 1 }, { label: "B", value: 2 }]
-  return (
-    <Stack>
-      {rows.map((row, index) => (
-        <Card key={index}>
-          <Stat label={row.label} value={row.value} />
-        </Card>
-      ))}
-    </Stack>
-  )
-}
-"""
-    _source, tree = compile_canvas(source=source)
-    assert [child["type"] for child in tree["children"]] == ["Card", "Card"]
-    assert tree["children"][0]["children"][0]["props"]["label"] == "A"
-    assert tree["children"][1]["children"][0]["props"]["value"] == 2
-
-
-def test_compile_normalizes_chart_data_and_table_rows():
-    source = """
-import { Stack, BarChart, Table } from "bokito/canvas"
-export default function C() {
-  const sales = [{ month: "Jan", value: 10 }, { month: "Feb", value: 20 }]
-  const tableData = [{ name: "Alpha", status: "Open" }]
-  return (
-    <Stack>
-      <BarChart data={sales} x="month" y="value" title="Sales" />
-      <Table
-        data={tableData}
-        columns={[{ key: "name", header: "Name" }, { key: "status", header: "Status" }]}
-      />
-    </Stack>
-  )
-}
-"""
-    _source, tree = compile_canvas(source=source)
-    chart, table = tree["children"]
-    assert chart["props"]["series"][0]["points"][1] == {"x": "Feb", "y": 20}
-    assert table["props"]["columns"] == ["Name", "Status"]
-    assert table["props"]["rows"] == [["Alpha", "Open"]]
-
-
-def test_compile_typical_dashboard_with_map_and_data_charts():
-    source = """
-import { Stack, Grid, Row, Heading, Callout, Divider, Stat, Table, BarChart, Card, Badge } from "bokito/canvas"
-const salesData = [{ month: "Januari", value: 4500 }, { month: "Februari", value: 5200 }]
-const stats = [{ label: "Omzet", value: "€ 245.000", trend: "12%" }]
-const tableData = [{ name: "Project Alpha", status: "Actief" }]
-export default function Canvas() {
-  return (
-    <Stack>
-      <Heading level={1}>Test Dashboard</Heading>
-      <Row>
-        {stats.map((stat, index) => (
-          <Card key={index}>
-            <Stat label={stat.label} value={stat.value} trend={stat.trend} />
-          </Card>
-        ))}
-      </Row>
-      <BarChart data={salesData} x="month" y="value" title="Omzet" />
-      <Table
-        data={tableData}
-        columns={[{ key: "name", header: "Project" }, { key: "status", header: "Status" }]}
-      />
-      <Callout type="info">Testdashboard</Callout>
-      <Badge type="primary">Primary</Badge>
-    </Stack>
-  )
-}
-"""
-    _source, tree = compile_canvas(source=source)
-    types = [child["type"] for child in tree["children"]]
-    assert types[:4] == ["Heading", "Row", "BarChart", "Table"]
-    row = tree["children"][1]
-    assert row["children"][0]["children"][0]["props"]["label"] == "Omzet"
-    assert tree["children"][2]["props"]["series"][0]["points"][0]["x"] == "Januari"
-    assert tree["children"][3]["props"]["rows"] == [["Project Alpha", "Actief"]]
-    assert tree["children"][4]["props"]["tone"] == "info"
-
-
-def test_compile_rejects_unbound_prop_expression():
-    with pytest.raises(CanvasCompileError, match="Unsupported expression 'randomData'"):
-        parse_source(
-            'import { Stat } from "bokito/canvas"\n'
-            "export default function C() { return <Stat value={randomData} /> }"
-        )
-
-
-def test_compile_rejects_fetch_and_foreign_import():
-    with pytest.raises(CanvasCompileError):
-        parse_source(
-            'import { Stack } from "other"\nexport default function C() { return <Stack /> }'
-        )
-    with pytest.raises(CanvasCompileError):
-        parse_source(
-            'import { Stack } from "bokito/canvas"\n'
-            "export default function C() { fetch('/x'); return <Stack /> }"
-        )
-    with pytest.raises(CanvasCompileError):
-        parse_source(
-            'import { Stack } from "bokito/canvas"\n'
-            "export default function C() { const x = window.location; return <Stack /> }"
-        )
-    with pytest.raises(CanvasCompileError):
-        parse_source("<NotAThing />")
-
-
-def test_compile_allows_window_in_prose():
-    """Trading copy like 'AM window' is text, not the browser window global."""
-    tree = parse_source(
-        'import { Stack, Callout } from "bokito/canvas"\n'
-        "export default function Canvas() {\n"
-        '  const nextAction = "AM window opent om 09:45 ET";\n'
-        "  return (\n"
-        "    <Stack>\n"
-        "      <Callout>Markt gesloten. AM window nog niet actief.</Callout>\n"
-        "    </Stack>\n"
-        "  )\n"
-        "}\n"
-    )
-    callout = tree["children"][0]
-    assert callout["type"] == "Callout"
-    assert "AM window" in callout["props"]["text"]
-
-
 @pytest.mark.asyncio
 async def test_window_prose_applies_and_session_stays_usable(client: AsyncClient, session_override):
-    """The compile runs in a worker thread. A prose 'window' must save, and a
-    real compile error must come back as HTTP 400 without breaking the session."""
+    """A dashboard saves blocks. A bad block list is HTTP 400 and the session stays usable."""
     from sqlalchemy import select
 
     from app.models.auth import Tenant
@@ -341,19 +32,16 @@ async def test_window_prose_applies_and_session_stays_usable(client: AsyncClient
         json={"title": "AM desk"},
     )
     assert created.status_code == 200, created.text
-    source = (
-        'import { Stack, Callout } from "bokito/canvas"\n'
-        "export default function Canvas() {\n"
-        '  const nextAction = "AM window opent om 09:45 ET";\n'
-        "  return <Stack><Callout>AM window nog niet actief.</Callout></Stack>\n"
-        "}\n"
-    )
     applied = await apply_canvas_document(
         session_override,
         tenant.id,
-        {"canvas_id": created.json()["id"], "source": source},
+        {
+            "canvas_id": created.json()["id"],
+            "blocks": [{"type": "callout", "text": "AM window nog niet actief."}],
+        },
     )
-    assert "window" in applied["canvas"]["source"]
+    assert applied["canvas"]["source"] == ""
+    assert "window" in applied["canvas"]["tree"]["children"][0]["props"]["text"]
     still = (await session_override.execute(select(Tenant))).scalar_one()
     assert still.id == tenant.id
 
@@ -363,10 +51,7 @@ async def test_window_prose_applies_and_session_stays_usable(client: AsyncClient
             tenant.id,
             {
                 "canvas_id": created.json()["id"],
-                "source": (
-                    'import { Stack } from "bokito/canvas"\n'
-                    "export default function C() { fetch('/x'); return <Stack /> }"
-                ),
+                "blocks": [{"type": "BoxPlot", "title": "Spread"}],
             },
         )
     assert bad.value.status_code == 400
@@ -424,17 +109,10 @@ async def test_project_canvas_nodes_and_conflict(client: AsyncClient, session_ov
     assert body["thread"]["id"] == body["signal_id"]
     assert body["thread"]["path"]
 
-    source = """
-import { Stack, Stat, Heading } from "bokito/canvas"
-export default function Canvas() {
-  return (
-    <Stack>
-      <Heading>NPS</Heading>
-      <Stat title="NPS" value="72" unit="score" source="Survey · last 30 days" />
-    </Stack>
-  )
-}
-"""
+    blocks = [
+        {"type": "heading", "text": "NPS", "level": 2},
+        {"type": "stat", "label": "NPS", "value": "72", "unit": "score", "hint": "Survey"},
+    ]
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     applied = await apply_canvas_document(
         session_override,
@@ -442,21 +120,23 @@ export default function Canvas() {
         {
             "canvas_id": body["id"],
             "notes": "Added KPI",
-            "source": source,
+            "blocks": blocks,
         },
     )
     assert applied["status"] == "applied"
     next_body = applied["canvas"]
     assert next_body["empty"] is False
-    stats = [n for n in next_body["tree"]["children"] if n["type"] == "Stat"]
-    assert stats and stats[0]["props"]["value"] == "72"
+    assert next_body["source"] == ""
+    kpi_row = [n for n in next_body["tree"]["children"] if n["type"] == "Grid"]
+    assert kpi_row and kpi_row[0]["children"][0]["props"]["value"] == "72"
+    assert next_body["blocks"][1]["value"] == "72"
 
     with pytest.raises((HTTPException, AppError)) as conflict:
         await put_canvas_source(
             session_override,
             tenant.id,
             canvas_id=UUID(body["id"]),
-            source=source,
+            blocks=blocks,
             expected_revision=body["revision"],
         )
     assert conflict.value.status_code == 409
@@ -566,6 +246,7 @@ async def test_default_location_and_forbidden_source(client: AsyncClient, sessio
             {
                 "canvas_id": created.json()["id"],
                 "source": "import { Stack } from 'fs'\nexport default function C(){return <Stack />}",
+                "blocks": None,
             },
         )
     assert bad.value.status_code == 400

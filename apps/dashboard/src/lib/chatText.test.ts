@@ -183,6 +183,20 @@ describe('parseChatText', () => {
     expect(first.rest).toEqual([{ type: 'text', text: 'New work' }])
   })
 
+  it('keeps an unclosed fence as a code window only while streaming', () => {
+    const text = '```javascript\ncreate_canvas(\n)\nIk voeg dit nu toe.'
+    const live = parseChatText(text, { streaming: true })
+    expect(live[live.length - 1]).toMatchObject({ type: 'code', lang: 'javascript' })
+    expect(String((live[live.length - 1] as { text: string }).text)).toContain('Ik voeg dit nu toe.')
+    const done = parseChatText(text)
+    expect(done.some((block) => block.type === 'code')).toBe(false)
+    const prose = done
+      .filter((block) => block.type === 'line')
+      .map((block) => (block.type === 'line' ? block.inline.map((node) => ('text' in node ? node.text : '')).join('') : ''))
+      .join('\n')
+    expect(prose).toContain('Ik voeg dit nu toe.')
+  })
+
   it('keeps fenced code whole and collapses blank lines to one gap', () => {
     const blocks = parseChatText('one\n\n\n```\nx = 1\n\ny = 2\n```')
     expect(blocks.map((b) => b.type)).toEqual(['line', 'gap', 'code'])

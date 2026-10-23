@@ -239,7 +239,7 @@ function inlineToPlain(nodes: ChatInline[]): string {
       if (n.type === 'text' || n.type === 'code') return n.text
       if (n.type === 'link' || n.type === 'status') return n.label
       if (n.type === 'mention') return `@${n.name}`
-      if (n.type === 'tag') return `#${n.name}`
+      if (n.type === 'tag') return n.name.replace(/^#/, '')
       return inlineToPlain(n.children)
     })
     .join('')
@@ -304,14 +304,21 @@ export function parseChatText(
     if (fence) {
       const lang = fence[1].trim()
       const code: string[] = []
-      i += 1
-      while (i < lines.length && !/^\s*```/.test(lines[i])) {
-        code.push(lines[i])
-        i += 1
+      let cursor = i + 1
+      while (cursor < lines.length && !/^\s*```/.test(lines[cursor])) {
+        code.push(lines[cursor])
+        cursor += 1
       }
-      i += 1
-      blocks.push({ type: 'code', text: code.join('\n'), lang })
-      continue
+      const closed = cursor < lines.length && /^\s*```/.test(lines[cursor])
+      // A finished message with no closing fence is prose. During streaming
+      // the same text is a code window in progress.
+      if (!closed && !opts.streaming) {
+        // fall through and show the opener as text
+      } else {
+        i = closed ? cursor + 1 : cursor
+        blocks.push({ type: 'code', text: code.join('\n'), lang })
+        continue
+      }
     }
     if (RULE_RE.test(line) || TABLE_SEP_RE.test(line)) {
       i += 1

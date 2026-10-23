@@ -27,7 +27,7 @@ Everything in Bokito hangs on these five. Label, department, channel and contact
 
 ### {icon:flow} Flow
 
-**NL:** Werk. How one kind of work runs: stages, an owner per stage and an optional destination (**Delivers to**). The label with the flow is the mechanism underneath, for example `#complaint`. When a ticket reaches a Done stage, it is delivered to that destination. Connects to [Flows](/docs/ai/flows), [Labels](/docs/ai/categories) and [Folders](/docs/ai/folders).
+**NL:** Werk. How one kind of work runs: stages and an owner per stage. The label with the flow is the mechanism underneath, for example `complaint`. Connects to [Flows](/docs/ai/flows), [Labels](/docs/ai/categories) and [Folders](/docs/ai/folders).
 
 ### {icon:agent} Agent
 
@@ -41,7 +41,7 @@ Everything in Bokito hangs on these five. Label, department, channel and contact
 
 ### {icon:hash} Label
 
-**NL:** Label. A hashtag on a conversation. A label with a flow makes the conversation a ticket in that flow; a conversation has at most one. Color and icon exist only while the flow is attached. Labels also decide which folder a conversation sits in. Connects to [Labels](/docs/ai/categories) and [Flows](/docs/ai/flows).
+**NL:** Label. A label on a conversation. A label with a flow makes the conversation a ticket in that flow; a conversation has at most one. Color and icon exist only while the flow is attached. Labels also decide which folder a conversation sits in. Connects to [Labels](/docs/ai/categories) and [Flows](/docs/ai/flows).
 
 ### {icon:contact} Contact
 
@@ -73,7 +73,7 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:composer} Composer
 
-**NL:** Opsteller. Reply, ask the AI, or write an internal note. The client does not see a note. Email has reply, reply all and forward. `/ticket #name` files a ticket. While you type, an autonomous agent drafts instead of sending. Connects to [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
+**NL:** Opsteller. Reply, ask the AI, or write an internal note. The client does not see a note. Email has reply, reply all and forward. `/ticket name` files a ticket. While you type, an autonomous agent drafts instead of sending. Connects to [Replies, safeguards and handovers](/docs/inbox/inbox-ai).
 
 ### {icon:decision} Decision
 
@@ -113,11 +113,11 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:folder} Folders
 
-**NL:** Mappen. The tree of folders. Members read. Owners and admins rename, set labels and nest. Each folder shows conversations, documentation and **Works in**. Connects to [Folders](/docs/ai/folders).
+**NL:** Mappen. The tree of folders. Members read. Owners and admins rename, set labels and nest. A folder is a container: subfolders, conversations, images, files and canvases. The board, agenda, Works in and docs sit on the department's folder tab. Connects to [Folders](/docs/ai/folders) and [Workforce](/docs/getting-started/team).
 
 ### {icon:works-in} Works in
 
-**NL:** Werkt in. One section on the folder with every place where work in that folder happens, one card per place. A filled icon is inside Bokito (Board, Files, Canvas), an outlined icon is a connection. A connection that receives work always hangs on a folder. **Add to Works in** adds a place. Connects to [Folders](/docs/ai/folders) and [Connections](/docs/integrations/integrations).
+**NL:** Werkt in. One section on the department's folder tab, with every place where work in that folder happens, one card per place. A filled icon is inside Bokito (Board, Files, Canvas), an outlined icon is a connection. A connection that receives work always hangs on a folder. **Add to Works in** adds a place. Connects to [Workforce](/docs/getting-started/team) and [Connections](/docs/integrations/integrations).
 
 ### {icon:canvas} Canvas
 
@@ -129,7 +129,7 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:flows} Flows
 
-**NL:** Werken. The list of flows. Members see the board. Owners and admins create flows, change stages and pick **Delivers to**. A flow picks a free label or creates one. Connects to [Flows](/docs/ai/flows).
+**NL:** Werk. The list of flows. Members see the board. Owners and admins create flows and change stages. A flow picks a free label or creates one. Connects to [Flows](/docs/ai/flows).
 
 ### {icon:stages} Stages
 
@@ -153,7 +153,7 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:workforce} Workforce
 
-**NL:** Workforce. The sections **People and agents** and **Departments**, plus the Grid and Workflow. Owners and admins invite and change roles. Only the owner changes another owner. An agent's ceiling sits in the same column as a person's role. Connects to [Workforce](/docs/getting-started/team) and [Agents](/docs/ai/agents).
+**NL:** Workforce. The sections **People and agents** and **Departments**, plus the Grid, Workflow and Organogram. Owners and admins invite and change roles. Only the owner changes another owner. An agent's ceiling sits in the same column as a person's role. Connects to [Workforce](/docs/getting-started/team) and [Agents](/docs/ai/agents).
 
 ### {icon:department} Department
 
@@ -165,7 +165,7 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:grid} Grid
 
-**NL:** Grid. The organization map in 3D: departments with their people and agents, and the folders, flows and connections they work with. Next to it sits **Workflow**: how work runs through the company, in four layers from left to right: **Intake** (channels), **Executors** (people and agents per department), **Flow** and **Result** (reply, folders with their Works in, knowledge). Workflow's lenses are Flow, Labels and Autonomy, in 3D or 2D; bottlenecks sit in the side panel. **Open in Grid** sits on Agents, Flows, Folders and Connections. You edit on those pages. Connects to [Workforce](/docs/getting-started/team).
+**NL:** Grid. The organization map in 3D: departments with their people and agents, and the folders, flows and connections they work with. Next to it sit **Workflow** and the **Organogram** (the department tree, root at the top). **Workflow**: how work runs through the company, in four layers from left to right: **Intake** (channels), **Executors** (people and agents per department), **Flow** and **Result** (reply, folders with their Works in, knowledge). Workflow's lenses are Flow, Labels and Autonomy, in 3D or 2D; bottlenecks sit in the side panel. **Open in Grid** sits on Agents, Flows and Folders. You edit on those pages. Connects to [Workforce](/docs/getting-started/team).
 
 ## Settings
 

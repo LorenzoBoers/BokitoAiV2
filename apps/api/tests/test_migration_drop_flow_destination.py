@@ -1,4 +1,4 @@
-"""Migration 127: flows get an empty "Delivers to"; the downgrade removes it."""
+"""Migration 149 drops the flow destination columns 127 added."""
 
 import importlib.util
 from pathlib import Path
@@ -7,36 +7,35 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-_PATH = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "127_flow_destination.py"
+_DIR = Path(__file__).resolve().parents[1] / "alembic" / "versions"
 
 
-def _migration():
-    spec = importlib.util.spec_from_file_location("m127_flow_destination", _PATH)
+def _load(name: str, filename: str):
+    spec = importlib.util.spec_from_file_location(name, _DIR / filename)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
 
 
-def _run(conn, fn: str) -> None:
-    module = _migration()
+def _run(conn, module, fn: str) -> None:
     ctx = MigrationContext.configure(conn)
     module.op = Operations(ctx)
     getattr(module, fn)()
 
 
-def test_upgrade_adds_empty_destination_and_downgrade_drops_it():
+def test_upgrade_drops_destination_columns():
     engine = sa.create_engine("sqlite://")
+    add = _load("m127_flow_destination", "127_flow_destination.py")
+    drop = _load("m149_drop_flow_destination", "149_drop_flow_destination.py")
     with engine.begin() as conn:
         conn.execute(sa.text("CREATE TABLE projects (id TEXT PRIMARY KEY)"))
         conn.execute(sa.text("CREATE TABLE workstreams (id TEXT PRIMARY KEY, name TEXT)"))
         conn.execute(sa.text("INSERT INTO workstreams VALUES ('w1', 'VAT filing')"))
-
-        _run(conn, "upgrade")
-        row = conn.execute(sa.text("SELECT deliver_folder_id, deliver_works_in_key FROM workstreams")).one()
-        assert row == (None, "")
-        _run(conn, "upgrade")
-
-        _run(conn, "downgrade")
+        _run(conn, add, "upgrade")
+        _run(conn, drop, "upgrade")
         columns = {c["name"] for c in sa.inspect(conn).get_columns("workstreams")}
         assert columns == {"id", "name"}
+        row = conn.execute(sa.text("SELECT id, name FROM workstreams")).one()
+        assert row == ("w1", "VAT filing")
+        _run(conn, drop, "upgrade")

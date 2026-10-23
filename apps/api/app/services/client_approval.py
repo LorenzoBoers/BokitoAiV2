@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import AppError
 from app.core.time import utcnow
 from app.models.signal import Signal, SignalEvent
 
@@ -51,13 +52,25 @@ async def _agreements_doc(session: AsyncSession, signal: Signal):
 
 
 async def record_agreement(session: AsyncSession, signal: Signal, feedback: str, *, agent_id: Any = None) -> str | None:
+    from app.services.workspace import list_sections, sync_sections_from_content, upsert_section
+
     doc = await _agreements_doc(session, signal)
     if doc is None or not feedback.strip():
         return None
-    heading = f"## {utcnow().date().isoformat()} {signal.subject or 'Feedback'}".strip()
-    doc.content = (doc.content or "").rstrip() + f"\n\n{heading}\n\n{feedback.strip()}\n"
-    doc.updated_at = utcnow()
-    session.add(doc)
+    sections = await list_sections(session, signal.tenant_id, doc.id)
+    if not sections and (doc.content or "").strip():
+        await sync_sections_from_content(session, doc, actor_type="system")
+    heading = f"{utcnow().date().isoformat()} {signal.subject or 'Feedback'}".strip()
+    await upsert_section(
+        session,
+        signal.tenant_id,
+        doc,
+        heading=heading,
+        content=feedback.strip(),
+        actor_type="system",
+        actor_id=str(agent_id or ""),
+        commit=False,
+    )
     return str(doc.id)
 
 
@@ -91,26 +104,51 @@ async def apply_verdict(
     current, target = stages[index], stages[target_index]
     try:
         await move_ticket_stage(session, signal, stage_key=target["key"], actor_type=actor_type, actor_id=actor_id, ws=ws)
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"applied": False, "reason": str(exc.detail)}
     doc_id = await record_agreement(session, signal, feedback) if verdict == "changes_requested" else None
-    session.add(
-        SignalEvent(
-            signal_id=signal.id,
-            tenant_id=signal.tenant_id,
-            event_type="client_verdict",
-            actor_type=actor_type,
-            actor_id=actor_id,
-            payload_json=json.dumps(
-                {
-                    "verdict": verdict,
-                    "from_stage": current["key"],
-                    "to_stage": target["key"],
-                    "feedback": feedback[:500],
-                    "agreements_doc_id": doc_id,
-                }
-            ),
-        )
+    event = SignalEvent(
+        signal_id=signal.id,
+        tenant_id=signal.tenant_id,
+        event_type="client_verdict",
+        actor_type=actor_type,
+        actor_id=actor_id,
+        payload_json=json.dumps(
+            {
+                "verdict": verdict,
+                "from_stage": current["key"],
+                "to_stage": target["key"],
+                "feedback": feedback[:500],
+                "agreements_doc_id": doc_id,
+            }
+        ),
     )
+    session.add(event)
     await session.flush()
-    return {"applied": True, "verdict": verdict, "stage": target["key"], "agreements_doc_id": doc_id}
+    if feedback.strip():
+        try:
+            from uuid import UUID
+
+            from app.services.knowledge_lessons import propose_lesson_from_verdict
+
+            agent_uuid = UUID(actor_id) if actor_id else None
+            async with session.begin_nested():
+                await propose_lesson_from_verdict(
+                    session,
+                    tenant_id=signal.tenant_id,
+                    signal_id=signal.id,
+                    event_id=event.id,
+                    feedback=feedback,
+                    agent_id=agent_uuid,
+                )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("lesson from verdict skipped")
+    return {
+        "applied": True,
+        "verdict": verdict,
+        "stage": target["key"],
+        "agreements_doc_id": doc_id,
+        "event_id": str(event.id),
+    }

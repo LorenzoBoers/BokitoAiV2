@@ -1,6 +1,4 @@
-"""Outward orientation: weekly, client folders in the prompt, one #trend per client."""
-
-from datetime import datetime
+"""Outward work: a trend lands in the client folder, not as an agenda orientation."""
 
 import pytest
 from httpx import AsyncClient
@@ -11,10 +9,10 @@ from app.models.auth import Tenant
 from app.models.project import Project
 from app.models.signal import Signal, SignalMessage
 from app.models.workspace import WorkspaceDoc
-from app.services.awareness import ensure_orientations, orientation_prompt
+from app.services.awareness import ensure_orientations
 from app.services.signal_tags import signal_tag_names
 from app.services.teams import create_team, set_team_members
-from app.services.trends import OUTWARD_CRON, post_trend, set_department_lens
+from app.services.trends import post_trend, set_department_lens
 
 
 async def _setup(session):
@@ -36,14 +34,11 @@ async def _setup(session):
 
 
 @pytest.mark.asyncio
-async def test_outward_orientation_is_weekly_and_lists_clients(client: AsyncClient, session_override):
-    tenant, _agent, folder = await _setup(session_override)
+async def test_outward_orientation_is_not_an_agenda_item(client: AsyncClient, session_override):
+    tenant, _agent, _folder = await _setup(session_override)
     rows = await ensure_orientations(session_override, tenant.id)
     await session_override.commit()
-    assert len(rows) == 1 and rows[0].cron_expr == OUTWARD_CRON
-    prompt = await orientation_prompt(session_override, rows[0], datetime(2026, 10, 19, 8, 0))
-    assert "Bakkerij Jansen" in prompt and str(folder.id) in prompt and "post_trend" in prompt
-    assert "Ambachtelijke bakker" in prompt
+    assert rows == []
 
 
 @pytest.mark.asyncio

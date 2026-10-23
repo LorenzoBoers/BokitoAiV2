@@ -5,6 +5,7 @@ import {
   FOOTER_TAB,
   FOOTER_TABS,
   GRID_PATH,
+  ORGANOGRAM_PATH,
   KNOWLEDGE_PATH,
   OVERVIEW_PATH,
   PINNED_TABS,
@@ -59,6 +60,8 @@ describe('navigation', () => {
   it('keeps nested destinations on their paths', () => {
     expect(TAB_PATHS.team).toBe('/workforce')
     expect(GRID_PATH).toBe('/workforce/grid')
+    expect(ORGANOGRAM_PATH).toBe('/workforce/organogram')
+    expect(tabFromPath(ORGANOGRAM_PATH)).toBe('team')
     expect(KNOWLEDGE_PATH).toBe('/agents/knowledge')
     expect(CONNECTIONS_PATH).toBe('/connections')
     expect(OVERVIEW_PATH).toBe('/communication/today')

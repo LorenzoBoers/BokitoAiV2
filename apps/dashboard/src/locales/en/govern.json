@@ -234,7 +234,7 @@
       "persona_review": "Voice review",
       "agent_rule": "Agent rule",
       "routing_rule": "Routing rule",
-      "signal_tag": "Hashtag"
+      "signal_tag": "Label"
     },
     "changeKind": {
       "create": "Create",

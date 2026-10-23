@@ -1,6 +1,13 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { DEPARTMENTS_PATH, GRID_PATH, KNOWLEDGE_PATH, TAB_PATHS, WORKFLOW_PATH } from '../../lib/navigation'
+import {
+  DEPARTMENTS_PATH,
+  GRID_PATH,
+  KNOWLEDGE_PATH,
+  ORGANOGRAM_PATH,
+  TAB_PATHS,
+  WORKFLOW_PATH,
+} from '../../lib/navigation'
 import { cn } from '../../lib/utils'
 
 export type SectionTab = {
@@ -49,22 +56,25 @@ export function AgentsSectionTabs({ className }: { className?: string }) {
   )
 }
 
-/** People and agents · Departments · Grid · Workflow */
+/** People and agents · Departments · Grid · Workflow · Organogram */
 export function WorkforceSectionTabs({ className }: { className?: string }) {
   const { t } = useTranslation('nav')
   const { pathname, search } = useLocation()
   const onGrid = pathname.startsWith(GRID_PATH)
   const onWorkflow = pathname.startsWith(WORKFLOW_PATH)
+  const onOrganogram = pathname.startsWith(ORGANOGRAM_PATH)
+  const onCanvas = onGrid || onWorkflow || onOrganogram
   const tab = new URLSearchParams(search).get('tab')
-  const onDepartments = !onGrid && !onWorkflow && (tab === 'departments' || tab === 'teams')
+  const onDepartments = !onCanvas && (tab === 'departments' || tab === 'teams')
   return (
     <SectionTabs
       className={className}
       tabs={[
-        { to: TAB_PATHS.team, label: t('teamPage.sections.people'), active: !onGrid && !onWorkflow && !onDepartments },
+        { to: TAB_PATHS.team, label: t('teamPage.sections.people'), active: !onCanvas && !onDepartments },
         { to: DEPARTMENTS_PATH, label: t('teamPage.sections.teams'), active: onDepartments },
         { to: GRID_PATH, label: t('tabs.grid.title'), active: onGrid },
         { to: WORKFLOW_PATH, label: t('tabs.workflow.title'), active: onWorkflow },
+        { to: ORGANOGRAM_PATH, label: t('tabs.organogram.title'), active: onOrganogram },
       ]}
     />
   )

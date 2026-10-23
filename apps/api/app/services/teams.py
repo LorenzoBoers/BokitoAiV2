@@ -118,6 +118,38 @@ async def all_department(session: AsyncSession, tenant_id: UUID) -> Team:
     return await ensure_all_department(session, tenant_id)
 
 
+async def seat_company_agents_without_department(session: AsyncSession) -> int:
+    """Seat active company agents that belong to no department on All.
+
+    A personal helper (``acts_for_user``) stays out. An agent that already
+    sits on a custom department is left there. Caller commits.
+    """
+    agents = (
+        await session.execute(
+            select(Agent).where(
+                Agent.kind == "company",
+                Agent.is_active.is_(True),
+                Agent.acts_for_user.is_(False),
+            )
+        )
+    ).scalars().all()
+    seated = 0
+    for agent in agents:
+        has_seat = (
+            await session.execute(
+                select(TeamMember.id).where(
+                    TeamMember.member_kind == "agent",
+                    TeamMember.agent_id == agent.id,
+                )
+            )
+        ).scalars().first()
+        if has_seat is not None:
+            continue
+        if await ensure_agent_on_all(session, agent.tenant_id, agent.id):
+            seated += 1
+    return seated
+
+
 async def _seed_all_members(session: AsyncSession, all_team: Team) -> None:
     """Put every active person and company agent into All (idempotent)."""
     existing_users = set(

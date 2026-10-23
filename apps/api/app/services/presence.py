@@ -35,6 +35,8 @@ OFFLINE_GRACE = timedelta(seconds=15)
 AVAILABLE = "available"
 AWAY = "away"
 OFFLINE = "offline"
+UNAVAILABLE = "unavailable"
+AVAILABILITY_MODES = ("online", "away", "unavailable")
 WORKING = "working"
 STANDBY = "standby"
 ERROR = "error"
@@ -52,10 +54,25 @@ def _naive_utc(value: datetime | None) -> datetime | None:
     return value
 
 
+def _availability(user: User, now: datetime) -> str:
+    mode = getattr(user, "availability", None) or ("away" if user.away else "online")
+    if mode not in AVAILABILITY_MODES:
+        mode = "away" if user.away else "online"
+    until = _naive_utc(getattr(user, "availability_until", None))
+    if mode == "online" and user.away:
+        mode = "away"
+        until = until or _naive_utc(user.away_until)
+    if until is not None and until <= now:
+        return "online"
+    return mode
+
+
 def user_status(user: User, *, now: datetime | None = None) -> str:
     now = _naive_utc(now) or utcnow()
-    away_until = _naive_utc(user.away_until)
-    if user.away and (away_until is None or away_until > now):
+    mode = _availability(user, now)
+    if mode == "unavailable":
+        return UNAVAILABLE
+    if mode == "away":
         return AWAY
     last_seen = _naive_utc(user.last_seen_at)
     if last_seen and now - last_seen <= ONLINE_WINDOW:
@@ -115,7 +132,11 @@ async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) ->
         return False
     user.last_seen_at = now
     away_until = _naive_utc(user.away_until)
-    if user.away and away_until is not None and away_until <= now:
+    if _availability(user, now) == "online" and (
+        user.away or getattr(user, "availability", "online") != "online"
+    ):
+        user.availability = "online"
+        user.availability_until = None
         user.away = False
         user.away_until = None
     session.add(user)
@@ -153,15 +174,30 @@ async def mark_offline(session: AsyncSession, user_id: UUID) -> bool:
     return bool(result.rowcount)
 
 
-async def set_away(
-    session: AsyncSession, user: User, *, away: bool, until: datetime | None = None
+async def set_availability(
+    session: AsyncSession,
+    user: User,
+    mode: str,
+    *,
+    until: datetime | None = None,
 ) -> User:
-    user.away = away
-    user.away_until = until if away else None
+    """Online, away or unavailable for agents. Away still maps onto the legacy flag."""
+    if mode not in AVAILABILITY_MODES:
+        raise ValueError(f"availability must be one of: {', '.join(AVAILABILITY_MODES)}")
+    user.availability = mode
+    user.availability_until = until if mode != "online" else None
+    user.away = mode == "away"
+    user.away_until = until if mode == "away" else None
     session.add(user)
     await session.commit()
     await session.refresh(user)
     return user
+
+
+async def set_away(
+    session: AsyncSession, user: User, *, away: bool, until: datetime | None = None
+) -> User:
+    return await set_availability(session, user, "away" if away else "online", until=until)
 
 
 async def statuses_for(

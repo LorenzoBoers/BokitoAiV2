@@ -11,6 +11,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 
+from app.exceptions import AppError
 from app.tools.registry import ToolContext, ToolSpec, register_tool
 
 _NO_PROJECT = ("", "none", "no_project", "null")
@@ -63,7 +64,7 @@ async def _get_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         return {"error": "signal_id is required"}
     try:
         signal = await _signal(ctx.session, ctx.tenant_id, signal_id)
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": exc.detail}
     return {"ticket": await ticket_payload(ctx.session, signal)}
 
@@ -77,7 +78,7 @@ async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
     ref = str(tool_input.get("category") or tool_input.get("tag_id") or "").strip()
     tag = await find_category(ctx.session, ctx.tenant_id, ref)
     if tag is None:
-        return {"error": "Unknown label with a flow. Use list_categories for the hashtags that start a ticket flow."}
+        return {"error": "Unknown label with a flow. Use list_categories for the labels that start a ticket flow."}
     raw_project = tool_input.get("folder_id", tool_input.get("project_id"))
     project_id = None
     if str(raw_project or "").strip().lower() not in _NO_PROJECT:
@@ -110,7 +111,7 @@ async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str
             stage_key=str(tool_input.get("stage_key") or "") or None,
             reason=str(tool_input.get("reason") or ""),
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": exc.detail}
 
 
@@ -146,7 +147,7 @@ async def _update_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[s
         ticket = await update_ticket(
             ctx.session, ctx.tenant_id, signal_id, patch, actor_type=actor_type, actor_id=actor_id
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         detail = exc.detail
         if isinstance(detail, dict):
             return {"error": detail.get("message") or "Could not update the ticket", **detail}
@@ -160,9 +161,9 @@ register_tool(
     ToolSpec(
         name="list_categories",
         description=(
-            "List labels with a flow (also called categories): hashtags that start a "
+            "List labels with a flow (also called categories): labels that start a "
             "ticket flow, with the folders that carry each label. "
-            "Free hashtags without a flow are not listed here; use set_thread_tags for those."
+            "Labels without a flow are not listed here; use set_thread_tags for those."
         ),
         category="tickets",
         input_schema={"type": "object", "properties": {}},
@@ -209,7 +210,7 @@ register_tool(
             "properties": {
                 "category": {
                     "type": "string",
-                    "description": "Hashtag name of a label with a flow (e.g. klacht) or id",
+                    "description": "Label name of a flow (e.g. klacht) or id, without a leading #",
                 },
                 "signal_id": {"type": "string"},
                 "folder_id": {

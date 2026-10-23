@@ -123,7 +123,7 @@ async def learn_from_answer(session: AsyncSession, decision: DecisionRequest) ->
     person = await session.get(User, leader)
     name = (person.display_name or person.email) if person else "this person"
     label = await session.get(SignalTag, signal.ticket_tag_id)
-    label_name = f"#{label.name}" if label else "this label"
+    label_name = label.name if label else "this label"
 
     from app.services.platform_changes import propose_platform_change
 

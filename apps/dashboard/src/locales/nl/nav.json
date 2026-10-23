@@ -16,13 +16,14 @@
     "tabAll": "Alles",
     "settings": "Afdelingsinstellingen",
     "decisions": "Beslissingen",
-    "openFolder": "Map openen",
     "folderEmpty": "Geen open werk van deze afdeling in deze map.",
     "openBoard": "Bord openen",
     "flowsHint": "Elk werk als pijplijn: hoeveel open tickets in elke fase staan.",
     "team": "Team",
     "iconTitle": "Icoon van de afdeling",
     "iconBody": "Dit icoon staat bij de afdeling in het menu links.",
+    "rootName": "Alles",
+    "parentEmpty": "Niemand staat op deze afdeling.",
     "leadership": "Leiding",
     "lead": "Leidende agent",
     "accountable": "Eindverantwoordelijke",
@@ -35,7 +36,7 @@
     "openAssigned_other": "{{count}} open",
     "hours_one": "{{count}} uur per week",
     "hours_other": "{{count}} uur per week",
-    "flows": "Werken",
+    "flows": "Werk",
     "noFlows": "Nog geen werk hoort bij deze afdeling. Stel de afdeling in op een werkpagina.",
     "totals": {
       "open": "Open",
@@ -56,6 +57,7 @@
       "available": "Beschikbaar",
       "busy": "Bezet",
       "away": "Afwezig",
+      "unavailable": "Niet beschikbaar",
       "offline": "Offline"
     },
     "agentStatus": {
@@ -80,7 +82,15 @@
     },
     "awareness": {
       "title": "Waar de leider op let",
-      "hint": "Tussen de oriëntaties wordt de leider wakker van deze gebeurtenissen in de gesprekken van deze afdeling, binnen zijn dagbudget.",
+      "hint": "De wake is geen agenda-item. De agent kijkt rond op het gekozen moment en logt dat bij activiteiten.",
+      "mode": "Wake",
+      "modes": {
+        "off": "Uit",
+        "on_conversation": "Bij een gesprek",
+        "daily": "Dagelijks",
+        "custom": "Eigen cadans"
+      },
+      "cron": "Cadans",
       "follows": "Gebeurtenissen die de leider volgt",
       "follow": {
         "inbound": "Nieuwe berichten",
@@ -93,8 +103,9 @@
       },
       "dailyCost": "Dagbudget (EUR)",
       "spentToday": "{{amount}} vandaag besteed",
-      "maxProposals": "Voorstellen per oriëntatie",
-      "nextOrientation": "Volgende oriëntatie",
+      "maxProposals": "Voorstellen per wake",
+      "nextOrientation": "Volgend wekmoment",
+      "nextWake": "Volgend wekmoment",
       "save": "Opslaan",
       "noLead": "Deze afdeling heeft geen leidende agent. Maak eerst een agent eerste onder Leiding."
     },
@@ -108,7 +119,7 @@
     },
     "reach": {
       "title": "Wat deze afdeling kan bereiken",
-      "flows": "Werken",
+      "flows": "Werk",
       "channels": "Kanalen",
       "connections": "Koppelingen",
       "organizations": "Organisaties",
@@ -189,7 +200,7 @@
       "subtitle": "AI-medewerkers, hun kennis en wat ze mogen"
     },
     "workstreams": {
-      "title": "Werken",
+      "title": "Werk",
       "subtitle": "Ticketflows met het label als titel"
     },
     "folders": {
@@ -207,6 +218,10 @@
     "workflow": {
       "title": "Workflow",
       "subtitle": "Hoe werk loopt van binnenkomst tot resultaat"
+    },
+    "organogram": {
+      "title": "Organogram",
+      "subtitle": "Hiërarchie van afdelingen, van de root naar beneden"
     },
     "connections": {
       "title": "Koppelingen",
@@ -226,7 +241,7 @@
     },
     "team": {
       "title": "Workforce",
-      "subtitle": "Mensen, agents, afdelingen, de Grid en de Workflow"
+      "subtitle": "Mensen, agents, afdelingen, het organogram, de Grid en de Workflow"
     }
   },
   "workstreamsPage": {
@@ -320,33 +335,33 @@
       "entrySaved": "Fasewissels bijgewerkt",
       "entrySaveError": "Fasewissels konden niet worden bijgewerkt"
     },
-    "title": "Werken",
+    "title": "Werk",
     "subtitle": "Elk werk hoort bij één label. De fases zijn de kolommen van een live ticketbord.",
-    "loadError": "Kon werken niet laden.",
+    "loadError": "Kon werk niet laden.",
     "notFound": "Werk niet gevonden.",
     "new": "Nieuw werk",
-    "newPlaceholder": "Hashtag voor nieuw werk",
+    "newPlaceholder": "Label voor nieuw werk",
     "create": "Aanmaken",
     "cancel": "Annuleren",
     "created": "Werk aangemaakt.",
     "createError": "Kon het werk niet aanmaken.",
-    "allWorkstreams": "Alle werken",
-    "empty": "Nog geen werken. Kies Nieuw werk om een label te kiezen of aan te maken.",
-    "emptyTitle": "Nog geen werken",
-    "emptyBody": "Een werk is het fasebord van één label. Maak een werk om van een hashtag een live ticketpipeline te maken.",
+    "allWorkstreams": "Al het werk",
+    "empty": "Nog geen werk. Kies Nieuw werk om een label te kiezen of aan te maken.",
+    "emptyTitle": "Nog geen werk",
+    "emptyBody": "Een werk is het fasebord van één label. Maak een werk om van een label een live ticketpipeline te maken.",
     "dialogTitle": "Nieuw werk",
-    "dialogBody": "Bestaande werklabels staan uitgeschakeld. Typ om een vrije tag te kiezen of een nieuwe hashtag te maken.",
+    "dialogBody": "Bestaande werklabels staan uitgeschakeld. Typ om een vrije tag te kiezen of een nieuwe label te maken.",
     "dialogTakenAria": "Bestaande werklabels",
     "dialogTakenTitle": "Deze tag heeft al een werk",
-    "dialogAlreadyFlow": "#{{name}} hoort al bij een werk.",
+    "dialogAlreadyFlow": "{{name}} hoort al bij een werk.",
     "dialogChooseOther": "Andere tag",
-    "dialogNoFlows": "Nog geen werken. Typ een hashtag om een vrije tag te kiezen of een nieuwe te maken.",
-    "dialogSearchPlaceholder": "Zoek of typ een hashtag",
+    "dialogNoFlows": "Nog geen werk. Typ een label om een vrije tag te kiezen of een nieuwe te maken.",
+    "dialogSearchPlaceholder": "Zoek of typ een label",
     "dialogTagsAria": "Beschikbare tags",
     "dialogLoadingTags": "Tags laden…",
     "dialogNoMatch": "Geen tag komt overeen met die naam.",
-    "dialogCreateTag": "Tag #{{name}} aanmaken",
-    "dialogNoTags": "Nog geen vrije tags. Typ hierboven een hashtag om die als label voor dit werk aan te maken.",
+    "dialogCreateTag": "Tag {{name}} aanmaken",
+    "dialogNoTags": "Nog geen vrije tags. Typ hierboven een label om die als label voor dit werk aan te maken.",
     "dialogTypeToFilter": "Typ om de tags hierboven te filteren.",
     "stepCount": "{{count}} stappen",
     "stepCount_one": "{{count}} stap",
@@ -368,7 +383,7 @@
       "failed": "Mislukt",
       "cancelled": "Geannuleerd"
     },
-    "back": "Terug naar werken",
+    "back": "Terug naar werk",
     "backToWorkstream": "Terug naar werk",
     "delete": "Verwijderen",
     "deleted": "Werk verwijderd.",
@@ -489,12 +504,96 @@
     "edit": "Bewerken",
     "moreActions": "Meer acties",
     "openSettings": "Flowinstellingen",
+    "schema": {
+      "edit": "Bewerken",
+      "title": "Flow van start tot eind",
+      "hint": "Klik een stap of een pijl. Een pijl zegt wanneer hij geldt en wat hij meeneemt.",
+      "sourceHint": "Een stap is naam: wat hij doet. Velden springen in. Een pijl is van -> naar: wanneer.",
+      "diagram": "Diagram",
+      "counts": "{{steps}} stappen, {{arrows}} pijlen",
+      "extraStep": "Losse stap",
+      "stageNote": "Deze stap is een fase van het bord. Kolomnaam en soort wijzig je op het bord.",
+      "from": "Van",
+      "outgoing": "Gaat naar",
+      "incoming": "Komt van",
+      "noArrows": "Nog geen pijlen",
+      "connectTo": "Pijl toevoegen naar",
+      "autoPlace": "Automatisch plaatsen",
+      "menu": {
+        "configure": "Instellen",
+        "stepAfter": "Nieuwe stap hierna",
+        "stepHere": "Nieuwe stap hier",
+        "arrowTo": "Pijl naar",
+        "reverse": "Richting omdraaien",
+        "showSource": "Notatie tonen"
+      },
+      "maxHint": "30m, 4u, 2d of 2 werkdagen",
+      "maxInvalid": "Gebruik 30m, 4u, 2d of 2 werkdagen.",
+      "errorsTitle": "Controle",
+      "sourceOk": "De notatie klopt.",
+      "errorLine": "Regel {{line}}",
+      "tips": {
+        "select": "Klik een stap of een pijl om hem in te stellen.",
+        "draw": "Sleep vanaf de stip rechts op een stap naar een andere stap, of laat los op een lege plek voor een nieuwe stap.",
+        "move": "Sleep een losse stap naar een andere kolom, boven of onder een stap.",
+        "rightClick": "Rechtsklik op een stap, een pijl of de achtergrond voor meer acties."
+      },
+      "wie": {
+        "none": "Niet ingesteld",
+        "agent": "Agent",
+        "user": "Mens",
+        "beide": "Agent en mens"
+      },
+      "stand": {
+        "none": "Volgt het werk",
+        "manual": "Handmatig",
+        "assisted": "Geassisteerd",
+        "autonomous": "Autonoom"
+      },
+      "placeholders": {
+        "tools": "Bijvoorbeeld send_reply, calendar",
+        "krijgt": "Wat de stap nodig heeft",
+        "geeft": "Wat de stap oplevert",
+        "faalt": "Wat er gebeurt als het mislukt",
+        "stil": "Wat er gebeurt als niemand reageert",
+        "when": "Bijvoorbeeld klant akkoord"
+      },
+      "configureLine": "Lijn instellen",
+      "line": "Deze lijn",
+      "draw": "Verbinding maken",
+      "newStep": "Nieuwe stap",
+      "save": "Opslaan",
+      "close": "Sluiten",
+      "source": "Notatie",
+      "step": "Stap",
+      "arrow": "Pijl",
+      "addStep": "Stap",
+      "addArrow": "Pijl",
+      "remove": "Verwijderen",
+      "name": "Naam",
+      "text": "Wat de stap doet",
+      "when": "Wanneer",
+      "to": "Naar",
+      "stop": "Stop",
+      "empty": "Kies een stap of een pijl op het diagram.",
+      "invalid": "De notatie klopt nog niet.",
+      "fields": {
+        "wie": "Wie",
+        "tools": "Tools",
+        "geeft": "Geeft",
+        "krijgt": "Krijgt",
+        "faalt": "Faalt",
+        "stil": "Stil",
+        "max": "Max",
+        "stand": "Stand"
+      }
+    },
     "settingsTitle": "Instellingen",
-    "settingsHint": "Waar dit werk oplevert, wat klaar betekent, en wie hem draait.",
+    "settingsHint": "Wat klaar betekent, hoe de agent dit werk afhandelt, en wie hem draait.",
     "meta": {
       "actionTag": "Label",
       "bindTag": "Label koppelen",
-      "noFreeTags": "Geen vrije hashtags",
+      "noFreeTags": "Geen vrije labels",
       "noActionTag": "Nog geen label met een werk",
       "usedIn": "Gebruikt in",
       "noProjects": "Nog geen gedeelde mappen",
@@ -509,7 +608,7 @@
       "cancel": "Annuleren",
       "saved": "Werk opgeslagen.",
       "renameTag": "Label hernoemen",
-      "renameHint": "Opslaan hernoemt #{{from}} naar #{{to}} op elk gesprek.",
+      "renameHint": "Opslaan hernoemt {{from}} naar {{to}} op elk gesprek.",
       "discardTitle": "Wijzigingen weggooien?",
       "discardBody": "Je wijzigingen aan titel, beschrijving en fases zijn nog niet opgeslagen.",
       "keepEditing": "Verder bewerken",
@@ -523,9 +622,9 @@
       "loadError": "Kon het ticketbord niet laden.",
       "noProject": "Geen map",
       "openProject": "Map openen",
-      "empty": "Nog geen tickets. Leg een gesprek vast met #{{tag}} om er een te starten.",
+      "empty": "Nog geen tickets. Leg een gesprek vast met {{tag}} om er een te starten.",
       "emptyTitle": "Nog geen tickets",
-      "emptyBody": "Open een gesprek in Communicatie en leg het vast met #{{tag}} om het op dit bord te zetten.",
+      "emptyBody": "Open een gesprek in Communicatie en leg het vast met {{tag}} om het op dit bord te zetten.",
       "emptyBodyPlain": "Open een gesprek in Communicatie en leg het vast met het label van dit werk om het op dit bord te zetten.",
       "emptyAction": "Communicatie openen",
       "openCommunication": "Communicatie openen",
@@ -542,20 +641,6 @@
       "stagesAria": "Tickets per fase",
       "tickets_one": "{{count}} ticket",
       "tickets_other": "{{count}} tickets"
-    },
-    "deliverTo": {
-      "label": "Levert op in",
-      "none": "Nog geen bestemming",
-      "set": "Bestemming kiezen",
-      "change": "Wijzigen",
-      "folder": "Kies een map",
-      "item": "Plek in Werkt in",
-      "folderItself": "De map zelf",
-      "save": "Opslaan",
-      "clear": "Verwijderen",
-      "cancel": "Annuleren",
-      "saved": "Bestemming opgeslagen",
-      "saveError": "Bestemming opslaan mislukt"
     },
     "recipe": {
       "done": "Klaar betekent",
@@ -717,7 +802,7 @@
       "integrations": "Koppelingen",
       "autonomy": "Autonomiehouding",
       "usage": "Verbruik",
-      "workstreams": "Werken",
+      "workstreams": "Werk",
       "activity": "Activiteit",
       "categories": "Labels"
     },
@@ -805,7 +890,7 @@
         },
         {
           "title": "Taken",
-          "body": "Eenmalige wakes, terugkerende scans en fase-follow-ups uit werken zijn allemaal Taken. Openstaande taken staan onder Voor jou. Beheer terugkerende scans onder Taken beheren."
+          "body": "Eenmalige wakes, terugkerende scans en fase-follow-ups uit werk zijn allemaal Taken. Openstaande taken staan onder Voor jou. Beheer terugkerende scans onder Taken beheren."
         },
         {
           "title": "Agendasync",
@@ -924,14 +1009,14 @@
       "intro": "Bepaal hoeveel agents zelf mogen doen, van volledig toezicht tot alleen uitzonderingen."
     },
     "categories": {
-      "bannerTitle": "Labels zijn hashtags die een werk starten",
+      "bannerTitle": "Een label met een werk start een ticket",
       "bannerBody": "Elk gesprek kan één label met een werk hebben. Vastleggen maakt van het gesprek een ticket dat door de fasen van het werk gaat, in een van zijn mappen of in geen.",
       "pageTitle": "Hoe een label met een werk werkt",
       "intro": "Een label met een werk maakt van een gesprek een ticket, zoals een klacht of een terugbetalingsverzoek. Eén lijst, gelezen door mensen en agents.",
       "sections": [
         {
           "title": "Eén per gesprek",
-          "body": "Een gesprek heeft hooguit één label met een werk. Vrije hashtags staan ernaast en starten nooit een werk."
+          "body": "Een gesprek heeft hooguit één label met een werk. Vrije labels staan ernaast en starten nooit een werk."
         },
         {
           "title": "Eerst lezen, bevestigen bij twijfel",
@@ -1502,7 +1587,7 @@
     "forgot": "Wachtwoord vergeten?",
     "createAccount": "Account aanmaken",
     "rights": "Alle rechten voorbehouden",
-    "failed": "Inloggen mislukt",
+    "failed": "Er ging iets mis bij het inloggen. Probeer het opnieuw.",
     "incorrect": "Onjuist e-mailadres of wachtwoord.",
     "serverUnavailable": "Bokito was niet bereikbaar. Controleer je verbinding en probeer het opnieuw.",
     "microsoftNotConfigured": "Microsoft-inloggen is niet geconfigureerd op deze server.",
@@ -1756,7 +1841,7 @@
       "title": "Laat een agent je verder helpen",
       "body": "Een vaste thread waarin een agent je geregeld schrijft: wat open staat en welke stap je workspace verder brengt.",
       "cta": "Taak instellen",
-      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, koppelingen, werken en labels, mappen, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een werk voor een vraag die vaak terugkomt, een map voor werk dat nu los in gesprekken zit, of een integratie uit het aanbod die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
+      "promptDefault": "Bekijk kort hoe de workspace ervoor staat: kanalen, koppelingen, werk en labels, mappen, agents en wat er in gesprekken steeds terugkomt. Noem wat er open staat dat op mij wacht. Stel daarna hooguit drie concrete stappen voor die de workspace verder brengen, bijvoorbeeld een werk voor een vraag die vaak terugkomt, een map voor werk dat nu los in gesprekken zit, of een integratie uit het aanbod die past bij wat we doen. Zeg per stap waarom, en bied aan het voor me in te stellen nadat ik akkoord geef. Herhaal geen voorstel dat nog openstaat of dat ik heb afgewezen.",
       "taskName": "Workspace verder brengen",
       "dismiss": "Verbergen"
     },
@@ -1897,7 +1982,7 @@
     "openWebsiteWidget": "Websitechat installeren",
     "autonomyRate": "Afgehandeld zonder jou",
     "timeSaved": "Tijd bespaard (7d, schatting)",
-    "timeSavedEmptyHint": "Verschijnt na autonome antwoorden, geassisteerde concepten, AI-tickets of afgeronde werken.",
+    "timeSavedEmptyHint": "Verschijnt na autonome antwoorden, geassisteerde concepten, AI-tickets of afgerond werk.",
     "timeSavedHint": "Schatting: {{autonomous}} autonoom · {{drafts}} concept · {{other}} ticket/werk.",
     "unsavedLeave": "Je hebt niet-opgeslagen budgetplafonds. Deze pagina verlaten?",
     "avgFeedback": "Gem. feedback",
@@ -2383,7 +2468,7 @@
       "callBody": "Alleen bij een beslissingskaart, en alleen als je beschikbaar bent en niet al in gesprek."
     },
     "soundTitle": "Geluid in de app",
-    "soundBody": "Speel een kort geluidje (zoals in de chatwidget) wanneer er een melding binnenkomt terwijl Bokito open staat.",
+    "soundBody": "Speel een kort geluid wanneer er een melding binnenkomt terwijl Bokito open staat.",
     "soundTest": "Testgeluid",
     "pushEnableTitle": "Push toestaan in deze browser",
     "pushEnableBody": "Je hebt Push aangezet voor een of meer gebeurtenissen. Sta systeemmeldingen toe zodat Bokito je bereikt op dit apparaat.",
@@ -2854,7 +2939,7 @@
       "menuLabel": "Workspace"
     },
     "projects": {
-      "description": "Elke map bundelt een onderwerp met de werken, tickets en agents die eraan werken."
+      "description": "Elke map bundelt een onderwerp met het werk, tickets en agents die eraan werken."
     },
     "communication": {
       "description": "Openstaande agent-berichten die om jouw beslissing vragen, gegroepeerd over alle mappen.",
@@ -2922,7 +3007,7 @@
       "hashtags": "Tags",
       "projects": "Mappen",
       "folders": "Mappen",
-      "flows": "Werken"
+      "flows": "Werk"
     },
     "composeFromChannel": "Nieuw bericht vanaf dit kanaal",
     "composeToAgent": "Bericht naar deze agent",
@@ -3037,7 +3122,7 @@
     },
     "flows": {
       "empty": "Maak een werk vanaf een label",
-      "settingsAria": "Werken beheren"
+      "settingsAria": "Werk beheren"
     },
     "newConversation": "Nieuw gesprek"
   },
@@ -3112,7 +3197,7 @@
       "exceptionsEmpty": "Elk kanaal volgt de dial.",
       "exceptionGroups": {
         "channel": "Kanalen",
-        "flow": "Werken",
+        "flow": "Werk",
         "conversation": "Open gesprekken"
       },
       "exceptionClear": "Weer de standaard volgen",
@@ -3542,7 +3627,7 @@
       "finishSetup": "Inrichten afronden",
       "addDepartment": "Afdeling toevoegen",
       "addDepartmentTitle": "{{name}} toevoegen als afdeling",
-      "addDepartmentBody": "Een module is een afdeling in een doos: een specialist-agent, labels en werken. Kies waar hij landt.",
+      "addDepartmentBody": "Een module is een afdeling in een doos: een specialist-agent, labels en werk. Kies waar hij landt.",
       "addDepartmentWhere": "Afdeling",
       "addDepartmentNew": "Nieuwe afdeling: {{name}}",
       "addDepartmentOverlap": "{{name}} (doet al vergelijkbaar werk)",
@@ -3550,7 +3635,7 @@
       "addDepartmentLeads": "Laat de specialist leiden in plaats van {{lead}}",
       "shipsSpecialist": "Specialist: {{name}}",
       "shipsLabels": "Labels: {{list}}",
-      "shipsFlows": "Werken: {{list}}",
+      "shipsFlows": "Werk: {{list}}",
       "installStarted": "{{name}} is klaar om in te richten.",
       "installFinished": "{{name}} is geïnstalleerd.",
       "uninstalled": "{{name}} is gedeïnstalleerd.",
@@ -3562,7 +3647,7 @@
       "uninstallConfirmAction": "Ja, deïnstalleren",
       "templates": {
         "title": "Werksjablonen",
-        "intro": "Voorgebouwde werken die deze module meelevert. Installeren kopieert het werk naar je workspace; jij bent eigenaar en kunt de kopie bewerken.",
+        "intro": "Voorgebouwd werk die deze module meelevert. Installeren kopieert het werk naar je workspace; jij bent eigenaar en kunt de kopie bewerken.",
         "stepCount": "{{count}} stappen",
         "install": "Installeren",
         "installAgain": "Opnieuw installeren",
@@ -3624,7 +3709,7 @@
         "specialist": "Modulespecialist",
         "specialistBadge": "Specialist",
         "specialistFallback": "{{name}}-specialist",
-        "specialistBlurb": "Beheert de tools, hashtags en setup van deze module. Nodig ze uit in een gesprek met @.",
+        "specialistBlurb": "Beheert de tools, labels en setup van deze module. Nodig ze uit in een gesprek met @.",
         "specialistOnInstall": "Installeren huurt een specialist voor deze module",
         "talkSpecialist": "Praat met {{name}}",
         "talkSpecialistShort": "Praat met specialist",
@@ -3633,7 +3718,7 @@
         "onYourTeam": "In je team",
         "personas": {
           "accounting": {
-            "name": "Boekhouder",
+            "name": "Boekito",
             "title": "Controller",
             "blurb": "Houdt de administratie bij: administraties, relaties, facturen, grootboek en openstaande posten. Boekingen en betaalmatches legt ze voor ter goedkeuring.",
             "usps": [
@@ -3684,8 +3769,8 @@
           }
         },
         "talkPrefill": "Help me {{name}} te gebruiken. Wat kun je, en wat richten we hierna in?",
-        "labelsFlows": "Labels en werken",
-        "labelsFlowsIntro": "Hashtags en werken waarop de specialist werk kan vastleggen. Installeren kan de standaard-hashtag al toevoegen.",
+        "labelsFlows": "Labels en werk",
+        "labelsFlowsIntro": "Labels en werk waarop de specialist werk kan vastleggen. Installeren kan het standaardlabel al toevoegen.",
         "openLabels": "Labels openen",
         "webchatNote": "{{count}} tools kunnen ook in websitechat wanneer je ze aanzet onder Overzicht van de module.",
         "cardTools": "{{count}} agenttools"
@@ -4226,6 +4311,8 @@
       "settingsTitle": "Instellingen",
       "settingsHint": "Model, instructies, regels, handtekening en tools voor deze agent.",
       "moreActions": "Meer acties",
+      "historyMenu": "Geschiedenis",
+      "historyHint": "Sessies, wakes en recente runs van deze agent.",
       "duplicate": "Dupliceren",
       "duplicateName": "{{name}} (kopie)",
       "editInstructions": "Bewerken",
@@ -4242,6 +4329,8 @@
       "identityDescriptionHint": "Langere tekst op de agentkaart. Los van instructies.",
       "profileAddDescription": "Omschrijving toevoegen",
       "profileAddJobTitle": "Functie toevoegen",
+      "identityVoiceHint": "Standaard in een gesprek. Iedereen kan dit in de gespreksinstellingen aanpassen. Een andere stem speelt een kort fragment af.",
+      "identityVoicePreviewFailed": "Kon die stem niet afspelen.",
       "identitySaved": "Agentidentiteit opgeslagen",
       "identitySaveError": "Kon identiteit niet opslaan.",
       "archiveConfirmAction": "Agent deactiveren",
@@ -4490,7 +4579,7 @@
       "visualImageRequired": "Upload een afbeelding of kies Initialen of Bot.",
       "visualIconRequired": "Kies een icoon.",
       "visualInitialsHint": "Gebruikt de initialen van de agentnaam met de platform-AI-kleur. Bot is de standaard; kies dit als je initialen wilt.",
-      "visualOrbHint": "Standaardmarkering: getint silhouet met een levend gezicht. Kies vorm en kleur; bekijk idle, denken, schrijven, werken en reacties hieronder.",
+      "visualOrbHint": "Standaardmarkering: getint silhouet met een levend gezicht. Kies vorm en kleur; bekijk idle, denken, schrijven, werk en reacties hieronder.",
       "orbPreview": {
         "label": "Bekijk beweging",
         "idle": "Idle",
@@ -4737,7 +4826,7 @@
       "tagPlaceholder": "Label toevoegen of aanmaken",
       "addTag": "Toevoegen",
       "removeTag": "{{name}} verwijderen",
-      "createTagHint": "#{{name}} bestaat nog niet en wordt met de map aangemaakt.",
+      "createTagHint": "{{name}} bestaat nog niet en wordt met de map aangemaakt.",
       "name": "Naam",
       "namePlaceholder": "Operatie",
       "slug": "Slug",
@@ -4798,6 +4887,27 @@
       "skip": "Sla over",
       "notFound": "Map niet gevonden."
     },
+    "contents": {
+      "search": "Zoeken in deze map",
+      "labels": "Labels",
+      "labelsEmpty": "Geen labels in deze map",
+      "view": "Weergave",
+      "rows": "Rijen",
+      "cards": "Kaarten",
+      "tabAll": "Alles ({{count}})",
+      "tabConversations": "Gesprekken",
+      "tabImages": "Afbeeldingen",
+      "tabFiles": "Bestanden",
+      "tabFolders": "Mappen",
+      "loadMore": "Meer laden",
+      "loadingMore": "Meer laden…",
+      "loadError": "Kon de inhoud van deze map niet laden.",
+      "empty": "Nog niets in deze map.",
+      "emptyFiltered": "Niets gevonden.",
+      "openThread": "Gesprek",
+      "backToFolder": "Terug naar de map",
+      "noTitle": "Zonder titel"
+    },
     "detail": {
       "tabHome": "Overzicht",
       "tabConversations": "Gesprekken",
@@ -4824,9 +4934,9 @@
       "resources": "Resources",
       "resourcesHint": "Externe omgevingen waar deze map in werkt. Nu gekoppeld op referentie; connectors volgen later.",
       "orchestration": "Wie dit uitvoert",
-      "workstreams": "Werken",
-      "noWorkstreams": "Nog geen werken op deze map.",
-      "openWorkstreams": "Werken openen",
+      "workstreams": "Werk",
+      "noWorkstreams": "Nog geen werk op deze map.",
+      "openWorkstreams": "Werk openen",
       "stepCount": "{{count}} stappen",
       "stepCount_one": "{{count}} stap",
       "agentBudgetOnHome": "De mapagent en het activiteitenbudget staan op het tabblad Map.",
@@ -4852,15 +4962,15 @@
       "reordered": "Volgorde van mappen bijgewerkt",
       "undoMove": "Ongedaan maken",
       "undoDone": "Verplaatsing ongedaan gemaakt",
-      "tagDragHint": "Sleep om #{{tag}} naar een andere map of naar de bovenste laag te verplaatsen",
-      "tagMoveHint": "Loslaten om #{{tag}} naar deze map te verplaatsen",
+      "tagDragHint": "Sleep om {{tag}} naar een andere map of naar de bovenste laag te verplaatsen",
+      "tagMoveHint": "Loslaten om {{tag}} naar deze map te verplaatsen",
       "tagMoveLabel": "Tag verplaatsen",
-      "tagMoved": "Tag #{{tag}} verplaatst",
-      "tagMovedToRoot": "Tag #{{tag}} naar de bovenste laag verplaatst",
+      "tagMoved": "Tag {{tag}} verplaatst",
+      "tagMovedToRoot": "Tag {{tag}} naar de bovenste laag verplaatst",
       "tagMoveLastBlocked": "Een map heeft minstens één label nodig",
       "rootDropHint": "Loslaten om deze map naar de bovenste laag te verplaatsen",
       "rootDropEndHint": "Loslaten om deze map onderaan op de bovenste laag te zetten",
-      "rootDropTagHint": "Loslaten om #{{tag}} op de bovenste laag te zetten",
+      "rootDropTagHint": "Loslaten om {{tag}} op de bovenste laag te zetten",
       "rootDropLabel": "Bovenste laag",
       "rootDropTagLabel": "Bovenste laag",
       "unnested": "Map naar de bovenste laag verplaatst",
@@ -4973,15 +5083,15 @@
       "noRepo": "Geen repository gekoppeld.",
       "resourcesHint": "Omgevingen waar deze map in werkt. Beheer ze onder Instellingen.",
       "boardsEmpty": "Nog geen tickets in deze map. Zodra een gesprek hier een label met een werk krijgt, verschijnt dat werk.",
-      "boardsOpenPlaybooks": "Werken openen",
+      "boardsOpenPlaybooks": "Werk openen",
       "ticketsBoard": "Tickets",
       "ticketsHint": "Elk werk met een ticket in deze map is een bord. Een ticket schuift van links naar rechts door de fasen van het werk.",
       "boardLoadError": "Kon de borden van deze map niet laden.",
       "ticketMoveError": "Kon dat ticket niet verplaatsen.",
       "ticketUntitled": "Naamloos gesprek",
       "addFlow": "Werk toevoegen",
-      "noFlowsToAdd": "Alle werken staan al op deze map",
-      "flowLinkError": "Kon de werken van deze map niet bijwerken.",
+      "noFlowsToAdd": "Al het werk staan al op deze map",
+      "flowLinkError": "Kon het werk van deze map niet bijwerken.",
       "detachFlow": "Ontkoppelen",
       "agendaTitle": "Agenda",
       "agendaOpen": "Openen in Agenda",
@@ -5136,6 +5246,10 @@
       "cronInvalid": "Vul een cron van vijf velden in.",
       "writing": "De beheeragent schrijft dit canvas.",
       "incomplete": "Dit canvas is niet afgemaakt. Vraag de agent om het opnieuw te bewerken.",
+      "noData": "Deze grafiek heeft geen data.",
+      "source": "Bron",
+      "unknown": "Dit deel van het canvas kan niet worden getoond.",
+      "target": "Doel {{value}}",
       "buildingBadge": "Bezig",
       "download": "Downloaden",
       "exportCsv": "CSV",
@@ -5681,7 +5795,7 @@
     "loadMore": "Meer laden",
     "loadingMore": "Laden...",
     "empty": "Niets in de prullenbak.",
-    "emptyHint": "Verwijderde gesprekken, mappen, canvassen, kennis, contacten en werken komen hier terecht en zijn te herstellen.",
+    "emptyHint": "Verwijderde gesprekken, mappen, canvassen, kennis, contacten en werk komt hier terecht en zijn te herstellen.",
     "emptySearch": "Niets gevonden voor deze zoekopdracht of dit filter.",
     "clearFilters": "Filters wissen",
     "docsLink": "Zo werkt de prullenbak",
@@ -5905,6 +6019,8 @@
     "search": "Zoeken",
     "searchEnterHint": "Druk op Enter om te zoeken",
     "searchPlaceholder": "Zoek in kennis",
+    "draftLessons": "Conceptlessen",
+    "lessonSignals": "{{count}} gesprekken",
     "dropHint": "Sleep een PDF of Word-bestand hierheen, of gebruik Uploaden.",
     "aiMaintainedBanner": "Agents werken deze notitie bij tijdens het werk. Bewerk alleen als iets fout is.",
     "publishConfirm": "Dit artikel publiceren op de openbare helpsite? Iedereen met de link kan het lezen.",
@@ -6674,7 +6790,7 @@
     },
     "hireAgentsTitle": "Afdeling toevoegen",
     "hireAgentsSoon": "binnenkort",
-    "hireAgentsBody": "Een module uit het aanbod is een afdeling in een doos: een specialist-agent met zijn labels en werken. Voeg hem toe als nieuwe afdeling of laat hem aansluiten bij een bestaande.",
+    "hireAgentsBody": "Een module uit het aanbod is een afdeling in een doos: een specialist-agent met zijn labels en werk. Voeg hem toe als nieuwe afdeling of laat hem aansluiten bij een bestaande.",
     "hireAgentsCta": "Aanbod",
     "agentsSectionHint": "Bedrijfsagents naast je mensen. Neem er meer aan via het aanbod.",
     "agentsEmpty": "Nog geen bedrijfsagents.",
@@ -6879,7 +6995,7 @@
       "user": "Mensen",
       "agent": "Agents",
       "channel": "Kanalen",
-      "flow": "Werken",
+      "flow": "Werk",
       "label": "Labels",
       "folder": "Mappen",
       "calendar": "Agenda’s",
@@ -7013,6 +7129,12 @@
     },
     "labelChips": "Labels",
     "reset": "Beginbeeld"
+  },
+  "organogram": {
+    "loadError": "Het organogram kon niet worden geladen.",
+    "emptyTitle": "Nog geen afdelingen",
+    "emptyDescription": "Afdelingen die je toevoegt komen onder de root te hangen.",
+    "openDepartment": "{{name}} openen"
   },
   "teamPage": {
     "openConversations": "Gesprekken",
@@ -7208,10 +7330,10 @@
     "count_other": "{{count}} gesprekken",
     "edit": "Label bewerken",
     "merge": "Samenvoegen",
-    "mergeTitle": "#{{name}} samenvoegen",
-    "mergeHint": "Elk gesprek, contact, bedrijf, elke map en elke regel die #{{name}} gebruikt, gaat naar het label dat je houdt. #{{name}} verdwijnt daarna. Een werk-label blijft bij zijn werk.",
+    "mergeTitle": "{{name}} samenvoegen",
+    "mergeHint": "Elk gesprek, contact, bedrijf, elke map en elke regel die {{name}} gebruikt, gaat naar het label dat je houdt. {{name}} verdwijnt daarna. Een werk-label blijft bij zijn werk.",
     "mergeInto": "Dit label houden",
-    "merged": "#{{name}} is nu #{{into}}",
+    "merged": "{{name}} is nu {{into}}",
     "delete": "Label verwijderen",
     "deleteConfirm": "{{name}} verwijderen? Het label verdwijnt van {{count}} gesprekken.",
     "save": "Opslaan",
@@ -7268,8 +7390,8 @@
     "project": "Map",
     "noProject": "Geen map",
     "chooseProject": "Bij welke map hoort dit?",
-    "chooseProjectInPanel": "#{{name}} heeft een map nodig. Kies er een in het Ticket-paneel.",
-    "unknownCategory": "Geen label met een werk #{{name}}.",
+    "chooseProjectInPanel": "{{name}} heeft een map nodig. Kies er een in het Ticket-paneel.",
+    "unknownCategory": "Geen label met een werk {{name}}.",
     "stage": "Fase",
     "playbook": "Werk",
     "awaitingVerify": "Wacht op bevestiging van de klant.",
@@ -7288,7 +7410,7 @@
     "moveTo": "Naar {{stage}}",
     "stageFieldsTitle": "Naar {{stage}}",
     "stageFieldsHint": "Vul de verplichte velden van deze fase in voordat het ticket kan verplaatsen.",
-    "stageFieldsHintNamed": "Vul de verplichte velden van #{{name}} in voordat dit ticket kan verplaatsen.",
+    "stageFieldsHintNamed": "Vul de verplichte velden van {{name}} in voordat dit ticket kan verplaatsen.",
     "stageFieldsSubmit": "Verplaatsen",
     "stageFieldsCancel": "Annuleren",
     "openFlow": "Werk openen",
@@ -7416,7 +7538,7 @@
     "backlogDismissed": "Uit de backlog gehaald.",
     "crossLinks": {
       "communicationHub": "Communicatie",
-      "playbooks": "Werken"
+      "playbooks": "Werk"
     }
   },
   "today": {
@@ -7459,6 +7581,24 @@
     "cost": "Verbruikskosten",
     "costDetail": "Laatste 7 dagen, per agent, werk en Werkbank",
     "loadError": "Een deel van Vandaag kon niet worden geladen.",
+    "charts": "Grafieken",
+    "chartOpenTitle": "Open tickets",
+    "chartOpenHint": "Open en wachtend, per werk.",
+    "chartWeekTitle": "Deze week tegen vorige week",
+    "chartWeekHint": "Tickets vastgelegd en runs afgerond.",
+    "chartFiled": "Vastgelegd",
+    "chartFinished": "Afgerond",
+    "chartThisWeek": "Deze week",
+    "chartLastWeek": "Vorige week",
+    "chartAgentsTitle": "Tokens per agent",
+    "chartAgentsHint": "Laatste 7 dagen.",
+    "chartAgentsEmpty": "Geen agenttokens in de laatste 7 dagen.",
+    "chartTokens": "Tokens",
+    "chartSavedTitle": "Tijd bespaard per actie",
+    "chartSavedHint": "Geschatte minuten deze week.",
+    "chartSavedEmpty": "Geen toegerekende acties deze week.",
+    "chartMinutes": "Minuten",
+    "chartUnknownAgent": "Agent",
     "moreContext": "Verder in de werkruimte"
   }
 }

@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFoundError
+from app.exceptions import AppError, NotFoundError
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.modules.catalog import (
     MODULE_BY_SLUG,
@@ -278,7 +278,7 @@ async def _drop_project_links(
 
     try:
         ic_id = await resolve_integration_connection_id(session, tenant_id, connection_id)
-    except HTTPException:
+    except (HTTPException, AppError):
         return
     conn = await session.get(IntegrationConnection, ic_id)
     if conn is not None:

@@ -25,6 +25,44 @@ function sanitizeRelativeReturnTo(rawReturnTo: string | null): string {
   return rawReturnTo;
 }
 
+/** Map API / network failures to operator-facing copy. Never surface raw exception text. */
+function describeLoginFailure(
+  err: unknown,
+  t: (key: string) => string,
+): string {
+  const message = err instanceof Error ? err.message : ''
+  const name = err instanceof Error ? err.name : ''
+  const lower = message.toLowerCase()
+  const isAbort =
+    name === 'AbortError' ||
+    lower.includes('aborted') ||
+    lower.includes('aborterror')
+  const isNetwork =
+    isAbort ||
+    message.includes('500') ||
+    message.includes('502') ||
+    message.includes('503') ||
+    message.includes('504') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror') ||
+    lower.includes('network request failed') ||
+    lower.includes('load failed') ||
+    lower.includes('timeout') ||
+    lower.includes('timed out')
+  if (
+    message.includes('Invalid') ||
+    message.includes('401') ||
+    message.includes('password') ||
+    lower.includes('valid integer')
+  ) {
+    return t('loginPage.incorrect')
+  }
+  if (isNetwork) {
+    return t('loginPage.serverUnavailable')
+  }
+  return t('loginPage.failed')
+}
+
 export default function Login() {
   const { t, i18n } = useTranslation('nav');
   const { login, verifyTotp, setupAcceptInvite, setupCreateWorkspace, user, token, isLoading: authLoading } = useAuth();
@@ -138,26 +176,7 @@ export default function Login() {
         setWorkspaceSetup(err);
         return;
       }
-      const message = err instanceof Error ? err.message : t('loginPage.failed')
-      const lower = message.toLowerCase()
-      setError(
-        message.includes('Invalid') ||
-        message.includes('401') ||
-        message.includes('password') ||
-        lower.includes('valid integer')
-          ? t('loginPage.incorrect')
-          : message.includes('500') ||
-              message.includes('502') ||
-              message.includes('503') ||
-              message.includes('504') ||
-              lower.includes('failed to fetch') ||
-              lower.includes('networkerror') ||
-              lower.includes('network request failed')
-            ? t('loginPage.serverUnavailable')
-            : message.startsWith('HTTP ')
-              ? t('loginPage.failed')
-              : message,
-      )
+      setError(describeLoginFailure(err, t))
     } finally {
       setIsLoading(false);
     }

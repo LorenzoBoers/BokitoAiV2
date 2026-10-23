@@ -25,6 +25,7 @@ import { AgentSelect } from '../ui/AgentSelect'
 import {
   deleteCanvas,
   listCanvases,
+  notifyCanvasRemoved,
   patchCanvasMeta,
   type ProjectCanvas,
   type RefreshCadence,
@@ -186,6 +187,7 @@ export function CanvasHost({
     setBusy(true)
     try {
       await deleteCanvas(id)
+      notifyCanvasRemoved(id)
       const next = items.filter((row) => row.id !== id)
       setItems(next)
       setActiveId(next[0]?.id ?? null)

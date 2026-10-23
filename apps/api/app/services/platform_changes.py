@@ -7,12 +7,11 @@ from datetime import timedelta
 from typing import Any, Optional
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import NotFoundError
+from app.exceptions import NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.auth import Tenant
 from app.models.platform_change import (
@@ -50,7 +49,7 @@ def _enforce_agent_scope(agent: Agent | None, resource_type: str, change_kind: s
         return
     scope = RESOURCE_SCOPE.get((resource_type, change_kind))
     if scope and not require_scope(agent, scope)[0]:
-        raise HTTPException(status_code=403, detail=f"Missing scope: {scope}")
+        raise status_error(status_code=403, detail=f"Missing scope: {scope}")
 
 
 def serialize_change(row: PlatformChange, *, signal_id: UUID | None = None) -> dict[str, Any]:
@@ -180,9 +179,9 @@ async def propose_platform_change(
     - ``ask``: record a pending PlatformChange + inline DecisionRequest
     """
     if resource_type not in PLATFORM_RESOURCE_TYPES:
-        raise HTTPException(status_code=400, detail=f"Invalid resource_type: {resource_type}")
+        raise status_error(status_code=400, detail=f"Invalid resource_type: {resource_type}")
     if change_kind not in CHANGE_KINDS:
-        raise HTTPException(status_code=400, detail=f"Invalid change_kind: {change_kind}")
+        raise status_error(status_code=400, detail=f"Invalid change_kind: {change_kind}")
 
     _enforce_agent_scope(agent, resource_type, change_kind)
 
@@ -195,7 +194,7 @@ async def propose_platform_change(
             except (ValueError, TypeError):
                 allowed = False
             if not allowed:
-                raise HTTPException(
+                raise status_error(
                     status_code=403,
                     detail="Agent cannot modify workstreams outside its own project",
                 )
@@ -364,7 +363,7 @@ async def accept_platform_change(
     if not change:
         raise NotFoundError("Change not found")
     if change.status not in ("draft", "pending_review"):
-        raise HTTPException(status_code=400, detail=f"Cannot accept status {change.status}")
+        raise status_error(status_code=400, detail=f"Cannot accept status {change.status}")
     if change.resource_type == "agent_rule":
         from app.models.auth import Membership
         from app.services.agent_rules import check_can_grant, normalize_autonomy
@@ -429,7 +428,7 @@ async def reject_platform_change(
     if not change:
         raise NotFoundError("Change not found")
     if change.status not in ("draft", "pending_review"):
-        raise HTTPException(status_code=400, detail=f"Cannot reject status {change.status}")
+        raise status_error(status_code=400, detail=f"Cannot reject status {change.status}")
 
     change.status = "rejected"
     change.resolved_by_user_id = user_id
@@ -470,10 +469,10 @@ async def rollback_platform_change(
     if not change:
         raise NotFoundError("Change not found")
     if change.status not in ("accepted", "applied_yolo"):
-        raise HTTPException(status_code=400, detail=f"Cannot rollback status {change.status}")
+        raise status_error(status_code=400, detail=f"Cannot rollback status {change.status}")
     applied_at = change.resolved_at or change.created_at
     if utcnow() > applied_at + timedelta(days=ROLLBACK_WINDOW_DAYS):
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail=f"Changes can only be reverted within {ROLLBACK_WINDOW_DAYS} days",
         )

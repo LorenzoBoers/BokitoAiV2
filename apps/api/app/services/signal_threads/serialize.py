@@ -874,6 +874,10 @@ def serialize_message(
     # A teammate forwarded someone else's mail into the inbox.
     if isinstance(meta.get("forwarded_from"), dict):
         payload["forwarded_from"] = meta["forwarded_from"]
+    # One collapsible call log. The timeline reads source + call_log.
+    if meta.get("source") == "agent_call" and isinstance(meta.get("call_log"), dict):
+        payload["source"] = "agent_call"
+        payload["call_log"] = meta["call_log"]
     has_html = bool((message.body_html or "").strip())
     body_html = (message.body_html or None) if include_html else None
     from app.services.agent.turn_surface import spoken_text

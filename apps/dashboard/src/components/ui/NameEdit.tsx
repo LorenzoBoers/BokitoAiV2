@@ -53,13 +53,22 @@ export function NameEdit({
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const skipBlur = useRef(false)
+  const wasEditing = useRef(false)
 
+  // Focus and select only when edit mode starts — not on every keystroke.
+  // Re-selecting on `value` replaced the whole name with the next character.
   useEffect(() => {
-    if (!editing) return
     const el = inputRef.current
+    if (!editing) {
+      wasEditing.current = false
+      return
+    }
     if (!el) return
-    el.focus()
-    el.select()
+    if (!wasEditing.current) {
+      wasEditing.current = true
+      el.focus()
+      el.select()
+    }
     // Hug the text: HTML size=chars overestimates with proportional fonts.
     el.style.width = '0px'
     el.style.width = `${Math.max(el.scrollWidth, 48)}px`
@@ -189,13 +198,20 @@ export function BlurbEdit({
 }) {
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const skipBlur = useRef(false)
+  const wasEditing = useRef(false)
 
   useEffect(() => {
-    if (!editing) return
     const el = areaRef.current
+    if (!editing) {
+      wasEditing.current = false
+      return
+    }
     if (!el) return
-    el.focus()
-    el.select()
+    if (!wasEditing.current) {
+      wasEditing.current = true
+      el.focus()
+      el.select()
+    }
     el.style.height = '0px'
     el.style.height = `${el.scrollHeight}px`
   }, [editing, value])

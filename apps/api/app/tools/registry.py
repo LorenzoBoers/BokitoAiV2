@@ -319,16 +319,74 @@ def with_default_image_tool(
     return [*tools, *extra] if extra else tools
 
 
+# Data-fetch tools a canvas refresh may keep from the passport. Write / ask /
+# schedule tools stay off the wake so the prompt stays under the context window.
+_CANVAS_REFRESH_DATA_TOOLS = frozenset(
+    {
+        "web_search",
+        "fetch_url",
+        "call_mcp_tool",
+        "list_mcp_tools",
+        "search_index",
+        "read_doc",
+        "list_docs",
+        "list_folder_docs",
+        "list_folder_resources",
+        "list_module_sources",
+        "search_module_sources",
+        "get_tenant_overview",
+        "list_threads",
+        "list_contacts",
+        "get_contact",
+        "list_agents",
+        "get_agent",
+        "list_flows",
+        "get_flow",
+        "list_folders",
+        "accounting_list_companies",
+        "accounting_get_company",
+        "accounting_search_parties",
+        "accounting_get_party",
+        "accounting_list_documents",
+        "accounting_get_document",
+        "accounting_list_accounts",
+        "accounting_get_account",
+        "accounting_list_ledger",
+        "accounting_list_outstanding",
+        "accounting_list_bank_mutations",
+        "accounting_summarize",
+        "banking_list_accounts",
+        "banking_get_balance",
+        "banking_list_transactions",
+        "investing_get_positions",
+        "investing_get_quotes",
+        "investing_list_watchlist",
+        "documents_search",
+        "documents_list",
+        "documents_get_content",
+        "calendar_list_events",
+    }
+)
+
+
+def _is_canvas_refresh_tool(name: str) -> bool:
+    if name in CANVAS_REFRESH_TOOLS or name in _CANVAS_REFRESH_DATA_TOOLS:
+        return True
+    # Module read verbs: list_*, get_*, search_*, summarize_* on a slug prefix.
+    return bool(
+        name.startswith(("list_", "get_", "search_", "fetch_", "summarize_", "accountant_"))
+        and name not in CANVAS_WAKE_DENY
+    )
+
+
 def with_platform_core(
     tools: list[dict[str, Any]], *, trust: str, refresh: bool = False
 ) -> list[dict[str, Any]]:
     """The passport's tools plus the platform core, so what a seat is offered is what it may run."""
     if refresh:
-        tools = [
-            t
-            for t in tools
-            if t["name"] not in {"create_canvas", "finish_canvas", "delete_canvas"}
-        ]
+        # Keep only snapshot writes + data reads. Shipping the full passport
+        # (and MCP schemas) blew past the model context on busy workspaces.
+        tools = [t for t in tools if _is_canvas_refresh_tool(t["name"])]
     core = core_tool_names(trust, refresh=refresh)
     have = {t["name"] for t in tools}
     extra = [t for t in get_tool_definitions() if t["name"] in core and t["name"] not in have]

@@ -6,7 +6,6 @@ conversation-driven work surface: the implementation queue, folder docs with
 section statuses, and generic folder resources.
 """
 
-import json
 from typing import Annotated, Any
 from uuid import UUID
 
@@ -130,58 +129,82 @@ async def folder_board(
     return {"playbooks": await tickets.project_board(session, auth.tenant.id, project_id)}
 
 
-@router.get("/{project_id}/files")
-async def folder_files(
+class FolderContentLabel(BaseModel):
+    id: str
+    name: str
+    color: str = ""
+    icon: str = ""
+    count: int | None = None
+
+
+class FolderContentItem(BaseModel):
+    kind: str
+    id: str
+    title: str
+    subtitle: str = ""
+    updated_at: str | None = None
+    href_target: str = ""
+    thumb_url: str | None = None
+    channel: str | None = None
+    status: str | None = None
+    unread: bool | None = None
+    labels: list[FolderContentLabel] = []
+    canvas_kind: str | None = None
+    signal_id: str | None = None
+    open_count: int | None = None
+    closed_count: int | None = None
+    child_count: int | None = None
+
+
+class FolderContentCounts(BaseModel):
+    all: int
+    folder: int
+    conversation: int
+    image: int
+    file: int
+    canvas: dict[str, int]
+
+
+class FolderContentsOut(BaseModel):
+    items: list[FolderContentItem]
+    counts: FolderContentCounts
+    labels: list[FolderContentLabel]
+    next_page: int | None = None
+
+
+@router.get("/{project_id}/contents", response_model=FolderContentsOut)
+async def folder_contents(
     project_id: UUID,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    limit: int = Query(100, ge=1, le=300),
+    type: str = Query("all"),
+    q: str = Query(""),
+    label_ids: list[UUID] | None = Query(default=None),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(40, ge=1, le=100),
 ):
-    """Attachments on conversations that match this folder filterset."""
-    from sqlalchemy import select
+    """Everything in this folder: subfolders, conversations, images, files and canvases.
 
-    from app.models.signal import Signal, SignalMessage
-    from app.services.communication_nav import list_predicates
+    ``type`` is ``all``, ``folder``, ``conversation``, ``image``, ``file`` or
+    ``canvas:<kind>``. ``label_ids`` is an AND on the conversation's labels and
+    applies to images, files and canvases through their home conversation.
+    Counts follow the same search and labels. Items are display fields only.
+    """
+    from app.services.folder_contents import list_folder_contents
 
-    predicates = await list_predicates(session, auth.tenant.id, {"project_id": project_id})
-    if predicates is None:
-        raise HTTPException(status_code=404, detail="Folder not found")
-    rows = (
-        await session.execute(
-            select(SignalMessage, Signal)
-            .join(Signal, Signal.id == SignalMessage.signal_id)
-            .where(
-                Signal.tenant_id == auth.tenant.id,
-                Signal.deleted_at.is_(None),
-                SignalMessage.attachments_json != "[]",
-                *predicates,
-            )
-            .order_by(SignalMessage.created_at.desc())
-            .limit(limit)
-        )
-    ).all()
-    files: list[dict[str, Any]] = []
-    for message, signal in rows:
-        try:
-            attachments = json.loads(message.attachments_json or "[]")
-        except (TypeError, json.JSONDecodeError):
-            attachments = []
-        if not isinstance(attachments, list):
-            continue
-        for item in attachments:
-            if not isinstance(item, dict):
-                continue
-            files.append(
-                {
-                    "name": str(item.get("name") or item.get("filename") or "file"),
-                    "url": item.get("url") or item.get("href"),
-                    "content_type": item.get("content_type") or item.get("type") or "",
-                    "signal_id": str(signal.id),
-                    "subject": signal.subject,
-                    "created_at": message.created_at.isoformat() if message.created_at else None,
-                }
-            )
-    return {"files": files}
+    scope = await _count_scope(session, auth)
+    return await list_folder_contents(
+        session,
+        auth.tenant.id,
+        project_id,
+        user_id=scope["user_id"],
+        visible_account_ids=scope["visible_account_ids"],
+        contents_type=type,
+        q=q,
+        label_ids=label_ids or [],
+        page=page,
+        per_page=per_page,
+    )
 
 
 @router.get("/{project_id}")

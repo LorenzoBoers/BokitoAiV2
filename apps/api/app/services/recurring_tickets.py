@@ -161,7 +161,7 @@ async def upsert_recurring_ticket(
 
     label = await find_category(session, tenant_id, flow)
     if label is None or label.workstream_id is None:
-        return {"error": "flow_not_found", "message": "Pass the hashtag of a label with a flow (list_flows)."}
+        return {"error": "flow_not_found", "message": "Pass the label name of a flow (list_flows), without a leading #."}
     cron = (cron or "").strip()
     if next_cron_run(cron, utcnow()) is None:
         return {"error": "cron_required", "message": "Pass cron, for example '0 7 1 * *' for the first of the month."}
@@ -220,7 +220,7 @@ async def fire_recurring_ticket(session: AsyncSession, trigger: Trigger, *, manu
     try:
         result = await open_recurring_ticket(session, trigger, now=now)
         trigger.last_status = result["status"]
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         result = {"status": "error", "error": str(exc.detail)}
         trigger.last_status = "error"
     trigger.last_run_at = now

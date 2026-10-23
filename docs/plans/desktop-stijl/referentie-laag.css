@@ -1,0 +1,108 @@
+/* REFERENTIE — niet importeren. Prototype-laag van het canvas (pagina Desktop-stijl) die met overrides
+   over de gebouwde dashboard-CSS lag. Lees hier de waarden; voer ze in via docs/plans/desktop-stijl-invoeren.md. */
+
+/* Bokito · D Desktop — rustige desktop-assistent-stijl bovenop de echte dashboard-CSS.
+   Warm neutraal, één zijbalk-tint, geen scheidingslijnen, serif voor koppen en agent-antwoorden,
+   ruime pil-composer, agentberichten zonder bubbel. Bokito-groen blijft de merkkleur. */
+
+:root{
+  --color-bg:38 37 35;--color-bg-root:29 28 26;--color-bg-sidebar:29 28 26;--color-bg-canvas:38 37 35;
+  --color-bg-surface:45 44 41;--color-bg-elevated:50 48 45;--color-bg-hover:58 56 52;--color-bg-input:45 44 41;
+  --color-border:61 59 55;--color-border-light:77 74 69;--color-border-focus:95 214 170;
+  --color-text-primary:236 233 226;--color-text-secondary:196 191 180;--color-text-muted:172 167 156;--color-text-heading:247 245 240;
+  --color-accent:60 200 149;--color-accent-hover:82 212 164;--color-accent-dark:42 167 122;--color-accent-fg:6 36 26;--color-accent-ink:130 225 191;
+  --color-ai:169 139 255;--color-ai-ink:205 188 255;--color-ai-fg:21 10 48;
+  --color-status-success:82 209 157;--color-status-warning:240 177 74;--color-status-error:244 135 126;--color-status-info:132 171 255;
+  --color-cutout:var(--color-bg);--body-bg:#262523;
+  --font-sans:'Inter',system-ui,sans-serif;
+  --font-serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --shadow-card:0 0 0 0 transparent;
+  --shadow-overlay:0 0 0 1px rgb(255 255 255/.06),0 18px 48px -18px rgb(0 0 0/.7);
+  --shadow-composer:0 0 0 1px rgb(var(--color-border)),0 4px 18px -6px rgb(0 0 0/.45);
+}
+:root[data-theme='light']{
+  --color-bg:251 250 246;--color-bg-root:243 241 234;--color-bg-sidebar:243 241 234;--color-bg-canvas:251 250 246;
+  --color-bg-surface:255 255 255;--color-bg-elevated:247 245 239;--color-bg-hover:236 233 225;--color-bg-input:255 255 255;
+  --color-border:230 226 216;--color-border-light:214 209 196;--color-border-focus:12 125 86;
+  --color-text-primary:41 38 31;--color-text-secondary:87 83 74;--color-text-muted:107 102 92;--color-text-heading:26 24 20;
+  --color-accent:12 125 86;--color-accent-hover:10 109 75;--color-accent-dark:8 93 64;--color-accent-fg:255 255 255;--color-accent-ink:9 104 72;
+  --color-ai:106 60 212;--color-ai-ink:76 40 153;--color-ai-fg:255 255 255;
+  --color-status-success:14 118 82;--color-status-warning:154 79 6;--color-status-error:179 54 43;--color-status-info:40 86 194;
+  --body-bg:#fbfaf6;
+  --shadow-card:0 0 0 0 transparent;
+  --shadow-overlay:0 0 0 1px rgb(30 25 15/.06),0 16px 40px -16px rgb(30 25 15/.2);
+  --shadow-composer:0 0 0 1px rgb(var(--color-border)),0 4px 16px -8px rgb(30 25 15/.14);
+}
+body{background:var(--body-bg)}
+
+/* Typeladder: leesbaar, één stap ruimer */
+.text-2xs{font-size:11.5px;line-height:15px}
+.text-xs{font-size:13px;line-height:19px}
+.text-sm{font-size:14px;line-height:21px}
+.text-base{font-size:15px;line-height:23px}
+.text-lg{font-size:16px;line-height:25px}
+.text-xl{font-size:19px;line-height:27px}
+.text-2xl{font-size:24px;line-height:31px}
+
+/* Koppen in serif */
+.title-page,main h1{font-family:var(--font-serif);font-weight:500;font-size:30px;line-height:36px;letter-spacing:-0.01em}
+.title-section,main h2{font-family:var(--font-serif);font-weight:500;font-size:18px;line-height:26px;letter-spacing:0}
+.title-dialog{font-family:var(--font-serif);font-weight:500;font-size:20px}
+.title-eyebrow{font-size:12.5px;font-weight:500}
+
+/* Vorm: zachter, ronder */
+.rounded{border-radius:8px}.rounded-md{border-radius:10px}.rounded-lg{border-radius:12px}.rounded-xl{border-radius:16px}.rounded-2xl{border-radius:20px}
+
+/* Eén zijbalk-tint, geen scheidingslijnen in de shell */
+aside.w-rail,aside.w-rail-collapsed{border-right-color:transparent!important}
+aside.w-rail>div,aside.w-rail-collapsed>div{background:rgb(var(--color-bg-sidebar))}
+aside.w-rail .border-t{border-top-color:transparent}
+header.h-11{height:52px;border-bottom-color:transparent!important;background:transparent!important}
+main aside.border-r{border-right-color:transparent!important;background:rgb(var(--color-bg))}
+.w-px.bg-border\/70{background:transparent}
+
+/* Navigatie: ruime rijen, vlakke selectie */
+.nav-row{height:34px;font-size:14px;line-height:20px;border-radius:10px;padding:0 10px;gap:10px;color:rgb(var(--color-text-primary))}
+.nav-row:hover{background-image:none;background-color:rgb(var(--color-bg-hover)/.6)}
+.nav-row[data-active=true],.nav-row[aria-current=page],.nav-row.active{background-image:none;background-color:rgb(var(--color-bg-hover));font-weight:500}
+.nav-row>svg{width:17px;height:17px;color:rgb(var(--color-text-secondary))}
+.nav-folder{height:28px;font-size:12.5px;color:rgb(var(--color-text-muted));font-weight:500}
+.nav-sub-row{font-size:14px}
+.nav-count{font-size:12px;color:rgb(var(--color-text-muted))}
+
+/* Randen: één haarlijn, minder vaak */
+.border-border,.border-border\/20,.border-border\/30,.border-border\/40,.border-border\/50,.border-border\/55,.border-border\/60,.border-border\/70,.border-border\/80{border-color:rgb(var(--color-border))}
+.divide-border\/40>*+*{border-color:rgb(var(--color-border)/.6)}
+.text-text-muted\/40,.text-text-muted\/50,.text-text-muted\/60,.text-text-muted\/70,.text-text-muted\/75,.text-text-muted\/80,.text-text-muted\/90{color:rgb(var(--color-text-muted))}
+
+/* Kaarten: vlak, zacht, geen schaduw-was */
+.panel{border-radius:16px;border-color:rgb(var(--color-border));box-shadow:none;background:rgb(var(--color-bg-surface))}
+:root[data-theme='light'] .panel{border-color:rgb(var(--color-border));box-shadow:none}
+
+/* Knoppen */
+.btn-elevated{box-shadow:none}
+button.h-7,a.h-7{height:30px}
+button.h-8{height:34px}
+
+/* Gesprek: jouw berichten als zachte bubbel, agent-antwoorden als lopende tekst in serif */
+.chat-bubble-self{background:rgb(var(--color-bg-hover))!important;box-shadow:none!important;border-radius:18px!important}
+.chat-bubble-self,.chat-bubble-self *{color:rgb(var(--color-text-primary))!important}
+.chat-bubble-agent{background:transparent!important;box-shadow:none!important;padding-left:2px!important;padding-right:0!important}
+.chat-bubble-agent:before{display:none!important}
+.chat-bubble-agent .chat-text{font-family:var(--font-serif);font-size:17px;line-height:28px}
+.chat-bubble-agent .chat-text p{margin-bottom:6px}
+
+/* Composer: één grote, ronde invoer */
+.group\/composer{border-radius:22px!important;background:rgb(var(--color-bg-surface))!important;border-color:transparent!important;box-shadow:var(--shadow-composer)!important;padding:14px 16px 10px!important}
+.group\/composer textarea{font-size:16px!important;line-height:24px!important}
+
+/* Zoekveld in de topbar */
+header input[type=text],header input:not([type]){border-radius:999px;background:rgb(var(--color-bg-surface));height:34px}
+
+/* Rust: geen glows, geen spotlights; de agent-orb blijft */
+.agent-glow,.ambient-spotlights,.app-atmosphere,.bot-orb__aura,.dot-grid-bg{display:none!important}
+.chat-stack-card-body{border-radius:16px;border-color:rgb(var(--color-border))}
+
+/* Iconen: één lijndikte */
+svg.lucide{stroke-width:1.75}
+img:not([src]){visibility:hidden}

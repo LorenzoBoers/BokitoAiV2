@@ -7,6 +7,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,6 +71,17 @@ class AgentUpdateBody(BaseModel):
     avatar_image_url: str | None = None
     # Who the agent asks: {"kind": "auto"} or {"kind": "user" | "team", "id": ...}.
     ask_target: dict[str, Any] | None = None
+    # Default voice on a call. Call settings can override this per person.
+    call_voice: str | None = None
+    call_speed: float | None = None
+    call_language: str | None = None
+
+
+class VoicePreviewBody(BaseModel):
+    voice: str
+    speed: float = 1
+    language: str = "nl"
+    name: str = ""
 
 
 class TriggerAgentBody(BaseModel):
@@ -196,6 +208,52 @@ async def get_agent(
     return {"agent": agent}
 
 
+class AwarenessBody(BaseModel):
+    mode: str | None = None
+    cron: str | None = None
+    follows: list[str] | None = None
+    daily_cost_cents: int | None = None
+    max_proposals: int | None = None
+
+
+@router.get("/agents/{agent_id}/awareness")
+async def get_agent_awareness(
+    agent_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.models.agent import Agent
+    from app.services.agent_awareness import awareness_view
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    return await awareness_view(session, agent)
+
+
+@router.patch("/agents/{agent_id}/awareness")
+async def patch_agent_awareness(
+    agent_id: UUID,
+    body: AwarenessBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    from app.models.agent import Agent
+    from app.services.agent_awareness import awareness_view, set_awareness
+
+    auth.require_role("owner", "admin")
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != auth.tenant.id:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    try:
+        set_awareness(agent, body.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    session.add(agent)
+    await session.commit()
+    return await awareness_view(session, agent)
+
+
 @router.post("/agents")
 async def create_agent(
     body: AgentCreateBody,
@@ -234,6 +292,27 @@ async def create_agent(
     return result
 
 
+@router.post("/agents/voice-preview")
+async def preview_agent_voice(
+    body: VoicePreviewBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Play a sample of an agent's voice. Does not change the agent."""
+    from app.services.agent_calls import calls_enabled
+    from app.services.agent_call_voice import preview_call_voice
+
+    if not calls_enabled():
+        raise HTTPException(status_code=404, detail="Not found")
+    auth.require_role("owner", "admin")
+    audio = await preview_call_voice(
+        voice=body.voice,
+        speed=body.speed,
+        language=body.language,
+        name=body.name,
+    )
+    return Response(content=audio, media_type="audio/mpeg")
+
+
 @router.patch("/agents/{agent_id}")
 async def update_agent(
     agent_id: UUID,
@@ -263,6 +342,9 @@ async def update_agent(
         avatar_shape=body.avatar_shape,
         avatar_image_url=body.avatar_image_url,
         ask_target=body.ask_target,
+        call_voice=body.call_voice,
+        call_speed=body.call_speed,
+        call_language=body.call_language,
     )
     from app.services.audit import record_audit
 

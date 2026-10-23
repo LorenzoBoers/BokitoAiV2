@@ -30,6 +30,7 @@ class TagRow(BaseModel):
     workstream_name: str | None = None
     show_in_nav: bool = False
     ai_auto_tag: bool = True
+    department_id: str | None = None
     folders: list[TagFolderRef] = []
 
 
@@ -48,6 +49,7 @@ class TagUpdate(BaseModel):
     icon: str | None = None
     show_in_nav: bool | None = None
     ai_auto_tag: bool | None = None
+    department_id: UUID | None = None
 
 
 class TagPromote(BaseModel):
@@ -109,7 +111,8 @@ async def update_tag(
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Rename, describe, show in the rail, or toggle AI auto-tag. Renaming onto an existing free tag merges them."""
-    if body.show_in_nav is not None or body.ai_auto_tag is not None:
+    fields = body.model_dump(exclude_unset=True)
+    if body.show_in_nav is not None or body.ai_auto_tag is not None or "department_id" in fields:
         auth.require_role("owner", "admin")
     try:
         row = await tag_svc.update_tag(
@@ -122,6 +125,8 @@ async def update_tag(
             icon=body.icon,
             show_in_nav=body.show_in_nav,
             ai_auto_tag=body.ai_auto_tag,
+            department_id=fields.get("department_id"),
+            set_department="department_id" in fields,
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

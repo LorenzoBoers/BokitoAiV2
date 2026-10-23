@@ -13,11 +13,10 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.modules.catalog import MODULE_BY_SLUG, module_for_provider
 
@@ -170,7 +169,7 @@ async def attach_connection_to_module(
     if conn.status == "revoked":
         raise AppError("Cannot attach a revoked connection", code="app_error", status_code=400)
     if not provider_allowed_for_module(conn.provider, module_slug):
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail=(
                 f"{conn.provider} is not a package on this module. "

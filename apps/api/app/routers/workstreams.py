@@ -39,17 +39,13 @@ class WorkstreamPatchBody(BaseModel):
     stage_entry_policy: str | None = None
     # With auto_above: certainty 0-10; -1 follows the workspace.
     stage_entry_threshold: int | None = None
-    # "Delivers to": null clears it; the key must be one of that folder's Works in items.
-    deliver_folder_id: UUID | None = None
-    deliver_works_in_key: str | None = None
     # The recipe: the working method, tools / connection:{id} it may use, and
     # what done produces (free text).
     instructions: str | None = None
     capabilities: list[str] | None = None
     expected_outcome: str | None = None
-    # True keeps one open and one done stage (handled in the conversation, no board);
-    # false gives the flow a waiting stage back.
-    direct: bool | None = None
+    # The notation. Empty keeps the straight line of the current columns.
+    flow_source: str | None = None
 
 
 class RunStartBody(BaseModel):
@@ -96,7 +92,7 @@ async def create_workstream(
 
     tag_name = normalize_tag(body.name)
     if not tag_name:
-        raise HTTPException(status_code=400, detail="A flow needs a hashtag name")
+        raise HTTPException(status_code=400, detail="A flow needs a label name")
     tag = (
         await session.execute(
             select(SignalTag).where(
@@ -106,7 +102,7 @@ async def create_workstream(
     ).scalar_one_or_none()
     if tag is not None and tag.workstream_id is not None:
         raise HTTPException(
-            status_code=400, detail=f"#{tag_name} is already the action tag of another flow"
+            status_code=400, detail=f"{tag_name} is already the label of another flow"
         )
 
     ws = Workstream(
@@ -229,6 +225,45 @@ async def promote_run(
     return await svc.promote_run_to_knowledge(session, auth.tenant.id, run_id)
 
 
+class SchemaSourceBody(BaseModel):
+    source: str = ""
+
+
+class SchemaGraphBody(BaseModel):
+    nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+
+
+@router.post("/schema/parse")
+async def parse_flow_schema(
+    body: SchemaSourceBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Read the notation into steps and arrows. The editor draws this graph."""
+    auth.require_role("owner", "admin")
+    from app.services.flow_schema import display_nodes, parse_schema
+
+    graph = parse_schema(body.source)
+    graph["nodes"] = display_nodes(graph)
+    return graph
+
+
+@router.post("/schema/render")
+async def render_flow_schema(
+    body: SchemaGraphBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+):
+    """Write steps and arrows back to the notation, then read that text again."""
+    auth.require_role("owner", "admin")
+    from app.services.flow_schema import display_nodes, parse_schema, render_schema
+
+    source = render_schema(body.nodes, body.edges)
+    graph = parse_schema(source)
+    graph["nodes"] = display_nodes(graph)
+    graph["source"] = source
+    return graph
+
+
 @router.get("/{workstream_id}")
 async def get_workstream(
     workstream_id: UUID,
@@ -322,16 +357,6 @@ async def patch_workstream(
             threshold=patch.get("stage_entry_threshold"),
             actor_id=str(auth.user.id),
         )
-    if "deliver_folder_id" in patch or "deliver_works_in_key" in patch:
-        from app.services.deliveries import validate_flow_destination
-
-        folder_id = patch["deliver_folder_id"] if "deliver_folder_id" in patch else ws.deliver_folder_id
-        key = str(patch.get("deliver_works_in_key") or "").strip() if "deliver_works_in_key" in patch else ""
-        if folder_id is None:
-            ws.deliver_folder_id, ws.deliver_works_in_key = None, ""
-        else:
-            await validate_flow_destination(session, auth.tenant.id, folder_id, key)
-            ws.deliver_folder_id, ws.deliver_works_in_key = folder_id, key
     stages_before = ws.stages_json
     if any(field in patch for field in svc.RECIPE_FIELDS):
         from app.services.audit import record_audit
@@ -353,6 +378,13 @@ async def patch_workstream(
                 commit=False,
             )
     stages_changed = ws.stages_json != stages_before
+    if "flow_source" in patch and patch["flow_source"] is not None:
+        from app.services.flow_schema import parse_schema, render_schema
+
+        parsed = parse_schema(str(patch["flow_source"]))
+        if parsed["errors"]:
+            raise HTTPException(status_code=422, detail=parsed["errors"][0]["message"])
+        ws.flow_source = render_schema(parsed["nodes"], parsed["edges"])
     if patch.get("stages") is not None:
         from app.services.stage_checkups import validate_stage_owners
         from app.services.tickets import validate_stages

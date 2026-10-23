@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { WorksInItem } from '../../lib/project-work-api'
@@ -62,6 +63,25 @@ describe('WorksInSection', () => {
     expect(screen.getAllByText(/projects\.worksIn\.origin\.bokito/)).toHaveLength(2)
     expect(screen.getAllByText(/projects\.worksIn\.origin\.connection/)).toHaveLength(1)
     expect(screen.queryByText('projects.worksIn.add')).toBeNull()
+  })
+
+  it('opens the add form when edit rights arrive on the works-in hash', async () => {
+    function Host() {
+      const [canEdit, setCanEdit] = useState(false)
+      return (
+        <MemoryRouter initialEntries={[{ pathname: '/departments/d', hash: '#works-in-add' }]}>
+          <button type="button" onClick={() => setCanEdit(true)}>
+            grant
+          </button>
+          <WorksInSection projectId="f1" canEdit={canEdit} />
+        </MemoryRouter>
+      )
+    }
+    render(<Host />)
+    await waitFor(() => expect(screen.getByText('grant')).toBeTruthy())
+    screen.getByText('grant').click()
+    await waitFor(() => expect(screen.getByLabelText('projects.worksIn.add')).toBeTruthy())
+    expect(screen.queryByRole('button', { name: 'projects.worksIn.add' })).toBeNull()
   })
 
   it('hides an empty section for readers and offers Add to admins', async () => {

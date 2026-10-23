@@ -9,7 +9,7 @@ related: setup-guide,communication,agents,channels
 
 # Zo werkt Workforce
 
-Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de afdelingen waarin je ze groepeert. Open **Workforce** in de rail onder **Team** om iemand uit te nodigen, de directory te bekijken of een afdeling te maken. Een tweede menu sluit aan op de linker rail: **Mensen en agents**, **Afdelingen**, **Grid** (`/workforce/grid`) en **Workflow** (`/workforce/workflow`). De Grid laat in 3D zien hoe het bedrijf is ingericht. Workflow laat zien hoe werk door het bedrijf loopt: van het kanaal waar het binnenkomt, langs de persoon of agent die het oppakt en het werk waarin het loopt, naar het resultaat waar het landt.
+Workforce toont iedereen die gesprekken afhandelt: de mensen in de workspace, de bedrijfsagents en de afdelingen waarin je ze groepeert. Open **Workforce** in de rail onder **Team** om iemand uit te nodigen, de directory te bekijken of een afdeling te maken. Een tweede menu sluit aan op de linker rail: **Mensen en agents**, **Afdelingen**, **Grid** (`/workforce/grid`), **Workflow** (`/workforce/workflow`) en **Organogram** (`/workforce/organogram`). De Grid laat in 3D zien hoe het bedrijf is ingericht. Workflow laat zien hoe werk door het bedrijf loopt: van het kanaal waar het binnenkomt, langs de persoon of agent die het oppakt en het werk waarin het loopt, naar het resultaat waar het landt. Het organogram toont dezelfde afdelingen als een boom, met de root bovenaan en elke subafdeling onder haar ouder.
 
 ## Nodig iemand uit
 
@@ -29,16 +29,16 @@ Leden beantwoorden gesprekken. Eigenaren en beheerders koppelen ook kanalen, wij
 
 ## Meld je afwezig
 
-1. Open je accountmenu (onderaan de rail) en zet aanwezigheid op **Afwezig**. Je stip wordt overal grijs: in de lijst, in het gesprek, bij toewijzen en op Workforce.
-2. Zolang je afwezig bent, slaan agents je over als ze kiezen wie ze iets vragen, geven afdelingen je geen nieuwe gesprekken, en telt de websitechat je niet mee als beschikbaar voor een live overdracht.
+1. Open je accountmenu (onderaan de rail) en kies **Online**, **Afwezig** of **Niet beschikbaar**. Afwezig maakt je stip grijs: in de lijst, in het gesprek, bij toewijzen en op Workforce.
+2. Zolang je afwezig bent, bellen agents je niet. De bel mag nog wel. Bij **Niet beschikbaar** slaan ze ook de bel en een push over en schrijven ze alleen in het gesprek. Afdelingen geven je geen nieuwe gesprekken, en de websitechat telt je niet mee als beschikbaar voor een live overdracht.
 3. Zet aanwezigheid weer op beschikbaar als je terug bent. Iemand telt als beschikbaar zolang Bokito open staat op een van zijn apparaten.
 
-Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als ze echt aan een gesprek of run werken.
+Agents tonen een paarse hoekmarkering: stil als ze op standby staan, pulsend als ze echt aan een gesprek of run werk.
 
 ## Lees de directory
 
 1. Op **Workforce** toont de directory mensen, openstaande uitnodigingen en bedrijfsagents samen. Onder de naam van een agent staat de functie in de kleur van die agent. **Type** is gewone tekst: **Persoon** voor mensen en uitnodigingen, **AI agent** voor bedrijfsagents (`ai_agent`). Filter met **Alles**, **Mensen**, **Agents**, **In afwachting** of **Gedeactiveerd**, of zoek op naam. **Alles**, **Mensen** en **Agents** verbergen gedeactiveerde rijen. De kolom **Laatst actief** toont wanneer iemand voor het laatst online was en wanneer een agent voor het laatst draaide. Via Gerelateerd open je **Agents** (zelfde filter **Gedeactiveerd** daar).
-2. Elke persoon toont rol, afdelingen, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). In **Rol / plafond** wijzigt een eigenaar of beheerder de rol van een persoon, en het plafond van een agent met hetzelfde soort menu: **Handmatig**, **Geassisteerd** of **Autonoom**. Alleen een eigenaar of beheerder kan een plafond naar **Autonoom** zetten. Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout**. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)). **Open in Grid** in de paginakop opent de Grid (zelfde knop op Agents, Werken, Mappen en Koppelingen).
+2. Elke persoon toont rol, afdelingen, open werk en aanwezigheid (**Beschikbaar**, **Afwezig**, **Offline**). In **Rol / plafond** wijzigt een eigenaar of beheerder de rol van een persoon, en het plafond van een agent met hetzelfde soort menu: **Handmatig**, **Geassisteerd** of **Autonoom**. Alleen een eigenaar of beheerder kan een plafond naar **Autonoom** zetten. Elke agent gebruikt dezelfde markering als op Agents en in Communicatie, en Status is **Standby**, **Bezig** of **Fout**. Open een agent voor 30-dagencijfers en regels (zie [Agents](/docs/ai/agents)). **Open in Grid** in de paginakop opent de Grid (zelfde knop op Agents, Werk en Mappen).
 3. Mensen en agents gebruiken hun eigen markering. Op de tab **Afdelingen** toont elke rij links het afdelingsicoon en rechts een stapel gezichten van de leden. De hoekpunten volgen één hiërarchie: groen als een persoon beschikbaar is, paars pulsend als een agent in het team bezig is, oranje als iemand afwezig is, stil paars als alleen agents beschikbaar zijn, grijs als iedereen offline is.
 
 ## Deactiveer een persoon of agent
@@ -76,11 +76,11 @@ Een afdelingspagina toont wie leidt, wie erin werkt, en hoe elk werk van de afde
 
 1. Kies de afdeling onder **Afdelingen** in het menu links, tussen **Werk** en **Team**. Elke afdeling waarin je werkt staat daar in het blauw, net als **Nieuw gesprek**, met het aantal open tickets. Eigenaren en beheerders zien alle afdelingen; een lid ziet de afdelingen waarin die zit en de afdelingen daaronder.
 2. Het icoon staat naast de titel. Eigenaren en beheerders klikken erop om het icoon te kiezen dat de afdeling in het menu draagt.
-3. Rechtsboven staan de leidende agent en de eindverantwoordelijke (met of die nu beschikbaar is), **Afdelingsgesprek**, **Open in Grid** en het tandwiel. Onder de titel staan de autonomie van de afdeling en de module waar die uit komt.
+3. Tussen de titel en de tabbladen staat de parent-afdeling in het midden, met de mensen en agents die op die parent staan. Voor de meeste afdelingen is die parent de root, **Alles**. **Open in Grid** en het tandwiel blijven rechtsboven. Onder de titel staan de autonomie van de afdeling en de module waar die uit komt. Een lid ziet de afdelingen waarin die zit en de afdelingen daaronder, niet het eigen werk van de parent.
 4. Het tabblad **Alles** bevat de hele afdeling: **Open**, **Wacht**, **Over tijd** en **Beslissingen**, daarna **Vandaag** met wat nu aandacht vraagt (werk zonder eigenaar, werk over tijd of deze week af, en de laatste oriëntatie van de leider).
-5. Onder **Werken** is elk werk een pijplijn: een cirkel per fase met de open tickets, een stip waar iets over tijd is, en een balk met de verdeling over de fases. Uit de scorekaart toont die **Autonoom**, **Gecorrigeerd** en **Gesloten (7 dagen)**. **Bord openen** opent het werk. De afdeling van een werk stel je in op de werkpagina.
+5. Onder **Werk** is elk werk een pijplijn: een cirkel per fase met de open tickets, een stip waar iets over tijd is, en een balk met de verdeling over de fases. Uit de scorekaart toont die **Autonoom**, **Gecorrigeerd** en **Gesloten (7 dagen)**. **Bord openen** opent het werk. De afdeling van een werk stel je in op de werkpagina.
 6. Daaronder toont **Team** de leden met hun taak (**Eerste**, **Back-up**), open werk en uren per week; agents tonen ook waar ze mee bezig zijn en hun kosten over 7 dagen. **Verbetervoorstellen** toont wat de leider voorstelde.
-7. Naast **Alles** staat een tabblad per map waar het werk van de afdeling landt, thuismappen eerst. Een maptabblad toont dezelfde tellingen en pijplijnen, alleen voor de tickets in die map; **Map openen** gaat naar de map.
+7. Naast **Alles** staat een tabblad per map waar het werk van de afdeling landt, thuismappen eerst. Een maptabblad toont dezelfde tellingen en pijplijnen, alleen voor de tickets in die map. Daaronder staat het werkbord van die map (fasen als kolommen, tickets als kaarten), de agenda, **Werkt in** en de mapdocumentatie. **Toevoegen aan Werkt in** voegt een canvas, koppeling of bestandsmap toe. De map zelf is de container: gesprekken, bestanden en canvases open je daar.
 8. Elke werkdagochtend zet de leidende agent een briefing in het afdelingsgesprek: wat te laat is, wat te lang op een klant wacht, wat onvolledig is, en wie boven capaciteit zit. Op maandag noemt die ook een verbetering. Een afdeling die naar buiten kijkt, zoals Research, zet in plaats daarvan eens per week trends per klant (zie [Agenda](/docs/ai/agenda)).
 
 ## Vertel een afdeling waar ze op let
@@ -92,30 +92,38 @@ De leidende agent wordt zelf wakker als er iets gebeurt in zijn domein, niet all
 3. **Wat deze afdeling kan bereiken** toont wie de leider mag pushen of bellen: de persoon voor wie een beslissing is, of iedereen in de afdeling als het werk dringend is. Ieder stelt stille uren en oproepen in op de eigen pagina **Notificaties**.
 4. De maptabbladen tonen waar het werk van de afdeling eindigt, **Pushes en oproepen** de recente pogingen om iemand te bereiken, en **Uitkomsten** hoe het laatst afgesloten werk ging. Elke poging staat ook in het gesprek waar die over ging.
 
+## Lees het organogram
+
+Het organogram is de hiërarchie van afdelingen, van boven naar beneden. De root-afdeling staat bovenaan. Elke afdeling hangt onder haar ouder, en verdere aftakkingen lopen naar beneden.
+
+1. Open **Workforce** en kies **Organogram**.
+2. Lees van de root naar beneden. Een lijn verbindt elke afdeling met de afdelingen eronder. Elke kaart toont het afdelingsicoon, de naam en hoeveel mensen en agents erin zitten.
+3. Kies een afdeling om de pagina te openen. De root heeft geen eigen pagina.
+
 ## Bekijk de Grid
 
-De Grid is de organisatiekaart in 3D: het bedrijf in het midden en elke afdeling als eiland met haar mensen en agents, en de mappen, werken en koppelingen waarmee ze werken.
+De Grid is de organisatiekaart in 3D: het bedrijf in het midden en elke afdeling als eiland met haar mensen en agents, en de mappen, werken en koppelingen waarmee ze werk.
 
 1. Open **Workforce** en kies **Grid**.
 2. Sleep om te schuiven, sleep met rechts om te kantelen en scroll om te zoomen. Namen bij de markeringen verschijnen vanaf **160%**; daaronder toont de kaart alleen de markeringen. Wijs een markering aan om de naam te lezen. Eilandnamen en de bedrijfsnaam blijven zichtbaar.
 3. Wijs een item in de legenda aan om het en zijn directe koppelingen te laten oplichten. Klik erop om het op de kaart te vinden; klik op de kaart om de pagina ervan te openen.
 
-**Open in Grid** op Agents, Werken, Mappen en Koppelingen opent deze kaart met dat item gevonden.
+**Open in Grid** op Agents, Werk en Mappen opent deze kaart met dat item gevonden.
 
 ## Volg werk in Workflow
 
 ![Workflow in 2D met de lens Stroom](/api/docs/assets/team/grid.png)
-*Binnenkomst links, uitvoerders per afdeling, werken, en rechts het resultaat.*
+*Binnenkomst links, uitvoerders per afdeling, werk, en rechts het resultaat.*
 
 1. Open **Workforce** en kies **Workflow**. Vier kolommen lees je van links naar rechts: **Binnenkomst**, **Aanpak · wie, per afdeling**, **Soort · werklabel, % autonoom** en **Uitkomst**. Een werk toont welk deel van zijn werk zonder correctie liep, bijvoorbeeld **82% autonoom**. De dikte van een lijn is het aantal gesprekken in de gekozen periode (**7 dagen**, **30 dagen** of **90 dagen**).
 2. Kies een lens. **Stroom** toont de stroom. **Labels** kleurt een lijn in de kleur van het werk-label, met hetzelfde icoon als elders. Labels zonder werk staan samen als **Overig**, in grijs. Kies een label om alleen dat label door de keten te volgen. **Autonomie** kleurt uitvoerders naar wat ze zelf mogen (**Autonoom**, **Geassisteerd**, **Handmatig**). Het paneel rechts begint met **Knelpunten**: knooppunten die aandacht vragen, zoals werk dat niemand oppakt, of een persoon of agent met meer dan 15 open gesprekken of meer dan twee keer wat in het team gewoon is.
 3. Workflow opent in **3D**: de vier lagen staan als platen naast elkaar. Kies **2D** voor het platte bord met dezelfde knooppunten. Sleep om te verschuiven, scroll om te zoomen en kies **Beginbeeld** om terug te gaan naar het startbeeld.
-4. Kies een knooppunt. Het paneel rechts toont waar het werk vandaan komt en waar het heen gaat, elk met het eigen icoon, en de verdeling per label. Zijn er knelpunten, dan staat links van het paneel een knop met een uitroepteken en het aantal. Kies die en de lijst Knelpunten verschijnt op die plek, naast het paneel. Sluit de lijst en de knop komt terug. Het item blijft open. Is het knooppunt een agent of een persoon, dan staat het gezicht links, de functie in kleur ernaast en de omschrijving eronder. Een agent ademt als hij vrij is en toont de werkbeweging als hij bezig is. Een persoon houdt dezelfde opbouw, met zijn foto. **Open gesprekken** opent dat werk in Communicatie. Op een map opent **Toevoegen aan Werkt in** de map met het toevoegformulier klaar.
+4. Kies een knooppunt. Het paneel rechts toont waar het werk vandaan komt en waar het heen gaat, elk met het eigen icoon, en de verdeling per label. Zijn er knelpunten, dan staat links van het paneel een knop met een uitroepteken en het aantal. Kies die en de lijst Knelpunten verschijnt op die plek, naast het paneel. Sluit de lijst en de knop komt terug. Het item blijft open. Is het knooppunt een agent of een persoon, dan staat het gezicht links, de functie in kleur ernaast en de omschrijving eronder. Een agent ademt als hij vrij is en toont de werkbeweging als hij bezig is. Een persoon houdt dezelfde opbouw, met zijn foto. **Open gesprekken** opent dat werk in Communicatie. Op een map opent **Toevoegen aan Werkt in** het maptabblad van de thuisafdeling, met het toevoegformulier klaar.
 5. Heeft veel werk van een knooppunt geen label, kies dan **Labels voorstellen**. Er opent een agentchat met dat werk zonder label, de afzenders en bedrijven, en de agent stuurt één labelplan; er verandert niets tot je het goedkeurt. Zie [Labels en tickets](/docs/ai/categories).
 
 De kolom Resultaat zegt **Geschat** zolang nog niet elk resultaat als oplevering is vastgelegd. Een map in die kolom telt het werk van de mappen hierin mee; kies hem om elke map hierin met een eigen aantal te zien. Iets wat via een koppeling is weggeschreven die in geen map staat, zoals een factuur in het boekhoudpakket, krijgt een eigen resultaat met de naam van de koppeling. Een gesloten gesprek zonder vastgelegde bestemming landt in **Afgerond**; het paneel ervan toont hoeveel er gesloten zijn als **Geen antwoord nodig**. Een gesprek telt onder zijn werk-label, of zonder werk-label onder het label dat het als eerste kreeg. Het oranje vak **Zonder afdeling** bevat mensen en agents die gesprekken afhandelen maar in geen afdeling zitten.
 
-In 2D is elke afdeling een baan met haar mensen en agents links en haar werken rechts; werken zonder afdeling staan onder de banen. **Open in Grid** op een afdelingspagina opent Workflow met die baan in beeld. Elk knelpunt noemt de afdeling en de leider die ervan zijn.
+In 2D is elke afdeling een baan met haar mensen en agents links en haar werk rechts; werken zonder afdeling staan onder de banen. **Open in Grid** op een afdelingspagina opent Workflow met die baan in beeld. Elk knelpunt noemt de afdeling en de leider die ervan zijn.
 
 ## Persoonlijke instellingen blijven persoonlijk
 

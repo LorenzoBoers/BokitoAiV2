@@ -157,7 +157,15 @@ export async function fetchChatStack(token: string, followIds: string[]): Promis
   const params = new URLSearchParams()
   if (followIds.length) params.set('follow', followIds.join(','))
   const payload = await apiGet<{ items?: RawItem[] }>(appRoutes.signals.stack(params), token)
-  return (payload.items ?? []).map(normalizeStackItem)
+  const seen = new Set<string>()
+  const items: ChatStackItem[] = []
+  for (const raw of payload.items ?? []) {
+    const item = normalizeStackItem(raw)
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    items.push(item)
+  }
+  return items
 }
 
 /** Live-merged card state the stack draws from. */
@@ -182,13 +190,36 @@ function callRank(card: StackCardState): number {
   return 0
 }
 
-/** Front of the stack first: incoming call, live call, working agent, unread, recent. */
+/**
+ * Front of the stack first: incoming call, live call, unread, recent.
+ * Working agents no longer reshuffle the dock — that thrashed transforms and
+ * left stacked ghost copies of the same card while an agent streamed.
+ */
 export function orderStackCards<T extends StackCardState>(cards: T[]): T[] {
   return [...cards].sort((a, b) => {
     const callDiff = callRank(b) - callRank(a)
     if (callDiff) return callDiff
-    if (a.live !== b.live) return a.live ? -1 : 1
     if (a.unread !== b.unread) return a.unread ? -1 : 1
     return activityMs(b) - activityMs(a)
+  })
+}
+
+/**
+ * While a call is up, keep every other card where it already was.
+ * A refetch that only bumps activity used to swap those cards, and the
+ * transform transition drew them as copies sliding back and forth.
+ * The call itself still comes to the front.
+ */
+export function stabilizeStackOrder<T extends StackCardState>(cards: T[], previousIds: readonly string[]): T[] {
+  const rank = new Map(previousIds.map((id, index) => [id, index]))
+  return [...cards].sort((a, b) => {
+    const callDiff = callRank(b) - callRank(a)
+    if (callDiff) return callDiff
+    const ai = rank.get(a.id)
+    const bi = rank.get(b.id)
+    if (ai == null && bi == null) return 0
+    if (ai == null) return 1
+    if (bi == null) return -1
+    return ai - bi
   })
 }

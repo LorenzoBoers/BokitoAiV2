@@ -22,9 +22,9 @@ async def _set_thread_tags(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
 
     Adds only names that already exist; new labels come from a label plan or
     create_tag. Removes only
-    free labels linked on this conversation — never an label, never a
-    label that arrives only through the contact or company, and never a
-    catalog delete.
+    free labels linked on this conversation — never a label that starts a
+    ticket, never a label that arrives only through the contact or company,
+    and never a catalog delete.
     """
 
     from app.gateway.publish import publish_thread_update
@@ -199,8 +199,9 @@ register_tool(
             "labels from the catalog only; propose new ones with "
             "propose_label_plan. remove unlinks a free label that is already on this conversation. "
             "It does not delete the label from the workspace, and it refuses "
-            "an label and a label that only comes from the contact or "
-            "company. Use file_ticket for an label. If a folder does not "
+            "a label that starts a ticket, and a label that only comes from "
+            "the contact or company. Use file_ticket for a label with a flow. "
+            "If a folder does not "
             "fit, remove its label. If the tool returns an error, fix the "
             "call; do not claim the label changed."
         ),
@@ -325,7 +326,7 @@ async def _delete_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         return {
             "error": "tag_defines_folder",
             "message": (
-                f"#{tag_name} is part of {len(folders)} folder filterset"
+                f"{tag_name} is part of {len(folders)} folder filterset"
                 f"{'s' if len(folders) != 1 else ''}. "
                 "Remove those folders with delete_folder first; do not delete_tag "
                 "to remove a folder."
@@ -353,9 +354,9 @@ register_tool(
         description=(
             "List workspace labels, including which ones have a flow (those start a ticket). "
             "Color exists only while that flow is attached. "
-            "Use #name in chat for inline chips, or attach_items with type tag. "
+            "Name a label in chat without a leading #, or attach_items with type tag. "
             "Returns id, name, kind (tag|action_tag), folders, and markup. "
-            "Never call a label an label or label."
+            "Never prefix a label with #."
         ),
         category="messaging",
         input_schema={
@@ -445,7 +446,7 @@ async def _create_tag(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
 
     name = normalize_tag(str(tool_input.get("name") or ""))
     if not name:
-        return {"error": "missing_name", "message": "Pass the hashtag name without #."}
+        return {"error": "missing_name", "message": "Pass the label name, without a leading #."}
     refusal = await check_new_label(
         ctx.session, ctx.tenant_id, name, str(tool_input.get("description") or "")
     )
@@ -514,7 +515,7 @@ async def _merge_labels(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         return error
     target, error = await _find_tag_row(ctx, {"name": into_name}, "tag_id", "id")
     if error:
-        return {"error": "not_found", "message": f"#{into_name} is not a label. Merge into one that already exists."}
+        return {"error": "not_found", "message": f"{into_name} is not a label. Merge into one that already exists."}
     try:
         row = await merge_tags(ctx.session, ctx.tenant_id, source.id, target.id, commit=False)
     except ValueError as exc:
@@ -523,7 +524,7 @@ async def _merge_labels(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         "ok": True,
         "removed": source_name,
         "tag": serialize_tag(row),
-        "message": f"#{source_name} is now #{row.name}. Conversations, contacts, companies, folders and rules moved.",
+        "message": f"{source_name} is now {row.name}. Conversations, contacts, companies, folders and rules moved.",
     }
 
 
@@ -564,13 +565,13 @@ register_tool(
             "To propose labels for conversations, companies or inbox rules, use "
             "propose_label_plan instead. Use create_category when the label should "
             "have a flow and start a ticket. Idempotent: an existing name is updated. "
-            "Never say label or label."
+            "Pass the name without a leading #."
         ),
         category="messaging",
         input_schema={
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Hashtag name without #"},
+                "name": {"type": "string", "description": "Label name, without a leading #"},
                 "description": {"type": "string", "description": "When to apply it"},
                 "show_in_nav": {"type": "boolean", "description": "Show in the Folders and tags rail for everyone"},
             },
@@ -588,7 +589,7 @@ register_tool(
     ToolSpec(
         name="update_tag",
         description=(
-            "Rename or describe a hashtag, or change where it shows (show_in_nav, "
+            "Rename or describe a label, or change where it shows (show_in_nav, "
             "ai_auto_tag). Pass tag_id or name to pick the tag and new_name to rename. "
             "Renaming onto an existing free tag merges the two."
         ),
@@ -633,7 +634,7 @@ async def _propose_label_plan(ctx: ToolContext, tool_input: dict[str, Any]) -> d
     approve = "Toepassen" if lang == "nl" else "Apply"
     decisions: list[str] = []
     for entry in entries:
-        title = f"#{entry['name']} · {entry['where']}"
+        title = f"{entry['name']} · {entry['where']}"
         result = await _create_decision_request(
             ctx,
             {

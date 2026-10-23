@@ -10,9 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from fastapi import HTTPException
 
-from app.exceptions import AppError
+from app.exceptions import AppError, status_error
 from app.services.mcp_remote_catalog import catalog_providers
 
 _PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
@@ -52,10 +51,10 @@ def build_from_fields(provider: str, values: dict[str, Any]) -> tuple[str, dict[
     for field in preset["fields"]:
         value = str((values or {}).get(field["key"]) or "").strip()
         if not value and field.get("required", True) is not False:
-            raise HTTPException(status_code=422, detail=f"Fill in {field.get('label') or field['key']}.")
+            raise status_error(status_code=422, detail=f"Fill in {field.get('label') or field['key']}.")
         pattern = field.get("pattern")
         if value and pattern and not re.match(str(pattern), value):
-            raise HTTPException(status_code=422, detail=f"{field.get('label') or field['key']} does not look right.")
+            raise status_error(status_code=422, detail=f"{field.get('label') or field['key']} does not look right.")
         clean[field["key"]] = value
     url = _PLACEHOLDER.sub(lambda m: clean.get(m.group(1), ""), preset["url_template"])
     auth: dict[str, Any] = {}

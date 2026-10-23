@@ -59,6 +59,14 @@ Klantartikelen leven in Kennis, niet onder een aparte **Helpcentrum**-instelling
 2. Kies **Publiceren**. Bevestig de prompt voor de openbare helpsite.
 3. Deel de help-URL met klanten. Haal publicatie weg wanneer het artikel van de openbare site af moet.
 
+## Bekijk een conceptles
+
+Een conceptles is een sectie die een agent uit een correctie, een klantreactie of een afgeronde beurt heeft gehaald. Hij geldt voor de hele werkruimte. Labels bepalen wanneer hij bovenaan komt. Hij wordt definitief door jou, of doordat dezelfde les in een tweede gesprek op hetzelfde label terugkomt.
+
+1. Open Kennis en kies de chip **Conceptlessen**.
+2. Lees de kop, het label en het aantal gesprekken. Open het gesprek waar de les vandaan komt.
+3. Zet de sectie op **Definitief** wanneer de regel klopt, of kies **Niet bewaren** op de kaart in dat gesprek.
+
 ## Wat nu
 
-Houd docs van een map op het tabblad Documentatie van [Wappen](/docs/ai/folders) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet **Map**). Laat agents Vaardigheden en Geheugen gebruiken zodat antwoorden onderbouwd blijven.
+Houd docs van een map op het maptabblad van de [afdeling](/docs/getting-started/team) — ze verschijnen in Kennis wanneer je op die naam klikt (de chip heet **Map**). Laat agents Vaardigheden en Geheugen gebruiken zodat antwoorden onderbouwd blijven.

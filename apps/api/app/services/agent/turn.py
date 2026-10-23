@@ -440,6 +440,18 @@ class TurnRecorder:
         self._part_ids = []
         self._part_texts = []
 
+    @property
+    def open_speech_shown(self) -> bool:
+        """The open text already reached the operator's screen."""
+        visible = self._visible_speech().strip()
+        return bool(visible) and bool(self._shown) and visible in self._shown
+
+    def drop_unseen_filler(self) -> None:
+        """Drop filler the operator has not seen. Shown text stays: retracting
+        it restarts the live bubble."""
+        if not self.open_speech_shown:
+            self.discard_open_speech()
+
     def set_speech_text(self, text: str) -> None:
         """Non-streaming loops: one model response's text as a segment."""
         if not text.strip():
@@ -645,7 +657,7 @@ class TurnRecorder:
             added = result.get("added") if isinstance(result.get("added"), list) else []
             names = [str(n).lstrip("#") for n in added if n]
             if names:
-                item["label"] = "Added #" + ", #".join(names)
+                item["label"] = "Added " + ", ".join(names)
         await self._emit("agent.activity", {"phase": "end", "item": self._public(item)})
 
     # -- finish -------------------------------------------------------------

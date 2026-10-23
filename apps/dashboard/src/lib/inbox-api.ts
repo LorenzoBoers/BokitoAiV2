@@ -644,7 +644,7 @@ export type InboxMember = {
   avatarUrl: string | null
   /** Workspace role when known: owner | admin | member */
   role?: string | null
-  presence?: 'available' | 'away' | 'offline'
+  presence?: 'available' | 'away' | 'offline' | 'unavailable'
 }
 
 export type MailboxFolder = {
@@ -1076,7 +1076,7 @@ function normalizeThread(row: unknown): InboxThread | null {
           if (!tags.length) return []
           return [
             {
-              label: typeof row.label === 'string' ? row.label : tags.map((name) => `#${name}`).join(' / '),
+              label: typeof row.label === 'string' ? row.label : tags.map((name) => name.replace(/^#/, '')).join(' / '),
               projectId: typeof row.project_id === 'string' ? row.project_id : null,
               tags,
             },

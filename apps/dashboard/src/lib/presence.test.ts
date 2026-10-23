@@ -28,6 +28,8 @@ describe('presence visual map', () => {
     expect(selfVisiblePresence('offline')).toBe('available')
     expect(selfVisiblePresence('available')).toBe('available')
     expect(selfVisiblePresence('away')).toBe('away')
+    expect(selfVisiblePresence('unavailable')).toBe('unavailable')
+    expect(overlaySelfPresence('u1', 'unavailable', 'u1', true)).toBe('unavailable')
     expect(overlaySelfPresence('u1', 'offline', 'u1', true)).toBe('available')
     expect(overlaySelfPresence('u1', 'offline', 'u1', false)).toBe('offline')
     expect(overlaySelfPresence('u2', 'offline', 'u1', true)).toBe('offline')

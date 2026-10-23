@@ -7,6 +7,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from app.exceptions import AppError
 from app.models.auth import Tenant
 from app.tools._common import (
     _get_tenant,
@@ -175,7 +176,7 @@ async def _set_ai_handling(ctx: ToolContext, tool_input: dict[str, Any]) -> dict
             role=role,
             reason=str(tool_input.get("reason") or "").strip() or None,
         )
-    except HTTPException as exc:
+    except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
     return {"ok": True, "scope": scope, "target_id": target, "ai_handling": result.to_payload()}
 
@@ -275,7 +276,7 @@ register_tool(
 register_tool(
     ToolSpec(
         name="update_agent",
-        description="Update an existing agent (name, job title, description, prompt, role).",
+        description="Update an existing agent (name, job title, description, prompt, role, default call voice).",
         category="agents",
         input_schema={
             "type": "object",
@@ -293,6 +294,18 @@ register_tool(
                 },
                 "system_prompt": {"type": "string"},
                 "role": {"type": "string"},
+                "call_voice": {
+                    "type": "string",
+                    "description": "Default spoken voice on a call (marin, cedar, alloy, ash, ballad, coral, echo, sage, shimmer, verse). A person can still override this in call settings.",
+                },
+                "call_speed": {
+                    "type": "number",
+                    "description": "Default speaking speed on a call: 0.75, 1, 1.25 or 1.5.",
+                },
+                "call_language": {
+                    "type": "string",
+                    "description": "Default spoken language on a call: nl or en.",
+                },
             },
             "required": ["agent_id"],
         },
@@ -309,10 +322,6 @@ _FLOW_RECIPE_PROPERTIES: dict[str, Any] = {
         "description": "Tool names or connection:{id} this flow uses.",
     },
     "expected_outcome": {"type": "string", "description": "What done produces, in one sentence."},
-    "direct": {
-        "type": "boolean",
-        "description": "True: handled in the conversation (open and done only, no board). False: add a waiting stage.",
-    },
 }
 
 register_tool(
@@ -400,7 +409,7 @@ register_tool(
     ToolSpec(
         name="create_category",
         description=(
-            "Propose a new category: a hashtag with a flow, so conversations filed "
+            "Propose a new category: a label with a flow, so conversations filed "
             "under it become tickets. Pass workstream_id to reuse a flow, or leave "
             "it out to create one with the default stages. Structural - goes through Govern."
         ),
@@ -408,7 +417,7 @@ register_tool(
         input_schema={
             "type": "object",
             "properties": {
-                "name": {"type": "string", "description": "Hashtag name without #"},
+                "name": {"type": "string", "description": "Label name, without a leading #"},
                 "description": {"type": "string", "description": "When agents should file it"},
                 "workstream_id": {"type": "string"},
                 "create_mode": {

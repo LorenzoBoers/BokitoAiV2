@@ -52,7 +52,7 @@
     "empty": "Zet hierboven een agenda aan om die in deze workspace aan te maken.",
     "configure": "Tags en toegang",
     "tags": "Tags",
-    "tagsHint": "Hashtags om in Agenda te filteren (zelfde tags als op gesprekken).",
+    "tagsHint": "Labels om in Agenda te filteren (zelfde tags als op gesprekken).",
     "tagsPlaceholder": "team, feestdagen",
     "saveTags": "Tags opslaan",
     "tagsError": "Tags konden niet worden opgeslagen.",

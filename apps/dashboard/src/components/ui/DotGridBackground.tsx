@@ -11,13 +11,14 @@ import { isBotOrbMotion, type BotOrbMotion } from '../../lib/bot-orb-motion'
 
 type Field = { reach: number; speed: number; amp: number; breath: number }
 
-const GAP = 28
+const GAP = 16
 const OFF: Field = { reach: 0, speed: 0, amp: 0, breath: 0 }
 const POINTER: Field = { reach: 90, speed: 0.5, amp: 0.35, breath: 0 }
 
 const AGENT_FIELD: Record<BotOrbMotion, Field> = {
   idle: { reach: 85, speed: 0.22, amp: 0.3, breath: 0.25 },
   listening: { reach: 95, speed: 0.35, amp: 0.35, breath: 0.33 },
+  talking: { reach: 100, speed: 0.55, amp: 0.4, breath: 0.55 },
   thinking: { reach: 125, speed: 0.6, amp: 0.5, breath: 0.5 },
   searching: { reach: 140, speed: 0.85, amp: 0.55, breath: 0.6 },
   writing: { reach: 115, speed: 0.5, amp: 0.45, breath: 0.7 },
@@ -73,7 +74,7 @@ export function DotGridBackground() {
 
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const ink = isDark ? '255,255,255' : '88,84,78'
-    const base = isDark ? 0.09 : 0.13
+    const base = isDark ? 0.04 : 0.05
 
     let width = 0
     let height = 0
@@ -165,8 +166,8 @@ export function DotGridBackground() {
         }
         const lift = f * (1 + depth * 0.3)
         ctx.beginPath()
-        ctx.fillStyle = `rgba(${ink},${base + lift * 0.3})`
-        ctx.arc(x, y, 0.95 + lift * 0.9, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${ink},${base + lift * 0.1})`
+        ctx.arc(x, y, 0.65 + lift * 0.35, 0, Math.PI * 2)
         ctx.fill()
       }
 
@@ -215,6 +216,7 @@ export function DotGridBackground() {
       ref={canvasRef}
       aria-hidden
       className="pointer-events-none absolute inset-0 h-full w-full"
+      style={{ filter: 'blur(0.6px)' }}
     />
   )
 }

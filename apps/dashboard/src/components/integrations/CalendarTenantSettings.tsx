@@ -86,7 +86,7 @@ export function CalendarTenantSettings({
               <span className="min-w-0 flex-1 truncate text-sm text-text-heading">{cal.name}</span>
               {cal.tags.length > 0 ? (
                 <span className="text-2xs text-text-muted">
-                  {cal.tags.map((tag) => `#${tag.name}`).join(' ')}
+                  {cal.tags.map((tag) => tag.name.replace(/^#/, '')).join(' ')}
                 </span>
               ) : null}
               {cal.can_manage ? (

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { preferLiveAgentAvatar, toAiAvatarProps } from './agent-avatar'
-import { DEFAULT_BOT_ORB_COLOR } from './bot-orb-shapes'
 
 describe('toAiAvatarProps', () => {
-  it('leaves missing kind as pending (no initials flash)', () => {
+  it('uses a pending shell when the agent is not loaded yet', () => {
     const props = toAiAvatarProps(null, 'Support agent')
-    expect(props.kind).toBeNull()
-    expect(props.color).toBe(DEFAULT_BOT_ORB_COLOR)
+    expect(props.kind).toBe('pending')
+    expect(props.name).toBe('Support agent')
+  })
+
+  it('uses a pending shell for id/name-only rows until the catalog hydrates', () => {
+    const props = toAiAvatarProps({ id: 'a1', name: 'Support agent' })
+    expect(props.kind).toBe('pending')
     expect(props.name).toBe('Support agent')
   })
 

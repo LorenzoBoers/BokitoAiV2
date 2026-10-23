@@ -43,7 +43,7 @@ Een uitzondering op een gesprek geldt tot het gesprek sluit. Uitzonderingen op k
 6. Stel de **Pingpong-limiet** in: hoe vaak per dag een gesprek tussen de agent en mensen mag wisselen. Daarna blijft het bij mensen tot iemand het expliciet teruggeeft, en toont het gesprek een notitie van de agent. 0 zet de limiet uit.
 7. Wijzigingen worden automatisch opgeslagen.
 
-Een werk kan zijn tickets op controle houden: zet **Autonomie** op **Geassisteerd** op de werkpagina (zie [Werken](/docs/ai/flows)). Antwoorden op die tickets worden een concept, ook als het gesprek Autonoom is.
+Een werk kan zijn tickets op controle houden: zet **Autonomie** op **Geassisteerd** op de werkpagina (zie [Werk](/docs/ai/flows)). Antwoorden op die tickets worden een concept, ook als het gesprek Autonoom is.
 
 De tijdlijn toont een regel zoals **Concept in plaats van verzonden** met de reden wanneer een waarborg ingrijpt. Dezelfde regel verschijnt met **de agent is geen eigenaar van dit gesprek** wanneer een medewerker of team het gesprek bezit (de agent maakt dan een concept voor hen) en met **een collega typt een antwoord** wanneer iemand op dat moment in de composer schrijft.
 
@@ -100,7 +100,7 @@ Niet elke mail wil een antwoord. Bonnetjes, deploy-meldingen en andere automatis
 5. Een voorstel dat het laatste bericht niet meer beantwoordt gaat ook opzij: als de klant opnieuw schrijft voordat je verstuurt (**klant schreef opnieuw**), of als een collega vanuit de eigen mailbox antwoordde (**een collega antwoordde**). Een run die klaar is nadat een nieuwer bericht binnenkwam plaatst zijn concept niet.
 6. De composer vertelt wanneer een bewaard concept verouderd is en biedt **Opnieuw voorstellen**; zie [Communicatie](/docs/inbox/communication).
 7. Blijf je in het gesprek terwijl de agent een concept afrondt, dan komt die tekst in de reply-composer. In de tijdlijn staat **Antwoord voorgesteld**: open de chevron om te lezen, of kies **Overnemen** / **In de invoer** om hem opnieuw in de invoer te zetten nadat je een ander gesprek hebt geopend. Teamnotities van het model vullen nooit het klantconcept.
-8. Op een mailbox met **Automatische mail archiveren** aan wordt die kaart overgeslagen: het gesprek sluit bij binnenkomst en krijgt de tag `#automated`. Stel het per mailbox in onder [Kanalen](/docs/inbox/channels).
+8. Op een mailbox met **Automatische mail archiveren** aan wordt die kaart overgeslagen: het gesprek sluit bij binnenkomst en krijgt de tag `automated`. Stel het per mailbox in onder [Kanalen](/docs/inbox/channels).
 9. Komt de derde no-reply mail van dezelfde afzender binnen, dan stelt de AI een **Automatiseringsregel** voor die afzender voor als kaart in het gesprek (*Mail van newsletter@example.com automatisch sluiten?*). **Activeren** zet de regel aan onder **Automatiseringsregels**; **Later** houdt hem als concept. Een agent die zelf een regel voorstelt gebruikt dezelfde kaart, zodat regels nooit zonder persoon actief worden.
 
 Dezelfde modus bepaalt wie een onbekende chatter is. Geeft een bezoeker een e-mail of telefoonnummer, dan koppelt **Autonoom** het gesprek aan het passende contact (of maakt er een aan), koppelt **Geassisteerd** alleen bevestigde adressen en vraagt je voor de rest, en laat **Handmatig** het koppelen aan jou. Zie [Een gesprek aan een contact koppelen](/docs/inbox/contacts).

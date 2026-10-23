@@ -451,7 +451,7 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
                 return {
                     "type": item_type,
                     "id": f"planned:{name}",
-                    "title": f"#{name}",
+                    "title": name,
                     "subtitle": meta,
                     "kind": "tag",
                     "name": name,
@@ -461,7 +461,7 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         return {
             "type": item_type,
             "id": str(row.id),
-            "title": f"#{row.name}",
+            "title": row.name,
             "subtitle": meta or _clip(row.description, 100),
             "kind": "action_tag" if row.workstream_id else "tag",
             "name": row.name,
@@ -480,7 +480,7 @@ async def _resolve_one(session: AsyncSession, tenant_id: UUID, ref: dict[str, An
         return {
             "type": item_type,
             "id": str(row.id),
-            "title": f"#{row.name}",
+            "title": row.name,
             "subtitle": _clip(row.description, 100),
         }
 

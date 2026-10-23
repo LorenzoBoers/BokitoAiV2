@@ -6,13 +6,12 @@ from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationBinding, IntegrationConnection, McpServer
 from app.services.crypto import (
@@ -323,7 +322,7 @@ async def register_mcp_server(
     create a bare server without its connection. Does not commit.
     """
     if server_url.startswith("mock://") and get_settings().is_production:
-        raise HTTPException(
+        raise status_error(
             status_code=422,
             detail="Mock MCP servers are not allowed in production. Provide a real server_url.",
         )
@@ -379,7 +378,7 @@ async def _require_native_mcp_credentials(
     settings = get_settings()
     if use_mock:
         if settings.is_production:
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail="Mock MCP installs are not allowed in production.",
             )
@@ -393,7 +392,7 @@ async def _require_native_mcp_credentials(
         )
 
         if not has_king_credentials(auth_payload):
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail=(
                     "KING Accountancy requires a partner key "
@@ -403,7 +402,7 @@ async def _require_native_mcp_credentials(
             )
         check = await validate_credentials(auth_payload)
         if not check.get("ok") or check.get("note"):
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail=str(check.get("error") or check.get("note") or "KING verification failed"),
             )
@@ -419,13 +418,13 @@ async def _require_native_mcp_credentials(
         )
 
         if not has_bl_credentials(auth_payload):
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail="Björn Lundén requires client_id and client_secret.",
             )
         check = await validate_credentials(auth_payload)
         if not check.get("ok") or check.get("note"):
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail=str(
                     check.get("error") or check.get("note") or "Björn Lundén verification failed"
@@ -443,7 +442,7 @@ async def _require_native_mcp_credentials(
         )
 
         if not has_alpaca_credentials(auth_payload):
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail=(
                     "Alpaca requires Trading API api_key_id + api_secret_key, "
@@ -452,7 +451,7 @@ async def _require_native_mcp_credentials(
             )
         check = await validate_credentials(auth_payload)
         if not check.get("ok") or check.get("note"):
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail=str(check.get("error") or check.get("note") or "Alpaca verification failed"),
             )
@@ -525,7 +524,7 @@ async def install_mcp(
             url = partner_mcp_url("king")
     if not url:
         if get_settings().is_production:
-            raise HTTPException(
+            raise status_error(
                 status_code=422,
                 detail=(
                     "This integration has no MCP server URL configured. "
@@ -534,7 +533,7 @@ async def install_mcp(
             )
         url = "mock://local/mcp"
     if url.startswith("mock://") and get_settings().is_production:
-        raise HTTPException(
+        raise status_error(
             status_code=422,
             detail="Mock MCP servers are not allowed in production. Provide a real server_url.",
         )
@@ -568,12 +567,12 @@ async def install_mcp(
             auth_payload["auth_type"] = "bearer"
     elif provider == "custom_mcp" or not url.startswith("native://"):
         if not key and not use_mock and preset is None:
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail="API key or bearer token is required to install this MCP server.",
             )
         if use_mock and get_settings().is_production:
-            raise HTTPException(
+            raise status_error(
                 status_code=400,
                 detail="Mock MCP installs are not allowed in production.",
             )
@@ -586,7 +585,7 @@ async def install_mcp(
     instance_key = instance_key_for(provider, auth=auth_payload) if not use_mock else ""
     owner = await find_instance_owner(session, tenant_id, provider, instance_key)
     if owner is not None:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail=(
                 f"This administration is already connected as "

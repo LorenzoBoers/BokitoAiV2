@@ -9,7 +9,7 @@ related: communication,decisions,agenda,agents
 
 # Follow agent activity
 
-The **Activity** swimlane on [Agents](/docs/ai/agents) is the live work timeline of your AI: everything agents did and are doing. It sits on the Agents library (all agents) and again on each agent page (that agent alone). Open approvals live on their own conversation — see [Decisions](/docs/ai/decisions).
+The **Activity** swimlane on [Agents](/docs/ai/agents) is the live work timeline of your AI: everything agents did and are doing. It sits on the Agents library (all agents). On an agent page, open the same timeline for that agent from the three-dot menu, **History**. Open approvals live on their own conversation — see [Decisions](/docs/ai/decisions).
 
 ## Open the Activity timeline
 
@@ -23,8 +23,8 @@ The **Activity** swimlane on [Agents](/docs/ai/agents) is the live work timeline
 
 ## Check one agent's work log
 
-1. Open the agent from the library. The timeline is on that page.
-2. On the agent page, the same swimlane shows only that agent's work. Your chats with the agent stay in Communication under its folder.
+1. Open the agent from the library. Choose the three-dot menu, then **History**.
+2. The dialog shows the swimlane for that agent, and recent runs below it. Your chats with the agent stay in Communication under its folder.
 
 ## Open a run and decide
 

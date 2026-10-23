@@ -292,7 +292,7 @@ async def set_platform_watch(
     Enabling is what creates the rule and its Agenda thread. Turning it off
     when none exists does not leave a paused conversation behind.
     """
-    from app.services.awareness import ORIENTATION, ensure_orientations
+    from app.services.awareness import ORIENTATION
 
     trigger = await get_heartbeat_trigger(session, tenant_id)
     if not enabled:
@@ -317,16 +317,6 @@ async def set_platform_watch(
         session.add(trigger)
         await session.flush()
         return serialize_watch_status(trigger, trigger.signal_id)
-    # Workspaces with departments: each department lead orients in its room
-    # instead of one general check-in.
-    orientations = await ensure_orientations(session, tenant_id)
-    if orientations:
-        if trigger is not None and trigger.enabled:
-            trigger.enabled = False
-            trigger.next_run_at = None
-            session.add(trigger)
-        await session.flush()
-        return serialize_watch_status(orientations[0], orientations[0].signal_id)
     if trigger is None:
         trigger = await ensure_heartbeat_trigger(session, tenant_id, enable_if_created=True)
     trigger.enabled = True

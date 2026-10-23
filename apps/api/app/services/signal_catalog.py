@@ -27,7 +27,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.auth import Tenant
 
 ACCEPT_ROLES = ("admins", "members")
@@ -101,7 +101,6 @@ async def update_signal_policy(
     stage_entry_threshold: int | None = None,
     due_soon_days: int | None = None,
 ) -> dict[str, Any]:
-    from fastapi import HTTPException
 
     from app.services.ticket_work import ENTRY_POLICIES
 
@@ -110,7 +109,7 @@ async def update_signal_policy(
     if backlog_threshold is not None and not 1 <= int(backlog_threshold) <= 10:
         raise AppError("backlog_threshold must be 1-10", code="app_error", status_code=400)
     if stage_entry_policy is not None and stage_entry_policy not in ENTRY_POLICIES:
-        raise HTTPException(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
+        raise status_error(status_code=400, detail=f"stage_entry_policy must be one of {', '.join(ENTRY_POLICIES)}")
     if stage_entry_threshold is not None and not 0 <= int(stage_entry_threshold) <= 10:
         raise AppError("stage_entry_threshold must be 0-10", code="app_error", status_code=400)
     if due_soon_days is not None and not 1 <= int(due_soon_days) <= 60:
@@ -277,7 +276,6 @@ async def promote_backlog_entry(
     description: str | None = None,
 ):
     """Turn a backlog entry into a category with a new playbook and drop it from the backlog."""
-    from fastapi import HTTPException
 
     from app.services.signal_tags import create_tag, promote_tag
 
@@ -292,7 +290,7 @@ async def promote_backlog_entry(
             description=(description if description is not None else entry["sentence"]),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise status_error(status_code=422, detail=str(exc)) from exc
     if tag.workstream_id is None:
         tag = await promote_tag(session, tenant.id, tag.id, playbook_name=entry["name"])
     await dismiss_backlog_entry(session, tenant, key)

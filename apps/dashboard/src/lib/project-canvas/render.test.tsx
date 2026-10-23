@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
-import { render, screen } from '@testing-library/react'
+import '../../i18n'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { renderCanvasTree } from './render'
 import type { CanvasNode } from './types'
@@ -38,6 +39,43 @@ describe('renderCanvasTree', () => {
     expect(screen.getByText('Open items')).toBeTruthy()
     expect(screen.getByText('4')).toBeTruthy()
     expect(screen.getByText('Fix login')).toBeTruthy()
+  })
+
+  it('shows a number source after one tap', () => {
+    const tree: CanvasNode = {
+      type: 'Stat',
+      props: {
+        label: 'Open',
+        value: '4',
+        source: { tool: 'list_threads', tool_use_id: 'toolu_1', as_of: '2026-10-22T17:00:00' },
+      },
+    }
+    render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.queryByTestId('canvas-source')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '4' }))
+    expect(screen.getByTestId('canvas-source').textContent).toBe('list_threads · 2026-10-22T17:00:00')
+  })
+
+  it('renders a KPI tile with delta, status and target', () => {
+    const tree: CanvasNode = {
+      type: 'Grid',
+      props: { columns: 3, auto: true },
+      children: [
+        {
+          type: 'Stat',
+          props: { label: 'Bruto', value: 'EUR 84k', delta: '+12%', trend: 'up', status: 'good', target: 'EUR 75k', tile: true },
+        },
+      ],
+    }
+    const { container } = render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.getByText('+12%').closest('span')?.className).toContain('text-status-success')
+    expect(screen.getByText(/EUR 75k/)).toBeTruthy()
+    expect(container.querySelector('.panel')).toBeTruthy()
+  })
+
+  it('maps callout tones from the server', () => {
+    render(<>{renderCanvasTree({ type: 'Callout', props: { text: 'Marge onder druk', tone: 'warning' } })}</>)
+    expect(screen.getByText('Marge onder druk').closest('div.rounded-lg')?.className).toContain('status-warning')
   })
 
   it('renders a bar chart and skips empty series', () => {
@@ -93,6 +131,27 @@ describe('renderCanvasTree', () => {
     }
     render(<>{renderCanvasTree(tree)}</>)
     expect(screen.getByText('Verdeling')).toBeTruthy()
+  })
+
+  it('draws a chart that has data but no title', () => {
+    const tree: CanvasNode = {
+      type: 'BarChart',
+      props: {
+        series: [{ name: 'Aantal', points: [{ x: '1', y: 3 }] }],
+      },
+    }
+    render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.getByText('1')).toBeTruthy()
+    expect(screen.queryByTestId('canvas-notice')).toBeNull()
+  })
+
+  it('shows a notice when a chart has no data', () => {
+    const tree: CanvasNode = {
+      type: 'BarChart',
+      props: { title: 'Leeg', series: [] },
+    }
+    render(<>{renderCanvasTree(tree)}</>)
+    expect(screen.getByTestId('canvas-notice')).toBeTruthy()
   })
 
   it('ignores unknown types and still renders children', () => {

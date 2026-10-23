@@ -41,6 +41,7 @@ export const workforceRoutes = {
       return withQuery('/agents', search)
     },
     detail: (agentId: string) => `/agents/${encodeURIComponent(agentId)}`,
+    voicePreview: () => '/agents/voice-preview',
     status: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/status`,
     lead: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/lead`,
     restore: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/restore`,
@@ -51,6 +52,7 @@ export const workforceRoutes = {
     rules: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules`,
     rulesTest: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/rules/test`,
     definition: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/definition`,
+    awareness: (agentId: string) => `/agents/${encodeURIComponent(agentId)}/awareness`,
   },
   subagentCatalog: '/subagent-catalog',
 } as const

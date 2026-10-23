@@ -17,12 +17,11 @@ import json
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.auth import Tenant
 from app.models.notification import DecisionRequest
 from app.models.signal import Signal, SignalEvent, SignalMessage, SignalTag
@@ -117,7 +116,7 @@ async def resolve_category(
         return None
     row = await find_category(session, tenant_id, raw)
     if row is None:
-        raise HTTPException(status_code=404, detail=f"Category '{raw}' not found")
+        raise status_error(status_code=404, detail=f"Category '{raw}' not found")
     return row
 
 
@@ -177,7 +176,7 @@ async def split_conversation(
         )
     ).scalar_one()
     if not earlier:
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Split from a later message: the first message starts this conversation",
         )

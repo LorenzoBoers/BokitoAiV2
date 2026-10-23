@@ -61,6 +61,30 @@ def normalize_kind(value: str | None) -> str:
     return kind
 
 
+def edit_body_hint(kind: str | None) -> str:
+    """What edit_canvas expects after create, by kind."""
+    name = (kind or "dashboard").strip().lower() or "dashboard"
+    if name == "dashboard":
+        return (
+            "blocks (stat, bar_chart, line_chart, pie_chart, table, heading, text, …)"
+        )
+    if name == KIND_DIAGRAM:
+        return "source (Mermaid)"
+    if name == KIND_DOCUMENT:
+        return "source (markdown)"
+    if name == KIND_DRAWING:
+        return "source (one SVG)"
+    if name == KIND_CODE:
+        return "source and language"
+    if name == KIND_SHEET:
+        return "source (JSON columns and rows, or tabs)"
+    if name == KIND_EMAIL:
+        return "source (JSON subject, preheader, body_html)"
+    if name == KIND_IMAGE:
+        return "image_prompt or image_url"
+    return "source"
+
+
 def tenant_file_url(url: str, tenant_id: str) -> bool:
     """True when the URL is a stored file for this tenant."""
     key = storage_key_from_url(url or "")

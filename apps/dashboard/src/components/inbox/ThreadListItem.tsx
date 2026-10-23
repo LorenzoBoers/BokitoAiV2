@@ -194,7 +194,7 @@ function ThreadListItem({
   const face = threadFace(thread)
   const ticket =
     !isAgentThread && thread.ticket && thread.ticket.status !== 'proposed' ? thread.ticket : null
-  const ticketName = ticket ? `#${ticket.name}` : ''
+  const ticketName = ticket ? ticket.name.replace(/^#/, '') : ''
   const visitorLabel = t('contactPanel.widgetVisitor')
   const contactLabel = humanizeContactName(thread.contactName, thread.contactEmail, visitorLabel)
   const readableEmail = isPlaceholderContactAddress(thread.contactEmail) ? '' : thread.contactEmail?.trim()
@@ -424,6 +424,7 @@ function ThreadListItem({
                   }}
                   onKeyDown={stop}
                   title={t('threadList.closeThread')}
+                  data-bokito-tip-detail="E"
                   aria-label={t('threadList.closeThread')}
                   className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
                 >

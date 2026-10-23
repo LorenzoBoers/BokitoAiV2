@@ -16,13 +16,12 @@ from urllib.parse import urlencode, urlparse, urlunparse
 from uuid import UUID
 
 import httpx
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.core.time import utcnow
-from app.exceptions import AppError
+from app.exceptions import AppError, status_error
 from app.models.oauth_state import OAuthState
 from app.services.integrations_catalog import PROVIDER_BY_SLUG
 from app.services.integrations_platform import (
@@ -102,7 +101,7 @@ async def discover_mcp_oauth(mcp_url: str) -> McpOAuthDiscovery:
     """Discover OAuth endpoints for a remote MCP server URL."""
     url = mcp_url.strip()
     if not url:
-        raise HTTPException(status_code=422, detail="MCP server URL is missing for this provider.")
+        raise status_error(status_code=422, detail="MCP server URL is missing for this provider.")
 
     init_payload = {
         "jsonrpc": "2.0",
@@ -134,7 +133,7 @@ async def discover_mcp_oauth(mcp_url: str) -> McpOAuthDiscovery:
         resource = str(resource_doc.get("resource") or url)
         auth_servers = resource_doc.get("authorization_servers") or []
         if not auth_servers:
-            raise HTTPException(
+            raise status_error(
                 status_code=503,
                 detail="This MCP server did not advertise an authorization server.",
             )
@@ -143,7 +142,7 @@ async def discover_mcp_oauth(mcp_url: str) -> McpOAuthDiscovery:
         authorization_endpoint = str(as_doc.get("authorization_endpoint") or "")
         token_endpoint = str(as_doc.get("token_endpoint") or "")
         if not authorization_endpoint or not token_endpoint:
-            raise HTTPException(
+            raise status_error(
                 status_code=503,
                 detail="Authorization server metadata is incomplete for this MCP server.",
             )
@@ -178,7 +177,7 @@ async def _register_oauth_client(
     if client_id:
         return client_id, client_secret or None
     if not discovery.registration_endpoint:
-        raise HTTPException(
+        raise status_error(
             status_code=503,
             detail=(
                 "No OAuth client is configured for this MCP provider and dynamic "
@@ -202,7 +201,7 @@ async def _register_oauth_client(
         body = response.json()
     registered_id = str(body.get("client_id") or "")
     if not registered_id:
-        raise HTTPException(status_code=503, detail="Dynamic client registration returned no client_id.")
+        raise status_error(status_code=503, detail="Dynamic client registration returned no client_id.")
     secret = body.get("client_secret")
     return registered_id, str(secret) if secret else None
 
@@ -223,7 +222,7 @@ async def start_mcp_remote_oauth(
         raise AppError("Provider does not support remote MCP OAuth.", code="app_error", status_code=400)
     mcp_url = str(row.get("mcp_remote_url") or "").strip()
     if not mcp_url:
-        raise HTTPException(status_code=422, detail="This provider has no MCP server URL configured.")
+        raise status_error(status_code=422, detail="This provider has no MCP server URL configured.")
 
     discovery = await discover_mcp_oauth(mcp_url)
     redirect_uri = mcp_oauth_redirect_uri()

@@ -33,6 +33,37 @@ async def test_all_root_exists_with_members(client: AsyncClient, session_overrid
     assert any(member.kind == "user" for member in members)
 
 
+async def test_new_company_agent_sits_on_all(client: AsyncClient, session_override):
+    headers = await _headers(client)
+    created = await client.post(
+        "/api/workforce/agents",
+        headers=headers,
+        json={"name": "Floor clerk", "job_title": "Clerk"},
+    )
+    assert created.status_code == 200, created.text
+    agent_id = UUID(created.json()["agent"]["id"])
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    members = await teams_svc.team_members(session_override, root)
+    seat = next((member for member in members if member.kind == "agent" and member.id == agent_id), None)
+    assert seat is not None
+    assert seat.duty == "member"
+
+
+async def test_unseated_company_agent_is_seated_on_all(client: AsyncClient, session_override):
+    del client
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    agent = Agent(tenant_id=tenant.id, name="Loose agent", kind="company", is_active=True, acts_for_user=False)
+    session_override.add(agent)
+    await session_override.commit()
+    seated = await teams_svc.seat_company_agents_without_department(session_override)
+    await session_override.commit()
+    assert seated >= 1
+    members = await teams_svc.team_members(session_override, root)
+    assert any(member.kind == "agent" and member.id == agent.id for member in members)
+
+
 async def test_custom_team_crud(client: AsyncClient, session_override):
     headers = await _headers(client)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()

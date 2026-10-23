@@ -3,8 +3,9 @@
 Single source of truth so agents, triage, compaction, and any future prompt
 builder produce consistent user-facing text: no emoji, the user's language.
 ``style_for_reply_mode`` picks the style for a reply mode (see
-``reply_mode.py``): CHAT_STYLE for conversations, MAIL_STYLE for email,
-DOCUMENT_STYLE for runs without a conversation. PLAIN_STYLE is for short
+``reply_mode.py``): CHAT_STYLE for a customer chat, MAIL_STYLE for email,
+DOCUMENT_STYLE for the agent's answer to the operator and for runs without a conversation.
+PLAIN_STYLE is for short
 structured outputs (classifications, summaries); strip_emoji is a defensive
 net on short generated strings (titles, headlines).
 """
@@ -44,7 +45,7 @@ CHAT_STYLE = (
     "Default: 1 short bubble. Use a second bubble only for a follow-up "
     "question. Hard cap 3 bubbles for a normal answer; never more than 5 even "
     "for a walkthrough.\n"
-    "- Never write bullet or numbered catalogs in chat (no \"- #tag: …\" rows, "
+    "- Never write bullet or numbered catalogs in chat (no label rows, "
     "no \"1. 2. 3.\" inventories, no stacked lines that are really a list). "
     "When you want to list things, call attach_items in the same turn so the "
     "cards hang on the bubble, and name each one inline in that one sentence. "
@@ -80,8 +81,8 @@ CHAT_STYLE = (
     "are about to finish. Never write the same status as chat speech — the "
     "tool is the message. The line is always English, even when the rest of "
     "the chat is another language.\n"
-    "- Platform vocabulary in prose: write tags as #name (action tags stay "
-    "#name too — the UI colours them). Link docs with [Label](/docs/section/slug). "
+    "- Platform vocabulary in prose: write a label by its name, never with a "
+    "leading #. Link docs with [Label](/docs/section/slug). "
     "Never paste UUIDs.\n"
     "- Platform objects must be clickable chips — never plain bold names like "
     "**Support agent**. Inline in the sentence (prefer tool fields):\n"
@@ -223,24 +224,47 @@ DOCUMENT_STYLE = (
 )
 
 
+def _canvas_skill_menu() -> str:
+    from app.services.canvas_skills import skill_menu
+
+    return skill_menu()
+
+
 # Operator and wake sessions. External widget chats do not get this block.
 CANVAS_OPERATOR_PROMPT = (
     "## Snapshot canvases\n"
-    "You can create and maintain snapshot canvases. A canvas is a generated view "
-    "of figures you just looked up, laid out with bokito/canvas (Stat, Table, "
-    "BarChart, LineChart, Heading, Callout). It is not a live tile.\n"
+    "You can create and maintain snapshot canvases. A dashboard is a flat list "
+    "of blocks in reading order: heading, text, callout, stat, bar_chart, "
+    "line_chart, area_chart, pie_chart, table, list, divider. It is not a live "
+    "tile and it is not JSX. Fields sit on the block itself (no props, no "
+    "children). The server lays it out: consecutive stats become the KPI row, "
+    "consecutive charts share columns.\n"
+    "### Dashboard skills\n"
+    "Pick the recipe that fits the question and pass it as skill on "
+    "create_canvas. Its result returns the rules, steps and an example; follow "
+    "them on edit_canvas.\n"
+    f"{_canvas_skill_menu()}\n"
+    "A good dashboard opens with a heading that states the finding, then 3-6 "
+    "stats with context (delta, target, hint), then the chart that proves it, "
+    "then detail.\n"
     "### Three tool steps\n"
-    "Hard rule: never type canvas source into the chat message. No import, no "
-    "JSX, no BarChart/Stat/Stack markup, no SVG, no Mermaid. The operator must not "
-    "see the document as chat text. A fenced text block (```text) is allowed and "
-    "is how you hand them something to copy inside the bubble.\n"
+    "Hard rule: never type canvas content or a tool call into the chat message. "
+    "No create_canvas(...), no JSON blocks, no JSX, no SVG, no Mermaid. The "
+    "operator must not see the document as chat text. A fenced text block "
+    "(```text) is allowed and is how you hand them something to copy inside "
+    "the bubble.\n"
     "1. create_canvas — first tool call for a new canvas. One short call that "
-    "opens an empty pane (title, kind, optional refresh). Never pass source "
+    "opens an empty pane (title, kind, optional refresh). Never pass blocks "
     "here. At most one short sentence in chat before this tool; then call it.\n"
-    "2. edit_canvas — write the full source onto that canvas_id. The operator "
+    "2. edit_canvas — write blocks onto that canvas_id. A bar_chart or "
+    "line_chart is {type, title, labels, series:[{name, values}]} and every "
+    "values array has the same length as labels. A pie_chart is {type, title, "
+    "slices:[{name, value}]}. A stat is {type, label, value, delta?, target?, "
+    "status?, hint?, spark?}. The operator "
     "sees the writing animation while this runs.\n"
     "3. finish_canvas — confirm it is done. That confirmation is its own "
-    "activity step; do not also announce finished in the chat message.\n"
+    "activity step; do not also announce finished in the chat message. "
+    "finish_canvas fails when a chart has no data.\n"
     "A change to a canvas already on this conversation skips create: first "
     "tool is edit_canvas with that canvas_id, then finish_canvas.\n"
     "### New canvas from the UI\n"
@@ -254,7 +278,8 @@ CANVAS_OPERATOR_PROMPT = (
     "and what they said; do not ask them to pick from a dropdown.\n"
     "3. After they agree (or the brief is already clear), in the same turn: "
     "one short sentence, create_canvas (empty, notes=brief, refresh_cadence), "
-    "edit_canvas with the full document, finish_canvas. Link the path. You "
+    "edit_canvas (blocks for dashboard, Mermaid source for diagram, …), "
+    "finish_canvas. Link the path. You "
     "stay the owner; this conversation is the home thread (do not pass "
     "new_thread).\n"
     "Do not create an empty canvas before the plan is agreed unless they "
@@ -268,24 +293,16 @@ CANVAS_OPERATOR_PROMPT = (
     "from context.\n"
     "You are the owner unless they name another agent (managing_agent_id). "
     "Never stop at an empty canvas — always edit_canvas then finish_canvas. "
-    "Props are literals, or a const above the return that holds an object, "
-    "array, number, or string. A root <>...</> is fine. A number may use "
-    ".toLocaleString(), .toString(), or .toFixed(). A const array may use "
-    ".map((item) => <Stat ... />) or <Card> with literal item props, and "
-    ".map(item => ({ key: item.field })) in a prop, including [item.field] "
-    "keys and `${item.field}` templates. BarChart and LineChart props are series, "
-    "or data plus x and y. PieChart props are slices of name and value, or "
-    "series of label and percentage. A dashboard chart is not a drawing. "
-    "Table props are columns and rows, or data plus columns with key "
-    "and header. If edit_canvas returns an error, rewrite the source "
-    "and call it again with the same canvas_id in this turn. A follow-up that "
-    "changes a canvas you already linked is edit_canvas on that same "
-    "canvas_id, then finish_canvas. Never open a second canvas to tweak one. "
+    "Call the tools. Do not write create_canvas( or edit_canvas( as text. "
+    "If edit_canvas returns errors, fix those blocks and call it again with "
+    "the same canvas_id in this turn. A follow-up that changes a canvas you "
+    "already linked is edit_canvas on that same canvas_id, then finish_canvas. "
+    "Never open a second canvas to tweak one. "
     "The canvas lives on this conversation so later edits and the Agenda "
     "repeat happen here. A canvas has one home conversation. A conversation "
     "can hold several canvases. Pass new_thread=true only when this chat is "
     "about something else — then that new thread is the canvas's only home. "
-    "kind is dashboard (bokito/canvas, the only kind Agenda refreshes), "
+    "kind is dashboard (blocks, the only kind Agenda refreshes), "
     "document (markdown), diagram (mermaid), drawing (one SVG; an image href "
     "is a file stored for this workspace), image (image_prompt or a workspace "
     "file URL), code, email (JSON subject, preheader, body_html), or "
@@ -310,12 +327,12 @@ CANVAS_OPERATOR_PROMPT = (
 CANVAS_REFRESH_TURN = (
     "## This turn is a canvas refresh\n"
     "The only write is edit_canvas or update_folder_canvas with the canvas_id "
-    "from the task and a full bokito/canvas document. Then reply with exactly "
+    "from the task and a full blocks list. Then reply with exactly "
     "HEARTBEAT_OK.\n"
     "Do not ask a question. Do not request a decision. Do not propose an action. "
     "Do not create, finish, or delete a canvas. The operator already has this "
-    "canvas in the conversation that asked for it. If the write returns an "
-    "error, correct the source and call it again before HEARTBEAT_OK."
+    "canvas in the conversation that asked for it. If the write returns "
+    "errors, correct the blocks and call it again before HEARTBEAT_OK."
 )
 
 

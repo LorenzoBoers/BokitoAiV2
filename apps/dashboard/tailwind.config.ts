@@ -34,12 +34,6 @@ export default {
         rail: '14.75rem',
         'rail-collapsed': '3.25rem',
       },
-      boxShadow: {
-        // Theme-aware elevation tokens (defined per theme in index.css).
-        card: 'var(--shadow-card)',
-        'card-hover': 'var(--shadow-card-hover)',
-        overlay: 'var(--shadow-overlay)',
-      },
       keyframes: {
         'fade-in': {
           from: { opacity: '0' },
@@ -84,18 +78,6 @@ export default {
           from: { opacity: '1', transform: 'scale(1)' },
           to: { opacity: '0', transform: 'scale(0.96)' },
         },
-      },
-      animation: {
-        'fade-in': 'fade-in 180ms ease-out',
-        'pop-in': 'pop-in 220ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'dialog-in': 'dialog-in 220ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'page-enter': 'page-enter 340ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'content-enter': 'content-enter 280ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'slide-in-left': 'slide-in-left 240ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'panel-in': 'panel-in 240ms cubic-bezier(0.16, 1, 0.3, 1)',
-        'list-row-enter': 'list-row-enter 280ms cubic-bezier(0.16, 1, 0.3, 1) both',
-        'issues-in': 'issues-in 160ms cubic-bezier(0.16, 1, 0.3, 1) both',
-        'issues-out': 'issues-out 120ms cubic-bezier(0.4, 0, 1, 1) both',
       },
     },
   },

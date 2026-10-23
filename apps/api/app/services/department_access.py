@@ -1,7 +1,8 @@
 """Department access: who leads a department and what a freelancer may see.
 
 A department's lead is its primary agent; the person accountable is its
-primary user. Flows belong to a department through ``Workstream.department_id``.
+primary user. A flow's department is the label's; older rows still read
+``Workstream.department_id`` when the label has none.
 
 A member with ``Membership.scope == "departments"`` sees only conversations
 whose flow label belongs to a department they are in (or one below it),
@@ -95,7 +96,13 @@ async def department_flow_tag_ids(session: AsyncSession, tenant_id: UUID, depart
             await session.execute(
                 select(SignalTag.id)
                 .join(Workstream, Workstream.id == SignalTag.workstream_id)
-                .where(SignalTag.tenant_id == tenant_id, Workstream.department_id.in_(department_ids))
+                .where(
+                    SignalTag.tenant_id == tenant_id,
+                    or_(
+                        SignalTag.department_id.in_(department_ids),
+                        Workstream.department_id.in_(department_ids),
+                    ),
+                )
             )
         ).scalars().all()
     )

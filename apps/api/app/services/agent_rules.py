@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import AppError, ForbiddenError
+from app.exceptions import AppError, ForbiddenError, status_error
 from app.models.agent import Agent
 from app.models.auth import Tenant
 
@@ -69,9 +69,9 @@ def _clean_rule(raw: dict[str, Any], *, previous: dict[str, Any] | None = None) 
     tool = str(raw.get("tool") or "").strip()[:80]
     category = str(raw.get("category") or "").strip()[:40]
     if kind == "hard" and not (tool or category):
-        raise HTTPException(status_code=422, detail="A hard rule needs a tool or a category")
+        raise status_error(status_code=422, detail="A hard rule needs a tool or a category")
     if not text:
-        raise HTTPException(status_code=422, detail="A rule needs a sentence")
+        raise status_error(status_code=422, detail="A rule needs a sentence")
     prev = previous or {}
     return {
         "id": str(raw.get("id") or prev.get("id") or uuid4().hex[:12]),
@@ -96,7 +96,7 @@ def _parse_rules(value: Any) -> list[dict[str, Any]]:
             continue
         try:
             rules.append(_clean_rule(raw, previous=raw))
-        except HTTPException:
+        except (HTTPException, AppError):
             continue
     return rules
 
@@ -369,7 +369,7 @@ async def learn_from_decision(
     from app.tools.decision_copy import format_policy_decision
 
     if choice not in LEARN_CHOICES:
-        raise HTTPException(status_code=422, detail="choice must be allow, ask, deny or unsure")
+        raise status_error(status_code=422, detail="choice must be allow, ask, deny or unsure")
     options = json.loads(decision.options_json or "[]")
     option = _learn_option(options)
     agent_id = None
@@ -462,7 +462,7 @@ async def dry_run(
 
     spec = get_tool_spec(tool) if tool else None
     if spec is None:
-        raise HTTPException(status_code=422, detail="Pick a known action to try")
+        raise status_error(status_code=422, detail="Pick a known action to try")
     decided = await authorize_tool_call(session, tenant, agent, spec, trust="operator")
     mode, reason, stage = decided.mode, decided.reason, decided.stage
     if spec.mutating and spec.gated:

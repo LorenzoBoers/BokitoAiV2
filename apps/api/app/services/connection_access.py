@@ -13,6 +13,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import status_error
 from app.models.integration import IntegrationConnection
 from app.services.access_list import (
     UNRESTRICTED_ROLES,
@@ -103,10 +104,8 @@ async def agent_level(
 async def require_manage(
     session: AsyncSession, conn: IntegrationConnection, *, user_id: UUID, role: str
 ) -> None:
-    from fastapi import HTTPException
-
     if await user_level(session, conn, user_id=user_id, role=role) != "manage":
-        raise HTTPException(
+        raise status_error(
             status_code=403,
             detail="You cannot manage this connection. Ask an owner or admin.",
         )

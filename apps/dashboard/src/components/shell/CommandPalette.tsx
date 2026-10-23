@@ -560,10 +560,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
             if (folders.length) {
               return folders.slice(0, 4).map((folder) => ({
                 id: `hashtag-${item.id}-${folder.id}`,
-                label: folder.path || `#${item.name}`,
+                label: folder.path || item.name.replace(/^#/, ''),
                 hint: item.isCategory
                   ? t('palette.category', { defaultValue: 'Category' })
-                  : t('palette.hashtag', { defaultValue: 'Hashtag' }),
+                  : t('palette.hashtag', { defaultValue: 'Label' }),
                 group: t('palette.groupThreads'),
                 icon: Hash,
                 run: () => navigate(`/folders/${folder.id}`),
@@ -573,10 +573,10 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
             return [
               {
                 id: `hashtag-${item.id}`,
-                label: `#${item.name}`,
+                label: item.name.replace(/^#/, ''),
                 hint: item.isCategory
                   ? t('palette.category', { defaultValue: 'Category' })
-                  : t('palette.hashtag', { defaultValue: 'Hashtag' }),
+                  : t('palette.hashtag', { defaultValue: 'Label' }),
                 group: t('palette.groupThreads'),
                 icon: Hash,
                 run: () => navigate(withNavReveal(tagPath(item.name, 'open'))),

@@ -31,7 +31,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
@@ -341,7 +341,7 @@ async def _new_flow_proposals(session: AsyncSession, tenant: Any, now: datetime)
         examples = "; ".join(entry["examples"][:2])
         message = (
             f"{entry['count']} conversations about {entry['name']} had no label that fits. "
-            f"I propose a flow with the label #{entry['key']} for {dept.name}."
+            f"I propose a flow with the label {entry['key']} for {dept.name}."
             + (f" For example: {examples}" if examples else "")
         )
         made.append(
@@ -361,7 +361,7 @@ async def _new_flow_proposals(session: AsyncSession, tenant: Any, now: datetime)
                     "department_id": str(dept.id),
                     "backlog_key": entry["key"],
                 },
-                summary=f"New flow #{entry['key']} for {dept.name}",
+                summary=f"New flow {entry['key']} for {dept.name}",
                 message=message,
                 metadata={"backlog_key": entry["key"]},
             )
@@ -555,17 +555,29 @@ async def propose_from_scorecards(session: AsyncSession, tenant_id: UUID) -> lis
     outcomes = await _outcomes_by_flow(session, tenant_id, since)
     base = workspace_mode(tenant)
     made: list[dict[str, Any]] = []
+    from app.models.signal import SignalTag
+
     flows = (
         await session.execute(
-            select(Workstream).where(
+            select(Workstream, SignalTag.department_id)
+            .outerjoin(SignalTag, SignalTag.workstream_id == Workstream.id)
+            .where(
                 Workstream.tenant_id == tenant_id,
                 Workstream.deleted_at.is_(None),
-                Workstream.department_id.is_not(None),
+                or_(
+                    SignalTag.department_id.is_not(None),
+                    Workstream.department_id.is_not(None),
+                ),
             )
         )
-    ).scalars().all()
-    for ws in flows:
-        dept = await session.get(Department, ws.department_id)
+    ).all()
+    chosen: dict[UUID, tuple[Any, UUID | None]] = {}
+    for ws, tag_department_id in flows:
+        current = chosen.get(ws.id)
+        if current is None or (current[1] is None and tag_department_id is not None):
+            chosen[ws.id] = (ws, tag_department_id)
+    for ws, tag_department_id in chosen.values():
+        dept = await session.get(Department, tag_department_id or ws.department_id)
         if dept is None or dept.deleted_at is not None:
             continue
         ref = {"workstream_id": str(ws.id)}

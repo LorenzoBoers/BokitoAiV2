@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import { BlurbEdit, NameEdit } from '../ui/NameEdit'
 import { Tip } from '../ui/Tip'
 import { useAuth } from '../../context/AuthContext'
 import { reloadAgentsCache } from '../../hooks/useAgents'
-import { bokitoUpdateAgent } from '../../lib/bokito-api'
+import { bokitoPreviewAgentVoice, bokitoUpdateAgent } from '../../lib/bokito-api'
 import {
   agentProfileAccentColor,
   DEFAULT_AGENT_AVATAR_COLOR,
@@ -40,11 +41,22 @@ type Props = {
   avatarIcon?: string | null
   avatarColor?: string | null
   avatarShape?: string | null
+  callVoice?: string | null
+  callSpeed?: number | null
+  callLanguage?: string | null
+  callVoices?: { id: string; label: string }[]
+  callSpeeds?: number[]
+  callLanguages?: string[]
   onChanged?: () => void
 }
 
 const MAX_JOB_TITLE = 32
 const MAX_DESCRIPTION = 280
+
+function speedLabel(speed: number) {
+  const text = Number.isInteger(speed) ? String(speed) : String(speed)
+  return `${text}x`
+}
 
 function editorKind(value: string | null | undefined): 'initials' | 'orb' {
   const kind = (value ?? '').trim().toLowerCase() as AgentAvatarKind | ''
@@ -65,17 +77,28 @@ export function AgentIdentityDialog({
   avatarIcon: _avatarIcon,
   avatarColor,
   avatarShape,
+  callVoice,
+  callSpeed,
+  callLanguage,
+  callVoices,
+  callSpeeds,
+  callLanguages,
   onChanged,
 }: Props) {
   const { t } = useTranslation('nav')
   const { t: tc } = useTranslation()
-  const { token } = useAuth()
+  const { t: tCall } = useTranslation('communication')
+  const { token, user } = useAuth()
+  const showVoice = Boolean(user?.agentCallsEnabled && callVoices?.length)
   const [name, setName] = useState(agentName)
   const [jobTitle, setJobTitle] = useState(agentJobTitle ?? '')
   const [description, setDescription] = useState(agentDescription ?? '')
   const [kind, setKind] = useState<'initials' | 'orb'>(editorKind(avatarKind))
   const [color, setColor] = useState(resolveAgentAvatarColor(avatarColor))
   const [shape, setShape] = useState(resolveAgentAvatarShape(avatarShape))
+  const [voice, setVoice] = useState(callVoice || '')
+  const [speed, setSpeed] = useState(callSpeed ?? 1)
+  const [language, setLanguage] = useState(callLanguage || 'nl')
   const [editingName, setEditingName] = useState(false)
   const [editingJobTitle, setEditingJobTitle] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
@@ -85,21 +108,91 @@ export function AgentIdentityDialog({
   const jobAtEditStart = useRef(agentJobTitle ?? '')
   const descriptionAtEditStart = useRef(agentDescription ?? '')
   const orbPreview = useLocalOrbPreview('idle')
+  const previewAudio = useRef<HTMLAudioElement | null>(null)
+  const previewGen = useRef(0)
+  const showMotion = user?.environment === 'dev'
 
   useEffect(() => {
-    if (!open) return
+    return () => {
+      previewGen.current += 1
+      previewAudio.current?.pause()
+      previewAudio.current = null
+      orbPreview.play('idle')
+    }
+  }, [open])
+
+  const hearVoice = (next: { voice?: string; speed?: number; language?: string }) => {
+    if (!token || !showVoice) return
+    const voiceId = next.voice ?? voice
+    const pace = next.speed ?? speed
+    const lang = next.language ?? language
+    if (!voiceId) return
+    const gen = ++previewGen.current
+    previewAudio.current?.pause()
+    void bokitoPreviewAgentVoice(token, {
+      voice: voiceId,
+      speed: pace,
+      language: lang,
+      name: name.trim() || agentName,
+    })
+      .then((blob) => {
+        if (gen !== previewGen.current) return
+        const url = URL.createObjectURL(blob)
+        const audio = new Audio(url)
+        previewAudio.current = audio
+        const stopFace = () => {
+          URL.revokeObjectURL(url)
+          if (gen === previewGen.current && kind === 'orb') orbPreview.play('idle')
+        }
+        audio.onended = stopFace
+        audio.onerror = stopFace
+        if (kind === 'orb') orbPreview.play('talking')
+        void audio.play().catch(stopFace)
+      })
+      .catch(() => {
+        if (gen !== previewGen.current) return
+        if (kind === 'orb') orbPreview.play('idle')
+        toast.error(t('workforce.agents.identityVoicePreviewFailed'))
+      })
+  }
+
+  // Hydrate only when the dialog opens. Re-running on every prop tick (new
+  // array refs for voices/languages, live agent reload) wiped in-progress typing.
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (!open) {
+      wasOpen.current = false
+      return
+    }
+    if (wasOpen.current) return
+    wasOpen.current = true
     setName(agentName)
     setJobTitle(agentJobTitle ?? '')
     setDescription(agentDescription ?? '')
     setKind(editorKind(avatarKind))
-    const nextColor = resolveAgentAvatarColor(avatarColor)
-    setColor(nextColor)
+    setColor(resolveAgentAvatarColor(avatarColor))
     setShape(resolveAgentAvatarShape(avatarShape))
+    setVoice(callVoice || callVoices?.[0]?.id || '')
+    setSpeed(callSpeed ?? 1)
+    setLanguage(callLanguage || callLanguages?.[0] || 'nl')
     setEditingName(false)
     setEditingJobTitle(false)
     setEditingDescription(false)
     setError(null)
-  }, [open, agentName, agentJobTitle, agentDescription, avatarKind, avatarColor, avatarShape])
+  }, [
+    open,
+    agentName,
+    agentJobTitle,
+    agentDescription,
+    avatarKind,
+    avatarColor,
+    avatarShape,
+    callVoice,
+    callSpeed,
+    callLanguage,
+    callVoices,
+    callLanguages,
+  ])
 
   const save = async () => {
     if (!token || busy) return
@@ -127,6 +220,9 @@ export function AgentIdentityDialog({
         avatar_color: kind === 'orb' ? color : DEFAULT_AGENT_AVATAR_COLOR,
         avatar_shape: kind === 'orb' ? shape : null,
         avatar_image_url: null,
+        ...(showVoice
+          ? { call_voice: voice, call_speed: speed, call_language: language }
+          : {}),
       })
       void reloadAgentsCache().catch(() => {})
       toast.success(t('workforce.agents.identitySaved'))
@@ -264,10 +360,86 @@ export function AgentIdentityDialog({
             shape={shape}
             busy={busy}
             preview={orbPreview}
+            showMotion={showMotion}
             onKindChange={setKind}
             onColorChange={setColor}
             onShapeChange={(next) => setShape(resolveAgentAvatarShape(next))}
           />
+
+          {showVoice ? (
+            <div className="space-y-2">
+              <p className="text-xs text-text-muted">{t('workforce.agents.identityVoiceHint')}</p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-text-secondary">{tCall('agentCall.voice')}</p>
+                  <Select
+                    value={voice}
+                    onValueChange={(value) => {
+                      setVoice(value)
+                      hearVoice({ voice: value })
+                    }}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className="h-9 w-full text-sm" aria-label={tCall('agentCall.voice')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64 overflow-y-auto">
+                      {(callVoices ?? []).map((row) => (
+                        <SelectItem key={row.id} value={row.id}>
+                          {row.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-text-secondary">{tCall('agentCall.speed')}</p>
+                  <Select
+                    value={String(speed)}
+                    onValueChange={(value) => {
+                      const next = Number(value)
+                      setSpeed(next)
+                      hearVoice({ speed: next })
+                    }}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className="h-9 w-full text-sm" aria-label={tCall('agentCall.speed')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(callSpeeds ?? []).map((row) => (
+                        <SelectItem key={row} value={String(row)}>
+                          {speedLabel(row)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-text-secondary">{tCall('agentCall.language')}</p>
+                  <Select
+                    value={language}
+                    onValueChange={(value) => {
+                      setLanguage(value)
+                      hearVoice({ language: value })
+                    }}
+                    disabled={busy}
+                  >
+                    <SelectTrigger className="h-9 w-full text-sm" aria-label={tCall('agentCall.language')}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(callLanguages ?? []).map((code) => (
+                        <SelectItem key={code} value={code}>
+                          {tCall(`agentCall.languageName.${code}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {error ? <p className="text-xs text-status-error">{error}</p> : null}
         </div>

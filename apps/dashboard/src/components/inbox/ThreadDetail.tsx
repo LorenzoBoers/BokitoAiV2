@@ -29,6 +29,7 @@ import {
 } from '../../lib/mail-draft-store'
 import { buildMailDraftIntent, type MailDraftIntent, type MailDraftMode } from '../../lib/mail-reply'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
+import { cn } from '../../lib/utils'
 import MailComposer, { type MailSendPayload } from './MailComposer'
 import { getContactThreadPage, updateContact } from '../../lib/contacts-api'
 import {
@@ -65,6 +66,7 @@ import {
   replyProposalFromMessage,
 } from './DecisionRequestMessage'
 import RelatedConversationBanner from './RelatedConversationBanner'
+import LiveCallComposerBar from './LiveCallComposerBar'
 import ReplyComposer from './ReplyComposer'
 import ThreadHeader from './ThreadHeader'
 import ThreadTimeline, {
@@ -222,9 +224,11 @@ type Props = {
   unreadHighlightIds?: string[]
   /** `floating`: the chat-stack window draws its own compact header. */
   chrome?: 'page' | 'floating'
+  /** Fires when the mail composer opens or closes, so a floating window can grow into it. */
+  onMailSurfaceChange?: (open: boolean) => void
 }
 
-export default function ThreadDetail({ detail: detailProp, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [], chrome = 'page' }: Props) {
+export default function ThreadDetail({ detail: detailProp, loading, error, threadId, saving, onPatch, onReply, onRetrySend, onNote, onForward, onUpdateNote, onDeleteNote, onMarkUnread, onRefresh, hasOlder = false, loadingOlder = false, onLoadOlder, onTogglePin, onChangeAiHandling, aiHandlingSaving = false, onDelete, deleting = false, onBack, onToggleContact, contactOpen, onDecisionResolved, mode = 'customer', onPlan, canSendEmail = false, mailboxNeedsSetup = false, unreadHighlightIds = [], chrome = 'page', onMailSurfaceChange }: Props) {
   const detail =
     detailProp && threadId && String(detailProp.thread.id) === String(threadId) ? detailProp : null
   const { t, i18n } = useTranslation('communication')
@@ -1017,6 +1021,11 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
     setMailSeedBody(null)
   }, [threadId])
 
+  const mailSurfaceOpen = Boolean(mailDraft)
+  useEffect(() => {
+    onMailSurfaceChange?.(mailSurfaceOpen)
+  }, [mailSurfaceOpen, onMailSurfaceChange])
+
   // The mail composer autosaves and flushes its draft on unmount; re-read
   // whenever the mail surface closes (or the thread changes) so the draft
   // chip above the composer stays accurate. Soft-undo parks a draft via
@@ -1225,7 +1234,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         const q = normalizeHashtag(verb.arg)
         if (!q) {
           toast.message(
-            categories.map((row) => `#${row.name}`).join(', ') || t('tickets.setUp', { ns: 'nav' }),
+            categories.map((row) => row.name.replace(/^#/, '')).join(', ') || t('tickets.setUp', { ns: 'nav' }),
           )
           return true
         }
@@ -1237,7 +1246,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         }
         await fileTicket(threadIdString, match.id)
         onRefresh()
-        toast.success(`#${match.name}`)
+        toast.success(match.name.replace(/^#/, ''))
         return true
       }
       if (verb.verb === 'assign') {
@@ -2164,7 +2173,10 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
       ) : null}
 
       <div
-        className="relative flex min-h-0 flex-1 flex-col"
+        className={cn(
+          'relative flex min-h-0 flex-1 flex-col',
+          chrome === 'floating' && mailDraft && 'hidden',
+        )}
         onPointerDown={(event) => {
           if (!mailDraft) return
           const target = event.target
@@ -2249,6 +2261,9 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
               <div className="space-y-1.5">
                 {threadLiveTurns.map((turn, index) => {
                   const primary = index === threadLiveTurns.length - 1
+                  const documentMode =
+                    thread.channel === 'assistant' ||
+                    sessionLog.turns.some((row) => row.streamId != null && row.streamId === turn.streamId)
                   if (primary) {
                     return (
                       <AgentTurnLive
@@ -2267,6 +2282,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                         orbMotion={liveOrbDrive.motion}
                         orbPulseId={liveOrbDrive.pulseId}
                         orbBaseMotion={liveOrbDrive.baseMotion}
+                        documentMode={documentMode}
                       />
                     )
                   }
@@ -2290,6 +2306,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                       agentId={peerId}
                       avatarMark={peerMark}
                       orbMotion={liveTurnOrbMotion(turn)}
+                      documentMode={documentMode}
                     />
                   )
                 })}
@@ -2315,7 +2332,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         />
       </div>
 
-      {composerSurface ? (
+      {composerSurface && !(chrome === 'floating' && mailDraft) ? (
         <RelatedConversationBanner
           rows={detail.relatedConversations}
           contactName={thread.contactName}
@@ -2367,7 +2384,9 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           </div>
         </div>
       ) : null}
+      {composerSurface ? <LiveCallComposerBar threadId={String(thread.id)} /> : null}
       {composerSurface && mailDraft && messageLayout === 'email' && !mailboxDisconnected ? (
+        <div className={cn(chrome === 'floating' && 'flex min-h-0 flex-1 flex-col px-2 pb-2')}>
         <MailComposer
           intent={mailDraft}
           threadId={String(thread.id)}
@@ -2378,7 +2397,9 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           saving={saving}
           onSend={handleMailSend}
           onCancel={dismissMailComposer}
+          fill={chrome === 'floating'}
         />
+        </div>
       ) : composerSurface ? (
         <ReplyComposer
           surface={composerSurface}
@@ -2392,6 +2413,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           onModeChange={handleComposerModeChange}
           onVerb={handleComposerVerb}
           agentModeName={activeSession?.agentName ?? threadFace(thread).name ?? null}
+          voiceThreadId={thread.agentId || activeSession?.agentId ? String(thread.id) : null}
           onAskTabFocus={handleAskTabFocus}
           onMentionInserted={handleMentionInserted}
           saving={saving || agentStreaming}

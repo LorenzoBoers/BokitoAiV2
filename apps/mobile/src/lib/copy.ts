@@ -390,7 +390,7 @@ const nl: CopyTree = {
   'inbox.unassigned': 'Niet toegewezen',
   'inbox.all': 'Alles',
   'inbox.folders': 'Mappen',
-  'inbox.flows': 'Werken',
+  'inbox.flows': 'Werk',
   'inbox.decisions': 'Beslissingen',
   'inbox.allChannels': 'Alle kanalen',
   'inbox.allFolders': 'Alles',

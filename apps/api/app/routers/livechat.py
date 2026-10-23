@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy import select as sa_select
 
+from app.exceptions import AppError
 from app.core.time import utcnow
 from app.db.session import get_session
 from app.middleware.rate_limit import rate_limit
@@ -82,7 +83,7 @@ async def _optional_widget_auth(
             user_result = await session.execute(select(User).where(User.id == UUID(sub)))
             user = user_result.scalar_one_or_none()
         return tenant, user, token
-    except HTTPException:
+    except (HTTPException, AppError):
         raise
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc

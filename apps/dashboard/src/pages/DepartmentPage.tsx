@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Bell, Building2, FolderOpen, MessageSquare, PhoneCall, Settings } from 'lucide-react'
+import { Bell, Building2, FolderOpen, PhoneCall, Settings } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { DepartmentFlowPipeline } from '../components/departments/DepartmentFlowPipeline'
+import { ProjectAgendaCard } from '../components/projects/ProjectAgendaCard'
+import { ProjectDocs } from '../components/projects/ProjectDocs'
+import { ProjectFlowBoards } from '../components/projects/ProjectFlowBoards'
+import { WorksInSection } from '../components/projects/WorksInSection'
 import { Card } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -159,38 +163,30 @@ function SectionCard({ title, hint, testId, children }: { title: string; hint?: 
   )
 }
 
-/** Lead agent and the person accountable, next to the header actions. */
-function Leadership({ data }: { data: DepartmentOverview }) {
+/** Parent department, centered between the title and the tabs, with who sits on it. */
+function ParentBand({ parent }: { parent: DepartmentOverview['parent'] }) {
   const { t } = useTranslation('nav')
+  if (!parent) return null
+  const name = parent.is_root ? t('departmentPage.rootName') : parent.name
   return (
-    <div
-      className="flex h-8 items-center gap-2.5 rounded-md border border-border/60 px-2.5 text-xs"
-      role="group"
-      aria-label={t('departmentPage.leadership')}
-      data-testid="department-leadership"
-    >
-      <Tip label={t('departmentPage.lead')}>
-        {data.lead ? (
-          <Link to={`/agents/${data.lead.id}`} className="inline-flex items-center gap-1.5 text-text-primary hover:text-accent">
-            <AgentMark agent={data.lead} fallbackName={data.lead.name} size={20} decorative mode="static" />
-            <span className="max-w-[9rem] truncate">{data.lead.name}</span>
-          </Link>
-        ) : (
-          <span className="text-text-muted">{t('departmentPage.lead')}: {t('departmentPage.none')}</span>
-        )}
-      </Tip>
-      <span className="h-4 w-px bg-border/70" aria-hidden />
-      <Tip label={t('departmentPage.accountable')}>
-        {data.accountable ? (
-          <span className="inline-flex items-center gap-1.5 text-text-primary">
-            <UserAvatar name={data.accountable.name} email={data.accountable.name} size={20} decorative />
-            <span className="max-w-[9rem] truncate">{data.accountable.name}</span>
-            <PresenceDot value={data.accountable.presence} />
-          </span>
-        ) : (
-          <span className="text-text-muted">{t('departmentPage.accountable')}: {t('departmentPage.none')}</span>
-        )}
-      </Tip>
+    <div className="flex flex-col items-center gap-2 px-4 text-center" data-testid="department-parent">
+      <p className="text-sm font-semibold text-text-heading">{name}</p>
+      {parent.members.length === 0 ? (
+        <p className="text-xs text-text-muted">{t('departmentPage.parentEmpty')}</p>
+      ) : (
+        <ul className="flex max-w-3xl flex-wrap items-center justify-center gap-x-3 gap-y-2">
+          {parent.members.map((member) => (
+            <li key={`${member.kind}:${member.id}`} className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
+              {member.kind === 'agent' ? (
+                <AgentMark agent={member} fallbackName={member.name} size={22} decorative mode="static" />
+              ) : (
+                <UserAvatar name={member.name} email={member.name} size={22} decorative />
+              )}
+              <span className="max-w-[9rem] truncate">{member.name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -231,7 +227,7 @@ function FlowList({ flows, empty }: { flows: DepartmentFlow[]; empty: string }) 
 }
 
 /** What wakes the lead between orientations, and what it may spend a day. */
-function AwarenessEditor({
+export function AwarenessEditor({
   awareness,
   canEdit,
   onSave,
@@ -242,17 +238,47 @@ function AwarenessEditor({
 }) {
   const { t, i18n } = useTranslation('nav')
   const [follows, setFollows] = useState<string[]>(awareness.follows)
+  const [mode, setMode] = useState(awareness.mode || 'daily')
+  const [cron, setCron] = useState(awareness.cron || '30 7 * * 1-5')
   const [budget, setBudget] = useState(String((awareness.daily_cost_cents / 100).toFixed(2)))
   const [maxProposals, setMaxProposals] = useState(String(awareness.max_proposals))
   const [saving, setSaving] = useState(false)
   useEffect(() => {
     setFollows(awareness.follows)
+    setMode(awareness.mode || 'daily')
+    setCron(awareness.cron || '30 7 * * 1-5')
     setBudget((awareness.daily_cost_cents / 100).toFixed(2))
     setMaxProposals(String(awareness.max_proposals))
   }, [awareness])
+  const modes = ['off', 'on_conversation', 'daily', 'custom'] as const
   return (
     <div className="space-y-4">
       {awareness.role ? <p className="text-sm text-text-secondary">{awareness.role}</p> : null}
+      <div className="space-y-1.5">
+        <p className="title-eyebrow">{t('departmentPage.awareness.mode')}</p>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('departmentPage.awareness.mode')}>
+          {modes.map((value) => (
+            <Button
+              key={value}
+              type="button"
+              size="sm"
+              variant={mode === value ? 'secondary' : 'ghost'}
+              disabled={!canEdit}
+              aria-pressed={mode === value}
+              onClick={() => setMode(value)}
+              className={cn('h-7 border text-xs', mode === value ? 'border-accent/60 text-text-primary' : 'border-border/60 text-text-secondary')}
+            >
+              {t(`departmentPage.awareness.modes.${value}`)}
+            </Button>
+          ))}
+        </div>
+      </div>
+      {mode === 'custom' ? (
+        <label className="block space-y-1 text-xs text-text-muted">
+          <span>{t('departmentPage.awareness.cron')}</span>
+          <Input value={cron} disabled={!canEdit} onChange={(event) => setCron(event.target.value)} className="h-8 font-mono" />
+        </label>
+      ) : null}
       <div className="space-y-1.5">
         <p className="title-eyebrow">{t('departmentPage.awareness.follows')}</p>
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('departmentPage.awareness.follows')}>
@@ -298,7 +324,7 @@ function AwarenessEditor({
           />
         </label>
         <div className="space-y-1 text-xs text-text-muted">
-          <span>{t('departmentPage.awareness.nextOrientation')}</span>
+          <span>{t('departmentPage.awareness.nextWake')}</span>
           <p className="text-sm text-text-primary">{when(awareness.next_wake_at, i18n.language) || t('departmentPage.none')}</p>
         </div>
       </div>
@@ -310,6 +336,8 @@ function AwarenessEditor({
             setSaving(true)
             void onSave({
               follows,
+              mode,
+              cron: cron.trim(),
               daily_cost_cents: Math.max(0, Math.round(Number(budget.replace(',', '.')) * 100) || 0),
               max_proposals: Math.max(0, Math.min(10, Number(maxProposals) || 0)),
             }).finally(() => setSaving(false))
@@ -493,7 +521,7 @@ function AllTab({
           <div className="space-y-2">
             <ChipRow
               label={t('departmentPage.reach.flows')}
-              items={data.reach.flows.map((f) => ({ id: f.id, name: f.label ? `#${f.label}` : f.name, href: `/flows/${f.id}` }))}
+              items={data.reach.flows.map((f) => ({ id: f.id, name: f.label ? f.label.replace(/^#/, '') : f.name, href: `/flows/${f.id}` }))}
             />
             <ChipRow label={t('departmentPage.reach.channels')} items={data.reach.channels} />
             <ChipRow label={t('departmentPage.reach.connections')} items={data.reach.connections} />
@@ -555,23 +583,16 @@ function AllTab({
   )
 }
 
-function FolderTab({ folder }: { folder: DepartmentOverview['folders'][number] }) {
+function FolderTab({
+  folder,
+  canEdit,
+}: {
+  folder: DepartmentOverview['folders'][number]
+  canEdit: boolean
+}) {
   const { t } = useTranslation('nav')
   return (
     <div className="space-y-6" data-testid="department-folder">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <FolderOpen size={16} className="shrink-0 text-text-muted" aria-hidden />
-          <h2 className="truncate text-base font-semibold text-text-heading">{folder.name}</h2>
-          {folder.home ? <Badge size="sm" variant="accent">{t('departmentPage.lands.home')}</Badge> : null}
-        </div>
-        <Button type="button" size="sm" variant="secondary" asChild>
-          <Link to={folder.href}>
-            <FolderOpen size={14} className="mr-1" aria-hidden />
-            {t('departmentPage.openFolder')}
-          </Link>
-        </Button>
-      </div>
       <StatGrid className="grid-cols-3 sm:grid-cols-3 lg:grid-cols-3">
         <StatTile label={t('departmentPage.totals.open')} value={folder.totals.open} />
         <StatTile label={t('departmentPage.totals.waiting')} value={folder.totals.waiting} />
@@ -582,6 +603,12 @@ function FolderTab({ folder }: { folder: DepartmentOverview['folders'][number] }
       </StatGrid>
       <Bottlenecks items={folder.bottlenecks} />
       <FlowList flows={folder.flows} empty={t('departmentPage.folderEmpty')} />
+      <ProjectFlowBoards projectId={folder.id} canEdit={canEdit} />
+      <div className="max-w-md">
+        <ProjectAgendaCard projectId={folder.id} />
+      </div>
+      <WorksInSection projectId={folder.id} canEdit={canEdit} />
+      <ProjectDocs projectId={folder.id} canEdit={canEdit} />
     </div>
   )
 }
@@ -635,8 +662,8 @@ export default function DepartmentPage() {
       {!data && !error ? <CardGridSkeleton cards={3} /> : null}
       {data ? (
         <>
-          <header className="flex flex-wrap items-start justify-between gap-4" data-testid="department-header">
-            <div className="flex min-w-0 items-start gap-3">
+          <header className="flex flex-wrap items-start gap-x-4 gap-y-3" data-testid="department-header">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
               <DepartmentIcon
                 icon={data.icon}
                 canEdit={isAdmin}
@@ -659,16 +686,7 @@ export default function DepartmentPage() {
                 ) : null}
               </div>
             </div>
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              <Leadership data={data} />
-              {data.room_signal_id ? (
-                <Button type="button" size="sm" variant="secondary" asChild>
-                  <Link to={inboxPath(null, data.room_signal_id)}>
-                    <MessageSquare size={14} className="mr-1" aria-hidden />
-                    {t('departmentPage.openRoom')}
-                  </Link>
-                </Button>
-              ) : null}
+            <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
               {data.grid_href ? (
                 <Button type="button" size="sm" variant="secondary" asChild>
                   <Link to={data.grid_href} data-testid="open-in-grid">
@@ -691,6 +709,8 @@ export default function DepartmentPage() {
               </Button>
             </div>
           </header>
+
+          <ParentBand parent={data.parent} />
 
           <Tabs value={tab} onValueChange={selectTab}>
             <TabsList>
@@ -720,7 +740,7 @@ export default function DepartmentPage() {
             </TabsContent>
             {data.folders.map((folder) => (
               <TabsContent key={folder.id} value={folder.id} className="pt-2">
-                <FolderTab folder={folder} />
+                <FolderTab folder={folder} canEdit={isAdmin} />
               </TabsContent>
             ))}
           </Tabs>

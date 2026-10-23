@@ -20,12 +20,11 @@ import re
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.workspace import (
     DOC_KINDS,
     DOC_SECTION_STATUSES,
@@ -212,6 +211,10 @@ async def _delete_section_rows(session: AsyncSession, section_ids: list[UUID]) -
         return
     from app.models.project_work import TaskDocLink
 
+    from app.models.workspace import DocSectionTagLink, KnowledgeEvidence
+
+    await session.execute(delete(KnowledgeEvidence).where(KnowledgeEvidence.section_id.in_(section_ids)))
+    await session.execute(delete(DocSectionTagLink).where(DocSectionTagLink.section_id.in_(section_ids)))
     await session.execute(delete(DocChunk).where(DocChunk.section_id.in_(section_ids)))
     await session.execute(
         delete(TaskDocLink).where(TaskDocLink.section_id.in_(section_ids))
@@ -299,6 +302,14 @@ def _cosine(a: list[float], b: list[float]) -> float:
 
 _WORD_RE = re.compile(r"[a-z0-9]{2,}")
 
+# Score the newest chunks in the agent's scope, not an unordered sample.
+# A tenant on dev already has more than 200 chunks, so a bare LIMIT 200
+# dropped real knowledge before cosine ever ran.
+HYBRID_POOL = 1000
+LABEL_POOL = 300
+LABEL_BOOST = 0.08
+LESSON_UNCONFIRMED_PENALTY = 0.05
+
 
 def _tokens(text: str) -> set[str]:
     return set(_WORD_RE.findall(text.lower()))
@@ -313,6 +324,51 @@ def _keyword_score(query_tokens: set[str], text: str) -> float:
     return len(query_tokens & doc_tokens) / len(query_tokens)
 
 
+def _search_scope_clause(membership: set[UUID], agent_id: UUID | None):
+    """Docs this search may score.
+
+    Own pages, pages of a department the agent belongs to, and workspace-wide
+    pages (no agent and no department). Another agent's private page stays out.
+    The filter runs in SQL, before the candidate limit.
+    """
+    parts = [
+        and_(WorkspaceDoc.agent_id.is_(None), WorkspaceDoc.department_id.is_(None)),
+    ]
+    if agent_id is not None:
+        parts.append(WorkspaceDoc.agent_id == agent_id)
+    if membership:
+        parts.append(WorkspaceDoc.department_id.in_(list(membership)))
+    return or_(*parts)
+
+
+async def _search_membership(
+    session: AsyncSession,
+    tenant_id: UUID,
+    agent_id: UUID | None,
+    department_id: UUID | None,
+) -> set[UUID] | None:
+    """None when the caller did not ask for a scope."""
+    if agent_id is None and department_id is None:
+        return None
+    from app.services.teams import agent_team_ids
+
+    membership: set[UUID] = set()
+    if agent_id is not None:
+        membership = await agent_team_ids(session, tenant_id, agent_id)
+    if department_id is not None:
+        membership.add(department_id)
+    return membership
+
+
+def _chunk_filters(tenant_id: UUID, *, include_external: bool, source_types: list[str] | None):
+    clauses = [DocChunk.tenant_id == tenant_id]
+    if not include_external:
+        clauses.append(DocChunk.internal.is_(True))
+    if source_types:
+        clauses.append(DocChunk.source_type.in_(source_types))
+    return clauses
+
+
 async def hybrid_search(
     session: AsyncSession,
     tenant_id: UUID,
@@ -323,6 +379,7 @@ async def hybrid_search(
     include_external: bool = False,
     agent_id: UUID | None = None,
     department_id: UUID | None = None,
+    tag_ids: list[UUID] | None = None,
 ) -> list[dict[str, Any]]:
     from app.services.embeddings import embed_text_with_usage
     from app.services.model_resolution import record_usage, resolve_model_call
@@ -347,46 +404,26 @@ async def hybrid_search(
             scope="embedding", call_type="embedding",
         )
     query_tokens = _tokens(query)
-    stmt = select(DocChunk).where(DocChunk.tenant_id == tenant_id)
-    if not include_external:
-        stmt = stmt.where(DocChunk.internal.is_(True))
-    if source_types:
-        stmt = stmt.where(DocChunk.source_type.in_(source_types))
-    result = await session.execute(stmt.limit(200))
+    membership = await _search_membership(session, tenant_id, agent_id, department_id)
+    filters = _chunk_filters(tenant_id, include_external=include_external, source_types=source_types)
+    stmt = select(DocChunk).where(*filters)
+    if membership is not None:
+        stmt = stmt.join(WorkspaceDoc, WorkspaceDoc.id == DocChunk.doc_id).where(
+            WorkspaceDoc.deleted_at.is_(None),
+            _search_scope_clause(membership, agent_id),
+        )
+    # DocChunk has created_at, not updated_at. Newest first, then id, so the
+    # pool is stable and an old strong match still fits inside HYBRID_POOL.
+    stmt = stmt.order_by(DocChunk.created_at.desc(), DocChunk.id.desc()).limit(HYBRID_POOL)
+    result = await session.execute(stmt)
     chunks = list(result.scalars().all())
-    if agent_id is not None or department_id is not None:
-        from app.services.module_department import doc_in_agent_scope
-        from app.services.teams import agent_team_ids
-
-        membership: set[UUID] = set()
-        if agent_id is not None:
-            membership = await agent_team_ids(session, tenant_id, agent_id)
-        if department_id is not None:
-            membership.add(department_id)
-        doc_ids = [chunk.doc_id for chunk in chunks if chunk.doc_id]
-        docs: dict[UUID, WorkspaceDoc] = {}
-        if doc_ids:
-            docs = {
-                doc.id: doc
-                for doc in (
-                    await session.execute(
-                        select(WorkspaceDoc).where(WorkspaceDoc.id.in_(doc_ids))
-                    )
-                ).scalars().all()
-            }
-        scoped = []
-        for chunk in chunks:
-            doc = docs.get(chunk.doc_id) if chunk.doc_id else None
-            if doc is None:
-                continue
-            if doc_in_agent_scope(
-                doc_department_id=doc.department_id,
-                doc_agent_id=doc.agent_id,
-                membership=membership,
-                agent_id=agent_id,
-            ):
-                scoped.append(chunk)
-        chunks = scoped
+    seen = {chunk.id for chunk in chunks}
+    for extra in await _label_pool(
+        session, filters, membership, agent_id, tag_ids, seen
+    ):
+        chunks.append(extra)
+        seen.add(extra.id)
+    lesson_ids = await _lesson_section_ids(session, chunks)
     scored = []
     for i, chunk in enumerate(chunks):
         if i and i % 40 == 0:
@@ -395,12 +432,26 @@ async def hybrid_search(
             emb = json.loads(chunk.embedding_json or "[]")
         except json.JSONDecodeError:
             emb = []
+        try:
+            meta = json.loads(chunk.metadata_json or "{}")
+        except json.JSONDecodeError:
+            meta = {}
         vector = _cosine(query_embedding, emb)
         keyword = _keyword_score(query_tokens, f"{chunk.title}\n{chunk.content}")
         score = 0.6 * vector + 0.4 * keyword
+        shared = _shares_label(meta, tag_ids)
+        if shared:
+            score += LABEL_BOOST
+        section_status = str(meta.get("section_status") or "")
+        is_lesson = bool(meta.get("is_lesson")) or (
+            chunk.section_id is not None and chunk.section_id in lesson_ids
+        )
+        unconfirmed = is_lesson and section_status != "final"
+        if unconfirmed:
+            score -= LESSON_UNCONFIRMED_PENALTY
         if score > 0:
-            scored.append((score, chunk))
-    scored.sort(key=lambda x: x[0], reverse=True)
+            scored.append((score, vector, keyword, shared, unconfirmed, chunk))
+    scored.sort(key=lambda row: row[0], reverse=True)
     return [
         {
             "source_type": chunk.source_type,
@@ -410,9 +461,71 @@ async def hybrid_search(
             "title": chunk.title,
             "content": chunk.content,
             "score": round(score, 4),
+            "vector": round(vector, 4),
+            "keyword": round(keyword, 4),
+            "label_match": shared,
+            "unconfirmed": unconfirmed,
+            "is_lesson": is_lesson,
         }
-        for score, chunk in scored[:top_k]
+        for score, vector, keyword, shared, unconfirmed, chunk in scored[:top_k]
     ]
+
+
+def _shares_label(meta: dict[str, Any], tag_ids: list[UUID] | None) -> bool:
+    if not tag_ids:
+        return False
+    raw = meta.get("tag_ids")
+    if not isinstance(raw, list):
+        return False
+    wanted = {str(tag_id) for tag_id in tag_ids}
+    return any(str(item) in wanted for item in raw)
+
+
+async def _lesson_section_ids(session: AsyncSession, chunks: list[DocChunk]) -> set[UUID]:
+    """Sections that have evidence are lessons. Status alone is not enough:
+    every new section starts as draft."""
+    from app.models.workspace import KnowledgeEvidence
+
+    section_ids = [chunk.section_id for chunk in chunks if chunk.section_id]
+    if not section_ids:
+        return set()
+    rows = (
+        await session.execute(
+            select(KnowledgeEvidence.section_id).where(
+                KnowledgeEvidence.section_id.in_(section_ids)
+            )
+        )
+    ).scalars().all()
+    return set(rows)
+
+
+async def _label_pool(
+    session: AsyncSession,
+    filters: list,
+    membership: set[UUID] | None,
+    agent_id: UUID | None,
+    tag_ids: list[UUID] | None,
+    seen: set[UUID],
+) -> list[DocChunk]:
+    """Chunks that share a label, guaranteed into the candidate set."""
+    if not tag_ids:
+        return []
+    from app.models.workspace import DocSectionTagLink
+
+    stmt = (
+        select(DocChunk)
+        .join(DocSectionTagLink, DocSectionTagLink.section_id == DocChunk.section_id)
+        .where(*filters, DocSectionTagLink.tag_id.in_(list(tag_ids)))
+    )
+    if membership is not None:
+        stmt = stmt.join(WorkspaceDoc, WorkspaceDoc.id == DocChunk.doc_id).where(
+            WorkspaceDoc.deleted_at.is_(None),
+            _search_scope_clause(membership, agent_id),
+        )
+    if seen:
+        stmt = stmt.where(DocChunk.id.notin_(list(seen)))
+    stmt = stmt.order_by(DocChunk.created_at.desc(), DocChunk.id.desc()).limit(LABEL_POOL)
+    return list((await session.execute(stmt)).scalars().all())
 
 
 async def upsert_source_chunk(
@@ -590,12 +703,20 @@ async def list_docs(
     return list(result.scalars().all())
 
 
-def _section_chunk_metadata(doc: WorkspaceDoc, section: DocSection) -> dict[str, Any]:
+def _section_chunk_metadata(
+    doc: WorkspaceDoc,
+    section: DocSection,
+    *,
+    tag_ids: list[str] | None = None,
+    is_lesson: bool = False,
+) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "kind": doc.kind,
         "path": doc.path,
         "section_status": section.status,
         "internal": doc.internal,
+        "tag_ids": list(tag_ids or []),
+        "is_lesson": bool(is_lesson),
     }
     if section.heading:
         metadata["heading"] = section.heading
@@ -604,6 +725,85 @@ def _section_chunk_metadata(doc: WorkspaceDoc, section: DocSection) -> dict[str,
     if getattr(doc, "agent_id", None):
         metadata["agent_id"] = str(doc.agent_id)
     return metadata
+
+
+async def _section_index_flags(
+    session: AsyncSession, section: DocSection
+) -> tuple[list[str], bool]:
+    from app.models.workspace import DocSectionTagLink, KnowledgeEvidence
+
+    tags = (
+        await session.execute(
+            select(DocSectionTagLink.tag_id).where(DocSectionTagLink.section_id == section.id)
+        )
+    ).scalars().all()
+    evidence = (
+        await session.execute(
+            select(KnowledgeEvidence.id)
+            .where(KnowledgeEvidence.section_id == section.id)
+            .limit(1)
+        )
+    ).first()
+    return [str(tag_id) for tag_id in tags], evidence is not None
+
+
+async def section_chunk_metadata(
+    session: AsyncSession, doc: WorkspaceDoc, section: DocSection
+) -> dict[str, Any]:
+    tag_ids, is_lesson = await _section_index_flags(session, section)
+    return _section_chunk_metadata(doc, section, tag_ids=tag_ids, is_lesson=is_lesson)
+
+
+async def set_section_tags(
+    session: AsyncSession,
+    tenant_id: UUID,
+    section_id: UUID,
+    tag_ids: list[UUID],
+) -> list[UUID]:
+    """Replace the labels on a section and patch chunk metadata. No new embedding."""
+    from app.models.workspace import DocSectionTagLink
+
+    section = await get_section(session, tenant_id, section_id)
+    if section is None:
+        raise NotFoundError("Section not found")
+    wanted = list(dict.fromkeys(tag_ids))
+    await session.execute(
+        delete(DocSectionTagLink).where(DocSectionTagLink.section_id == section.id)
+    )
+    now = utcnow()
+    for tag_id in wanted:
+        session.add(
+            DocSectionTagLink(
+                section_id=section.id,
+                tag_id=tag_id,
+                tenant_id=tenant_id,
+                created_at=now,
+            )
+        )
+    await session.flush()
+    doc = await get_doc(session, tenant_id, section.doc_id)
+    if doc is not None:
+        metadata = await section_chunk_metadata(session, doc, section)
+        chunks = (
+            await session.execute(select(DocChunk).where(DocChunk.section_id == section.id))
+        ).scalars().all()
+        for chunk in chunks:
+            chunk.metadata_json = json.dumps(metadata)
+            session.add(chunk)
+    return wanted
+
+
+async def conversation_tag_ids(
+    session: AsyncSession, tenant_id: UUID, signal_id: UUID
+) -> list[UUID]:
+    """Labels on the conversation, including the ticket label and contact or company."""
+    from app.models.signal import Signal
+    from app.services.folders import effective_tag_ids
+
+    signal = await session.get(Signal, signal_id)
+    if signal is None or signal.tenant_id != tenant_id:
+        return []
+    return list(await effective_tag_ids(session, signal))
 
 
 async def reindex_section(
@@ -629,7 +829,7 @@ async def reindex_section(
     if text or section.heading:
         parts.append(text)
     count = 0
-    metadata = _section_chunk_metadata(doc, section)
+    metadata = await section_chunk_metadata(session, doc, section)
     for part in parts:
         embedding, emb_tokens = await embed_text_with_usage(
             f"{doc.title}\n{section.heading}\n{part}",
@@ -701,7 +901,7 @@ async def upsert_doc(
     norm = _normalize_path(path)
     meta, body = parse_frontmatter(content)
     if kind and kind not in DOC_KINDS:
-        raise HTTPException(status_code=400, detail=f"Invalid doc kind: {kind}")
+        raise status_error(status_code=400, detail=f"Invalid doc kind: {kind}")
 
     doc = await get_doc_by_path(session, tenant_id, norm)
     if doc:
@@ -758,7 +958,7 @@ async def upsert_doc(
 def enforce_section_limit(content: str) -> None:
     """Hard ceiling for agent-written sections; raises with a split hint."""
     if word_count(content) > SECTION_MAX_WORDS:
-        raise HTTPException(status_code=422, detail=SECTION_SPLIT_HINT)
+        raise status_error(status_code=422, detail=SECTION_SPLIT_HINT)
 
 
 async def upsert_section(
@@ -883,7 +1083,7 @@ async def update_section(
             section.status_changed_by_id = actor_id
     if status is not None:
         if status not in DOC_SECTION_STATUSES:
-            raise HTTPException(status_code=400, detail=f"Invalid section status: {status}")
+            raise status_error(status_code=400, detail=f"Invalid section status: {status}")
         if status != section.status:
             section.status = status
             section.status_changed_at = now
@@ -905,7 +1105,7 @@ async def update_section(
                 select(DocChunk).where(DocChunk.section_id == section.id)
             )
         ).scalars().all()
-        metadata = _section_chunk_metadata(doc, section)
+        metadata = await section_chunk_metadata(session, doc, section)
         for chunk in chunks:
             chunk.metadata_json = json.dumps(metadata)
             session.add(chunk)
@@ -945,7 +1145,7 @@ async def set_section_status(
 ) -> DocSection:
     """Maturity transition (draft -> review -> final) with audit + chunk metadata sync."""
     if status not in DOC_SECTION_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid section status: {status}")
+        raise status_error(status_code=400, detail=f"Invalid section status: {status}")
     section = await get_section(session, tenant_id, section_id)
     if not section:
         raise NotFoundError("Section not found")
@@ -983,7 +1183,7 @@ async def set_section_status(
                 select(DocChunk).where(DocChunk.section_id == section.id)
             )
         ).scalars().all()
-        metadata = _section_chunk_metadata(doc, section)
+        metadata = await section_chunk_metadata(session, doc, section)
         for chunk in chunks:
             chunk.metadata_json = json.dumps(metadata)
             session.add(chunk)

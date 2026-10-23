@@ -211,7 +211,7 @@ export default function Communication() {
       const name = chain ? chain[chain.length - 1].name : undefined
       return t('threadList.scopeProject', { name: name ?? t('threadList.scopeProjectFallback') })
     }
-    if (onlyTag) return t('threadList.scopeFolder', { name: `#${tagParam}` })
+    if (onlyTag) return t('threadList.scopeFolder', { name: tagParam.replace(/^#/, '') })
     return t('threadList.scopeFiltered')
   }, [hasFolderFilter, communicationNav.projects, projectId, categoryId, tagParam, stageParam, t])
 

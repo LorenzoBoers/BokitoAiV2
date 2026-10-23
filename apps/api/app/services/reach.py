@@ -145,6 +145,20 @@ async def pushes_today(session: AsyncSession, tenant_id: UUID, user_id: UUID, no
     return count
 
 
+async def without_unavailable(session: AsyncSession, people: list[UUID]) -> list[UUID]:
+    """Drop people agents must not ring, push or call."""
+    from app.models.auth import User
+    from app.services.presence import UNAVAILABLE, user_status
+
+    kept: list[UUID] = []
+    for user_id in people:
+        person = await session.get(User, user_id)
+        if person is not None and user_status(person) == UNAVAILABLE:
+            continue
+        kept.append(user_id)
+    return kept
+
+
 async def ladder(
     session: AsyncSession, decision: DecisionRequest, signal: Signal | None
 ) -> tuple[list[UUID], set[UUID], UUID | None]:
@@ -153,26 +167,32 @@ async def ladder(
     from app.services.department_domain import department_of_signal, reach_people
     from app.services.push import resolve_thread_recipient_ids
 
+    async def pack(
+        people: list[UUID], asked: set[UUID], department: UUID | None
+    ) -> tuple[list[UUID], set[UUID], UUID | None]:
+        ordered = await without_unavailable(session, people)
+        return ordered, {uid for uid in asked if uid in ordered}, department
+
     department_id: UUID | None = None
     if decision.addressee_kind == "user" and decision.addressee_user_id:
-        return [decision.addressee_user_id], {decision.addressee_user_id}, None
+        return await pack([decision.addressee_user_id], {decision.addressee_user_id}, None)
     if decision.addressee_kind == "department" and decision.addressee_department_id:
         department_id = decision.addressee_department_id
         people = await reach_people(session, decision.tenant_id, department_id)
-        return people or await addressee_user_ids(session, decision), set(), department_id
+        return await pack(people or await addressee_user_ids(session, decision), set(), department_id)
     if signal is None:
         return [], set(), None
     holder = [signal.assigned_user_id] if signal.assigned_user_id else []
     if signal.owner_user_id and signal.owner_user_id not in holder:
         holder.append(signal.owner_user_id)
     if holder:
-        return holder, set(holder), await department_of_signal(session, signal)
+        return await pack(holder, set(holder), await department_of_signal(session, signal))
     department_id = await department_of_signal(session, signal)
     if department_id is not None:
         people = await reach_people(session, decision.tenant_id, department_id)
         if people:
-            return people, set(), department_id
-    return await resolve_thread_recipient_ids(session, signal), set(), department_id
+            return await pack(people, set(), department_id)
+    return await pack(await resolve_thread_recipient_ids(session, signal), set(), department_id)
 
 
 async def record_reach(

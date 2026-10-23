@@ -106,12 +106,10 @@ export function toAiAvatarProps(
   fallbackName = 'Agent',
 ): AgentAvatarProps {
   if (!source) {
-    // Pending shell (empty tinted circle) until agents/thread hydrate.
+    // Grey skeleton circle until agents/thread hydrate — not the default orb.
     return {
       name: fallbackName,
-      kind: null,
-      color: DEFAULT_BOT_ORB_COLOR,
-      shape: DEFAULT_BOT_ORB_SHAPE,
+      kind: 'pending',
     }
   }
   const kind =
@@ -120,15 +118,31 @@ export function toAiAvatarProps(
     source.avatar_shape ?? source.avatarShape ?? source.agentAvatarShape
   const colorRaw =
     source.avatar_color ?? source.avatarColor ?? source.agentAvatarColor
+  const icon = source.avatar_icon ?? source.avatarIcon ?? source.agentAvatarIcon
+  const imageUrl =
+    source.avatar_image_url ?? source.avatarImageUrl ?? source.agentAvatarImageUrl
   const normalized = (kind ?? '').trim().toLowerCase()
+  const hasMark =
+    Boolean(normalized) ||
+    Boolean(icon) ||
+    Boolean(imageUrl) ||
+    Boolean((colorRaw ?? '').toString().trim()) ||
+    Boolean((shapeRaw ?? '').toString().trim())
+  if (!hasMark) {
+    // Id/name only while the catalog loads — same skeleton as a null source.
+    return {
+      name: source.name || source.agentName || fallbackName,
+      seed: String(source.seed || source.agentId || source.id || '') || undefined,
+      kind: 'pending',
+    }
+  }
   const isOrb = normalized === 'orb' || !normalized
   return {
     name: source.name || source.agentName || fallbackName,
     seed: String(source.seed || source.agentId || source.id || '') || undefined,
     kind: normalized || null,
-    icon: source.avatar_icon ?? source.avatarIcon ?? source.agentAvatarIcon,
-    imageUrl:
-      source.avatar_image_url ?? source.avatarImageUrl ?? source.agentAvatarImageUrl,
+    icon,
+    imageUrl,
     color: isOrb ? resolveBotOrbColor(colorRaw) : colorRaw || DEFAULT_BOT_ORB_COLOR,
     shape: isOrb ? resolveBotOrbShape(shapeRaw) : shapeRaw,
   }

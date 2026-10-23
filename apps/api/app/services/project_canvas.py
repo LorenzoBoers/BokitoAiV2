@@ -11,12 +11,11 @@ import re
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
-from app.exceptions import AppError, NotFoundError
+from app.exceptions import AppError, NotFoundError, status_error
 from app.models.agent import Agent
 from app.models.project import Project
 from app.models.project_canvas import (
@@ -27,19 +26,20 @@ from app.models.project_canvas import (
 )
 from app.models.signal import Signal
 from app.models.trigger import Trigger
+from app.services.canvas_blocks import (
+    EMPTY_TREE,
+    blocks_to_tree,
+    is_empty_tree,
+    render_problems,
+    tree_to_blocks,
+    validate_blocks,
+)
 from app.services.canvas_content import (
     CanvasContentError,
     content_is_empty,
     materialize_image,
     normalize_kind,
     prepare_content,
-)
-from app.services.project_canvas_compile import (
-    EMPTY_SOURCE,
-    EMPTY_TREE,
-    CanvasCompileError,
-    compile_canvas,
-    is_empty_tree,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def _parse_json(raw: str | None, fallback: Any) -> Any:
 
 
 def _empty_document() -> tuple[str, dict[str, Any]]:
-    return EMPTY_SOURCE, dict(EMPTY_TREE)
+    return "", dict(EMPTY_TREE)
 
 
 def slugify_title(title: str) -> str:
@@ -108,8 +108,9 @@ def refresh_instructions(
         f"{lookup}\n"
         f"{folder_block}"
         "This wake is only a canvas refresh. Call get_folder_canvas, then "
-        "update_folder_canvas with this canvas_id and a full bokito/canvas document. "
-        "Import only from bokito/canvas. Embed figures you just fetched, including "
+        "update_folder_canvas with this canvas_id and a full blocks list. "
+        "A dashboard is blocks (stat, bar_chart, line_chart, pie_chart, table), "
+        "not JSX. Embed figures you just fetched, including "
         "the folder counts above when they are present. Do not create another canvas. "
         "Do not ask the operator, do not call create_decision_request, and do not "
         "call propose_action. Do not promise live tiles. Omit empty cards. "
@@ -300,8 +301,10 @@ def serialize_canvas(
     if not isinstance(tree, dict) or not tree.get("type"):
         tree = dict(EMPTY_TREE)
     kind = (getattr(canvas, "kind", None) or KIND_DASHBOARD).strip() or KIND_DASHBOARD
+    blocks: list[dict[str, Any]] | None = None
     if kind == KIND_DASHBOARD:
-        source = canvas.source or EMPTY_SOURCE
+        source = ""
+        blocks = tree_to_blocks(tree)
         empty = is_empty_tree(tree)
     else:
         source = canvas.source or ""
@@ -332,6 +335,7 @@ def serialize_canvas(
         "revision": canvas.revision,
         "source": source,
         "tree": tree,
+        "blocks": blocks,
         "empty": empty,
         "managing_agent_id": str(canvas.managing_agent_id) if canvas.managing_agent_id else None,
         "signal_id": str(canvas.signal_id) if canvas.signal_id else None,
@@ -539,8 +543,7 @@ def _document_from_legacy(canvas: ProjectCanvas) -> tuple[str, dict[str, Any]] |
         "props": {},
         "children": [{"type": "Text", "props": {"text": intro}, "children": []}],
     }
-    source, tree = compile_canvas(tree=tree)
-    return source, tree
+    return "", tree
 
 
 async def get_canvas_row(
@@ -825,7 +828,7 @@ async def sync_refresh_trigger(
     if key == "custom" and not cron and existing and existing.kind == "cron":
         cron = " ".join((existing.cron_expr or "").split())
     if key == "custom" and len(cron.split()) != 5:
-        raise HTTPException(
+        raise status_error(
             status_code=400,
             detail="Custom refresh needs a five-field cron expression",
         )
@@ -936,14 +939,8 @@ async def _fresh_content(
     image_prompt: str | None,
     image_url: str | None,
 ) -> tuple[str, dict[str, Any], str | None]:
-    """Initial source for a new canvas. A dashboard stays an empty bokito/canvas document."""
+    """Initial source for a new canvas. A dashboard stays empty until blocks are written."""
     if content_kind == KIND_DASHBOARD:
-        if (source or "").strip():
-            try:
-                text, tree = compile_canvas(source=str(source))
-            except CanvasCompileError as exc:
-                raise CanvasContentError(str(exc)) from exc
-            return text, tree, None
         text, tree = _empty_document()
         return text, tree, None
     if content_kind == KIND_IMAGE and ((image_prompt or "").strip() or (image_url or "").strip()):
@@ -1064,7 +1061,7 @@ async def create_canvas(
     try:
         content_kind = normalize_kind(canvas_kind)
     except CanvasContentError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise status_error(status_code=400, detail=str(exc)) from exc
     try:
         source_text, tree, language_text = await _fresh_content(
             session,
@@ -1076,7 +1073,7 @@ async def create_canvas(
             image_url=image_url,
         )
     except CanvasContentError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise status_error(status_code=400, detail=str(exc)) from exc
     brief = (notes or "").strip() or None
     if brief and len(brief) > 2000:
         brief = brief[:2000]
@@ -1281,44 +1278,17 @@ async def delete_canvas(
     return {"ok": True}
 
 
-_COMPILE_TIMEOUT_SECONDS = 15
-
-
-def _compile_payload(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]] | str:
-    """Return ``(source, tree)``, or an error string.
-
-    Compile failures stay values. Raising from ``asyncio.to_thread`` while an
-    AsyncSession holds a connection makes the next ``await`` on that session
-    raise MissingGreenlet and ends the agent turn instead of returning a
-    tool error.
-    """
-    try:
-        return compile_canvas(
-            source=str(source) if source is not None else None,
-            tree=tree,
-        )
-    except CanvasCompileError as exc:
-        return str(exc) or "Canvas source is not valid."
-
-
-async def _compile_payload_async(*, source: Any = None, tree: Any = None) -> tuple[str, dict[str, Any]]:
-    """Compile off the event loop so a stuck parser cannot freeze the API."""
-    try:
-        compiled = await asyncio.wait_for(
-            asyncio.to_thread(_compile_payload, source=source, tree=tree),
-            timeout=_COMPILE_TIMEOUT_SECONDS,
-        )
-    except TimeoutError as exc:
-        raise HTTPException(
+def _dashboard_tree(blocks: Any) -> dict[str, Any]:
+    """Validate blocks and return the tree. Raises HTTP 400 and stores nothing."""
+    cleaned, errors = validate_blocks(blocks)
+    problems = render_problems(cleaned) if not errors else []
+    if errors or problems:
+        detail = (errors or problems)[0]
+        raise status_error(
             status_code=400,
-            detail=(
-                "Canvas source took too long to compile. "
-                "Use a smaller document with fewer nodes."
-            ),
-        ) from exc
-    if isinstance(compiled, str):
-        raise HTTPException(status_code=400, detail=compiled)
-    return compiled
+            detail={"message": detail, "errors": errors or problems},
+        )
+    return blocks_to_tree(cleaned)
 
 
 async def put_canvas_source(
@@ -1332,6 +1302,7 @@ async def put_canvas_source(
     title: str | None = None,
     source: Any = None,
     tree: Any = None,
+    blocks: Any = None,
     notes: str | None = None,
     expected_revision: int | None = None,
     updated_by_type: str = "agent",
@@ -1365,7 +1336,7 @@ async def put_canvas_source(
             canvas = await get_canvas_row(session, tenant_id, UUID(created["id"]))
 
     if expected_revision is not None and expected_revision != canvas.revision:
-        raise HTTPException(
+        raise status_error(
             status_code=409,
             detail={
                 "message": "Canvas was updated elsewhere; reload and try again.",
@@ -1395,9 +1366,12 @@ async def put_canvas_source(
             canvas.language = language_text
         canvas.notes = "Cleared canvas"
     elif content_kind == KIND_DASHBOARD:
-        if source is None and tree is None:
-            raise AppError("Provide source or tree.", code="app_error", status_code=400)
-        compiled_source, compiled_tree = await _compile_payload_async(source=source, tree=tree)
+        if blocks is None:
+            raise status_error(
+                status_code=400,
+                detail="Dashboards take a blocks list, not source or JSX.",
+            )
+        compiled_source, compiled_tree = "", _dashboard_tree(blocks)
     else:
         if source is None and not (image_prompt or "").strip() and not (image_url or "").strip():
             raise AppError("Provide source for this canvas.", code="app_error", status_code=400)
@@ -1421,7 +1395,7 @@ async def put_canvas_source(
                     tenant_id=tenant_id,
                 )
         except CanvasContentError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            raise status_error(status_code=400, detail=str(exc)) from exc
         compiled_tree = dict(EMPTY_TREE)
         canvas.language = language_text
     if notes is not None and not reset:
@@ -1508,6 +1482,7 @@ async def apply_canvas_document(
     has_document = (
         after.get("source") is not None
         or after.get("tree") is not None
+        or after.get("blocks") is not None
         or bool(after.get("reset") or after.get("reset_to_default"))
         or bool(str(after.get("image_prompt") or "").strip())
         or bool(str(after.get("image_url") or "").strip())
@@ -1526,6 +1501,7 @@ async def apply_canvas_document(
             title=str(after["title"]) if after.get("title") is not None else None,
             source=_source_text(after.get("source")) if isinstance(after.get("source"), (dict, list)) else after.get("source"),
             tree=after.get("tree"),
+            blocks=after.get("blocks"),
             notes=str(after.get("notes") or "") or None,
             reset=bool(after.get("reset") or after.get("reset_to_default")),
             updated_by_type="agent",
