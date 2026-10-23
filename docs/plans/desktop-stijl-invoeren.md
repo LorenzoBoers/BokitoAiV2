@@ -566,6 +566,15 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 - `FlowSchemaEditor` en `WorksInSection` (WIP van de andere agent) zijn niet aangeraakt. Ze staan met 1 elk in de baseline van `loose-empty-copy`.
 - **Zichtbaar.** Lege lijsten zijn nu gecentreerd, met een titel in kopkleur en een rustige beschrijving eronder. Dat geldt voor kanalen, contacten, bedrijven, agents, commandopalet, gebruik, Ops, MCP-servers, mappen, kennis en de threadlijst. Waar eerder een gestippeld kader stond, blijft dat (`tone="dashed"`). Kleine lijsten in panelen (eerdere gesprekken, tools, controles) staan nu ook gecentreerd in plaats van links uitgelijnd.
 
+### Fase 8.10: lijsten
+
+- **Stap 6 bestaat niet in de code.** `flows/FlowTicketBoard` heeft alleen het bord: kolommen met `FlowTicketCard`. Er is geen lijstweergave, ook niet elders onder `components/flows` of op de werkpagina's. Een lijstweergave bouwen staat niet in het plan, dus stap 6 is overgeslagen.
+- Door stap 6 komt de klaar-eis "zes lijsten" op vijf. Na stap 5 zijn het er ook vijf. `EntityList` heeft 5 gebruikers (eis: 4).
+- **Stap 5 (`ThreadListItem`) wacht op akkoord.** Het voorstel staat in de PR-tekst.
+- Mappen: het pad van de bovenliggende mappen was een rij links in de kaart. In de rij is het nu gewone tekst, omdat de rij zelf een link is en links niet in links mogen.
+- Leden: de kolomkoppen en de sleutels `membersPage.col*` en `membersPage.openAgent` worden niet meer gebruikt. Ze zijn blijven staan, want copy opruimen staat niet in het plan.
+- De vinkjeslijst in de teamdialoog en de keuzelijsten in pickers zijn formuliervelden, geen lijsten. Die staan niet op `EntityRow`.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:
