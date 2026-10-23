@@ -7,6 +7,8 @@ import { Pressable } from './pressable'
 import { StatusDot } from './status-dot'
 
 type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'onClick'> & {
+  /** Left of `leading`, outside the click zone: a checkbox or a state dot. */
+  select?: React.ReactNode
   /** Leading visual: Avatar, IconTile, BrandMark. */
   leading?: React.ReactNode
   title: React.ReactNode
@@ -14,11 +16,13 @@ type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'onCl
   badges?: React.ReactNode
   /** Second line, one line, truncated. */
   description?: React.ReactNode
-  /** Top right next to the title, e.g. a time. */
+  /** Extra line under the description, inside the click zone. */
+  footer?: React.ReactNode
+  /** Top right next to the title, e.g. a time. Gives way to `actions` on hover. */
   meta?: React.ReactNode
   /** Right side, always visible: a value, a chevron, a button. */
   trailing?: React.ReactNode
-  /** Right side, shown on hover or focus. */
+  /** Shown on hover, focus or `data-menu-open`; takes no space otherwise. */
   actions?: React.ReactNode
   /** Hover feedback. With `onClick` the main zone is a `Pressable`. */
   interactive?: boolean
@@ -26,7 +30,7 @@ type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'onCl
   /** Main zone is a router link. */
   href?: string
   selected?: boolean
-  /** Title 600 and an accent dot. */
+  /** Title 600, plus an accent dot unless `select` already carries the state. */
   unread?: boolean
   /** Row height: `sm` 44px, `md` 56px. */
   density?: 'sm' | 'md'
@@ -34,14 +38,21 @@ type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'onCl
 
 const MAIN_CLASS = 'flex min-w-0 flex-1 items-center gap-3 self-stretch'
 
+const SHOW_ON_ROW_ACTIVE =
+  'group-hover/row:flex group-focus-within/row:flex group-data-[menu-open]/row:flex'
+const HIDE_ON_ROW_ACTIVE =
+  'group-hover/row:hidden group-focus-within/row:hidden group-data-[menu-open]/row:hidden'
+
 /** One person, agent, channel, key or resource in a list. */
 export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
   (
     {
+      select,
       leading,
       title,
       badges,
       description,
+      footer,
       meta,
       trailing,
       actions,
@@ -61,7 +72,7 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
         {leading ? <div className="shrink-0">{leading}</div> : null}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            {unread ? <StatusDot className="bg-accent" /> : null}
+            {unread && !select ? <StatusDot className="bg-accent" /> : null}
             <span
               className={cn(
                 'min-w-0 truncate text-sm text-text-heading',
@@ -71,9 +82,14 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
               {title}
             </span>
             {badges}
-            {meta ? <span className="ml-auto shrink-0 pl-2 text-xs text-text-muted">{meta}</span> : null}
+            {meta ? (
+              <span className={cn('ml-auto shrink-0 pl-2 text-xs text-text-muted', actions && HIDE_ON_ROW_ACTIVE)}>
+                {meta}
+              </span>
+            ) : null}
           </div>
           {description ? <div className="mt-0.5 min-w-0 truncate text-xs text-text-muted">{description}</div> : null}
+          {footer}
         </div>
       </>
     )
@@ -101,17 +117,16 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
         className={cn(
           'group/row flex min-w-0 items-center gap-3 rounded-md',
           density === 'sm' ? 'min-h-11 px-2.5 py-1.5' : 'min-h-14 px-3 py-2',
-          (interactive || href) && 'cursor-pointer transition-colors hover:bg-bg-hover/50',
-          selected && 'bg-bg-hover',
+          (interactive || href) && 'cursor-pointer transition-colors',
+          selected ? 'bg-bg-hover' : (interactive || href) && 'hover:bg-bg-hover/50',
           className,
         )}
         {...props}
       >
+        {select ? <div className="flex shrink-0 items-center self-stretch">{select}</div> : null}
         {main}
         {actions ? (
-          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100">
-            {actions}
-          </div>
+          <div className={cn('hidden shrink-0 items-center gap-1', SHOW_ON_ROW_ACTIVE)}>{actions}</div>
         ) : null}
         {trailing ? <div className="flex shrink-0 items-center gap-2">{trailing}</div> : null}
       </div>

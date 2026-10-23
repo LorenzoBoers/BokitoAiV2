@@ -211,13 +211,17 @@ carries `design-system-ignore` with a reason.
 
 ## Lists
 
-Every list row is `EntityRow`. Slots: `leading` (Avatar or IconTile),
-`title`, `badges`, `description` (one line, truncated), `meta` (top right,
-for example a time), `trailing` (always visible) and `actions` (shown on
-hover or focus). `density` is `sm` (44px) or `md` (56px); `selected`,
-`unread` (title 600 and an accent dot), `href` (the main zone is a link) and
-`interactive` with `onClick` (the main zone is a `Pressable`). Actions and
-trailing sit outside the click zone. `EntityList` draws the dividers and
+Every list row is `EntityRow`. Slots: `select` (a checkbox or state dot,
+left of `leading`), `leading` (Avatar or IconTile), `title`, `badges`,
+`description` (one line, truncated), `footer` (an extra line under the
+description), `meta` (top right, for example a time), `trailing` (always
+visible) and `actions`. Actions take no space until the row is hovered,
+focused or has `data-menu-open`; then they replace `meta`. `density` is `sm`
+(44px) or `md` (56px); `selected` (full hover tint, no lighter hover),
+`unread` (title 600, plus an accent dot unless `select` carries the state),
+`href` (the main zone is a link) and `interactive` with `onClick` (the main
+zone is a `Pressable`). Select, actions and trailing sit outside the click
+zone. `EntityList` draws the dividers and
 takes `empty` (a title or an `EmptyState`) and `loading`. A new list without
 `EntityRow` comes back in review.
 
@@ -230,7 +234,7 @@ takes `empty` (a title or an `EmptyState`) and `loading`. A new list without
 | Folders | `pages/ProjectsPage` | yes |
 | Labels | `inbox/TagRegistrySection` | yes |
 | Proposal items | `inbox/ProposalItemPreview` | yes |
-| Conversations | `inbox/ThreadListItem` | no (planned) |
+| Conversations | `inbox/ThreadListItem` | yes |
 | Tickets on a flow | `flows/FlowTicketBoard` | no: a board of `FlowTicketCard`, no list view |
 | Dense data (runs, MCP servers, Ops, usage) | `Table` | no: tables stay tables |
 

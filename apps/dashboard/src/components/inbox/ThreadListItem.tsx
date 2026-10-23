@@ -17,6 +17,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Avatar } from '../ui/avatar'
+import { EntityRow } from '../ui/entity-row'
 import { TeamFacepile } from '../ui/TeamFacepile'
 import { preferLiveAgentAvatar } from '../../lib/agent-avatar'
 import { agentPresenceOf } from '../../hooks/useAgentPresence'
@@ -33,7 +34,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { THREAD_ROW_AI_CLASS, THREAD_ROW_SELECTED_CLASS } from '../../lib/chat-chrome'
+import { THREAD_ROW_AI_CLASS } from '../../lib/chat-chrome'
 import { cn } from '../../lib/utils'
 import { translateDecisionText, translateMockAgentBody } from '../../lib/activity-labels'
 import { humanizeContactName, isPlaceholderContactAddress } from '../../lib/contact-label'
@@ -122,19 +123,6 @@ const PRIORITY_DOT: Record<string, string> = {
   high: 'bg-status-warning',
   normal: '',
 }
-
-/**
- * Row actions sit out of the layout until the row is hovered, keyboard-focused,
- * or its menu is open. A hidden-but-reserved slot made the name fade early.
- */
-const ROW_ICON_BUTTON = cn(
-  'hidden text-text-muted',
-  'group-hover/thread:inline-flex',
-  'group-focus-visible/thread:inline-flex',
-  'group-has-[:focus-visible]/thread:inline-flex',
-  'group-data-[menu-open]/thread:inline-flex',
-  'focus-visible:inline-flex',
-)
 
 /**
  * One conversation in the list: lead slot · avatar · name + time · preview.
@@ -272,15 +260,411 @@ function ThreadListItem({
       ? dragThreadIds
       : [String(thread.id)]
 
-  return (
+  const leadSlot = (
+    <span className="relative flex h-7 w-4 items-center justify-center">
+      <span
+        aria-hidden
+        className={cn(
+          'absolute inset-0 flex items-center justify-center transition-opacity',
+          checkboxVisible && 'opacity-0',
+          selectable && !checkboxVisible && 'group-hover/row:opacity-0 group-data-[menu-open]/row:opacity-0',
+        )}
+      >
+        {thread.isPinned ? (
+          <Pin size={14} className="rotate-45 fill-text-muted text-text-muted" />
+        ) : (
+          <ThreadStatusDot
+            status={thread.status}
+            unread={thread.hasUnread}
+            className={cn(thread.hasUnread && isSelected && 'pulse-dot')}
+          />
+        )}
+      </span>
+      {selectable ? (
+        <Checkbox
+          checked={Boolean(checked)}
+          aria-label={t('threadList.selectThread')}
+          onChange={(event) =>
+            onToggleChecked?.(thread.id, (event.nativeEvent as MouseEvent).shiftKey)
+          }
+          className={cn(
+            'absolute transition-opacity',
+            checkboxVisible
+              ? 'opacity-100'
+              : 'opacity-0 group-hover/row:opacity-100 group-data-[menu-open]/row:opacity-100 has-[:focus-visible]:opacity-100',
+          )}
+        />
+      ) : null}
+    </span>
+  )
+
+  const avatar =
+    isDirect || isAgentThread ? (
+      <Avatar
+        kind="agent"
+        agent={preferLiveAgentAvatar(
+          face.id
+            ? agents.find((row) => String(row.id) === String(face.id))
+            : undefined,
+          {
+            name: face.name,
+            agentId: face.id,
+            agentName: face.name,
+            agentAvatarKind: face.avatarKind,
+            agentAvatarIcon: face.avatarIcon,
+            agentAvatarColor: face.avatarColor,
+            agentAvatarShape: face.avatarShape,
+            agentAvatarImageUrl: face.avatarImageUrl,
+          },
+        )}
+        size={28}
+        decorative
+        mode="static"
+      />
+    ) : (
+      <Avatar
+        kind="person"
+        domain={null}
+        name={thread.contactName}
+        email={thread.contactEmail}
+        size={32}
+      />
+    )
+
+  const time = (
+    <span
+      className="tabular-nums"
+      title={
+        thread.lastMessageAt
+          ? formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)
+          : undefined
+      }
+    >
+      {formatRelativeTime(thread.lastMessageAt, t, i18n.language)}
+    </span>
+  )
+
+  const actions = showActions ? (
+    <>
+      {thread.status === 'closed' || thread.status === 'spam' ? (
+        <Button
+          variant="ghost"
+          size="iconSm"
+          type="button"
+          disabled={deleting}
+          onClick={() => onDelete?.(thread.id)}
+          title={t('threadList.deleteThread')}
+          aria-label={t('threadList.deleteThread')}
+          className="text-text-muted hover:bg-status-error/10 hover:text-status-error"
+        >
+          <Trash2 size={14} />
+        </Button>
+      ) : onClose ? (
+        <Button
+          variant="ghost"
+          size="iconSm"
+          type="button"
+          disabled={deleting}
+          onClick={() => onClose(thread.id)}
+          title={t('threadList.closeThread')}
+          data-bokito-tip-detail="E"
+          aria-label={t('threadList.closeThread')}
+          className="text-text-muted hover:bg-bg-hover hover:text-text-heading"
+        >
+          <Archive size={14} />
+        </Button>
+      ) : null}
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        {createPortal(
+          <DropdownMenuTrigger asChild>
+            <span
+              aria-hidden
+              className="pointer-events-none fixed z-50 h-px w-px"
+              style={{ left: menuAnchor.x, top: menuAnchor.y }}
+            />
+          </DropdownMenuTrigger>,
+          document.body,
+        )}
+        <Button
+          variant="ghost"
+          size="iconSm"
+          type="button"
+          onClick={(event) => {
+            if (menuOpen) {
+              setMenuOpen(false)
+              return
+            }
+            const rect = event.currentTarget.getBoundingClientRect()
+            openRowMenu(rect.right, rect.bottom)
+          }}
+          onPointerDown={stop}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return
+            stop(event)
+            event.preventDefault()
+            const rect = event.currentTarget.getBoundingClientRect()
+            openRowMenu(rect.right, rect.bottom)
+          }}
+          aria-label={t('threadChrome.threadActions')}
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          title={t('threadChrome.threadActions')}
+          className="text-text-muted hover:bg-bg-hover hover:text-text-heading"
+        >
+          <MoreHorizontal size={14} />
+        </Button>
+        <DropdownMenuContent
+          key={`${menuAnchor.x}:${menuAnchor.y}`}
+          align="end"
+          side="bottom"
+          sideOffset={4}
+          onClick={stop}
+        >
+          {thread.hasUnread ? (
+            <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead?.(thread.id)}>
+              <MailOpen size={14} className="text-text-muted" />
+              {t('threadChrome.markRead')}
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem className="gap-2" onSelect={() => onMarkUnread?.(thread.id)}>
+              <Mail size={14} className="text-text-muted" />
+              {t('threadChrome.markUnread')}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            className="gap-2"
+            onSelect={() => onTogglePin?.(thread.id, thread.isPinned)}
+          >
+            {thread.isPinned ? (
+              <PinOff size={14} className="text-text-muted" />
+            ) : (
+              <Pin size={14} className="text-text-muted" />
+            )}
+            {thread.isPinned ? t('threadChrome.unpin') : t('threadChrome.pin')}
+          </DropdownMenuItem>
+          {onDelete ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="gap-2 text-status-error focus:text-status-error"
+                disabled={deleting}
+                onSelect={() => onDelete(thread.id)}
+              >
+                <Trash2 size={14} />
+                {t('threadList.deleteThread')}
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  ) : undefined
+
+  const description = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      {priorityDot && !isDirect ? (
+        <span
+          className={cn(
+            'h-1.5 w-1.5 shrink-0 rounded-full',
+            priorityDot,
+            thread.priority === 'urgent' && 'pulse-dot',
+          )}
+        />
+      ) : null}
+      <span className="min-w-0 flex-1 truncate-fade font-medium text-text-secondary">
+        {secondaryLabel}
+      </span>
+      {scheduleAt ? (
+        <span
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 text-2xs tabular-nums',
+            scheduleDue ? 'text-status-warning' : 'text-text-muted',
+            thread.schedule && !thread.schedule.enabled && 'line-through opacity-70',
+          )}
+          title={
+            thread.hiddenUntil
+              ? t('threadList.hiddenUntil', { when: scheduleLongLabel(thread.hiddenUntil, i18n.language) })
+              : scheduleLongLabel(scheduleAt, i18n.language)
+          }
+          data-testid="thread-row-schedule"
+        >
+          {thread.hiddenUntil ? (
+            <EyeOff size={14} aria-hidden />
+          ) : thread.schedule?.repeat ? (
+            <Repeat size={14} aria-hidden />
+          ) : (
+            <CalendarClock size={14} aria-hidden />
+          )}
+          {scheduleChipLabel(scheduleAt, i18n.language)}
+        </span>
+      ) : null}
+      {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
+        <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-2xs" data-testid="thread-row-human-requested">
+          {t('listItem.humanRequested')}
+        </Badge>
+      ) : null}
+      {handlingOverride ? (
+        <span
+          title={tc(`aiHandling.modes.${handlingOverride}.label`)}
+          className="inline-flex shrink-0"
+          data-testid="thread-row-ai-handling"
+        >
+          <AiHandlingIcon mode={handlingOverride} size={12} />
+        </span>
+      ) : null}
+      {showDecision ? (
+        <span
+          title={t('listItem.needsDecision')}
+          aria-label={t('listItem.needsDecision')}
+          className="ml-auto inline-flex shrink-0 text-ai-ink"
+        >
+          <ArrowLeft size={14} aria-hidden />
+        </span>
+      ) : showNeedsReply ? (
+        <span
+          title={t('listItem.needsReply')}
+          aria-label={t('listItem.needsReply')}
+          className="ml-auto inline-flex shrink-0 text-accent"
+        >
+          <ArrowLeft size={14} aria-hidden />
+        </span>
+      ) : null}
+    </span>
+  )
+
+  const footer = hasMeta ? (
     <div
-      role="button"
-      tabIndex={0}
+      className={cn(
+        'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+        // Keep rows open while bulk-selecting so hover never shifts checkbox targets.
+        compact && !isSelected && !selectionActive
+          ? 'grid-rows-[0fr] group-hover/row:grid-rows-[1fr] group-focus-within/row:grid-rows-[1fr] group-data-[menu-open]/row:grid-rows-[1fr]'
+          : 'grid-rows-[1fr]',
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+          {assigneeName && !isDirect ? (
+            <div className="flex min-w-0 shrink items-center gap-1">
+              {assigneeKind === 'team' ? (
+                <TeamFacepile
+                  team={
+                    (assigneeSeed ? teams.find((row) => row.id === assigneeSeed) : null) ?? {
+                      id: assigneeSeed ?? undefined,
+                      name: assigneeName,
+                      avatar_kind: assigneeAvatarKind,
+                      avatar_icon: assigneeAvatarIcon,
+                      avatar_color: assigneeAvatarColor,
+                      avatar_image_url: assigneeAvatarImageUrl,
+                    }
+                  }
+                  size={14}
+                  linkAgents={false}
+                  presence={assigneePresence}
+                />
+              ) : assigneeKind === 'agent' ? (
+                <Avatar
+                  kind="agent"
+                  agent={preferLiveAgentAvatar(
+                    assigneeSeed ? agents.find((row) => row.id === assigneeSeed) : null,
+                    {
+                      id: assigneeSeed,
+                      name: assigneeName,
+                      avatar_kind: assigneeAvatarKind,
+                      avatar_icon: assigneeAvatarIcon,
+                      avatar_color: assigneeAvatarColor,
+                      avatar_shape: assigneeAvatarShape,
+                      avatar_image_url: assigneeAvatarImageUrl,
+                    },
+                  )}
+                  fallbackName={assigneeName || 'Agent'}
+                  size={14}
+                  decorative
+                  mode="static"
+                  activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
+                />
+              ) : (
+                <Avatar
+                  kind="person"
+                  name={assigneeName ?? '?'}
+                  email={assigneeEmail ?? assigneeName ?? ''}
+                  imageUrl={assigneeAvatarUrl}
+                  size={16}
+                  decorative
+                  presence={
+                    assigneePresence === 'available' ||
+                    assigneePresence === 'away' ||
+                    assigneePresence === 'offline'
+                      ? assigneePresence
+                      : undefined
+                  }
+                />
+              )}
+              <span className="truncate-fade text-xs text-text-muted">
+                {assigneeName ?? t('listItem.assigned')}
+              </span>
+            </div>
+          ) : null}
+          {ticket ? (
+            <span data-testid="thread-row-ticket" className="inline-flex items-center">
+              <TagPill
+                names={ticket.name}
+                tone="action"
+                size="sm"
+                color={(ticket.color || '') as LabelColor}
+                icon={ticket.icon}
+                title={ticket.stage ? `${ticket.name} · ${stageLabel(ticket.stage, t)}` : ticket.name}
+                trailing={
+                  ticket.stage ? (
+                    <StageProgressIcon
+                      kind={ticket.stage.kind}
+                      fill={ticket.stage.progress}
+                      size={11}
+                      title={stageLabel(ticket.stage, t)}
+                    />
+                  ) : null
+                }
+              />
+            </span>
+          ) : null}
+          {freeTags.map((tag) => (
+            <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
+          ))}
+          {folder ? (
+            <span
+              className="inline-flex max-w-[9rem] items-center gap-1 text-2xs text-text-muted"
+              title={`${t('threadChrome.filedIn')}: ${folder.path}`}
+              data-testid="thread-row-folder"
+            >
+              <FolderIcon size={11} aria-hidden className="shrink-0" />
+              <span className="truncate">{folder.name}</span>
+            </span>
+          ) : null}
+          {typeof thread.certainty === 'number' && thread.certainty >= 80 ? (
+            <span
+              className="shrink-0 text-2xs text-text-muted"
+              title={t('listItem.certaintyHint', {
+                defaultValue: 'AI certainty {{value}}%',
+                value: thread.certainty,
+              })}
+              data-testid="thread-row-certainty"
+            >
+              {thread.certainty}%
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  ) : null
+
+  return (
+    <EntityRow
+      interactive
+      onClick={() => onSelect(thread.id)}
       draggable
       onDragStart={(event) => {
         setThreadDragData(event.dataTransfer, dragIds)
       }}
-      onClick={() => onSelect(thread.id)}
       onContextMenu={
         showActions
           ? (event) => {
@@ -290,19 +674,23 @@ function ThreadListItem({
             }
           : undefined
       }
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onSelect(thread.id)
-        }
-      }}
       data-menu-open={menuOpen ? '' : undefined}
       data-active={isSelected || undefined}
       data-ai-managed={aiActive || undefined}
+      data-channel={thread.channel ?? undefined}
+      density={compact ? 'sm' : 'md'}
+      selected={isSelected}
+      unread={thread.hasUnread}
+      select={leadSlot}
+      leading={avatar}
+      title={primaryLabel}
+      meta={time}
+      actions={actions}
+      description={description}
+      footer={footer}
       className={cn(
-        'row-interactive group/thread w-full cursor-pointer rounded-md border border-transparent px-2.5 text-left',
-        compact ? 'py-1.5' : 'py-2',
-        isSelected ? THREAD_ROW_SELECTED_CLASS : 'hover:bg-bg-hover/50 data-[menu-open]:bg-bg-hover/50',
+        'row-interactive gap-2 border border-transparent',
+        !isSelected && 'data-[menu-open]:bg-bg-hover/50',
         aiActive && THREAD_ROW_AI_CLASS,
         enterIndex != null && enterIndex < 12 && 'list-row-enter',
       )}
@@ -311,427 +699,7 @@ function ThreadListItem({
           ? ({ '--stagger': enterIndex } as CSSProperties)
           : undefined
       }
-      data-channel={thread.channel ?? undefined}
-    >
-      <div className="flex min-w-0 items-start gap-2">
-        {/* Lead slot: state dot, or the checkbox when selecting. */}
-        <span className="relative mt-0.5 flex h-7 w-4 shrink-0 items-center justify-center">
-          <span
-            aria-hidden
-            className={cn(
-              'absolute inset-0 flex items-center justify-center transition-opacity',
-              checkboxVisible && 'opacity-0',
-              selectable && !checkboxVisible && 'group-hover/thread:opacity-0 group-data-[menu-open]/thread:opacity-0',
-            )}
-          >
-            {thread.isPinned ? (
-              <Pin size={14} className="rotate-45 fill-text-muted text-text-muted" />
-            ) : (
-              <ThreadStatusDot
-                status={thread.status}
-                unread={thread.hasUnread}
-                className={cn(thread.hasUnread && isSelected && 'pulse-dot')}
-              />
-            )}
-          </span>
-          {selectable ? (
-            <Checkbox
-              checked={Boolean(checked)}
-              aria-label={t('threadList.selectThread')}
-              onClick={stop}
-              onKeyDown={stop}
-              onChange={(event) =>
-                onToggleChecked?.(thread.id, (event.nativeEvent as MouseEvent).shiftKey)
-              }
-              className={cn(
-                'absolute transition-opacity',
-                checkboxVisible
-                  ? 'opacity-100'
-                  : 'opacity-0 group-hover/thread:opacity-100 group-data-[menu-open]/thread:opacity-100 has-[:focus-visible]:opacity-100',
-              )}
-            />
-          ) : null}
-        </span>
-
-        {isDirect || isAgentThread ? (
-          <Avatar
-            kind="agent"
-            agent={preferLiveAgentAvatar(
-                face.id
-                  ? agents.find((row) => String(row.id) === String(face.id))
-                  : undefined,
-                {
-                  name: face.name,
-                  agentId: face.id,
-                  agentName: face.name,
-                  agentAvatarKind: face.avatarKind,
-                  agentAvatarIcon: face.avatarIcon,
-                  agentAvatarColor: face.avatarColor,
-                  agentAvatarShape: face.avatarShape,
-                  agentAvatarImageUrl: face.avatarImageUrl,
-                },
-              )}
-            size={28}
-            className="mt-0.5"
-            decorative
-            mode="static"
-          />
-        ) : (
-          <Avatar
-            kind="person"
-            domain={null}
-            name={thread.contactName}
-            email={thread.contactEmail}
-            size={32}
-            className="mt-0.5"
-          />
-        )}
-
-        <div className="min-w-0 flex-1">
-          <div className="mb-0.5 flex h-6 items-center justify-between gap-1">
-            <span
-              className={cn(
-                'min-w-0 truncate-fade text-sm font-medium',
-                thread.hasUnread ? 'text-text-heading' : 'text-text-primary',
-              )}
-            >
-              {primaryLabel}
-            </span>
-            <div className="flex shrink-0 items-center gap-0.5">
-              {showActions && (thread.status === 'closed' || thread.status === 'spam') ? (
-                <Button
-                  variant="ghost"
-                  size="iconSm"
-                  type="button"
-                  disabled={deleting}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDelete?.(thread.id)
-                  }}
-                  onKeyDown={stop}
-                  title={t('threadList.deleteThread')}
-                  aria-label={t('threadList.deleteThread')}
-                  className={cn(ROW_ICON_BUTTON, 'hover:bg-status-error/10 hover:text-status-error')}
-                >
-                  <Trash2 size={14} />
-                </Button>
-              ) : showActions && onClose ? (
-                <Button
-                  variant="ghost"
-                  size="iconSm"
-                  type="button"
-                  disabled={deleting}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onClose(thread.id)
-                  }}
-                  onKeyDown={stop}
-                  title={t('threadList.closeThread')}
-                  data-bokito-tip-detail="E"
-                  aria-label={t('threadList.closeThread')}
-                  className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
-                >
-                  <Archive size={14} />
-                </Button>
-              ) : null}
-              {showActions ? (
-              <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-                {createPortal(
-                  <DropdownMenuTrigger asChild>
-                    <span
-                      aria-hidden
-                      className="pointer-events-none fixed z-50 h-px w-px"
-                      style={{ left: menuAnchor.x, top: menuAnchor.y }}
-                    />
-                  </DropdownMenuTrigger>,
-                  document.body,
-                )}
-                <Button
-                  variant="ghost"
-                  size="iconSm"
-                  type="button"
-                  onClick={(event) => {
-                    stop(event)
-                    if (menuOpen) {
-                      setMenuOpen(false)
-                      return
-                    }
-                    const rect = event.currentTarget.getBoundingClientRect()
-                    openRowMenu(rect.right, rect.bottom)
-                  }}
-                  onPointerDown={stop}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ' ') return
-                    stop(event)
-                    event.preventDefault()
-                    const rect = event.currentTarget.getBoundingClientRect()
-                    openRowMenu(rect.right, rect.bottom)
-                  }}
-                  aria-label={t('threadChrome.threadActions')}
-                  aria-expanded={menuOpen}
-                  aria-haspopup="menu"
-                  title={t('threadChrome.threadActions')}
-                  className={cn(ROW_ICON_BUTTON, 'hover:bg-bg-hover hover:text-text-heading')}
-                >
-                  <MoreHorizontal size={14} />
-                </Button>
-                <DropdownMenuContent
-                  key={`${menuAnchor.x}:${menuAnchor.y}`}
-                  align="end"
-                  side="bottom"
-                  sideOffset={4}
-                  onClick={stop}
-                >
-                  {thread.hasUnread ? (
-                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkRead?.(thread.id)}>
-                      <MailOpen size={14} className="text-text-muted" />
-                      {t('threadChrome.markRead')}
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem className="gap-2" onSelect={() => onMarkUnread?.(thread.id)}>
-                      <Mail size={14} className="text-text-muted" />
-                      {t('threadChrome.markUnread')}
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    className="gap-2"
-                    onSelect={() => onTogglePin?.(thread.id, thread.isPinned)}
-                  >
-                    {thread.isPinned ? (
-                      <PinOff size={14} className="text-text-muted" />
-                    ) : (
-                      <Pin size={14} className="text-text-muted" />
-                    )}
-                    {thread.isPinned ? t('threadChrome.unpin') : t('threadChrome.pin')}
-                  </DropdownMenuItem>
-                  {onDelete ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="gap-2 text-status-error focus:text-status-error"
-                        disabled={deleting}
-                        onSelect={() => onDelete(thread.id)}
-                      >
-                        <Trash2 size={14} />
-                        {t('threadList.deleteThread')}
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              ) : null}
-              <span
-                className="text-xs tabular-nums text-text-muted"
-                title={
-                  thread.lastMessageAt
-                    ? formatAppDateTime(new Date(thread.lastMessageAt), i18n.language)
-                    : undefined
-                }
-              >
-                {formatRelativeTime(thread.lastMessageAt, t, i18n.language)}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {priorityDot && !isDirect ? (
-              <span
-                className={cn(
-                  'h-1.5 w-1.5 shrink-0 rounded-full',
-                  priorityDot,
-                  thread.priority === 'urgent' && 'pulse-dot',
-                )}
-              />
-            ) : null}
-            <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-secondary">
-              {secondaryLabel}
-            </span>
-            {scheduleAt ? (
-              <span
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-1 text-2xs tabular-nums',
-                  scheduleDue ? 'text-status-warning' : 'text-text-muted',
-                  thread.schedule && !thread.schedule.enabled && 'line-through opacity-70',
-                )}
-                title={
-                  thread.hiddenUntil
-                    ? t('threadList.hiddenUntil', { when: scheduleLongLabel(thread.hiddenUntil, i18n.language) })
-                    : scheduleLongLabel(scheduleAt, i18n.language)
-                }
-                data-testid="thread-row-schedule"
-              >
-                {thread.hiddenUntil ? (
-                  <EyeOff size={14} aria-hidden />
-                ) : thread.schedule?.repeat ? (
-                  <Repeat size={14} aria-hidden />
-                ) : (
-                  <CalendarClock size={14} aria-hidden />
-                )}
-                {scheduleChipLabel(scheduleAt, i18n.language)}
-              </span>
-            ) : null}
-            {thread.aiHandling?.reason === 'handoff_requested' || thread.aiHandling?.reason === 'escalated' ? (
-              <Badge variant="warning" className="shrink-0 px-1.5 py-0 text-2xs" data-testid="thread-row-human-requested">
-                {t('listItem.humanRequested')}
-              </Badge>
-            ) : null}
-            {handlingOverride ? (
-              <span
-                title={tc(`aiHandling.modes.${handlingOverride}.label`)}
-                className="inline-flex shrink-0"
-                data-testid="thread-row-ai-handling"
-              >
-                <AiHandlingIcon mode={handlingOverride} size={12} />
-              </span>
-            ) : null}
-            {showDecision ? (
-              <span
-                title={t('listItem.needsDecision')}
-                aria-label={t('listItem.needsDecision')}
-                className="ml-auto inline-flex shrink-0 text-ai-ink"
-              >
-                <ArrowLeft size={14} aria-hidden />
-              </span>
-            ) : showNeedsReply ? (
-              <span
-                title={t('listItem.needsReply')}
-                aria-label={t('listItem.needsReply')}
-                className="ml-auto inline-flex shrink-0 text-accent"
-              >
-                <ArrowLeft size={14} aria-hidden />
-              </span>
-            ) : null}
-          </div>
-
-          {hasMeta ? (
-            <div
-              className={cn(
-                'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
-                // Keep rows open while bulk-selecting so hover never shifts checkbox targets.
-                compact && !isSelected && !selectionActive
-                  ? 'grid-rows-[0fr] group-hover/thread:grid-rows-[1fr] group-focus-within/thread:grid-rows-[1fr] group-data-[menu-open]/thread:grid-rows-[1fr]'
-                  : 'grid-rows-[1fr]',
-              )}
-            >
-              <div className="min-h-0 overflow-hidden">
-                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-                  {assigneeName && !isDirect ? (
-                    <div className="flex min-w-0 shrink items-center gap-1">
-                      {assigneeKind === 'team' ? (
-                        <TeamFacepile
-                          team={
-                            (assigneeSeed ? teams.find((row) => row.id === assigneeSeed) : null) ?? {
-                              id: assigneeSeed ?? undefined,
-                              name: assigneeName,
-                              avatar_kind: assigneeAvatarKind,
-                              avatar_icon: assigneeAvatarIcon,
-                              avatar_color: assigneeAvatarColor,
-                              avatar_image_url: assigneeAvatarImageUrl,
-                            }
-                          }
-                          size={14}
-                          linkAgents={false}
-                          presence={assigneePresence}
-                        />
-                      ) : assigneeKind === 'agent' ? (
-                        <Avatar
-                          kind="agent"
-                          agent={preferLiveAgentAvatar(
-                            assigneeSeed ? agents.find((row) => row.id === assigneeSeed) : null,
-                            {
-                              id: assigneeSeed,
-                              name: assigneeName,
-                              avatar_kind: assigneeAvatarKind,
-                              avatar_icon: assigneeAvatarIcon,
-                              avatar_color: assigneeAvatarColor,
-                              avatar_shape: assigneeAvatarShape,
-                              avatar_image_url: assigneeAvatarImageUrl,
-                            },
-                          )}
-                          fallbackName={assigneeName || 'Agent'}
-                          size={14}
-                          decorative
-                          mode="static"
-                          activity={assigneeSeed ? agentPresenceOf(assigneeSeed) : 'standby'}
-                        />
-                      ) : (
-                        <Avatar
-                          kind="person"
-                          name={assigneeName ?? '?'}
-                          email={assigneeEmail ?? assigneeName ?? ''}
-                          imageUrl={assigneeAvatarUrl}
-                          size={16}
-                          decorative
-                          presence={
-                            assigneePresence === 'available' ||
-                            assigneePresence === 'away' ||
-                            assigneePresence === 'offline'
-                              ? assigneePresence
-                              : undefined
-                          }
-                        />
-                      )}
-                      <span className="truncate-fade text-xs text-text-muted">
-                        {assigneeName ?? t('listItem.assigned')}
-                      </span>
-                    </div>
-                  ) : null}
-                  <div className="contents">
-                    {ticket ? (
-                      <span data-testid="thread-row-ticket" className="inline-flex items-center">
-                        <TagPill
-                          names={ticket.name}
-                          tone="action"
-                          size="sm"
-                          color={(ticket.color || '') as LabelColor}
-                          icon={ticket.icon}
-                          title={ticket.stage ? `${ticket.name} · ${stageLabel(ticket.stage, t)}` : ticket.name}
-                          trailing={
-                            ticket.stage ? (
-                              <StageProgressIcon
-                                kind={ticket.stage.kind}
-                                fill={ticket.stage.progress}
-                                size={11}
-                                title={stageLabel(ticket.stage, t)}
-                              />
-                            ) : null
-                          }
-                        />
-                      </span>
-                    ) : null}
-                    {freeTags.map((tag) => (
-                      <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
-                    ))}
-                    {folder ? (
-                      <span
-                        className="inline-flex max-w-[9rem] items-center gap-1 text-2xs text-text-muted"
-                        title={`${t('threadChrome.filedIn')}: ${folder.path}`}
-                        data-testid="thread-row-folder"
-                      >
-                        <FolderIcon size={11} aria-hidden className="shrink-0" />
-                        <span className="truncate">{folder.name}</span>
-                      </span>
-                    ) : null}
-                    {typeof thread.certainty === 'number' && thread.certainty >= 80 ? (
-                      <span
-                        className="shrink-0 text-2xs text-text-muted"
-                        title={t('listItem.certaintyHint', {
-                          defaultValue: 'AI certainty {{value}}%',
-                          value: thread.certainty,
-                        })}
-                        data-testid="thread-row-certainty"
-                      >
-                        {thread.certainty}%
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
+    />
   )
 }
 

@@ -38,7 +38,7 @@ Rare one-off styles fold into the nearest catalog component.
 | | `ApiErrorBanner` | API error with retry (a Callout preset) |
 | Data | `Badge` + `lib/badge-tones.ts` | Every pill: status, role, type, count label |
 | | `MetaLine` | "a · b · c" muted facts |
-| | `EntityRow` (`leading`, `title`, `badges`, `description`, `meta`, `trailing`, `actions`; `href`, `interactive`, `selected`, `unread`, `density`), `EntityList` (`empty`, `loading`), `DescriptionRow` | Every list row; label/value pairs |
+| | `EntityRow` (`select`, `leading`, `title`, `badges`, `description`, `footer`, `meta`, `trailing`, `actions`; `href`, `interactive`, `selected`, `unread`, `density`), `EntityList` (`empty`, `loading`), `DescriptionRow` | Every list row; label/value pairs |
 | | `StatTile`, `StatGrid` | KPIs |
 | | `Chart` | Bar, line, area, and sparkline (`showAxes={false}`). Canvas, Overview, Usage. Swimlanes (`AgentActivityTimeline`) stay custom |
 | | `CapBar` | Usage against a cap |

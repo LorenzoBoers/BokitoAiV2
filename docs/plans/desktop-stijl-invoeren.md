@@ -570,7 +570,9 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 
 - **Stap 6 bestaat niet in de code.** `flows/FlowTicketBoard` heeft alleen het bord: kolommen met `FlowTicketCard`. Er is geen lijstweergave, ook niet elders onder `components/flows` of op de werkpagina's. Een lijstweergave bouwen staat niet in het plan, dus stap 6 is overgeslagen.
 - Zonder stap 6 haalt de klaar-eis "zes lijsten" er hoogstens vijf: nu vier, na stap 5 vijf. `EntityList` heeft 5 gebruikers (eis: 4).
-- **Stap 5 (`ThreadListItem`) wacht op akkoord.** Het voorstel staat in de PR-tekst.
+- **Stap 5 (`ThreadListItem`) is na akkoord omgezet.** Gekozen: ongelezen is titel 600 en de bestaande statusstip, acties nemen bij hover de plaats van de tijd in, geselecteerd is vol `bg-bg-hover`. `EntityRow` kreeg daarvoor de slots `select` en `footer`. Dat de acties geen ruimte innemen geldt nu voor alle lijsten, dus ook voor Contacten en Leden.
+- De rij is nu een `Pressable` binnen een slepende rij. In Chromium start slepen ook vanaf een knop; in Firefox niet getest.
+- Avatar en tekst staan verticaal gecentreerd, zoals in elke `EntityRow`, en niet meer bovenaan. Een titel die niet ongelezen is, staat in kopkleur in plaats van `text-primary`.
 - Mappen: het pad van de bovenliggende mappen was een rij links in de kaart. In de rij is het nu gewone tekst, omdat de rij zelf een link is en links niet in links mogen.
 - Leden: de kolomkoppen en de sleutels `membersPage.col*` en `membersPage.openAgent` worden niet meer gebruikt. Ze zijn blijven staan, want copy opruimen staat niet in het plan.
 - De vinkjeslijst in de teamdialoog en de keuzelijsten in pickers zijn formuliervelden, geen lijsten. Die staan niet op `EntityRow`.
@@ -579,7 +581,9 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 
 - Vóór de laatste sync draaide dev op `6db1ae83`, met daarover de bestanden van sync 1 (`cd2a8090`) en sync 2 (`9253452a`).
 - Van de 329 bestanden die tussen `9253452a` en de branch veranderen, zijn er 15 op dev zelf bewerkt na sync 2. De laatste wijziging was om 09:06, dus daar wordt nog gewerkt. Een driewegsamenvoeging (basis `9253452a`) gaat bij 8 bestanden schoon. Bij 7 geeft hij conflicten: `CallRecord`, `LiveCallComposerBar`, `TimelineItem`, `FolderContents`, `ProjectDocs`, `WorksInSection` en `DepartmentPage`.
-- De laatste sync en de visuele check wachten op een keuze. De 314 overige bestanden kunnen zonder risico.
+- Gekozen: alleen de bestanden zonder conflict syncen (`c52a2ff0`). 314 bestanden zijn overgenomen, 8 samengevoegd en 11 verwijderd; de 7 met conflict staan zoals ze op dev stonden.
+- `TimelineItem` en `DepartmentPage` (op dev gehouden) importeren `UserAvatar`, `ContactAvatar` en `AgentMark`, die deze branch verwijdert. Alleen op dev staan daarom tijdelijk `UserAvatar`, `ContactAvatar`, `AgentMark`, `AvatarDisc` en `PersonAvatar` uit `9253452a`. Haal ze weg zodra de andere agent die twee bestanden heeft omgezet.
+- Op dev staat los een `components/ui/Chart.tsx` (10 oktober, niet in git) naast `chart.tsx`. `tsc` meldt een verschil in hoofdletters. Dat was er al vóór deze branch.
 
 ### Tijdelijke copy-allowlist: opruimen na merge
 

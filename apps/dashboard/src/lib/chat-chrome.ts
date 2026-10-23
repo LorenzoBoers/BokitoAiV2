@@ -21,8 +21,5 @@ export const THREAD_COMPOSER_DOCK_CLASS = 'shrink-0 border-t border-border bg-bg
 export const COMPOSER_AI_STRIP_CLASS =
   'border-ai/55 bg-bg-surface focus-within:border-ai/80'
 
-/** Selected list row — same wash as hover; left ink comes from `.row-interactive`. */
-export const THREAD_ROW_SELECTED_CLASS = 'bg-bg-hover/50'
-
 /** AI-decision rows: tint only; strip color via `[data-ai-managed]` in CSS. */
 export const THREAD_ROW_AI_CLASS = 'bg-ai/[0.03]'
