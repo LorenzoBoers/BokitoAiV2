@@ -2,22 +2,22 @@
 
 export const elevation = {
   dark: {
-    btn: '0 1px 0 rgba(255, 255, 255, 0.06) inset',
+    btn: 'none',
     insetHighlight: '0 1px 0 rgba(255, 255, 255, 0.04) inset',
     chipActive: '0 0 0 1px rgb(var(--color-border) / 0.9)',
     card: '0 0 0 0 transparent',
     cardHover: '0 0 0 1px rgb(var(--color-border-light) / 0.9)',
-    overlay:
-      '0 0 0 1px rgba(255, 255, 255, 0.04), 0 16px 48px -16px rgba(0, 0, 0, 0.7)',
+    overlay: '0 0 0 1px rgb(255 255 255 / 0.06), 0 18px 48px -18px rgb(0 0 0 / 0.7)',
+    composer: '0 0 0 1px rgb(var(--color-border)), 0 4px 18px -6px rgb(0 0 0 / 0.45)',
   },
   light: {
-    btn: '0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 1px 2px rgba(20, 20, 18, 0.12)',
+    btn: 'none',
     insetHighlight: '0 1px 0 rgba(255, 255, 255, 0.6) inset',
     chipActive: '0 0 0 1px rgb(var(--color-border) / 0.9)',
-    card: '0 1px 0 rgba(20, 20, 18, 0.02)',
+    card: '0 0 0 0 transparent',
     cardHover: '0 0 0 1px rgb(var(--color-border-light) / 0.85)',
-    overlay:
-      '0 0 0 1px rgba(24, 24, 22, 0.035), 0 12px 32px -12px rgba(24, 24, 22, 0.14)',
+    overlay: '0 0 0 1px rgb(30 25 15 / 0.06), 0 16px 40px -16px rgb(30 25 15 / 0.2)',
+    composer: '0 0 0 1px rgb(var(--color-border)), 0 4px 16px -8px rgb(30 25 15 / 0.14)',
   },
 } as const
 
@@ -28,4 +28,5 @@ export const elevationCssName = {
   card: 'card',
   cardHover: 'card-hover',
   overlay: 'overlay',
+  composer: 'composer',
 } as const

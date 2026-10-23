@@ -120,6 +120,7 @@ const boxShadow = {
   card: 'var(--shadow-card)',
   'card-hover': 'var(--shadow-card-hover)',
   overlay: 'var(--shadow-overlay)',
+  composer: 'var(--shadow-composer)',
 }
 
 const enter = motionVar('easing', 'enter')

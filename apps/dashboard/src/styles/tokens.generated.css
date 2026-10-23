@@ -29,12 +29,13 @@
   --color-status-info: 132 171 255;
   --color-cutout: var(--color-bg);
   --body-bg: #262523;
-  --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  --shadow-btn: none;
   --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
   --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
   --shadow-card: 0 0 0 0 transparent;
   --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.9);
-  --shadow-overlay: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 16px 48px -16px rgba(0, 0, 0, 0.7);
+  --shadow-overlay: 0 0 0 1px rgb(255 255 255 / 0.06), 0 18px 48px -18px rgb(0 0 0 / 0.7);
+  --shadow-composer: 0 0 0 1px rgb(var(--color-border)), 0 4px 18px -6px rgb(0 0 0 / 0.45);
   --motion-duration-120: 120ms;
   --motion-duration-160: 160ms;
   --motion-duration-180: 180ms;
@@ -77,10 +78,11 @@
   --color-status-info: 40 86 194;
   --color-cutout: var(--color-bg);
   --body-bg: #fbfaf6;
-  --shadow-btn: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 1px 2px rgba(20, 20, 18, 0.12);
+  --shadow-btn: none;
   --shadow-inset-highlight: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
   --shadow-chip-active: 0 0 0 1px rgb(var(--color-border) / 0.9);
-  --shadow-card: 0 1px 0 rgba(20, 20, 18, 0.02);
+  --shadow-card: 0 0 0 0 transparent;
   --shadow-card-hover: 0 0 0 1px rgb(var(--color-border-light) / 0.85);
-  --shadow-overlay: 0 0 0 1px rgba(24, 24, 22, 0.035), 0 12px 32px -12px rgba(24, 24, 22, 0.14);
+  --shadow-overlay: 0 0 0 1px rgb(30 25 15 / 0.06), 0 16px 40px -16px rgb(30 25 15 / 0.2);
+  --shadow-composer: 0 0 0 1px rgb(var(--color-border)), 0 4px 16px -8px rgb(30 25 15 / 0.14);
 }
