@@ -9,8 +9,9 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
-import { TeamCardsSkeleton } from '../components/ui/skeleton'
 import { Card } from '../components/ui/card'
+import { EntityList, EntityRow } from '../components/ui/entity-row'
+import { IconTile } from '../components/ui/icon-tile'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { PageHeader } from '../components/ui/page-header'
@@ -20,7 +21,6 @@ import { Avatar } from '../components/ui/avatar'
 import { AvatarStack } from '../components/ui/AvatarStack'
 import { resolveTeamStackMembers } from '../lib/team-facepile'
 import { platformIcon } from '../lib/platform-icons'
-import { cn } from '../lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import {
   Dialog,
@@ -172,80 +172,44 @@ export default function TeamPage() {
 
       {showDepartments ? (
       <section id="teams" className="space-y-3 scroll-mt-24">
-        <div className="flex flex-col gap-2">
-          {teamsLoading && !overview ? <TeamCardsSkeleton /> : null}
-          {(overview?.teams ?? []).map((team) => {
-            const stack = overview ? resolveTeamMembers(team, overview) : []
-            const Icon = platformIcon(team.icon) ?? Building2
-            const canOpen = !team.system && !team.root
-            const body = (
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-bg-hover text-accent"
-                  aria-hidden
-                >
-                  <Icon size={16} strokeWidth={2} />
-                </div>
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-text-heading">
-                    <span className="truncate-fade">{teamNames[team.id]}</span>
-                    {team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
-                  </p>
-                  <p className="truncate-fade text-xs text-text-muted">
-                    {team.system
-                      ? t('teamPage.systemHint.all')
-                      : team.description || t('teamPage.noDescription' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}
-                  </p>
-                  <p className="truncate-fade text-xs text-text-secondary">
-                    {team.system ? null : (
-                      <>
-                        {t(`teamPage.pickup.${team.pickup}`)}
-                        <span className="text-text-muted">{' · '}</span>
-                      </>
-                    )}
-                    <span className="text-text-muted" data-testid="team-metrics">
+        <Card className="overflow-hidden">
+          <EntityList className="px-1 py-1" loading={teamsLoading && !overview}>
+            {(overview?.teams ?? []).map((team) => {
+              const stack = overview ? resolveTeamMembers(team, overview) : []
+              const Icon = platformIcon(team.icon) ?? Building2
+              const canOpen = !team.system && !team.root
+              const about = team.system
+                ? t('teamPage.systemHint.all')
+                : team.description || t('teamPage.noDescription' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)
+              return (
+                <EntityRow
+                  key={team.id}
+                  href={canOpen ? departmentPath(team.id) : undefined}
+                  data-testid={canOpen ? 'open-department' : undefined}
+                  leading={
+                    <IconTile icon={Icon} tone="accent" />
+                  }
+                  title={teamNames[team.id]}
+                  badges={team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
+                  description={team.system ? about : `${t(`teamPage.pickup.${team.pickup}`)} · ${about}`}
+                  meta={
+                    <span data-testid="team-metrics">
                       {t('teamPage.metrics', {
                         questions: team.metrics.questions,
                         answerTime: formatAnswerMinutes(team.metrics.answer_minutes),
                         pickedUp: team.metrics.picked_up,
                       })}
+                      {stack.length === 0 ? ` · ${t('teamPage.memberCount', { count: team.member_count })}` : null}
                     </span>
-                    {stack.length === 0 ? (
-                      <>
-                        <span className="text-text-muted">{' · '}</span>
-                        {t('teamPage.memberCount', { count: team.member_count })}
-                      </>
-                    ) : null}
-                  </p>
-                </div>
-                {stack.length > 0 ? (
-                  <AvatarStack members={stack} size={32} linkAgents={false} className="shrink-0" />
-                ) : null}
-              </div>
-            )
-            const cardClass = cn(
-              'px-4 py-3',
-              canOpen && 'transition-colors hover:border-border-light hover:bg-bg-hover/50',
-            )
-            if (canOpen) {
-              return (
-                <Link
-                  key={team.id}
-                  to={departmentPath(team.id)}
-                  className="block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-                  data-testid="open-department"
-                >
-                  <Card className={cardClass}>{body}</Card>
-                </Link>
+                  }
+                  trailing={
+                    stack.length > 0 ? <AvatarStack members={stack} size={32} linkAgents={false} /> : null
+                  }
+                />
               )
-            }
-            return (
-              <Card key={team.id} className={cardClass}>
-                {body}
-              </Card>
-            )
-          })}
-        </div>
+            })}
+          </EntityList>
+        </Card>
       </section>
       ) : null}
 

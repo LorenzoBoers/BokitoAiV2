@@ -377,7 +377,6 @@ export {
   StatTilesSkeleton,
   StepListSkeleton,
   SwitchRowsSkeleton,
-  TeamCardsSkeleton,
   TokenRowsSkeleton,
   TrashRowsSkeleton,
   ChartPanelSkeleton,

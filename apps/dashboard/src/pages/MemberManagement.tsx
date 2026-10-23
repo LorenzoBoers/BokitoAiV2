@@ -2,7 +2,7 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
+import { Check, ChevronDown, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
 import { Avatar } from '../components/ui/avatar'
 import { agentProfileAccentColor, resolveAgentAvatarColor, type AgentAvatarSource } from '../lib/agent-avatar'
 import {
@@ -23,7 +23,7 @@ import { inviteMailFeedback } from '../lib/invite-feedback'
 import { isLikelyEmail } from '../lib/invite-email'
 import { Button } from '../components/ui/button'
 import { EmptyState } from '../components/ui/empty-state'
-import { DirectoryRowsSkeleton } from '../components/ui/skeleton'
+import { EntityList, EntityRow } from '../components/ui/entity-row'
 import { Input } from '../components/ui/input'
 import { Card } from '../components/ui/card'
 import { Badge, type BadgeTone } from '../components/ui/badge'
@@ -46,7 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { seenToIso } from '../components/inbox/IdentitySeenLine'
 import { agentFunctionLabel } from '../lib/workforce-nav-agents'
 import { connectionsPathWithKind } from '../lib/integration-kind-url'
@@ -604,7 +603,6 @@ export default function MemberManagement({
     { id: 'deactivated', label: t('membersPage.tabDeactivated'), count: deactivatedPeople.length + deactivatedAgents.length },
   ]
 
-  const colSpan = 8
 
   const lastActiveLabel = (at: string | number | null | undefined): string => {
     const iso = seenToIso(at)
@@ -751,183 +749,176 @@ export default function MemberManagement({
           </div>
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('membersPage.colName')}</TableHead>
-              <TableHead>{t('membersPage.colType')}</TableHead>
-              <TableHead>{t('membersPage.colRoleOrCeiling')}</TableHead>
-              <TableHead>{t('membersPage.colTeams')}</TableHead>
-              <TableHead>{t('membersPage.colOpen')}</TableHead>
-              <TableHead>{t('membersPage.colLastActive')}</TableHead>
-              <TableHead>{t('membersPage.colStatus')}</TableHead>
-              <TableHead className="w-[120px] text-right">{t('membersPage.colActions')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={colSpan}>
-                  <DirectoryRowsSkeleton rows={6} />
-                </TableCell>
-              </TableRow>
-            ) : filteredRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={colSpan}>
-                  <EmptyState
-                    tone="plain"
-                    size="sm"
-                    className="px-2 py-4"
-                    title={t('membersPage.empty')}
-                    description={
-                      search.trim() || filterTab !== 'all'
-                        ? t('membersPage.emptyFiltered')
-                        : canInviteMembers
-                          ? t('membersPage.emptyHint')
-                          : t('membersPage.askAdminEmpty')
-                    }
-                    action={
-                      <div className="flex flex-wrap items-center justify-center gap-2">
-                        {search.trim() || filterTab !== 'all' ? (
-                          <Button size="xs"
-                            type="button"
-                            onClick={() => {
-                              setSearch('')
-                              setFilterTab('all')
-                            }}
-                          >
-                            {t('membersPage.clearFilters')}
-                          </Button>
-                        ) : canInviteMembers ? (
-                          <a
-                            href="#member-invite"
-                            className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
-                          >
-                            {t('membersPage.inviteFromEmpty')}
-                          </a>
-                        ) : null}
-                        <Link
-                          to="/settings/setup"
-                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+        <EntityList
+          className="px-1 py-1"
+          loading={loading}
+          loadingRows={6}
+          empty={
+            <EmptyState
+              tone="plain"
+              size="sm"
+              className="px-2 py-4"
+              title={t('membersPage.empty')}
+              description={
+                search.trim() || filterTab !== 'all'
+                  ? t('membersPage.emptyFiltered')
+                  : canInviteMembers
+                    ? t('membersPage.emptyHint')
+                    : t('membersPage.askAdminEmpty')
+              }
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {search.trim() || filterTab !== 'all' ? (
+                    <Button size="xs"
+                      type="button"
+                      onClick={() => {
+                        setSearch('')
+                        setFilterTab('all')
+                      }}
+                    >
+                      {t('membersPage.clearFilters')}
+                    </Button>
+                  ) : canInviteMembers ? (
+                    <a
+                      href="#member-invite"
+                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg hover:bg-accent-hover"
+                    >
+                      {t('membersPage.inviteFromEmpty')}
+                    </a>
+                  ) : null}
+                  <Link
+                    to="/settings/setup"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover"
+                  >
+                    {t('membersPage.openSetup')}
+                  </Link>
+                </div>
+              }
+            />
+          }
+        >
+          {filteredRows.map((row) => {
+            if (row.kind === 'member') {
+              const m = row.data
+              const busy = rowBusyId === m.id
+              const meta = m.uuid ? metaByUuid?.[m.uuid] : undefined
+              return (
+                <EntityRow
+                  key={`m-${m.id}`}
+                  leading={
+                    <Avatar
+                      kind="person"
+                      decorative={false}
+                      name={m.name}
+                      email={m.email}
+                      imageUrl={m.avatarUrl}
+                      size={32}
+                      presence={meta?.presence}
+                    />
+                  }
+                  title={m.name}
+                  badges={m.isCurrentUser ? <Badge variant="neutral">{t('membersPage.you')}</Badge> : null}
+                  description={[
+                    m.email,
+                    meta?.teams.length ? meta.teams.join(', ') : null,
+                    meta ? t('teamPage.openCount', { count: meta.openOwned }) : null,
+                    meta?.openTurn ? t('teamPage.turnCount', { count: meta.openTurn }) : null,
+                    lastActiveLabel(meta?.lastSeenAt),
+                  ]
+                    .filter((part) => part && part !== '-')
+                    .join(' · ')}
+                  actions={
+                    canManageMembers && !m.isCurrentUser && (m.role !== 'owner' || isWorkspaceOwner) ? (
+                      m.isActive ? (
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
+                          disabled={busy}
+                          onClick={() => void removeMember(m)}
+                          title={t('membersPage.removeTitle')}
+                          aria-label={t('membersPage.removeTitle')}
+                          className="text-text-muted hover:text-status-error"
                         >
-                          {t('membersPage.openSetup')}
-                        </Link>
-                      </div>
-                    }
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredRows.map((row) => {
-                if (row.kind === 'member') {
-                  const m = row.data
-                  const busy = rowBusyId === m.id
-                  const meta = m.uuid ? metaByUuid?.[m.uuid] : undefined
-                  return (
-                    <TableRow key={`m-${m.id}`}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar
-                            kind="person"
-                            decorative={false}
-                            name={m.name}
-                            email={m.email}
-                            imageUrl={m.avatarUrl}
-                            size={32}
-                            presence={meta?.presence}
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="truncate-fade font-medium text-text-primary">{m.name}</span>
-                              {m.isCurrentUser ? <Badge variant="neutral">{t('membersPage.you')}</Badge> : null}
-                            </div>
-                            {m.email ? (
-                              <p className="truncate-fade text-xs text-text-muted">{m.email}</p>
-                            ) : null}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-text-secondary">{t('membersPage.typePerson')}</span>
-                      </TableCell>
-                      <TableCell>
+                          <UserMinus size={14} />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
+                          disabled={busy}
+                          onClick={() => void reactivateMember(m)}
+                          title={t('membersPage.reactivateTitle')}
+                          aria-label={t('membersPage.reactivateTitle')}
+                        >
+                          <RotateCcw size={14} />
+                        </Button>
+                      )
+                    ) : null
+                  }
+                  trailing={
+                    <>
+                      <div className="flex w-[150px] flex-col items-end">
                         {canEditMemberRow(m) && m.isActive ? (
-                          <Select
-                            value={m.role}
-                            onValueChange={(value) => void changeMemberRole(m, asRole(value))}
-                            disabled={busy}
-                          >
-                            <SelectTrigger className="h-7 w-[110px] text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {roleOptionsFor(m).map((role) => (
-                                <SelectItem key={role} value={role}>
-                                  {t(`membersPage.roles.${role}`)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge variant={roleTone(m.role)}>{t(`membersPage.roles.${m.role}`)}</Badge>
-                        )}
-                        {m.role === 'member' && canEditMemberRow(m) && m.isActive ? (
-                          <Select
-                            value={m.scope}
-                            onValueChange={(value) => void changeMemberScope(m, value as MemberScope)}
-                            disabled={busy}
-                          >
-                            <SelectTrigger
-                              className="mt-1 h-7 w-[150px] text-xs"
-                              aria-label={t('membersPage.scopeLabel')}
-                              data-testid="member-scope"
+                            <Select
+                              value={m.role}
+                              onValueChange={(value) => void changeMemberRole(m, asRole(value))}
+                              disabled={busy}
                             >
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {MEMBER_SCOPES.map((scope) => (
-                                <SelectItem key={scope} value={scope}>
-                                  {t(`membersPage.scopes.${scope}`)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : m.scope === 'departments' ? (
-                          <p className="mt-1 text-2xs text-text-muted">{t('membersPage.scopes.departments')}</p>
-                        ) : null}
-                        {canEditMemberRow(m) && m.isActive ? (
-                          <Input
-                            key={`${m.id}-${m.hoursPerWeek ?? ''}`}
-                            type="number"
-                            min={0}
-                            max={80}
-                            defaultValue={m.hoursPerWeek ?? ''}
-                            placeholder={t('membersPage.hoursPlaceholder')}
-                            aria-label={t('membersPage.hoursLabel')}
-                            className="mt-1 h-7 w-[150px] text-xs"
-                            disabled={busy}
-                            onBlur={(e) => void changeMemberHours(m, e.currentTarget.value)}
-                            data-testid="member-hours"
-                          />
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-text-secondary">
-                        {meta?.teams.length ? meta.teams.join(', ') : '-'}
-                      </TableCell>
-                      <TableCell className="text-text-secondary">
-                        {meta
-                          ? [
-                              t('teamPage.openCount', { count: meta.openOwned }),
-                              meta.openTurn ? t('teamPage.turnCount', { count: meta.openTurn }) : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')
-                          : '-'}
-                      </TableCell>
-                      <TableCell className="text-xs text-text-muted">
-                        {lastActiveLabel(meta?.lastSeenAt)}
-                      </TableCell>
-                      <TableCell>
+                              <SelectTrigger className="h-7 w-[110px] text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {roleOptionsFor(m).map((role) => (
+                                  <SelectItem key={role} value={role}>
+                                    {t(`membersPage.roles.${role}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant={roleTone(m.role)}>{t(`membersPage.roles.${m.role}`)}</Badge>
+                          )}
+                          {m.role === 'member' && canEditMemberRow(m) && m.isActive ? (
+                            <Select
+                              value={m.scope}
+                              onValueChange={(value) => void changeMemberScope(m, value as MemberScope)}
+                              disabled={busy}
+                            >
+                              <SelectTrigger
+                                className="mt-1 h-7 w-[150px] text-xs"
+                                aria-label={t('membersPage.scopeLabel')}
+                                data-testid="member-scope"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {MEMBER_SCOPES.map((scope) => (
+                                  <SelectItem key={scope} value={scope}>
+                                    {t(`membersPage.scopes.${scope}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : m.scope === 'departments' ? (
+                            <p className="mt-1 text-2xs text-text-muted">{t('membersPage.scopes.departments')}</p>
+                          ) : null}
+                          {canEditMemberRow(m) && m.isActive ? (
+                            <Input
+                              key={`${m.id}-${m.hoursPerWeek ?? ''}`}
+                              type="number"
+                              min={0}
+                              max={80}
+                              defaultValue={m.hoursPerWeek ?? ''}
+                              placeholder={t('membersPage.hoursPlaceholder')}
+                              aria-label={t('membersPage.hoursLabel')}
+                              className="mt-1 h-7 w-[150px] text-xs"
+                              disabled={busy}
+                              onBlur={(e) => void changeMemberHours(m, e.currentTarget.value)}
+                              data-testid="member-hours"
+                            />
+                          ) : null}
+                      </div>
+                      <span className="flex w-28 justify-end">
                         {m.isActive ? (
                           <Badge variant={presenceBadgeVariant(meta?.presence ?? 'offline')}>
                             {presenceLabel(meta?.presence ?? 'offline', tCommon)}
@@ -937,179 +928,169 @@ export default function MemberManagement({
                             {presenceLabel('deactivated', tCommon)}
                           </Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {canManageMembers && !m.isCurrentUser && (m.role !== 'owner' || isWorkspaceOwner) ? (
-                          m.isActive ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void removeMember(m)}
-                              title={t('membersPage.removeTitle')}
-                              className="text-text-muted hover:text-status-error"
-                            >
-                              <UserMinus size={14} />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void reactivateMember(m)}
-                              title={t('membersPage.reactivateTitle')}
-                              className="text-text-muted hover:text-text-primary"
-                            >
-                              <RotateCcw size={14} />
-                            </Button>
-                          )
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  )
-                }
-
-                if (row.kind === 'invite') {
-                  const inv = row.data
-                  const busy = rowBusyId === inv.id
-                  return (
-                    <TableRow key={`i-${inv.id}`}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="truncate-fade font-medium text-text-primary">{inv.email}</p>
-                          <p className="text-xs text-text-muted">
-                            {t('membersPage.invitedByLine', {
-                              name: inv.invitedBy,
-                              date: toDateLabel(inv.invitedAt, t('membersPage.unknown'), i18n.language),
-                            })}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-text-secondary">{t('membersPage.typePerson')}</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={roleTone(inv.role)}>{t(`membersPage.roles.${inv.role}`)}</Badge>
-                      </TableCell>
-                      <TableCell className="text-text-muted">-</TableCell>
-                      <TableCell className="text-text-muted">-</TableCell>
-                      <TableCell className="text-text-muted">-</TableCell>
-                      <TableCell>
-                        <Badge variant="warning">{t('membersPage.statusPending')}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {canManageMembers ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void resendInvite(inv)}
-                              title={t('membersPage.resendTitle')}
-                              className="text-text-muted hover:text-text-primary"
-                            >
-                              <Send size={14} />
-                            </Button>
-                          ) : null}
-                          {inv.inviteLink ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => void copyInviteLink(inv)}
-                              title={t('membersPage.copyTitle')}
-                              className="text-text-muted hover:text-text-primary"
-                            >
-                              {copiedInviteId === inv.id ? <Check size={14} className="text-status-success" /> : <Link2 size={14} />}
-                            </Button>
-                          ) : null}
-                          {canManageMembers ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void revokeInvite(inv)}
-                              title={t('membersPage.revokeTitle')}
-                              className="text-text-muted hover:text-status-error"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                }
-
-                const agent = row.data
-                const functionColor = agentProfileAccentColor(resolveAgentAvatarColor(agent.avatar_color))
-                const teams = agentTeamLabels(agent.team_ids)
-                const deactivated = Boolean(agent.deactivated)
-                const agentStatus = asAgentStatus(agent.status)
-                const busy = rowBusyId === agent.id
-                return (
-                  <TableRow key={`a-${agent.id}`}>
-                    <TableCell>
-                      <Link
-                        to={`/agents/${agent.id}`}
-                        className="flex items-center gap-2 overflow-visible hover:underline"
-                      >
-                        <Avatar
-                          kind="agent"
-                          agent={agent}
-                          size={32}
-                          className="shrink-0 overflow-visible"
-                          mode="static"
-                          activity={deactivated ? undefined : agentStatus}
-                        />
-                        <span className="min-w-0">
-                          <span className="block truncate-fade font-medium text-text-primary">{agent.name}</span>
-                          <span className="block truncate-fade text-xs font-medium" style={{ color: functionColor }}>
-                            {agentFunctionLabel(agent, t)}
-                          </span>
-                        </span>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-text-secondary">
-                        {agent.member_type === 'person'
-                          ? t('membersPage.typePerson')
-                          : t('membersPage.typeAiAgent')}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      {canManageMembers && !deactivated ? (
-                        <Select
-                          value={normalizeAutonomy(agent.autonomy_level)}
-                          onValueChange={(value) => void changeAgentCeiling(agent, value as AutonomyMode)}
+                    </>
+                  }
+                />
+              )
+            }
+
+            if (row.kind === 'invite') {
+              const inv = row.data
+              const busy = rowBusyId === inv.id
+              return (
+                <EntityRow
+                  key={`i-${inv.id}`}
+                  title={inv.email}
+                  description={t('membersPage.invitedByLine', {
+                    name: inv.invitedBy,
+                    date: toDateLabel(inv.invitedAt, t('membersPage.unknown'), i18n.language),
+                  })}
+                  actions={
+                    <>
+                      {canManageMembers ? (
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
                           disabled={busy}
+                          onClick={() => void resendInvite(inv)}
+                          title={t('membersPage.resendTitle')}
+                          aria-label={t('membersPage.resendTitle')}
                         >
-                          <SelectTrigger className="h-7 w-[130px] text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {CEILING_MODES.map((mode) => (
-                              <SelectItem key={mode} value={mode}>
-                                {t(`teamPage.ceiling.${mode}`)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Badge variant="neutral">
-                          {agentAutonomyLevelLabel(agent.autonomy_level, t)}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-text-secondary">
-                      {teams.length ? teams.join(', ') : '-'}
-                    </TableCell>
-                    <TableCell className="text-text-secondary">
-                      {t('teamPage.openCount', { count: agent.open_owned })}
-                    </TableCell>
-                    <TableCell className="text-xs text-text-muted">
-                      {lastActiveLabel(agent.last_active_at)}
-                    </TableCell>
-                    <TableCell>
+                          <Send size={14} />
+                        </Button>
+                      ) : null}
+                      {inv.inviteLink ? (
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
+                          onClick={() => void copyInviteLink(inv)}
+                          title={t('membersPage.copyTitle')}
+                          aria-label={t('membersPage.copyTitle')}
+                        >
+                          {copiedInviteId === inv.id ? <Check size={14} className="text-status-success" /> : <Link2 size={14} />}
+                        </Button>
+                      ) : null}
+                      {canManageMembers ? (
+                        <Button
+                          variant="ghost"
+                          size="iconSm"
+                          disabled={busy}
+                          onClick={() => void revokeInvite(inv)}
+                          title={t('membersPage.revokeTitle')}
+                          aria-label={t('membersPage.revokeTitle')}
+                          className="text-text-muted hover:text-status-error"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      ) : null}
+                    </>
+                  }
+                  trailing={
+                    <>
+                      <span className="flex w-[150px] justify-end">
+                        <Badge variant={roleTone(inv.role)}>{t(`membersPage.roles.${inv.role}`)}</Badge>
+                      </span>
+                      <span className="flex w-28 justify-end">
+                        <Badge variant="warning">{t('membersPage.statusPending')}</Badge>
+                      </span>
+                    </>
+                  }
+                />
+              )
+            }
+
+            const agent = row.data
+            const functionColor = agentProfileAccentColor(resolveAgentAvatarColor(agent.avatar_color))
+            const teams = agentTeamLabels(agent.team_ids)
+            const deactivated = Boolean(agent.deactivated)
+            const agentStatus = asAgentStatus(agent.status)
+            const busy = rowBusyId === agent.id
+            return (
+              <EntityRow
+                key={`a-${agent.id}`}
+                href={`/agents/${agent.id}`}
+                leading={
+                  <Avatar
+                    kind="agent"
+                    agent={agent}
+                    size={32}
+                    className="overflow-visible"
+                    mode="static"
+                    activity={deactivated ? undefined : agentStatus}
+                  />
+                }
+                title={agent.name}
+                description={
+                  <>
+                    <span className="font-medium" style={{ color: functionColor }}>
+                      {agentFunctionLabel(agent, t)}
+                    </span>
+                    {[
+                      teams.length ? teams.join(', ') : null,
+                      t('teamPage.openCount', { count: agent.open_owned }),
+                      lastActiveLabel(agent.last_active_at),
+                    ]
+                      .filter((part) => part && part !== '-')
+                      .map((part) => ` · ${part}`)
+                      .join('')}
+                  </>
+                }
+                actions={
+                  canManageMembers ? (
+                    deactivated ? (
+                      <Button
+                        variant="ghost"
+                        size="iconSm"
+                        disabled={busy}
+                        onClick={() => void reactivateAgent(agent)}
+                        title={t('membersPage.reactivateTitle')}
+                        aria-label={t('membersPage.reactivateTitle')}
+                      >
+                        <RotateCcw size={14} />
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="iconSm"
+                        disabled={busy}
+                        onClick={() => void deactivateAgent(agent)}
+                        title={t('workforce.agents.archive')}
+                        aria-label={t('workforce.agents.archive')}
+                        className="text-text-muted hover:text-status-error"
+                      >
+                        <UserMinus size={14} />
+                      </Button>
+                    )
+                  ) : null
+                }
+                trailing={
+                  <>
+                    <span className="flex w-[150px] justify-end">
+                          {canManageMembers && !deactivated ? (
+                            <Select
+                              value={normalizeAutonomy(agent.autonomy_level)}
+                              onValueChange={(value) => void changeAgentCeiling(agent, value as AutonomyMode)}
+                              disabled={busy}
+                            >
+                              <SelectTrigger className="h-7 w-[130px] text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CEILING_MODES.map((mode) => (
+                                  <SelectItem key={mode} value={mode}>
+                                    {t(`teamPage.ceiling.${mode}`)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge variant="neutral">
+                              {agentAutonomyLevelLabel(agent.autonomy_level, t)}
+                            </Badge>
+                          )}
+                    </span>
+                    <span className="flex w-28 justify-end">
                       {deactivated ? (
                         <Badge variant={presenceBadgeVariant('deactivated')}>
                           {presenceLabel('deactivated', tCommon)}
@@ -1119,47 +1100,13 @@ export default function MemberManagement({
                           {presenceLabel(agentStatus, tCommon)}
                         </Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" asChild className="text-text-muted hover:text-text-primary">
-                          <Link to={`/agents/${agent.id}`} title={t('membersPage.openAgent')}>
-                            <ExternalLink size={14} />
-                          </Link>
-                        </Button>
-                        {canManageMembers ? (
-                          deactivated ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void reactivateAgent(agent)}
-                              title={t('membersPage.reactivateTitle')}
-                              className="text-text-muted hover:text-text-primary"
-                            >
-                              <RotateCcw size={14} />
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={busy}
-                              onClick={() => void deactivateAgent(agent)}
-                              title={t('workforce.agents.archive')}
-                              className="text-text-muted hover:text-status-error"
-                            >
-                              <UserMinus size={14} />
-                            </Button>
-                          )
-                        ) : null}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
+                    </span>
+                  </>
+                }
+              />
+            )
+          })}
+        </EntityList>
       </Card>
     </div>
   )

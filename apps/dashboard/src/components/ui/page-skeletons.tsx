@@ -342,27 +342,6 @@ export function FolderChecklistSkeleton({ rows = 5 }: { rows?: number }) {
   )
 }
 
-/** Team cards under the directory. */
-export function TeamCardsSkeleton({ rows = 3 }: { rows?: number }) {
-  return (
-    <Status className="flex flex-col gap-2">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
-          <div className="flex -space-x-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-8 w-8 rounded-full" />
-          </div>
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Skeleton className="h-3.5 w-28" />
-            <Skeleton className="h-2.5 w-40" />
-          </div>
-          <Skeleton className="h-8 w-8 rounded-lg" />
-        </div>
-      ))}
-    </Status>
-  )
-}
-
 /** Model provider cards. */
 export function ModelsCatalogSkeleton() {
   return (
