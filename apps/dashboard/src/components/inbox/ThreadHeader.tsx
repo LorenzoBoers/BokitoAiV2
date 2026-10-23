@@ -254,7 +254,6 @@ export default function ThreadHeader({
                         () => toast.error(t('threadChrome.copyEmail')),
                       )
                     }}
-                   
                   >
                     {thread.contactEmail}
                   </TextLink>

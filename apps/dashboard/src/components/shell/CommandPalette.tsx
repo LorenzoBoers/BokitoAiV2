@@ -1,3 +1,4 @@
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/button'
 import { Pressable } from '../ui/pressable'
@@ -745,26 +746,28 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       e.preventDefault()
       const item = filtered[selectedIndex]
       if (item) runItem(item)
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      onClose()
     }
   }
 
   let lastGroup: string | null = null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-hidden pt-[14vh]">
-      <Pressable
-        aria-label={t('palette.ariaClose')}
-        className="scrim absolute inset-0 rounded-none animate-fade-in"
-        onClick={onClose}
-      />
-      <div
-        className="relative z-[1] w-full max-w-[560px] overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay animate-pop-in"
-        role="dialog"
-        aria-label={t('palette.ariaDialog')}
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
+    >
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          inputRef.current?.focus()
+        }}
+        className="top-[14vh] block max-w-[560px] translate-y-0 overflow-hidden rounded-lg p-0 sm:rounded-lg"
       >
+        <DialogTitle className="sr-only">{t('palette.ariaDialog')}</DialogTitle>
         <input
           ref={inputRef}
           value={query}
@@ -780,11 +783,12 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <p className="mt-1 text-xs text-text-secondary">{t('palette.tryInstead')}</p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                 {suggestions.map((item) => (
-                  <Button variant="secondary" size="xs"
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     key={item.id}
                     type="button"
                     onClick={() => runItem(item)}
-                   
                   >
                     {item.label}
                   </Button>
@@ -829,7 +833,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           )}
         </div>
         <p className="border-t border-border px-3 py-2 text-xs text-text-muted">{t('palette.footerHint')}</p>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

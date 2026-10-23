@@ -695,7 +695,7 @@ function ColumnResizeHandle({
       className="absolute top-1/2 z-30 h-6 w-2.5 -translate-y-1/2 cursor-col-resize touch-none"
       style={{ right: -COL_EDGE_OFFSET }}
     >
-      {active ? <div className="fixed inset-0 z-[80] cursor-col-resize" /> : null}
+      {active ? <div className="fixed inset-0 z-[80] cursor-col-resize" /> : null} {/* design-system-ignore: sleeplaag tijdens kolombreedte slepen, geen overlay */}
       <div
         className={cn(
           'pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 rounded-full bg-border transition-[width,opacity]',
@@ -725,7 +725,6 @@ function LaneHeader({
       <Button variant="ghost" size="xs"
         type="button"
         onClick={onToggle}
-       
         aria-expanded={!collapsed}
       >
         <ChevronDown size={14} className={cn('transition-transform', collapsed && '-rotate-90')} aria-hidden />

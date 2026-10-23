@@ -14,35 +14,45 @@ import { cn } from '../../lib/utils'
 const SidePanel = DialogPrimitive.Root
 const SidePanelClose = DialogPrimitive.Close
 
-const SidePanelContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
-  const { t } = useTranslation('common')
-  return (
-    <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="scrim fixed inset-0 z-50 data-[state=open]:animate-fade-in" />
-      <DialogPrimitive.Content
-        ref={ref}
-        className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-border bg-bg-surface shadow-overlay',
-          'data-[state=open]:animate-panel-in',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        <DialogPrimitive.Close
-          data-dialog-close
-          className="absolute right-4 top-4 rounded-md border border-border bg-bg-elevated p-1.5 opacity-85 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent"
+type SidePanelContentProps = React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+  /** Edge the panel slides in from. Navigation drawers use `left`. */
+  side?: 'right' | 'left'
+  /** Hide the corner close button when the content brings its own. */
+  hideClose?: boolean
+}
+
+const SidePanelContent = React.forwardRef<React.ElementRef<typeof DialogPrimitive.Content>, SidePanelContentProps>(
+  ({ className, children, side = 'right', hideClose = false, ...props }, ref) => {
+    const { t } = useTranslation('common')
+    return (
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="scrim fixed inset-0 z-50 data-[state=open]:animate-fade-in" />
+        <DialogPrimitive.Content
+          ref={ref}
+          className={cn(
+            'fixed inset-y-0 z-50 flex w-full max-w-xl flex-col border-border bg-bg-surface shadow-overlay',
+            side === 'right'
+              ? 'right-0 border-l data-[state=open]:animate-panel-in'
+              : 'left-0 border-r data-[state=open]:animate-slide-in-left',
+            className,
+          )}
+          {...props}
         >
-          <X className="h-4 w-4" />
-          <span className="sr-only">{t('actions.close')}</span>
-        </DialogPrimitive.Close>
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
-  )
-})
+          {children}
+          {hideClose ? null : (
+            <DialogPrimitive.Close
+              data-dialog-close
+              className="absolute right-4 top-4 rounded-md border border-border bg-bg-elevated p-1.5 opacity-85 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">{t('actions.close')}</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    )
+  },
+)
 SidePanelContent.displayName = 'SidePanelContent'
 
 function SidePanelHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

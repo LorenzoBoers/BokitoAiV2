@@ -420,7 +420,6 @@ export function ModuleAgentsSection({
                             <FilterChip active={selected}
                               key={company.id}
                               disabled={busyId !== null}
-                             
                               onClick={() => toggleCompany(row, company.id)}
                             >
                               {company.name}

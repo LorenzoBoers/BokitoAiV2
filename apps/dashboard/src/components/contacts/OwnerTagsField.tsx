@@ -84,7 +84,6 @@ export function OwnerTagsField({
           type="button"
           disabled={disabled}
           onClick={() => setExpanded(true)}
-         
         >
           {t('tags.moreCount', { count: hiddenCount })}
         </Button>
@@ -128,7 +127,6 @@ export function OwnerTagsField({
               onClick={add}
               aria-label={t('tags.add')}
               title={t('tags.add')}
-             
             >
               <Plus size={14} />
             </Button>
@@ -170,7 +168,6 @@ export function OwnerTagsField({
           type="button"
           disabled={disabled || !canAdd}
           onClick={add}
-         
         >
           <Plus size={14} />
           {t('tags.add')}

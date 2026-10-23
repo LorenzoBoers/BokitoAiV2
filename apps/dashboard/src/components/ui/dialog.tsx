@@ -29,8 +29,11 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /** Hide the corner close button (command palette, full-bleed editors). */
+    hideClose?: boolean
+  }
+>(({ className, children, hideClose = false, ...props }, ref) => {
   const { t } = useTranslation('common')
   return (
   <DialogPortal>
@@ -44,10 +47,12 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close data-dialog-close className="absolute right-4 top-4 rounded-md border border-border bg-bg-elevated p-1.5 opacity-85 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent disabled:pointer-events-none data-[state=open]:text-text-muted">
-        <X className="h-4 w-4" />
-        <span className="sr-only">{t('actions.close')}</span>
-      </DialogPrimitive.Close>
+      {hideClose ? null : (
+        <DialogPrimitive.Close data-dialog-close className="absolute right-4 top-4 rounded-md border border-border bg-bg-elevated p-1.5 opacity-85 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent disabled:pointer-events-none data-[state=open]:text-text-muted">
+          <X className="h-4 w-4" />
+          <span className="sr-only">{t('actions.close')}</span>
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
   )

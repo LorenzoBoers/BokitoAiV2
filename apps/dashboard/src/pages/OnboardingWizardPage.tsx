@@ -359,7 +359,6 @@ export default function OnboardingWizardPage() {
             <Button variant="ghost" size="xs"
               type="button"
               onClick={() => void logout()}
-             
             >
               {t('logout')}
             </Button>
@@ -605,7 +604,6 @@ export default function OnboardingWizardPage() {
             type="button"
             onClick={goBack}
             disabled={stepIndex === 0 || busy}
-           
           >
             <ArrowLeft size={14} />
             {t('back')}
@@ -614,7 +612,6 @@ export default function OnboardingWizardPage() {
             type="button"
             onClick={() => void goNext()}
             disabled={busy}
-           
           >
             {busy ? t('saving') : stepIndex >= steps.length - 1 ? t('finish') : t('next')}
             {!busy ? <ArrowRight size={14} /> : <Spinner size="md" />}

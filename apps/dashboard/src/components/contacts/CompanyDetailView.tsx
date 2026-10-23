@@ -150,7 +150,6 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void remove()}
-             
             >
               <Trash2 size={14} />
               {t('contactsPage.delete')}
@@ -187,7 +186,6 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                   type="button"
                   disabled={saving}
                   onClick={() => void save()}
-                 
                 >
                   <Check size={14} />
                   {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}

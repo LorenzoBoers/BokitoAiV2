@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState, FormEvent, ChangeEvent } from 'react';
+import { Checkbox } from '../components/ui/checkbox'
 import { Spinner } from '../components/ui/spinner'
 import { Pressable } from '../components/ui/pressable'
 import { Link, useSearchParams } from 'react-router-dom';
@@ -278,11 +279,10 @@ export default function AcceptInvite() {
                 <div className="space-y-2">
                   {prefRows.map((row) => (
                     <label key={row.id} className="flex items-start gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={row.channels.email}
                         onChange={() => togglePrefEmail(row.id)}
-                        className="mt-0.5 accent-current"
+                        className="mt-0.5"
                       />
                       <span className="text-sm text-text-secondary">
                         {t(`acceptInvitePage.prefs.${row.id === 'assigned-to-me' ? 'assignedToMe' : row.id}`)}

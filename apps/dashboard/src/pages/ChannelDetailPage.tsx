@@ -1,3 +1,4 @@
+import { Checkbox } from '../components/ui/checkbox'
 import { SegmentedControl } from '../components/ui/segmented-control'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -449,8 +450,7 @@ export default function ChannelDetailPage() {
               <div className="mb-4 min-h-0 flex-1 space-y-1 overflow-y-auto">
                 {folders.map((folder) => (
                   <label key={folder.id} className="flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 hover:bg-bg-hover">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={folder.isSelected}
                       onChange={() =>
                         setFolders((prev) =>

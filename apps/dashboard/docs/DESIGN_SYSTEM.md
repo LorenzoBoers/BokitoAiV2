@@ -96,8 +96,10 @@ overlays are solid elevated surfaces.
 <Pressable onClick={open} className="flex items-center gap-2 px-2 py-1.5 hover:bg-bg-hover">...</Pressable>
 ```
 
-Forms use `Input`, `Textarea`, `Select`, `Switch`, `Label`. Menus use
-`DropdownMenu`; modals use `Dialog`; side sheets use `SidePanel`. Hover hints
+Forms use `Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Label`. Menus use
+`DropdownMenu`; modals use `Dialog`; side sheets and mobile drawers use
+`SidePanel` (`side="left"` for navigation). Both take `hideClose` when the
+content brings its own close button. No hand-rolled `fixed inset-0` layer. Hover hints
 use `Tip` (or a native `title`, which `NativeTitleTooltipBridge` upgrades).
 
 `Button` variants: `default` (accent), `secondary` (hairline), `ghost`, `ai`,
@@ -269,6 +271,7 @@ Labels are `TagPill` / `Hashtag` / `HashtagSet`; all three share
 | `raw-h1` | `PageHeader` (auth, docs and public trust pages are exempt) |
 | `legacy-avatar` | `Avatar kind="person"`, `"agent"` or `"team"` |
 | `raw-button` | `Button`, `Pressable`, `TextLink`, `FilterChip`, `SegmentedControl` |
+| `hand-overlay` | `Dialog`, `SidePanel` (the tour is exempt) |
 
 Face `size` on `Avatar`, `AvatarStack` and `TeamFacepile` stays on the mark
 ladder (`mark-scale`).
@@ -281,7 +284,7 @@ a file may not gain more than its baseline:
 
 | Rule | Fix |
 |---|---|
-| `raw-input` | `Input`, `SearchField` |
+| `raw-input` | `Input`, `SearchField`, `Checkbox` |
 | `hex-color` | color tokens |
 | `arbitrary-radius` | radius scale |
 | `border-opacity` | `border-border`, `border-border-light` |

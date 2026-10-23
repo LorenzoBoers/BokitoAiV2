@@ -100,7 +100,6 @@ export function ConnectionScopeEditor({
                     aria-pressed={on}
                     disabled={busy}
                     onClick={() => toggle(project.id)}
-                   
                   >
                     {on ? <Check size={14} aria-hidden /> : null}
                     {project.name}

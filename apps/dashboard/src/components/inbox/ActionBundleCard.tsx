@@ -1,3 +1,4 @@
+import { Checkbox } from '../ui/checkbox'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertCircle, Check, MoreHorizontal, X } from 'lucide-react'
@@ -180,8 +181,7 @@ export function ActionBundleCard({
               data-state={state}
             >
               {multi && isOpen ? (
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={checked}
                   disabled={busy}
                   aria-label={t('actionBundle.selectRow')}
@@ -192,7 +192,6 @@ export function ActionBundleCard({
                         : prev.filter((id) => id !== entry.decisionId),
                     )
                   }
-                  className="h-3.5 w-3.5 shrink-0 rounded border-border accent-accent"
                 />
               ) : (
                 <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center text-text-muted">

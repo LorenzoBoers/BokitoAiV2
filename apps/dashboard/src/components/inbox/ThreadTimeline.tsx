@@ -1299,7 +1299,6 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
                     type="button"
                     disabled={loadingOlder}
                     onClick={() => void onLoadOlder()}
-                   
                   >
                     {loadingOlder ? t('threadChrome.loadingOlder') : t('threadChrome.loadOlder')}
                   </Button>

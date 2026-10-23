@@ -1,3 +1,4 @@
+import { Checkbox } from '../ui/checkbox'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -328,8 +329,7 @@ function AddDepartmentDialog({
             </label>
             {existing?.lead_name ? (
               <label className="flex items-start gap-2 text-xs text-text-secondary">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={specialistLeads}
                   onChange={(event) => setSpecialistLeads(event.target.checked)}
                   className="mt-0.5"

@@ -318,7 +318,6 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-               
               >
                 <ShieldCheck size={14} />
                 {t('contactsPage.approve')}
@@ -329,7 +328,6 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('blocked')}
-               
               >
                 <ShieldBan size={14} />
                 {t('contactsPage.block')}
@@ -339,7 +337,6 @@ export function ContactDetail({ contactId }: { contactId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void removeContact()}
-             
             >
               <Trash2 size={14} />
               {t('contactsPage.delete')}
@@ -487,7 +484,6 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                   type="button"
                   disabled={saving}
                   onClick={() => void save()}
-                 
                 >
                   <Check size={14} />
                   {saving ? t('contactsPage.saving') : t('contactsPage.saveChanges')}

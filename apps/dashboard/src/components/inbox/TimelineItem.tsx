@@ -1,3 +1,4 @@
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { Pressable } from '../ui/pressable'
 import { Spinner } from '../ui/spinner'
 import { TextLink } from '../ui/text-link'
@@ -34,7 +35,6 @@ import {
   X as XIcon,
 } from 'lucide-react'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { EntityAvatarLink } from './EntityAvatarLink'
 import { Trans, useTranslation } from 'react-i18next'
@@ -957,30 +957,22 @@ function MailReadOverlay({
   children: ReactNode
 }) {
   const { t } = useTranslation('communication')
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      event.preventDefault()
-      event.stopPropagation()
-      onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return createPortal(
-    <div
-      className="scrim fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose()
       }}
     >
-      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-sm" style={{ height: 'min(92vh, 960px)' }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        className="flex max-w-3xl flex-col gap-0 overflow-hidden p-0"
+        style={{ height: 'min(92vh, 960px)', maxHeight: 'none' }}
+      >
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-text-heading">{title}</p>
+            <DialogTitle className="truncate text-xs font-medium text-text-heading">{title}</DialogTitle>
             {subtitle ? <p className="truncate text-2xs text-text-muted">{subtitle}</p> : null}
           </div>
           <Button
@@ -996,9 +988,8 @@ function MailReadOverlay({
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   )
 }
 

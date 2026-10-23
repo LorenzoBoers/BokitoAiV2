@@ -147,7 +147,6 @@ export function ConnectionRow({
                         <FilterChip active={isCompanyDefault}
                           disabled={busy || !company.id || !row.ready || !onSetDefault}
                           onClick={() => onSetDefault?.(company.id)}
-                         
                         >
                           {company.name || company.id}
                         </FilterChip>

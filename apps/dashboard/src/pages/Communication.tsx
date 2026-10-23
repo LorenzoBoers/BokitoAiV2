@@ -1,4 +1,4 @@
-import { Pressable } from '../components/ui/pressable'
+import { SidePanel, SidePanelContent, SidePanelTitle } from '../components/ui/side-panel'
 import { Mail, MessageSquare, SquarePen } from 'lucide-react'
 import { TextLink } from '../components/ui/text-link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -1626,7 +1626,6 @@ export default function Communication() {
         <Button variant="secondary" size="xs"
           type="button"
           onClick={() => window.location.reload()}
-         
         >
           {t('onboarding.retry')}
         </Button>
@@ -1642,14 +1641,12 @@ export default function Communication() {
           <Button variant="secondary" size="xs"
             type="button"
             onClick={() => window.location.reload()}
-           
           >
             {t('onboarding.retry')}
           </Button>
           <Button variant="secondary" size="xs"
             type="button"
             onClick={() => void logout()}
-           
           >
             {t('signOut')}
           </Button>
@@ -1700,7 +1697,6 @@ export default function Communication() {
           <Button variant="secondary" size="xs"
             type="button"
             onClick={retryOnboarding}
-           
           >
             {t('onboarding.retry')}
           </Button>
@@ -1929,7 +1925,6 @@ export default function Communication() {
                   <Button variant="secondary" size="xs"
                     type="button"
                     onClick={() => setNewPlanOpen(true)}
-                   
                   >
                     {t('plan.newTitle')}
                   </Button>
@@ -2082,14 +2077,15 @@ export default function Communication() {
         ) : null}
       </SplitRow>
       {/* Mobile/tablet: same context panel as a slide-over. */}
-      {detail && showContactPanel && !isLgUp && !stagedCanvasId ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <Pressable
-            className="scrim absolute inset-0 rounded-none"
-            aria-label={t('split.closeContext')}
-            onClick={toggleContactPanel}
-          />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-xl border-t border-border bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
+      {detail ? (
+        <SidePanel
+          open={showContactPanel && !isLgUp && !stagedCanvasId}
+          onOpenChange={(open) => {
+            if (!open) toggleContactPanel()
+          }}
+        >
+          <SidePanelContent hideClose aria-describedby={undefined} className="max-w-xs overflow-y-auto lg:hidden">
+            <SidePanelTitle className="sr-only">{t('split.contactPanel')}</SidePanelTitle>
             <AgentThreadPanel
               thread={detail.thread}
               onClose={toggleContactPanel}
@@ -2099,8 +2095,8 @@ export default function Communication() {
               onPlan={openPlanner}
               relatedConversations={detail.relatedConversations}
             />
-          </div>
-        </div>
+          </SidePanelContent>
+        </SidePanel>
       ) : null}
       {detail ? (
         <PlanDialog

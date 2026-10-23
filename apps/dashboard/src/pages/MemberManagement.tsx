@@ -795,7 +795,6 @@ export default function MemberManagement({
                               setSearch('')
                               setFilterTab('all')
                             }}
-                           
                           >
                             {t('membersPage.clearFilters')}
                           </Button>

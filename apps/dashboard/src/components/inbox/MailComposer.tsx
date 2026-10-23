@@ -855,7 +855,7 @@ export default function MailComposer({
     <div
       className={
         fullscreen
-          ? 'scrim fixed inset-0 z-50 flex items-center justify-center p-4'
+          ? 'scrim fixed inset-0 z-50 flex items-center justify-center p-4' // design-system-ignore: composer vergroot ter plekke; Dialog zou de editor opnieuw mounten
           : fill
             ? 'relative flex min-h-0 flex-1 flex-col'
             : variant === 'thread'
@@ -909,7 +909,6 @@ export default function MailComposer({
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="xs"
                     type="button"
-                   
                     title={t('compose.fromHint')}
                   >
                     {selectedMailbox ? (
@@ -992,7 +991,6 @@ export default function MailComposer({
               onClick={onCancel}
               title={t('compose.cancel')}
               aria-label={t('compose.cancel')}
-             
             >
               <XIcon size={14} />
             </Button>
@@ -1135,7 +1133,6 @@ export default function MailComposer({
                   title={t('mailComposer.quoteToggle')}
                   aria-label={t('mailComposer.quoteToggle')}
                   aria-expanded={quoteOpen}
-                 
                   data-testid="mail-composer-quote-toggle"
                 >
                   <MoreHorizontal size={14} />
@@ -1197,7 +1194,6 @@ export default function MailComposer({
                   disabled={!canSend || busy || uploading}
                   onClick={() => void handleSend()}
                   title={`${t('composer.sendTitle')} — ${t('composer.hintEmail')}`}
-                 
                   data-testid="mail-composer-send"
                 >
                   <Send size={14} />

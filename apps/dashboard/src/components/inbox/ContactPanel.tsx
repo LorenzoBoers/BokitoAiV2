@@ -439,7 +439,6 @@ export default function ContactPanel({
           <Button size="xs"
             type="submit"
             disabled={saving}
-           
           >
             {saving ? t('contactPanel.saving') : t('contactPanel.linkSubmit')}
           </Button>
@@ -449,7 +448,6 @@ export default function ContactPanel({
               setCaptureOpen(false)
               setCandidates([])
             }}
-           
           >
             {t('contactPanel.cancel')}
           </Button>
@@ -551,7 +549,6 @@ export default function ContactPanel({
                 onClick={() =>
                   void onPatch({ status: threadStatus === 'spam' ? 'open' : 'spam' })
                 }
-               
               >
                 <OctagonAlert size={14} />
                 {threadStatus === 'spam'
@@ -746,7 +743,6 @@ export default function ContactPanel({
                   type="button"
                   disabled={saving}
                   onClick={() => void saveNotes()}
-                 
                 >
                   <Check size={14} />
                   {saving ? t('contactPanel.saving') : t('contactPanel.saveNotes')}

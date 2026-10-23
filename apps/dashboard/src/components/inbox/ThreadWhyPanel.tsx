@@ -52,7 +52,6 @@ export function ThreadWhyPanel({ threadId }: { threadId: string }) {
         type="button"
         onClick={() => void toggle()}
         aria-expanded={open}
-       
         data-testid="thread-why-toggle"
       >
         {t('threadWhy.button')}

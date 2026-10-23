@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
 import { Button } from '../ui/button'
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
 import { useTranslation } from 'react-i18next'
 
 const ROWS: Array<{ keys: string; labelKey: string }> = [
@@ -35,39 +35,17 @@ type Props = {
 export default function InboxShortcutHelp({ open, onClose }: Props) {
   const { t } = useTranslation('communication')
 
-  useEffect(() => {
-    if (!open) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onClose()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
-
-  if (!open) return null
-
   return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center scrim px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('shortcuts.title')}
-      onClick={onClose}
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose()
+      }}
     >
-      <div
-        className="w-full max-w-sm rounded-lg border border-border bg-bg-surface p-4 shadow-overlay"
-        onClick={(event) => event.stopPropagation()}
-      >
+      <DialogContent hideClose aria-describedby={undefined} className="block max-w-sm rounded-lg p-4 sm:rounded-lg">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-text-heading">{t('shortcuts.title')}</h2>
-          <Button variant="ghost" size="xs"
-            type="button"
-            onClick={onClose}
-           
-          >
+          <DialogTitle className="text-sm font-semibold text-text-heading">{t('shortcuts.title')}</DialogTitle>
+          <Button variant="ghost" size="xs" type="button" onClick={onClose}>
             {t('shortcuts.closeHelp')}
           </Button>
         </div>
@@ -81,7 +59,7 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
             </li>
           ))}
         </ul>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

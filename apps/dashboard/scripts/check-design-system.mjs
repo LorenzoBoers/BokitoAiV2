@@ -124,6 +124,12 @@ const RULES = [
     catalogOk: true,
   },
   {
+    id: 'hand-overlay',
+    pattern: /\bfixed inset-0\b/,
+    message: 'Use <Dialog> or <SidePanel>.',
+    catalogOk: true,
+  },
+  {
     id: 'raw-button',
     pattern: /<button\b/,
     message: 'Use <Button>, <Pressable>, <TextLink>, <FilterChip> or <SegmentedControl> from components/ui.',

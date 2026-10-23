@@ -388,7 +388,6 @@ export default function CompanyConfig() {
                   <Button variant="secondary" size="xs"
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                   
                   >
                     <Upload size={14} />
                     {logoSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
@@ -401,7 +400,6 @@ export default function CompanyConfig() {
                         setLogoFile(null)
                         setClearLogo(true)
                       }}
-                     
                     >
                       {t('brandingPage.delete')}
                     </Button>
@@ -421,7 +419,6 @@ export default function CompanyConfig() {
                   <Button variant="secondary" size="xs"
                     type="button"
                     onClick={() => faviconInputRef.current?.click()}
-                   
                   >
                     <Upload size={14} />
                     {faviconSrc ? t('brandingPage.replace') : t('brandingPage.upload')}
@@ -434,7 +431,6 @@ export default function CompanyConfig() {
                         setFaviconFile(null)
                         setClearFavicon(true)
                       }}
-                     
                     >
                       {t('brandingPage.delete')}
                     </Button>
@@ -449,7 +445,6 @@ export default function CompanyConfig() {
                   <ColorField value={brandColor} onChange={setBrandColor} invalid={brandColorInvalid} />
                   <Button variant="secondary" size="xs"
                     type="button"
-                   
                     onClick={() => {
                       void navigator.clipboard.writeText(brandColor)
                       toast.success(t('brandingPage.copiedColor'))

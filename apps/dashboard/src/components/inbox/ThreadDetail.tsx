@@ -2461,7 +2461,6 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
                 <span>{t('composer.spamBlocked')}</span>
                 <Button size="xs"
                   type="button"
-                 
                   onClick={() => void onPatch({ status: 'open' })}
                 >
                   {t('threadChrome.reopen')}

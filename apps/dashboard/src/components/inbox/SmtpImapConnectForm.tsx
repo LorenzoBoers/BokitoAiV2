@@ -1,3 +1,4 @@
+import { Checkbox } from '../ui/checkbox'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
@@ -410,8 +411,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
             </ServerCard>
 
             <label className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-2.5 text-sm text-text-secondary">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={sameHost}
                 onChange={(e) => {
                   const next = e.target.checked

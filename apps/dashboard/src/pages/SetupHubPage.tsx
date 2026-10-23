@@ -291,7 +291,6 @@ export default function SetupHubPage() {
                                 type="button"
                                 disabled={action.busy}
                                 onClick={action.onClick}
-                               
                               >
                                 {action.busy ? <Spinner size="sm" /> : null}
                                 {action.label}

@@ -1,3 +1,4 @@
+import { Checkbox } from '../ui/checkbox'
 import { Button } from '../ui/button'
 import { memo, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
@@ -334,8 +335,7 @@ function ThreadListItem({
             )}
           </span>
           {selectable ? (
-            <input
-              type="checkbox"
+            <Checkbox
               checked={Boolean(checked)}
               aria-label={t('threadList.selectThread')}
               onClick={stop}
@@ -344,10 +344,10 @@ function ThreadListItem({
                 onToggleChecked?.(thread.id, (event.nativeEvent as MouseEvent).shiftKey)
               }
               className={cn(
-                'absolute h-3.5 w-3.5 cursor-pointer rounded border-border accent-[rgb(var(--color-accent))] transition-opacity',
+                'absolute transition-opacity',
                 checkboxVisible
                   ? 'opacity-100'
-                  : 'opacity-0 group-hover/thread:opacity-100 group-data-[menu-open]/thread:opacity-100 focus-visible:opacity-100',
+                  : 'opacity-0 group-hover/thread:opacity-100 group-data-[menu-open]/thread:opacity-100 has-[:focus-visible]:opacity-100',
               )}
             />
           ) : null}

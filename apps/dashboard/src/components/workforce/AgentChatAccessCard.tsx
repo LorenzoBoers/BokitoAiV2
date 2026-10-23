@@ -1,3 +1,4 @@
+import { Checkbox } from '../ui/checkbox'
 import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -155,11 +156,9 @@ export function AgentChatAccessCard({ agentId }: { agentId: string }) {
                   key={member.id}
                   className="flex cursor-pointer items-center gap-2.5 rounded-md border border-border bg-bg-elevated px-3 py-2 transition-colors hover:bg-bg-hover/50"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={checked}
                     onChange={() => toggleMember(member.id)}
-                    className="h-3.5 w-3.5 accent-[var(--accent,#6366f1)]"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate-fade text-sm text-text-primary">{member.name}</span>

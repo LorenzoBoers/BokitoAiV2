@@ -1988,6 +1988,7 @@
     "list": "Resize conversation list",
     "context": "Resize side panel",
     "closeContext": "Close contact panel",
+    "contactPanel": "Contact panel",
     "nav": "Resize communication sidebar",
     "thread": "Resize conversation",
     "canvas": "Resize canvas",

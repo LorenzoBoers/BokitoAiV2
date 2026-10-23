@@ -217,7 +217,6 @@ export default function ContactsPage() {
           type="button"
           disabled={loadingMore}
           onClick={() => void loadMore()}
-         
         >
           {loadingMore ? t('contactsPage.loadingMore') : t('contactsPage.loadMore')}
         </Button>
@@ -332,7 +331,6 @@ export default function ContactsPage() {
             <Button variant="secondary" size="xs"
               type="button"
               onClick={() => void load()}
-             
             >
               {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('contactsPage.refresh')}
@@ -342,7 +340,6 @@ export default function ContactsPage() {
                 type="button"
                 disabled={backfilling}
                 onClick={() => void handleBackfill()}
-               
               >
                 {backfilling ? <Spinner size="sm" /> : <Building2 size={12} />}
                 {t('contactsPage.linkContacts')}
@@ -355,7 +352,6 @@ export default function ContactsPage() {
             <Button size="xs"
               type="button"
               onClick={() => setCreateOpen(true)}
-             
             >
               <Plus size={14} />
               {t('contactsPage.newContact')}
@@ -417,7 +413,6 @@ export default function ContactsPage() {
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkStatus('approved')}
-               
               >
                 {t('contactsPage.approveAll')}
               </Button>
@@ -425,7 +420,6 @@ export default function ContactsPage() {
                 type="button"
                 disabled={bulkBusy}
                 onClick={() => void handleBulkStatus('blocked')}
-               
               >
                 {t('contactsPage.blockAll')}
               </Button>
@@ -554,7 +548,6 @@ export default function ContactsPage() {
                   type="button"
                   disabled={backfilling}
                   onClick={() => void handleBackfill()}
-                 
                 >
                   {backfilling ? t('contactsPage.linking') : t('contactsPage.linkContacts')}
                 </Button>

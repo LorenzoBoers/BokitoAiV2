@@ -29,8 +29,8 @@ Rare one-off styles fold into the nearest catalog component.
 | | `SegmentedControl` | 2-5 short in-place options |
 | | `FilterChip` + `FilterChipRow` | Toggleable filters |
 | | `SearchField` | Search input with clear |
-| | `Input`, `Textarea`, `Select`, `Switch`, `Label` | Forms (never native `<select>`) |
-| | `DropdownMenu`, `Dialog` | Menus, modals |
+| | `Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Label` | Forms (never native `<select>` or checkbox) |
+| | `DropdownMenu`, `Dialog`, `SidePanel` | Menus, modals, side sheets and drawers (never a hand-rolled `fixed inset-0`) |
 | Feedback | `Callout` | Inline status / warning / error banner |
 | | `ConfirmDialog` / `useConfirm()` | Every confirmation (never `window.confirm`) |
 | | `EmptyState` (`tone="card" \| "dashed" \| "plain"`) | Empty lists and pages |

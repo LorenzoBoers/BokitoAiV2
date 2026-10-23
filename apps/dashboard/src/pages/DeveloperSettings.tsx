@@ -312,7 +312,6 @@ function ApiTokensSection({
                   key={preset.id}
                   type="button"
                   onClick={() => setScopes([...preset.scopes])}
-                 
                 >
                   {t(`developersPage.preset.${preset.id}`)}
                 </Button>

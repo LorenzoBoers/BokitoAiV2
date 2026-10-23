@@ -1,3 +1,4 @@
+import { Checkbox } from '../components/ui/checkbox'
 import { departmentPath, GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { asAgentStatus } from '../lib/presence'
@@ -391,7 +392,7 @@ function TeamDialog({
                 const ref: TeamMemberRef = { kind: 'user', id: p.uuid }
                 return (
                   <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
-                    <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
+                    <Checkbox checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
                     <Avatar
                       kind="person"
                       name={p.name}
@@ -409,7 +410,7 @@ function TeamDialog({
                 const ref: TeamMemberRef = { kind: 'agent', id: a.id }
                 return (
                   <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
-                    <input type="checkbox" checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
+                    <Checkbox checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
                     <Avatar
                       kind="agent"
                       agent={a}

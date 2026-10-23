@@ -153,7 +153,6 @@ export default function NotificationDropdown() {
               <Button variant="ghost" size="iconSm"
                 type="button"
                 onClick={() => navigate('/settings/notifications')}
-               
                 aria-label={t('notificationsUi.settings')}
                 title={t('notificationsUi.settings')}
               >

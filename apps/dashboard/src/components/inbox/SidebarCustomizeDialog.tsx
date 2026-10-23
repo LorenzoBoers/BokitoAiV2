@@ -265,7 +265,6 @@ export default function SidebarCustomizeDialog() {
           <Button variant="secondary" size="xs"
             type="button"
             onClick={resetPrefs}
-           
           >
             {t('support.customize.reset')}
           </Button>

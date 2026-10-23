@@ -153,7 +153,6 @@ export default function HelpCenter() {
             <Button variant="secondary" size="xs"
               type="button"
               onClick={() => setReloadNonce((n) => n + 1)}
-             
             >
               {t('helpPublic.retry')}
             </Button>
@@ -168,7 +167,6 @@ export default function HelpCenter() {
                 <span className="flex flex-wrap items-center gap-3 text-xs">
                   <span>{t('helpPublic.updated', { date: formatDate(article.updated_at, i18n.language) })}</span>
                   <TextLink
-                   
                     onClick={() => {
                       void navigator.clipboard.writeText(window.location.href).then(
                         () => toast.success(t('helpPublic.copiedUrl')),

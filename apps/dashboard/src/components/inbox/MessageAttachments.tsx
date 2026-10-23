@@ -96,7 +96,6 @@ export default function MessageAttachments({
                   <Button variant="ghost" size="iconSm"
                     type="button"
                     onClick={() => onRemove(att.id)}
-                   
                     aria-label={t('composer.removeAttachment', { name })}
                   >
                     <X size={14} />

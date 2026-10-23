@@ -331,7 +331,6 @@ export default function NotificationSettings() {
             <Button variant="secondary"
               type="button"
               onClick={playTestSound}
-             
             >
               {t('notificationsPage.soundTest')}
             </Button>
@@ -422,7 +421,6 @@ export default function NotificationSettings() {
                   })()
                 }}
                 aria-label={t('notificationsPage.restoreDefaults')}
-               
               >
                 <RotateCcw size={14} aria-hidden />
               </Button>

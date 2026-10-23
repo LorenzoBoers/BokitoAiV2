@@ -339,7 +339,6 @@ export default function ThreadListQuickFilters({
                 <Button variant="ghost" size="xs"
                   type="button"
                   onClick={clearAllFilters}
-                 
                 >
                   {t('threadList.clearFilters')}
                 </Button>

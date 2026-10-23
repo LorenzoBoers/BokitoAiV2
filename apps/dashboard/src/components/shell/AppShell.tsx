@@ -1,4 +1,4 @@
-import { Pressable } from '../ui/pressable'
+import { SidePanel, SidePanelContent, SidePanelTitle } from '../ui/side-panel'
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -203,22 +203,21 @@ export default function AppShell() {
             </aside>
 
             {/* Mobile drawer */}
-            {drawerOpen ? (
-              <div className="fixed inset-0 z-50 lg:hidden">
-                <Pressable
-                  aria-label={t('topbar.closeNavigation')}
-                  className="scrim absolute inset-0 rounded-none animate-fade-in"
-                  onClick={() => setDrawerOpen(false)}
+            <SidePanel open={drawerOpen} onOpenChange={setDrawerOpen}>
+              <SidePanelContent
+                side="left"
+                hideClose
+                aria-describedby={undefined}
+                className="w-rail max-w-none border-r-0 bg-bg-sidebar lg:hidden"
+              >
+                <SidePanelTitle className="sr-only">{t('topbar.navigation')}</SidePanelTitle>
+                <ShellSidebar
+                  collapsed={false}
+                  onToggleCollapsed={() => setDrawerOpen(false)}
+                  onNavigate={() => setDrawerOpen(false)}
                 />
-                <div className="absolute inset-y-0 left-0 w-rail bg-bg-sidebar shadow-overlay animate-slide-in-left">
-                  <ShellSidebar
-                    collapsed={false}
-                    onToggleCollapsed={() => setDrawerOpen(false)}
-                    onNavigate={() => setDrawerOpen(false)}
-                  />
-                </div>
-              </div>
-            ) : null}
+              </SidePanelContent>
+            </SidePanel>
 
             {/* Main column */}
             <div className="flex min-w-0 flex-1 flex-col">

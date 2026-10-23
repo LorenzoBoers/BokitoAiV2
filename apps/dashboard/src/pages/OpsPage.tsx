@@ -1,3 +1,4 @@
+import { Checkbox } from '../components/ui/checkbox'
 import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate } from 'react-router-dom'
@@ -433,12 +434,10 @@ export default function OpsPage() {
                           </td>
                           <td className="px-3 py-2.5">
                             <label className="inline-flex items-center gap-2 text-xs text-text-heading">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 checked={tenant.custom_models === true}
                                 disabled={featuringId === tenant.id}
                                 onChange={(e) => void onToggleCustomModels(tenant, e.target.checked)}
-                                className="rounded border-border"
                               />
                               {featuringId === tenant.id ? (
                                 <Spinner size="sm" className="text-text-muted" />

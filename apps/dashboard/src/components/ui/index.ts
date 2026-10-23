@@ -20,6 +20,7 @@ export { AuthShell } from '../auth/AuthShell'
 // Controls
 export { Button, buttonVariants } from './button'
 export { Pressable, type PressableProps } from './pressable'
+export { Checkbox, type CheckboxProps } from './checkbox'
 export { TextLink } from './text-link'
 export { OptionCard, OptionCardGrid } from './option-card'
 export { SegmentedControl, type SegmentedOption } from './segmented-control'

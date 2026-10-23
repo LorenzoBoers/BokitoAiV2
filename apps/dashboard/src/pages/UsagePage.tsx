@@ -333,7 +333,6 @@ export default function UsagePage() {
                   URL.revokeObjectURL(url)
                   toast.success(t('usagePage.exported'))
                 }}
-               
               >
                 {t('usagePage.exportCsv')}
               </Button>
@@ -341,7 +340,6 @@ export default function UsagePage() {
             <Button variant="secondary" size="xs"
               type="button"
               onClick={load}
-             
             >
               {loading ? <Spinner size="sm" /> : <RefreshCw size={14} />}
               {t('usagePage.refresh')}
@@ -485,7 +483,6 @@ export default function UsagePage() {
                         type="button"
                         onClick={() => void saveCaps()}
                         disabled={savingCaps}
-                       
                       >
                         {savingCaps ? t('usagePage.saving') : t('usagePage.save')}
                       </Button>

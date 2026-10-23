@@ -538,6 +538,19 @@ Afgerond in 8.7: alle negen zijn omgezet en de ignores zijn weg.
 - De taglabels in het agenda-rail filter tonen nog `#naam`. De vocabulaire zegt "nooit een leidende #"; dat aanpassen staat niet in dit plan.
 - Profiel (Taal, Startpagina) en Login (taal) gebruiken nu `SegmentedControl` in plaats van losse omrande knoppen.
 
+### Fase 8.8: overlays en vinkjes
+
+- `hand-overlay` stond na de telling al op 0 zonder ignore-vrije treffers en gaat daarom meteen naar RULES (`catalogOk`), zonder ratchet-tussenstap. Vóór: 12 in 10 bestanden.
+- Naast de tour (3 ignores) houden twee plekken `fixed inset-0` met een reden. Het plan noemt alleen de tour:
+  - `FlowTicketBoard`: een onzichtbare sleeplaag tijdens het verslepen van een kolombreedte, net als in `SplitRow`. Geen overlay.
+  - `MailComposer`: de composer vergroot zichzelf ter plekke tot volledig scherm. Een `Dialog` zou de editor (tekst, focus, bijlagen) opnieuw mounten.
+- `SidePanelContent` kreeg `side="left"` en `hideClose`, `DialogContent` kreeg `hideClose`. Dat was nodig voor de mobiele navigatie, het contactpaneel, het commandopalet, de sneltoets-help en de twee e-maildialogen, die elk al een eigen sluitknop hebben.
+- **Zichtbaar.** Het contactpaneel op mobiel (Communicatie, onder `lg`) was een sheet vanaf de onderkant (82vh) en is nu een paneel van rechts, 20rem breed, over de volle hoogte. Op tablet was het al een paneel van rechts. Het commandopalet en de sneltoets-help hebben nu de focusval en de scrim-animatie van `Dialog`.
+- `palette.ariaClose` (nav) wordt niet meer gebruikt en is weg. Nieuw: `topbar.navigation` en `split.contactPanel`, als verborgen titel van de twee panelen.
+- `Checkbox` is een native input met `appearance-none` en `rounded-sm` (4px). `className` komt op de buitenkant, zodat positie en zichtbaarheid (de threadlijst toont hem pas bij hover) blijven werken. `focus-visible:opacity-100` is in de threadlijst `has-[:focus-visible]:opacity-100` geworden.
+- `raw-input` gaat van 58 naar 47 en blijft een ratchet: de overige 47 zijn vooral tekstvelden, plus enkele kleur-, tijd-, getal-, bereik- en zoekvelden. Die vallen buiten 8.8.
+- Opruimen: het knoppen-codemod uit 8.7 liet 71 lege regels (alleen spaties) achter in open tags. Die zijn weg.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

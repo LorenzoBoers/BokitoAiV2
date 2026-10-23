@@ -1040,7 +1040,6 @@ export default function DecisionRequestMessage({
                         <FilterChip active={sendAs === 'user'}
                           disabled={busy}
                           onClick={() => chooseSendAs('user')}
-                         
                         >
                           <UserRound size={14} aria-hidden />
                           {t('decisionCard.sendAs.you')}
@@ -1048,7 +1047,6 @@ export default function DecisionRequestMessage({
                         <FilterChip active={sendAs === 'agent'}
                           disabled={busy}
                           onClick={() => chooseSendAs('agent')}
-                         
                         >
                           <Bot size={14} aria-hidden />
                           {agentName || t('decisionCard.sendAs.agentFallback')}

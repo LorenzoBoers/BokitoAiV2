@@ -193,7 +193,6 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                       key={tool.name}
                       title={tool.description}
                       onClick={() => toggle(tool.name)}
-                     
                     >
                       {humanizeLabel(tool.name)}
                     </FilterChip>

@@ -708,7 +708,6 @@ function MessengerSettingsContent({
                           <Button variant="secondary" size="xs"
                             type="button"
                             onClick={clearWidgetFavicon}
-                           
                           >
                             {t('messengerPage.remove')}
                           </Button>

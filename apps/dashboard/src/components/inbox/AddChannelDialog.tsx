@@ -3,7 +3,7 @@ import { Pressable } from '../ui/pressable'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import * as Dialog from '@radix-ui/react-dialog'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog'
 import { ArrowLeft, Check, ChevronRight, Copy, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '../ui/badge'
@@ -305,10 +305,8 @@ export default function AddChannelDialog({
   const cleanPrefix = normalizeRelayPrefix(prefix)
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="scrim fixed inset-0 z-40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent hideClose className="flex max-h-[85vh] w-[560px] max-w-[92vw] flex-col gap-0 overflow-hidden rounded-lg sm:rounded-lg">
           <div className="flex items-start gap-2.5">
             {choice !== 'menu' ? (
               <Button variant="ghost" size="iconSm"
@@ -321,12 +319,12 @@ export default function AddChannelDialog({
               </Button>
             ) : null}
             <div className="min-w-0">
-              <Dialog.Title className="title-dialog">
+              <DialogTitle className="title-dialog">
                 {title}
-              </Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-sm leading-snug text-text-secondary">
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 text-sm leading-snug text-text-secondary">
                 {description}
-              </Dialog.Description>
+              </DialogDescription>
             </div>
           </div>
 
@@ -517,8 +515,7 @@ export default function AddChannelDialog({
               <SmtpImapConnectForm onConnected={onChannelAdded} />
             ) : null}
           </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+        </DialogContent>
+    </Dialog>
   )
 }

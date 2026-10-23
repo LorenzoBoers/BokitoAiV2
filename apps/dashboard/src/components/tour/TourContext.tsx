@@ -238,7 +238,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
   }, [onSkip, onStart])
 
   return createPortal(
-    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
+    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4"> {/* design-system-ignore: tour bezit het scherm (spotlight en klikschild), geen Dialog */}
       <TourStyles />
       <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border bg-bg-surface shadow-overlay">
         {/* Accent halo */}
@@ -303,7 +303,6 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
             <Button variant="ghost" size="md"
               type="button"
               onClick={onSkip}
-             
             >
               {t('welcome.skip')}
             </Button>
@@ -409,7 +408,7 @@ function StepOverlay({
         }
 
   return createPortal(
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]"> {/* design-system-ignore: tour bezit het scherm (spotlight en klikschild), geen Dialog */}
       <TourStyles />
       {/* Click shield: the tour owns the screen while active. */}
       <div className="absolute inset-0" onClick={onNext} />
@@ -491,7 +490,6 @@ function StepOverlay({
               <Button variant="ghost" size="xs"
                 type="button"
                 onClick={onBack}
-               
               >
                 {t('back')}
               </Button>
@@ -499,7 +497,6 @@ function StepOverlay({
             <Button size="xs"
               type="button"
               onClick={onNext}
-             
             >
               {t('next')}
               <ArrowRight size={14} />
@@ -533,7 +530,7 @@ function FinishScreen({
   }, [onExplore, onAssistant])
 
   return createPortal(
-    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
+    <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4"> {/* design-system-ignore: tour bezit het scherm (spotlight en klikschild), geen Dialog */}
       <TourStyles />
       <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
         <div className="relative">
@@ -555,14 +552,12 @@ function FinishScreen({
             <Button variant="secondary" size="xs"
               type="button"
               onClick={onCommunication}
-             
             >
               {t('finish.communication')}
             </Button>
             <Button variant="ghost" size="xs"
               type="button"
               onClick={onExplore}
-             
             >
               {t('finish.later')}
             </Button>

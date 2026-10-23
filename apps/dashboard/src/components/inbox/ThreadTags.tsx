@@ -161,7 +161,6 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             type="button"
             disabled={saving}
             onClick={() => setExpanded(true)}
-           
           >
             {t('tags.moreCount', { count: hiddenCount })}
           </Button>
@@ -173,7 +172,6 @@ export function ThreadTags({ thread, saving = false, onPatch, onTicketChanged }:
             onClick={() => setOpen(true)}
             aria-label={t('tags.add')}
             title={t('tags.add')}
-           
           >
             <Plus size={14} />
           </Button>

@@ -1,3 +1,4 @@
+import { Checkbox } from '../ui/checkbox'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
@@ -338,11 +339,9 @@ export function McpConnectionForm({
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-text-secondary">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={alpacaPaper}
               onChange={(e) => setAlpacaPaper(e.target.checked)}
-              className="rounded border-border"
             />
             {t('integrations.mcp.servers.alpacaPaper')}
           </label>

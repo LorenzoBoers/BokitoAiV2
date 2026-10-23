@@ -1492,7 +1492,6 @@ export default function ReplyComposer({
                 type="button"
                 onClick={() => onStopAgent?.()}
                 title={t('composer.stop', { defaultValue: 'Stop' })}
-               
               >
                 <Square size={14} />
                 <span className="text-xs font-medium">{t('composer.stop', { defaultValue: 'Stop' })}</span>
