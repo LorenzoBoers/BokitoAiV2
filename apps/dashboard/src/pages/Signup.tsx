@@ -127,7 +127,7 @@ export default function Signup() {
   return (
     <AuthShell
       subtitle={t('signupPage.subtitle')}
-      below={<p className="mt-1 text-center text-2xs text-text-muted/80">build: {APP_VERSION}</p>}
+      below={<p className="mt-1 text-center text-2xs text-text-muted">build: {APP_VERSION}</p>}
     >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">

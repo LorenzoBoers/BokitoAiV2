@@ -106,7 +106,7 @@ function LearnIndex() {
                 <Link
                   key={item.slug}
                   to={`/learn/${item.slug}`}
-                  className="block rounded-lg border border-border/60 px-4 py-3 transition-colors hover:border-accent/40 hover:bg-bg-hover/40"
+                  className="block rounded-lg border border-border px-4 py-3 transition-colors hover:border-accent/40 hover:bg-bg-hover/40"
                 >
                   <p className="text-base font-medium text-text-heading">{item.title}</p>
                   {item.description ? (
@@ -174,14 +174,14 @@ function LearnArticle({ slug }: { slug: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to={backTo}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} aria-hidden />
               {t('pageGuides.back')}
             </Link>
             <Link
               to="/learn"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <BookOpen size={12} aria-hidden />
               {t('pageGuides.allArticles')}
@@ -197,7 +197,7 @@ function LearnArticle({ slug }: { slug: string }) {
         </div>
         <Link
           to="/settings/setup"
-          className="shrink-0 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-bg-hover/60"
+          className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-accent transition-colors hover:bg-bg-hover/60"
         >
           {t('pageGuides.getStartedCta')}
         </Link>
@@ -212,14 +212,14 @@ function LearnArticle({ slug }: { slug: string }) {
       ) : null}
 
       {relatedArticles.length > 0 ? (
-        <section className="rounded-md border border-border/50 bg-bg-elevated px-4 py-4">
+        <section className="rounded-md border border-border bg-bg-elevated px-4 py-4">
           <p className="text-sm font-medium text-text-heading">{t('pageGuides.relatedArticlesTitle')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {relatedArticles.map((item) => (
               <Link
                 key={item.slug}
                 to={`/learn/${item.slug}`}
-                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
               >
                 {item.title}
               </Link>
@@ -229,7 +229,7 @@ function LearnArticle({ slug }: { slug: string }) {
       ) : null}
 
       {quickLinks.length > 0 ? (
-        <section className="rounded-md border border-border/50 bg-bg-elevated px-4 py-4">
+        <section className="rounded-md border border-border bg-bg-elevated px-4 py-4">
           <p className="text-sm font-medium text-text-heading">{t('pageGuides.relatedTitle')}</p>
           <p className="mt-0.5 text-xs text-text-muted">{t('pageGuides.relatedBody')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -237,7 +237,7 @@ function LearnArticle({ slug }: { slug: string }) {
               <Link
                 key={item.to}
                 to={item.to}
-                className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-accent/40 hover:text-accent"
               >
                 {t(item.labelKey)}
               </Link>

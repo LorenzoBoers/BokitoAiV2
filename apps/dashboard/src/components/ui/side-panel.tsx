@@ -25,7 +25,7 @@ const SidePanelContent = React.forwardRef<
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-border/70 bg-bg-surface shadow-overlay',
+          'fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col border-l border-border bg-bg-surface shadow-overlay',
           'data-[state=open]:animate-panel-in',
           className,
         )}
@@ -34,7 +34,7 @@ const SidePanelContent = React.forwardRef<
         {children}
         <DialogPrimitive.Close
           data-dialog-close
-          className="absolute right-4 top-4 rounded-md border border-border/60 bg-bg-elevated p-1.5 opacity-85 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="absolute right-4 top-4 rounded-md border border-border bg-bg-elevated p-1.5 opacity-85 ring-offset-bg transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent"
         >
           <X className="h-4 w-4" />
           <span className="sr-only">{t('actions.close')}</span>
@@ -46,7 +46,7 @@ const SidePanelContent = React.forwardRef<
 SidePanelContent.displayName = 'SidePanelContent'
 
 function SidePanelHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('shrink-0 border-b border-border/60 px-5 py-4 pr-14', className)} {...props} />
+  return <div className={cn('shrink-0 border-b border-border px-5 py-4 pr-14', className)} {...props} />
 }
 
 function SidePanelBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

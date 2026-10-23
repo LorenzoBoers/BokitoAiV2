@@ -577,7 +577,7 @@ export default function AgendaRail(props: Props) {
                   })}
                   {!props.calendarsLoading && props.calendars.length === 0 ? (
                     <div
-                      className="mt-1 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2.5"
+                      className="mt-1 rounded-lg border border-border bg-bg-elevated/60 px-3 py-2.5"
                       data-testid="agenda-connect-calendars-banner"
                     >
                       <div className="flex items-start gap-2.5">
@@ -718,7 +718,7 @@ function MiniMonth({
                   : key === anchorKey
                     ? 'bg-accent/15 font-semibold text-accent'
                     : outside
-                      ? 'text-text-muted/60 hover:bg-bg-elevated'
+                      ? 'text-text-muted hover:bg-bg-elevated'
                       : 'text-text-heading hover:bg-bg-elevated',
               )}
             >

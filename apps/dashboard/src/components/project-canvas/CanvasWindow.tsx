@@ -251,7 +251,7 @@ export function CanvasWindow({
       data-testid={testId ?? 'canvas-window'}
     >
       <header
-        className="flex min-h-11 items-center gap-2 border-b border-border/50 px-3 py-1.5"
+        className="flex min-h-11 items-center gap-2 border-b border-border px-3 py-1.5"
         onClick={(event) => {
           if ((event.target as HTMLElement).closest('button,a,[role="menu"]')) event.stopPropagation()
         }}
@@ -374,7 +374,7 @@ export function CanvasWindow({
         ) : null}
       </header>
       {error ? (
-        <div className="border-b border-border/50 px-3 py-2">
+        <div className="border-b border-border px-3 py-2">
           <Callout tone="error">{error}</Callout>
         </div>
       ) : null}

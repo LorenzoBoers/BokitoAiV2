@@ -163,7 +163,7 @@ export function MailMessageCard({
           className={cn(
             'flex items-start gap-2 px-3.5 py-2',
             BAND_TONE[tone],
-            !collapsed && 'border-b border-border/50',
+            !collapsed && 'border-b border-border',
           )}
         >
           {bandButton}

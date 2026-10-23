@@ -44,7 +44,7 @@ function SkeletonCard() {
         <Skeleton className="h-3 w-full" />
         <Skeleton className="h-3 w-5/6" />
       </div>
-      <div className="flex gap-2 border-t border-border/40 pt-3">
+      <div className="flex gap-2 border-t border-border pt-3">
         <Skeleton className="h-5 w-14 rounded-full" />
         <Skeleton className="h-5 w-16 rounded-full" />
       </div>
@@ -55,7 +55,7 @@ function SkeletonCard() {
 function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
     <div className="panel">
-      <div className="flex h-11 items-center justify-between border-b border-border/60 px-4">
+      <div className="flex h-11 items-center justify-between border-b border-border px-4">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-8 w-24" />
       </div>
@@ -100,7 +100,7 @@ function InboxListSkeleton({ rows = 8 }: { rows?: number }) {
 function InboxThreadSkeleton() {
   return (
     <div className="animate-fade-in flex h-full min-h-0 flex-1 flex-col" role="status" aria-busy="true">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           <Skeleton className="h-8 w-8 shrink-0 rounded-lg" />
           <div className="min-w-0 flex-1 space-y-1.5">
@@ -133,7 +133,7 @@ function InboxThreadSkeleton() {
           <Skeleton className="h-3.5 w-40" />
         </div>
       </div>
-      <div className="shrink-0 space-y-2 border-t border-border/40 px-4 py-3">
+      <div className="shrink-0 space-y-2 border-t border-border px-4 py-3">
         <div className="flex gap-1.5">
           <Skeleton className="h-6 w-14 rounded-full" />
           <Skeleton className="h-6 w-16 rounded-full" />
@@ -151,8 +151,8 @@ function InboxSplitSkeleton() {
       role="status"
       aria-busy="true"
     >
-      <div className="hidden h-full w-[288px] shrink-0 flex-col border-r border-border/40 md:flex">
-        <div className="shrink-0 space-y-2 border-b border-border/40 px-3 py-2.5">
+      <div className="hidden h-full w-[288px] shrink-0 flex-col border-r border-border md:flex">
+        <div className="shrink-0 space-y-2 border-b border-border px-3 py-2.5">
           <Skeleton className="h-8 w-full rounded-lg" />
           <div className="flex gap-1.5">
             <Skeleton className="h-6 w-12 rounded-full" />
@@ -209,7 +209,7 @@ function TableRowsSkeleton({ rows = 6, className }: { rows?: number; className?:
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center gap-3 rounded-lg border border-border/40 px-3 py-2.5"
+          className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
         >
           <Skeleton className="h-8 w-8 shrink-0 rounded-md" />
           <div className="min-w-0 flex-1 space-y-1.5">
@@ -227,7 +227,7 @@ function TableRowsSkeleton({ rows = 6, className }: { rows?: number; className?:
 function ProjectCanvasSkeleton() {
   return (
     <div className="animate-fade-in space-y-3" role="status" aria-busy="true">
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border/50 bg-bg-surface px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-bg-surface px-3 py-3">
         <div className="space-y-2">
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-3 w-64" />
@@ -241,7 +241,7 @@ function ProjectCanvasSkeleton() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="space-y-2.5 rounded-lg border border-border/50 bg-bg-surface p-3"
+            className="space-y-2.5 rounded-lg border border-border bg-bg-surface p-3"
             style={{
               gridColumn: i === 0 || i === 3 ? 'span 2' : undefined,
               minHeight: i % 2 === 0 ? 140 : 112,
@@ -286,7 +286,7 @@ function CockpitPanelsSkeleton({ className }: { className?: string } = {}) {
       {Array.from({ length: 2 }).map((_, panel) => (
         <div
           key={panel}
-          className="rounded-lg border border-border/60 bg-bg-surface p-4"
+          className="rounded-lg border border-border bg-bg-surface p-4"
         >
           <div className="space-y-1.5">
             <Skeleton className="h-3.5 w-32" />
@@ -296,7 +296,7 @@ function CockpitPanelsSkeleton({ className }: { className?: string } = {}) {
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2.5 rounded-lg border border-border/40 px-3 py-2"
+                className="flex items-center gap-2.5 rounded-lg border border-border px-3 py-2"
               >
                 <Skeleton className="h-1.5 w-1.5 shrink-0 rounded-full" />
                 <div className="min-w-0 flex-1 space-y-1.5">

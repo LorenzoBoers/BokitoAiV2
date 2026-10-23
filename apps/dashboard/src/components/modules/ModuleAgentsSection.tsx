@@ -299,7 +299,7 @@ export function ModuleAgentsSection({
       ) : (
         <ul className="space-y-1">
           {roster.map((row) => (
-            <li key={row.id} className="rounded-md border border-border/50 px-2.5 py-1.5">
+            <li key={row.id} className="rounded-md border border-border px-2.5 py-1.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex min-w-0 items-center gap-2">
                   <Link
@@ -376,7 +376,7 @@ export function ModuleAgentsSection({
                 </span>
               </div>
               {accessOpenId === row.id && moduleSlug === 'accounting' ? (
-                <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
+                <div className="mt-2 space-y-2 border-t border-border pt-2">
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-xs font-medium text-text-primary">
@@ -422,7 +422,7 @@ export function ModuleAgentsSection({
                               className={
                                 selected
                                   ? 'rounded-md border border-accent/60 bg-accent/10 px-2 py-0.5 text-xs text-accent'
-                                  : 'rounded-md border border-border/60 px-2 py-0.5 text-xs text-text-secondary hover:border-border-light'
+                                  : 'rounded-md border border-border px-2 py-0.5 text-xs text-text-secondary hover:border-border-light'
                               }
                               onClick={() => toggleCompany(row, company.id)}
                             >

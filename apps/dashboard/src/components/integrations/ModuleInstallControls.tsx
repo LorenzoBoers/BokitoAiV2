@@ -262,7 +262,7 @@ function AddDepartmentDialog({
   const existing = plan?.candidates.find((c) => c.id === target) ?? null
   const ships = plan?.ships
   const select =
-    'h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border'
+    'h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border'
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">

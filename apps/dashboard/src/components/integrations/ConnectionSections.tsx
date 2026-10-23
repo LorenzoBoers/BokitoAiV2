@@ -59,7 +59,7 @@ export function ConnectionSections({
                     key={program.programKey}
                     className="panel"
                   >
-                    <div className="flex items-center justify-between gap-3 border-b border-border/40 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
                       <div className="flex min-w-0 items-center gap-2">
                         <IntegrationHostLogo
                           logoUrl={program.brand.logoUrl}
@@ -95,7 +95,7 @@ export function ConnectionSections({
                         return (
                           <li
                             key={row.id}
-                            className="flex flex-wrap items-center justify-between gap-3 border-t border-border/30 px-3 py-2 first:border-t-0"
+                            className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-3 py-2 first:border-t-0"
                           >
                             <div className="min-w-0">
                               <p className="truncate-fade text-sm text-text-heading">{row.title}</p>

@@ -164,7 +164,7 @@ export function IntegrationDetailPanel({
       ) : null}
 
       {isComingSoon && remoteDef ? (
-        <p className="text-xs text-text-muted border border-border/60 rounded-md px-3 py-2">
+        <p className="text-xs text-text-muted border border-border rounded-md px-3 py-2">
           {t('integrations.hub.setup.comingSoonRemoteMcp')}
         </p>
       ) : null}

@@ -13,9 +13,9 @@ function environmentLabel(raw: string | undefined): string {
   return env
 }
 
-const QUIET = 'font-mono text-2xs leading-none text-text-muted/70'
+const QUIET = 'font-mono text-2xs leading-none text-text-muted'
 const DOT = (
-  <span className="text-text-muted/40" aria-hidden>
+  <span className="text-text-muted" aria-hidden>
     ·
   </span>
 )

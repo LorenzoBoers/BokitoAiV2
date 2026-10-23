@@ -2,7 +2,7 @@ import type { ComponentType, ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 
 const TONE = {
-  neutral: 'border-border/60 bg-bg-elevated text-text-secondary',
+  neutral: 'border-border bg-bg-elevated text-text-secondary',
   accent: 'border-accent/20 bg-accent/10 text-accent',
   ai: 'border-ai/20 bg-ai/10 text-ai-ink',
   success: 'border-status-success/20 bg-status-success/10 text-status-success',

@@ -354,7 +354,7 @@ function ChannelsSection({
       {loading ? <NavSectionSkeleton rows={3} /> : null}
       {!loading && folders.length === 0 ? (
         <Tip label={t('support.channels.connectChannel')} side="right">
-          <Link to="/settings/channels" className="nav-row border border-dashed border-border/80 text-xs">
+          <Link to="/settings/channels" className="nav-row border border-dashed border-border text-xs">
             <Plus aria-hidden />
             <span className="min-w-0 flex-1 truncate-fade">{t('support.channels.connectChannel')}</span>
           </Link>
@@ -865,7 +865,7 @@ export default function MessagesHubNav() {
       <>
         {teamsLoading ? <NavSectionSkeleton rows={2} /> : null}
         {!teamsLoading && teams.length === 0 ? (
-          <Link to="/team" className="nav-row border border-dashed border-border/80 text-xs">
+          <Link to="/team" className="nav-row border border-dashed border-border text-xs">
             <Plus aria-hidden />
             <span className="min-w-0 flex-1 truncate-fade">{t('support.teams.createHint')}</span>
           </Link>
@@ -984,7 +984,7 @@ export default function MessagesHubNav() {
         </DndContext>
       </ScrollFade>
 
-      <div className="mt-1 shrink-0 space-y-px border-t border-border/60 pt-1.5">
+      <div className="mt-1 shrink-0 space-y-px border-t border-border pt-1.5">
         <Tip label={t('support.contacts.hint')} side="right">
           <NavLink to="/contacts" className="nav-row">
             <Users aria-hidden />

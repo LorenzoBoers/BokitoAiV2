@@ -249,12 +249,12 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
 
   return (
     <div className="relative z-20 shrink-0 bg-bg px-4 pt-2">
-      <div className={`${CHAT_COLUMN_CLASS} rounded-lg border border-border/70 bg-bg-elevated`}>
+      <div className={`${CHAT_COLUMN_CLASS} rounded-lg border border-border bg-bg-elevated`}>
         {transcriptOpen ? (
           <ScrollFade
             ref={transcriptRef}
             fadeColorVar="--color-bg-elevated"
-            wrapperClassName="border-b border-border/60"
+            wrapperClassName="border-b border-border"
             className="max-h-40 px-3 py-2"
           >
             {prefs?.lines.length ? (

@@ -257,7 +257,7 @@ export default function SignatureEditor({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="scrim fixed inset-0 z-40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[800px] max-w-[95vw] max-h-[90vh] overflow-hidden rounded-lg border border-border/70 bg-bg-surface shadow-overlay">
+        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[800px] max-w-[95vw] max-h-[90vh] overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <Dialog.Title className="title-dialog">
               {t('signatureEditor.title')}

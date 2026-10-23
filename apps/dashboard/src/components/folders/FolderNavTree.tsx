@@ -940,7 +940,7 @@ function RootDropZone({
         placement === 'start' ? 'mb-0.5' : 'mt-0.5',
         lit
           ? 'border-border bg-bg-hover text-text-secondary'
-          : 'border-border/55 bg-bg-hover/30 text-text-muted',
+          : 'border-border bg-bg-hover/30 text-text-muted',
       )}
     >
       <ArrowUpToLine size={12} className="shrink-0" aria-hidden />

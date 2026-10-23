@@ -14,7 +14,7 @@ function humanize(key: string): string {
 export function ModuleProposalBlock({ proposal }: { proposal: ModuleProposal }) {
   const { t } = useTranslation('communication')
   return (
-    <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-2">
+    <div className="mt-2 rounded-lg border border-border bg-bg-elevated px-3 py-2">
       <p className="mb-1.5 text-2xs font-medium text-text-muted">
         {t(`decisionCard.module.kinds.${proposal.kind}`, {
           defaultValue: t('decisionCard.module.title', {

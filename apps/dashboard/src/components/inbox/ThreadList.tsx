@@ -337,7 +337,7 @@ export default function ThreadList({
           type="button"
           onClick={onLoadMore}
           disabled={loadingMore}
-          className="mt-1 mb-1 w-full rounded-md border border-border/60 bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+          className="mt-1 mb-1 w-full rounded-md border border-border bg-bg-surface px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
         >
           {loadingMore ? (
             <span className="inline-flex items-center justify-center gap-2">
@@ -377,7 +377,7 @@ export default function ThreadList({
 
   return (
     <div
-      className="flex h-full min-h-0 w-full flex-col border-r border-border/60 bg-bg-surface"
+      className="flex h-full min-h-0 w-full flex-col border-r border-border bg-bg-surface"
     >
       {selectionActive && onBulkAction && onClearBulkSelection ? (
         <BulkActionsBar
@@ -413,7 +413,7 @@ export default function ThreadList({
       )}
 
       {scopeLabel && onClearScope ? (
-        <div className="flex items-center gap-1.5 border-b border-border/40 bg-accent/5 px-3 py-1.5">
+        <div className="flex items-center gap-1.5 border-b border-border bg-accent/5 px-3 py-1.5">
           <Filter size={11} className="shrink-0 text-accent" />
           <span className="min-w-0 flex-1 truncate-fade text-xs font-medium text-text-heading">
             {scopeLabel}

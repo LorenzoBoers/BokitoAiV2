@@ -114,7 +114,7 @@ export function FiltersetHeading({
             role="group"
             aria-label={labelsAria}
             className={cn(
-              'flex min-h-9 min-w-0 max-w-full flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-bg-input px-2 py-1',
+              'flex min-h-9 min-w-0 max-w-full flex-wrap items-center gap-1.5 rounded-xl border border-border bg-bg-input px-2 py-1',
               canEdit && 'cursor-pointer transition-[border-color,box-shadow] duration-150 hover:border-border focus-within:border-accent/50',
             )}
             onClick={

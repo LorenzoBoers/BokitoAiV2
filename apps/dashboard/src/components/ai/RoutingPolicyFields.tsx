@@ -56,7 +56,7 @@ function Row({
     )
   }
   return (
-    <div className={cn('flex items-start justify-between gap-4', !first && 'border-t border-border/60 pt-5')}>
+    <div className={cn('flex items-start justify-between gap-4', !first && 'border-t border-border pt-5')}>
       <div className="flex items-start gap-3">
         <Icon size={16} className="mt-0.5 text-accent" />
         <div>

@@ -296,7 +296,7 @@ function AccessDialog<L extends string>({
         ) : (
           <div className="max-h-[50vh] space-y-4 overflow-y-auto pr-1">
             <div
-              className="sticky top-0 z-10 grid items-center gap-2 border-b border-border/40 bg-bg-surface pb-2 pt-0.5"
+              className="sticky top-0 z-10 grid items-center gap-2 border-b border-border bg-bg-surface pb-2 pt-0.5"
               style={{ gridTemplateColumns: colTemplate }}
             >
               <span className="text-2xs font-medium uppercase tracking-wide text-text-muted">

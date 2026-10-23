@@ -64,7 +64,7 @@ export function WorkbenchJobCard({ jobId, provider, kind, className }: Props) {
   return (
     <div
       className={cn(
-        'mt-1 flex max-w-[85%] flex-wrap items-center gap-2 rounded-md border border-border/60 bg-bg-surface px-2.5 py-1.5 text-xs',
+        'mt-1 flex max-w-[85%] flex-wrap items-center gap-2 rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-xs',
         className,
       )}
       data-testid="workbench-job-card"

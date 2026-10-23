@@ -60,7 +60,7 @@ export function TagChipInput({
     <div
       role="group"
       className={cn(
-        'flex min-h-11 cursor-text flex-wrap items-center gap-1.5 rounded-xl border border-border/80 bg-bg-input px-2.5 py-1.5 transition-[border-color,box-shadow] duration-150',
+        'flex min-h-11 cursor-text flex-wrap items-center gap-1.5 rounded-xl border border-border bg-bg-input px-2.5 py-1.5 transition-[border-color,box-shadow] duration-150',
         'focus-within:border-accent/50 focus-within:shadow-[0_0_0_3px_rgb(var(--color-accent)/0.12)]',
         disabled && 'opacity-60',
         className,

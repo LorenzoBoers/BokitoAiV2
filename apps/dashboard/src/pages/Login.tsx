@@ -279,7 +279,7 @@ export default function Login() {
       }
       below={
         <>
-          <p className="mt-1 text-center text-2xs text-text-muted/80">build: {APP_VERSION}</p>
+          <p className="mt-1 text-center text-2xs text-text-muted">build: {APP_VERSION}</p>
           {import.meta.env.DEV ? (
             <p className="mx-auto mt-3 max-w-sm text-center text-xs leading-relaxed text-text-muted">
               {t('loginPage.localDevHint', { email: 'admin@bokito.ai', password: 'bokito-test-password' })}

@@ -130,7 +130,7 @@ export function SectionLabel({
             <ChevronDown aria-hidden />
             <span className="min-w-0 shrink truncate-fade text-left">{title}</span>
             {count != null && count !== '' ? (
-              <span className="shrink-0 tabular-nums text-text-muted/70">{count}</span>
+              <span className="shrink-0 tabular-nums text-text-muted">{count}</span>
             ) : null}
             <span className="min-w-0 flex-1" aria-hidden />
           </button>
@@ -138,7 +138,7 @@ export function SectionLabel({
           <div className="nav-folder pointer-events-none min-w-0 flex-1" data-open="true">
             <span className="min-w-0 shrink truncate-fade text-left font-medium">{title}</span>
             {count != null && count !== '' ? (
-              <span className="shrink-0 tabular-nums text-text-muted/70">{count}</span>
+              <span className="shrink-0 tabular-nums text-text-muted">{count}</span>
             ) : null}
             <span className="min-w-0 flex-1" aria-hidden />
           </div>

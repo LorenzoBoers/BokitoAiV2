@@ -41,7 +41,7 @@ export function ContactFolderChips({ threads }: { threads: InboxThread[] }) {
         <Link
           key={folder.id}
           to={openEntityPath({ type: 'project', id: folder.id })}
-          className="inline-flex h-6 max-w-[14rem] items-center gap-1 rounded-md border border-border/70 px-2 text-xs text-text-heading transition-colors hover:border-accent/40 hover:text-accent"
+          className="inline-flex h-6 max-w-[14rem] items-center gap-1 rounded-md border border-border px-2 text-xs text-text-heading transition-colors hover:border-accent/40 hover:text-accent"
           title={folder.path}
         >
           <FolderIcon size={11} className="shrink-0 text-text-muted" aria-hidden />

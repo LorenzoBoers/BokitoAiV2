@@ -72,7 +72,7 @@ export function ThemeOption({ label, icon, active, onClick, variant }: {
       className={`flex-1 rounded-lg border p-2.5 transition-all ${
         active
           ? 'border-accent ring-1 ring-accent/40'
-          : 'border-border/60 hover:border-border'
+          : 'border-border hover:border-border'
       }`}
     >
       <div className="h-[88px] overflow-hidden rounded-lg">

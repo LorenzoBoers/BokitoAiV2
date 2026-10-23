@@ -146,10 +146,10 @@ function ChatCodeWindow({ text, lang }: { text: string; lang: string }) {
 
   return (
     <div
-      className="chat-code-window my-2 overflow-hidden rounded-lg border border-border/70 bg-bg-elevated"
+      className="chat-code-window my-2 overflow-hidden rounded-lg border border-border bg-bg-elevated"
       data-testid="chat-code-window"
     >
-      <div className="flex items-center gap-2 border-b border-border/50 bg-bg-input/40 px-2 py-1">
+      <div className="flex items-center gap-2 border-b border-border bg-bg-input/40 px-2 py-1">
         <Code2 size={13} className="shrink-0 text-text-muted" aria-hidden />
         <span className="min-w-0 flex-1 truncate font-mono text-2xs text-text-muted">{label}</span>
         <button
@@ -207,7 +207,7 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
         return (
           <span
             key={index}
-            className="inline-flex items-center rounded-md border border-border/50 bg-bg-elevated px-1.5 py-px text-2xs font-medium text-text-muted align-baseline"
+            className="inline-flex items-center rounded-md border border-border bg-bg-elevated px-1.5 py-px text-2xs font-medium text-text-muted align-baseline"
             data-status={key}
           >
             {node.label}
@@ -219,7 +219,7 @@ function renderInline(nodes: ChatInline[]): ReactNode[] {
           return (
             <span
               key={index}
-              className="inline-flex items-center rounded-md border border-border/50 bg-bg-elevated px-1.5 py-px text-2xs font-medium text-text-muted align-baseline"
+              className="inline-flex items-center rounded-md border border-border bg-bg-elevated px-1.5 py-px text-2xs font-medium text-text-muted align-baseline"
             >
               {node.label}
             </span>

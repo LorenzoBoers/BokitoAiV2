@@ -723,7 +723,7 @@ export default function AgendaPage() {
         <main className={cn('flex h-full min-h-0 min-w-0 flex-col', view !== 'list' && 'overflow-y-auto')}>
           {error ? <ApiErrorBanner message={error} onRetry={reload} /> : null}
           {!loading && byWho.length > 0 && shown.length === 0 ? (
-            <p className="mb-3 rounded-lg border border-border/60 bg-bg-elevated/60 px-3 py-2 text-sm text-text-secondary">
+            <p className="mb-3 rounded-lg border border-border bg-bg-elevated/60 px-3 py-2 text-sm text-text-secondary">
               {needle ? t('agendaPage.searchEmpty') : t('agendaPage.filtersHideAll')}
             </p>
           ) : null}
@@ -896,8 +896,8 @@ function AttentionChip({
 function EmptyAgenda({ onPlan }: { onPlan: () => void }) {
   const { t } = useTranslation('nav')
   return (
-    <div className="rounded-xl border border-dashed border-border/60 p-10 text-center">
-      <CalendarDays className="mx-auto h-8 w-8 text-text-muted/50" aria-hidden />
+    <div className="rounded-xl border border-dashed border-border p-10 text-center">
+      <CalendarDays className="mx-auto h-8 w-8 text-text-muted" aria-hidden />
       <p className="mt-3 text-sm font-medium text-text-heading">{t('agendaPage.emptyTitle')}</p>
       <p className="mt-1 text-sm text-text-muted">{t('agendaPage.emptyBody')}</p>
       <div className="mt-4 flex flex-col items-center gap-3">

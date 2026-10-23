@@ -462,6 +462,14 @@ Daarnaast heeft `src/pages/WorkspaceDocs.tsx` (chip "Concept-lessen") een ignore
 - De `padding`-prop van `Card` is niet aangepast. `.panel` heeft nu radius 16 en een effen rand; de padding volgt in 8.4.
 - Na fase 5 kloppen de screenshots in `docs/product-help/assets/` niet meer met het scherm (knoppen, bubbels, composer, shell). Opnieuw vastleggen staat niet in het plan; beter na fase 8 in één keer met `capture_product_help_screenshots.py`.
 
+### Fase 6: rust
+
+- `AgentGlow` en `AmbientSpotlights` zijn met hun CSS verwijderd, niet alleen verborgen. `.bot-orb__aura` is uit `BotOrbAvatar` en de CSS gehaald. `app-atmosphere` blijft als vlakke achtergrond; alleen de lichte radiale gloed is weg.
+- `--body-glow-top` en `--body-glow-bottom` uit `applyBrandColor` (`tenant-branding.ts`, met test) worden nergens meer gelezen. Weghalen raakt de merkkleur-engine; dat staat niet in het plan.
+- `.dot-grid-bg` (`DotGridBackground`, onder meer op Nieuw gesprek) staat in de referentielaag ook op `display:none`, maar niet in de lijst van het plan. Hij staat nog aan.
+- De gloed om een live agent-stoel (`[data-live-agent='true']::after`, `live-agent-glow`) staat niet in de lijst en blijft.
+- Iconen: gekozen voor `svg.lucide[stroke-width='2'] { stroke-width: 1.75 }` in de base-laag, geen `Icon`-wrapper. De selector raakt alleen de Lucide-standaard; expliciete diktes (`strokeWidth={2.5}` enzovoort) blijven. Ook de 17 expliciete `strokeWidth={2}` worden daardoor 1,75.
+
 ### Tijdelijke copy-allowlist: opruimen na merge
 
 In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, opruimen na merge`, staan twee regels:

@@ -67,7 +67,7 @@ export default function PushSoftPrompt() {
 
   return (
     <div
-      className="flex h-9 items-center gap-2 border-b border-border/60 bg-bg px-3 text-xs text-text-secondary"
+      className="flex h-9 items-center gap-2 border-b border-border bg-bg px-3 text-xs text-text-secondary"
       data-testid="push-soft-prompt"
     >
       <BellRing size={14} className="shrink-0 text-text-muted" />
@@ -78,7 +78,7 @@ export default function PushSoftPrompt() {
         type="button"
         disabled={busy || !token}
         onClick={() => void enable()}
-        className="ml-auto shrink-0 h-6 rounded-md border border-border/70 px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-50"
+        className="ml-auto shrink-0 h-6 rounded-md border border-border px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-50"
       >
         {t('pushSoftPrompt.enable')}
       </button>

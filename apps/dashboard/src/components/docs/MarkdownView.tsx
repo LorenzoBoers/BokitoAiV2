@@ -126,7 +126,7 @@ export default function MarkdownView({
       blocks.push(
         <pre
           key={key++}
-          className="overflow-x-auto rounded-lg border border-border/40 bg-bg-elevated px-3.5 py-2.5 font-mono text-xs leading-relaxed text-text-primary"
+          className="overflow-x-auto rounded-lg border border-border bg-bg-elevated px-3.5 py-2.5 font-mono text-xs leading-relaxed text-text-primary"
         >
           {code.join('\n')}
         </pre>,
@@ -152,7 +152,7 @@ export default function MarkdownView({
             <img
               src={image.src}
               alt={image.alt}
-              className="max-h-[min(56vh,520px)] w-full rounded-lg border border-border/40 bg-bg-elevated object-contain object-top"
+              className="max-h-[min(56vh,520px)] w-full rounded-lg border border-border bg-bg-elevated object-contain object-top"
             />
             {caption ? (
               <figcaption className="text-xs leading-5 text-text-muted">{caption}</figcaption>
@@ -165,7 +165,7 @@ export default function MarkdownView({
 
     // Horizontal rule
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
-      blocks.push(<hr key={key++} className="my-2 border-border/40" />)
+      blocks.push(<hr key={key++} className="my-2 border-border" />)
       i += 1
       continue
     }
@@ -204,10 +204,10 @@ export default function MarkdownView({
         i += 1
       }
       blocks.push(
-        <div key={key++} className="overflow-x-auto rounded-lg border border-border/40">
+        <div key={key++} className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border/40 bg-bg-elevated">
+              <tr className="border-b border-border bg-bg-elevated">
                 {header.map((cell, idx) => (
                   <th key={idx} className="px-3 py-2 text-left font-semibold text-text-heading">
                     {renderInline(cell)}
@@ -217,7 +217,7 @@ export default function MarkdownView({
             </thead>
             <tbody>
               {rows.map((row, rIdx) => (
-                <tr key={rIdx} className="border-b border-border/40 last:border-b-0">
+                <tr key={rIdx} className="border-b border-border last:border-b-0">
                   {header.map((_, cIdx) => (
                     <td key={cIdx} className="px-3 py-2 align-top text-text-primary">
                       {renderInline(row[cIdx] ?? '')}

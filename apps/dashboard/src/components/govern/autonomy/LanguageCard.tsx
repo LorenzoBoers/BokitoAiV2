@@ -144,7 +144,7 @@ export function LanguageCard({
         </div>
       )}
 
-      <div className="space-y-3 border-t border-border/60 pt-5">
+      <div className="space-y-3 border-t border-border pt-5">
         <SectionHeading
           title={t('ai.communication.mailboxExceptionsTitle')}
           description={t('ai.communication.mailboxExceptionsDescription')}
@@ -169,7 +169,7 @@ export function LanguageCard({
               const value = mailboxDrafts[mailbox.id] ?? ''
               const expanded = expandedMailboxId === mailbox.id
               return (
-                <div key={mailbox.id} className="overflow-hidden rounded-lg border border-border/60">
+                <div key={mailbox.id} className="overflow-hidden rounded-lg border border-border">
                   <button
                     type="button"
                     onClick={() => setExpandedMailboxId((prev) => (prev === mailbox.id ? null : mailbox.id))}
@@ -197,7 +197,7 @@ export function LanguageCard({
                     />
                   </button>
                   {expanded ? (
-                    <div className="flex items-start justify-between gap-4 border-t border-border/60 bg-bg-elevated/30 px-3 py-4">
+                    <div className="flex items-start justify-between gap-4 border-t border-border bg-bg-elevated/30 px-3 py-4">
                       <p className="mt-2 max-w-sm text-xs text-text-muted">{t('ai.communication.mailboxLanguageHint')}</p>
                       <LanguageSelect
                         id={`ai-language-mailbox-${mailbox.id}`}

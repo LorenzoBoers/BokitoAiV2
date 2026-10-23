@@ -62,7 +62,7 @@ export function ScheduleSection({ thread, onPlan }: Props) {
   return (
     <section
       className={cn(
-        'space-y-2 rounded-md border border-border/50 bg-bg-elevated px-3 py-2.5 text-left',
+        'space-y-2 rounded-md border border-border bg-bg-elevated px-3 py-2.5 text-left',
         onPlan && 'cursor-pointer transition-colors hover:border-border hover:bg-bg-hover',
       )}
       data-testid="thread-schedule"

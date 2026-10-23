@@ -335,7 +335,7 @@ function NewFolderCard({ onClick }: { onClick: () => void }) {
       type="button"
       variant="ghost"
       onClick={onClick}
-      className="h-auto min-h-[64px] border border-dashed border-border/70 text-text-muted"
+      className="h-auto min-h-[64px] border border-dashed border-border text-text-muted"
     >
       <Plus size={14} aria-hidden />
       {t('projects.detail.newFolder')}

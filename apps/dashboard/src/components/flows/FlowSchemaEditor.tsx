@@ -617,7 +617,7 @@ export function FlowSchemaEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-3 pr-14">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3 pr-14">
         <div className="min-w-0">
           <h2 className="text-sm font-medium text-text-heading">{t('workstreamsPage.schema.title')}</h2>
           <p className="text-xs text-text-muted">
@@ -651,7 +651,7 @@ export function FlowSchemaEditor({
           </Button>
         </div>
       </div>
-      {error ? <p className="border-b border-border/60 px-5 py-2 text-xs text-status-error">{error}</p> : null}
+      {error ? <p className="border-b border-border px-5 py-2 text-xs text-status-error">{error}</p> : null}
 
       {mode === 'source' ? (
         <div className="flex min-h-0 flex-1">
@@ -667,7 +667,7 @@ export function FlowSchemaEditor({
               className="min-h-0 flex-1 resize-none font-mono text-xs leading-relaxed"
             />
           </div>
-          <aside className="w-80 shrink-0 overflow-y-auto border-l border-border/60 bg-bg-surface p-4">
+          <aside className="w-80 shrink-0 overflow-y-auto border-l border-border bg-bg-surface p-4">
             <p className="mb-2 text-xs font-medium text-text-heading">{t('workstreamsPage.schema.errorsTitle')}</p>
             {checking ? (
               <p className="flex items-center gap-1.5 text-xs text-text-muted">
@@ -795,7 +795,7 @@ export function FlowSchemaEditor({
                       className={cn('absolute z-10 w-auto max-w-[150px] -translate-x-1/2 -translate-y-1/2 justify-start gap-1 border px-2 text-2xs font-normal shadow-sm',
  active
  ?'border-accent bg-accent text-accent-fg hover:bg-accent hover:text-accent-fg': edge.when || extra
- ?'border-accent/50 bg-bg-surface text-text-primary hover:border-accent hover:bg-bg-surface':'justify-center border-border/70 bg-bg-surface px-0 text-text-muted hover:border-border hover:bg-bg-surface',
+ ?'border-accent/50 bg-bg-surface text-text-primary hover:border-accent hover:bg-bg-surface':'justify-center border-border bg-bg-surface px-0 text-text-muted hover:border-border hover:bg-bg-surface',
  )}
                       style={{ left: at.x, top: at.y }}
                       data-edge={index}
@@ -910,7 +910,7 @@ export function FlowSchemaEditor({
             />
           </div>
 
-          <aside className="w-80 shrink-0 overflow-y-auto border-l border-border/60 bg-bg-surface">
+          <aside className="w-80 shrink-0 overflow-y-auto border-l border-border bg-bg-surface">
             {selectedNode ? (
               <StepInspector
                 key={selectedNode.name}
@@ -947,7 +947,7 @@ export function FlowSchemaEditor({
                   <li>{t('workstreamsPage.schema.tips.move')}</li>
                   <li>{t('workstreamsPage.schema.tips.rightClick')}</li>
                 </ul>
-                <div className="space-y-1.5 border-t border-border/60 pt-4">
+                <div className="space-y-1.5 border-t border-border pt-4">
                   {nodes.map((node) => {
                     const index = stages.findIndex((stage) => stage.key === node.name)
                     const stage = index >= 0 ? stages[index] : undefined
@@ -1050,7 +1050,7 @@ function StepCard({
         'hover:border-border hover:shadow-md focus-visible:ring-1 focus-visible:ring-accent/60',
         onMoveStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         lifted ? 'z-40 opacity-90 shadow-lg' : 'z-20 transition',
-        active ? 'border-accent ring-1 ring-accent/40' : 'border-border/60',
+        active ? 'border-accent ring-1 ring-accent/40' : 'border-border',
       )}
       style={cellStyle(at)}
     >
@@ -1286,7 +1286,7 @@ function CanvasMenu({
 
 function InspectorHeader({ icon, kicker, title }: { icon: ReactNode; kicker: string; title: string }) {
   return (
-    <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
+    <div className="flex items-center gap-2 border-b border-border px-4 py-3">
       {icon}
       <div className="min-w-0">
         <p className="text-2xs uppercase tracking-wide text-text-muted">{kicker}</p>
@@ -1403,7 +1403,7 @@ function StepInspector({
           </Field>
         ))}
 
-        <div className="space-y-2 border-t border-border/60 pt-4">
+        <div className="space-y-2 border-t border-border pt-4">
           <ArrowList
             label={t('workstreamsPage.schema.outgoing')}
             rows={outgoing.map(({ edge, index }) => ({ index, name: titleOf(edge.dst), when: edge.when }))}

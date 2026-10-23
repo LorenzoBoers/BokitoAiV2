@@ -60,7 +60,6 @@ import { listWorkstreams, startWorkstreamRun, type WorkstreamRow } from '../../l
 import { parseComposerVerb } from '../../lib/composer-verbs'
 import { toast } from 'sonner'
 import type { LucideIcon } from 'lucide-react'
-import { AmbientSpotlights } from '../ui/ambient-spotlights'
 
 type PaletteItem = {
   id: string
@@ -760,9 +759,8 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         className="scrim absolute inset-0 animate-fade-in"
         onClick={onClose}
       />
-      <AmbientSpotlights />
       <div
-        className="relative z-[1] w-full max-w-[560px] overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay animate-pop-in"
+        className="relative z-[1] w-full max-w-[560px] overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay animate-pop-in"
         role="dialog"
         aria-label={t('palette.ariaDialog')}
       >
@@ -772,7 +770,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder={t('palette.placeholder')}
-          className="w-full border-b border-border/60 bg-transparent px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none"
+          className="w-full border-b border-border bg-transparent px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none"
         />
         <div ref={listRef} className="max-h-[340px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
@@ -785,7 +783,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     key={item.id}
                     type="button"
                     onClick={() => runItem(item)}
-                    className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {item.label}
                   </button>
@@ -829,7 +827,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
             })
           )}
         </div>
-        <p className="border-t border-border/50 px-3 py-2 text-xs text-text-muted">{t('palette.footerHint')}</p>
+        <p className="border-t border-border px-3 py-2 text-xs text-text-muted">{t('palette.footerHint')}</p>
       </div>
     </div>
   )

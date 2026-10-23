@@ -86,7 +86,7 @@ export default function MessageAttachments({
             return (
               <div
                 key={att.id}
-                className="composer-thumb-in flex h-16 max-w-40 shrink-0 items-center gap-1.5 self-center rounded-lg border border-border/60 bg-bg-elevated px-2 text-xs shadow-sm"
+                className="composer-thumb-in flex h-16 max-w-40 shrink-0 items-center gap-1.5 self-center rounded-lg border border-border bg-bg-elevated px-2 text-xs shadow-sm"
               >
                 <FileText size={14} className="shrink-0 text-text-muted" />
                 <span className="min-w-0 truncate-fade text-text-secondary">{name}</span>
@@ -143,8 +143,8 @@ export default function MessageAttachments({
             key={att.id}
             className={
               isImage
-                ? 'relative overflow-hidden rounded-lg border border-border/60 bg-bg-elevated/60'
-                : 'relative flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/60 px-2 py-1.5 text-xs'
+                ? 'relative overflow-hidden rounded-lg border border-border bg-bg-elevated/60'
+                : 'relative flex items-center gap-2 rounded-lg border border-border bg-bg-elevated/60 px-2 py-1.5 text-xs'
             }
           >
             {isImage ? (

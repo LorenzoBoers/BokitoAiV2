@@ -88,7 +88,7 @@ export default function WorkspaceSettings() {
         {t('description')}
       </p>
 
-      <div className="rounded-lg border border-border/50 bg-bg-elevated p-4">
+      <div className="rounded-lg border border-border bg-bg-elevated p-4">
         <p className="text-sm font-medium text-text-heading">{t('startHereTitle')}</p>
         <p className="mt-1 text-sm text-text-secondary">{t('startHereBody')}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -188,7 +188,7 @@ export default function WorkspaceSettings() {
             </label>
             <Link
               to="/settings/branding"
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-input/40 px-4 py-3 hover:bg-bg-hover/50 hover:border-border/60 transition-colors group"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-input/40 px-4 py-3 hover:bg-bg-hover/50 hover:border-border transition-colors group"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">

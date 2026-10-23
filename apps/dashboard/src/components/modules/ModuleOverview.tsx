@@ -106,7 +106,7 @@ export function ModuleOverview({ module }: Props) {
       <section className="panel p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-start gap-2.5">
-            <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-bg-muted/40 text-text-secondary">
+            <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-muted/40 text-text-secondary">
               {writesActive ? <PenLine size={15} aria-hidden /> : <Lock size={15} aria-hidden />}
             </span>
             <div>
@@ -165,7 +165,7 @@ export function ModuleOverview({ module }: Props) {
             {customerCards.map((card) => (
               <li
                 key={card.verb}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-heading">{card.label}</p>
@@ -253,7 +253,7 @@ export function ModuleOverview({ module }: Props) {
           {specialist ? (
             <Link
               to={`/agents/${specialist.agent_id}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
             >
               {t('integrations.modules.agents.openSpecialist', {
                 defaultValue: 'Open specialist',
@@ -262,27 +262,27 @@ export function ModuleOverview({ module }: Props) {
           ) : (
             <Link
               to="/agents"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
             >
               {t('integrations.connected.openAgents', { defaultValue: 'Open Agents' })}
             </Link>
           )}
           <Link
             to={inboxPath('open')}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             <MessageSquare size={13} aria-hidden />
             {t('integrations.connected.openCommunication', { defaultValue: 'Open Communication' })}
           </Link>
           <Link
             to={`${moduleHomePath(module)}?tab=sources`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             {t('integrations.modules.workspace.sources', { defaultValue: 'Knowledge sources' })}
           </Link>
           <Link
             to="/settings/govern?tab=policy"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
           >
             {t('integrations.connected.openGovern', { defaultValue: 'Open Govern' })}
           </Link>

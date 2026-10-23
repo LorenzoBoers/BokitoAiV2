@@ -52,7 +52,7 @@ export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
           {...props}
         />
         {showShortcut ? (
-          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm border border-border/70 px-1 font-mono text-2xs text-text-muted">
+          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-sm border border-border px-1 font-mono text-2xs text-text-muted">
             {shortcut}
           </kbd>
         ) : null}

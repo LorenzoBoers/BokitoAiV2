@@ -66,7 +66,7 @@ export default function BulkActionsBar({
   const reopenInMore = visibility.showReopen && visibility.primary !== 'reopen' && visibility.primary !== 'not_spam'
 
   return (
-    <div className="border-b border-border/60 bg-accent/5 px-2 py-1.5">
+    <div className="border-b border-border bg-accent/5 px-2 py-1.5">
       <div className="flex min-w-0 items-center gap-1">
         <span className="min-w-0 truncate text-xs font-medium text-text-heading">
           {t('bulkActions.selected', { count })}

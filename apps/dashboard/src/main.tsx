@@ -137,7 +137,7 @@ const router = createBrowserRouter([
                           cancelButton:
                             '!bg-bg-hover !text-text-secondary',
                           closeButton:
-                            '!border-border/60 !bg-bg-elevated/80 !text-text-muted hover:!bg-bg-hover hover:!text-text-heading',
+                            '!border-border !bg-bg-elevated/80 !text-text-muted hover:!bg-bg-hover hover:!text-text-heading',
                         },
                       }}
                     />

@@ -7,7 +7,6 @@ import { CalendarDays, Inbox, Plus, RefreshCw } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { AgentMark } from '../components/ui/AgentMark'
-import { AgentGlow } from '../components/ui/agent-glow'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { EmptyState } from '../components/ui/empty-state'
 import { SearchField } from '../components/ui/search-field'
@@ -126,9 +125,8 @@ function AgentLibraryCard({
     <Link to={href} className="group block h-full">
       <Card
         interactive
-        className="relative flex h-full flex-col gap-3 overflow-hidden border-border/50 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
+        className="relative flex h-full flex-col gap-3 overflow-hidden border-border p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-ai/25"
       >
-        <AgentGlow color={profileAccent} placement="corner-left" />
         <div className="relative z-[1] flex items-start gap-3">
           <AgentMark
             agent={agent}
@@ -234,7 +232,7 @@ function AgentLibraryCard({
         ) : !description && summary ? (
           <p className="relative z-[1] line-clamp-2 text-sm leading-snug text-text-secondary">{summary}</p>
         ) : null}
-        <div className="relative z-[1] mt-auto flex items-center justify-between gap-2 border-t border-border/40 pt-2.5">
+        <div className="relative z-[1] mt-auto flex items-center justify-between gap-2 border-t border-border pt-2.5">
           <AgentQuickLinks
             agentId={agent.id}
             chatLabel={t('workforce.agents.chat')}
@@ -244,7 +242,7 @@ function AgentLibraryCard({
           {agent.model ? (
             <span
               title={agent.model}
-              className="truncate-fade text-2xs text-text-muted/70"
+              className="truncate-fade text-2xs text-text-muted"
             >
               {formatAgentModelLine(agent.model, agent.provider, t)}
             </span>
@@ -437,7 +435,7 @@ export default function AiAgents() {
         </div>
       ) : null}
 
-      <p className="text-xs leading-relaxed text-text-muted/90">{t('workforce.agents.routingBody')}</p>
+      <p className="text-xs leading-relaxed text-text-muted">{t('workforce.agents.routingBody')}</p>
 
       {loading ? (
         <CardGridSkeleton />
@@ -476,7 +474,7 @@ export default function AiAgents() {
         )
       ) : (
         visibleAgents.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 px-4 py-8 text-center">
+          <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
             <p className="text-sm text-text-muted">
               {statusFilter === 'deactivated'
                 ? t('workforce.agents.emptyDeactivated')

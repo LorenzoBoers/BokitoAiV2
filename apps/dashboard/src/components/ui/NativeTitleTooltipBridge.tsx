@@ -218,7 +218,7 @@ export function NativeTitleTooltipBridge() {
       data-bokito-tip-layer=""
       role="tooltip"
       className={cn(
-        'pointer-events-none fixed z-[200] max-w-xs -translate-x-1/2 rounded-md border border-border/80 bg-bg px-2 py-1 text-xs font-medium leading-snug text-text-heading shadow-overlay animate-fade-in',
+        'pointer-events-none fixed z-[200] max-w-xs -translate-x-1/2 rounded-md border border-border bg-bg px-2 py-1 text-xs font-medium leading-snug text-text-heading shadow-overlay animate-fade-in',
         tip.place === 'top' ? '-translate-y-full' : undefined,
       )}
       style={{ left: tip.x, top: tip.y }}

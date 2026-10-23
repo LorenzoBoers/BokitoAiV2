@@ -348,7 +348,7 @@ export default function ChannelDetailPage() {
       </div>
 
       {row.kind === 'widget' && !archived ? (
-        <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 p-0.5">
+        <div className="flex flex-wrap gap-1 rounded-lg border border-border p-0.5">
           {WIDGET_TABS.map((value) => (
             <button
               key={value}
@@ -479,7 +479,7 @@ export default function ChannelDetailPage() {
                 ))}
               </div>
             )}
-            <div className="flex justify-end gap-2 border-t border-border/60 pt-2">
+            <div className="flex justify-end gap-2 border-t border-border pt-2">
               <Button variant="secondary" onClick={() => setFolderTarget(null)}>
                 {t('channelsPage.cancel')}
               </Button>

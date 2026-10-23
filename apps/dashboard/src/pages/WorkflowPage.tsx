@@ -219,7 +219,7 @@ export default function WorkflowPage() {
         <div className={cn('pointer-events-auto flex w-full items-center gap-2 rounded-full py-1 pl-4 pr-1.5', ORG_FLOAT_GLASS)}>
           <FlowLegend lens={lens} />
           {view === '3d' ? (
-            <div className="ml-auto flex shrink-0 items-center gap-1 border-l border-border/40 pl-2">
+            <div className="ml-auto flex shrink-0 items-center gap-1 border-l border-border pl-2">
               <Button variant="ghost" size="xs" type="button" className="px-2.5" onClick={() => zoomApiRef.current?.zoomBy(1 / 1.15)}>
                 -
               </Button>

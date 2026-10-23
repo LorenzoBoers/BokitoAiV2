@@ -2077,7 +2077,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <Link
               to="/communication/new"
-              className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('threadChrome.startNewChat')}
             </Link>
@@ -2349,7 +2349,7 @@ export default function ThreadDetail({ detail: detailProp, loading, error, threa
         // Above the composer mode-tab fade (z-10) so Mailconcept stays readable.
         <div className="relative z-20 shrink-0 bg-bg px-4 pt-1">
           <div className={CHAT_COLUMN_CLASS}>
-            <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated px-3 py-1.5 text-xs">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs">
               <PenLine size={13} className="shrink-0 text-text-muted" />
               <button
                 type="button"

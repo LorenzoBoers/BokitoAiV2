@@ -33,7 +33,7 @@ export function dialKeyIndex(event: KeyboardEvent): number {
 }
 
 const CARD_ACTION =
-  'h-6 w-6 rounded-full border border-border/60 bg-bg-elevated text-text-muted shadow-sm hover:bg-bg-elevated hover:text-text-heading'
+  'h-6 w-6 rounded-full border border-border bg-bg-elevated text-text-muted shadow-sm hover:bg-bg-elevated hover:text-text-heading'
 
 function DialChip({
   label,
@@ -347,7 +347,7 @@ export function ChatStackCard({
               ? 'border-ai shadow-[0_0_28px_rgb(var(--color-ai)/0.35)]'
               : card.live
                 ? 'border-ai/40'
-                : 'border-border/70',
+                : 'border-border',
         )}
       >
         {showFaces && card.faces.length ? (

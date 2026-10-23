@@ -82,7 +82,7 @@ function ColorField({
     <div className="flex items-center gap-2.5">
       <label className="relative shrink-0 cursor-pointer">
         <span
-          className="block h-9 w-9 rounded-lg border border-border/60 transition-transform hover:scale-105"
+          className="block h-9 w-9 rounded-lg border border-border transition-transform hover:scale-105"
           style={{ background: value }}
         />
         <input
@@ -113,7 +113,7 @@ function FoldableSection({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="mb-3 overflow-hidden rounded-lg border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
+    <div className="mb-3 overflow-hidden rounded-lg border border-border bg-bg-input/35 dark:bg-bg-input/25">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -124,7 +124,7 @@ function FoldableSection({
           className={cn('h-4 w-4 shrink-0 text-text-muted transition-transform duration-200', open && 'rotate-180')}
         />
       </button>
-      {open ? <div className="border-t border-border/60 px-4 pb-4 pt-1">{children}</div> : null}
+      {open ? <div className="border-t border-border px-4 pb-4 pt-1">{children}</div> : null}
     </div>
   )
 }
@@ -556,7 +556,7 @@ function MessengerSettingsContent({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      <div className={cn('flex flex-col gap-3 border-b border-border/60 pb-4', embedded ? 'lg:flex-row lg:items-center lg:justify-end' : 'lg:flex-row lg:flex-wrap lg:items-start lg:justify-between')}>
+      <div className={cn('flex flex-col gap-3 border-b border-border pb-4', embedded ? 'lg:flex-row lg:items-center lg:justify-end' : 'lg:flex-row lg:flex-wrap lg:items-start lg:justify-between')}>
         {embedded ? null : (
         <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:flex-wrap lg:items-center lg:gap-3">
           <h2 className="shrink-0 text-lg font-semibold leading-none tracking-[-0.01em] text-text-heading">{t('messengerPage.title')}</h2>
@@ -586,7 +586,7 @@ function MessengerSettingsContent({
       >
         <div
           className={cn(
-            'flex min-h-0 flex-1 flex-col overflow-y-auto rounded-b-lg bg-bg-surface/40 pb-6 md:border-border/60 dark:bg-transparent',
+            'flex min-h-0 flex-1 flex-col overflow-y-auto rounded-b-lg bg-bg-surface/40 pb-6 md:border-border dark:bg-transparent',
             previewPanelActive ? 'md:w-1/2 md:max-w-[50%] md:border-r md:pr-5' : 'w-full md:max-w-none',
           )}
         >
@@ -618,7 +618,7 @@ function MessengerSettingsContent({
                         {MESSENGER_MODULE_KEYS.map((key) => (
                           <div
                             key={key}
-                            className="flex items-center justify-between rounded-lg border border-border/60 bg-bg-surface/80 px-3 py-2.5 backdrop-blur-sm dark:bg-bg-surface/40"
+                            className="flex items-center justify-between rounded-lg border border-border bg-bg-surface/80 px-3 py-2.5 backdrop-blur-sm dark:bg-bg-surface/40"
                           >
                             <span className="text-sm text-text-primary">{t(`messengerPage.modules.${key}`)}</span>
                             <Switch
@@ -650,7 +650,7 @@ function MessengerSettingsContent({
                           <AgentBindingPicker
                             channel="widget"
                             channelAccountId={channelId}
-                            className="mt-2 h-9 w-full max-w-sm rounded-md border border-border/60 bg-bg-elevated px-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
+                            className="mt-2 h-9 w-full max-w-sm rounded-md border border-border bg-bg-elevated px-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
                           />
                         </div>
                         <div>
@@ -691,7 +691,7 @@ function MessengerSettingsContent({
                         {t('messengerPage.iconBody')}
                       </p>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-bg-surface/60">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-bg-surface/60">
                           {faviconPreviewUrl || draft.widget_favicon_url ? (
                             <img
                               src={faviconPreviewUrl || draft.widget_favicon_url || ''}
@@ -740,7 +740,7 @@ function MessengerSettingsContent({
                       <div>
                         <p className="text-sm font-medium text-text-heading">{t('messengerPage.do')}</p>
                         <textarea
-                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
+                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border bg-bg-input/80 px-3 py-2 text-sm"
                           value={personaDo}
                           onChange={(e) => setPersonaDo(e.target.value)}
                         />
@@ -748,7 +748,7 @@ function MessengerSettingsContent({
                       <div>
                         <p className="text-sm font-medium text-text-heading">{t('messengerPage.dont')}</p>
                         <textarea
-                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
+                          className="mt-2 w-full min-h-[80px] rounded-lg border border-border bg-bg-input/80 px-3 py-2 text-sm"
                           value={personaDont}
                           onChange={(e) => setPersonaDont(e.target.value)}
                         />
@@ -764,7 +764,7 @@ function MessengerSettingsContent({
                     <WidgetPreviewSkeleton />
                   ) : (
                     <div className="space-y-4 pt-1">
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
                           <span className="text-sm text-text-primary">{t('messengerPage.preChat')}</span>
                           <p className="text-2xs text-text-muted">
@@ -783,7 +783,7 @@ function MessengerSettingsContent({
                         <label className="block space-y-1">
                           <span className="text-sm text-text-primary">{t('messengerPage.offlineMessage')}</span>
                           <textarea
-                            className="w-full min-h-[72px] rounded-lg border border-border/60 bg-bg-input/80 px-3 py-2 text-sm"
+                            className="w-full min-h-[72px] rounded-lg border border-border bg-bg-input/80 px-3 py-2 text-sm"
                             value={widgetBehaviour.offlineMessage}
                             onChange={(e) =>
                               setWidgetBehaviour({ ...widgetBehaviour, offlineMessage: e.target.value })
@@ -792,7 +792,7 @@ function MessengerSettingsContent({
                           <p className="text-2xs text-text-muted">{t('messengerPage.offlineMessageHint')}</p>
                         </label>
                       ) : null}
-                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30">
                         <div>
                           <span className="text-sm text-text-primary">{t('messengerPage.liveHandoff')}</span>
                           <p className="text-2xs text-text-muted">{t('messengerPage.liveHandoffHint')}</p>
@@ -811,7 +811,7 @@ function MessengerSettingsContent({
                         </span>
                       </div>
                       <div
-                        className="space-y-3 rounded-lg border border-border/60 bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30"
+                        className="space-y-3 rounded-lg border border-border bg-bg-surface/60 px-3 py-2.5 dark:bg-bg-surface/30"
                         data-testid="whatsapp-handover"
                       >
                         <div className="flex items-center justify-between gap-3">
@@ -947,8 +947,8 @@ function MessengerSettingsContent({
                     },
                   ] as const
                 ).map((card) => (
-                  <div key={card.key} className="rounded-lg border border-border/60 bg-bg-input/35 dark:bg-bg-input/25">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-3">
+                  <div key={card.key} className="rounded-lg border border-border bg-bg-input/35 dark:bg-bg-input/25">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
                       <p className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
                         {card.icon}
                         {card.title}
@@ -976,7 +976,7 @@ function MessengerSettingsContent({
                     </div>
                     <p className="px-4 pt-3 text-xs text-text-secondary">{card.body}</p>
                     <div className="p-4 pt-2">
-                      <pre className="max-h-[min(40vh,320px)] overflow-auto rounded-lg border border-border/60 bg-[#141824] p-4 text-left shadow-inner">
+                      <pre className="max-h-[min(40vh,320px)] overflow-auto rounded-lg border border-border bg-[#141824] p-4 text-left shadow-inner">
                         <code className="block whitespace-pre font-mono text-xs leading-relaxed text-[#e2e8f0]">
                           {card.html}
                         </code>
@@ -1014,7 +1014,7 @@ function MessengerSettingsContent({
         </div>
 
         {previewPanelActive ? (
-          <div className="messenger-preview-canvas min-h-[380px] border-t border-border/40 md:min-h-0 md:w-1/2 md:max-w-[50%] md:border-l md:border-t-0">
+          <div className="messenger-preview-canvas min-h-[380px] border-t border-border md:min-h-0 md:w-1/2 md:max-w-[50%] md:border-l md:border-t-0">
             <div className="messenger-preview-stage flex min-h-0 flex-1 flex-col">
               <p className="sr-only">{t('messengerPage.previewAria')}</p>
               <div className="relative z-[2] flex min-h-0 flex-1 flex-col">

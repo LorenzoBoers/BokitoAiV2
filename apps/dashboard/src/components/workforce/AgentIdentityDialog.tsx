@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { AiAvatar } from '../ui/AiAvatar'
-import { AgentGlow } from '../ui/agent-glow'
 import { BlurbEdit, NameEdit } from '../ui/NameEdit'
 import { Tip } from '../ui/Tip'
 import { useAuth } from '../../context/AuthContext'
@@ -245,7 +244,6 @@ export function AgentIdentityDialog({
 
         <div className="flex shrink-0 flex-col items-center gap-1 pt-1 pb-3">
           <div className="relative" style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}>
-            <AgentGlow color={previewAccent} />
             <AiAvatar
               name={name.trim() || agentName}
               seed={agentId}

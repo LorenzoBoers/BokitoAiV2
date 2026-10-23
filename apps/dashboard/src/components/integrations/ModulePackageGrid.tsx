@@ -93,7 +93,7 @@ export function ModulePackageGrid({ items, onOpen, className }: Props) {
                   size="md"
                 />
               </div>
-              <div className="mt-3 flex justify-end border-t border-border/50 pt-3">
+              <div className="mt-3 flex justify-end border-t border-border pt-3">
                 {planned ? (
                   <Button type="button" size="sm" variant="secondary" disabled className="gap-1.5">
                     <Clock size={14} aria-hidden />

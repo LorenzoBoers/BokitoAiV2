@@ -216,7 +216,7 @@ export default function Workspaces() {
                   className={`rounded-lg border p-5 text-left hover-lift ${
                     isCurrent
                       ? 'border-border-light bg-bg-hover'
-                      : 'border-border/60 bg-bg-surface hover:border-border'
+                      : 'border-border bg-bg-surface hover:border-border'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -226,7 +226,7 @@ export default function Workspaces() {
                         <img
                           src={workspace.logo}
                           alt={workspace.name}
-                          className="w-10 h-10 rounded-lg object-contain border border-border/60 bg-bg-elevated shrink-0"
+                          className="w-10 h-10 rounded-lg object-contain border border-border bg-bg-elevated shrink-0"
                         />
                       ) : (
                         <span
@@ -273,7 +273,7 @@ export default function Workspaces() {
                       </div>
                     </div>
                     {isCurrent ? (
-                      <span className="rounded-md border border-border/60 bg-bg-hover px-2 py-1 text-xs text-text-muted shrink-0">
+                      <span className="rounded-md border border-border bg-bg-hover px-2 py-1 text-xs text-text-muted shrink-0">
                         {t('cards.workspace.current')}
                       </span>
                     ) : null}
@@ -371,7 +371,7 @@ export default function Workspaces() {
                   placeholder={t('cards.create.subdomainPlaceholder')}
                   className="rounded-r-none"
                 />
-                <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 text-xs text-text-muted whitespace-nowrap rounded-r-md">
+                <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border text-xs text-text-muted whitespace-nowrap rounded-r-md">
                   .bokito.ai
                 </span>
               </div>

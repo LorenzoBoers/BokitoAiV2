@@ -73,6 +73,12 @@ const RULES = [
     catalogOk: true,
   },
   {
+    id: 'muted-text-opacity',
+    pattern: /(?<![\w-])text-text-muted\/\d/,
+    message: 'Use text-text-muted without an opacity step.',
+    catalogOk: false,
+  },
+  {
     id: 'legacy-class',
     pattern: /\b(badge-accent|badge-status|font-display|panel-inset)\b/,
     message: 'Removed legacy class; use Badge / InsetPanel / font-sans.',
@@ -101,6 +107,11 @@ const RATCHET_RULES = [
     id: 'arbitrary-radius',
     pattern: /\brounded(-[trblxyse]{1,2})?-\[\d/,
     message: 'Use the radius ladder: rounded-sm, md, lg, xl, 2xl, full.',
+  },
+  {
+    id: 'border-opacity',
+    pattern: /(?<![\w-])border-border\/\d/,
+    message: 'Use border-border (or border-border-light for a quieter edge), not an opacity step.',
   },
 ]
 

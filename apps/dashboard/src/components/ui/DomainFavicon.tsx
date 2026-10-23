@@ -39,7 +39,7 @@ export function DomainFavicon({ email, host, name, size = 28, className }: Props
     <span
       style={{ width: size, height: size, borderRadius }}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-border/40 bg-bg',
+        'inline-flex shrink-0 items-center justify-center overflow-hidden border border-border bg-bg',
         className,
       )}
     >

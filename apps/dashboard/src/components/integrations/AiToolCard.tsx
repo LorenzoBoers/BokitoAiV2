@@ -30,7 +30,7 @@ export function AiToolCard({ row }: { row: AiToolCardRow }) {
         </div>
         <BrandTile slug={row.brand} size="md" />
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-4">
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-4">
         <span className="text-2xs text-text-muted">
           {row.direction === 'inbound'
             ? t('integrations.aiTools.inboundHint', { defaultValue: 'Uses this workspace over MCP' })

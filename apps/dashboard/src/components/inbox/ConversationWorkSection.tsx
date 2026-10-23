@@ -151,7 +151,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
   }, [])
 
   return (
-    <div className="space-y-2 border-t border-border/40 px-4 py-3">
+    <div className="space-y-2 border-t border-border px-4 py-3">
       <SectionLabel
         title={t('sidePanel.thisConversation', { defaultValue: 'This conversation' })}
         className="[&_.nav-folder]:h-5 [&_.nav-folder]:text-2xs [&_.nav-folder]:font-normal"
@@ -160,7 +160,7 @@ export function ConversationWorkSection({ thread, saving = false, onPatch, onPla
 
       {!internal && thread.aiSummary ? (
         <p
-          className="rounded-md border border-border/50 bg-bg-elevated/50 px-2.5 py-2 text-xs leading-relaxed text-text-secondary"
+          className="rounded-md border border-border bg-bg-elevated/50 px-2.5 py-2 text-xs leading-relaxed text-text-secondary"
           data-testid="thread-ai-summary"
         >
           {thread.aiSummary}

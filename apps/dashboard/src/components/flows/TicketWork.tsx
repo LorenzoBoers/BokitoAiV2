@@ -13,7 +13,7 @@ import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
 const INLINE =
-  'h-7 min-w-0 flex-1 border-transparent bg-transparent px-1.5 text-xs text-text-heading hover:border-border/60'
+  'h-7 min-w-0 flex-1 border-transparent bg-transparent px-1.5 text-xs text-text-heading hover:border-border'
 
 type PatchBody = {
   due_at?: string | null
@@ -93,7 +93,7 @@ export function TicketWorkSection({
   const proposals = ticket.proposals ?? []
 
   return (
-    <div className="space-y-2 border-t border-border/40 px-3 py-2">
+    <div className="space-y-2 border-t border-border px-3 py-2">
       <TicketNextStepLine step={ticket.next_step} />
 
       <div className="space-y-1">
@@ -118,7 +118,7 @@ export function TicketWorkSection({
                 onValueChange={(value) => onPatch({ due_source: value as TicketDueSource })}
               >
                 <SelectTrigger
-                  className="h-7 w-auto border-transparent bg-transparent px-1.5 text-2xs text-text-secondary shadow-none hover:border-border/60"
+                  className="h-7 w-auto border-transparent bg-transparent px-1.5 text-2xs text-text-secondary shadow-none hover:border-border"
                   aria-label={t('tickets.deadline')}
                 >
                   <SelectValue />
@@ -158,7 +158,7 @@ export function TicketWorkSection({
               onBlur={() => {
                 if (basis.trim() !== due.basis.trim()) onPatch({ due_basis: basis })
               }}
-              className={cn(INLINE, 'text-text-secondary placeholder:text-text-muted/70')}
+              className={cn(INLINE, 'text-text-secondary placeholder:text-text-muted')}
             />
           </div>
         ) : null}
@@ -223,7 +223,7 @@ function ChecklistRow({
       </Button>
       <span className={cn('min-w-0 flex-1 truncate', done ? 'text-text-muted line-through' : 'text-text-secondary')}>
         {item.label}
-        {item.required ? <span className="ml-0.5 text-text-muted/60">*</span> : null}
+        {item.required ? <span className="ml-0.5 text-text-muted">*</span> : null}
       </span>
       {proposed ? (
         <Button

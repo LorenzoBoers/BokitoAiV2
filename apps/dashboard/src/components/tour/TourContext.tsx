@@ -239,7 +239,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
   return createPortal(
     <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
       <TourStyles />
-      <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface shadow-overlay">
+      <div className="bk-tour-pop relative w-full max-w-[600px] overflow-hidden rounded-xl border border-border bg-bg-surface shadow-overlay">
         {/* Accent halo */}
         <button
           type="button"
@@ -273,7 +273,7 @@ function WelcomeScreen({ onStart, onSkip }: { onStart: () => void; onSkip: () =>
               return (
                 <div
                   key={pillar}
-                  className="bk-tour-pop flex items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated px-3.5 py-2.5"
+                  className="bk-tour-pop flex items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3.5 py-2.5"
                   style={{ animationDelay: `${80 + idx * 60}ms` }}
                 >
                   <span
@@ -453,7 +453,7 @@ function StepOverlay({
         key={step.id}
         role="dialog"
         aria-label={t(`steps.${step.id}.title`)}
-        className="bk-tour-pop rounded-xl border border-border/60 bg-bg-surface p-4 shadow-overlay"
+        className="bk-tour-pop rounded-xl border border-border bg-bg-surface p-4 shadow-overlay"
         style={cardStyle}
         onClick={(e) => e.stopPropagation()}
       >
@@ -535,7 +535,7 @@ function FinishScreen({
   return createPortal(
     <div className="bk-tour-fade fixed inset-0 z-[100] flex items-center justify-center scrim p-4">
       <TourStyles />
-      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border/60 bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
+      <div className="bk-tour-pop relative w-full max-w-[480px] overflow-hidden rounded-xl border border-border bg-bg-surface px-7 pb-7 pt-8 text-center shadow-overlay">
         <div className="relative">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
             <Bot size={20} />
@@ -555,7 +555,7 @@ function FinishScreen({
             <button
               type="button"
               onClick={onCommunication}
-              className="rounded-lg border border-border/60 px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="rounded-lg border border-border px-3.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               {t('finish.communication')}
             </button>

@@ -114,7 +114,7 @@ export function ModuleShowcaseModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
-        <DialogHeader className="shrink-0 space-y-0 border-b border-border/60 px-6 py-5 pr-14 text-left">
+        <DialogHeader className="shrink-0 space-y-0 border-b border-border px-6 py-5 pr-14 text-left">
           <div className="flex items-start gap-4">
             <IconTile icon={Icon} size="lg" />
             <div className="min-w-0 flex-1 space-y-1">
@@ -187,7 +187,7 @@ export function ModuleShowcaseModal({
                 {partners.map((partner) => (
                   <li
                     key={partner.key}
-                    className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5"
+                    className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5"
                   >
                     <IntegrationHostLogo
                       logoUrl={partner.brand.logoUrl}
@@ -225,7 +225,7 @@ export function ModuleShowcaseModal({
                   {packageTags.map((tag) => (
                     <li
                       key={tag.slug}
-                      className="rounded-lg border border-border/60 px-2.5 py-1.5 text-xs"
+                      className="rounded-lg border border-border px-2.5 py-1.5 text-xs"
                       title={tag.description}
                     >
                       <Hashtag name={tag.name} />
@@ -238,7 +238,7 @@ export function ModuleShowcaseModal({
                   {packageFlows.map((flow) => (
                     <li
                       key={flow.slug}
-                      className="rounded-lg border border-border/60 px-3 py-2 text-sm text-text-secondary"
+                      className="rounded-lg border border-border px-3 py-2 text-sm text-text-secondary"
                     >
                       <span className="font-medium text-text-heading">{flow.name.replace(/^#/, '')}</span>
                       {flow.description ? (
@@ -283,7 +283,7 @@ export function ModuleShowcaseModal({
                   {toolCards.map((card) => (
                     <li
                       key={`${card.kind}-${card.verb}`}
-                      className="rounded-md border border-border/60 px-2 py-1 text-xs text-text-secondary"
+                      className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary"
                     >
                       {t(`integrations.modules.tools.${module.slug}.${card.verb}.label`, {
                         defaultValue: card.label,
@@ -310,7 +310,7 @@ export function ModuleShowcaseModal({
 
         <div
           className={cn(
-            'flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border/60 px-6 py-4',
+            'flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-6 py-4',
           )}
         >
           {comingSoon ? (

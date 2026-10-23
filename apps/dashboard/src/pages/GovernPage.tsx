@@ -88,7 +88,7 @@ function DiffPreview({ change }: { change: PlatformChangeRow }) {
   const { t } = useTranslation('govern')
   const lines = summarizeDiff(change.before ?? {}, change.after ?? {}, t)
   return (
-    <ul className="mt-2 max-h-48 space-y-1 overflow-auto rounded-lg border border-border/60 bg-bg-muted/40 p-3 text-xs text-text-secondary">
+    <ul className="mt-2 max-h-48 space-y-1 overflow-auto rounded-lg border border-border bg-bg-muted/40 p-3 text-xs text-text-secondary">
       {lines.map((line) => (
         <li key={line} className="leading-relaxed">
           {line}
@@ -651,13 +651,13 @@ export default function GovernPage() {
                           )
                         })}
                       </OptionCardGrid>
-                      <div className="space-y-3 border-t border-border/60 pt-4">
+                      <div className="space-y-3 border-t border-border pt-4">
                         <h3 className="text-sm font-medium text-text-heading">{t('allowances.title')}</h3>
                         <p className="text-xs text-text-muted">
                           {t('allowances.intro')}
                         </p>
                         {learningHistory.length > 0 ? (
-                          <div className="rounded-lg border border-border/60 bg-bg-muted/40 px-3 py-2 space-y-1.5">
+                          <div className="rounded-lg border border-border bg-bg-muted/40 px-3 py-2 space-y-1.5">
                             <p className="text-xs text-text-muted">{t('allowances.learningIntro')}</p>
                             {learningHistory.slice(0, 3).map((note, index) => (
                               <p
@@ -677,7 +677,7 @@ export default function GovernPage() {
                         {categories.map((category) => {
                           const current = allowances[category] ?? 'ask'
                           return (
-                            <div key={category} className="rounded-lg border border-border/60 p-3">
+                            <div key={category} className="rounded-lg border border-border p-3">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="min-w-0">
                                   <span className="text-sm font-medium text-text-heading">
@@ -688,7 +688,7 @@ export default function GovernPage() {
                                   </p>
                                 </div>
                                 <div
-                                  className="inline-flex shrink-0 rounded-lg border border-border/60 p-0.5"
+                                  className="inline-flex shrink-0 rounded-lg border border-border p-0.5"
                                   role="radiogroup"
                                   aria-label={t('toolOverride.categoryAria', {
                                     category: toolCategoryLabel(category, t),

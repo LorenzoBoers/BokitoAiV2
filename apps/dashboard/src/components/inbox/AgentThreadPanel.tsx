@@ -144,7 +144,7 @@ export default function AgentThreadPanel({
   )
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col border-l border-border/60 bg-bg">
+    <aside className="flex h-full min-h-0 w-full flex-col border-l border-border bg-bg">
       <ScrollFade>
         {isExternal ? (
           <>

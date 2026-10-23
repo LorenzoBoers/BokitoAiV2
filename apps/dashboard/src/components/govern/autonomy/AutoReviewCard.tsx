@@ -109,7 +109,7 @@ export function AutoReviewCard({ canEdit }: { canEdit: boolean }) {
               </div>
             </div>
           </SettingRow>
-          <p className="border-t border-border/60 pt-4 text-xs text-text-muted" data-testid="auto-review-agreement">
+          <p className="border-t border-border pt-4 text-xs text-text-muted" data-testid="auto-review-agreement">
             {agreement}
           </p>
         </div>

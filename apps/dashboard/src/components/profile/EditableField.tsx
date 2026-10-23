@@ -61,7 +61,7 @@ export function EditableField({
   }
 
   return (
-    <div className="group flex items-center gap-4 border-b border-border/60 py-3.5 pr-4 last:border-b-0">
+    <div className="group flex items-center gap-4 border-b border-border py-3.5 pr-4 last:border-b-0">
       <span className="w-36 shrink-0 text-sm font-medium text-text-heading">{label}</span>
 
       {editing ? (

@@ -178,7 +178,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-80 p-0" onCloseAutoFocus={(e) => e.preventDefault()}>
-        <div className="border-b border-border/50 px-3 py-2.5">
+        <div className="border-b border-border px-3 py-2.5">
           <p className="mb-1.5 text-2xs font-semibold text-text-muted">
             {t('composer.aiIntentLabel')}
           </p>
@@ -197,7 +197,7 @@ export default function ComposerWriteAssist({ threadId, body, disabled, onApply 
                   : t('composer.aiIntentPlaceholder')
               }
               className={cn(
-                'w-full resize-none rounded-lg border border-border/60 bg-bg-elevated/50 py-2 pl-2.5 text-xs leading-5 text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none',
+                'w-full resize-none rounded-lg border border-border bg-bg-elevated/50 py-2 pl-2.5 text-xs leading-5 text-text-primary placeholder:text-text-muted focus:border-ai/40 focus:outline-none',
                 dictation.listening ? 'pr-36' : 'pr-11',
               )}
               onKeyDown={(e) => {

@@ -87,7 +87,7 @@ function SettingRow({
   children: React.ReactNode
 }) {
   return (
-    <div className="grid grid-cols-[1fr_1.7fr] gap-6 py-4 border-b border-border/40 last:border-0 items-start">
+    <div className="grid grid-cols-[1fr_1.7fr] gap-6 py-4 border-b border-border last:border-0 items-start">
       <div className="pt-0.5">
         <p className="text-sm font-medium text-text-primary">{label}</p>
         {description && (
@@ -113,7 +113,7 @@ function ColorField({
     <div className="flex items-center gap-2.5">
       <label className="relative cursor-pointer shrink-0">
         <span
-          className="block w-9 h-9 rounded-lg border border-border/60 transition-transform hover:scale-105"
+          className="block w-9 h-9 rounded-lg border border-border transition-transform hover:scale-105"
           style={{ background: hex ?? 'transparent' }}
         />
         <input
@@ -129,7 +129,7 @@ function ColorField({
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={invalid}
         className={`w-28 bg-bg-input border rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none transition-colors ${
-          invalid ? 'border-status-error focus:border-status-error' : 'border-border/60 focus:border-accent/55'
+          invalid ? 'border-status-error focus:border-status-error' : 'border-border focus:border-accent/55'
         }`}
       />
     </div>
@@ -152,7 +152,7 @@ function BrandPreview({ color }: { color: string }) {
         return (
           <div
             key={key}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5"
+            className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5"
             style={{ background: cssRgb(bg), color: cssRgb(text as [number, number, number]) }}
           >
             <span className="text-xs opacity-70">{label}</span>
@@ -364,7 +364,7 @@ export default function CompanyConfig() {
 
           {/* ── Branding ─────────────────────────────────────────────────── */}
           <div>
-            <div className="rounded-lg border border-border/60 bg-bg-elevated/30 px-5">
+            <div className="rounded-lg border border-border bg-bg-elevated/30 px-5">
               <SettingRow label={t('brandingPage.name')}>
                 <p className="text-sm text-text-primary">
                   {savedName}{' '}
@@ -376,7 +376,7 @@ export default function CompanyConfig() {
 
               <SettingRow label={t('brandingPage.logo')} description={t('brandingPage.logoHint')}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-10 h-10 rounded-lg border border-border bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {logoSrc
                       ? <img src={logoSrc} alt="logo" className="w-full h-full object-contain" />
                       : <Image size={16} className="text-text-muted" />
@@ -409,7 +409,7 @@ export default function CompanyConfig() {
 
               <SettingRow label={t('brandingPage.favicon')} description={t('brandingPage.faviconHint')}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg border border-border/60 bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-10 h-10 rounded-lg border border-border bg-bg-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {faviconSrc
                       ? <img src={faviconSrc} alt="favicon" className="w-5 h-5 object-contain" />
                       : <Image size={16} className="text-text-muted" />
@@ -487,9 +487,9 @@ export default function CompanyConfig() {
                         void handleSave()
                       }
                     }}
-                    className="flex-1 bg-bg-input border border-border/60 rounded-l-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
+                    className="flex-1 bg-bg-input border border-border rounded-l-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
                   />
-                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border/60 rounded-r-lg text-xs text-text-muted whitespace-nowrap">.bokito.ai</span>
+                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border rounded-r-lg text-xs text-text-muted whitespace-nowrap">.bokito.ai</span>
                 </div>
                 {subdomainError ? (
                   <p className="mt-2 text-xs text-status-error">{subdomainError}</p>
@@ -524,7 +524,7 @@ export default function CompanyConfig() {
           <button
             type="button"
             onClick={() => navigate(WEBSITE_WIDGET_CUSTOMIZE_PATH)}
-            className="w-full flex items-center gap-4 rounded-lg border border-border/60 bg-bg-elevated/30 px-5 py-4 hover:border-border-light hover:bg-bg-hover/40 transition-all group text-left"
+            className="w-full flex items-center gap-4 rounded-lg border border-border bg-bg-elevated/30 px-5 py-4 hover:border-border-light hover:bg-bg-hover/40 transition-all group text-left"
           >
             <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
               <MessageSquare size={16} className="text-accent" />

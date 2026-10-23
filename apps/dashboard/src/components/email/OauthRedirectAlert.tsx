@@ -49,7 +49,7 @@ export function OauthRedirectAlert({
               <summary className="cursor-pointer select-none text-2xs underline underline-offset-2 hover:opacity-90">
                 Technical details (from provider)
               </summary>
-              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-border/60 bg-bg-elevated/90 p-2 font-mono text-2xs text-text-primary">
+              <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-bg-elevated/90 p-2 font-mono text-2xs text-text-primary">
                 {technicalDetail}
               </pre>
             </details>

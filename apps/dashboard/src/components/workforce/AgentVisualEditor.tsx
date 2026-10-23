@@ -278,7 +278,7 @@ function ShapeButton({
       onClick={() => onPick(shapeKey)}
       className={cn(
         'inline-flex h-11 w-11 items-center justify-center rounded-lg border transition-colors',
-        selected ? 'border-ai/50 bg-ai/10' : 'border-border/60 bg-bg-input/30 hover:border-ai/30',
+        selected ? 'border-ai/50 bg-ai/10' : 'border-border bg-bg-input/30 hover:border-ai/30',
       )}
     >
       <BotOrbAvatar color={color} shape={shapeKey} size={32} mode="static" decorative />
@@ -311,7 +311,7 @@ function ColorSwatch({
         'h-8 w-8 rounded-full border-2 transition-shadow',
         selected
           ? 'border-text-heading shadow-[0_0_0_2px_rgb(var(--color-bg-surface)),0_0_0_4px_rgb(var(--color-ai)/0.45)]'
-          : 'border-border/50 hover:border-border',
+          : 'border-border hover:border-border',
       )}
       style={{ backgroundColor: value }}
     />

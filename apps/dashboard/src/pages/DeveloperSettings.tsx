@@ -159,7 +159,7 @@ function McpOAuthGrantsSection({
           {grants.map((grant) => (
             <li
               key={grant.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-border/50 px-3 py-2"
+              className="flex items-start justify-between gap-3 rounded-lg border border-border px-3 py-2"
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-text-heading">{grant.client_name}</p>
@@ -308,7 +308,7 @@ function ApiTokensSection({
                   key={preset.id}
                   type="button"
                   onClick={() => setScopes([...preset.scopes])}
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-border-light hover:text-accent"
+                  className="rounded-md border border-border px-2.5 py-1 text-xs text-text-secondary transition-colors hover:border-border-light hover:text-accent"
                 >
                   {t(`developersPage.preset.${preset.id}`)}
                 </button>
@@ -886,7 +886,7 @@ export default function DeveloperSettings() {
                       : t('developersPage.webhooks.showDeliveries')}
                   </TextLink>
                   {expandedId === endpoint.id ? (
-                    <div className="mt-2 overflow-hidden rounded-lg border border-border/60">
+                    <div className="mt-2 overflow-hidden rounded-lg border border-border">
                       {(deliveries[endpoint.id] || []).length === 0 ? (
                         <p className="px-3 py-2.5 text-xs text-text-muted">
                           {t('developersPage.webhooks.noDeliveries')}
@@ -894,7 +894,7 @@ export default function DeveloperSettings() {
                       ) : (
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="border-b border-border/60 text-left text-text-muted">
+                            <tr className="border-b border-border text-left text-text-muted">
                               <th className="px-3 py-1.5 font-medium">{t('developersPage.webhooks.colEvent')}</th>
                               <th className="px-3 py-1.5 font-medium">{t('developersPage.webhooks.colStatus')}</th>
                               <th className="px-3 py-1.5 font-medium">{t('developersPage.webhooks.colAttempts')}</th>
@@ -903,7 +903,7 @@ export default function DeveloperSettings() {
                           </thead>
                           <tbody>
                             {(deliveries[endpoint.id] || []).map((delivery) => (
-                              <tr key={delivery.id} className="border-b border-border/40 last:border-0">
+                              <tr key={delivery.id} className="border-b border-border last:border-0">
                                 <td className="px-3 py-1.5 font-mono">{delivery.event}</td>
                                 <td className="px-3 py-1.5">
                                   <span

@@ -10,7 +10,7 @@ export default function PublicTrustPage() {
 
   return (
     <div className="min-h-screen bg-bg-app text-text-primary">
-      <header className="border-b border-border/50 px-6 py-4">
+      <header className="border-b border-border px-6 py-4">
         <Link to="/login" className="inline-flex items-center gap-2 text-sm font-medium text-text-heading">
           <img src="/bokito-logo.png" alt="" className="h-7 w-7" />
           Bokito

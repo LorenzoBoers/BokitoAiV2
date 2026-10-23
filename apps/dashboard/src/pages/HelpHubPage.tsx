@@ -74,7 +74,7 @@ export default function HelpHubPage() {
         <h3 className="mb-2 text-xs font-semibold text-text-muted">
           {t('helpHub.guidesTitle')}
         </h3>
-        <ul className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border/50 bg-bg-surface/40">
+        <ul className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border bg-bg-surface/40">
           {guides.map((item) => (
             <HubRow key={item.key} item={item} />
           ))}

@@ -57,7 +57,7 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-lg border border-border/60 bg-bg-surface p-4 shadow-overlay"
+        className="w-full max-w-sm rounded-lg border border-border bg-bg-surface p-4 shadow-overlay"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -74,7 +74,7 @@ export default function InboxShortcutHelp({ open, onClose }: Props) {
           {ROWS.map((row) => (
             <li key={row.keys} className="flex items-center justify-between gap-3 text-xs">
               <span className="text-text-secondary">{t(row.labelKey)}</span>
-              <kbd className="shrink-0 rounded border border-border/70 bg-bg-elevated px-1.5 py-0.5 font-mono text-xs text-text-heading">
+              <kbd className="shrink-0 rounded border border-border bg-bg-elevated px-1.5 py-0.5 font-mono text-xs text-text-heading">
                 {row.keys}
               </kbd>
             </li>

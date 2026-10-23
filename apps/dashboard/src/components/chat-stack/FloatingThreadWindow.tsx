@@ -345,13 +345,13 @@ export function FloatingThreadWindow({
       data-floating-thread={threadId}
       className={cn(
         'fixed z-[60] flex flex-col overflow-hidden rounded-xl border bg-bg-elevated shadow-overlay',
-        onCall ? 'border-ai shadow-[0_0_32px_rgb(var(--color-ai)/0.35)]' : 'border-border/70',
+        onCall ? 'border-ai shadow-[0_0_32px_rgb(var(--color-ai)/0.35)]' : 'border-border',
       )}
       style={style}
     >
       <div
         className={cn(
-          'flex shrink-0 touch-none items-center gap-2 border-b border-border/60 px-3 py-2 select-none',
+          'flex shrink-0 touch-none items-center gap-2 border-b border-border px-3 py-2 select-none',
           dragging ? 'cursor-grabbing' : 'cursor-grab',
         )}
         title={t('chatStack.move')}

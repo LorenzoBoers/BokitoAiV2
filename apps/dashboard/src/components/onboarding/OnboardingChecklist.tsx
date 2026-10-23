@@ -239,7 +239,7 @@ export default function OnboardingChecklist({
         </div>
       </div>
       {nextStep ? (
-        <div className="space-y-4 rounded-xl border border-border/60 bg-bg-elevated/50 p-5 text-left">
+        <div className="space-y-4 rounded-xl border border-border bg-bg-elevated/50 p-5 text-left">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
               {nextStep.id === 'email' ? (
@@ -265,14 +265,14 @@ export default function OnboardingChecklist({
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
         <Link
           to="/settings/setup"
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
         >
           {t('onboarding.openGuide')}
           <ArrowRight size={13} />
         </Link>
         <Link
           to={ASSISTANT_SETUP_TO}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
         >
           <Bot size={14} />
           {t('onboarding.talkAssistant')}

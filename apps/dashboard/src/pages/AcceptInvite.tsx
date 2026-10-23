@@ -437,7 +437,7 @@ export default function AcceptInvite() {
             <div className="mt-6 text-center">
               <Link
                 to="/login"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border/60 px-4 py-2.5 text-sm font-medium text-text-heading hover:bg-bg-hover transition-colors"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-sm font-medium text-text-heading hover:bg-bg-hover transition-colors"
               >
                 {t('loginPage.backToSignIn')}
               </Link>

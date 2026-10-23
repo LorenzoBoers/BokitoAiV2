@@ -286,7 +286,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
               {t('contactsPage.allContacts')}
@@ -296,7 +296,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 to={inboxPath('open', String(threads[0].id))}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   canComposeToAddress(contact.channel, contact.address)
-                    ? 'border border-border/60 text-text-secondary hover:bg-bg-hover/60'
+                    ? 'border border-border text-text-secondary hover:bg-bg-hover/60'
                     : 'bg-accent text-accent-fg hover:bg-accent-hover'
                 }`}
                 title={t('contactsPage.openConversationHint')}
@@ -320,7 +320,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
                 <ShieldCheck size={12} />
                 {t('contactsPage.approve')}
@@ -331,7 +331,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('blocked')}
-                className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-error disabled:opacity-50"
               >
                 <ShieldBan size={12} />
                 {t('contactsPage.block')}
@@ -341,7 +341,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void removeContact()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
               {t('contactsPage.delete')}
@@ -406,7 +406,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 </ul>
               </div>
             ) : null}
-            <div className="rounded-md border border-border/60 px-3 py-2.5" data-testid="contact-tags">
+            <div className="rounded-md border border-border px-3 py-2.5" data-testid="contact-tags">
               <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactsPage.tags', { defaultValue: 'Tags' })}</p>
               <OwnerTagsField
                 tags={contact.tags ?? []}
@@ -429,7 +429,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                 }}
               />
             </div>
-            <div className="rounded-md border border-border/60 px-3 py-2.5" data-testid="contact-owner">
+            <div className="rounded-md border border-border px-3 py-2.5" data-testid="contact-owner">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-semibold text-text-muted">{t('contactsPage.owner')}</span>
                 <div className="w-[220px]">
@@ -509,7 +509,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
           </div>
           <div className="mt-3 space-y-1.5">
             {threads.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+              <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
                 <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
                 <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -530,7 +530,7 @@ export function ContactDetail({ contactId }: { contactId: string }) {
                   )}
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.openCommunication')}
                   </Link>

@@ -492,7 +492,7 @@ export default function PlanDialog({ open, onOpenChange, thread = null, seed, on
           </div>
 
           {mode === 'once' ? (
-            <div className="space-y-2 rounded-md border border-border/60 px-3 py-2.5">
+            <div className="space-y-2 rounded-md border border-border px-3 py-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <Label htmlFor="plan-hide">{t('plan.hide')}</Label>

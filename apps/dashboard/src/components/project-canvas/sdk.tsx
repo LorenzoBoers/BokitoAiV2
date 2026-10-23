@@ -109,7 +109,7 @@ export function Callout({
 }
 
 export function Divider() {
-  return <hr className="border-border/60" />
+  return <hr className="border-border" />
 }
 
 export function List({ items, children }: { items?: string[]; children?: ReactNode }) {
@@ -130,7 +130,7 @@ export function Badge({ text, label }: { text?: string; label?: string }) {
   const value = text || label
   if (!value) return null
   return (
-    <span className="inline-flex rounded-md border border-border/60 px-1.5 py-0.5 text-2xs font-medium text-text-secondary">
+    <span className="inline-flex rounded-md border border-border px-1.5 py-0.5 text-2xs font-medium text-text-secondary">
       {value}
     </span>
   )
@@ -251,7 +251,7 @@ export function Table({
       <div className="overflow-x-auto">
         <table className="w-full min-w-[240px] text-left text-sm">
           <thead>
-            <tr className="border-b border-border/60 text-xs text-text-muted">
+            <tr className="border-b border-border text-xs text-text-muted">
               {columns.map((col) => (
                 <th key={col} className="px-2 py-1.5 font-medium">
                   {col}
@@ -261,7 +261,7 @@ export function Table({
           </thead>
           <tbody>
             {rows.map((row, idx) => (
-              <tr key={idx} className="border-b border-border/40">
+              <tr key={idx} className="border-b border-border">
                 {columns.map((col, cIdx) => (
                   <td key={`${col}-${cIdx}`} className="px-2 py-1.5 text-text-primary">
                     {row[cIdx] ?? ''}

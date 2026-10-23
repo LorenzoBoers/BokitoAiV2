@@ -847,7 +847,7 @@ export default function ReplyComposer({
             className={cn(
               'inline-flex items-center justify-center self-stretch border-l px-1.5 leading-none transition-colors',
               isAsk
-                ? 'border-border/50 text-inherit hover:bg-bg-muted/50'
+                ? 'border-border text-inherit hover:bg-bg-muted/50'
                 : 'border-transparent text-inherit opacity-70 hover:bg-bg-hover/80 hover:opacity-100',
             )}
             data-testid="composer-tag-button"
@@ -1136,7 +1136,7 @@ export default function ReplyComposer({
                       title={t('composer.pickChannel')}
                       aria-label={t('composer.pickChannel')}
                       className={cn(
-                        'inline-flex h-full items-center border-l border-border/50 px-1.5 leading-none transition-colors',
+                        'inline-flex h-full items-center border-l border-border px-1.5 leading-none transition-colors',
                         isReply
                           ? 'text-text-heading hover:bg-bg-muted/60'
                           : 'text-text-secondary hover:bg-bg-hover hover:text-text-primary',
@@ -1251,7 +1251,7 @@ export default function ReplyComposer({
 
         {!isNote && !isAsk && !replyBlocked && surface.showRecipient && surface.recipientValue ? (
           <div
-            className="mb-1.5 rounded-md border border-border/50 bg-bg-elevated px-2.5 py-1.5 text-xs"
+            className="mb-1.5 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-xs"
             title={surface.includeSignature ? t('composer.withSignature') : undefined}
           >
             <div className="flex items-center gap-2">
@@ -1295,7 +1295,7 @@ export default function ReplyComposer({
                 </span>
             </div>
             {surface.channel === 'email' && ccBccOpen ? (
-              <div className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5">
+              <div className="mt-1.5 space-y-1 border-t border-border pt-1.5">
                 <div className="flex items-center gap-2">
                   <span className="w-7 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
                   <input
@@ -1327,7 +1327,7 @@ export default function ReplyComposer({
               'flex items-center justify-between gap-2 rounded-md border px-2 py-1',
               draftStale
                 ? 'border-status-warning/40 bg-status-warning/10'
-                : 'border-border/50 bg-bg-elevated/70',
+                : 'border-border bg-bg-elevated/70',
             )}
             data-testid={draftStale ? 'composer-draft-stale' : 'composer-draft-restored'}
           >

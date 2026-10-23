@@ -337,7 +337,7 @@ function CreateFlowDialog({
                 ))}
               </div>
             ) : (
-              <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center text-xs text-text-muted">
+              <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-text-muted">
                 {t('workstreamsPage.dialogNoFlows')}
               </p>
             )
@@ -378,7 +378,7 @@ function CreateFlowDialog({
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-center">
+            <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
               <p className="text-xs text-text-muted">{t('workstreamsPage.dialogNoMatch')}</p>
               <Button type="button" size="sm" className="mt-3" disabled={creating} onClick={() => choose(normalized)}>
                 <Plus size={13} className="mr-1" aria-hidden />
@@ -388,7 +388,7 @@ function CreateFlowDialog({
           )}
 
           {choice ? (
-            <div className="space-y-2 border-t border-border/60 pt-3">
+            <div className="space-y-2 border-t border-border pt-3">
               <p className="text-sm font-medium text-text-heading">{t('workstreamsPage.mark.title')}</p>
               <p className="text-xs text-text-muted">{t('workstreamsPage.mark.body')}</p>
               <LabelMarkFields
@@ -471,7 +471,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
           {ws.stages.map((stage, index) => (
             <span
               key={stage.key}
-              className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-bg-input/30 px-1.5 py-0.5 text-2xs text-text-secondary"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-bg-input/30 px-1.5 py-0.5 text-2xs text-text-secondary"
               title={stageLabel(stage, t)}
             >
               <StageProgressIcon kind={stage.kind} fill={waitingStageFill(ws.stages, index)} size={11} />
@@ -492,7 +492,7 @@ function FlowRow({ ws, projectNames }: { ws: WorkstreamRow; projectNames: Map<st
               <Link
                 key={project.id}
                 to={openEntityPath({ type: 'project', id: project.id })}
-                className="inline-flex max-w-[9rem] items-center gap-1 rounded-md border border-border/50 px-1.5 py-0.5 text-2xs text-text-secondary transition hover:border-accent/50 hover:text-accent"
+                className="inline-flex max-w-[9rem] items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-2xs text-text-secondary transition hover:border-accent/50 hover:text-accent"
                 title={t('workstreamsPage.meta.openProject', { name: project.name })}
                 onClick={(event) => event.stopPropagation()}
                 onKeyDown={(event) => event.stopPropagation()}

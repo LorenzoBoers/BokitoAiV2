@@ -168,7 +168,7 @@ export default function AgentBindingPicker({
       aria-label={ariaLabel ?? t('bindingPicker.ariaLabel')}
       triggerClassName={
         className ??
-        'h-8 w-full min-w-0 rounded-md border border-border/60 bg-bg-elevated px-2 text-xs text-text-secondary'
+        'h-8 w-full min-w-0 rounded-md border border-border bg-bg-elevated px-2 text-xs text-text-secondary'
       }
       placeholder={defaultLabel}
     />

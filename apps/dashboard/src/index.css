@@ -59,21 +59,14 @@
     font-feature-settings: 'cv11', 'ss01';
   }
 
+  /* Icon line weight. Lucide writes stroke-width="2" by default; other values are deliberate and stay. */
+  svg.lucide[stroke-width='2'] {
+    stroke-width: 1.75;
+  }
+
   /* Shell background. Flat by design; kept as a class for Login/Onboarding. */
   .app-atmosphere {
     background-color: rgb(var(--color-bg));
-  }
-
-  /*
-   * One quiet wash from the top edge on large canvases (Overview, auth).
-   * The rest of the page stays the flat page color.
-   */
-  .ambient-spotlights {
-    background-image: radial-gradient(ellipse 70% 42% at 50% -8%, rgb(var(--color-accent) / 0.07), transparent 70%);
-  }
-
-  :root[data-theme='light'] .ambient-spotlights {
-    background-image: radial-gradient(ellipse 70% 42% at 50% -8%, rgb(var(--color-accent) / 0.05), transparent 70%);
   }
 
   /* Modal and drawer backdrop. One value for Dialog, SidePanel, drawers and palette. */
@@ -278,7 +271,7 @@
    * Communication, /folders and Agenda all share this so the tree reads the same.
    */
   .nav-tree-children {
-    @apply ml-[15px] space-y-px border-l border-border/70 pl-2;
+    @apply ml-[15px] space-y-px border-l border-border pl-2;
   }
 
   /* Folder header above a group of nav rows: sentence case, left chevron.
@@ -687,7 +680,7 @@
   .live-agent-face[data-live] {
     transform: scale(1.2);
   }
-  /* A bot orb carries its own aura (busy moods only), so the seat glow is off. */
+  /* A bot orb shows its mood in the face, so the seat glow is off. */
   [data-live-agent='true']:has(.bot-orb)::after {
     content: none;
   }
@@ -699,13 +692,6 @@
   [data-live-agent='true'] > * {
     position: relative;
     z-index: 1;
-  }
-  /* Agent showcase wash (`AgentGlow`). Light paper makes the same color much louder. */
-  .agent-glow {
-    opacity: 0.22;
-  }
-  :root[data-theme='light'] .agent-glow {
-    opacity: 0.1;
   }
   /*
    * Facepile cutout: follow the silhouette (not a circle) with a ~2px
@@ -817,73 +803,17 @@
    */
   .bot-orb {
     --bot-orb-glow: rgb(var(--color-ai));
-    --bot-orb-aura-strength: 1;
-    /* Keep the aura/svg stack inside the mark, so corner badges stay in front. */
+    /* Keep the svg stack inside the mark, so corner badges stay in front. */
     isolation: isolate;
-  }
-  :root[data-theme='light'] .bot-orb {
-    --bot-orb-aura-strength: 0.75;
   }
   .bot-orb__svg {
     position: relative;
     z-index: 1;
   }
-  .bot-orb__aura {
-    position: absolute;
-    inset: -75%;
-    z-index: 0;
-    border-radius: 9999px;
-    pointer-events: none;
-    background: radial-gradient(
-      circle closest-side,
-      color-mix(in srgb, var(--bot-orb-color) 42%, transparent) 0%,
-      color-mix(in srgb, var(--bot-orb-color) 22%, transparent) 32%,
-      color-mix(in srgb, var(--bot-orb-color) 7%, transparent) 65%,
-      transparent 100%
-    );
-    opacity: 0;
-    transform: scale(0.8);
-    transition:
-      opacity 0.8s ease,
-      transform 0.8s ease;
-  }
-  .bot-orb[data-motion='thinking']:not(.bot-orb--paused) .bot-orb__aura,
-  .bot-orb[data-motion='searching']:not(.bot-orb--paused) .bot-orb__aura {
-    animation: bot-orb-aura-pulse 1.72s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='writing']:not(.bot-orb--paused) .bot-orb__aura,
-  .bot-orb[data-motion='sending']:not(.bot-orb--paused) .bot-orb__aura {
-    animation: bot-orb-aura-soft 1.2s ease-in-out infinite;
-  }
-  .bot-orb[data-motion='working']:not(.bot-orb--paused) .bot-orb__aura {
-    animation: bot-orb-aura-pulse 2.4s ease-in-out infinite;
-  }
   /* Thinking and searching: the eyes glow too. */
   .bot-orb[data-motion='thinking'] .bot-orb__eyes,
   .bot-orb[data-motion='searching'] .bot-orb__eyes {
     filter: drop-shadow(0 0 1.4px rgba(255, 255, 255, 0.95));
-  }
-  @keyframes bot-orb-aura-pulse {
-    0%,
-    100% {
-      transform: scale(0.84);
-      opacity: calc(0.55 * var(--bot-orb-aura-strength));
-    }
-    50% {
-      transform: scale(1.02);
-      opacity: var(--bot-orb-aura-strength);
-    }
-  }
-  @keyframes bot-orb-aura-soft {
-    0%,
-    100% {
-      transform: scale(0.88);
-      opacity: calc(0.6 * var(--bot-orb-aura-strength));
-    }
-    50% {
-      transform: scale(0.98);
-      opacity: calc(0.85 * var(--bot-orb-aura-strength));
-    }
   }
 
   /*
@@ -1316,7 +1246,6 @@
     .bot-orb__orbit-ring,
     .bot-orb__orbit-load,
     .bot-orb__think-mark,
-    .bot-orb__aura,
     .bot-orb__fx,
     .bot-orb__fx * {
       animation: none !important;
@@ -1633,12 +1562,6 @@
   .composer-ai-flash .composer-ai-flash-text,
   .composer-ai-flash textarea:not(.text-transparent) {
     animation: composer-ai-ink 2s ease-out;
-  }
-
-  :root[data-theme='light'] .app-atmosphere {
-    background-image:
-      radial-gradient(900px 420px at 12% -8%, var(--body-glow-top), transparent 62%),
-      radial-gradient(720px 380px at 100% 110%, var(--body-glow-bottom), transparent 55%);
   }
 
   /* Needs-attention row: accent hairline, no pulse. */

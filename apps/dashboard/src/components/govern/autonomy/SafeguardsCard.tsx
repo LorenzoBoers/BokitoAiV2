@@ -146,7 +146,7 @@ export function SafeguardsCard({
             </div>
           ) : null}
 
-          <div className="space-y-3 border-t border-border/60 pt-5">
+          <div className="space-y-3 border-t border-border pt-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h4 className="text-sm font-medium text-text-heading">{t('ai.communication.breakerTitle')}</h4>

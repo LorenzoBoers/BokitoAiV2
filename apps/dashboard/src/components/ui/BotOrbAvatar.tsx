@@ -759,7 +759,6 @@ export function BotOrbAvatar({
       onPointerDown={canPoke ? onPointerDown : undefined}
       {...a11y}
     >
-      <span className="bot-orb__aura" aria-hidden />
       <svg className="bot-orb__svg" viewBox="0 0 64 64" width={size} height={size} aria-hidden>
         <defs>
           <clipPath id={clipId} clipPathUnits="userSpaceOnUse" clipRule="nonzero">

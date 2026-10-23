@@ -242,7 +242,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
       )}
 
       {canEdit && adding ? (
-        <div className="space-y-2 rounded-md border border-border/50 p-2.5">
+        <div className="space-y-2 rounded-md border border-border p-2.5">
           <div className="flex flex-wrap gap-2">
             <ChoiceSelect
               aria-label={t('projects.worksIn.add')}

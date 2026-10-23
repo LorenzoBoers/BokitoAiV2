@@ -381,7 +381,7 @@ function TeamDialog({
             <p className="text-xs text-text-muted">{t(`teamPage.pickupHint.${pickup}`)}</p>
           </div>
           {!isSystem ? (
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
               {overview.people.filter((p) => !p.deactivated).map((p) => {
                 const ref: TeamMemberRef = { kind: 'user', id: p.uuid }
                 return (

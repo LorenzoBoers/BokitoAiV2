@@ -205,7 +205,7 @@ export default function BinPage() {
           }
         />
       ) : (
-        <ul className="divide-y divide-border/60 rounded-lg border border-border/60">
+        <ul className="divide-y divide-border/60 rounded-lg border border-border">
           {items.map((row) => {
             const TypeIcon = entityIcon(row.resource_type, Layers)
             return (
@@ -255,7 +255,7 @@ export default function BinPage() {
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-xs text-text-muted">{t('binPage.retention', { days })}</p>
         <Button variant="secondary" size="sm" disabled={busyId === 'empty' || items.length === 0} onClick={() => void onEmpty()}>
           {t('binPage.emptyBin')}

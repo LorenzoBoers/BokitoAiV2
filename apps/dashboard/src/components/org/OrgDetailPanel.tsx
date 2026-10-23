@@ -4,7 +4,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AlertCircle, AlertTriangle, Archive, CornerUpLeft, Folder, Inbox, Lightbulb, Link2, Tag, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
-import { AgentGlow } from '../ui/agent-glow'
 import { AgentMark } from '../ui/AgentMark'
 import { FlowMark } from './FlowMark'
 import { ChannelMark } from '../ui/ChannelMark'
@@ -379,7 +378,6 @@ export function OrgDetailPanel({ data, selectedId, onSelect, onHover }: Props) {
               const live = node.kind === 'agent'
               return (
                 <div className="mb-1 mt-2" data-testid={live ? 'grid-agent-character' : 'grid-person-character'}>
-                  <AgentGlow color={accent} placement="corner-left" className="-left-12 -top-16 -z-10 h-44 w-44" />
                   <div className="flex items-start gap-3">
                     {node.href ? (
                       <Link to={node.href} className="shrink-0" aria-label={names.node(node)}>

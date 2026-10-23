@@ -57,7 +57,7 @@ export function ChannelExceptionsCard({
               <h4 className="mb-1.5 text-xs font-semibold text-text-muted">
                 {t(`ai.communication.exceptionGroups.${group.scope}`)}
               </h4>
-              <ul className="divide-y divide-border/50 rounded-lg border border-border/60">
+              <ul className="divide-y divide-border/50 rounded-lg border border-border">
                 {group.rows.map((row) => (
                   <li key={row.id} className="flex items-center gap-2.5 px-3 py-2">
                     {row.mode ? <AiHandlingIcon mode={row.mode} size={14} /> : null}

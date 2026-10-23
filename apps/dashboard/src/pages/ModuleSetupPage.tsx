@@ -395,7 +395,7 @@ export default function ModuleSetupPage() {
             </div>
           ) : null}
 
-          <nav className="mb-6 flex flex-wrap gap-1 border-b border-border/50 pb-px">
+          <nav className="mb-6 flex flex-wrap gap-1 border-b border-border pb-px">
             {tabs.map((item) => (
               <button
                 key={item.id}

@@ -879,7 +879,7 @@ function LazyEmailHtmlFrame({
         />
       ) : (
         <div
-          className="rounded-md border border-border/40 bg-bg-elevated px-3 py-2 text-sm leading-relaxed text-text-secondary"
+          className="rounded-md border border-border bg-bg-elevated px-3 py-2 text-sm leading-relaxed text-text-secondary"
           style={reservedHeight != null ? { minHeight: reservedHeight } : undefined}
           aria-label={t('timeline.events.emailContent')}
         >
@@ -981,8 +981,8 @@ function MailReadOverlay({
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-sm" style={{ height: 'min(92vh, 960px)' }}>
-        <div className="flex items-center gap-2 border-b border-border/50 px-3 py-2">
+      <div className="flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-sm" style={{ height: 'min(92vh, 960px)' }}>
+        <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-text-heading">{title}</p>
             {subtitle ? <p className="truncate text-2xs text-text-muted">{subtitle}</p> : null}
@@ -1570,7 +1570,7 @@ function eventLabel(
 }
 
 const OWNER_CHIP_CLASS =
-  'inline-flex items-center gap-0.5 rounded-md border border-border/55 bg-bg-elevated px-1 py-px align-baseline text-2xs font-medium text-text-heading no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70 hover:text-text-heading'
+  'inline-flex items-center gap-0.5 rounded-md border border-border bg-bg-elevated px-1 py-px align-baseline text-2xs font-medium text-text-heading no-underline transition-colors hover:border-border-light hover:bg-bg-hover/70 hover:text-text-heading'
 
 type OwnerChipKind = 'team' | 'user' | 'agent'
 
@@ -2267,7 +2267,7 @@ export function MessageTimelineItem({
         rows={Math.min(8, Math.max(2, noteDraft.split('\n').length))}
         autoFocus
         disabled={noteBusy}
-        className="w-full min-w-52 resize-y rounded-md border border-border/60 bg-bg-surface px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
+        className="w-full min-w-52 resize-y rounded-md border border-border bg-bg-surface px-2 py-1.5 text-xs text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50"
       />
       <div className="flex items-center gap-1.5">
         <button

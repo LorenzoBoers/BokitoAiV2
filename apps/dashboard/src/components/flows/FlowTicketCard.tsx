@@ -59,7 +59,7 @@ export function FlowTicketCard({
         if (event.key === 'Enter') navigate(inboxPath('all', ticket.signal_id))
       }}
       className={cn(
-        'group rounded-lg border border-border/60 bg-bg-surface px-2.5 py-2 text-left shadow-sm outline-none transition',
+        'group rounded-lg border border-border bg-bg-surface px-2.5 py-2 text-left shadow-sm outline-none transition',
         'hover:-translate-y-px hover:border-border hover:shadow-md focus-visible:ring-1 focus-visible:ring-accent/60',
         isDragging && 'z-20 opacity-80 shadow-lg',
         disabled ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
@@ -93,7 +93,7 @@ export function FlowTicketCard({
           {fields.map(([key, value]) => (
             <li
               key={key}
-              className="max-w-full truncate rounded border border-border/50 bg-bg-muted/40 px-1.5 py-px text-2xs text-text-secondary"
+              className="max-w-full truncate rounded border border-border bg-bg-muted/40 px-1.5 py-px text-2xs text-text-secondary"
             >
               {value}
             </li>

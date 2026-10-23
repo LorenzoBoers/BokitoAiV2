@@ -6,7 +6,7 @@ import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { patchWorkstream, type WorkstreamDetail } from '../../lib/flows-api'
 
 const FIELD_CLASS =
-  'w-full resize-y rounded-md border border-border/40 bg-transparent px-2 py-1 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted/45 hover:border-border/60 focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60'
+  'w-full resize-y rounded-md border border-border bg-transparent px-2 py-1 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted hover:border-border focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60'
 
 /** The flow as a recipe: how the agent works on its label's conversations and what done produces. */
 export function FlowRecipe({

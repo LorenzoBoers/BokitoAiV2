@@ -357,7 +357,7 @@ export function CommunicationFlowsTree({
     <div className="space-y-px" data-testid="communication-flows-tree">
       {loading ? <NavSectionSkeleton rows={2} /> : null}
       {!loading && rows.length === 0 ? (
-        <Link to="/flows" className="nav-row border border-dashed border-border/80 text-xs">
+        <Link to="/flows" className="nav-row border border-dashed border-border text-xs">
           <Plus aria-hidden />
           <span className="min-w-0 flex-1 truncate-fade">
             {t('support.flows.empty', { defaultValue: 'Create a flow from an action tag' })}

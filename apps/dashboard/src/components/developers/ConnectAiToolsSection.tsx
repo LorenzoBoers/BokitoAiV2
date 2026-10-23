@@ -66,7 +66,7 @@ function ProviderBody({ provider, token }: { provider: AiToolProvider; token: st
       </ol>
       {snippets.map((snippet) => (
         <div key={snippet.id} className="relative">
-          <pre className="max-h-64 overflow-x-auto rounded-md border border-border/50 bg-bg-elevated p-3 pr-28 text-xs">
+          <pre className="max-h-64 overflow-x-auto rounded-md border border-border bg-bg-elevated p-3 pr-28 text-xs">
             {snippet.code}
           </pre>
           <div className="absolute right-2 top-2 flex gap-1">

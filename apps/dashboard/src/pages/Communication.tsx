@@ -1722,7 +1722,7 @@ export default function Communication() {
           {enabledConnections.length === 0 ? (
             <Link
               to="/settings/channels"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <Mail size={14} />
               {t('openEmailSettings')}
@@ -1730,7 +1730,7 @@ export default function Communication() {
           ) : (
             <Link
               to={newConversationPath({ intent: 'contact' })}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <Mail size={14} />
               {t('newConversation.intentEmail')}
@@ -1738,13 +1738,13 @@ export default function Communication() {
           )}
           <Link
             to="/settings/setup"
-            className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
           >
             {t('onboarding.openGuide')}
           </Link>
           <Link
             to={WEBSITE_WIDGET_PATH}
-            className="rounded-lg border border-border/60 px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+            className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
           >
             {t('onboarding.installWidget')}
           </Link>
@@ -1927,7 +1927,7 @@ export default function Communication() {
                   <button
                     type="button"
                     onClick={() => setNewPlanOpen(true)}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('plan.newTitle')}
                   </button>
@@ -1937,7 +1937,7 @@ export default function Communication() {
                   <p className="text-xs text-text-muted">{t('threadList.emptySpamHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
@@ -1947,7 +1947,7 @@ export default function Communication() {
                   <p className="text-xs text-text-muted">{t('threadList.emptyClosedHint')}</p>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.openInbox')}
                   </Link>
@@ -1977,13 +1977,13 @@ export default function Communication() {
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
                   <Link
                     to="/settings/channels"
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('threadList.channelSettings')}
                   </Link>
                   <Link
                     to={newConversationPathForLeaf(leaf)}
-                    className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                    className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                   >
                     {t('onboarding.startConversation')}
                   </Link>
@@ -2088,7 +2088,7 @@ export default function Communication() {
             aria-label={t('split.closeContext')}
             onClick={toggleContactPanel}
           />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-xl border-t border-border/60 bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
+          <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-xl border-t border-border bg-bg-surface shadow-overlay sm:inset-y-0 sm:left-auto sm:w-[min(100%,20rem)] sm:max-h-none sm:rounded-none sm:border-l sm:border-t-0">
             <AgentThreadPanel
               thread={detail.thread}
               onClose={toggleContactPanel}

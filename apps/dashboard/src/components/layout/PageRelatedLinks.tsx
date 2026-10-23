@@ -24,7 +24,7 @@ export function PageRelatedLinks({
   return (
     <nav
       aria-label={t('pageRelated.ariaLabel', { defaultValue: 'Related' })}
-      className={cn('border-t border-border/40 pt-4 text-xs text-text-muted', className)}
+      className={cn('border-t border-border pt-4 text-xs text-text-muted', className)}
     >
       <ul className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
         <li className="mr-1">{t('pageRelated.ariaLabel', { defaultValue: 'Related' })}</li>

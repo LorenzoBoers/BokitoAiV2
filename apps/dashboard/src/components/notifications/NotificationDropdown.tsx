@@ -168,7 +168,7 @@ export default function NotificationDropdown() {
             className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
               forYouCount > 0
                 ? 'border-accent/40 bg-accent/5 text-text-heading hover:bg-accent/10'
-                : 'border-border/60 text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
+                : 'border-border text-text-secondary hover:bg-bg-hover/60 hover:text-text-heading'
             }`}
           >
             <Inbox size={13} className="shrink-0 text-text-muted" aria-hidden />

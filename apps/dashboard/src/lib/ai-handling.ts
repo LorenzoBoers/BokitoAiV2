@@ -50,7 +50,7 @@ export const AI_HANDLING_META: Record<AiHandlingMode, ModeMeta> = {
     tone: 'muted',
     iconClass: 'text-text-secondary',
     // Same paper as cards — hairline only, no grey elevated fill.
-    surfaceClass: 'border-border/50 bg-bg-surface text-text-secondary',
+    surfaceClass: 'border-border bg-bg-surface text-text-secondary',
   },
 }
 

@@ -379,14 +379,14 @@ export default function ContactPanel({
       onClick={openCaptureForm}
       title={t('contactPanel.linkHint')}
       data-testid="contact-link-open"
-      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
     >
       <Plus size={11} />
       {t('contactPanel.link')}
     </button>
   ) : null
   const inputClass =
-    'w-full rounded-md border border-border/60 bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50'
+    'w-full rounded-md border border-border bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50'
   const linkForm =
     canLink && captureOpen ? (
       <form
@@ -424,7 +424,7 @@ export default function ContactPanel({
                 type="button"
                 disabled={saving}
                 onClick={() => void linkContact(candidate.id)}
-                className="flex w-full items-center gap-2 rounded-md border border-border/60 px-2 py-1 text-left text-xs hover:bg-bg-hover/60 disabled:opacity-50"
+                className="flex w-full items-center gap-2 rounded-md border border-border px-2 py-1 text-left text-xs hover:bg-bg-hover/60 disabled:opacity-50"
               >
                 <span className="min-w-0 flex-1 truncate-fade font-medium text-text-primary">
                   {candidate.displayName || candidate.address}
@@ -480,7 +480,7 @@ export default function ContactPanel({
     return (
       <>
         <div className="flex flex-col">
-          <div className="border-b border-border/40 px-4 pb-3 pt-4">
+          <div className="border-b border-border px-4 pb-3 pt-4">
           <div className="flex items-start gap-2.5">
             <PersonAvatar
               name={teammate.name}
@@ -509,7 +509,7 @@ export default function ContactPanel({
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             <Link
               to="/team"
-              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="inline-flex shrink-0 items-center whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               {t('contactPanel.openMembers')}
             </Link>
@@ -528,7 +528,7 @@ export default function ContactPanel({
       <>
       <div className="px-4 py-4">
         {closeAction ? <div className="mb-1 flex justify-end">{closeAction}</div> : null}
-        <div className="rounded-lg border border-dashed border-border/60 px-3 py-4 text-center">
+        <div className="rounded-lg border border-dashed border-border px-3 py-4 text-center">
           <UserRound size={18} className="mx-auto text-text-muted" />
           <p className="mt-2 text-sm font-medium text-text-primary">
             {humanizeContactName(fallbackName, fallbackEmail, t('contactPanel.widgetVisitor')) ||
@@ -549,7 +549,7 @@ export default function ContactPanel({
                 onClick={() =>
                   void onPatch({ status: threadStatus === 'spam' ? 'open' : 'spam' })
                 }
-                className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 disabled:opacity-50"
               >
                 <OctagonAlert size={12} />
                 {threadStatus === 'spam'
@@ -599,7 +599,7 @@ export default function ContactPanel({
 
   return (
     <div className="flex flex-col">
-      <div className="border-b border-border/40 px-4 pb-3 pt-3">
+      <div className="border-b border-border px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
           {namedHeadline ? (
             <Link
@@ -736,7 +736,7 @@ export default function ContactPanel({
               rows={1}
               placeholder={t('contactPanel.notesPlaceholder')}
               aria-label={t('contactPanel.notes')}
-              className="min-h-7 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-0.5 text-xs text-text-secondary placeholder:text-text-muted transition-colors focus:border-border/60 focus:bg-bg-input focus:px-2 focus:py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/40"
+              className="min-h-7 w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-0.5 text-xs text-text-secondary placeholder:text-text-muted transition-colors focus:border-border focus:bg-bg-input focus:px-2 focus:py-1.5 focus:outline-none focus:ring-1 focus:ring-accent/40"
             />
             {notesDirty ? (
               <div className="mt-1 flex items-center gap-2 px-0.5">
@@ -764,7 +764,7 @@ export default function ContactPanel({
                 type="button"
                 disabled={saving}
                 onClick={() => void setStatus('approved')}
-                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
+                className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-status-success disabled:opacity-50"
               >
                 <Check size={11} />
                 {t('contactPanel.approve')}
@@ -776,7 +776,7 @@ export default function ContactPanel({
 
       {children}
 
-      <div className="border-b border-border/40 px-4 py-3">
+      <div className="border-b border-border px-4 py-3">
         <SectionLabel title={t('contactPanel.previous')} headerClassName="-mx-1 mb-1" />
         {previousThreads.length === 0 ? (
           <p className="text-xs text-text-muted">{t('contactPanel.noPrevious')}</p>

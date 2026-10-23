@@ -185,7 +185,7 @@ function ClusterMark({
         to={timeItemHref(item)}
         className={cn(
           'block rounded-md px-1.5 py-1 hover:bg-bg-hover/70 focus:outline-none focus-visible:ring-1 focus-visible:ring-ai',
-          index > 0 && 'border-t border-border/50',
+          index > 0 && 'border-t border-border',
         )}
       >
         {body}
@@ -316,7 +316,7 @@ export function AgentActivityTimeline({
       className={cn('scroll-mt-4 overflow-hidden', className)}
       data-testid="agent-activity-timeline"
     >
-      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-text-heading">
             {t('workforce.agents.timelineTitle')}
@@ -362,7 +362,7 @@ export function AgentActivityTimeline({
                     className={cn(
                       'absolute top-0 whitespace-nowrap text-2xs tabular-nums',
                       edge,
-                      isNow ? 'font-semibold text-ai-ink' : 'text-text-muted/80',
+                      isNow ? 'font-semibold text-ai-ink' : 'text-text-muted',
                     )}
                     style={{ left: `${pct}%` }}
                   >

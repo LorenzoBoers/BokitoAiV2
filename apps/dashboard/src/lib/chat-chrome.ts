@@ -5,7 +5,7 @@
 
 /** Thread / agent chat top bar. min-h so participant strip / long titles fit. */
 export const THREAD_HEADER_CLASS =
-  'flex min-h-11 shrink-0 items-start gap-2 border-b border-border/60 bg-bg px-3 py-2'
+  'flex min-h-11 shrink-0 items-start gap-2 border-b border-border bg-bg px-3 py-2'
 
 /** Clustered icon actions in the thread header. */
 export const THREAD_ACTION_CLUSTER_CLASS =
@@ -18,7 +18,7 @@ export const THREAD_HEADER_ICON_CLASS =
 export const THREAD_TRANSCRIPT_CLASS = 'mx-auto w-full max-w-[820px] px-4 py-4'
 
 /** Composer dock under the transcript. */
-export const THREAD_COMPOSER_DOCK_CLASS = 'shrink-0 border-t border-border/60 bg-bg px-3 py-3'
+export const THREAD_COMPOSER_DOCK_CLASS = 'shrink-0 border-t border-border bg-bg px-3 py-3'
 
 /** Legacy AI strip — unused by the Team tab (that uses the default accent tone). */
 export const COMPOSER_AI_STRIP_CLASS =

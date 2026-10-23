@@ -217,7 +217,7 @@ export default function ThreadHeader({
           {internal ? (
             <>
               {`${t('threadChrome.internalPrefix')} · ${threadCounterpartyName(thread)}`}
-              <span className="text-text-muted/75">
+              <span className="text-text-muted">
                 {' · '}
                 {threadStatusLabel(thread.status, t)}
               </span>
@@ -269,7 +269,7 @@ export default function ThreadHeader({
                   </button>
                 </>
               ) : null}
-              <span className="text-text-muted/75">
+              <span className="text-text-muted">
                 {' · '}
                 {threadStatusLabel(thread.status, t)}
               </span>
@@ -292,7 +292,7 @@ export default function ThreadHeader({
         <Tooltip>
           <TooltipTrigger asChild>
             <span
-              className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 px-2 text-xs font-medium text-text-primary"
+              className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-primary"
               aria-label={t('threadChrome.customerRatingScore', { score: csat.score })}
             >
               <Star size={11} className="fill-status-warning text-status-warning" />

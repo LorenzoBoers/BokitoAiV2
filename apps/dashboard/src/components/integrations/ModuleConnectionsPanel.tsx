@@ -138,7 +138,7 @@ export function ModuleConnectionsPanel({
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
       {actions.notice ? <p className="text-xs text-text-secondary">{actions.notice}</p> : null}
       {eligible.length > 0 ? (
-        <div className="rounded-lg border border-border/50 bg-bg-muted/30 px-4 py-3">
+        <div className="rounded-lg border border-border bg-bg-muted/30 px-4 py-3">
           <p className="text-xs font-medium text-text-heading">
             {t('integrations.modules.connections.useExisting')}
           </p>
@@ -164,7 +164,7 @@ export function ModuleConnectionsPanel({
         </div>
       ) : null}
       {rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/60 px-4 py-6 text-sm text-text-muted">
+        <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm text-text-muted">
           {t('integrations.modules.connections.empty')}
         </p>
       ) : (

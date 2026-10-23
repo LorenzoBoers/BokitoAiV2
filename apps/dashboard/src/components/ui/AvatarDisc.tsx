@@ -37,7 +37,7 @@ export function AvatarDisc({ size, children, imageUrl, alt = '', colors, decorat
       style={{ ...box, fontSize: Math.round(boxSize * 0.36), background: colors?.bg, color: colors?.text }}
       className={cn(
         'inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold leading-none',
-        !colors && 'border border-border/60 bg-bg-hover text-text-muted',
+        !colors && 'border border-border bg-bg-hover text-text-muted',
         className,
       )}
     >

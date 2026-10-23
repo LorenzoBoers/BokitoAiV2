@@ -221,7 +221,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
           <p className="text-sm leading-relaxed text-text-secondary">
             {t('whatsappCard.step3Body')}
           </p>
-          <div className="mt-3 space-y-2 rounded-md border border-border/50 bg-bg-elevated p-3">
+          <div className="mt-3 space-y-2 rounded-md border border-border bg-bg-elevated p-3">
             <CopyRow
               label={t('whatsappCard.webhookUrl')}
               value={webhookUrl}
@@ -255,7 +255,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
             {t('whatsappCard.openMetaConfig')}
             <ExternalLink size={12} aria-hidden />
           </a>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border/40 pt-3">
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3">
             <Link to={inboxPath('open')} className="text-sm font-medium text-accent hover:underline">
               {t('whatsappCard.openCommunication')}
             </Link>
@@ -273,7 +273,7 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
 }
 
 const fieldClass =
-  'rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
+  'rounded-md border border-border bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
 
 function Field({
   label,
@@ -313,7 +313,7 @@ function StepPanel({
     <section
       className={cn(
         'rounded-lg border p-3.5',
-        active ? 'border-border/60 bg-bg-elevated' : 'border-border/40 bg-transparent',
+        active ? 'border-border bg-bg-elevated' : 'border-border bg-transparent',
       )}
     >
       <header className="mb-2 flex items-center gap-2">

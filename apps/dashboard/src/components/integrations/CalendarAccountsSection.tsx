@@ -98,7 +98,7 @@ export function CalendarAccountsSection() {
           <Loader2 size={16} className="animate-spin text-text-muted" aria-hidden />
         </div>
       ) : rows.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/60 px-4 py-3 text-sm text-text-muted">
+        <p className="rounded-lg border border-dashed border-border px-4 py-3 text-sm text-text-muted">
           {t('accounts.empty')}
         </p>
       ) : (
@@ -211,7 +211,7 @@ function CalendarAccountRow({
         </div>
       </div>
       {open && canManage ? (
-        <div className="space-y-5 border-t border-border/60 px-3 py-3">
+        <div className="space-y-5 border-t border-border px-3 py-3">
           <CalendarPicker connectionId={row.id} onSaved={onChanged} />
           <CalendarTenantSettings connectionId={row.id} onChanged={onChanged} />
           <ConnectionScopeEditor

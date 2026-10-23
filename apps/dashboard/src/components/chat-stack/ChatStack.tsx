@@ -93,7 +93,7 @@ function flyToStack(origin: DOMRect, target: { right: number; bottom: number }, 
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const ghost = document.createElement('div')
   ghost.className =
-    'pointer-events-none fixed z-[70] truncate rounded-lg border border-border/70 bg-bg-elevated px-3 py-2 text-sm font-medium text-text-heading shadow-overlay'
+    'pointer-events-none fixed z-[70] truncate rounded-lg border border-border bg-bg-elevated px-3 py-2 text-sm font-medium text-text-heading shadow-overlay'
   ghost.textContent = title
   const startW = Math.min(origin.width, 520)
   Object.assign(ghost.style, {

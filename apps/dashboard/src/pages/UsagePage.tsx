@@ -67,7 +67,7 @@ function UsageCard({
 }) {
   return (
     <section className="panel min-w-0 overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-text-heading">{title}</h2>
           {hint ? <p className="mt-0.5 text-xs text-text-muted">{hint}</p> : null}
@@ -329,7 +329,7 @@ export default function UsagePage() {
                   URL.revokeObjectURL(url)
                   toast.success(t('usagePage.exported'))
                 }}
-                className="rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
               >
                 {t('usagePage.exportCsv')}
               </button>
@@ -337,7 +337,7 @@ export default function UsagePage() {
             <button
               type="button"
               onClick={load}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               {t('usagePage.refresh')}
@@ -351,7 +351,7 @@ export default function UsagePage() {
         <div className="mb-4 space-y-2">
           <ApiErrorBanner message={error} onRetry={load} />
           {!summary ? (
-            <div className="rounded-lg border border-dashed border-border/60 px-4 py-3">
+            <div className="rounded-lg border border-dashed border-border px-4 py-3">
               <p className="text-xs text-text-muted">{t('usagePage.errorRecoveryHint')}</p>
               <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                 <Link to="/communication/new" className="text-xs font-medium text-accent hover:underline">
@@ -378,7 +378,7 @@ export default function UsagePage() {
 
       <div className="space-y-5">
         <section className="panel overflow-hidden" data-testid="usage-token-series">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
               <h2 className="text-base font-semibold text-text-heading">{t('usagePage.seriesTitle')}</h2>
               <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.seriesHint', { days })}</p>
@@ -419,7 +419,7 @@ export default function UsagePage() {
 
         {budget ? (
           <section className="panel overflow-hidden">
-            <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-text-heading">{t('usagePage.budgetTitle')}</h2>
                 <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.capsHint')}</p>
@@ -428,7 +428,7 @@ export default function UsagePage() {
                 <button
                   type="button"
                   onClick={startEditCaps}
-                  className="shrink-0 rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
+                  className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary"
                 >
                   {t('usagePage.editCaps')}
                 </button>
@@ -440,7 +440,7 @@ export default function UsagePage() {
                 {capBar(t('usagePage.spendMonth'), budget.status.monthly_customer_micros, usd)}
               </div>
               {capDraft ? (
-                <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border/60 pt-3">
+                <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-border pt-3">
                   <label className="flex flex-col gap-1 text-xs text-text-muted">
                     {t('usagePage.dailyCap')}
                     <Input
@@ -499,7 +499,7 @@ export default function UsagePage() {
 
         {outcomeStats.length > 0 ? (
           <section className="panel overflow-hidden">
-            <div className="border-b border-border/60 px-4 py-3">
+            <div className="border-b border-border px-4 py-3">
               <h2 className="text-base font-semibold text-text-heading">{t('usagePage.outcomesTitle')}</h2>
               <p className="mt-0.5 text-xs text-text-muted">{t('usagePage.outcomesHint')}</p>
             </div>

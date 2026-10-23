@@ -131,7 +131,7 @@ export default function MyAssistantSettings() {
             {visibleEntries.map((entry) => (
               <li
                 key={entry.key}
-                className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-bg-elevated px-3 py-2.5"
+                className="flex items-start justify-between gap-3 rounded-md border border-border bg-bg-elevated px-3 py-2.5"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-text-heading">{entry.key}</p>

@@ -5,7 +5,6 @@
  */
 
 // Surfaces
-export { AmbientSpotlights } from './ambient-spotlights'
 export { Card, CardHeader, CardHeaderActions, CardTitle, CardDescription, CardContent } from './card'
 export { InsetPanel } from './inset-panel'
 export { SectionHeading } from './section-heading'
@@ -95,7 +94,6 @@ export { AvatarDisc } from './AvatarDisc'
 export { UserAvatar } from './UserAvatar'
 export { PersonAvatar } from './PersonAvatar'
 export { AgentMark } from './AgentMark'
-export { AgentGlow } from './agent-glow'
 export { TagPill, TagPillInline } from './TagPill'
 export { Hashtag, HashtagMark, HashtagSet } from './HashtagMark'
 export { ChoiceSelect, type ChoiceGroup } from './ChoiceSelect'

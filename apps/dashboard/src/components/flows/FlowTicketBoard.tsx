@@ -278,7 +278,7 @@ export function FlowTicketBoard({
 
   return (
     <div
-      className="rounded-xl border border-border/50 bg-bg-input/20"
+      className="rounded-xl border border-border bg-bg-input/20"
       data-testid="flow-ticket-board"
     >
       {fieldDefs.length > 0 ? (
@@ -293,7 +293,7 @@ export function FlowTicketBoard({
       ) : null}
       <div className="max-h-[calc(100vh-15rem)] overflow-auto">
         <div className="min-w-max">
-          <div className="group/stages sticky top-0 z-10 flex items-center border-b border-border/50 bg-bg-elevated/95 backdrop-blur">
+          <div className="group/stages sticky top-0 z-10 flex items-center border-b border-border bg-bg-elevated/95 backdrop-blur">
             <div className="relative grid shrink-0 gap-2 px-2 py-2" style={gridStyle(widths)}>
               {board.stages.map((stage, index) => {
                 const count = visibleTickets.filter((ticket) => stageOf(ticket) === stage.key).length
@@ -332,7 +332,7 @@ export function FlowTicketBoard({
                           // resize dividers on the hovered column.
                           left: columnBoundaryLeft(widths, index) - 28,
                         }}
-                        className="absolute top-1/2 z-20 inline-flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-bg-elevated text-text-muted opacity-0 shadow-sm transition-opacity hover:border-border hover:text-text-heading focus-visible:opacity-100 group-hover/stages:opacity-100 disabled:opacity-40"
+                        className="absolute top-1/2 z-20 inline-flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-bg-elevated text-text-muted opacity-0 shadow-sm transition-opacity hover:border-border hover:text-text-heading focus-visible:opacity-100 group-hover/stages:opacity-100 disabled:opacity-40"
                       >
                         <Plus size={12} aria-hidden />
                       </button>
@@ -345,7 +345,7 @@ export function FlowTicketBoard({
                 type="button"
                 disabled={savingStages}
                 onClick={() => insertStage(board.stages.length)}
-                className="mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 self-center rounded-md border border-dashed border-border/80 px-3 text-xs font-medium text-text-muted transition-colors hover:border-border hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
+                className="mr-2 inline-flex h-7 shrink-0 items-center gap-1.5 self-center rounded-md border border-dashed border-border px-3 text-xs font-medium text-text-muted transition-colors hover:border-border hover:bg-bg-hover hover:text-text-heading disabled:opacity-40"
               >
                 <Plus size={14} aria-hidden />
                 {t('workstreamsPage.stages.addButton')}
@@ -394,7 +394,7 @@ export function FlowTicketBoard({
               const laneTickets = visibleTickets.filter((ticket) => (ticket.project_id ?? null) === lane.id)
               const isCollapsed = collapsed.has(laneKey)
               return (
-                <section key={laneKey} className={cn(showLanes && 'border-b border-border/40 last:border-b-0')}>
+                <section key={laneKey} className={cn(showLanes && 'border-b border-border last:border-b-0')}>
                   {showLanes ? (
                     <LaneHeader
                       lane={lane}
@@ -499,7 +499,7 @@ function BoardFieldFilters({
   const active = fields.some((field) => Boolean((filters[field.key] ?? '').trim()))
   return (
     <div
-      className="flex flex-wrap items-center gap-2 border-b border-border/50 bg-bg-elevated/80 px-2.5 py-2"
+      className="flex flex-wrap items-center gap-2 border-b border-border bg-bg-elevated/80 px-2.5 py-2"
       data-testid="flow-board-field-filters"
     >
       <span className="inline-flex items-center gap-1 text-2xs font-medium text-text-muted">
@@ -780,7 +780,7 @@ function StageCell({ id, children }: { id: string; children: ReactNode[] }) {
       ref={setNodeRef}
       className={cn(
         'flex min-h-[5.5rem] flex-col gap-1.5 rounded-lg p-1 transition-colors',
-        empty && 'border border-dashed border-border/40',
+        empty && 'border border-dashed border-border',
         isOver && 'bg-accent/5 ring-1 ring-accent/50',
       )}
     >
@@ -792,7 +792,7 @@ function StageCell({ id, children }: { id: string; children: ReactNode[] }) {
 export function FlowTicketBoardSkeleton({ columns = 3 }: { columns?: number }) {
   const widths = Array.from({ length: columns }, () => COL_DEFAULT)
   return (
-    <div className="rounded-xl border border-border/50 p-2" aria-busy>
+    <div className="rounded-xl border border-border p-2" aria-busy>
       <div className="grid gap-2" style={gridStyle(widths)}>
         {Array.from({ length: columns }).map((_, i) => (
           <div key={i} className="space-y-2">

@@ -206,7 +206,7 @@ export default function AgendaList({ days, items, nowMs, landKey, selectedId, pr
         <button
           type="button"
           onClick={scrollToLand}
-          className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-bg-surface/95 text-text-heading shadow-sm hover:bg-bg-elevated"
+          className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-bg-surface/95 text-text-heading shadow-sm hover:bg-bg-elevated"
           aria-label={t('agendaPage.list.backToTop')}
           title={t('agendaPage.list.backToTop')}
         >

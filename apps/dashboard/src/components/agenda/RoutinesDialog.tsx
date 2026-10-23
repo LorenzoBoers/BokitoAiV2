@@ -111,7 +111,7 @@ export default function RoutinesDialog({ open, onOpenChange, triggers, agentName
           {groups.map(([agent, rows]) => (
             <section key={agent}>
               <h3 className="mb-1.5 text-xs font-semibold text-text-muted">{agent}</h3>
-              <ul className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border/60">
+              <ul className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border">
                 {rows.map((row) => {
                   const next = parseTimelineMs(row.next_run_at)
                   return (

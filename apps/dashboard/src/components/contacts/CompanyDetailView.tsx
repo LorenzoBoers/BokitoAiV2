@@ -145,7 +145,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
           <>
             <Link
               to="/contacts"
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60"
             >
               <ArrowLeft size={12} />
               {t('contactsPage.allContacts')}
@@ -154,7 +154,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
               type="button"
               disabled={saving}
               onClick={() => void remove()}
-              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:border-status-error/50 hover:text-status-error disabled:opacity-50"
             >
               <Trash2 size={12} />
               {t('contactsPage.delete')}
@@ -198,7 +198,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
             ) : null}
           </div>
 
-          <div className="mt-4 rounded-md border border-border/60 px-3 py-2.5" data-testid="company-tags">
+          <div className="mt-4 rounded-md border border-border px-3 py-2.5" data-testid="company-tags">
             <p className="mb-1.5 text-xs font-semibold text-text-muted">{t('contactsPage.tags', { defaultValue: 'Tags' })}</p>
             <OwnerTagsField
               tags={company.tags ?? []}
@@ -231,7 +231,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
           ) : null}
           <div className="mt-2 space-y-1.5">
             {company.contacts.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+              <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
                 <p className="text-xs text-text-muted">{t('contactsPage.noLinkedContacts')}</p>
                 <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noLinkedContactsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -243,7 +243,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                   </Link>
                   <Link
                     to="/contacts"
-                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.browseContacts')}
                   </Link>
@@ -284,7 +284,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
           </div>
           <div className="mt-3 space-y-1.5">
             {company.threads.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border/60 px-3 py-5 text-center">
+              <div className="rounded-lg border border-dashed border-border px-3 py-5 text-center">
                 <p className="text-xs text-text-muted">{t('contactsPage.noConversations')}</p>
                 <p className="mt-1 text-xs text-text-muted">{t('contactsPage.noConversationsHint')}</p>
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -296,7 +296,7 @@ export function CompanyDetailView({ companyId }: { companyId: string }) {
                   </Link>
                   <Link
                     to={inboxPath('open')}
-                    className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                   >
                     {t('contactsPage.openCommunication')}
                   </Link>

@@ -74,7 +74,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
             const last = index === crumbs.length - 1
             return (
               <span key={`${crumb}-${index}`} className="flex min-w-0 items-center gap-1.5">
-                <span className="shrink-0 text-text-muted/70">/</span>
+                <span className="shrink-0 text-text-muted">/</span>
                 <span className={`min-w-0 truncate-fade ${last ? 'font-medium text-text-heading' : 'text-text-secondary'}`}>
                   {crumb}
                 </span>
@@ -114,7 +114,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
           <button
             type="button"
             onClick={() => navigate('/settings/setup')}
-            className="hidden h-7 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
+            className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
           >
             <Sparkles size={12} className="text-accent" />
             <span>{t('topbar.setup')}</span>
@@ -126,7 +126,7 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
         <button
           type="button"
           onClick={() => openAssistant()}
-          className="hidden h-7 items-center gap-1.5 rounded-md border border-border/70 px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
+          className="hidden h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-light hover:bg-bg-hover/60 hover:text-text-heading md:flex"
         >
           <CircleHelp size={12} className="text-accent" />
           <span>{t('topbar.help')}</span>

@@ -31,7 +31,7 @@ type Props = {
 }
 
 const FIELD =
-  'w-full rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none'
+  'w-full rounded-md border border-border bg-bg-input px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none'
 
 export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Props) {
   const { t } = useTranslation('communication')
@@ -245,7 +245,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           }}
           placeholder={t('compose.bodyPlaceholder')}
           rows={10}
-          className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border/60 bg-bg-input px-2.5 py-2 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+          className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border bg-bg-input px-2.5 py-2 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
         />
 
         <MessageAttachments

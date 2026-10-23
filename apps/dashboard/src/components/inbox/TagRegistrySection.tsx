@@ -150,7 +150,7 @@ export function TagRegistrySection({
       {visible.length === 0 ? (
         <EmptyState tone="dashed" size="sm" className="px-3 py-3" title={t('tagRegistry.empty')} />
       ) : (
-        <div className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border/60">
+        <div className="divide-y divide-border/40 overflow-hidden rounded-lg border border-border">
           {visible.map((tag) => (
             <EntityRow
               key={tag.id}

@@ -184,7 +184,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
 
   return (
     <div className="flex flex-col">
-      <div className="border-b border-border/40 px-4 pb-3 pt-3">
+      <div className="border-b border-border px-4 pb-3 pt-3">
         <div className="flex items-start gap-2.5">
           {view && agentId && workHref ? (
             <Link to={workHref} className="shrink-0 rounded-full focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/50">
@@ -325,7 +325,7 @@ export default function AgentContextPanel({ thread, agent, onThreadUpdated, clos
           headerClassName="-mx-1 mb-1"
         />
         {recent.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 px-3 py-3">
+          <div className="rounded-lg border border-dashed border-border px-3 py-3">
             <p className="text-xs text-text-muted">{t('agentContext.noOtherConversations')}</p>
             {agent?.id ? (
               <Link

@@ -203,7 +203,7 @@ export default function TrustPrivacyPage() {
                 />
                 <p className="text-xs text-text-muted">{t('trustPage.retentionWorkspaceHint')}</p>
             </div>
-            <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
               <div>
                 <p className="text-sm font-medium">{t('trustPage.llmBodies')}</p>
                 <p className="text-xs text-text-muted">{t('trustPage.llmBodiesHint')}</p>
@@ -229,7 +229,7 @@ export default function TrustPrivacyPage() {
             {t('trustPage.region.euShare30d')}: {region.eu_share_pct_30d}%
           </p>
         ) : null}
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
           <div>
             <p className="text-sm font-medium">{t('trustPage.region.allowUs')}</p>
             <p className="text-xs text-text-muted">{t('trustPage.region.allowUsHint')}</p>
@@ -247,7 +247,7 @@ export default function TrustPrivacyPage() {
               {region.non_eu_models_in_use.map((slug) => (
                 <li
                   key={slug}
-                  className="rounded-md border border-border/60 px-3 py-1.5 text-sm text-text-primary"
+                  className="rounded-md border border-border px-3 py-1.5 text-sm text-text-primary"
                 >
                   {slug}
                 </li>

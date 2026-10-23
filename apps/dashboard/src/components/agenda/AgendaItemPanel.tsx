@@ -48,7 +48,7 @@ export default function AgendaItemPanel(props: Props) {
       className="panel flex max-h-[calc(100vh-10rem)] flex-col overflow-hidden lg:sticky lg:top-4"
       data-testid="agenda-item-panel"
     >
-      <div className="flex items-start justify-between gap-2 border-b border-border/50 px-4 py-3">
+      <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
         {selection.kind === 'item' ? (
           <ItemHeader item={selection.item} />
         ) : (
@@ -235,7 +235,7 @@ function ItemBody({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-2 border-t border-border/50 pt-3">
+      <div className="flex flex-wrap gap-2 border-t border-border pt-3">
         {item.kind === 'calendar' && item.can_edit !== false ? (
           <Button type="button" size="sm" variant="secondary" onClick={() => onOpenCalendar(item)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden />

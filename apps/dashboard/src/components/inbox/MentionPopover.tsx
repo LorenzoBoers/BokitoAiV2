@@ -134,7 +134,7 @@ export function MentionsPickerPanel({
   return (
     <div
       className={cn(
-        'w-72 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay',
+        'w-72 overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay',
         className,
       )}
     >
@@ -144,7 +144,7 @@ export function MentionsPickerPanel({
       <div className={cn('max-h-56 overflow-y-auto pb-1.5', listClassName)}>
         {nonempty.map((section, sectionIndex) => (
           <div key={section.title || `section-${sectionIndex}`}>
-            {sectionIndex > 0 ? <div className="mx-2 my-1 border-t border-border/50" /> : null}
+            {sectionIndex > 0 ? <div className="mx-2 my-1 border-t border-border" /> : null}
             {section.title ? (
               <div className="px-3 pb-0.5 pt-1.5 text-2xs font-semibold text-text-muted">
                 {section.title}

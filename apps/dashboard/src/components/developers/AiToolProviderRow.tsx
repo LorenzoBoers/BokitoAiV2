@@ -41,7 +41,7 @@ export function AiToolProviderRow({ brand, name, description, status, tone, chil
           aria-hidden
         />
       </summary>
-      <div className="space-y-3 border-t border-border/50 px-4 py-4">{children}</div>
+      <div className="space-y-3 border-t border-border px-4 py-4">{children}</div>
     </details>
   )
 }

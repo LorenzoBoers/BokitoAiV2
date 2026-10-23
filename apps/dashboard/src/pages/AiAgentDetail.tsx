@@ -49,7 +49,6 @@ import { listWorkLogs, type WorkLogRow } from '../lib/work-logs-api'
 import type { RuntimeAgent } from '../lib/workforce-api'
 const AGENTS_DEFAULT_PATH = '/agents'
 import { AgentMark } from '../components/ui/AgentMark'
-import { AgentGlow } from '../components/ui/agent-glow'
 import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { isOrchestratorAgent } from '../lib/workforce-nav-agents'
 import { useAgentLive, seedAgentPresence, withAgentLive } from '../hooks/useAgentPresence'
@@ -323,7 +322,7 @@ export default function AiAgentDetail() {
                   <DropdownMenu.Content
                     align="end"
                     sideOffset={4}
-                    className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
+                    className="z-50 min-w-[180px] rounded-lg border border-border bg-bg-surface p-1 shadow-overlay"
                   >
                     <DropdownMenu.Item
                       className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
@@ -381,7 +380,6 @@ export default function AiAgentDetail() {
                 className="relative shrink-0"
                 style={{ width: HERO_MARK_SIZE, height: HERO_MARK_SIZE }}
               >
-                <AgentGlow color={profileAccent} />
                 {isAdmin && agent.kind !== 'personal' ? (
                   <button
                     type="button"
@@ -401,7 +399,7 @@ export default function AiAgentDetail() {
                       baseMotion={heroOrb.baseMotion}
                     />
                     <span
-                      className="pointer-events-none absolute right-0 top-0 inline-flex h-8 w-8 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full border border-border/70 bg-bg-surface text-text-heading opacity-0 shadow-md ring-2 ring-bg-surface transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                      className="pointer-events-none absolute right-0 top-0 inline-flex h-8 w-8 translate-x-1/4 -translate-y-1/4 items-center justify-center rounded-full border border-border bg-bg-surface text-text-heading opacity-0 shadow-md ring-2 ring-bg-surface transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
                       aria-hidden
                     >
                       <Pencil size={14} />
@@ -487,7 +485,7 @@ export default function AiAgentDetail() {
               </div>
 
               {agent.is_active === false ? (
-                <div className="mt-4 flex w-full max-w-lg flex-wrap items-center justify-center gap-2 rounded-lg border border-border/70 bg-bg-elevated px-3 py-2">
+                <div className="mt-4 flex w-full max-w-lg flex-wrap items-center justify-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-2">
                   <p className="text-sm text-text-secondary">
                     {t('workforce.agents.deactivatedBanner')}
                   </p>
@@ -665,7 +663,7 @@ export default function AiAgentDetail() {
                       )
                     })}
                   </div>
-                  <div className="mt-3 border-t border-border/50 pt-3">
+                  <div className="mt-3 border-t border-border pt-3">
                     <Button type="button" size="sm" variant="secondary" className="w-full" asChild>
                       <Link to={withNavReveal(agentChatPath(agent.id))}>
                         {t('workforce.agents.viewAllConversations', {
@@ -691,7 +689,7 @@ export default function AiAgentDetail() {
               {agendaItems.length === 0 ? (
                 <div className="mt-3 flex flex-1 flex-col">
                   <p className="text-sm text-text-muted">{t('workforce.agents.agendaEmptyHint')}</p>
-                  <div className="mt-auto border-t border-border/50 pt-3">
+                  <div className="mt-auto border-t border-border pt-3">
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" size="sm" variant="secondary" className="flex-1" asChild>
                         <Link to={`/agenda?agent=${agent.id}&new=once`}>
@@ -730,7 +728,7 @@ export default function AiAgentDetail() {
                       )
                     })}
                   </div>
-                  <div className="mt-3 border-t border-border/50 pt-3">
+                  <div className="mt-3 border-t border-border pt-3">
                     <Button type="button" size="sm" variant="secondary" className="w-full" asChild>
                       <Link to={`/agenda?agent=${agent.id}`}>
                         {t('workforce.agents.viewAllAgenda', {
@@ -747,7 +745,7 @@ export default function AiAgentDetail() {
 
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
             <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-3xl gap-0 overflow-hidden p-0">
-              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+              <DialogHeader className="border-b border-border px-5 py-4 pr-14 text-left">
                 <DialogTitle>{t('workforce.agents.settingsTitle')}</DialogTitle>
                 <DialogDescription>{t('workforce.agents.settingsHint')}</DialogDescription>
               </DialogHeader>
@@ -844,7 +842,7 @@ export default function AiAgentDetail() {
 
           <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
             <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-4xl gap-0 overflow-hidden p-0">
-              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+              <DialogHeader className="border-b border-border px-5 py-4 pr-14 text-left">
                 <DialogTitle>{t('workforce.agents.historyMenu')}</DialogTitle>
                 <DialogDescription>{t('workforce.agents.historyHint')}</DialogDescription>
               </DialogHeader>

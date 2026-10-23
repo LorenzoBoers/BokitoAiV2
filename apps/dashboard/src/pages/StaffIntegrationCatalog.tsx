@@ -262,7 +262,7 @@ export default function StaffIntegrationCatalog() {
               </thead>
               <tbody>
                 {providers.map((row) => (
-                  <tr key={row.slug} className="border-t border-border/40">
+                  <tr key={row.slug} className="border-t border-border">
                     <td className="py-2 pr-3 font-mono text-xs">{row.slug}</td>
                     <td className="py-2 pr-3">{row.name}</td>
                     <td className="py-2 pr-3 text-xs">{row.auth_type}</td>

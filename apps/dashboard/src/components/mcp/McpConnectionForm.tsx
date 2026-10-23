@@ -216,7 +216,7 @@ export function McpConnectionForm({
             </Button>
           </div>
           {administraties.map((row, index) => (
-            <div key={row.id} className="grid gap-2 rounded-lg border border-border/60 p-3">
+            <div key={row.id} className="grid gap-2 rounded-lg border border-border p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-text-muted">
                   {t('integrations.mcp.servers.kingAdministratieN', { n: index + 1 })}

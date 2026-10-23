@@ -54,7 +54,7 @@ export function ModuleProviderPickerDialog({ open, onOpenChange, items, onSelect
                   <button
                     type="button"
                     disabled={planned}
-                    className={`flex w-full items-center gap-3 rounded-lg border border-border/60 px-3 py-2.5 text-left ${
+                    className={`flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2.5 text-left ${
                       planned
                         ? 'cursor-not-allowed opacity-60'
                         : 'hover:border-border-light hover:bg-bg-hover/50'

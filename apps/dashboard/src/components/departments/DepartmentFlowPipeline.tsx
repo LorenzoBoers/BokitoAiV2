@@ -95,7 +95,7 @@ export function DepartmentFlowPipeline({ flow }: { flow: DepartmentFlow }) {
                       'relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 text-base font-semibold tabular-nums',
                       stage.count
                         ? cn(NODE_RING[stage.kind], 'bg-bg-elevated text-text-heading')
-                        : 'border-border/50 bg-bg-surface text-text-muted',
+                        : 'border-border bg-bg-surface text-text-muted',
                     )}
                   >
                     {stage.count}

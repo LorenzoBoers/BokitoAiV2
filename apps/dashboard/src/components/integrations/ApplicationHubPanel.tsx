@@ -90,7 +90,7 @@ export function ApplicationHubPanel({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[85vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
-        <DialogHeader className="shrink-0 space-y-0 border-b border-border/60 px-6 py-5 pr-14 text-left">
+        <DialogHeader className="shrink-0 space-y-0 border-b border-border px-6 py-5 pr-14 text-left">
           <div className="flex items-start gap-4">
             {step !== 'app' ? (
               <Button
@@ -162,7 +162,7 @@ export function ApplicationHubPanel({
                   <li key={offer.integration.id}>
                     <button
                       type="button"
-                      className="w-full rounded-lg border border-border/60 px-3 py-3 text-left transition-colors hover:bg-bg-muted/40"
+                      className="w-full rounded-lg border border-border px-3 py-3 text-left transition-colors hover:bg-bg-muted/40"
                       onClick={() => {
                         setActiveOffer(offer)
                         setStep('offer-detail')

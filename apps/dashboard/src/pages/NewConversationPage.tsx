@@ -22,8 +22,6 @@ import { readLastChatTarget, writeLastChatTarget } from '../lib/last-chat-target
 import { listContacts, type ContactRow } from '../lib/contacts-api'
 import { humanizeContactName } from '../lib/contact-label'
 import { AgentMark } from '../components/ui/AgentMark'
-import { AgentGlow } from '../components/ui/agent-glow'
-import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
 import { Input } from '../components/ui/input'
@@ -888,7 +886,7 @@ export default function NewConversationPage() {
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <DotGridBackground />
-      <div className="relative z-10 flex h-11 shrink-0 items-center gap-3 border-b border-border/40 bg-bg px-4">
+      <div className="relative z-10 flex h-11 shrink-0 items-center gap-3 border-b border-border bg-bg px-4">
         <button
           type="button"
           onClick={() => (showAgentHome ? navigate(lastInboxPath()) : setIntent(null))}
@@ -912,7 +910,7 @@ export default function NewConversationPage() {
                         ? t('newConversation.draftTranscript')
                         : t('newConversation.title')}
             </p>
-            <span className="rounded-md border border-border/50 bg-bg-elevated px-1.5 py-0.5 text-2xs font-medium text-text-muted">
+            <span className="rounded-md border border-border bg-bg-elevated px-1.5 py-0.5 text-2xs font-medium text-text-muted">
               {t('newConversation.draftBadge')}
             </span>
           </>
@@ -1007,10 +1005,6 @@ export default function NewConversationPage() {
                     <div className="flex h-20 items-center justify-center">
                       {activeCarousel.kind === 'agent' ? (
                         <div className="relative" style={{ width: 80, height: 80 }} data-dot-field-agent>
-                          <AgentGlow
-                            color={agentProfileAccentColor(resolveAgentAvatarColor(activeCarousel.agent.avatar_color))}
-                            className="inset-[-28%]"
-                          />
                           <AgentMark
                             agent={activeCarousel.agent}
                             size={80}
@@ -1045,7 +1039,7 @@ export default function NewConversationPage() {
                     <CarouselCaption item={activeCarousel} />
                   </div>
                 ) : (
-                  <span className="mx-auto flex h-20 w-14 items-center justify-center rounded-full border border-border/50 bg-bg-surface text-text-muted">
+                  <span className="mx-auto flex h-20 w-14 items-center justify-center rounded-full border border-border bg-bg-surface text-text-muted">
                     <Bot size={24} />
                   </span>
                 )}

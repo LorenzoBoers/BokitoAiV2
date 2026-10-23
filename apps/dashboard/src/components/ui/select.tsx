@@ -4,7 +4,7 @@ import { cn } from '../../lib/utils'
 
 /** Compact closed control shared by selects and menu chips. */
 export const controlChipClass =
-  'inline-flex h-7 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border/60 bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border/60 disabled:opacity-50'
+  'inline-flex h-7 w-auto max-w-[14rem] shrink-0 items-center justify-between gap-1 rounded-md border border-border bg-transparent px-1.5 text-2xs font-medium leading-none text-text-heading outline-none transition-colors hover:bg-bg-hover/70 focus:border-border disabled:opacity-50'
 
 /** Side-panel value without a chip border or fill — icon + label only. */
 export const controlTextClass =
@@ -60,7 +60,7 @@ function SelectContent({
         sideOffset={sideOffset}
         className={cn(
           // Above dialogs (z-50) so pickers stay usable in channel access and other modals.
-          'z-[100] overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay data-[state=open]:animate-pop-in',
+          'z-[100] overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay data-[state=open]:animate-pop-in',
           position === 'popper' &&
             'data-[side=bottom]:translate-y-0 data-[side=top]:translate-y-0 min-w-[var(--radix-select-trigger-width)]',
           className,

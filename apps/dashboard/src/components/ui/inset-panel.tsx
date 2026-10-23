@@ -13,7 +13,7 @@ export const InsetPanel = React.forwardRef<HTMLDivElement, InsetPanelProps>(
   ({ className, padding = 'md', ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('rounded-md border border-border/50 bg-bg-elevated', PAD[padding], className)}
+      className={cn('rounded-md border border-border bg-bg-elevated', PAD[padding], className)}
       {...props}
     />
   ),

@@ -122,7 +122,7 @@ export function AgentSignatureCard({
                 'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                 sendAs === 'agent'
                   ? 'border-accent/50 bg-accent/8 text-text-heading'
-                  : 'border-border/60 bg-bg-input/30 text-text-secondary hover:border-border-light',
+                  : 'border-border bg-bg-input/30 text-text-secondary hover:border-border-light',
                 !canEdit && 'cursor-default opacity-70',
               )}
             >
@@ -144,7 +144,7 @@ export function AgentSignatureCard({
                 'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
                 sendAs === 'user'
                   ? 'border-accent/50 bg-accent/8 text-text-heading'
-                  : 'border-border/60 bg-bg-input/30 text-text-secondary hover:border-border-light',
+                  : 'border-border bg-bg-input/30 text-text-secondary hover:border-border-light',
                 !canEdit && 'cursor-default opacity-70',
               )}
             >
@@ -184,7 +184,7 @@ export function AgentSignatureCard({
             {t('workforce.agents.signaturePreview')}
           </p>
           <div
-            className="signature-preview mt-1.5 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-sm leading-relaxed [&_a]:underline [&_p]:my-0.5"
+            className="signature-preview mt-1.5 rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-sm leading-relaxed [&_a]:underline [&_p]:my-0.5"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
           {sendAs === 'agent' ? (

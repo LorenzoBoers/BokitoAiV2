@@ -66,7 +66,7 @@ export function TeamAvatar({
     resolved === 'image' && imageUrl ? (
       <span
         style={{ width: box, height: box, borderRadius }}
-        className={cn('inline-flex shrink-0 overflow-hidden border border-border/50', presence ? '' : className)}
+        className={cn('inline-flex shrink-0 overflow-hidden border border-border', presence ? '' : className)}
         {...a11yProps}
       >
         <img src={imageUrl} alt="" className="h-full w-full object-cover" draggable={false} />

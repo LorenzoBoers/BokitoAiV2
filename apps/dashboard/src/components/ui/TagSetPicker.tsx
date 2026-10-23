@@ -432,7 +432,7 @@ export function TagSetPicker({
                         }
                       }}
                       disabled={busy}
-                      className="border border-dashed border-border/70 bg-transparent transition-transform duration-150 hover:-translate-y-px"
+                      className="border border-dashed border-border bg-transparent transition-transform duration-150 hover:-translate-y-px"
                     />
                   ) : null}
                 </div>

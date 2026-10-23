@@ -72,7 +72,7 @@ export function ApplicationCard({ application, offer, onOpenDetail }: Props) {
         />
       </div>
 
-      <div className="mt-4 flex flex-1 items-end justify-between gap-3 border-t border-border/60 pt-4">
+      <div className="mt-4 flex flex-1 items-end justify-between gap-3 border-t border-border pt-4">
         <p
           className={cn(
             'min-w-0 text-xs',

@@ -39,7 +39,7 @@ export function SettingsSection({
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
       </CardHeader>
       {description ? (
-        <p className="border-b border-border/60 px-4 py-2 text-sm text-text-secondary">
+        <p className="border-b border-border px-4 py-2 text-sm text-text-secondary">
           {description}
         </p>
       ) : null}

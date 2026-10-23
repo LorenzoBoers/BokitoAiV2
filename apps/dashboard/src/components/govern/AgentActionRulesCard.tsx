@@ -87,7 +87,7 @@ export function AgentActionRulesCard({ isAdmin }: { isAdmin: boolean }) {
               return (
                 <div
                   key={rule.id}
-                  className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2"
+                  className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
                   data-testid="agent-action-rule"
                 >
                   <Badge variant={MODE_BADGE[rule.mode]} size="sm" className="shrink-0">

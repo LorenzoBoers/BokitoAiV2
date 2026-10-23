@@ -64,7 +64,7 @@ export default function RelatedConversationBanner({ rows, contactName, currentCh
       : t('relatedConversation.customerWrote', { name, channel: channelLabel, when, subject })
   return (
     <div
-      className="relative z-20 mx-auto mb-1.5 flex w-full max-w-3xl items-center gap-2 rounded-md border border-border/50 bg-bg-elevated px-2.5 py-1.5 text-xs text-text-secondary"
+      className="relative z-20 mx-auto mb-1.5 flex w-full max-w-3xl items-center gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-xs text-text-secondary"
       data-testid="related-conversation-banner"
     >
       <ChannelGlyph channel={related.channel} size={13} className="shrink-0" />

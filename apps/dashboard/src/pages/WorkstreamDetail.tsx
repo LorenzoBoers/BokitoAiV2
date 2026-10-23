@@ -376,7 +376,7 @@ export default function WorkstreamDetail() {
                       <DropdownMenu.Content
                         align="end"
                         sideOffset={4}
-                        className="z-50 min-w-[180px] rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay"
+                        className="z-50 min-w-[180px] rounded-lg border border-border bg-bg-surface p-1 shadow-overlay"
                       >
                         <DropdownMenu.Item
                           className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-status-error outline-none data-[highlighted]:bg-bg-hover"
@@ -418,7 +418,7 @@ export default function WorkstreamDetail() {
 
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
             <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0">
-              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+              <DialogHeader className="border-b border-border px-5 py-4 pr-14 text-left">
                 <DialogTitle>{t('workstreamsPage.settingsTitle')}</DialogTitle>
                 <DialogDescription>{t('workstreamsPage.settingsHint')}</DialogDescription>
               </DialogHeader>
@@ -677,7 +677,7 @@ function FlowViewBody({
 
 function Stat({ label, value, icon }: { label: string; value: number | string; icon?: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border/50 bg-bg-elevated/60 px-2.5 py-1 text-xs">
+    <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated/60 px-2.5 py-1 text-xs">
       {icon}
       <span className="text-text-muted">{label}</span>
       <span className="font-semibold tabular-nums text-text-heading">{value}</span>

@@ -16,14 +16,14 @@ export default function TwoFactorBanner() {
   if (!currentWorkspace?.require_2fa) return null
 
   return (
-    <div className="flex h-8 items-center gap-2 border-b border-border/60 bg-bg px-3 text-xs text-text-secondary">
+    <div className="flex h-8 items-center gap-2 border-b border-border bg-bg px-3 text-xs text-text-secondary">
       <ShieldAlert size={14} className="shrink-0 text-status-warning" />
       <span className="min-w-0 truncate-fade">
         This workspace requires two-factor authentication. Set it up to keep your account compliant.
       </span>
       <Link
         to="/settings/profile"
-        className="ml-auto shrink-0 h-6 rounded-md border border-border/70 px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover"
+        className="ml-auto shrink-0 h-6 rounded-md border border-border px-2 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover"
       >
         Set up 2FA
       </Link>

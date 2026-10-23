@@ -266,7 +266,7 @@ export function AwarenessEditor({
               disabled={!canEdit}
               aria-pressed={mode === value}
               onClick={() => setMode(value)}
-              className={cn('border text-xs', mode === value ?'border-accent/60 text-text-primary':'border-border/60 text-text-secondary')}
+              className={cn('border text-xs', mode === value ?'border-accent/60 text-text-primary':'border-border text-text-secondary')}
             >
               {t(`departmentPage.awareness.modes.${value}`)}
             </Button>
@@ -293,7 +293,7 @@ export function AwarenessEditor({
                 disabled={!canEdit}
                 aria-pressed={on}
                 onClick={() => setFollows((cur) => (on ? cur.filter((k) => k !== kind) : [...cur, kind]))}
-                className={cn('border text-xs', on ?'border-accent/60 text-text-primary':'border-border/60 text-text-secondary')}
+                className={cn('border text-xs', on ?'border-accent/60 text-text-primary':'border-border text-text-secondary')}
               >
                 {t(`departmentPage.awareness.follow.${kind}`, { defaultValue: kind })}
               </Button>
@@ -363,7 +363,7 @@ function DomainQuestions({
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   if (questions.length === 0) return <p className="text-sm text-text-secondary">{t('departmentPage.domain.empty')}</p>
   return (
-    <ul className="divide-y divide-border/50 rounded-lg border border-border/60" data-testid="department-domain-questions">
+    <ul className="divide-y divide-border/50 rounded-lg border border-border" data-testid="department-domain-questions">
       {questions.map((q) => (
         <li key={q.key} className="space-y-2 px-3 py-2.5 text-sm">
           <p className="text-text-primary">{q.question}</p>
@@ -479,7 +479,7 @@ function AllTab({
       <SectionCard title={t('departmentPage.today.title')} testId="department-today">
         <Bottlenecks items={data.today.bottlenecks} decisions={data.today.decisions_waiting} />
         {data.today.orientation ? (
-          <div className="space-y-1 rounded-md border border-border/60 bg-bg-elevated/50 px-3 py-2.5">
+          <div className="space-y-1 rounded-md border border-border bg-bg-elevated/50 px-3 py-2.5">
             <p className="text-2xs text-text-muted">
               {t('departmentPage.today.orientation', { when: when(data.today.orientation.at, i18n.language) })}
             </p>
@@ -747,7 +747,7 @@ export default function DepartmentPage() {
 
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
             <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0">
-              <DialogHeader className="border-b border-border/60 px-5 py-4 pr-14 text-left">
+              <DialogHeader className="border-b border-border px-5 py-4 pr-14 text-left">
                 <DialogTitle>{t('departmentPage.awareness.title')}</DialogTitle>
                 <DialogDescription>{t('departmentPage.awareness.hint')}</DialogDescription>
               </DialogHeader>

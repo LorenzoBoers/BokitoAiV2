@@ -85,7 +85,7 @@ export function LabelMarkFields({
         aria-label={t('workstreamsPage.mark.search', {
           defaultValue: 'Search icons (Lucide)',
         })}
-        className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+        className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
       />
       <div className="grid max-h-[min(50vh,24rem)] grid-cols-8 gap-1 overflow-auto">
         {iconIds.map((id) => {

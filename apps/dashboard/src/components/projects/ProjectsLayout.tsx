@@ -25,13 +25,13 @@ export default function ProjectsLayout() {
         label={t('projects.page.splitNav', { defaultValue: 'Resize folders sidebar' })}
         className="hidden md:flex"
       >
-        <aside className="flex h-full min-h-0 w-full flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5">
+        <aside className="flex h-full min-h-0 w-full flex-col border-r border-border bg-bg px-2 pb-2 pt-2.5">
           <ProjectsFolderNav className="h-full" />
         </aside>
       </SplitPane>
       <SplitPane id="main" defaultWidth={0} minWidth={0} maxWidth={0} flex>
         <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-6 pb-8 pt-4">
-          <div className="mb-3 max-h-72 border-b border-border/60 pb-3 md:hidden">
+          <div className="mb-3 max-h-72 border-b border-border pb-3 md:hidden">
             <ProjectsFolderNav className="h-full max-h-64" />
           </div>
           <Suspense fallback={<RouteShellSkeleton />}>

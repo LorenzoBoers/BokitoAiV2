@@ -249,7 +249,7 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
   }
 
   return (
-    <li className="rounded-md border border-border/50 bg-bg-elevated px-3 py-2.5">
+    <li className="rounded-md border border-border bg-bg-elevated px-3 py-2.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-sm font-medium text-text-heading">
@@ -261,7 +261,7 @@ function BacklogRow({ entry, onChanged }: { entry: SignalBacklogEntry; onChanged
           </p>
           {entry.sentence ? <p className="mt-0.5 text-xs text-text-muted">{entry.sentence}</p> : null}
           {entry.examples[0] ? (
-            <p className="mt-1 border-l-2 border-border/60 pl-2 text-xs italic text-text-secondary">
+            <p className="mt-1 border-l-2 border-border pl-2 text-xs italic text-text-secondary">
               {entry.examples[0]}
             </p>
           ) : null}

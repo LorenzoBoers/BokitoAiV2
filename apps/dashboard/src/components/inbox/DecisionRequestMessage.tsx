@@ -230,7 +230,7 @@ function BubbleDrafts({
       {bubbles.map((bubble, index) => (
         <div
           key={index}
-          className="group relative max-w-[90%] rounded-xl rounded-tl-md border border-border/60 bg-bg-surface px-3 py-2"
+          className="group relative max-w-[90%] rounded-xl rounded-tl-md border border-border bg-bg-surface px-3 py-2"
         >
           {editable ? (
             <textarea
@@ -756,7 +756,7 @@ export default function DecisionRequestMessage({
                 ) : null}
               </div>
               {compactOpen ? (
-                <div className="rounded-md border border-border/60 bg-bg-surface/80 px-2.5 py-2">
+                <div className="rounded-md border border-border bg-bg-surface/80 px-2.5 py-2">
                   <p className="whitespace-pre-wrap text-base leading-relaxed text-text-secondary">
                     {draftBody}
                   </p>
@@ -932,7 +932,7 @@ export default function DecisionRequestMessage({
         ) : null}
         {message.decisionId && !isChatAsk ? (
           <details className="mb-1.5 group/tech">
-            <summary className="cursor-pointer list-none text-2xs font-medium text-text-muted/80 hover:text-text-muted [&::-webkit-details-marker]:hidden">
+            <summary className="cursor-pointer list-none text-2xs font-medium text-text-muted hover:text-text-muted [&::-webkit-details-marker]:hidden">
               {t('decisionCard.technical', { defaultValue: 'Technical' })}
             </summary>
             {/* Origin and addressee are context, not the question: folded here
@@ -969,7 +969,7 @@ export default function DecisionRequestMessage({
                     () => toast.error(t('decisionCard.copyIdFailed')),
                   )
                 }}
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted/60 transition-colors hover:bg-bg-hover/60 hover:text-text-body"
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-text-muted transition-colors hover:bg-bg-hover/60 hover:text-text-body"
               >
                 <Copy size={11} />
               </button>
@@ -1013,7 +1013,7 @@ export default function DecisionRequestMessage({
                 'mt-2 overflow-hidden',
                 isChatAsk
                   ? ''
-                  : 'rounded-lg border border-border/60 bg-bg-elevated',
+                  : 'rounded-lg border border-border bg-bg-elevated',
               )}
             >
               <div className={cn(isChatAsk ? 'py-0.5' : 'px-3 py-2')}>
@@ -1030,7 +1030,7 @@ export default function DecisionRequestMessage({
                 )}
               </div>
               {!resolved && isSuggestion ? (
-                <div className="border-t border-border/40 px-3 py-2">
+                <div className="border-t border-border px-3 py-2">
                   <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                       <span className="text-2xs font-medium text-text-muted">
@@ -1046,7 +1046,7 @@ export default function DecisionRequestMessage({
                             'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition-colors',
                             sendAs === 'user'
                               ? 'border-border-light bg-bg-hover text-text-heading'
-                              : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                              : 'border-border text-text-muted hover:bg-bg-hover hover:text-text-body',
                           )}
                         >
                           <UserRound size={11} aria-hidden />
@@ -1060,7 +1060,7 @@ export default function DecisionRequestMessage({
                             'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium transition-colors',
                             sendAs === 'agent'
                               ? 'border-ai/40 bg-ai/10 text-text-primary'
-                              : 'border-border/60 text-text-muted hover:bg-bg-hover hover:text-text-body',
+                              : 'border-border text-text-muted hover:bg-bg-hover hover:text-text-body',
                           )}
                         >
                           <Bot size={11} aria-hidden />
@@ -1086,11 +1086,11 @@ export default function DecisionRequestMessage({
             </div>
             {moduleProposal ? <ModuleProposalBlock proposal={moduleProposal} /> : null}
             {internalNote ? (
-              <div className="mt-3 border-l-2 border-border/70 pl-3">
+              <div className="mt-3 border-l-2 border-border pl-3">
                 <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-text-muted">
                   <StickyNote size={12} className="shrink-0 text-text-muted" aria-hidden />
                   <span>{t('decisionCard.internalNote.title')}</span>
-                  <span className="font-normal text-text-muted/80">
+                  <span className="font-normal text-text-muted">
                     · {t('decisionCard.internalNote.notSent')}
                   </span>
                 </div>

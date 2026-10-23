@@ -47,7 +47,7 @@ export const OptionCard = React.forwardRef<HTMLButtonElement, OptionCardProps>(
       className={cn(
         'flex h-full w-full flex-col gap-2 rounded-lg border px-3 py-3 text-left transition-colors',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus',
-        selected ? TONE[tone] : 'border-border/60 bg-bg-elevated hover:border-border',
+        selected ? TONE[tone] : 'border-border bg-bg-elevated hover:border-border',
         readOnly ? 'cursor-default' : 'cursor-pointer',
         disabled && !readOnly && 'cursor-not-allowed opacity-60',
         className,

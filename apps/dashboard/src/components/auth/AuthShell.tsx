@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AmbientSpotlights } from '../ui/ambient-spotlights'
 import { cn } from '../../lib/utils'
 
 type AuthShellProps = {
@@ -23,7 +22,6 @@ export function AuthShell({ subtitle, intro, title, children, cardClassName, abo
   const { t } = useTranslation('nav')
   return (
     <div className="app-atmosphere relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <AmbientSpotlights />
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <img

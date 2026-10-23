@@ -171,7 +171,7 @@ function QuotedMailFrame({ html, title }: { html: string; title: string }) {
   )
 }
 
-const FIELD_ROW = 'flex items-center gap-3 border-b border-border/40 px-3 py-1.5 text-xs'
+const FIELD_ROW = 'flex items-center gap-3 border-b border-border px-3 py-1.5 text-xs'
 /** Wide enough for NL "Onderwerp" so label→value gap stays even across rows. */
 const FIELD_LABEL = 'w-[5.5rem] shrink-0 font-normal text-text-muted'
 const FIELD_INPUT =
@@ -310,7 +310,7 @@ function RecipientField({
         data-testid={testId}
       />
       {open && matches.length ? (
-        <div className="absolute left-[calc(0.75rem+5.5rem+0.75rem)] right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border/60 bg-bg-surface shadow-overlay">
+        <div className="absolute left-[calc(0.75rem+5.5rem+0.75rem)] right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay">
           <div className="max-h-56 overflow-y-auto p-1">
             {matches.map((s, index) => (
               <button
@@ -894,9 +894,9 @@ export default function MailComposer({
         }}
         onDrop={onDropFiles}
       >
-        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border/70 bg-bg-surface shadow-sm">
+        <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-sm">
           {/* Header: mode + From + close */}
-          <div className="flex items-center gap-2 border-b border-border/50 bg-bg-elevated/60 px-3 py-2">
+          <div className="flex items-center gap-2 border-b border-border bg-bg-elevated/60 px-3 py-2">
             <span className="flex items-center gap-1.5 text-xs font-medium text-text-heading">
               <ModeIcon size={13} className="text-text-muted" />
               {modeLabel}
@@ -1048,7 +1048,7 @@ export default function MailComposer({
             </>
           ) : null}
           {invalidShown.length ? (
-            <p className="border-b border-border/40 bg-status-error/5 px-3 py-1 text-2xs text-status-error">
+            <p className="border-b border-border bg-status-error/5 px-3 py-1 text-2xs text-status-error">
               {t('compose.invalidAddress', { addresses: invalidShown.join(', ') })}
             </p>
           ) : null}
@@ -1114,7 +1114,7 @@ export default function MailComposer({
                 >
                   <Link
                     to={signatureSettingsHref}
-                    className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-md border border-border/60 bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-text-secondary opacity-0 shadow-sm transition-opacity hover:bg-bg-elevated hover:text-text-heading focus-visible:opacity-100 group-hover/sig:opacity-100"
+                    className="absolute right-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-md border border-border bg-bg-surface px-1.5 py-0.5 text-2xs font-medium text-text-secondary opacity-0 shadow-sm transition-opacity hover:bg-bg-elevated hover:text-text-heading focus-visible:opacity-100 group-hover/sig:opacity-100"
                     title={t('mailComposer.signatureEditChannelHint')}
                     aria-label={t('mailComposer.signatureEditChannel')}
                   >
@@ -1137,7 +1137,7 @@ export default function MailComposer({
                   title={t('mailComposer.quoteToggle')}
                   aria-label={t('mailComposer.quoteToggle')}
                   aria-expanded={quoteOpen}
-                  className="flex h-5 items-center rounded-full border border-border/60 bg-bg-elevated px-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                  className="flex h-5 items-center rounded-full border border-border bg-bg-elevated px-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
                   data-testid="mail-composer-quote-toggle"
                 >
                   <MoreHorizontal size={13} />
@@ -1152,7 +1152,7 @@ export default function MailComposer({
           </div>
 
           {/* Footer: Bokito extras + send */}
-          <div className="flex items-center gap-1.5 border-t border-border/50 px-2.5 py-2">
+          <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-2">
             <input
               ref={fileInputRef}
               type="file"

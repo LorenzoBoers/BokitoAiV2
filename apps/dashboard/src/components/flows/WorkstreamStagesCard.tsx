@@ -112,7 +112,7 @@ function StageWorkBlock({
     onUpdate({ checklist: next })
   }
   return (
-    <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
+    <div className="space-y-2 rounded-lg border border-border bg-bg-muted/20 p-2.5">
       {stage.kind !== 'done' ? (
         <div className="space-y-1">
           <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.waitingOn')}</Label>
@@ -257,7 +257,7 @@ function StageOwnerFields({
   const presets = CHECKUP_PRESETS.includes(minutes) ? CHECKUP_PRESETS : [...CHECKUP_PRESETS, minutes]
   const groups: StageOwnerOption['group'][] = ['user', 'agent', 'team']
   return (
-    <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
+    <div className="space-y-2 rounded-lg border border-border bg-bg-muted/20 p-2.5">
       <div className="space-y-1">
         <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.owner')}</Label>
         <ChoiceSelect
@@ -379,11 +379,11 @@ function SortablePhaseCard({
         transition,
       }}
       className={cn(
-        'flex shrink-0 flex-col rounded-xl border border-border/70 bg-bg-elevated/90 shadow-sm',
+        'flex shrink-0 flex-col rounded-xl border border-border bg-bg-elevated/90 shadow-sm',
         isDragging && 'z-20 border-accent/50 opacity-95 shadow-md',
       )}
     >
-      <header className="flex items-center gap-1.5 border-b border-border/60 px-2 py-2.5 sm:px-3">
+      <header className="flex items-center gap-1.5 border-b border-border px-2 py-2.5 sm:px-3">
         {canEdit ? (
           <button
             type="button"
@@ -412,7 +412,7 @@ function SortablePhaseCard({
               title={t('workstreamsPage.stages.editNameHint', {
                 defaultValue: 'Click to edit',
               })}
-              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-[0.03em] text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted/50 hover:border-border/70 hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
+              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-[0.03em] text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted hover:border-border hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
             />
           ) : (
             <p className="truncate text-xs font-semibold uppercase tracking-[0.03em] text-text-heading">
@@ -436,10 +436,10 @@ function SortablePhaseCard({
       </header>
 
       <div className="flex flex-1 flex-col gap-3 p-3">
-        <div className="space-y-1.5 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
+        <div className="space-y-1.5 rounded-lg border border-border bg-bg-muted/20 p-2.5">
           <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
           {stage.kind === 'open' ? (
-            <p className="flex h-8 items-center rounded-md border border-border/60 bg-bg-input/40 px-2.5 text-xs text-text-secondary">
+            <p className="flex h-8 items-center rounded-md border border-border bg-bg-input/40 px-2.5 text-xs text-text-secondary">
               {t('workstreamsPage.stages.kinds.open')}
             </p>
           ) : (
@@ -465,7 +465,7 @@ function SortablePhaseCard({
         <StageOwnerFields stage={stage} owners={owners} canEdit={canEdit} onUpdate={onUpdate} />
 
         {stage.kind === 'done' ? (
-          <label className="flex items-start gap-2.5 rounded-lg border border-border/50 bg-bg-muted/20 px-2.5 py-2">
+          <label className="flex items-start gap-2.5 rounded-lg border border-border bg-bg-muted/20 px-2.5 py-2">
             <Switch
               checked={Boolean(stage.auto_close_conversation)}
               disabled={!canEdit}
@@ -506,7 +506,7 @@ function StageFieldsBlock({
   const [fieldsOpen, setFieldsOpen] = useState(false)
   const rowId = stage.dragId || stage.key || 'stage'
   return (
-        <div className="space-y-2 rounded-lg border border-border/50 bg-bg-muted/20 p-2.5">
+        <div className="space-y-2 rounded-lg border border-border bg-bg-muted/20 p-2.5">
           <button
             type="button"
             onClick={() => setFieldsOpen((open) => !open)}
@@ -531,7 +531,7 @@ function StageFieldsBlock({
           {fieldsOpen ? (stage.fields ?? []).map((field, fieldIndex) => (
             <div
               key={`${rowId}-field-${fieldIndex}`}
-              className="space-y-1.5 rounded-md border border-border/40 bg-bg-surface/80 p-2"
+              className="space-y-1.5 rounded-md border border-border bg-bg-surface/80 p-2"
             >
               <div className="flex items-center gap-1">
                 <Input
@@ -612,7 +612,7 @@ function StageFieldsBlock({
                 </label>
               </div>
               {field.type === 'enum' ? (
-                <div className="space-y-1.5 rounded-md border border-dashed border-border/50 p-1.5">
+                <div className="space-y-1.5 rounded-md border border-dashed border-border p-1.5">
                   <p className="text-2xs font-medium text-text-muted">
                     {t('workstreamsPage.stages.fieldOptions')}
                   </p>
@@ -683,7 +683,7 @@ function StageFieldsBlock({
                   ],
                 })
               }
-              className="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-border/60 px-2 py-1.5 text-2xs text-text-muted hover:border-accent/40 hover:text-text-primary"
+              className="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-2xs text-text-muted hover:border-accent/40 hover:text-text-primary"
             >
               <Plus size={12} />
               {t('workstreamsPage.stages.fieldAdd')}
@@ -846,7 +846,7 @@ export function StageEditorDialog({
               onChange={(event) => update({ name: event.target.value })}
               placeholder={t('workstreamsPage.stages.namePlaceholder')}
               aria-label={t('workstreamsPage.stages.namePlaceholder')}
-              className="h-9 w-full rounded-md border border-border/70 bg-bg-input/80 px-2.5 text-sm font-medium text-text-heading outline-none focus:border-border focus:ring-1 focus:ring-border/60"
+              className="h-9 w-full rounded-md border border-border bg-bg-input/80 px-2.5 text-sm font-medium text-text-heading outline-none focus:border-border focus:ring-1 focus:ring-border/60"
             />
             {onMove ? (
               <div className="flex gap-2">
@@ -861,7 +861,7 @@ export function StageEditorDialog({
             <div className="space-y-1.5">
               <Label className="text-xs text-text-muted">{t('workstreamsPage.stages.kind')}</Label>
               {lockedNotStarted ? (
-                <p className="flex h-8 items-center rounded-md border border-border/60 bg-bg-input/40 px-2.5 text-xs text-text-secondary">
+                <p className="flex h-8 items-center rounded-md border border-border bg-bg-input/40 px-2.5 text-xs text-text-secondary">
                   {t('workstreamsPage.stages.kinds.open')}
                 </p>
               ) : (
@@ -881,7 +881,7 @@ export function StageEditorDialog({
             </div>
             <StageOwnerFields stage={draft} owners={owners} canEdit onUpdate={update} />
             {draft.kind === 'done' ? (
-              <label className="flex items-start gap-2.5 rounded-lg border border-border/50 bg-bg-muted/20 px-2.5 py-2">
+              <label className="flex items-start gap-2.5 rounded-lg border border-border bg-bg-muted/20 px-2.5 py-2">
                 <Switch
                   checked={Boolean(draft.auto_close_conversation)}
                   onCheckedChange={(checked) => update({ auto_close_conversation: checked })}
@@ -1083,7 +1083,7 @@ export function WorkstreamStagesCard({
                 <button
                   type="button"
                   onClick={add}
-                  className="flex min-h-[220px] w-[140px] min-w-[120px] max-w-[160px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 bg-bg-muted/15 px-4 text-sm text-text-muted transition-colors hover:border-accent/50 hover:bg-bg-muted/35 hover:text-text-primary"
+                  className="flex min-h-[220px] w-[140px] min-w-[120px] max-w-[160px] shrink-0 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-bg-muted/15 px-4 text-sm text-text-muted transition-colors hover:border-accent/50 hover:bg-bg-muted/35 hover:text-text-primary"
                 >
                   <Plus size={18} />
                   <span className="text-center text-xs font-medium leading-snug">

@@ -527,7 +527,7 @@ export default function ModelsSettings() {
 
       {/* Models list */}
       {!custom?.allowed ? (
-        <section className="rounded-lg border border-dashed border-border/70 bg-bg-elevated px-5 py-4">
+        <section className="rounded-lg border border-dashed border-border bg-bg-elevated px-5 py-4">
           <h2 className="text-sm font-semibold text-text-heading">{t('modelsPage.custom.lockedTitle')}</h2>
           <p className="mt-1 text-sm text-text-muted">{t('modelsPage.custom.lockedBody')}</p>
         </section>
@@ -552,7 +552,7 @@ export default function ModelsSettings() {
           </div>
 
           {custom.enabled ? (
-            <div className="space-y-4 border-t border-border/50 pt-4">
+            <div className="space-y-4 border-t border-border pt-4">
               {chatModels.length === 0 && !wizardOpen ? (
                 <EmptyState tone="plain" size="sm" className="px-0 py-2" title={t('modelsPage.custom.empty')} />
               ) : null}
@@ -560,7 +560,7 @@ export default function ModelsSettings() {
               {chatModels.map((row) => (
                 <div
                   key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 bg-bg-elevated px-3 py-2.5"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-bg-elevated px-3 py-2.5"
                 >
                   <div className="flex min-w-0 items-start gap-2.5">
                     <ModelIcon
@@ -597,7 +597,7 @@ export default function ModelsSettings() {
               {(custom.connections ?? []).map((conn) => (
                 <div
                   key={conn.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/40 px-3 py-2 text-xs text-text-muted"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-xs text-text-muted"
                 >
                   <span>
                     {conn.label || providerTypeLabel(conn.provider_type)}

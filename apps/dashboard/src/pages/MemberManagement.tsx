@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, ExternalLink, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
 import { AgentMark } from '../components/ui/AgentMark'
-import { AmbientSpotlights } from '../components/ui/ambient-spotlights'
 import { AiAvatar } from '../components/ui/AiAvatar'
 import { UserAvatar } from '../components/ui/UserAvatar'
 import { agentProfileAccentColor, resolveAgentAvatarColor, type AgentAvatarProps } from '../lib/agent-avatar'
@@ -717,7 +716,6 @@ export default function MemberManagement({
         className="relative overflow-hidden p-0 scroll-mt-24"
         data-testid="agent-marketplace-banner"
       >
-        <AmbientSpotlights />
         <div className="relative z-[1] flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
           <div className="flex items-center gap-1.5" aria-hidden>
             {marketplaceBannerAgents.map((agent, index) => (
@@ -738,7 +736,7 @@ export default function MemberManagement({
       </Card>
 
       <Card id="directory" className="overflow-hidden p-0 scroll-mt-24">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 pt-3 pb-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 pt-3 pb-0">
           <div className="flex flex-wrap items-center gap-0">
             {tabs.map((tab) => (
               <button
@@ -823,7 +821,7 @@ export default function MemberManagement({
                         ) : null}
                         <Link
                           to="/settings/setup"
-                          className="rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary hover:bg-bg-hover/60"
                         >
                           {t('membersPage.openSetup')}
                         </Link>

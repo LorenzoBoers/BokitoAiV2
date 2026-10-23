@@ -6,7 +6,6 @@ import { IntegrationHostLogo } from './IntegrationHostLogo'
 import { ModuleInstallControls } from './ModuleInstallControls'
 import { moduleSpecialistVisual } from './ModuleSpecialistCallout'
 import { AgentMark } from '../ui/AgentMark'
-import { AgentGlow } from '../ui/agent-glow'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import {
@@ -162,7 +161,6 @@ export function MarketplaceModuleCard({
       )}
       aria-disabled={comingSoon || undefined}
     >
-      <AgentGlow color={specialist.titleColor} placement="corner-right" />
       <div className="relative z-[1] flex flex-1 items-stretch gap-4">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-2">

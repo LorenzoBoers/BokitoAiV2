@@ -64,7 +64,7 @@ function MatrixRow({
   locked?: NotificationChannel[]
 }) {
   return (
-    <div className={`grid ${GRID} items-center border-b border-border/60 px-5 py-3 last:border-b-0`}>
+    <div className={`grid ${GRID} items-center border-b border-border px-5 py-3 last:border-b-0`}>
       <div className="min-w-0 pr-3">
         <p className="text-sm text-text-primary">{title}</p>
         {hint ? <p className="text-xs text-text-muted">{hint}</p> : null}
@@ -100,7 +100,7 @@ function SectionHead({
 }) {
   return (
     <div
-      className={`grid ${GRID} items-center border-b border-border/60 bg-bg-elevated px-5 py-2.5`}
+      className={`grid ${GRID} items-center border-b border-border bg-bg-elevated px-5 py-2.5`}
       data-testid={testId}
     >
       <p className="pr-3 text-xs font-semibold text-text-muted">{title}</p>
@@ -140,7 +140,7 @@ function Cell({
           aria-label={label}
         />
       ) : (
-        <span className="text-xs text-text-muted/50">-</span>
+        <span className="text-xs text-text-muted">-</span>
       )}
     </div>
   )
@@ -300,7 +300,7 @@ export default function NotificationSettings() {
                 type="button"
                 disabled={pushBusy || !token}
                 onClick={() => void enrollPush()}
-                className="shrink-0 h-8 rounded-md border border-border/70 px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-50"
+                className="shrink-0 h-8 rounded-md border border-border px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover disabled:opacity-50"
               >
                 {t('notificationsPage.pushEnable')}
               </button>
@@ -330,7 +330,7 @@ export default function NotificationSettings() {
             <button
               type="button"
               onClick={playTestSound}
-              className="h-8 rounded-md border border-border/70 px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover"
+              className="h-8 rounded-md border border-border px-3 text-xs font-medium text-text-heading transition-colors hover:bg-bg-hover"
             >
               {t('notificationsPage.soundTest')}
             </button>
@@ -358,7 +358,7 @@ export default function NotificationSettings() {
                 onChange={(event) =>
                   void apply({ ...prefs, reach: { ...prefs.reach!, quiet_from: event.target.value || null } })
                 }
-                className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+                className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
               />
             </label>
             <label className="space-y-1 text-xs text-text-muted">
@@ -369,7 +369,7 @@ export default function NotificationSettings() {
                 onChange={(event) =>
                   void apply({ ...prefs, reach: { ...prefs.reach!, quiet_to: event.target.value || null } })
                 }
-                className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+                className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
               />
             </label>
             <label className="space-y-1 text-xs text-text-muted">
@@ -385,7 +385,7 @@ export default function NotificationSettings() {
                     reach: { ...prefs.reach!, max_per_day: Math.max(0, Math.min(200, Number(event.target.value) || 0)) },
                   })
                 }
-                className="h-8 w-full rounded-md border border-border/70 bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
+                className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
               />
             </label>
           </div>
@@ -408,7 +408,7 @@ export default function NotificationSettings() {
       {loading ? <NotificationMatrixSkeleton /> : null}
 
       <Card className={`overflow-hidden ${loading ? 'hidden' : ''}`} data-testid="notification-tiers">
-        <div className={`grid ${GRID} border-b border-border/60 px-5 py-3 text-xs font-semibold text-text-muted`}>
+        <div className={`grid ${GRID} border-b border-border px-5 py-3 text-xs font-semibold text-text-muted`}>
           <span className="flex items-center gap-1.5">
             {t('notificationsPage.notifyMe')}
             <Tip label={t('notificationsPage.restoreDefaults')}>
@@ -517,7 +517,7 @@ export default function NotificationSettings() {
         </div>
       </Card>
 
-      <div className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
+      <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-elevated/55 px-3 py-2 text-xs text-text-secondary">
         <Bell size={13} className="text-text-muted" />
         {savedAt ? t('notificationsPage.saved') : t('notificationsPage.savedHint')}
       </div>

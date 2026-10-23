@@ -9,7 +9,7 @@ function navItemClass(isActive: boolean) {
   return `flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
     isActive
       ? 'border-accent/35 bg-accent/12 text-text-heading'
-      : 'border-transparent text-text-secondary hover:border-border/60 hover:bg-bg-hover/60 hover:text-text-primary'
+      : 'border-transparent text-text-secondary hover:border-border hover:bg-bg-hover/60 hover:text-text-primary'
   }`
 }
 
@@ -40,7 +40,7 @@ export default function WorkspaceHubNav() {
         </NavLink>
       </nav>
 
-      <div className="mt-auto flex items-center gap-1 border-t border-border/60 pt-3">
+      <div className="mt-auto flex items-center gap-1 border-t border-border pt-3">
         <NavLink
           to="/account"
           title={t('nav.account')}

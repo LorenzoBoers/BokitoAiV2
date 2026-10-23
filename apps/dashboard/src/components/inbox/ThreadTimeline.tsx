@@ -1298,7 +1298,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
                     type="button"
                     disabled={loadingOlder}
                     onClick={() => void onLoadOlder()}
-                    className="rounded-md border border-border/50 bg-bg-elevated/70 px-3 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
+                    className="rounded-md border border-border bg-bg-elevated/70 px-3 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover hover:text-text-primary disabled:opacity-60"
                   >
                     {loadingOlder ? t('threadChrome.loadingOlder') : t('threadChrome.loadOlder')}
                   </button>

@@ -262,8 +262,8 @@ export default function SetupHubPage() {
                     key={step.id}
                     className={`rounded-lg border p-4 ${
                       step.done
-                        ? 'border-border/50 bg-bg-elevated'
-                        : 'border-border/60 bg-bg-surface'
+                        ? 'border-border bg-bg-elevated'
+                        : 'border-border bg-bg-surface'
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -292,7 +292,7 @@ export default function SetupHubPage() {
                                 className={
                                   action.primary
                                     ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover disabled:opacity-60'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
+                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary disabled:opacity-60'
                                 }
                               >
                                 {action.busy ? <Loader2 size={11} className="animate-spin" /> : null}
@@ -305,7 +305,7 @@ export default function SetupHubPage() {
                                 className={
                                   action.primary
                                     ? 'inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent-hover'
-                                    : 'inline-flex items-center gap-1 rounded-lg border border-border/60 px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
+                                    : 'inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover/60 hover:text-text-primary'
                                 }
                               >
                                 {action.label}

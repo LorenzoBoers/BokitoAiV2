@@ -35,7 +35,7 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'max-w-full gap-0.5 rounded-lg border border-border/60 bg-bg-input/50 p-0.5',
+        'max-w-full gap-0.5 rounded-lg border border-border bg-bg-input/50 p-0.5',
         stretch ? 'flex w-full' : 'inline-flex flex-wrap',
         className,
       )}

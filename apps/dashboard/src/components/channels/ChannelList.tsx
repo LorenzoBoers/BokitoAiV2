@@ -124,7 +124,7 @@ export default function ChannelList({ channels, loading, busyId, actions, onAddC
   return (
     <div>
       {showFilter ? (
-        <div className="flex flex-wrap items-center gap-2 border-b border-border/50 px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}

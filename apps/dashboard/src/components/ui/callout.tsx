@@ -8,7 +8,7 @@ const TONE = {
   warning: { box: 'border-status-warning/30 bg-status-warning/[0.08]', ink: 'text-status-warning', Icon: AlertTriangle },
   error: { box: 'border-status-error/30 bg-status-error/[0.08]', ink: 'text-status-error', Icon: OctagonAlert },
   ai: { box: 'border-ai/25 bg-ai/[0.07]', ink: 'text-ai-ink', Icon: Sparkles },
-  neutral: { box: 'border-border/60 bg-bg-elevated', ink: 'text-text-muted', Icon: Info },
+  neutral: { box: 'border-border bg-bg-elevated', ink: 'text-text-muted', Icon: Info },
 } as const
 
 export type CalloutTone = keyof typeof TONE

@@ -77,8 +77,8 @@ export function KnowledgeMarkdownEditor({
 
   return (
     <div className={cn('panel', className)}>
-      <div className="flex flex-wrap items-center gap-1 border-b border-border/50 px-2 py-1.5">
-        <div className="flex rounded-md border border-border/50 p-0.5">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border px-2 py-1.5">
+        <div className="flex rounded-md border border-border p-0.5">
           <button
             type="button"
             className={cn(

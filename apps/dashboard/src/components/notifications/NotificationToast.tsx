@@ -50,7 +50,7 @@ export function NotificationToast({
       <button
         type="button"
         onClick={() => toast.dismiss(toastId)}
-        className="absolute -left-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border/50 bg-bg-elevated/70 text-text-muted shadow-sm backdrop-blur-md hover:bg-bg-hover hover:text-text-heading"
+        className="absolute -left-1.5 -top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-bg-elevated/70 text-text-muted shadow-sm backdrop-blur-md hover:bg-bg-hover hover:text-text-heading"
         aria-label="Close"
       >
         <X size={10} strokeWidth={2.5} aria-hidden />

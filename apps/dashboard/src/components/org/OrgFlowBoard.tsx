@@ -243,7 +243,7 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
           {...common}
           className={cn(
             'absolute flex flex-col gap-2 rounded-xl border bg-bg-surface px-3.5 py-3 text-left transition-opacity',
-            flagged ? 'border-status-warning/70' : 'border-border/60',
+            flagged ? 'border-status-warning/70' : 'border-border',
             ring,
           )}
         >
@@ -309,7 +309,7 @@ export function OrgFlowBoard({ data, lens, label, zone = null, selectedId, hover
             ? 'border border-dashed border-border bg-transparent'
             : node.kind === 'unassigned'
               ? 'border border-dashed border-status-warning bg-status-warning/5'
-              : cn('border bg-bg-surface', flagged ? 'border-status-warning/70' : 'border-border/60'),
+              : cn('border bg-bg-surface', flagged ? 'border-status-warning/70' : 'border-border'),
           ring,
         )}
       >

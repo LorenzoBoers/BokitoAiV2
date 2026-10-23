@@ -98,7 +98,7 @@ export function RecurringWakeBanner() {
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl border border-border/60 bg-bg-elevated"
+      className="relative overflow-hidden rounded-xl border border-border bg-bg-elevated"
       data-testid="recurring-wake-banner"
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full bg-ai/10" aria-hidden />

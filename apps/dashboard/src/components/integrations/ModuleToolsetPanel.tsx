@@ -48,7 +48,7 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
       <li
         key={`${card.kind}-${card.verb}`}
         className={cn(
-          'rounded-lg border border-border/50 bg-bg-muted/20',
+          'rounded-lg border border-border bg-bg-muted/20',
           compact ? 'px-2.5 py-2' : 'px-3 py-2.5',
         )}
       >
@@ -124,7 +124,7 @@ export function ModuleToolsetPanel({ module, compact = false, className }: Props
             {attached.map((server) => (
               <div
                 key={server.server_id}
-                className="rounded-lg border border-border/50 bg-bg-muted/10 px-3 py-2.5"
+                className="rounded-lg border border-border bg-bg-muted/10 px-3 py-2.5"
               >
                 <p className="text-sm font-medium text-text-heading">{server.server_name}</p>
                 <p className="mt-0.5 text-xs text-text-muted">

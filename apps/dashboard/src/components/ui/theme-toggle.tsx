@@ -86,7 +86,7 @@ export function ThemeStatus() {
         <span>{resolvedTheme === 'dark' ? 'Dark' : 'Light'}</span>
       </div>
       {mode === 'system' && (
-        <span className="text-text-muted/60">(system)</span>
+        <span className="text-text-muted">(system)</span>
       )}
     </div>
   );

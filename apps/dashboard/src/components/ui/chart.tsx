@@ -142,7 +142,7 @@ function ChartTooltip({
 }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-md border border-border/60 bg-bg-surface px-2.5 py-1.5 text-sm">
+    <div className="rounded-md border border-border bg-bg-surface px-2.5 py-1.5 text-sm">
       {label != null && String(label) !== '' ? <p className="mb-0.5 text-text-heading">{label}</p> : null}
       {payload.map((item) => (
         <p key={String(item.name)} className="tabular-nums text-text-secondary">
@@ -178,7 +178,7 @@ export function Chart({
       if (!emptyLabel) return null
       return (
         <div
-          className="flex items-center justify-center rounded-md border border-dashed border-border/50 px-3 text-center text-xs text-text-muted"
+          className="flex items-center justify-center rounded-md border border-dashed border-border px-3 text-center text-xs text-text-muted"
           style={{ height }}
         >
           {emptyLabel}
@@ -230,7 +230,7 @@ export function Chart({
     if (!emptyLabel) return null
     return (
       <div
-        className="flex items-center justify-center rounded-md border border-dashed border-border/50 px-3 text-center text-xs text-text-muted"
+        className="flex items-center justify-center rounded-md border border-dashed border-border px-3 text-center text-xs text-text-muted"
         style={{ height }}
       >
         {emptyLabel}

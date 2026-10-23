@@ -49,7 +49,7 @@ export function LoadingBlock({
         aria-live="polite"
       >
         {Array.from({ length: rows }).map((_, i) => (
-          <Skeleton key={i} className="h-12 rounded-lg border border-border/40" />
+          <Skeleton key={i} className="h-12 rounded-lg border border-border" />
         ))}
       </div>
     )

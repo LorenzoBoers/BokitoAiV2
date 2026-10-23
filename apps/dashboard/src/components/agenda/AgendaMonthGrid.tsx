@@ -27,7 +27,7 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
 
   return (
     <div className="panel overflow-hidden" data-testid="agenda-month-grid">
-      <div className="grid grid-cols-7 border-b border-border/60">
+      <div className="grid grid-cols-7 border-b border-border">
         {days.slice(0, 7).map((day) => (
           <div key={day.getDay()} className="py-2 text-center text-xs uppercase tracking-wide text-text-muted">
             {formatAppDate(day, i18n.language, { weekday: 'short' })}
@@ -45,7 +45,7 @@ export default function AgendaMonthGrid({ days, month, items, nowMs, selectedId,
             <div
               key={key}
               className={cn(
-                'flex min-h-[6.5rem] min-w-0 flex-col gap-0.5 border-b border-l border-border/40 p-1.5 first:border-l-0 [&:nth-child(7n+1)]:border-l-0',
+                'flex min-h-[6.5rem] min-w-0 flex-col gap-0.5 border-b border-l border-border p-1.5 first:border-l-0 [&:nth-child(7n+1)]:border-l-0',
                 outside && 'bg-bg-elevated/30',
               )}
             >

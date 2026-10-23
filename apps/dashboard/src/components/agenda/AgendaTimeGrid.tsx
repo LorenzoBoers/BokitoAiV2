@@ -76,7 +76,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
     <div className="panel overflow-hidden" data-testid="agenda-time-grid">
       <div className={cn('overflow-x-auto', days.length > 1 && 'min-w-0')}>
         <div className={cn(days.length > 1 && 'min-w-[44rem]')}>
-          <div className="grid border-b border-border/60" style={{ gridTemplateColumns: columns }}>
+          <div className="grid border-b border-border" style={{ gridTemplateColumns: columns }}>
             <div />
             {perDay.map(({ day, key }) => {
               const isToday = key === todayKey
@@ -85,7 +85,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                   key={key}
                   type="button"
                   onClick={() => onOpenDay?.(day)}
-                  className="flex items-baseline justify-center gap-1.5 border-l border-border/40 py-2 hover:bg-bg-elevated"
+                  className="flex items-baseline justify-center gap-1.5 border-l border-border py-2 hover:bg-bg-elevated"
                 >
                   <span className={cn('text-xs uppercase tracking-wide', isToday ? 'text-accent' : 'text-text-muted')}>
                     {formatAppDate(day, i18n.language, { weekday: 'short' })}
@@ -104,10 +104,10 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
           </div>
 
           {hasTop ? (
-            <div className="grid border-b border-border/60 bg-bg-elevated/30" style={{ gridTemplateColumns: columns }}>
+            <div className="grid border-b border-border bg-bg-elevated/30" style={{ gridTemplateColumns: columns }}>
               <div className="px-1 py-1.5 text-right text-2xs text-text-muted">{t('agendaPage.grid.allDay')}</div>
               {perDay.map(({ key, allDay }) => (
-                <div key={key} className="flex min-w-0 flex-col gap-1 border-l border-border/40 p-1">
+                <div key={key} className="flex min-w-0 flex-col gap-1 border-l border-border p-1">
                   {allDay.map((item) => {
                     const owner = itemOwner(item)
                     return (
@@ -149,7 +149,7 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                 return (
                   <div
                     key={key}
-                    className={cn('relative border-l border-border/40', isToday && 'bg-accent/5')}
+                    className={cn('relative border-l border-border', isToday && 'bg-accent/5')}
                     onClick={(event) => {
                       if (event.target !== event.currentTarget) return
                       const rect = event.currentTarget.getBoundingClientRect()
@@ -162,11 +162,11 @@ export default function AgendaTimeGrid({ days, items, nowMs, selectedId, onSelec
                     {Array.from({ length: 24 }, (_, hour) => (
                       <div key={hour}>
                         <div
-                          className="pointer-events-none absolute inset-x-0 border-t border-border/30"
+                          className="pointer-events-none absolute inset-x-0 border-t border-border"
                           style={{ top: hour * HOUR_PX }}
                         />
                         <div
-                          className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/20"
+                          className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border"
                           style={{ top: hour * HOUR_PX + HOUR_PX / 2 }}
                         />
                       </div>
@@ -242,7 +242,7 @@ function Legend() {
   const { t } = useTranslation('nav')
   const layers = ['calendar', 'tasks', 'activity'] as const
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border/50 px-3 py-1.5 text-2xs text-text-muted">
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-1.5 text-2xs text-text-muted">
       {layers.map((layer) => (
         <span key={layer} className="inline-flex items-center gap-1.5">
           <span className={cn('h-2 w-2 rounded-sm', LAYER_DOT[layer])} aria-hidden />

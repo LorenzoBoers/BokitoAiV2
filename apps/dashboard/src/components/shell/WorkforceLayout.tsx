@@ -72,7 +72,7 @@ export default function WorkforceLayout() {
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       <aside
-        className="hidden w-rail shrink-0 flex-col border-r border-border/60 bg-bg px-2 pb-2 pt-2.5 lg:flex"
+        className="hidden w-rail shrink-0 flex-col border-r border-border bg-bg px-2 pb-2 pt-2.5 lg:flex"
         aria-label={t('tabs.team.title')}
       >
         <p className="flex h-7 shrink-0 items-center pl-2 pb-1 text-sm font-medium leading-none text-text-heading">
@@ -99,7 +99,7 @@ export default function WorkforceLayout() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <nav
-          className="shrink-0 overflow-x-auto border-b border-border/60 bg-bg px-3 py-2 lg:hidden"
+          className="shrink-0 overflow-x-auto border-b border-border bg-bg px-3 py-2 lg:hidden"
           aria-label={t('tabs.team.title')}
         >
           <WorkforceSectionTabs />

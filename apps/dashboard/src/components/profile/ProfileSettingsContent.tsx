@@ -504,7 +504,7 @@ export function ProfileSettingsContent() {
       <Section title={t('profile:personalInformation.title')} description={t('profile:personalInformation.description')}>
         <Card>
           {/* Avatar */}
-          <div className="flex items-center justify-between gap-3 border-b border-border/60 py-3.5 pr-4">
+          <div className="flex items-center justify-between gap-3 border-b border-border py-3.5 pr-4">
             <div className="min-w-0">
               <span className="block text-sm font-medium text-text-heading">
                 {t('profile:personalInformation.profilePicture')}
@@ -569,7 +569,7 @@ export function ProfileSettingsContent() {
           />
 
           {user && !user.emailVerified ? (
-            <div className="flex items-center justify-between gap-3 border-b border-border/60 py-3.5 pr-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border py-3.5 pr-4">
               <div>
                 <p className="text-sm font-medium text-text-heading">{t('profile:verification.title')}</p>
                 <p className="text-xs text-text-muted">{t('profile:verification.body')}</p>
@@ -607,7 +607,7 @@ export function ProfileSettingsContent() {
       {/* ── Email: signature and close-on-send ── */}
       <Section title={t('profile:signature.title')} description={t('profile:signature.description')}>
         <Card>
-          <div className="flex items-center justify-between gap-4 border-b border-border/60 py-3.5 pr-4">
+          <div className="flex items-center justify-between gap-4 border-b border-border py-3.5 pr-4">
             <div className="min-w-0 flex-1">
               {!user?.emailSignatureHtml?.trim() && (
                 <p className="mb-2 text-xs font-medium text-text-muted">{t('profile:signature.usingDefault')}</p>
@@ -680,7 +680,7 @@ export function ProfileSettingsContent() {
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 (i18n.resolvedLanguage ?? i18n.language).startsWith(lang)
                   ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border/60 text-text-secondary hover:border-border hover:text-text-primary'
+                  : 'border-border text-text-secondary hover:border-border hover:text-text-primary'
               }`}
             >
               {lang === 'nl' ? t('profile:language.dutch') : t('profile:language.english')}
@@ -712,7 +712,7 @@ export function ProfileSettingsContent() {
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 defaultLanding === option.id
                   ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border/60 text-text-secondary hover:border-border hover:text-text-primary'
+                  : 'border-border text-text-secondary hover:border-border hover:text-text-primary'
               }`}
             >
               {option.label}
@@ -734,7 +734,7 @@ export function ProfileSettingsContent() {
       <Section title={t('profile:security.title')} description={t('profile:security.description')}>
         <Card>
           {/* Password */}
-          <div className="border-b border-border/60 py-3.5">
+          <div className="border-b border-border py-3.5">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-heading">{t('profile:security.passwordTitle')}</p>
@@ -769,7 +769,7 @@ export function ProfileSettingsContent() {
           </div>
 
           {/* Connected accounts */}
-          <div className="border-b border-border/60 py-3.5">
+          <div className="border-b border-border py-3.5">
             <div className="mb-3">
               <p className="text-sm font-medium text-text-heading">{t('profile:security.connectedTitle')}</p>
               <p className="text-xs text-text-muted">{t('profile:security.connectedDescription')}</p>
@@ -802,7 +802,7 @@ export function ProfileSettingsContent() {
                 return (
                   <div
                     key={provider}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5"
                     data-testid={`sso-row-${provider}`}
                     data-linked={linked ? 'true' : 'false'}
                   >
@@ -878,7 +878,7 @@ export function ProfileSettingsContent() {
               </p>
             </div>
             <div
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5"
               data-testid="totp-row"
               data-enabled={user?.totpEnabled ? 'true' : 'false'}
             >
@@ -1068,7 +1068,7 @@ export function ProfileSettingsContent() {
                   {t('profile:security.totpManualKey')}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <code className="min-w-0 flex-1 break-all rounded-md border border-border/60 bg-bg-input px-2.5 py-1.5 font-mono text-xs text-text-primary">
+                  <code className="min-w-0 flex-1 break-all rounded-md border border-border bg-bg-input px-2.5 py-1.5 font-mono text-xs text-text-primary">
                     {totpSetup.secret}
                   </code>
                   <Button

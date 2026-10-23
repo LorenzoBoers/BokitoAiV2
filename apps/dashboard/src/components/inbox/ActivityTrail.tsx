@@ -530,7 +530,7 @@ export function ActivityGroupLine({
         </ThreadMetaRow>
       </button>
       {expanded ? (
-        <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border/60 pl-3">
+        <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border pl-3">
           {group.items.map((item) => (
             <ItemRow key={item.id} item={item} />
           ))}
@@ -603,7 +603,7 @@ function SavedHistory({
         })}
       </button>
       {expanded ? (
-        <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border/60 pl-3">
+        <ul className="ml-1.5 mt-0.5 space-y-0.5 border-l border-border pl-3">
           {items.filter(isVisibleActivity).map((item) => (
             <ItemRow key={item.id} item={item} />
           ))}

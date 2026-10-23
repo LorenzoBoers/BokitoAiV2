@@ -345,7 +345,7 @@ export default function OnboardingWizardPage() {
 
   return (
     <div className="app-atmosphere flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-border/40 px-5 py-3">
+      <header className="flex items-center justify-between border-b border-border px-5 py-3">
         <div>
           <p className="text-xs font-semibold text-accent">Bokito</p>
           <h1 className="text-lg font-semibold text-text-heading">
@@ -542,7 +542,7 @@ export default function OnboardingWizardPage() {
                 placeholder={t('agent.descriptionPlaceholder')}
                 rows={3}
                 maxLength={280}
-                className="mt-1 w-full resize-none rounded-lg border border-border/60 bg-bg-input px-3 py-2 text-sm text-text-heading outline-none focus:border-accent/50"
+                className="mt-1 w-full resize-none rounded-lg border border-border bg-bg-input px-3 py-2 text-sm text-text-heading outline-none focus:border-accent/50"
               />
             </label>
             <AgentVisualEditor

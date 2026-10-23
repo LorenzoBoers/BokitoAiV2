@@ -24,7 +24,7 @@ export default function CommunicationTagsCard() {
 
   return (
     <Card id="communication-tags" className="overflow-hidden p-0">
-      <div className="border-b border-border/60 px-4 py-3">
+      <div className="border-b border-border px-4 py-3">
         <p className="text-sm font-medium text-text-heading">{t('communicationTags.title')}</p>
         <p className="text-xs text-text-secondary">{t('communicationTags.description')}</p>
       </div>

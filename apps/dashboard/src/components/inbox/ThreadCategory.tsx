@@ -44,7 +44,7 @@ const SEGMENT_KIND: Record<TicketStageKind, string> = {
 }
 
 const INLINE_INPUT =
-  'h-7 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted/70 hover:border-border/60 hover:bg-bg-input/40 focus:border-accent focus:bg-bg-input'
+  'h-7 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted hover:border-border hover:bg-bg-input/40 focus:border-accent focus:bg-bg-input'
 
 /** One label/value row in the ticket details list. */
 function DetailRow({
@@ -175,7 +175,7 @@ export function ThreadCategory({ signalId, version }: Props) {
       <div
         className={cn(
           'overflow-hidden rounded-lg border bg-bg-elevated',
-          proposed ? 'border-status-warning/50' : live ? 'border-accent/35' : 'border-border/60',
+          proposed ? 'border-status-warning/50' : live ? 'border-accent/35' : 'border-border',
         )}
       >
         {proposed ? (
@@ -299,7 +299,7 @@ export function ThreadCategory({ signalId, version }: Props) {
             )}
 
             {defs.length > 0 || orphans.length > 0 ? (
-            <div className="border-t border-border/40 py-1.5">
+            <div className="border-t border-border py-1.5">
               {defs.map((field) => (
                 <FieldRow
                   key={field.key}
@@ -324,7 +324,7 @@ export function ThreadCategory({ signalId, version }: Props) {
             {defs.length === 0 && isAdmin && ticket.workstream_id ? (
               <Link
                 to={`${workstreamPath(ticket.workstream_id)}?fields=1`}
-                className="flex items-center gap-1.5 border-t border-border/40 px-3 py-2 text-2xs text-text-muted transition hover:bg-bg-muted/40 hover:text-accent"
+                className="flex items-center gap-1.5 border-t border-border px-3 py-2 text-2xs text-text-muted transition hover:bg-bg-muted/40 hover:text-accent"
               >
                 <Plus size={11} aria-hidden />
                 {t('tickets.addFields')}
@@ -364,7 +364,7 @@ function FieldRow({
     <span className="inline-flex min-w-0 items-center gap-1">
       <span className="truncate">{field.name}</span>
       {field.required ? (
-        <span className={cn('shrink-0', missing ? 'text-status-warning' : 'text-text-muted/60')} aria-hidden>
+        <span className={cn('shrink-0', missing ? 'text-status-warning' : 'text-text-muted')} aria-hidden>
           *
         </span>
       ) : null}
@@ -392,11 +392,11 @@ function FieldRow({
         className={
           field.type === 'enum'
             ? cn(
-                'h-7 border-transparent bg-transparent px-1.5 text-xs shadow-none hover:border-border/60 hover:bg-bg-input/40',
+                'h-7 border-transparent bg-transparent px-1.5 text-xs shadow-none hover:border-border hover:bg-bg-input/40',
                 !draft && 'text-text-muted',
               )
             : field.type === 'textarea'
-              ? 'min-h-[2.75rem] w-full resize-y rounded-md border border-border/50 bg-bg-input/30 px-2 py-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted/70 focus:border-accent focus:bg-bg-input'
+              ? 'min-h-[2.75rem] w-full resize-y rounded-md border border-border bg-bg-input/30 px-2 py-1.5 text-xs text-text-heading outline-none transition placeholder:text-text-muted focus:border-accent focus:bg-bg-input'
               : cn(INLINE_INPUT, field.type === 'number' && 'tabular-nums')
         }
         onChange={(next) => {

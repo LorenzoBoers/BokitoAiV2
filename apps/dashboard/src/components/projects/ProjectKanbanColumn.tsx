@@ -24,7 +24,7 @@ export function ProjectKanbanColumn({
     <section
       ref={setNodeRef}
       className={cn(
-        'flex shrink-0 flex-col rounded-lg border border-border/50 bg-bg-input/25',
+        'flex shrink-0 flex-col rounded-lg border border-border bg-bg-input/25',
         compact ? 'min-h-[8rem]' : 'min-h-[16rem]',
         fill ? 'min-w-[11rem] flex-1' : 'w-[13.5rem]',
         isOver && 'border-accent/70 bg-accent/5',

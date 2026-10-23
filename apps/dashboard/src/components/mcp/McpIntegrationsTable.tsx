@@ -74,7 +74,7 @@ export function McpIntegrationsTable({ rows, loading, onChange }: Props) {
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
         <h3 className="text-sm font-medium text-text-heading">{t('integrations.mcp.servers.listTitle')}</h3>
         {rows.length > 0 ? (
           <Input

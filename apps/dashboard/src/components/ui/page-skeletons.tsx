@@ -27,7 +27,7 @@ export function DirectoryRowsSkeleton({ rows = 8 }: { rows?: number }) {
   return (
     <Status className="panel overflow-hidden">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0">
+        <div key={i} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
           <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
           <Lines widths={['w-[36%]', 'h-2.5 w-[48%]']} />
           <Skeleton className="hidden h-5 w-16 rounded-full sm:block" />
@@ -42,13 +42,13 @@ export function DirectoryRowsSkeleton({ rows = 8 }: { rows?: number }) {
 export function CompanyTableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <Status className="panel overflow-hidden">
-      <div className="grid grid-cols-[1.4fr_1fr_auto] gap-3 border-b border-border/60 px-4 py-2.5">
+      <div className="grid grid-cols-[1.4fr_1fr_auto] gap-3 border-b border-border px-4 py-2.5">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-3 w-10 justify-self-end" />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="grid grid-cols-[1.4fr_1fr_auto] items-center gap-3 border-b border-border/40 px-4 py-2.5 last:border-b-0">
+        <div key={i} className="grid grid-cols-[1.4fr_1fr_auto] items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
           <div className="flex items-center gap-2.5">
             <Skeleton className="h-7 w-7 shrink-0 rounded-md" />
             <Skeleton className="h-3.5 w-32" />
@@ -106,7 +106,7 @@ export function SwitchRowsSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <Status className="space-y-3">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2.5">
+        <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
           <div className="space-y-1.5">
             <Skeleton className="h-3.5 w-40" />
             <Skeleton className="h-2.5 w-56" />
@@ -123,7 +123,7 @@ export function HandlingCardsSkeleton() {
   return (
     <Status className="grid gap-2 sm:grid-cols-3">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="space-y-2 rounded-lg border border-border/50 p-3">
+        <div key={i} className="space-y-2 rounded-lg border border-border p-3">
           <Skeleton className="h-8 w-8 rounded-lg" />
           <Skeleton className="h-3.5 w-24" />
           <Skeleton className="h-2.5 w-full" />
@@ -137,7 +137,7 @@ export function StatTilesSkeleton({ tiles = 3 }: { tiles?: number }) {
   return (
     <Status className="grid gap-3 sm:grid-cols-3">
       {Array.from({ length: tiles }).map((_, i) => (
-        <div key={i} className="space-y-2 rounded-lg border border-border/50 bg-bg-surface px-4 py-3">
+        <div key={i} className="space-y-2 rounded-lg border border-border bg-bg-surface px-4 py-3">
           <Skeleton className="h-2.5 w-20" />
           <Skeleton className="h-7 w-16" />
         </div>
@@ -184,7 +184,7 @@ export function DocsIndexSkeleton({ sections = 3 }: { sections?: number }) {
         <div key={section} className="space-y-2">
           <Skeleton className="h-4 w-32" />
           {Array.from({ length: 3 }).map((_, row) => (
-            <div key={row} className="rounded-lg border border-border/40 px-3 py-2.5">
+            <div key={row} className="rounded-lg border border-border px-3 py-2.5">
               <Skeleton className="h-3.5 w-[46%]" />
               <Skeleton className="mt-1.5 h-2.5 w-[72%]" />
             </div>
@@ -217,7 +217,7 @@ export function StepListSkeleton({ steps = 5 }: { steps?: number }) {
         </div>
       </div>
       {Array.from({ length: steps }).map((_, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-lg border border-border/50 p-4">
+        <div key={i} className="flex items-start gap-3 rounded-lg border border-border p-4">
           <Skeleton className="h-9 w-9 shrink-0 rounded-lg" />
           <div className="min-w-0 flex-1 space-y-2">
             <Skeleton className="h-3.5 w-40" />
@@ -237,7 +237,7 @@ export function StepListSkeleton({ steps = 5 }: { steps?: number }) {
 export function WizardSkeleton() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg px-4" role="status" aria-busy="true">
-      <div className="w-full max-w-lg space-y-4 rounded-xl border border-border/50 bg-bg-surface p-6">
+      <div className="w-full max-w-lg space-y-4 rounded-xl border border-border bg-bg-surface p-6">
         <Skeleton className="h-3 w-16" />
         <Skeleton className="h-6 w-48" />
         <Skeleton className="h-3 w-full" />
@@ -276,7 +276,7 @@ export function WorkspaceCardsSkeleton({ cards = 3 }: { cards?: number }) {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {Array.from({ length: cards }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-lg border border-border/50 p-4">
+          <div key={i} className="flex items-center gap-3 rounded-lg border border-border p-4">
             <Skeleton className="h-10 w-10 rounded-lg" />
             <div className="space-y-1.5">
               <Skeleton className="h-3.5 w-32" />
@@ -342,7 +342,7 @@ export function TeamCardsSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <Status className="flex flex-col gap-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-lg border border-border/50 px-4 py-3">
+        <div key={i} className="flex items-center gap-3 rounded-lg border border-border px-4 py-3">
           <div className="flex -space-x-2">
             <Skeleton className="h-8 w-8 rounded-full" />
             <Skeleton className="h-8 w-8 rounded-full" />
@@ -385,7 +385,7 @@ export function TokenRowsSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <Status className="mt-4 space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border/50 px-3 py-2.5">
+        <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
           <div className="space-y-1.5">
             <Skeleton className="h-3.5 w-36" />
             <Skeleton className="h-2.5 w-24" />
@@ -420,7 +420,7 @@ export function OpsOverviewSkeleton() {
 export function AgendaGridSkeleton() {
   return (
     <div
-      className="flex min-h-[28rem] flex-1 flex-col rounded-lg border border-border/40 bg-bg-surface"
+      className="flex min-h-[28rem] flex-1 flex-col rounded-lg border border-border bg-bg-surface"
       role="status"
       aria-busy="true"
     >
@@ -479,7 +479,7 @@ export function KanbanColumnsSkeleton({ columns = 3 }: { columns?: number }) {
   return (
     <Status className="grid gap-3 md:grid-cols-3">
       {Array.from({ length: columns }).map((_, col) => (
-        <div key={col} className="space-y-2 rounded-lg border border-border/50 bg-bg-surface p-2">
+        <div key={col} className="space-y-2 rounded-lg border border-border bg-bg-surface p-2">
           <div className="flex items-center justify-between px-1 py-1">
             <Skeleton className="h-3.5 w-20" />
             <Skeleton className="h-4 w-5 rounded-full" />
@@ -501,7 +501,7 @@ export function DocSplitSkeleton() {
           <Skeleton key={i} className="h-8 w-full rounded-md" />
         ))}
       </div>
-      <div className="space-y-2 rounded-lg border border-border/40 p-4">
+      <div className="space-y-2 rounded-lg border border-border p-4">
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-3 w-full" />
         <Skeleton className="h-3 w-5/6" />
@@ -515,7 +515,7 @@ export function MemoryRowsSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <Status className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="space-y-1.5 rounded-md border border-border/60 px-3 py-2.5">
+        <div key={i} className="space-y-1.5 rounded-md border border-border px-3 py-2.5">
           <Skeleton className="h-3.5 w-28" />
           <Skeleton className="h-3 w-full" />
         </div>
@@ -685,7 +685,7 @@ export function NotificationMatrixSkeleton({ rows = 5 }: { rows?: number }) {
         <Skeleton className="h-3 w-8" />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="grid grid-cols-[1.4fr_repeat(3,48px)] items-center gap-2 rounded-lg border border-border/40 px-3 py-2">
+        <div key={i} className="grid grid-cols-[1.4fr_repeat(3,48px)] items-center gap-2 rounded-lg border border-border px-3 py-2">
           <Skeleton className="h-3 w-32" />
           <Skeleton className="h-4 w-4 rounded" />
           <Skeleton className="h-4 w-4 rounded" />
@@ -700,7 +700,7 @@ export function ResourceRowsSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <Status className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-lg border border-border/40 px-3 py-2">
+        <div key={i} className="flex items-center gap-3 rounded-lg border border-border px-3 py-2">
           <Skeleton className="h-8 w-8 rounded-md" />
           <Lines widths={['w-32', 'h-2.5 w-44']} />
         </div>
@@ -758,7 +758,7 @@ export function RouteShellSkeleton({ titled = true }: { titled?: boolean }) {
 export function HubMainSkeleton() {
   return (
     <Status className="flex h-full min-h-0">
-      <div className="flex w-80 shrink-0 flex-col gap-2 border-r border-border/40 p-3">
+      <div className="flex w-80 shrink-0 flex-col gap-2 border-r border-border p-3">
         <Skeleton className="h-8 w-full rounded-lg" />
         {Array.from({ length: 8 }).map((_, i) => (
           <div key={i} className="flex items-center gap-2 py-1">

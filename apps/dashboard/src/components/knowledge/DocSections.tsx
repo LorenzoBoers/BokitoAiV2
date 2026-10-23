@@ -187,7 +187,7 @@ export function DocSectionsEditor({
             key={section.id}
             className={cn(
               'group rounded-lg border border-transparent px-3 py-2 transition-colors',
-              isEditing ? 'border-border/50 bg-bg-elevated' : 'hover:border-border/40',
+              isEditing ? 'border-border bg-bg-elevated' : 'hover:border-border',
             )}
           >
             <div className="flex items-center gap-2">
@@ -295,7 +295,7 @@ export function DocSectionsEditor({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-text-muted transition-colors hover:border-border-light hover:text-text-secondary"
           >
             <Plus className="h-3.5 w-3.5" />
             {t('knowledgePage.sectionAdd')}

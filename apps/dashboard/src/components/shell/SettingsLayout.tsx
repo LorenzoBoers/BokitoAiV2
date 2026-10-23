@@ -144,7 +144,7 @@ export default function SettingsLayout() {
               t('settings.hints.help'),
               navQuery,
             ) ? (
-              <SettingsHelpLink pathname={pathname} className="border-t border-border/60 pt-2.5" />
+              <SettingsHelpLink pathname={pathname} className="border-t border-border pt-2.5" />
             ) : null}
           </div>
         </TooltipProvider>
@@ -152,7 +152,7 @@ export default function SettingsLayout() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <nav
-          className="shrink-0 overflow-x-auto border-b border-border/60 bg-bg px-3 py-2 lg:hidden"
+          className="shrink-0 overflow-x-auto border-b border-border bg-bg px-3 py-2 lg:hidden"
           aria-label={t('tabs.settings.title')}
         >
           <SettingsNavSearch query={navQuery} onQuery={setNavQuery} compact />
@@ -305,7 +305,7 @@ function SettingsNav({
                 <SettingsHelpLink
                   pathname={pathname}
                   compact={compact}
-                  className={compact ? undefined : 'mt-2.5 border-t border-border/60 pt-2.5'}
+                  className={compact ? undefined : 'mt-2.5 border-t border-border pt-2.5'}
                 />
               </div>
             )

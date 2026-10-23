@@ -147,7 +147,7 @@ export default function ThreadListQuickFilters({
   }
 
   return (
-    <div className="border-b border-border/60">
+    <div className="border-b border-border">
       <div className="flex items-center gap-1.5 px-2.5 py-2">
         <div className="relative min-w-0 flex-1">
           <Search
@@ -170,8 +170,8 @@ export default function ThreadListQuickFilters({
               event.currentTarget.blur()
             }}
             className={cn(
-              'h-8 w-full rounded-md border border-border/70 bg-bg-surface pl-8 pr-8 text-sm text-text-primary',
-              'placeholder:text-text-muted/80',
+              'h-8 w-full rounded-md border border-border bg-bg-surface pl-8 pr-8 text-sm text-text-primary',
+              'placeholder:text-text-muted',
               'outline-none transition-colors focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
               '[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:[-webkit-appearance:none] [&::-webkit-search-decoration]:hidden',
               !setSearch && 'opacity-60',
@@ -200,7 +200,7 @@ export default function ThreadListQuickFilters({
                 filtersActive ? 'min-w-8 px-1.5' : 'w-8 px-0',
                 filtersActive
                   ? 'border-border-light bg-bg-hover text-text-heading'
-                  : 'border-border/70 text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
+                  : 'border-border text-text-secondary hover:bg-bg-hover/70 hover:text-text-heading',
               )}
             >
               <Filter size={13} />
@@ -373,7 +373,7 @@ export default function ThreadListQuickFilters({
             title={
               density === 'compact' ? t('threadList.densityComfortable') : t('threadList.densityCompact')
             }
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
             {density === 'compact' ? <Rows3 size={13} /> : <List size={13} />}
           </button>
@@ -381,7 +381,7 @@ export default function ThreadListQuickFilters({
       </div>
 
       {filtersActive ? (
-        <div className="flex items-center gap-1.5 border-t border-border/40 px-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
           <span className="min-w-0 flex-1 truncate-fade text-xs text-text-secondary">
             {activeSummary.join(' · ')}
           </span>

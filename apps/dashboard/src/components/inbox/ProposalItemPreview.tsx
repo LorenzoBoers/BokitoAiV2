@@ -36,7 +36,6 @@ import { IconTile } from '../ui/icon-tile'
 import { UserAvatar } from '../ui/UserAvatar'
 import { ContactAvatar } from '../ui/ContactAvatar'
 import { AiAvatar } from '../ui/AiAvatar'
-import { AgentGlow } from '../ui/agent-glow'
 
 type IconComponent = ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>
 
@@ -148,7 +147,7 @@ function ItemLeading({ item }: { item: ProposalItem }) {
   }
   if ((item.type === 'file' || item.type === 'image') && item.imageUrl) {
     return (
-      <span className="block h-10 w-10 overflow-hidden rounded-lg border border-border/60 bg-bg-elevated">
+      <span className="block h-10 w-10 overflow-hidden rounded-lg border border-border bg-bg-elevated">
         <img src={item.imageUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
       </span>
     )
@@ -260,7 +259,7 @@ function ImageGallery({ items }: { items: ProposalItem[] }) {
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="group relative aspect-square overflow-hidden rounded-lg border border-border/60 bg-bg-elevated no-underline"
+            className="group relative aspect-square overflow-hidden rounded-lg border border-border bg-bg-elevated no-underline"
             title={item.title || undefined}
           >
             <img
@@ -462,7 +461,6 @@ function ModuleShowcaseCard({
       )}
       data-testid="module-showcase"
     >
-      <AgentGlow color={color} placement="corner-right" />
       <div className="relative z-[1] flex items-stretch gap-4">
         <div className="flex min-w-0 flex-1 flex-col">
           <h3 className="text-sm font-semibold text-text-heading">{name}</h3>

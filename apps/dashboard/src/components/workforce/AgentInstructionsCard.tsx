@@ -79,7 +79,7 @@ export function AgentInstructionsCard({ agentId, systemPrompt, canEdit, onChange
 
       <div className="mt-3">
         {prompt ? (
-          <pre className="truncate-fade-y truncate-fade-y-long max-h-[calc(1.625em*10)] whitespace-pre-wrap rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 font-sans text-sm leading-relaxed text-text-secondary">
+          <pre className="truncate-fade-y truncate-fade-y-long max-h-[calc(1.625em*10)] whitespace-pre-wrap rounded-lg border border-border bg-bg-input/40 px-3 py-2 font-sans text-sm leading-relaxed text-text-secondary">
             {prompt}
           </pre>
         ) : (

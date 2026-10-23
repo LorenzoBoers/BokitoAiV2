@@ -94,7 +94,7 @@ export function ConnectionRow({
                 {t(`integrations.connections.${statusKey(status)}`)}
               </span>
               {row.access_restricted ? (
-                <span className="inline-flex items-center gap-1 rounded-md border border-border/60 px-1.5 py-0.5 text-2xs text-text-muted">
+                <span className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-2xs text-text-muted">
                   <Lock size={10} aria-hidden />
                   {t('integrations.connections.restricted')}
                 </span>
@@ -116,7 +116,7 @@ export function ConnectionRow({
                 ? projects.map((p) => (
                     <span
                       key={p.id}
-                      className="rounded-md border border-border/60 bg-bg-muted/40 px-2 py-0.5 text-2xs text-text-secondary"
+                      className="rounded-md border border-border bg-bg-muted/40 px-2 py-0.5 text-2xs text-text-secondary"
                     >
                       {p.name || p.id}
                     </span>
@@ -129,7 +129,7 @@ export function ConnectionRow({
               {(row.attached_modules ?? []).map((slug) => (
                 <span
                   key={slug}
-                  className="rounded-md border border-border/40 px-2 py-0.5 text-2xs text-text-muted"
+                  className="rounded-md border border-border px-2 py-0.5 text-2xs text-text-muted"
                 >
                   {t(`integrations.modules.${slug}.name`, { defaultValue: slug })}
                 </span>
@@ -149,7 +149,7 @@ export function ConnectionRow({
                           'rounded-md border px-2 py-0.5 text-xs',
                           isCompanyDefault
                             ? 'border-border-light bg-bg-hover text-text-heading'
-                            : 'border-border/60 text-text-secondary hover:border-border-light',
+                            : 'border-border text-text-secondary hover:border-border-light',
                         )}
                       >
                         {company.name || company.id}
@@ -217,7 +217,7 @@ export function ConnectionRow({
         </div>
       </div>
       {manage && canManage && expanded ? (
-        <div className="mt-3 border-t border-border/50 pt-3">{manage}</div>
+        <div className="mt-3 border-t border-border pt-3">{manage}</div>
       ) : null}
 
       <Dialog open={renaming} onOpenChange={setRenaming}>

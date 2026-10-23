@@ -65,7 +65,7 @@ function ImageBody({ source }: { source: string }) {
   const alt = typeof data.alt === 'string' ? data.alt : ''
   if (!url) return null
   return (
-    <div className="relative w-full overflow-hidden rounded-lg border border-border/60 bg-bg-elevated">
+    <div className="relative w-full overflow-hidden rounded-lg border border-border bg-bg-elevated">
       <img src={url} alt={alt} className="max-h-[32rem] w-full object-contain" />
     </div>
   )
@@ -73,8 +73,8 @@ function ImageBody({ source }: { source: string }) {
 
 function CodeBody({ source, language }: { source: string; language?: string | null }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border/60">
-      <div className="border-b border-border/60 px-3 py-1.5">
+    <div className="overflow-hidden rounded-lg border border-border">
+      <div className="border-b border-border px-3 py-1.5">
         <span className="font-mono text-2xs text-text-muted">{language || 'text'}</span>
       </div>
       <pre className="overflow-auto bg-bg-input/40 p-3 font-mono text-xs text-text-primary">
@@ -91,7 +91,7 @@ function EmailBody({ canvas }: { canvas: ProjectCanvas }) {
   const body = typeof data.body_html === 'string' ? data.body_html : ''
   return (
     <Card className="mx-auto max-w-xl">
-      <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <p className="truncate text-sm text-text-primary">{subject}</p>
           {preheader ? <p className="truncate text-xs text-text-muted">{preheader}</p> : null}
@@ -142,14 +142,14 @@ function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
           ))}
         </div>
       ) : null}
-      <div className="overflow-auto rounded-lg border border-border/60">
+      <div className="overflow-auto rounded-lg border border-border">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr>
               {tab.columns.map((column, columnIndex) => (
                 <th
                   key={`${column}-${columnIndex}`}
-                  className="border-b border-border/60 bg-bg-input/40 px-2 py-1.5 font-medium text-text-muted"
+                  className="border-b border-border bg-bg-input/40 px-2 py-1.5 font-medium text-text-muted"
                 >
                   {column}
                 </th>
@@ -158,7 +158,7 @@ function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
           </thead>
           <tbody>
             {tab.rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="border-b border-border/40 last:border-0">
+              <tr key={rowIndex} className="border-b border-border last:border-0">
                 {row.map((cell, cellIndex) => (
                   <td key={cellIndex} className="px-2 py-1.5 text-text-primary">
                     {cell}

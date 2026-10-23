@@ -124,7 +124,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
               <span
                 key={tool}
                 title={tool}
-                className="rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-xs text-text-secondary"
+                className="rounded-md border border-border bg-bg-elevated/60 px-2 py-0.5 text-xs text-text-secondary"
               >
                 {humanizeLabel(tool)}
               </span>
@@ -140,7 +140,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                 {[...new Set(available.map((tool) => tool.category))].map((category) => (
                   <span
                     key={category}
-                    className="rounded-md border border-border/60 bg-bg-elevated/60 px-2 py-0.5 text-xs text-text-secondary"
+                    className="rounded-md border border-border bg-bg-elevated/60 px-2 py-0.5 text-xs text-text-secondary"
                   >
                     {toolCategoryLabel(category, t)}
                   </span>
@@ -197,7 +197,7 @@ export function AgentToolsPicker({ agentId, allowedTools, canEdit, onSaved }: Pr
                         'rounded-md border px-2 py-0.5 text-xs transition-colors',
                         active
                           ? 'border-accent/50 bg-accent/12 text-accent'
-                          : 'border-border/60 bg-bg-elevated/60 text-text-secondary hover:border-border',
+                          : 'border-border bg-bg-elevated/60 text-text-secondary hover:border-border',
                       )}
                     >
                       {humanizeLabel(tool.name)}

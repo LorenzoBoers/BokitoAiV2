@@ -42,7 +42,7 @@ export const REACTION_EMOJI: Record<ReactionKind, string> = {
 
 /** Fixed square so wide glyphs (💯) never stretch the chip into a pill. */
 const CHIP_CLASS =
-  'inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/70 bg-bg-surface text-xs leading-none shadow-sm'
+  'inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-bg-surface text-xs leading-none shadow-sm'
 
 const EMOJI_GLYPH_CLASS =
   'flex size-full items-center justify-center overflow-hidden text-center leading-none [font-size:12px]'
@@ -160,7 +160,7 @@ export function MessageReactions({
       <div
         role="menu"
         aria-label={t('reactions.pickerLabel')}
-        className="flex items-center gap-0.5 rounded-full border border-border/60 bg-bg-surface px-1 py-0.5 text-text-primary shadow-md"
+        className="flex items-center gap-0.5 rounded-full border border-border bg-bg-surface px-1 py-0.5 text-text-primary shadow-md"
       >
         {HUMAN_REACTION_KINDS.map((kind) => (
           <button

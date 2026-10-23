@@ -82,7 +82,7 @@ function SectionRow({
                 </Badge>
               </button>
               {menuOpen ? (
-                <div className="absolute left-0 top-6 z-20 w-40 rounded-lg border border-border/60 bg-bg-surface p-1 shadow-overlay">
+                <div className="absolute left-0 top-6 z-20 w-40 rounded-lg border border-border bg-bg-surface p-1 shadow-overlay">
                   {SECTION_STATUSES.map((status) => (
                     <button
                       key={status}
@@ -325,7 +325,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             ) : null}
 
             {selected.sections.length > 0 ? (
-              <details className="rounded-lg border border-border/50 bg-bg-surface/40 p-3">
+              <details className="rounded-lg border border-border bg-bg-surface/40 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-text-muted">
                   {t('projects.work.sections')}
                 </summary>

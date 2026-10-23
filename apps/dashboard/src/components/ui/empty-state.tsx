@@ -65,7 +65,7 @@ export function EmptyState({
       className={cn(
         'text-center',
         PAD[size],
-        tone === 'dashed' && 'rounded-md border border-dashed border-border/70',
+        tone === 'dashed' && 'rounded-md border border-dashed border-border',
         className,
       )}
     >

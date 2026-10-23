@@ -69,7 +69,7 @@ export function ProjectFlowBoards({
   return (
     <div className="space-y-5" data-testid="project-playbook-boards">
       {boards.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/70 px-3 py-4 text-sm text-text-muted">
+        <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-text-muted">
           {t('projects.home.boardsEmpty')}
         </p>
       ) : (

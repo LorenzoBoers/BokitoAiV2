@@ -408,7 +408,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               </div>
             </ServerCard>
 
-            <label className="flex items-center gap-2 rounded-lg border border-border/50 bg-bg-elevated px-3 py-2.5 text-sm text-text-secondary">
+            <label className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-2.5 text-sm text-text-secondary">
               <input
                 type="checkbox"
                 checked={sameHost}
@@ -487,7 +487,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
             </ServerCard>
           </div>
 
-          <div className="rounded-lg border border-border/50 bg-bg-elevated/25">
+          <div className="rounded-lg border border-border bg-bg-elevated/25">
             <button
               type="button"
               onClick={() => setTipsOpen((v) => !v)}
@@ -503,7 +503,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               />
             </button>
             {tipsOpen ? (
-              <ol className="space-y-1.5 border-t border-border/40 px-3 py-2.5 pl-8 text-xs leading-snug text-text-muted list-decimal">
+              <ol className="space-y-1.5 border-t border-border px-3 py-2.5 pl-8 text-xs leading-snug text-text-muted list-decimal">
                 <li>{t('channelsPage.email.smtp.step1ItemImap')}</li>
                 <li>{t('channelsPage.email.smtp.step1ItemPassword')}</li>
                 <li>{t('channelsPage.email.smtp.step1ItemPorts')}</li>
@@ -528,7 +528,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
           </div>
         </>
       ) : (
-        <section className="rounded-lg border border-border/60 bg-bg-elevated p-3.5">
+        <section className="rounded-lg border border-border bg-bg-elevated p-3.5">
           <header className="mb-2 flex items-center gap-2">
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/15 text-2xs font-semibold text-accent">
               3
@@ -540,7 +540,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
           <p className="text-sm leading-relaxed text-text-secondary">
             {t('channelsPage.email.smtp.step3Body')}
           </p>
-          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border/40 pt-3">
+          <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-border pt-3">
             <Link to={inboxPath('open')} className="text-sm font-medium text-accent hover:underline">
               {t('channelsPage.email.smtp.openCommunication')}
             </Link>
@@ -558,7 +558,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
 }
 
 const fieldClass =
-  'w-full rounded-md border border-border/60 bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
+  'w-full rounded-md border border-border bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
 
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
@@ -571,7 +571,7 @@ function SectionHeading({ title, subtitle }: { title: string; subtitle?: string 
 
 function ServerCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-3 rounded-lg border border-border/55 bg-bg-elevated/25 p-3.5">
+    <section className="space-y-3 rounded-lg border border-border bg-bg-elevated/25 p-3.5">
       <h4 className="text-sm font-semibold text-text-heading">{title}</h4>
       {children}
     </section>

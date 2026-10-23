@@ -103,7 +103,7 @@ function Block({
       className="panel stagger-in min-w-0 overflow-hidden"
       style={{ '--stagger': index } as CSSProperties}
     >
-      <div className="border-b border-border/60 px-4 py-3">
+      <div className="border-b border-border px-4 py-3">
         <h2 className="text-base font-semibold text-text-heading">{title}</h2>
         <p className="mt-0.5 text-xs text-text-muted">{hint}</p>
       </div>
@@ -114,7 +114,7 @@ function Block({
 
 function EmptyRow({ children }: { children: ReactNode }) {
   return (
-    <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-5 text-center text-xs text-text-muted">
+    <div className="animate-fade-in rounded-lg border border-dashed border-border px-3 py-5 text-center text-xs text-text-muted">
       {children}
     </div>
   )
@@ -350,7 +350,7 @@ export default function OverviewFourBlocks() {
       >
         <Block title={copy('needs')} hint={copy('needsHint')} index={0}>
           {data.needsYou.length === 0 ? (
-            <div className="animate-fade-in rounded-lg border border-dashed border-border/60 px-3 py-6 text-center">
+            <div className="animate-fade-in rounded-lg border border-dashed border-border px-3 py-6 text-center">
               <p className="text-sm font-medium text-text-heading">{copy('emptyNeeds')}</p>
               <p className="mt-1 text-xs text-text-muted">{copy('emptyNeedsHint')}</p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
@@ -362,7 +362,7 @@ export default function OverviewFourBlocks() {
                 </Link>
                 <Link
                   to="/settings/channels"
-                  className="rounded-md border border-border/60 px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
+                  className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-text-secondary hover:bg-bg-hover/60 hover:text-text-primary"
                 >
                   {copy('emptyNeedsChannels')}
                 </Link>

@@ -65,7 +65,7 @@ export function CalendarTenantSettings({
       </div>
       <ul className="space-y-2">
         {rows.map((cal) => (
-          <li key={cal.id} className="rounded-md border border-border/50 px-2.5 py-2">
+          <li key={cal.id} className="rounded-md border border-border px-2.5 py-2">
             <div className="flex flex-wrap items-center gap-2">
               <Switch
                 checked={cal.sync_enabled}
@@ -162,7 +162,7 @@ function CalendarDetailEditor({
   }
 
   return (
-    <div className="mt-3 space-y-4 border-t border-border/40 pt-3">
+    <div className="mt-3 space-y-4 border-t border-border pt-3">
       <div className="space-y-1.5">
         <p className="text-xs font-medium text-text-heading">{t('tenant.tags')}</p>
         <p className="text-2xs text-text-muted">{t('tenant.tagsHint')}</p>

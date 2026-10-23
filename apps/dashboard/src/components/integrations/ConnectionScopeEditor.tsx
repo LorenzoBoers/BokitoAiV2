@@ -104,7 +104,7 @@ export function ConnectionScopeEditor({
                       'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs',
                       on
                         ? 'border-accent/50 bg-accent/10 text-text-heading'
-                        : 'border-border/60 text-text-secondary hover:border-border-light',
+                        : 'border-border text-text-secondary hover:border-border-light',
                     )}
                   >
                     {on ? <Check size={11} aria-hidden /> : null}

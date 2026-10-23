@@ -199,7 +199,7 @@ export function CreateFolderDialog({ open, onOpenChange, parentId = null, onCrea
                     selected
                     onClick={addDraft}
                     disabled={busy}
-                    className="border border-dashed border-border/70 bg-transparent"
+                    className="border border-dashed border-border bg-transparent"
                   />
                 ) : null}
               </div>

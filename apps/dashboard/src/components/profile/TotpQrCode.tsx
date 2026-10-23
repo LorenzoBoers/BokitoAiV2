@@ -36,7 +36,7 @@ export function TotpQrCode({
   if (!dataUrl) {
     return (
       <div
-        className="rounded-lg border border-border/60 bg-bg-elevated"
+        className="rounded-lg border border-border bg-bg-elevated"
         style={{ width: size, height: size }}
         aria-hidden
       />
@@ -49,7 +49,7 @@ export function TotpQrCode({
       alt={label}
       width={size}
       height={size}
-      className="rounded-lg border border-border/60 bg-white p-1"
+      className="rounded-lg border border-border bg-white p-1"
     />
   )
 }

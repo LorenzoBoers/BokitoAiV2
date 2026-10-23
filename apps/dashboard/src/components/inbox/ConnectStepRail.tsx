@@ -28,8 +28,8 @@ export default function ConnectStepRail({
               isActive
                 ? 'border-border-light bg-bg-hover'
                 : isDone || isOpen
-                  ? 'border-border/50 bg-bg-elevated'
-                  : 'border-border/40 bg-transparent opacity-55',
+                  ? 'border-border bg-bg-elevated'
+                  : 'border-border bg-transparent opacity-55',
             )}
           >
             <span

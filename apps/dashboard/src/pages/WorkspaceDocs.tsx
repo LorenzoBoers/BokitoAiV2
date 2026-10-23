@@ -188,7 +188,7 @@ export default function WorkspaceDocs() {
       'inline-flex max-w-[12rem] flex-col items-start gap-0 rounded-lg border px-2 py-1 text-left leading-tight',
       selected
         ? 'border-border-light bg-bg-hover text-text-heading'
-        : 'border-border/60 text-text-muted hover:text-text-secondary',
+        : 'border-border text-text-muted hover:text-text-secondary',
     )
 
   // The selected scope chip filters; this is the way to the entity itself.
@@ -541,8 +541,8 @@ export default function WorkspaceDocs() {
     <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
       <AgentsSectionTabs className="mb-2 shrink-0" />
       <div className="panel flex min-h-0 flex-1 overflow-hidden">
-        <aside className="flex w-72 shrink-0 flex-col border-r border-border/40">
-          <div className="space-y-2.5 border-b border-border/40 px-3 pb-3 pt-3.5">
+        <aside className="flex w-72 shrink-0 flex-col border-r border-border">
+          <div className="space-y-2.5 border-b border-border px-3 pb-3 pt-3.5">
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2.5">
                 <KnowledgeTile />
@@ -894,7 +894,7 @@ export default function WorkspaceDocs() {
                     onClick={() => uploadInputRef.current?.click()}
                     className={cn(
                       'rounded-lg border border-dashed px-6 py-5 text-xs text-text-muted transition-colors',
-                      dragOver ? 'border-accent/50 bg-accent/5 text-text-secondary' : 'border-border/60',
+                      dragOver ? 'border-accent/50 bg-accent/5 text-text-secondary' : 'border-border',
                     )}
                   >
                     {t('knowledgePage.dropHint')}
@@ -945,7 +945,7 @@ export default function WorkspaceDocs() {
                     ) : null}
                   </div>
                   {AI_MAINTAINED_KINDS.has(active.kind) ? (
-                    <p className="mt-2 rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
+                    <p className="mt-2 rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
                       {t('knowledgePage.aiMaintainedBanner')}
                     </p>
                   ) : null}

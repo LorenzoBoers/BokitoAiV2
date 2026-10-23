@@ -88,7 +88,7 @@ function ProjectCard({ project }: { project: CountedProject }) {
         </div>
       </div>
 
-      <div className="mt-auto space-y-2 border-t border-border/50 pt-3">
+      <div className="mt-auto space-y-2 border-t border-border pt-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
           <span className="tabular-nums">
             {t('projects.detail.folderCounts', {
@@ -199,7 +199,7 @@ export default function ProjectsPage() {
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
       {!isAdmin ? (
-        <p className="rounded-lg border border-border/60 bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
+        <p className="rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
           {t('projects.page.readonlyBanner')}
         </p>
       ) : null}

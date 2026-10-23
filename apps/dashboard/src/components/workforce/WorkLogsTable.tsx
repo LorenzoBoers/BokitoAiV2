@@ -45,7 +45,7 @@ export function WorkLogsTable({
   return (
     <Card className="overflow-hidden">
       {runs.length > 3 ? (
-        <div className="border-b border-border/60 px-3 py-2">
+        <div className="border-b border-border px-3 py-2">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}

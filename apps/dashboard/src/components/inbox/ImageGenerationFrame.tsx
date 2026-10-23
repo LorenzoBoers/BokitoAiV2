@@ -11,7 +11,7 @@ export function ImageGenerationFrame({ frame }: { frame: ImageFrameState }) {
   const label = frame.status === 'error' ? t('activity.imageFailed') : t('activity.generatingImage')
   return (
     <div
-      className="relative aspect-square w-64 max-w-full overflow-hidden rounded-lg border border-border/60 bg-bg-elevated"
+      className="relative aspect-square w-64 max-w-full overflow-hidden rounded-lg border border-border bg-bg-elevated"
       role="status"
       aria-busy={pending || undefined}
       aria-label={frame.status === 'ready' && shown ? frame.alt || label : label}

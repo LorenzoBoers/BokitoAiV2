@@ -78,10 +78,10 @@ function ChoiceRow({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-lg border border-border/50 bg-bg-elevated px-3 py-3 text-left transition-all',
+        'group flex w-full items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-3 text-left transition-all',
         'hover:border-border hover:bg-bg-hover/50',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-border disabled:hover:bg-bg-elevated',
         className,
       )}
     >
@@ -96,7 +96,7 @@ function ChoiceRow({
       {trailing ?? (
         <ChevronRight
           size={16}
-          className="shrink-0 text-text-muted/70 transition-transform group-hover:translate-x-0.5 group-hover:text-text-secondary"
+          className="shrink-0 text-text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-text-secondary"
         />
       )}
     </button>
@@ -124,10 +124,10 @@ function ProviderCard({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'relative flex flex-col items-start gap-3 rounded-lg border border-border/50 bg-bg-elevated p-3.5 text-left transition-all',
+        'relative flex flex-col items-start gap-3 rounded-lg border border-border bg-bg-elevated p-3.5 text-left transition-all',
         'hover:border-border hover:bg-bg-hover/50 ',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-border/50 disabled:hover:bg-bg-elevated disabled:hover:shadow-none',
+        'disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-border disabled:hover:bg-bg-elevated disabled:hover:shadow-none',
       )}
     >
       {badge ? (
@@ -304,7 +304,7 @@ export default function AddChannelDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="scrim fixed inset-0 z-40" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border/70 bg-bg-surface p-5 shadow-overlay">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg border border-border bg-bg-surface p-5 shadow-overlay">
           <div className="flex items-start gap-2.5">
             {choice !== 'menu' ? (
               <Button variant="ghost" size="iconSm"
@@ -444,7 +444,7 @@ export default function AddChannelDialog({
             {choice === 'relay' ? (
               createdAddress ? (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-border/50 bg-bg-elevated px-4 py-4">
+                  <div className="rounded-lg border border-border bg-bg-elevated px-4 py-4">
                     <p className="text-sm text-text-secondary">{t('channelsPage.relay.created')}</p>
                     <div className="mt-3 flex items-center gap-2">
                       <code className="panel min-w-0 flex-1 truncate-fade px-2.5 py-2 text-xs font-medium text-text-heading">
@@ -473,7 +473,7 @@ export default function AddChannelDialog({
                       className="font-mono"
                     />
                   </label>
-                  <div className="rounded-lg border border-dashed border-border/60 bg-bg-elevated px-3 py-2.5">
+                  <div className="rounded-lg border border-dashed border-border bg-bg-elevated px-3 py-2.5">
                     <p className="text-xs text-text-muted">
                       {t('channelsPage.relay.preview')}
                     </p>

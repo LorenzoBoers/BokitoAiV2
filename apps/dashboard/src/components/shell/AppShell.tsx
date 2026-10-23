@@ -29,7 +29,6 @@ import { policyRoutes } from '../../api/routes/policy.routes'
 import { APP_API_BASE } from '../../lib/api.config'
 import { normalizeNotificationPrefs } from '../../lib/notification-prefs'
 import { cn } from '../../lib/utils'
-import { AmbientSpotlights } from '../ui/ambient-spotlights'
 import { RouteShellSkeleton } from '../ui/skeleton'
 
 const NAV_COLLAPSED_KEY = 'bokito-nav-collapsed'
@@ -232,9 +231,6 @@ export default function AppShell() {
               <MockAiBanner />
               <PushSoftPrompt />
               <main className="relative min-h-0 flex-1 overflow-hidden">
-                {pathname.startsWith('/cockpit') || pathname.startsWith('/connections') ? (
-                  <AmbientSpotlights />
-                ) : null}
                 {fullBleed ? (
                   <div
                     key={contentEnterKey(pathname)}
