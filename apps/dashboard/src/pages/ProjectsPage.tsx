@@ -41,13 +41,9 @@ function FolderRow({ project }: { project: CountedProject }) {
       leading={<IconTile icon={FolderKanban} />}
       title={title}
       badges={
-        project.tag_names?.length ? (
-          <span className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-hidden">
-            {project.tag_names.map((tag) => (
-              <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />
-            ))}
-          </span>
-        ) : null
+        project.tag_names?.length
+          ? project.tag_names.map((tag) => <TagPill key={tag} names={tag} tone="free" size="sm" title={tag} />)
+          : null
       }
       description={path.length ? <span data-testid="project-card-ancestors">{path.join(' / ')}</span> : null}
       meta={

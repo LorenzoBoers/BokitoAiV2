@@ -12,7 +12,7 @@ type EntityRowProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'title' | 'onCl
   /** Leading visual: Avatar, IconTile, BrandMark. */
   leading?: React.ReactNode
   title: React.ReactNode
-  /** Badge(s) right after the title. */
+  /** Badge(s) right after the title; fade out at the edge when they do not fit. */
   badges?: React.ReactNode
   /** Second line, one line, truncated. */
   description?: React.ReactNode
@@ -81,7 +81,9 @@ export const EntityRow = React.forwardRef<HTMLDivElement, EntityRowProps>(
             >
               {title}
             </span>
-            {badges}
+            {badges ? (
+              <span className="truncate-fade flex min-w-0 shrink-[4] items-center gap-1.5 [&>*]:shrink-0">{badges}</span>
+            ) : null}
             {meta ? (
               <span className={cn('ml-auto shrink-0 pl-2 text-xs text-text-muted', actions && HIDE_ON_ROW_ACTIVE)}>
                 {meta}

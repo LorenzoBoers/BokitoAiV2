@@ -221,7 +221,8 @@ carries `design-system-ignore` with a reason.
 ## Lists
 
 Every list row is `EntityRow`. Slots: `select` (a checkbox or state dot,
-left of `leading`), `leading` (Avatar or IconTile), `title`, `badges`,
+left of `leading`), `leading` (Avatar or IconTile), `title`, `badges` (give
+way before the title and fade at the edge when they do not fit),
 `description` (one line, truncated), `footer` (an extra line under the
 description), `meta` (top right, for example a time), `trailing` (always
 visible) and `actions`. Actions take no space until the row is hovered,
