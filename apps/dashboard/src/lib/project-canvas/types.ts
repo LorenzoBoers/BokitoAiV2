@@ -7,6 +7,7 @@ export const CANVAS_KINDS = [
   'code',
   'email',
   'sheet',
+  'design',
 ] as const
 
 export type CanvasKind = (typeof CANVAS_KINDS)[number]

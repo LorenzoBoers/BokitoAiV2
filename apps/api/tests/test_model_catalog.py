@@ -126,6 +126,34 @@ async def test_resolve_byok_platform_mock(session_override, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_force_chat_model_env_pins_every_chat_call(session_override, monkeypatch):
+    """FORCE_CHAT_MODEL overrides the requested slug for chat, not embeddings."""
+    from app.config import get_settings
+    from app.services.model_policy import resolve_chat_model_slug
+
+    await seed_model_catalog(session_override)
+    tenant = Tenant(slug="force-maki", name="Force Maki")
+    session_override.add(tenant)
+    await session_override.commit()
+    await session_override.refresh(tenant)
+    await platform_secrets.set_platform_secret(session_override, "mistral", "mi-force-1")
+    monkeypatch.setattr(get_settings(), "force_chat_model", "maki")
+
+    resolved = await resolve_model_call(
+        session_override, tenant.id, kind="chat", model_slug="bokito-kong"
+    )
+    assert resolved.slug == "bokito-maki"
+    assert resolved.model_id == "ministral-3b-2512"
+    selected = await resolve_chat_model_slug(session_override, tenant.id)
+    assert selected.slug == "bokito-maki"
+    assert selected.source == "force"
+
+    embed = await resolve_model_call(session_override, tenant.id, kind="embedding")
+    assert embed.kind == "embedding"
+    assert embed.slug != "bokito-maki"
+
+
+@pytest.mark.asyncio
 async def test_bokito_virtual_model_routing(session_override):
     """Managed tiers resolve to backing models but keep Bokito identity."""
     await seed_model_catalog(session_override)
@@ -617,6 +645,17 @@ def test_openai_translation():
     tool_msg = oai[3]
     assert tool_msg["role"] == "tool"
     assert tool_msg["tool_call_id"] == "t1"
+
+    orphan = OpenAILLMProvider._messages_to_openai(
+        [
+            {"role": "system", "content": "sys"},
+            {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "t9", "content": "lost"}],
+            },
+        ]
+    )
+    assert [m["role"] for m in orphan] == ["system"]
 
     with_image = OpenAILLMProvider._messages_to_openai(
         [

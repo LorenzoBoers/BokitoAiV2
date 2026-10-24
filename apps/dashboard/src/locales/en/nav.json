@@ -1,14 +1,65 @@
-{
+﻿{
   "departmentPage": {
     "proposals": "Improvement proposals",
-    "proposalsHint": "The lead agent proposes these from the scorecard. Nothing changes until someone approves it in the department conversation.",
+    "proposalsHint": "The point of contact proposes these from the scorecard. Nothing changes until someone approves it in the department conversation.",
     "openProposal": "Open",
-    "proposalKind": { "autonomy": "Autonomy", "instructions": "Instructions", "capabilities": "Capabilities", "new_flow": "New flow" },
+    "proposalKind": {
+      "autonomy": "Autonomy",
+      "instructions": "Instructions",
+      "capabilities": "Capabilities",
+      "new_flow": "New flow"
+    },
     "title": "Department",
-    "subtitle": "Who leads it, who works in it, and what runs per flow.",
+    "subtitle": "Who is on it, who picks up, and what runs per flow.",
+    "orgSubtitle": "The top of the tree: the lead picks up what no department owns and delegates.",
     "loadError": "Could not load this department",
     "changeIcon": "Change icon",
-    "tabAll": "All",
+    "tabOverview": "Overview",
+    "crew": {
+      "path": "Place in the organization",
+      "empty": "Nobody is on this department yet.",
+      "emptyEdit": "Add agents and people below.",
+      "implicit": "automatic",
+      "edit": "Edit",
+      "role": {
+        "contact": "Point of contact",
+        "accountable": "Accountable",
+        "member": "Member"
+      },
+      "workspaceRole": {
+        "owner": "Owner",
+        "admin": "Admin"
+      },
+      "agents": "Agents",
+      "people": "People",
+      "title": "Crew of {{name}}",
+      "hint": "The point of contact picks up work for this department and asks the others. The accountable person answers its questions. Departments below inherit read access, not responsibility.",
+      "hintOrg": "The point of contact here is the workspace lead: it picks up what no department owns and delegates. Owners and admins are on the organization by role.",
+      "roleLabel": "Role",
+      "focusLabel": "Focus",
+      "focusPlaceholder": "Focus, for example invoices and reminders",
+      "remove": "Remove {{name}}",
+      "add": "Add an agent or person",
+      "contactHint": "Without a point of contact the first agent in the list acts as one.",
+      "save": "Save crew",
+      "saved": "Crew saved",
+      "undo": "Undo",
+      "saveError": "Could not save the crew.",
+      "contactConfirmTitle": "Change the point of contact?",
+      "contactConfirm": "{{name}} picks up new work for this department from now on.",
+      "contactConfirmNone": "Nobody is picked; the first agent in the list acts as point of contact.",
+      "orgWarning": "Agents at organization level see and steer every department.",
+      "adminsLine": "Also on the organization by role: {{names}}"
+    },
+    "children": {
+      "title": "Departments below",
+      "titleOrg": "Departments",
+      "new": "New sub-department",
+      "contact": "Point of contact: {{name}}",
+      "noContact": "No point of contact yet",
+      "open_one": "{{count}} open",
+      "open_other": "{{count}} open"
+    },
     "settings": "Department settings",
     "decisions": "Decisions",
     "folderEmpty": "No open work of this department in this folder.",
@@ -17,35 +68,150 @@
     "team": "Team",
     "iconTitle": "Department icon",
     "iconBody": "This icon sits next to the department in the left menu.",
-    "rootName": "All",
-    "parentEmpty": "Nobody is on this department.",
-    "leadership": "Leadership",
-    "lead": "Lead agent",
     "accountable": "Accountable",
     "none": "Not set",
-    "duty": { "primary": "Primary", "backup": "Backup" },
     "openAssigned_one": "{{count}} open",
     "openAssigned_other": "{{count}} open",
     "hours_one": "{{count}} hour a week",
     "hours_other": "{{count}} hours a week",
     "flows": "Flows",
     "noFlows": "No flow belongs to this department yet. Set the department on a flow page.",
-    "totals": { "open": "Open", "waiting": "Waiting", "overdue": "Overdue" },
-    "columns": { "flow": "Flow", "volume": "Closed (7 days)", "autonomous": "Autonomous", "corrected": "Corrected" },
+    "totals": {
+      "open": "Open",
+      "waiting": "Waiting",
+      "overdue": "Overdue"
+    },
+    "columns": {
+      "flow": "Flow",
+      "volume": "Closed (7 days)",
+      "autonomous": "Autonomous",
+      "corrected": "Corrected"
+    },
     "fromModule": "From the module {{name}}",
     "openRoom": "Department conversation",
     "cost": "{{amount}} in 7 days",
     "stageTitle": "{{overdue}} past the deadline, {{soon}} due within a week",
-    "presence": {"available": "Available", "busy": "Busy", "away": "Away", "unavailable": "Unavailable", "offline": "Offline"},
-    "agentStatus": {"standby": "Standby", "working": "Working", "error": "Needs attention"},
-    "today": {"title": "Today", "unassigned_one": "{{count}} ticket nobody picked up", "unassigned_other": "{{count}} tickets nobody picked up", "overdue_one": "{{count}} past the deadline", "overdue_other": "{{count}} past the deadline", "due_this_week_one": "{{count}} due this week", "due_this_week_other": "{{count}} due this week", "decisions_one": "{{count}} decision waiting", "decisions_other": "{{count}} decisions waiting", "calm": "Nothing asks for attention.", "orientation": "Last orientation of the lead, {{when}}", "quiet": "Nothing new since the orientation before.", "noOrientation": "The lead has not oriented yet. It does so on its schedule in the department conversation."},
-    "awareness": {"title": "What the lead pays attention to", "hint": "The wake is not an agenda item. The agent looks around at the chosen moment and logs that under activity.", "mode": "Wake", "modes": {"off": "Off", "on_conversation": "On a conversation", "daily": "Daily", "custom": "Custom"}, "cron": "Cadence", "follows": "Events the lead follows", "follow": {"inbound": "New messages", "stage_change": "Stage changes", "deadline": "Deadlines", "decision": "Decisions resolved", "assignment": "Assignments", "escalation": "Escalations", "delivery": "Deliveries"}, "dailyCost": "Daily budget (EUR)", "spentToday": "{{amount}} spent today", "maxProposals": "Proposals per wake", "nextOrientation": "Next wake", "nextWake": "Next wake", "save": "Save", "noLead": "This department has no lead agent. Make an agent primary under Leadership first."},
-    "domain": {"title": "Domain questions", "hint": "The lead asks the person accountable what it cannot read from the work. Answers become facts in its standing brief.", "empty": "The lead has not asked anything yet.", "placeholder": "Your answer", "answer": "Answer", "inThread": "Answer in thread"},
-    "reach": {"title": "What this department can reach", "flows": "Flows", "channels": "Channels", "connections": "Connections", "organizations": "Organizations", "none": "None yet"},
-    "lands": {"title": "Where our work lands", "hint": "Folders holding this department's open tickets. Home folders come first.", "empty": "No folder holds this department's work yet.", "home": "Home folder"},
-    "attempts": {"title": "Pushes and calls", "hint": "Every push and call the agents sent to people for this department, last 14 days.", "empty": "Nobody was disturbed in the last 14 days.", "perPerson": "{{name}}: {{count}}", "untitled": "Untitled conversation", "status": {"delivered": "Delivered", "quiet_hours": "Held for quiet hours", "daily_max": "Held: daily maximum", "no_device": "No device", "ringing": "Ringing", "requested": "Asked for a call", "declined": "Declined", "missed": "Missed", "answered": "Answered"}},
-    "outcomes": {"title": "Outcomes", "hint": "How the lead's proposals landed (60 days) and the corrections per flow (30 days).", "accepted_one": "{{count}} proposal accepted", "accepted_other": "{{count}} proposals accepted", "rejected_one": "{{count}} rejected", "rejected_other": "{{count}} rejected", "feedback_one": "{{count}} correction", "feedback_other": "{{count}} corrections"},
-    "scorecardHint": "Closed, autonomous and corrected come from the scorecard of each flow label over the last 7 days."
+    "presence": {
+      "available": "Available",
+      "busy": "Busy",
+      "away": "Away",
+      "unavailable": "Unavailable",
+      "offline": "Offline"
+    },
+    "agentStatus": {
+      "standby": "Standby",
+      "working": "Working",
+      "error": "Needs attention"
+    },
+    "today": {
+      "title": "Today",
+      "unassigned_one": "{{count}} ticket nobody picked up",
+      "unassigned_other": "{{count}} tickets nobody picked up",
+      "overdue_one": "{{count}} past the deadline",
+      "overdue_other": "{{count}} past the deadline",
+      "due_this_week_one": "{{count}} due this week",
+      "due_this_week_other": "{{count}} due this week",
+      "decisions_one": "{{count}} decision waiting",
+      "decisions_other": "{{count}} decisions waiting",
+      "calm": "Nothing asks for attention.",
+      "orientation": "Last orientation of the point of contact, {{when}}",
+      "quiet": "Nothing new since the orientation before.",
+      "noOrientation": "The point of contact has not oriented yet. It does so on its schedule in the department conversation."
+    },
+    "visibility": {
+      "label": "Visibility",
+      "open": "Open",
+      "shielded": "Shielded",
+      "hint": "Colleagues read open work without being able to change it. Shielded work is read only by this department, the departments below and above it, and owners and admins."
+    },
+    "awareness": {
+      "title": "What the point of contact pays attention to",
+      "titleFor": "What {{name}} pays attention to",
+      "pickContact": "Pick a point of contact",
+      "hint": "The wake belongs to the department; its point of contact runs it. A new point of contact takes over the schedule and the brief. The wake is not an agenda item.",
+      "mode": "Wake",
+      "modes": {
+        "off": "Off",
+        "on_conversation": "On a conversation",
+        "daily": "Daily",
+        "custom": "Custom"
+      },
+      "cron": "Cadence",
+      "follows": "Events the point of contact follows",
+      "follow": {
+        "inbound": "New messages",
+        "stage_change": "Stage changes",
+        "deadline": "Deadlines",
+        "decision": "Decisions resolved",
+        "assignment": "Assignments",
+        "escalation": "Escalations",
+        "delivery": "Deliveries"
+      },
+      "dailyCost": "Daily budget (EUR)",
+      "spentToday": "{{amount}} spent today",
+      "maxProposals": "Proposals per wake",
+      "nextOrientation": "Next wake",
+      "nextWake": "Next wake",
+      "save": "Save",
+      "noLead": "This department has no agent yet. Add one with Edit next to the crew."
+    },
+    "domain": {
+      "title": "Domain questions",
+      "hint": "The point of contact asks the accountable person what it cannot read from the work. Answers become facts in its standing brief.",
+      "empty": "The point of contact has not asked anything yet.",
+      "placeholder": "Your answer",
+      "answer": "Answer",
+      "inThread": "Answer in thread"
+    },
+    "reach": {
+      "title": "What this department can reach",
+      "flows": "Flows",
+      "channels": "Channels",
+      "connections": "Connections",
+      "organizations": "Organizations",
+      "none": "None yet"
+    },
+    "lands": {
+      "title": "Where our work lands",
+      "hint": "Folders holding this department's open tickets. Home folders come first.",
+      "empty": "No folder holds this department's work yet.",
+      "home": "Home folder"
+    },
+    "attempts": {
+      "title": "Pushes and calls",
+      "hint": "Every push and call the agents sent to people for this department, last 14 days.",
+      "empty": "Nobody was disturbed in the last 14 days.",
+      "perPerson": "{{name}}: {{count}}",
+      "untitled": "Untitled conversation",
+      "status": {
+        "delivered": "Delivered",
+        "quiet_hours": "Held for quiet hours",
+        "daily_max": "Held: daily maximum",
+        "no_device": "No device",
+        "ringing": "Ringing",
+        "requested": "Asked for a call",
+        "declined": "Declined",
+        "missed": "Missed",
+        "answered": "Answered"
+      }
+    },
+    "outcomes": {
+      "title": "Outcomes",
+      "hint": "How the point of contact's proposals landed (60 days) and the corrections per flow (30 days).",
+      "accepted_one": "{{count}} proposal accepted",
+      "accepted_other": "{{count}} proposals accepted",
+      "rejected_one": "{{count}} rejected",
+      "rejected_other": "{{count}} rejected",
+      "feedback_one": "{{count}} correction",
+      "feedback_other": "{{count}} corrections"
+    },
+    "scorecardHint": "Closed, autonomous and corrected come from the scorecard of each flow label over the last 7 days.",
+    "orgRules": {
+      "label": "Organization rules",
+      "off": "Off",
+      "on": "On",
+      "hint": "On: only the agent that holds a conversation acts on it, others read or are asked; shielded departments stay out of reach; questions go up and down the tree and escalate to the person accountable above."
+    }
   },
   "comingSoon": "Coming soon",
   "errorBoundary": {
@@ -422,7 +588,9 @@
         "select": "Click a step or an arrow to configure it.",
         "draw": "Drag from the dot on the right of a step to another step, or release on an empty spot for a new step.",
         "move": "Drag an extra step to another column, above or below a step.",
-        "rightClick": "Right-click a step, an arrow or the background for more actions."
+        "rightClick": "Right-click a step, an arrow or the background for more actions.",
+        "branch": "Hover an arrow. On the plus you see a step above the next one, with a branch to it. Click to place it, or drag onto another step; the line goes around the steps.",
+        "zoom": "Scroll to zoom in, drag the background to pan. You cannot zoom out past the whole flow in view."
       },
       "wie": {
         "none": "Not set",
@@ -448,6 +616,7 @@
       "line": "This line",
       "draw": "Draw a connection",
       "newStep": "New step",
+      "branchAdd": "New branch",
       "save": "Save",
       "close": "Close",
       "source": "Notation",
@@ -1520,33 +1689,42 @@
     }
   },
   "signupPage": {
-    "subtitle": "Create your workspace",
+    "subtitle": "Create your account",
+    "title": "Create your account",
+    "intro": "Start straight in your workspace.",
+    "orEmail": "or use your email",
+    "emailLabel": "Email",
+    "continue": "Continue",
+    "accountSubtitle": "Your name and a password",
+    "createAccount": "Create account",
+    "creatingAccount": "Creating account...",
+    "changeEmail": "Different address",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "workspaceTitle": "What is your workspace called?",
+    "workspaceBody": "This is the name your team sees. You can change it later.",
+    "workspaceName": "Workspace name",
+    "workspacePlaceholder": "Acme",
+    "invitedTitle": "You have an invite",
+    "invitedBody": "Join now, or start a workspace of your own.",
     "yourName": "Your name",
     "firstName": "First name",
     "lastName": "Last name",
     "firstNamePlaceholder": "Jane",
     "lastNamePlaceholder": "Doe",
     "namePlaceholder": "Jane Doe",
-    "workEmail": "Work email",
+    "workEmail": "Email",
     "passwordPlaceholder": "At least 8 characters",
-    "companyName": "Company name",
-    "companyPlaceholder": "Acme Inc.",
-    "workspaceUrl": "Workspace URL",
-    "slugHint": "Lowercase letters, numbers and dashes. This identifies your workspace.",
     "creating": "Creating workspace...",
     "createWorkspace": "Create workspace",
     "microsoft": "Continue with Microsoft",
     "google": "Continue with Google",
     "alreadyAccount": "Already have an account?",
     "passwordMin": "Password must be at least 8 characters.",
-    "needSlug": "Choose a workspace URL.",
     "failed": "Sign up failed",
-    "slugTaken": "That workspace URL is already taken. Pick another one.",
     "emailTaken": "An account with this email already exists. Sign in instead.",
     "emailPlaceholder": "you@company.com",
-    "slugPlaceholder": "acme",
-    "passwordHint": "{{count}} of 8 characters",
-    "slugPreview": "Your workspace will be {{slug}}.bokito.ai"
+    "passwordHint": "{{count}} of 8 characters"
   },
   "forgotPage": {
     "subtitle": "Forgot password",
@@ -1948,14 +2126,6 @@
     "digestGroup_one": "Digest: {{count}} update",
     "digestGroup_other": "Digest: {{count}} updates"
   },
-  "bindingPicker": {
-    "ariaLabel": "Handling agent",
-    "hint": "The agent that handles new conversations on this item.",
-    "leadDefault": "Default agent",
-    "defaultBadge": "Default",
-    "unknownAgent": "Unknown agent",
-    "saveError": "Could not update the handling agent."
-  },
   "channelsPage": {
     "listTitle": "Channels",
     "listDescription": "Every channel that carries conversations: mailboxes, Bokito addresses, the website chat, WhatsApp and Slack. Open a row to see what is working and who handles new conversations.",
@@ -2024,8 +2194,6 @@
     "edit": "Edit",
     "open": "Open",
     "name": "Name",
-    "agent": "AI agent",
-    "agentHint": "The agent that handles new conversations with Autonomy. Without one, the workspace default agent does.",
     "foldersHint": "Inbox and Sent start on. Spam lands in Spam with no agent. Drafts and Trash are left out.",
     "signatureHint": "Shared template for replies from this address. Placeholders such as {{name}} fill from the sender.",
     "signatureHintSender": "This mailbox uses each person's own signature (Profile). The template below is unused until you switch back to mailbox signature.",
@@ -2283,15 +2451,16 @@
     "oauthFailedTitle": "Could not connect {{provider}}",
     "access": "Access",
     "accessHint": "Which people, agents and teams see or handle this channel.",
-    "team": "Owner",
-    "teamHint": "Who gets the conversation when a person has to take over: a person, a team, or All people so anyone in the company may pick it up.",
+    "team": "Lands on",
+    "teamHint": "The department new conversations land on. Its point of contact picks up; without one its people do, else the department above. The organization when nothing is set.",
     "ownerPeople": "People",
     "ownerTeams": "Teams",
     "defaultBadge": "Default",
     "unknownTeam": "Unknown team",
     "unknownPerson": "Unknown person",
     "widgetLive": "Live handoff",
-    "widgetLiveHint": "Offered when someone with Handle access on the widget is available."
+    "widgetLiveHint": "Offered when someone with Handle access on the widget is available.",
+    "homeAgent": "Lands on {{node}}. {{agent}} picks up."
   },
   "automationRules": {
     "title": "Automation rules",
@@ -2344,7 +2513,15 @@
     "push": "Push",
     "slack": "Slack",
     "opsAlways": "Admins always see this notice in the app.",
-    "reach": {"title": "When agents may reach you", "body": "Pushes and calls from agents wait during your quiet hours and stop at your daily maximum. Urgent work for your department can reach you; everything else stays in the app.", "quietFrom": "Quiet from", "quietTo": "Quiet until", "maxPerDay": "Pushes a day at most", "callTitle": "Agents may call me", "callBody": "Only for a decision card, and only when you are available and not on another call."},
+    "reach": {
+      "title": "When agents may reach you",
+      "body": "Pushes and calls from agents wait during your quiet hours and stop at your daily maximum. Urgent work for your department can reach you; everything else stays in the app.",
+      "quietFrom": "Quiet from",
+      "quietTo": "Quiet until",
+      "maxPerDay": "Pushes a day at most",
+      "callTitle": "Agents may call me",
+      "callBody": "Only for a decision card, and only when you are available and not on another call."
+    },
     "soundTitle": "In-app sound",
     "soundBody": "Play a short sound when a notice arrives while Bokito is open.",
     "soundTest": "Test sound",
@@ -3195,6 +3372,42 @@
       "outboundHint": "Takes work from a conversation",
       "setup": "Set up"
     },
+    "hubTabs": {
+      "label": "Connections views",
+      "discover": "Discover",
+      "installed": "Installed"
+    },
+    "moduleShowcase": {
+      "title": "Modules",
+      "count_one": "{{count}} package",
+      "count_other": "{{count}} packages",
+      "curated": "Domain package",
+      "explore": "Explore",
+      "prev": "Previous module",
+      "next": "Next module",
+      "dots": "Module slides"
+    },
+    "installed": {
+      "listTitle_one": "{{count}} connection",
+      "listTitle_other": "{{count}} connections",
+      "searchPlaceholder": "Search a connection or administration",
+      "view": "View",
+      "viewCards": "Cards",
+      "viewList": "List",
+      "colConnector": "Connector",
+      "colType": "Type",
+      "colStatus": "Status",
+      "statusReady": "Active",
+      "statusError": "Error",
+      "statusAttention": "Needs attention",
+      "reconnect": "Reconnect",
+      "empty": "No connections yet. Discover modules and apps to connect.",
+      "emptyModules": "No modules installed yet.",
+      "browseModules": "Browse modules",
+      "browseDiscover": "Discover",
+      "addConnection": "Add connection",
+      "openDiscoverHint": "Open Discover to manage this connection."
+    },
     "connectedStrip": {
       "title": "Connected",
       "count_one": "{{count}} active",
@@ -3298,6 +3511,9 @@
       "projects": "Folders",
       "projectsAllHint": "Not linked: every folder and conversation can use this connection.",
       "projectsExclusiveHint": "Linked: only work in these folders can use this connection.",
+      "department": "Department",
+      "departmentHint": "Only conversations of this department or one below it can use this connection.",
+      "departmentAll": "Whole organization",
       "projectsNone": "No folders yet.",
       "projectsSave": "Save folders",
       "projectsSaveError": "Could not update the folders for this connection.",
@@ -3599,51 +3815,51 @@
           "accounting": {
             "name": "Boekito",
             "title": "Controller",
-            "blurb": "Keeps the books for this workspace: administrations, contacts, invoices, log lines and open balances. Bookings and payment matches wait for your approval.",
+            "blurb": "Keeps the books: administrations, contacts, invoices, and open balances. Checks a named VAT rate, the invoice mentions, and the payment term. Bookings wait for your approval.",
             "usps": [
               "Invoices and open items at a glance",
-              "Bookings only after you approve",
-              "Ready for Moneybird, KING and Bjorn Lunden"
+              "VAT, invoice mentions, and payment terms from the statute",
+              "Bookings only after you approve"
             ]
           },
           "banking": {
             "name": "Finito",
             "title": "Treasurer",
-            "blurb": "Watches linked accounts, balances and transactions. Outgoing payments only leave as a proposal you approve.",
+            "blurb": "Watches linked accounts, balances, and transactions. Checks an IBAN and a payment before it is proposed. Does not send a transfer.",
             "usps": [
               "Balances and transactions without an export",
-              "Payments only as a proposal",
-              "Every account in one place"
+              "IBAN check before a payment is proposed",
+              "A proposal does not send the transfer"
             ]
           },
           "investing": {
             "name": "Investo",
             "title": "Markets lead",
-            "blurb": "Follows positions, quotes and watchlists. Trade orders wait for your approval.",
+            "blurb": "Drafts an order the operator already chose and refuses a personal recommendation. No broker is connected, so there is no live quote.",
             "usps": [
-              "Positions and quotes at hand",
-              "Orders wait for you",
-              "Alerts land in the conversation"
+              "Refuses a recommendation of a specific instrument",
+              "Orders wait until you already chose them",
+              "No quote until a broker is connected"
             ]
           },
           "documents": {
             "name": "Documento",
             "title": "Archivist",
-            "blurb": "Finds and reads files in connected storage so the team can cite them. Uploads wait for your approval.",
+            "blurb": "Finds and reads files, states how long they are kept, and cites only what was read. Uploads wait for your approval.",
             "usps": [
               "The right file without hunting",
-              "Content lands in Knowledge",
+              "Seven years for an invoice, ten for property",
               "Uploads only after you approve"
             ]
           },
           "accountant": {
             "name": "Accounto",
             "title": "Accountant",
-            "blurb": "Reviews the period on the packages Accounting already connected: trial balance, VAT, aged items, and exceptions. A close waits for your approval. Bookings stay with Accounting.",
+            "blurb": "Prepares the year file: size class, tie-outs, estimates, the tax bridge, and filing dates. Bookings stay with Boekito. A registered accountant signs outside Bokito.",
             "usps": [
-              "Trial balance and VAT in one view",
-              "Exceptions before the period closes",
-              "The same connections as Accounting"
+              "Size class and filing dates from the year-end",
+              "Tax bridge without inventing the profit",
+              "No booking, no filing, no signature"
             ]
           }
         },
@@ -3688,8 +3904,8 @@
       },
       "setup": {
         "assistantPrefill": "Help me finish setting up {{name}}: connect a package if needed, set the default, and index sources.",
-        "intro": "Assign at least one AI agent, then chat with the default agent to connect packages, set defaults, and index sources.",
-        "openAssistant": "Continue with the assigned agent"
+        "intro": "Make sure an agent sits in the module's department, then chat with it to connect packages, set defaults, and index sources.",
+        "openAssistant": "Continue with the point of contact"
       },
       "workspace": {
         "status": "Status",
@@ -3727,7 +3943,6 @@
         "connectionNotReady": "Credentials missing",
         "defaultCompany": "default",
         "noCompanies": "No administrations visible yet for this connection.",
-        "manageAgents": "Manage roster",
         "genericBody": "This module is installed. Open Manage for connections, sources, and setup.",
         "domainHints": {
           "administrations": "Companies and logs agents can address.",
@@ -3739,30 +3954,11 @@
         }
       },
       "agents": {
-        "sectionTitle": "Assigned agents",
-        "label": "Assigned agents",
-        "hint": "At least one agent is required. Only assigned agents can use this module’s tools.",
-        "loading": "Loading agents…",
-        "empty": "No agents assigned yet. Add one to continue setup.",
-        "openAgents": "Open Agents",
-        "addPlaceholder": "Assign an agent…",
-        "addError": "Could not assign this agent.",
-        "defaultBadge": "Default",
-        "makeDefault": "Make default for setup chat",
-        "defaultError": "Could not set the default agent.",
-        "remove": "Remove",
-        "removeError": "Could not remove this agent.",
-        "chatSetup": "Continue setup with default agent",
-        "writeBadge": "Write",
-        "readOnlyBadge": "Read-only",
-        "scopeBadge": "{{count}} administration(s)",
-        "scopeAll": "All administrations",
-        "access": "Access: scope and write permission",
-        "accessError": "Could not update module access for this agent.",
-        "canWrite": "Write access",
-        "canWriteHint": "Allow proposing accounting writes. Applying still needs human approval and the workspace write switch.",
-        "scopeTitle": "Administration scope",
-        "scopeHint": "No selection = access to all administrations."
+        "hire": "Hire specialist",
+        "hireError": "Could not hire the module specialist.",
+        "openSetup": "Open setup chat",
+        "setupChatPrompt": "Help me finish setup for this module.",
+        "openSpecialist": "Open specialist"
       },
       "verbs": {
         "administrations": "Administrations",
@@ -3786,7 +3982,7 @@
       "accounting": {
         "name": "Accounting",
         "description": "One accounting contract for agents: companies, parties, invoices, log, and outstanding balances across every connected package.",
-        "capability": "Agents can list administrations, contacts, invoices, log lines, and outstanding balances.",
+        "capability": "Agents can list administrations, contacts, invoices, log lines, and outstanding balances, and can check a named VAT rate, invoice mentions, and the payment term.",
         "setup": [
           "Install Accounting under Settings > Connections.",
           "Optionally enable a platform integration this module can use (KING, Bjorn Lunden, or Moneybird).",
@@ -3796,39 +3992,42 @@
       },
       "banking": {
         "name": "Banking",
-        "description": "Read bank accounts, balances, and transactions. Payments stay a proposal you approve.",
-        "capability": "Later: read accounts, balances, and transactions. Payments stay a human-approved proposal.",
+        "description": "Read bank accounts, balances, and transactions. Check an IBAN and a payment checklist. A proposal does not send a transfer.",
+        "capability": "Reads accounts, balances, and transactions. Checks an IBAN and a payment checklist. Does not send a transfer.",
         "setup": [
-          "This module is prepared but not connectable yet.",
-          "When a bank connector ships, you will pick it here and approve payments as decisions."
+          "Install Banking under Settings > Connections.",
+          "Connect a PSD2 provider to read accounts. The checklist works before a bank is linked.",
+          "Payments stay a proposal you approve. Booking the line stays with Accounting."
         ]
       },
       "investing": {
         "name": "Investing",
-        "description": "Market data, positions, and watchlists. Trade orders stay a proposal you approve.",
-        "capability": "Later: positions, quotes, and watchlists. Orders stay a human-approved proposal.",
+        "description": "Keeps an order the operator already chose inside the advice boundary. No broker is connected, so there is no live quote and no execution.",
+        "capability": "Keeps the advice boundary and an order ticket. Does not quote a price, recommend an instrument, or send an order.",
         "setup": [
-          "This module is prepared but not connectable yet.",
-          "When a broker or market-data connector ships, orders will land as decisions."
+          "Install Investing under Settings > Connections.",
+          "This module adds no broker login. Quotes and positions wait for a broker.",
+          "Investo does not recommend an instrument. Orders stay a proposal you approve."
         ]
       },
       "documents": {
         "name": "Documents",
-        "description": "Read files from Drive, SharePoint, or Dropbox into Knowledge. Uploads stay a proposal you approve.",
-        "capability": "Later: search and read external files into Knowledge. Uploads stay a human-approved proposal.",
+        "description": "Read files from connected storage, state how long a record is kept, and cite only what was read. Uploads stay a proposal you approve.",
+        "capability": "Searches and reads Drive files and Sheets. States how long a record is kept and which specialist owns the next step.",
         "setup": [
-          "This module is prepared but not connectable yet.",
-          "When a storage connector ships, reads feed Knowledge and uploads stay decisions."
+          "Install Documents under Settings > Connections.",
+          "Connect Google Drive when agents should search files. Retention works before Drive is linked.",
+          "Uploads and sheet writes stay a proposal you approve."
         ]
       },
       "accountant": {
         "name": "Accountant",
-        "description": "Reviews the books Accounting already connected: trial balance, VAT, aged items, and exceptions. Closing the period stays a proposal you approve.",
-        "capability": "Later: read trial balance, VAT, aged items, and exceptions on Accounting's packages. No login of its own. Bookings stay there.",
+        "description": "Prepares the year file: size class, tie-outs, estimates, the commercial-to-tax bridge, and filing dates. It does not keep the books and it does not add a package login.",
+        "capability": "Prepares the year file. Does not book, match the bank, file, or sign a report.",
         "setup": [
-          "This is an idea and is not connectable yet.",
-          "It reads the same packages as Accounting and does not add a login.",
-          "Writes stay on Accounting and still wait for approval."
+          "Install Accountant under Settings > Connections.",
+          "Install Accounting as well when the year file needs live figures. This module adds no package login.",
+          "Bookings, invoices, and bank matching stay with Accounting and Banking."
         ]
       },
       "tools": {
@@ -3900,6 +4099,114 @@
           "propose_send": {
             "label": "Propose send invoice",
             "description": "Propose sending an invoice from the package; waits for your approval."
+          },
+          "vat_rates": {
+            "label": "VAT rates",
+            "description": "Statutory Dutch VAT rates. Computes VAT only when the rate and the net amount are passed. Does not choose the table."
+          },
+          "invoice_check": {
+            "label": "Invoice check",
+            "description": "Which invoice mentions are still missing. A simplified invoice is only up to €100 including VAT."
+          },
+          "payment_terms": {
+            "label": "Payment term",
+            "description": "Statutory payment term. Does not calculate interest."
+          }
+        },
+        "banking": {
+          "iban_check": {
+            "label": "IBAN check",
+            "description": "Check the IBAN check digits. Does not look up the bank."
+          },
+          "consent": {
+            "label": "Account consent",
+            "description": "How long an account-information consent lasts. This module does not send a payment."
+          },
+          "liquidity": {
+            "label": "Cash position",
+            "description": "Sum balances already read, per currency. Does not convert and does not invent a balance."
+          },
+          "payment_guard": {
+            "label": "Payment checklist",
+            "description": "Fields a payment proposal still needs. Does not send the payment."
+          }
+        },
+        "documents": {
+          "retention": {
+            "label": "Retention",
+            "description": "How long to keep the file: 7 years for an invoice, 10 years when it concerns immovable property."
+          },
+          "classify": {
+            "label": "Classify file",
+            "description": "Which specialist owns the next step. Does not book the file."
+          },
+          "cite": {
+            "label": "Cite a file",
+            "description": "Cite a title, file id, and quote you already read. Does not invent a sentence."
+          }
+        },
+        "investing": {
+          "advice_boundary": {
+            "label": "Advice boundary",
+            "description": "Refuse a personal recommendation of a specific instrument."
+          },
+          "order_ticket": {
+            "label": "Order ticket",
+            "description": "Fields an order proposal still needs. Does not fill a price and does not send the order."
+          },
+          "concentration": {
+            "label": "Position weights",
+            "description": "Share of each position in the total you pass. No house limit and no recommendation."
+          }
+        },
+        "accountant": {
+          "engagement": {
+            "label": "Assignment",
+            "description": "State whether this is a compilation, a tax position, or advice. A review or an audit is refused. Nothing is signed."
+          },
+          "size_class": {
+            "label": "Size class",
+            "description": "Classify the entity from assets, turnover, and employees. Two consecutive years confirm the class. Does not read the ledger."
+          },
+          "filing_calendar": {
+            "label": "Filing dates",
+            "description": "Preparation, deposit, and tax-return dates from the year-end. Does not file anything."
+          },
+          "tie_outs": {
+            "label": "Tie-outs",
+            "description": "Questions that tie subledgers to the general ledger. Figures come from Accounting; this tool does not fetch them."
+          },
+          "estimates": {
+            "label": "Estimates",
+            "description": "Judgments management still owns: policies, provisions, accruals, going concern. Does not book them."
+          },
+          "tax_bridge": {
+            "label": "Tax bridge",
+            "description": "Commercial profit to an indicative fiscal result. Not an assessment."
+          },
+          "statements_outline": {
+            "label": "Statements outline",
+            "description": "Which statements and notes the size class requires. Not the statements themselves."
+          },
+          "plausibility": {
+            "label": "Plausibility",
+            "description": "Questions on margin, VAT, cutoff, and unusual journals. Not a list of findings."
+          },
+          "propose_findings": {
+            "label": "Propose findings",
+            "description": "Record year-file findings for management. Bookings stay a proposal for Accounting."
+          },
+          "propose_appropriation": {
+            "label": "Propose appropriation",
+            "description": "Propose how the result is appropriated. The general meeting decides. Nothing is booked."
+          },
+          "propose_compilation": {
+            "label": "Propose compilation pack",
+            "description": "Mark the pack ready for a registered accountant. Does not sign and does not file."
+          },
+          "request_dossier": {
+            "label": "Request year-file documents",
+            "description": "Ask for the documents the year file still needs. Not the missing invoices of the bookkeeping."
           }
         }
       },
@@ -3918,7 +4225,15 @@
         "useThis": "Use this connection",
         "detachConfirm": "Remove this registration from the module? It stays on Connections.",
         "defaultRequiresReady": "Only a verified registration can be the default."
-      }
+      },
+      "department": {
+        "title": "Department",
+        "hint": "Agents in {{name}} and the departments below it use these tools.",
+        "hintNone": "Add the module to a department; its agents then use these tools.",
+        "contact": "Point of contact: {{name}}",
+        "open": "Open department"
+      },
+      "finishSetupNeedsAgent": "Add an agent to the module's department before finishing setup"
     },
     "marketplace": {
       "searchPlaceholder": "Search modules, connections and tools",
@@ -3976,7 +4291,11 @@
     "pageMeta": {
       "connected": {
         "title": "Connections",
-        "description": "Modules, connections and AI tools in one place. Connected items sit on top; open anything below to read what it does and connect it."
+        "description": "Discover modules, partner logins and AI tools. Manage each registration under Installed."
+      },
+      "installed": {
+        "title": "Installed",
+        "description": "Every login and administration in this workspace. Switch to list view to manage many at once."
       },
       "connections": {
         "title": "Connected",
@@ -4191,6 +4510,7 @@
       "settingsHint": "Model, instructions, rules, signature and tools for this agent.",
       "moreActions": "More actions",
       "historyMenu": "History",
+      "pinToDock": "Pin to dock",
       "historyHint": "Sessions, wakes and recent runs for this agent.",
       "duplicate": "Duplicate",
       "duplicateName": "{{name}} (copy)",
@@ -4209,6 +4529,11 @@
       "profileAddDescription": "Add a description",
       "profileAddJobTitle": "Add a job title",
       "identityVoiceHint": "Default on a call. Each person can change this in call settings. Changing a voice plays a short sample.",
+      "identityVoiceQuality": "Voice quality",
+      "identityVoiceQualityHint": "Current or Top for this agent. Workspace default follows Ops.",
+      "identityVoiceQualityInherit": "Workspace default (Ops)",
+      "identityVoiceQualityCurrent": "Current (standard)",
+      "identityVoiceQualityTop": "Top (Ferrari)",
       "identityVoicePreviewFailed": "Could not play that voice.",
       "identitySaved": "Agent identity saved",
       "identitySaveError": "Could not save identity.",
@@ -4676,7 +5001,7 @@
       "title": "Folders",
       "unnamed": "Unnamed folder",
       "tenantTitle": "{{name}} folders",
-      "subtitle": "Named folders in a free tree. Optional labels decide which conversations match; filing applies that folder's labels.",
+      "subtitle": "Named folders in a free tree. Optional labels decide which conversations match.",
       "new": "New folder",
       "loading": "Loading folders...",
       "emptyTitle": "No folders yet",
@@ -4773,6 +5098,18 @@
       "view": "Layout",
       "rows": "Rows",
       "cards": "Cards",
+      "sheet": "Sheet",
+      "colName": "Name",
+      "colKind": "Kind",
+      "colDetail": "Details",
+      "colChannel": "Channel",
+      "colStatus": "Status",
+      "colLabels": "Labels",
+      "colUpdated": "Updated",
+      "kindFolder": "Folder",
+      "kindConversation": "Conversation",
+      "kindImage": "Image",
+      "kindFile": "File",
       "tabAll": "All ({{count}})",
       "tabConversations": "Conversations",
       "tabImages": "Images",
@@ -4976,6 +5313,7 @@
       "agendaOpen": "Open in Agenda",
       "agendaPlan": "Plan something",
       "agendaEmpty": "Nothing due or planned for this folder in the next two weeks.",
+      "agendaEmptyDepartment": "Nothing due or planned for this department in the next two weeks.",
       "agendaDue": "Due"
     },
     "work": {
@@ -5070,8 +5408,10 @@
       "noLinkedItems": "No queue items linked to this section yet.",
       "docsLoadError": "Could not load the folder documentation.",
       "docsEmpty": "No folder documentation yet.",
+      "docsEmptyDepartment": "No documentation for this department yet.",
       "docsEmptyTitle": "No documentation yet",
       "docsEmptyBody": "Folder docs live in Knowledge under this folder. Linked queue requests appear on each document; request status stays on the queue.",
+      "docsEmptyBodyDepartment": "Documentation for this department lives in Knowledge. Create a new document on a folder.",
       "openKnowledge": "Open Knowledge",
       "openInKnowledge": "Open in Knowledge hub",
       "openAgents": "Open Agents",
@@ -5143,14 +5483,22 @@
         "image": "Image",
         "code": "Code",
         "email": "Email",
-        "sheet": "Sheet"
+        "sheet": "Sheet",
+        "design": "Design"
       },
       "askAgent": "Ask agent to update",
+      "askShort": "Update",
+      "askDraft": "Update \"{{title}}\": ",
+      "unfiled": "Not in a folder",
+      "openFolder": "Folder",
+      "rowCount_one": "{{count}} row",
+      "rowCount_other": "{{count}} rows",
       "openThread": "Open conversation",
       "ownerAgent": "Owner",
       "moreActions": "More actions",
       "lastUpdated": "Updated {{time}}",
       "showSource": "Show source",
+      "operatorSource": "This message",
       "hideSource": "Hide source",
       "viewLabel": "Canvas view",
       "preview": "Preview",
@@ -5162,7 +5510,17 @@
       "openFull": "Expand",
       "minimize": "Minimize",
       "close": "Close",
-      "version": "Version {{n}}"
+      "version": "Version {{n}}",
+      "versions": "Versions",
+      "versionCurrent": "Version {{n}} (current)",
+      "noVersions": "No earlier version",
+      "restoreFailed": "This version could not be restored.",
+      "saveFailed": "This design could not be saved.",
+      "addFrame": "Add frame",
+      "frame": "frame",
+      "frameTitle": "Title",
+      "frameText": "Text",
+      "askFrame": "Change the frame \"{{frame}}\" of \"{{title}}\": "
     },
     "worksIn": {
       "title": "Works in",
@@ -5553,6 +5911,7 @@
       "reports": "Today",
       "developers": "Developers",
       "models": "Models",
+      "usage": "Usage",
       "billing": "Billing",
       "accessSecurity": "Access & Security",
       "users": "Users",
@@ -5584,6 +5943,7 @@
       "reports": "Daily scan, attention and usage",
       "developers": "AI tools, API tokens and webhooks",
       "models": "Bokito default and optional own models",
+      "usage": "Model spend, volume and workspace budget caps",
       "categories": "Labels for grouping; open the flow to configure a label with a flow"
     }
   },
@@ -6333,8 +6693,6 @@
     "welcomeTitle": "Welcome messages",
     "displayName": "Assistant name",
     "displayNamePlaceholder": "Assistant name",
-    "handlingAgent": "Handling agent",
-    "handlingAgentHint": "The agent that answers new widget conversations. The widget name follows this agent unless you set a name above.",
     "welcomeHeading": "Welcome title",
     "welcomeSubtitle": "Welcome subtitle",
     "colorsTitle": "Colors",
@@ -6635,10 +6993,13 @@
     }
   },
   "membersPage": {
-    "scopeLabel": "What this member sees",
+    "scopeLabel": "Scope",
     "hoursLabel": "Hours per week",
-    "hoursPlaceholder": "Hours per week",
-    "scopes": { "workspace": "Whole workspace", "departments": "Own departments" },
+    "hoursPlaceholder": "Hours",
+    "scopes": {
+      "workspace": "Workspace",
+      "departments": "Departments"
+    },
     "loadError": "Could not load members.",
     "inviteError": "Could not send the invite.",
     "resendError": "Could not resend the invite.",
@@ -6668,9 +7029,9 @@
     "hireAgentsSoon": "Coming soon",
     "hireAgentsBody": "A module from the Catalog is a department in a box: a specialist agent with its labels and flows. Add it as a new department or let it join one you have.",
     "hireAgentsCta": "Catalog",
-    "agentsSectionHint": "Company agents next to your people. Hire more from the Catalog.",
+    "agentsSectionHint": "Company agents next to your people. Hire more from Catalog at the bottom of the page.",
     "agentsEmpty": "No company agents yet.",
-    "agentsEmptyHint": "Use Hire new agents to pick specialists from the Catalog.",
+    "agentsEmptyHint": "Choose Catalog at the bottom to add specialists as a department.",
     "emailPlaceholder": "name@company.com",
     "role": "Role",
     "invite": "Invite",
@@ -6689,6 +7050,8 @@
     "colType": "Type",
     "colRole": "Role",
     "colRoleOrCeiling": "Role / ceiling",
+    "colScope": "Scope",
+    "colHours": "Hours",
     "colTeams": "Teams",
     "colOpen": "Open",
     "colLastActive": "Last active",
@@ -6827,6 +7190,72 @@
         "flow_run_completed": "Flow run completed",
         "manual_reply": "Manual human reply"
       }
+    },
+    "voiceModel": {
+      "title": "Voice quality",
+      "hint": "Default OpenAI models for voicemail TTS and live calls on this API environment. Applies immediately — no deploy. Agents can override under Agents → Edit identity.",
+      "tier": "Default tier",
+      "ttsLabel": "Voicemail TTS",
+      "realtimeLabel": "Live calls",
+      "perAgentHint": "Per agent: open the agent → Edit (identity) → Voice quality.",
+      "save": "Save voice quality",
+      "saving": "Saving…",
+      "savedToast": "Voice quality saved.",
+      "loadError": "Could not load voice quality.",
+      "saveError": "Could not save voice quality.",
+      "tiers": {
+        "current": "Current (standard)",
+        "top": "Top (Ferrari)"
+      }
+    },
+    "tabs": {
+      "directory": "Directory",
+      "usage": "Usage"
+    },
+    "usage": {
+      "title": "Token usage and margin",
+      "hint": "Measured platform spend per tenant versus resale meter. Provider cost is catalog COGS; customer cost is what we would bill.",
+      "period": "Period",
+      "periods": {
+        "7d": "7 days",
+        "30d": "30 days",
+        "90d": "90 days",
+        "mtd": "Month to date"
+      },
+      "loadError": "Could not load usage.",
+      "totals": {
+        "tokens": "Tokens",
+        "provider": "Provider cost",
+        "customer": "Resale meter",
+        "margin": "Margin"
+      },
+      "col": {
+        "workspace": "Workspace",
+        "tokens": "Tokens",
+        "provider": "Provider",
+        "customer": "Resale",
+        "margin": "Margin",
+        "book": "Price book",
+        "cap": "Cap",
+        "calls": "Calls",
+        "model": "Model",
+        "backing": "Backing",
+        "callType": "Call type",
+        "kind": "Token kind",
+        "day": "Day"
+      },
+      "blocked": "Blocked",
+      "ok": "Ok",
+      "empty": "No usage in this period.",
+      "back": "Back to overview",
+      "detailTitle": "{{name}} usage",
+      "bindBook": "Price book",
+      "bindSaved": "Price book updated.",
+      "bindError": "Could not update price book.",
+      "booksTitle": "Price books",
+      "booksHint": "Rules that set resale prices. New writes use the bound book; history is not repriced.",
+      "rule": "{{mode}} · {{kind}}={{value}}",
+      "defaultBook": "Default"
     }
   },
   "helpPublic": {
@@ -6851,7 +7280,7 @@
   },
   "orgCanvas": {
     "title": "Grid",
-    "issueOwner": "{{department}}, lead {{lead}}",
+    "issueOwner": "{{department}}, point of contact {{lead}}",
     "subtitle": "From intake to result: who picks it up, how it runs and which folder it lands in.",
     "link": "Grid",
     "openInGrid": "Open in Grid",
@@ -7056,19 +7485,28 @@
     "turnCount_other": "{{count}} waiting on them",
     "newTeam": "New department",
     "editTitle": "Edit department",
-    "dialogHint": "A department can own conversations and receive agent questions. Mix people and agents.",
+    "dialogHint": "A department owns flows and conversations. You set its crew on the department page.",
+    "parentLabel": "Sits under",
+    "parentOrg": "The organization",
+    "parentHint": "Departments go at most two levels deep.",
+    "crewAfterCreate": "After saving, the department opens so you can add its crew.",
+    "orgRow": "Organization",
+    "unplacedTitle": "Not placed yet",
+    "unplaced_one": "This agent sits in no department, so it only picks up work handed to it directly.",
+    "unplaced_other": "These agents sit in no department, so they only pick up work handed to them directly.",
+    "place": "Place",
+    "placeLabel": "Place {{name}} in a department",
+    "placed": "{{name}} now sits in {{department}}",
     "namePlaceholder": "Department name, for example Support",
     "descriptionPlaceholder": "What this team handles (optional)",
     "pickupLabel": "Pick up conversations",
     "pickup": {
       "people": "People pick up",
-      "agent_first": "Agent first",
       "round_robin": "Round robin",
       "least_open": "Least open"
     },
     "pickupHint": {
       "people": "The conversation stays with the team until someone reacts; the first reaction takes it.",
-      "agent_first": "An agent in the team answers first; people step in when it asks.",
       "round_robin": "New conversations go to the next available member in turn.",
       "least_open": "New conversations go to the available member with the fewest open conversations."
     },
@@ -7077,7 +7515,7 @@
     },
     "systemBadge": "Root",
     "systemHint": {
-      "all": "Everyone in the workspace. Child department members inherit All."
+      "all": "The top of the tree. Everyone in the workspace sits under it; the lead is its point of contact."
     },
     "noDescription": "No description",
     "memberCount_one": "{{count}} member",

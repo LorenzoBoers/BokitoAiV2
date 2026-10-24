@@ -90,6 +90,7 @@ export function ProviderConnectionsList({
                 <ConnectionScopeEditor
                   connectionId={row.connection_id || row.id}
                   projects={row.projects ?? []}
+                  departmentId={row.department_id ?? null}
                   onSaved={reloadAndNotify}
                 />
               }

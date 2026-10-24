@@ -37,7 +37,7 @@ catalog in short form. `npm run lint` enforces it.
 | Icons | Lucide at stroke width 1.75 by default (`svg.lucide` in the base layer); pass `strokeWidth` only for a deliberate exception |
 | Width | `max-w-form` 40rem, `reading` 56rem, `page` 62.5rem, `dense` 75rem, `shell` 77.5rem, `canvas` 112.5rem; rail `w-rail` / `w-rail-collapsed` |
 | Backdrop | `.scrim` for every modal, drawer and tour overlay |
-| Docs type | `text-docs-nav`, `text-docs-body`, `text-docs-h2`, `text-display` for `/docs` only |
+| Docs | Public `/docs` uses the same neutrals and Geist titles as the app (`--docs-*` maps to `--color-*`). Accent stays locked to platform green so a tenant brand does not recolor the public site. Type: `title-*` for headings, `text-docs-body` (= `base`) and `text-docs-nav` for chrome. `/docs/api` stays forced dark for Scalar |
 | Surface | `bg` (page), `bg-sidebar` (sidebar and rails), `bg-surface` (cards, composer), `bg-elevated` (insets), `bg-hover` (hover, neutral pills, own chat message), `bg-input` (fields) |
 | Status | `status-success`, `status-warning`, `status-error`, `status-info` |
 | Identity | `accent` (brand), `ai` / `ai-ink` (agents, knowledge) |
@@ -107,7 +107,12 @@ Forms use `Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Label`. Menus us
 `DropdownMenu`; modals use `Dialog`; side sheets and mobile drawers use
 `SidePanel` (`side="left"` for navigation). Both take `hideClose` when the
 content brings its own close button. No hand-rolled `fixed inset-0` layer. Hover hints
-use `Tip` (or a native `title`, which `NativeTitleTooltipBridge` upgrades).
+use `Tip`, or a native `title`. `NativeTitleTooltipBridge` draws every native title
+with the same surface as `Tip` (`TOOLTIP_SURFACE` in `tooltip.tsx`): normal weight,
+a hairline lift, no card border. A trailing shortcut such as `Minimaliseren (Esc)`
+is muted text beside the label. The box stays inside the viewport, so a control on
+the right edge does not collapse the hint into a narrow column. Change the look
+there, not at the call site.
 
 `Button` variants: `default` (accent), `secondary` (hairline), `ghost`, `ai`,
 `destructive`; all flat. Sizes `xs` 28, `sm` 32 (default), `md` 36, `lg` 40,

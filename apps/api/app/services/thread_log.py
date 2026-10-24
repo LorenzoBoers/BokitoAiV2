@@ -206,6 +206,18 @@ async def _set_live(signal_id: str, slot: str, record: dict[str, Any] | None) ->
         logger.debug("thread log live write failed", exc_info=True)
 
 
+async def _live_has(signal_id: str, slot: str) -> bool:
+    """True when this turn (or floor) is still in the cold-start live hash."""
+    redis = await _redis()
+    if redis is None:
+        return slot in memory.live_all(signal_id)
+    try:
+        return bool(await redis.hexists(_live_key(signal_id), slot))
+    except Exception:  # noqa: BLE001
+        logger.debug("thread log live has failed", exc_info=True)
+        return slot in memory.live_all(signal_id)
+
+
 async def append(
     tenant_id: Any,
     signal_id: Any,
@@ -228,8 +240,15 @@ async def append(
     payload["prev_id"] = prev
     slot = _live_slot(event, payload)
     if slot is not None:
-        closing = payload["type"] == "turn.completed"
-        await _set_live(sid, slot, None if closing else {"event": event, "topics": topics, "data": payload})
+        kind = payload["type"]
+        # turn.completed clears the slot. A late message.delta after that must
+        # not reopen it: reload would then re-stream a finished reply forever.
+        if kind == "turn.completed":
+            await _set_live(sid, slot, None)
+        elif kind == "turn.started" or event == "floor":
+            await _set_live(sid, slot, {"event": event, "topics": topics, "data": payload})
+        elif await _live_has(sid, slot):
+            await _set_live(sid, slot, {"event": event, "topics": topics, "data": payload})
     try:
         await event_bus.publish(tenant_id, topics, event, payload)
     except Exception:  # noqa: BLE001

@@ -48,7 +48,7 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 
 1. Open the folder. The search field above the list matches a conversation subject or contact, a file name, or a canvas title.
 2. **All (n)** lists subfolders first, then everything else by last activity. A count above 99 shows as **99+**. Other tabs appear only when that kind is present: **Conversations**, **Images**, **Files**, **Folders**, and one tab per canvas kind (Sheet, Dashboard, Document, and the rest).
-3. Open a row. A conversation opens in Communication, in this folder. A canvas opens on this page. An image or file opens its file, with a **Conversation** link back to the thread it came from. **Load more** fetches the next page.
+3. Open a row. A conversation opens in Communication, in this folder. A canvas opens on this page. Under a canvas title the row names the kind, for example **Diagram**, so it does not look like the conversation that shares that name. An image or file opens its file, with a **Conversation** link back to the thread it came from. **Load more** fetches the next page.
 
 ## Filter by label
 
@@ -56,9 +56,9 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 2. Tick one or more. The list keeps items whose conversation carries every ticked label. Images, files and canvases follow the conversation they belong to.
 3. Clear a tick to widen the list again.
 
-## Switch rows and cards
+## Switch rows, cards and sheet
 
-1. Next to search, choose **Rows** or **Cards**. Rows are a single list. Cards are a grid; images show a larger preview.
+1. Next to search, choose **Rows**, **Cards** or **Sheet**. Rows are one list with the name, labels and time in fixed columns. Cards are a grid; images show a larger preview. Sheet is a table with kind, details, channel, status, labels and when it was updated.
 2. The choice stays in the address bar and is remembered the next time you open a folder.
 3. Admins see **New folder** with the subfolders. That creates a folder underneath this one.
 
@@ -66,16 +66,17 @@ A folder has a **name** and a place in a free tree. Optional **labels** decide w
 
 1. Open a canvas from the folder list, then choose **Add canvas** in the viewer. Pick the agent who will own it. New places where work lands (a connection or a file folder) are added on the department's folder tab, under **Works in**. See [Workforce](/docs/getting-started/team).
 2. That opens a conversation: the agent asks what you want to see, proposes a short plan (title, widgets, refresh), then builds the snapshot and sets the refresh cadence. Keep talking in that thread to change it. A dashboard is the picture: charts, stats and tables. The agent does not paste that into the chat. It picks a recipe that fits the question (overview, trend, breakdown, comparison or report). A dashboard opens with a heading that states the finding, then a row of key figures with their change, target or status, then the chart that explains it, and the detail table last. Bokito arranges the columns itself, so a dashboard looks the same in the side panel and full screen.
-3. Tap a figure, or the title of a chart, pie or table, to show the read that produced it and the time. Above the canvas the owner shows next to the last-updated time and refresh period. The window title bar names the kind. A dashboard shows the picture. Other kinds also have **Preview** / **Code**, copy and download. Refresh and **Delete** sit in the title bar. **Back to folder** returns to the list. Only a **Dashboard** has a refresh period.
+3. Tap a figure, or the title of a chart, pie or table, to show the read that produced it and the time. When the figure is one you typed, it says **This message**. The figure is underlined. **More actions** on a dashboard copies or downloads those figures as text. The title bar names the kind, the owner, when it was updated, and the folder. When the conversation is not in a folder, it says **Not in a folder**. Beside the conversation, **Update** puts a sentence in the message field so you can ask the agent to change the canvas. **More actions** holds download, copy, **Show source** and **Delete**. A sheet shows the row count and lines number columns up on the right. On the folder page the owner and the time sit above the window, and **Open conversation** sits on the right. **Refresh** is in **More actions**. **Back to folder** returns to the list. Only a **Dashboard** has a refresh period.
 
 ## Keep more than a dashboard on a canvas
 
-A canvas belongs to its conversation. The folder of that conversation is where the canvas shows in the list (including subfolders). That conversation can hold several canvases. The agent picks the kind: **Document** (a report in Markdown), **Diagram** (a Mermaid flow), **Drawing** (an SVG, which may include a picture stored in Bokito), **Image** (a generated picture kept with the conversation), **Code** (a script you can download), **Email** (a letter with subject and body), or **Sheet** (a table). Logo and colours stay in Settings. A short answer stays in the chat.
+A canvas belongs to its conversation. The folder of that conversation is where the canvas shows in the list (including subfolders). That conversation can hold several canvases. The agent picks the kind: **Document** (a report in Markdown), **Diagram** (a Mermaid flow), **Drawing** (an SVG, which may include a picture stored in Bokito), **Image** (a generated picture kept with the conversation), **Code** (a script you can download), **Email** (a letter with subject and body), **Sheet** (a table), or **Design** (frames you drag and resize). Logo and colours stay in Settings. A short answer stays in the chat. Every edit keeps the previous version, for every kind.
 
 1. In the canvas conversation, ask for the piece, for example a diagram, a picture to keep, or a table.
-2. Open the canvas from the folder list, or the window under the agent's reply. The title bar shows the kind. Every kind uses the same window; the expand icon opens the canvas beside the conversation. The conversation stays on the left, the canvas fills the right, and the divider between them can be dragged. **More actions** on that window includes **Delete**, which moves the canvas to the Bin and stops its Agenda refresh. Close returns to the conversation.
-3. Use the download icon in the title bar. A document downloads as Markdown, a diagram as Mermaid, a drawing as SVG, code as its file type. On a sheet, choose **CSV**, **Excel**, or **Google Sheets**. CSV and Excel download a file. Google Sheets creates a spreadsheet in the connected Google Drive and opens it. Connect Google Drive under Connections when that export asks for it.
-4. Change it in that same conversation. The canvas does not get a second conversation.
+2. Open the canvas from the folder list, or click the card under the agent's reply. The title bar shows the kind. The conversation stays on the left, the canvas fills the right, and the divider between them can be dragged. **Update** fills the message field. **More actions** includes **Delete**, which moves the canvas to the Bin and stops its Agenda refresh. Close returns to the conversation.
+3. Download lives in **More actions**. A document downloads as Markdown, a diagram as Mermaid, a drawing as SVG, code as its file type. On a sheet, choose **CSV**, **Excel**, or **Google Sheets**. CSV and Excel download a file. Google Sheets creates a spreadsheet in the connected Google Drive and opens it. Connect Google Drive under Connections when that export asks for it.
+4. Change it in that same conversation. The canvas does not get a second conversation. **More actions** shows **Versions**. The current version sits at the top. Choose an earlier version to bring it back; that becomes the newest version, and the number keeps climbing.
+5. On a **Design**, drag a frame by its grip and resize it from the edges. Type the title and the text on the frame. **Update** on the frame puts a sentence in the message field about that frame. Or ask the agent in the conversation; each edit is a version again.
 
 ## Keep a content calendar for a client
 

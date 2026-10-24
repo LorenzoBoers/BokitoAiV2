@@ -13,6 +13,9 @@ import { Button } from '../ui/button'
 import { Callout } from '../ui/callout'
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
+import { Textarea } from '../ui/textarea'
 import MessageAttachments from './MessageAttachments'
 
 export type ComposePrefill = {
@@ -30,9 +33,6 @@ type Props = {
   /** Prefill for forward ("Fwd: ..." + quoted body) or contact actions. */
   prefill?: ComposePrefill | null
 }
-
-const FIELD =
-  'w-full rounded-md border border-border bg-bg-input px-2.5 py-1.5 text-sm text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none'
 
 export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Props) {
   const { t } = useTranslation('communication')
@@ -165,7 +165,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
 
         {enabledConnections.length > 0 ? (
           <div className="flex items-center gap-2 text-xs text-text-secondary" title={t('compose.fromHint')}>
-            <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.from')}</span>
+            <Label className="w-16 shrink-0 text-xs font-medium text-text-muted">{t('compose.from')}</Label>
             {enabledConnections.length === 1 ? (
               <span className="truncate-fade text-sm text-text-primary">{enabledConnections[0].mailboxEmail}</span>
             ) : (
@@ -190,14 +190,15 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         ) : null}
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.to')}</span>
-          <input
+          <Label htmlFor="compose-email-to" className="w-16 shrink-0 text-xs font-medium text-text-muted">{t('compose.to')}</Label>
+          <Input
+            id="compose-email-to"
             ref={toInputRef}
             type="text"
             value={to}
             onChange={(e) => setTo(e.target.value)}
             placeholder={t('compose.toPlaceholder')}
-            className={FIELD}
+            className="min-w-0 flex-1"
           />
           <TextLink tone={ccBccOpen || cc || bcc ? 'accent' : 'muted'}
             onClick={() => setCcBccOpen((v) => !v)}
@@ -210,28 +211,29 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         {ccBccOpen ? (
           <>
             <div className="flex items-center gap-2 text-xs">
-              <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.cc')}</span>
-              <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} className={FIELD} />
+              <Label htmlFor="compose-email-cc" className="w-16 shrink-0 text-xs font-medium text-text-muted">{t('compose.cc')}</Label>
+              <Input id="compose-email-cc" type="text" value={cc} onChange={(e) => setCc(e.target.value)} className="min-w-0 flex-1" />
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.bcc')}</span>
-              <input type="text" value={bcc} onChange={(e) => setBcc(e.target.value)} className={FIELD} />
+              <Label htmlFor="compose-email-bcc" className="w-16 shrink-0 text-xs font-medium text-text-muted">{t('compose.bcc')}</Label>
+              <Input id="compose-email-bcc" type="text" value={bcc} onChange={(e) => setBcc(e.target.value)} className="min-w-0 flex-1" />
             </div>
           </>
         ) : null}
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="w-16 shrink-0 font-medium text-text-muted">{t('compose.subject')}</span>
-          <input
+          <Label htmlFor="compose-email-subject" className="w-16 shrink-0 text-xs font-medium text-text-muted">{t('compose.subject')}</Label>
+          <Input
+            id="compose-email-subject"
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder={t('compose.subjectPlaceholder')}
-            className={FIELD}
+            className="min-w-0 flex-1"
           />
         </div>
 
-        <textarea
+        <Textarea
           ref={bodyRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -243,7 +245,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           }}
           placeholder={t('compose.bodyPlaceholder')}
           rows={10}
-          className="max-h-[320px] min-h-[160px] w-full resize-y rounded-md border border-border bg-bg-input px-2.5 py-2 text-sm leading-relaxed text-text-primary placeholder:text-text-muted focus:border-border-focus focus:outline-none"
+          aria-label={t('compose.bodyPlaceholder')}
         />
 
         <MessageAttachments
@@ -252,7 +254,7 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
         />
 
         <div className="flex items-center justify-between">
-          <input
+          <input // design-system-ignore: hidden file input opened by the attach button
             ref={fileInputRef}
             type="file"
             multiple
@@ -262,11 +264,11 @@ export default function ComposeEmailModal({ open, onClose, onSent, prefill }: Pr
           <div className="flex items-center gap-1">
           <Button
             type="button"
-            variant="ghost"
+            variant="secondary"
             size="sm"
             disabled={uploading || sending}
             onClick={() => fileInputRef.current?.click()}
-            className="gap-1.5 text-xs text-text-muted hover:text-text-primary"
+            className="gap-1.5"
           >
             <Paperclip size={14} />
             {uploading ? t('compose.uploading') : t('compose.attach')}

@@ -371,10 +371,10 @@ def unassigned_predicate():
 
 async def my_teams(session: AsyncSession, tenant_id: UUID, user_id: UUID) -> tuple[set[UUID], UUID]:
     """(custom department ids the user is in, the All root id)."""
-    from app.services.teams import all_department, user_team_ids
+    from app.services.teams import org_root, user_team_ids
 
     custom = set(await user_team_ids(session, tenant_id, user_id, include_system=False))
-    return custom, (await all_department(session, tenant_id)).id
+    return custom, (await org_root(session, tenant_id)).id
 
 
 async def for_you_clause(session: AsyncSession, tenant_id: UUID, user_id: UUID):
@@ -732,9 +732,9 @@ async def resolve_assignee(
             channel_owner = await channel_human_owner(session, signal)
             if channel_owner and channel_owner[0] == "department":
                 return channel_owner[1]
-            from app.services.teams import all_department
+            from app.services.teams import org_root
 
-            return (await all_department(session, tenant_id)).id
+            return (await org_root(session, tenant_id)).id
         raise ValueError("Missing owner id")
     account = (
         await session.get(ChannelAccount, signal.channel_account_id)

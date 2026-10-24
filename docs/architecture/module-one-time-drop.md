@@ -49,7 +49,7 @@ exists Department
     and deleted_at is null
 ```
 
-Affiliation, Grid, marketplace “installed” badges, and tool enablement that today read `ModuleInstall.install_state` switch to this check (plus any remaining ACL such as ModuleAgent roster).
+Affiliation, Grid, marketplace “installed” badges, and tool enablement that today read `ModuleInstall.install_state` switch to this check (tool access follows the module department: agents in it or below it, plus module `ResourceGrant`s).
 
 ### 3. Remove ModuleInstall
 
@@ -115,7 +115,7 @@ IntegrationBinding config.module_slug = "accounting"
 
 ## Out of scope for this decision (but related)
 
-- **ModuleAgent roster / `can_write`** — remains tool ACL after the drop (not ModuleInstall lifecycle).
+- **Module tool access** — follows the origin department and the departments below it, plus module `ResourceGrant`s to an agent or a non-root department. The `module_agents` roster and `can_write` are gone (alembic 160).
 - **Verb runtime / dispatch / write gates** — stay; relocate any gate that currently reads `ModuleInstall.writes_enabled`.
 - **Trading / other `ensure_managed_agent` stacks** — separate from module drop; do not silently reintroduce module patch-on-hire.
 

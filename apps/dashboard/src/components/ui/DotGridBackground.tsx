@@ -62,7 +62,8 @@ function ease(from: Field, to: Field, k: number): Field {
   }
 }
 
-export function DotGridBackground() {
+/** Quiet lattice behind a page. Pass `stronger` on a dark canvas (flow diagram) so the dots read at rest. */
+export function DotGridBackground({ stronger = false }: { stronger?: boolean } = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { isDark } = useTheme()
 
@@ -74,7 +75,7 @@ export function DotGridBackground() {
 
     const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const ink = isDark ? '255,255,255' : '88,84,78'
-    const base = isDark ? 0.04 : 0.05
+    const base = isDark ? (stronger ? 0.1 : 0.04) : stronger ? 0.12 : 0.05
 
     let width = 0
     let height = 0
@@ -209,7 +210,7 @@ export function DotGridBackground() {
       parent.removeEventListener('pointermove', onMove)
       parent.removeEventListener('pointerleave', onLeave)
     }
-  }, [isDark])
+  }, [isDark, stronger])
 
   return (
     <canvas

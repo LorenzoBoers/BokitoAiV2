@@ -264,10 +264,10 @@ def _serialize_conversation(signal: Signal, agents: dict[UUID, Agent] | None = N
     }
 
 
-def _serialize_target(agent: Agent, *, is_default: bool = False) -> dict:
+def _serialize_target(agent: Agent, *, is_default: bool = False, is_lead: bool = False) -> dict:
     from app.services.workforce_runtime import serialize_agent
 
-    return {**serialize_agent(agent, view="picker"), "is_default": is_default, "is_lead": bool(agent.is_lead)}
+    return {**serialize_agent(agent, view="picker"), "is_default": is_default, "is_lead": is_lead}
 
 
 @router.get("/chat/targets")
@@ -284,7 +284,12 @@ async def chat_targets(
         valid_ids = {a.id for a in company}
         if pref.default_chat_agent_id in valid_ids:
             default_id = pref.default_chat_agent_id
-    items = [_serialize_target(a, is_default=a.id == default_id) for a in company]
+    from app.services.lead_agent import lead_agent_id
+
+    lead_id = await lead_agent_id(session, auth.tenant.id)
+    items = [
+        _serialize_target(a, is_default=a.id == default_id, is_lead=a.id == lead_id) for a in company
+    ]
     return {
         "items": items,
         "default_agent_id": str(default_id) if default_id else None,

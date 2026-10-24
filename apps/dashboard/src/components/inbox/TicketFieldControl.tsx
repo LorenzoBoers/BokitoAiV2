@@ -1,5 +1,7 @@
 import type { TicketStageField } from '../../lib/tickets-api'
+import { Input } from '../ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { Textarea } from '../ui/textarea'
 
 type Props = {
   field: TicketStageField
@@ -48,7 +50,7 @@ export function TicketFieldControl({
 
   if (field.type === 'textarea') {
     return (
-      <textarea
+      <Textarea
         value={value}
         disabled={disabled}
         rows={3}
@@ -56,16 +58,13 @@ export function TicketFieldControl({
         onChange={(e) => onChange(e.target.value)}
         onBlur={(e) => onBlur?.(e.currentTarget.value)}
         aria-label={field.name}
-        className={
-          className ??
-          'w-full rounded-md border border-border bg-bg-input px-2 py-1.5 text-sm outline-none focus:border-accent'
-        }
+        className={className}
       />
     )
   }
 
   return (
-    <input
+    <Input
       type={field.type === 'number' ? 'number' : 'text'}
       value={value}
       disabled={disabled}
@@ -80,10 +79,7 @@ export function TicketFieldControl({
           : undefined
       }
       aria-label={field.name}
-      className={
-        className ??
-        'h-9 w-full rounded-md border border-border bg-bg-input px-2 text-sm outline-none focus:border-accent'
-      }
+      className={className}
     />
   )
 }

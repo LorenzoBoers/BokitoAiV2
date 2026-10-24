@@ -428,7 +428,7 @@ Operators noemen zeven dingen: Gesprek, Actietag, Flow, Map, Contact, Agent, Bes
 
 - **EN:** Module
 - **NL:** Module
-- **Toelichting:** Een cataloguspakket dat één keer dropt (`docs/architecture/module-one-time-drop.md`). Drop maakt, als ze ontbreken: een afdeling met origin-slug, een specialist, verpakte tags, flows en een skill. Daarna is het gewone data. Geen reconcile, geen tweede scherm, geen rail-item. Voorkeuren zitten in `settings_json.modules` op de afdeling. De tabel `module_installs` is weg. Tools heten `{slug}_{verb}` en zijn alleen beschikbaar voor agents op `module_agents` (`can_write` scheidt lezen van voorstellen en toepassen). Partnerkoppelingen blijven aan de slug hangen, zodat een nieuwe installatie ze terugvindt. Koppelingen maakt de installatie niet zelf. Relateert aan Department, Agent, Actietag, Flow, Knowledge en Connections.
+- **Toelichting:** Een cataloguspakket dat één keer dropt (`docs/architecture/module-one-time-drop.md`). Drop maakt, als ze ontbreken: een afdeling met origin-slug, een specialist, verpakte tags, flows en een skill. Daarna is het gewone data. Geen reconcile, geen tweede scherm, geen rail-item. Voorkeuren zitten in `settings_json.modules` op de afdeling. De tabel `module_installs` is weg. Tools heten `{slug}_{verb}` en zijn beschikbaar voor agents in de module-afdeling en de afdelingen eronder, of met een module-grant. Schrijven blijft achter de modulevoorkeur `writes_enabled` en beslissingen. Partnerkoppelingen blijven aan de slug hangen, zodat een nieuwe installatie ze terugvindt. Koppelingen maakt de installatie niet zelf. Relateert aan Department, Agent, Actietag, Flow, Knowledge en Connections.
 
 ### MCP server
 

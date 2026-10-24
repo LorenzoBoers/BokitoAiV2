@@ -26,7 +26,7 @@ Developers volgen de [embed-referentie](/docs/developers/widget-embed).
 ## Zet Uiterlijk
 
 1. Open **Uiterlijk** op dezelfde pagina.
-2. Zet **Behandelende agent** — die agent beantwoordt nieuwe widgetgesprekken. Nieuwe werkruimtes starten met **Front desk** (de klantgerichte agent). De widgetnaam volgt deze agent tenzij je **Assistentnaam** zet.
+2. Widgetgesprekken komen binnen waar **Komt binnen bij** van het widgetkanaal op [Kanalen](/docs/inbox/channels) naar wijst. Wil je dat **Front desk** antwoordt, maak die dan het aanspreekpunt van die afdeling. De widgetnaam volgt die agent tenzij je **Assistentnaam** zet.
 3. Onder **Welkomstberichten** zet je **Welkomsttitel** en **Welkomstondertitel**. Onder **Kleuren** kies je **Accent**. **Widgetpictogram** volgt Branding tenzij je een override uploadt. Onder **Wat bezoekers zien** zet je **Home**, **Berichten**, **Help** of **Tools** aan of uit. Wijzigingen worden automatisch opgeslagen (**Laatst gewijzigd** in de kop). Herlaad de stagingpagina om de live widget te zien.
 
 De chat gebruikt hetzelfde wolkjesontwerp als [Communicatie](/docs/inbox/communication): berichten van dezelfde afzender binnen vijf minuten stapelen tot één groep, het eerste wolkje draagt het avatar en de naam, het laatste de tijd. Antwoorden van de assistent tonen het agent-avatar met een **AI**-label; een antwoord van een collega toont een **Team**-label, zodat bezoekers zien wie antwoordde.

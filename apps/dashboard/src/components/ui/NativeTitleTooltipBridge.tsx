@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '../../lib/utils'
+import { TOOLTIP_SURFACE, clampTooltipCenter, splitTooltipShortcut } from './tooltip'
 
 const STORED = 'data-bokito-tip'
 const LAYER = 'data-bokito-tip-layer'
@@ -103,9 +104,11 @@ export function NativeTitleTooltipBridge() {
       const rect = el.getBoundingClientRect()
       const gap = 8
       const preferTop = rect.top >= 40
+      const explicit = el.getAttribute(DETAIL)?.trim() || null
+      const split = explicit ? { label: text, detail: explicit } : splitTooltipShortcut(text)
       setTip({
-        text,
-        detail: el.getAttribute(DETAIL)?.trim() || null,
+        text: split.label,
+        detail: split.detail,
         x: rect.left + rect.width / 2,
         y: preferTop ? rect.top - gap : rect.bottom + gap,
         place: preferTop ? 'top' : 'bottom',
@@ -211,22 +214,39 @@ export function NativeTitleTooltipBridge() {
     }
   }, [])
 
+  const layerRef = useRef<HTMLDivElement>(null)
+  const tipKey = tip ? `${tip.place}:${tip.x}:${tip.y}:${tip.text}:${tip.detail ?? ''}` : ''
+  const [nudge, setNudge] = useState({ key: '', x: 0, y: 0 })
+  if (nudge.key !== tipKey) setNudge({ key: tipKey, x: 0, y: 0 })
+
+  useLayoutEffect(() => {
+    const el = layerRef.current
+    if (!el || !tip) return
+    const rect = el.getBoundingClientRect()
+    const x = clampTooltipCenter(rect.left + rect.width / 2, rect.width, window.innerWidth) - (rect.left + rect.width / 2)
+    const y = clampTooltipCenter(rect.top + rect.height / 2, rect.height, window.innerHeight) - (rect.top + rect.height / 2)
+    if (Math.abs(x) < 0.5 && Math.abs(y) < 0.5) return
+    setNudge((prev) => ({ key: prev.key, x: prev.x + x, y: prev.y + y }))
+  }, [tip])
+
   if (!tip || typeof document === 'undefined') return null
 
   return createPortal(
     <div
+      ref={layerRef}
       data-bokito-tip-layer=""
       role="tooltip"
       className={cn(
-        'pointer-events-none fixed z-[200] max-w-xs -translate-x-1/2 rounded-md border border-border bg-bg px-2 py-1 text-xs font-medium leading-snug text-text-heading shadow-overlay animate-fade-in',
+        'pointer-events-none fixed z-[200] -translate-x-1/2 animate-fade-in',
+        TOOLTIP_SURFACE,
         tip.place === 'top' ? '-translate-y-full' : undefined,
       )}
-      style={{ left: tip.x, top: tip.y }}
+      style={{ left: tip.x + nudge.x, top: tip.y + nudge.y }}
     >
       {tip.detail ? (
-        <span className="flex flex-wrap items-baseline gap-x-2">
+        <span className="flex items-baseline gap-2 whitespace-nowrap">
           <span>{tip.text}</span>
-          <span className="font-normal text-text-muted">{tip.detail}</span>
+          <span className="text-text-muted">{tip.detail}</span>
         </span>
       ) : (
         tip.text

@@ -20,7 +20,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.module_agent import AgentScope
+from app.models.agent_scope import AgentScope
 
 SCOPE_KINDS = ("project", "knowledge", "connection")
 

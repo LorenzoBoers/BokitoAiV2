@@ -32,6 +32,7 @@ import { AiMark } from '../ai/AiMark'
 import { AvatarStack } from '../ui/AvatarStack'
 import type { AgentAvatarSource } from '../../lib/agent-avatar'
 import { getContact, getContactThreadPage } from '../../lib/contacts-api'
+import { CANVAS_ASK_EVENT } from '../../lib/project-canvas-api'
 import { inboxPath } from '../../lib/messages-paths'
 import { buildReplyDestinations, type ReplyDestination } from '../../lib/reply-destinations'
 import { mentionedTargets, teamLabelNames } from '../../lib/composer-reply-focus'
@@ -305,6 +306,24 @@ export default function ReplyComposer({
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    function onAsk(event: Event) {
+      const text = String((event as CustomEvent<{ text?: string }>).detail?.text || '').trim()
+      if (!text) return
+      setMode('ask')
+      setBody((current) => (current.trim() ? current : text))
+      requestAnimationFrame(() => {
+        const field = textareaRef.current
+        if (!field) return
+        field.focus()
+        const end = field.value.length
+        field.setSelectionRange(end, end)
+      })
+    }
+    window.addEventListener(CANVAS_ASK_EVENT, onAsk)
+    return () => window.removeEventListener(CANVAS_ASK_EVENT, onAsk)
+  }, [])
 
   // @mention autocomplete state
   const { members } = useMembers()
@@ -1453,7 +1472,7 @@ export default function ReplyComposer({
           }
           leading={
             <>
-              <input
+              <input // design-system-ignore: hidden file input opened by the attach button
                 ref={fileInputRef}
                 type="file"
                 multiple

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../components/ui/button'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { BookOpen, Copy, FileText, Search } from 'lucide-react'
+import { BookOpen, Copy, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import MarkdownView from '../components/docs/MarkdownView'
 import DocsScrollShell from '../components/docs/DocsScrollShell'
@@ -15,6 +15,7 @@ import {
   type HelpCenterIndex,
 } from '../lib/help-api'
 import { parseHelpSearch } from '../lib/help-search-url'
+import { SearchField } from '../components/ui/search-field'
 import { TextLink } from '../components/ui/text-link'
 import { PageHeader } from '../components/ui/page-header'
 
@@ -110,33 +111,16 @@ export default function HelpCenter() {
             </Link>
             {!articleSlug ? (
               <div className="mt-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    value={query}
-                    onChange={(e) => {
-                      const next = e.target.value
-                      const params = new URLSearchParams(searchParams)
-                      if (next.trim()) params.set('q', next)
-                      else params.delete('q')
-                      setSearchParams(params, { replace: true })
-                    }}
-                    placeholder={t('helpPublic.search')}
-                    className="w-full rounded-lg border bg-background py-2.5 pl-9 pr-20 text-sm outline-none focus:border-primary"
-                  />
-                  {query.trim() ? (
-                    <TextLink
-                      className="text-xs absolute right-3 top-1/2 -translate-y-1/2"
-                      onClick={() => {
-                        const params = new URLSearchParams(searchParams)
-                        params.delete('q')
-                        setSearchParams(params, { replace: true })
-                      }}
-                    >
-                      {t('helpPublic.clearSearch')}
-                    </TextLink>
-                  ) : null}
-                </div>
+                <SearchField
+                  value={query}
+                  onChange={(next) => {
+                    const params = new URLSearchParams(searchParams)
+                    if (next.trim()) params.set('q', next)
+                    else params.delete('q')
+                    setSearchParams(params, { replace: true })
+                  }}
+                  placeholder={t('helpPublic.search')}
+                />
                 <p className="mt-1.5 text-xs text-muted-foreground">{t('helpPublic.searchHint')}</p>
               </div>
             ) : null}

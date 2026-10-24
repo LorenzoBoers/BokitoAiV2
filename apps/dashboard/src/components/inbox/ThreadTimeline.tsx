@@ -650,15 +650,15 @@ const TimelineScroller = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElemen
           if (typeof ref === 'function') ref(node)
           else if (ref) ref.current = node
           if (holder) holder.scroller.current = node
+          // Anchoring is owned here, not in the style prop, so a later
+          // render does not turn it back on while the reader is scrolling.
+          if (node) node.style.overflowAnchor = holder?.anchorOffRef.current === false ? 'auto' : 'none'
         }}
         className={cn('overflow-x-hidden overflow-y-auto', className)}
         style={{
           ...style,
           overflowX: 'hidden',
           overflowY: 'auto',
-          // Pin the tail ourselves. Browser overflow-anchor plus a
-          // programmatic pin bounce the thread up and down.
-          overflowAnchor: 'none',
         }}
       />
     )
@@ -726,6 +726,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
   const atBottomRef = useRef(true)
   /** Wheel-down shortly before a scroll means the operator returned to the end. */
   const userWheelDownUntilRef = useRef(0)
+  /** Browser anchoring stays off while we pin the tail or the reader is scrolling. */
+  const anchorOffRef = useRef(true)
+  const anchorIdleRef = useRef(0)
   // Upward wheel/touch arms this. Follow stops only if the scroll that
   // follows actually leaves the latest messages.
   const wheelUpUntilRef = useRef(0)
@@ -787,16 +790,33 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     onAtBottomChange?.(false)
   }, [onAtBottomChange, stopSettling])
 
+  const applyAnchor = useCallback((off: boolean) => {
+    anchorOffRef.current = off
+    const el = scrollerNode.current
+    if (el) el.style.overflowAnchor = off ? 'none' : 'auto'
+  }, [])
+
+  const noteUserScroll = useCallback(() => {
+    applyAnchor(true)
+    window.clearTimeout(anchorIdleRef.current)
+    anchorIdleRef.current = window.setTimeout(() => {
+      // Still following: keep anchoring off so our pin does not fight the browser.
+      // Stopped on an earlier message: restore it so growth above holds their place.
+      applyAnchor(!readingHistoryRef.current)
+    }, 160)
+  }, [applyAnchor])
+
   const noteWheel = useCallback((deltaY: number) => {
     if (deltaY > 6) userWheelDownUntilRef.current = Date.now() + 500
     // Do not release here. A flick on a thread that already shows the latest
     // row never moves the scroller, and releasing anyway raised "N new"
     // while the operator was still reading the bottom.
     if (deltaY < -6) wheelUpUntilRef.current = Date.now() + 400
-  }, [])
+    if (deltaY !== 0) noteUserScroll()
+  }, [noteUserScroll])
 
   const scrollApi = useMemo<TimelineScrollApi>(
-    () => ({ scroller: scrollerNode, releaseFollow, noteWheel }),
+    () => ({ scroller: scrollerNode, releaseFollow, noteWheel, anchorOffRef }),
     [noteWheel, releaseFollow],
   )
 
@@ -805,6 +825,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
    * easing toward a list that is still growing is the air under new rows.
    */
   const flushTail = useCallback(() => {
+    // Follow the bottom only when the reader was already there.
     if (readingHistoryRef.current) return
     const el = scrollerNode.current
     if (!el) return
@@ -841,6 +862,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     (_behavior: 'auto' | 'smooth' = 'auto', settleMs = 0) => {
       readingHistoryRef.current = false
       atBottomRef.current = true
+      window.clearTimeout(anchorIdleRef.current)
+      applyAnchor(true)
       stopSettling()
       // Footer holds the live bubble. Index-snap on the last message hides
       // it. One flush now, and one after the new row has a height.
@@ -851,7 +874,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
         .filter((ms) => ms <= settleMs)
         .map((ms) => window.setTimeout(flushTail, ms))
     },
-    [flushTail, stopSettling],
+    [applyAnchor, flushTail, stopSettling],
   )
 
   // Cleanup only: a stopSettling() here would run after the layout effect
@@ -988,6 +1011,7 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       if (performance.now() < followWriteUntilRef.current) return
       const userUp = pointerDown || Date.now() < wheelUpUntilRef.current
       if (userUp && delta < -1) {
+        noteUserScroll()
         userLeavingTail()
         return
       }
@@ -1002,6 +1026,8 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       if (cameBack) {
         readingHistoryRef.current = false
         atBottomRef.current = true
+        window.clearTimeout(anchorIdleRef.current)
+        applyAnchor(true)
         onAtBottomChange?.(true)
         flushTail()
         lastTop = el.scrollTop
@@ -1014,7 +1040,10 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
     el.addEventListener('pointerup', onPointerUp, { passive: true })
     el.addEventListener('pointercancel', onPointerUp, { passive: true })
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Home') userLeavingTail()
+      if (event.key === 'ArrowUp' || event.key === 'PageUp' || event.key === 'Home') {
+        noteUserScroll()
+        userLeavingTail()
+      }
     }
     el.addEventListener('keydown', onKeyDown)
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -1030,8 +1059,9 @@ const ThreadTimeline = forwardRef<ThreadTimelineHandle, Props>(function ThreadTi
       contentRo.disconnect()
       listMo.disconnect()
       if (followUp) window.cancelAnimationFrame(followUp)
+      window.clearTimeout(anchorIdleRef.current)
     }
-  }, [threadId, rows.length > 0, noteWheel, releaseFollow, onAtBottomChange, flushTail])
+  }, [threadId, rows.length > 0, noteWheel, noteUserScroll, releaseFollow, onAtBottomChange, flushTail, applyAnchor])
 
   useEffect(() => () => footerRoRef.current?.disconnect(), [])
 

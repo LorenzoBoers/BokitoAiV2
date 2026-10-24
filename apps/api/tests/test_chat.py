@@ -172,30 +172,30 @@ async def test_chat_targets_company_only_and_create_requires_agent(
     assert all(item.get("kind") == "company" for item in payload["items"])
     assert "personal" not in {item.get("kind") for item in payload["items"]}
 
-    # Single lead may be auto-picked; add a second lead so create without agent_id fails.
+    # Without agent_id the organization's point of contact (the lead) is picked.
+    from app.services.lead_agent import lead_agent_id
+
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
     ).scalar_one()
     session_override.add(
         Agent(
             tenant_id=tenant.id,
-            name="Second Lead",
+            name="Second Assistant",
             role="assistant",
             kind="company",
             chat_access="everyone",
-            is_lead=True,
         )
     )
     await session_override.commit()
 
-    missing = await client.post(
+    picked = await client.post(
         "/api/signals/conversations",
         json={"title": "No agent"},
         headers=headers,
     )
-    assert missing.status_code == 400, missing.text
-    detail = missing.json().get("detail", missing.text)
-    assert "choose" in str(detail).lower()
+    assert picked.status_code == 200, picked.text
+    assert picked.json()["agent_id"] == str(await lead_agent_id(session_override, tenant.id))
 
 
 @pytest.mark.asyncio

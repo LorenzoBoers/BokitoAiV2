@@ -1,7 +1,8 @@
+import type { TFunction } from 'i18next'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
-import { File, Image as ImageIcon, LayoutGrid, List, Plus, Tags } from 'lucide-react'
+import { File, Image as ImageIcon, LayoutGrid, List, Plus, Table2, Tags } from 'lucide-react'
 import { CANVAS_ICON, ENTITY_ICONS } from '../../lib/entity-icons'
 import { CANVAS_KINDS } from '../../lib/project-canvas/types'
 import {
@@ -18,7 +19,7 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
-import { ChannelGlyph } from '../ui/ChannelGlyph'
+import { ChannelGlyph, channelKind } from '../ui/ChannelGlyph'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -30,26 +31,32 @@ import { MetaLine } from '../ui/meta-line'
 import { SearchField } from '../ui/search-field'
 import { SegmentedControl } from '../ui/segmented-control'
 import { ConversationRowsSkeleton, CardGridSkeleton } from '../ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
 import { ThreadStatusDot } from '../ui/ThreadStatusDot'
 import { threadStatusLabel } from '../../lib/status-labels'
 
 const VIEW_KEY = 'bokito.folder.contents.view'
 const FolderIcon = ENTITY_ICONS.project
+const ROW_GRID = 'grid grid-cols-[2rem_minmax(0,1.5fr)_minmax(8rem,1fr)_4.5rem_6rem] items-center gap-x-3'
+
+type ContentsView = 'rows' | 'cards' | 'sheet'
 
 export function contentsCountLabel(count: number): string {
   return count > 99 ? '99+' : String(count)
 }
 
-function storedView(): 'rows' | 'cards' {
+function storedView(): ContentsView {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'cards' ? 'cards' : 'rows'
+    const raw = localStorage.getItem(VIEW_KEY)
+    if (raw === 'cards' || raw === 'sheet') return raw
+    return 'rows'
   } catch {
     return 'rows'
   }
 }
 
-function rememberView(view: 'rows' | 'cards') {
+function rememberView(view: ContentsView) {
   try {
     localStorage.setItem(VIEW_KEY, view)
   } catch {
@@ -81,7 +88,7 @@ export function FolderContents({
     [searchParams],
   )
   const urlView = searchParams.get('view')
-  const view: 'rows' | 'cards' = urlView === 'cards' || urlView === 'rows' ? urlView : storedView()
+  const view: ContentsView = urlView === 'cards' || urlView === 'rows' || urlView === 'sheet' ? urlView : storedView()
 
   const [draftQ, setDraftQ] = useState(urlQ)
   const [page, setPage] = useState<FolderContentsPage | null>(null)
@@ -94,7 +101,7 @@ export function FolderContents({
   }, [urlQ])
 
   const write = useCallback(
-    (patch: { type?: string; q?: string; labels?: string[]; view?: 'rows' | 'cards' }) => {
+    (patch: { type?: string; q?: string; labels?: string[]; view?: ContentsView }) => {
       const next = new URLSearchParams(searchParams)
       if (patch.type !== undefined) {
         if (!patch.type || patch.type === 'all') next.delete('type')
@@ -242,7 +249,7 @@ export function FolderContents({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-        <SegmentedControl<'rows' | 'cards'>
+        <SegmentedControl<ContentsView>
           size="sm"
           value={view}
           onChange={(next) => write({ view: next })}
@@ -250,6 +257,7 @@ export function FolderContents({
           options={[
             { value: 'rows', label: t('projects.contents.rows'), icon: <List size={14} aria-hidden /> },
             { value: 'cards', label: t('projects.contents.cards'), icon: <LayoutGrid size={14} aria-hidden /> },
+            { value: 'sheet', label: t('projects.contents.sheet'), icon: <Table2 size={14} aria-hidden /> },
           ]}
         />
       </div>
@@ -282,20 +290,31 @@ export function FolderContents({
           size="sm"
           title={filtering ? t('projects.contents.emptyFiltered') : t('projects.contents.empty')}
         />
+      ) : view === 'sheet' ? (
+        <ContentSheet
+          folderRows={folderRows}
+          otherRows={otherRows}
+          projectId={projectId}
+          showCreate={showCreate}
+          onCreateFolder={onCreateFolder}
+          empty={items.length === 0 ? (filtering ? t('projects.contents.emptyFiltered') : t('projects.contents.empty')) : null}
+        />
       ) : view === 'rows' ? (
-        <Card className="divide-y divide-border/50 p-1">
-          {folderRows.map((item) => (
-            <ContentRow key={`${item.kind}:${item.id}`} item={item} projectId={projectId} />
-          ))}
-          {showCreate ? <NewFolderRow onClick={onCreateFolder!} /> : null}
-          {otherRows.map((item) => (
-            <ContentRow key={`${item.kind}:${item.id}`} item={item} projectId={projectId} />
-          ))}
-          {items.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-text-muted">
-              {filtering ? t('projects.contents.emptyFiltered') : t('projects.contents.empty')}
-            </p>
-          ) : null}
+        <Card className="overflow-x-auto p-1">
+          <div className="min-w-[40rem] divide-y divide-border/50">
+            {folderRows.map((item) => (
+              <ContentRow key={`${item.kind}:${item.id}`} item={item} projectId={projectId} />
+            ))}
+            {showCreate ? <NewFolderRow onClick={onCreateFolder!} /> : null}
+            {otherRows.map((item) => (
+              <ContentRow key={`${item.kind}:${item.id}`} item={item} projectId={projectId} />
+            ))}
+            {items.length === 0 ? (
+              <p className="px-3 py-4 text-sm text-text-muted">
+                {filtering ? t('projects.contents.emptyFiltered') : t('projects.contents.empty')}
+              </p>
+            ) : null}
+          </div>
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -321,10 +340,14 @@ export function FolderContents({
 function NewFolderRow({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation('nav')
   return (
-    <Button type="button" variant="ghost" onClick={onClick} className="w-full justify-start text-text-muted">
-      <Plus size={14} aria-hidden />
-      {t('projects.detail.newFolder')}
-    </Button>
+    <div className="px-3">
+      <Button type="button" variant="ghost" onClick={onClick} className="h-auto w-full justify-start gap-3 px-0 py-2 text-text-muted">
+        <span className="flex h-8 w-8 items-center justify-center">
+          <Plus size={14} aria-hidden />
+        </span>
+        {t('projects.detail.newFolder')}
+      </Button>
+    </div>
   )
 }
 
@@ -347,26 +370,186 @@ function itemTitle(item: FolderContentItem, fallback: string) {
   return item.title.trim() || fallback
 }
 
+function detailText(item: FolderContentItem, t: TFunction): string {
+  if (item.kind === 'folder') {
+    const bits = [t('projects.detail.folderCounts', { open: item.open_count ?? 0, closed: item.closed_count ?? 0 })]
+    if ((item.child_count ?? 0) > 0) bits.push(String(t('projects.page.folders', { count: item.child_count })))
+    return bits.join(' · ')
+  }
+  if (item.kind === 'canvas') {
+    const kind = kindLabel(item, t)
+    const sub = (item.subtitle ?? '').trim()
+    return sub ? `${kind} · ${sub}` : kind
+  }
+  return (item.subtitle ?? '').trim()
+}
+
+function kindLabel(item: FolderContentItem, t: TFunction): string {
+  if (item.kind === 'canvas') return t(`projects.canvas.kinds.${item.canvas_kind || 'dashboard'}`)
+  if (item.kind === 'folder') return t('projects.contents.kindFolder')
+  if (item.kind === 'conversation') return t('projects.contents.kindConversation')
+  if (item.kind === 'image') return t('projects.contents.kindImage')
+  return t('projects.contents.kindFile')
+}
+
+function channelName(channel: string | null | undefined, t: TFunction): string {
+  if (!channel) return ''
+  const kind = channelKind(channel)
+  return t(`composer.channel.${kind}`, { ns: 'communication', defaultValue: kind })
+}
+
+function MarkSlot({ item }: { item: FolderContentItem }) {
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+      <ItemMark item={item} />
+    </span>
+  )
+}
+
+function LabelChips({ item, nowrap = false }: { item: FolderContentItem; nowrap?: boolean }) {
+  if (item.labels.length === 0) return null
+  return (
+    <span className={cn('flex min-w-0 gap-1', nowrap ? 'flex-nowrap overflow-hidden' : 'flex-wrap')}>
+      {item.labels.map((label) => (
+        <Badge key={label.id} size="sm" className={nowrap ? 'shrink-0' : undefined}>
+          {label.name}
+        </Badge>
+      ))}
+    </span>
+  )
+}
+
 function ContentRow({ item, projectId }: { item: FolderContentItem; projectId: string }) {
   const { t } = useTranslation('nav')
   const title = itemTitle(item, t('projects.contents.noTitle'))
+  const detail = detailText(item, t)
   return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-bg-hover">
-      <ItemLink item={item} projectId={projectId} className="flex min-w-0 flex-1 items-center gap-3">
-        <ItemMark item={item} />
-        <span className="min-w-0 flex-1">
-          <span className={cn('block truncate-fade text-sm text-text-primary', item.unread && 'font-semibold text-text-heading')}>
-            {title}
-          </span>
-          <ItemMeta item={item} />
+    <div className={cn(ROW_GRID, 'rounded-lg px-3 py-2 hover:bg-bg-hover')}>
+      <MarkSlot item={item} />
+      <ItemLink item={item} projectId={projectId} className="min-w-0">
+        <span className={cn('block truncate-fade text-sm text-text-primary', item.unread && 'font-semibold text-text-heading')}>
+          {title}
         </span>
+        {detail ? <span className="block truncate text-xs text-text-muted">{detail}</span> : null}
       </ItemLink>
-      <ThreadLink item={item} projectId={projectId} />
-      {item.updated_at ? (
-        <span className="shrink-0 text-2xs tabular-nums text-text-muted">{timeAgo(item.updated_at, t)}</span>
-      ) : null}
+      <LabelChips item={item} />
+      <span className="justify-self-end">
+        <ThreadLink item={item} projectId={projectId} />
+      </span>
+      <span className="justify-self-end whitespace-nowrap text-right text-2xs tabular-nums text-text-muted">
+        {item.updated_at ? timeAgo(item.updated_at, t) : ''}
+      </span>
     </div>
   )
+}
+
+function ContentSheet({
+  folderRows,
+  otherRows,
+  projectId,
+  showCreate,
+  onCreateFolder,
+  empty,
+}: {
+  folderRows: FolderContentItem[]
+  otherRows: FolderContentItem[]
+  projectId: string
+  showCreate: boolean
+  onCreateFolder?: () => void
+  empty: string | null
+}) {
+  const { t } = useTranslation('nav')
+  return (
+    <Table className="table-fixed">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[24%]">{t('projects.contents.colName')}</TableHead>
+          <TableHead className="w-[9%]">{t('projects.contents.colKind')}</TableHead>
+          <TableHead className="w-[18%]">{t('projects.contents.colDetail')}</TableHead>
+          <TableHead className="w-[10%]">{t('projects.contents.colChannel')}</TableHead>
+          <TableHead className="w-[8%]">{t('projects.contents.colStatus')}</TableHead>
+          <TableHead className="w-[16%]">{t('projects.contents.colLabels')}</TableHead>
+          <TableHead className="w-[9%] text-right">{t('projects.contents.colUpdated')}</TableHead>
+          <TableHead className="w-[6%]">{t('projects.contents.openThread')}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {folderRows.map((item) => (
+          <SheetRow key={`${item.kind}:${item.id}`} item={item} projectId={projectId} />
+        ))}
+        {showCreate && onCreateFolder ? (
+          <TableRow>
+            <TableCell colSpan={8}>
+              <Button type="button" variant="ghost" onClick={onCreateFolder} className="justify-start px-0 text-text-muted">
+                <Plus size={14} aria-hidden />
+                {t('projects.detail.newFolder')}
+              </Button>
+            </TableCell>
+          </TableRow>
+        ) : null}
+        {otherRows.map((item) => (
+          <SheetRow key={`${item.kind}:${item.id}`} item={item} projectId={projectId} />
+        ))}
+        {empty ? (
+          <TableRow>
+            <TableCell colSpan={8} className="text-text-muted">
+              {empty}
+            </TableCell>
+          </TableRow>
+        ) : null}
+      </TableBody>
+    </Table>
+  )
+}
+
+function SheetRow({ item, projectId }: { item: FolderContentItem; projectId: string }) {
+  const { t } = useTranslation('nav')
+  const title = itemTitle(item, t('projects.contents.noTitle'))
+  const detail = detailText(item, t)
+  const channel = item.kind === 'conversation' ? channelName(item.channel, t) : ''
+  const status = item.kind === 'conversation' ? threadStatusLabel(item.status, t) : ''
+  return (
+    <TableRow>
+      <TableCell className="overflow-hidden">
+        <ItemLink item={item} projectId={projectId} className="flex min-w-0 items-center gap-2">
+          <MarkSlot item={item} />
+          <span className={cn('min-w-0 truncate', item.unread && 'font-semibold text-text-heading')}>{title}</span>
+        </ItemLink>
+      </TableCell>
+      <TableCell className="overflow-hidden whitespace-nowrap text-text-secondary">{kindLabel(item, t)}</TableCell>
+      <TableCell className="overflow-hidden text-text-secondary">
+        {detail ? <span className="block truncate">{detail}</span> : <Blank />}
+      </TableCell>
+      <TableCell className="overflow-hidden whitespace-nowrap">
+        {channel ? (
+          <span className="inline-flex items-center gap-1.5 text-text-secondary">
+            <ChannelGlyph channel={item.channel ?? 'email'} size={14} />
+            {channel}
+          </span>
+        ) : (
+          <Blank />
+        )}
+      </TableCell>
+      <TableCell className="overflow-hidden whitespace-nowrap text-text-secondary">{status || <Blank />}</TableCell>
+      <TableCell className="overflow-hidden">
+        {item.labels.length > 0 ? <LabelChips item={item} nowrap /> : <Blank />}
+      </TableCell>
+      <TableCell className="overflow-hidden whitespace-nowrap text-right tabular-nums text-text-muted">
+        {item.updated_at ? timeAgo(item.updated_at, t) : <Blank />}
+      </TableCell>
+      <TableCell>
+        {item.signal_id && item.kind !== 'conversation' && item.kind !== 'folder' ? (
+          <ThreadLink item={item} projectId={projectId} />
+        ) : (
+          <Blank />
+        )}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function Blank() {
+  return <span className="text-text-muted">—</span>
 }
 
 function ContentCard({ item, projectId }: { item: FolderContentItem; projectId: string }) {
@@ -403,7 +586,7 @@ function ItemMark({ item }: { item: FolderContentItem }) {
   const { t } = useTranslation('nav')
   if (item.kind === 'conversation') {
     return (
-      <span className="flex shrink-0 items-center gap-2">
+      <span className="flex items-center gap-1">
         <ThreadStatusDot status={item.status} unread={Boolean(item.unread)} title={threadStatusLabel(item.status, t)} />
         <ChannelGlyph channel={item.channel ?? 'email'} size={14} />
       </span>
@@ -432,6 +615,9 @@ function ItemMeta({ item }: { item: FolderContentItem }) {
   if (item.kind === 'folder') {
     bits.push(t('projects.detail.folderCounts', { open: item.open_count ?? 0, closed: item.closed_count ?? 0 }))
     if ((item.child_count ?? 0) > 0) bits.push(t('projects.page.folders', { count: item.child_count }))
+  } else if (item.kind === 'canvas') {
+    bits.push(kindLabel(item, t))
+    if (item.subtitle) bits.push(item.subtitle)
   } else if (item.subtitle) {
     bits.push(item.subtitle)
   }

@@ -24,6 +24,60 @@ from app.services.user_memory import clear_user_memory, delete_user_memory, list
 router = APIRouter(prefix="/me", tags=["me"])
 
 
+class DockAgent(BaseModel):
+    agent_id: str
+    dial_key: str
+
+
+class DockAgentsBody(BaseModel):
+    agents: list[DockAgent] = []
+
+
+class DockAgentsOut(BaseModel):
+    agents: list[DockAgent]
+    keys: list[str]
+    all_call_key: str
+
+
+def _dock_out(rows: list[dict[str, str]]) -> DockAgentsOut:
+    from app.services.dock_agents import ALL_CALL_KEY, DIAL_KEYS
+
+    return DockAgentsOut(
+        agents=[DockAgent(**row) for row in rows],
+        keys=list(DIAL_KEYS),
+        all_call_key=ALL_CALL_KEY,
+    )
+
+
+@router.get("/dock-agents", response_model=DockAgentsOut)
+async def get_dock_agents(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Agents this person pinned to the dock, each with its fixed dial key.
+
+    Only pins that resolve in the current workspace are returned; leftovers
+    from another tenant are omitted so the pin picker never re-saves them.
+    """
+    from app.services.dock_agents import live_dock
+
+    return _dock_out(await live_dock(session, auth.tenant.id, auth.user))
+
+
+@router.put("/dock-agents", response_model=DockAgentsOut)
+async def put_dock_agents(
+    body: DockAgentsBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Replace the pinned agents. Keys must be unique; at most six agents."""
+    from app.services.dock_agents import write_dock
+
+    rows = await write_dock(session, auth.tenant.id, auth.user, [row.model_dump() for row in body.agents])
+    await session.commit()
+    return _dock_out(rows)
+
+
 class PreferencesPatch(BaseModel):
     default_chat_agent_id: UUID | None = None
     ui_language: str | None = None

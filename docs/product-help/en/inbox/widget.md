@@ -26,7 +26,7 @@ Developers can follow the [embed reference](/docs/developers/widget-embed).
 ## Set Look
 
 1. Open **Look** on the same page.
-2. Set **Handling agent** — that agent answers new widget conversations. New workspaces default to **Front desk** (the customer-facing agent). The widget name follows this agent unless you set **Assistant name**.
+2. Widget conversations land where the widget channel's **Lands on** points on [Channels](/docs/inbox/channels). To let **Front desk** answer, make it the point of contact of that department. The widget name follows that agent unless you set **Assistant name**.
 3. Under **Welcome messages**, set **Welcome title** and **Welcome subtitle**. Under **Colors**, pick **Accent**. **Widget icon** follows Branding unless you upload an override. Under **What visitors see**, turn modules **Home**, **Messages**, **Help** or **Tools** on or off. Changes save automatically (**Last modified** shows in the header). Reload the staging page to see the live widget.
 
 The chat itself uses the same bubble design as [Communication](/docs/inbox/communication): messages from the same author within five minutes stack into one group, the first bubble of a group carries the avatar and name, and the last one carries the time. Assistant replies show the agent avatar with an **AI** chip; a reply from a colleague shows a **Team** chip instead, so visitors can see who answered.

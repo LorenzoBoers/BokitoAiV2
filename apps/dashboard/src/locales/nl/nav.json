@@ -1,7 +1,7 @@
 {
   "departmentPage": {
     "proposals": "Verbetervoorstellen",
-    "proposalsHint": "De leidende agent doet deze voorstellen vanuit de scorekaart. Er verandert niets tot iemand het goedkeurt in het afdelingsgesprek.",
+    "proposalsHint": "Het aanspreekpunt doet deze voorstellen vanuit de scorekaart. Er verandert niets tot iemand het goedkeurt in het afdelingsgesprek.",
     "openProposal": "Openen",
     "proposalKind": {
       "autonomy": "Autonomie",
@@ -10,10 +10,56 @@
       "new_flow": "Nieuw werk"
     },
     "title": "Afdeling",
-    "subtitle": "Wie leidt, wie werkt erin, en wat er per werk loopt.",
+    "subtitle": "Wie erop zit, wie oppakt en wat er per werk loopt.",
+    "orgSubtitle": "De top van de boom: de lead pakt op wat geen afdeling bezit en delegeert.",
     "loadError": "Deze afdeling kon niet laden",
     "changeIcon": "Icoon wijzigen",
-    "tabAll": "Alles",
+    "tabOverview": "Overzicht",
+    "crew": {
+      "path": "Plek in de organisatie",
+      "empty": "Er zit nog niemand op deze afdeling.",
+      "emptyEdit": "Voeg hieronder agents en mensen toe.",
+      "implicit": "automatisch",
+      "edit": "Bewerken",
+      "role": {
+        "contact": "Aanspreekpunt",
+        "accountable": "Verantwoordelijk",
+        "member": "Lid"
+      },
+      "workspaceRole": {
+        "owner": "Eigenaar",
+        "admin": "Beheerder"
+      },
+      "agents": "Agents",
+      "people": "Mensen",
+      "title": "Bezetting van {{name}}",
+      "hint": "Het aanspreekpunt pakt werk voor deze afdeling op en vraagt de anderen. De verantwoordelijke beantwoordt zijn vragen. Afdelingen eronder erven leesrecht, geen verantwoordelijkheid.",
+      "hintOrg": "Het aanspreekpunt hier is de lead van de werkruimte: die pakt op wat geen afdeling bezit en delegeert. Eigenaren en beheerders zitten op de organisatie door hun rol.",
+      "roleLabel": "Rol",
+      "focusLabel": "Focus",
+      "focusPlaceholder": "Focus, bijvoorbeeld facturen en herinneringen",
+      "remove": "{{name}} verwijderen",
+      "add": "Agent of persoon toevoegen",
+      "contactHint": "Zonder aanspreekpunt neemt de eerste agent in de lijst die rol.",
+      "save": "Bezetting opslaan",
+      "saved": "Bezetting opgeslagen",
+      "undo": "Ongedaan maken",
+      "saveError": "Kon de bezetting niet opslaan.",
+      "contactConfirmTitle": "Aanspreekpunt wijzigen?",
+      "contactConfirm": "{{name}} pakt vanaf nu nieuw werk voor deze afdeling op.",
+      "contactConfirmNone": "Er is niemand gekozen; de eerste agent in de lijst is het aanspreekpunt.",
+      "orgWarning": "Agents op organisatieniveau zien en sturen alle afdelingen.",
+      "adminsLine": "Door hun rol ook op de organisatie: {{names}}"
+    },
+    "children": {
+      "title": "Afdelingen eronder",
+      "titleOrg": "Afdelingen",
+      "new": "Nieuwe subafdeling",
+      "contact": "Aanspreekpunt: {{name}}",
+      "noContact": "Nog geen aanspreekpunt",
+      "open_one": "{{count}} open",
+      "open_other": "{{count}} open"
+    },
     "settings": "Afdelingsinstellingen",
     "decisions": "Beslissingen",
     "folderEmpty": "Geen open werk van deze afdeling in deze map.",
@@ -22,16 +68,8 @@
     "team": "Team",
     "iconTitle": "Icoon van de afdeling",
     "iconBody": "Dit icoon staat bij de afdeling in het menu links.",
-    "rootName": "Alles",
-    "parentEmpty": "Niemand staat op deze afdeling.",
-    "leadership": "Leiding",
-    "lead": "Leidende agent",
-    "accountable": "Eindverantwoordelijke",
+    "accountable": "Verantwoordelijk",
     "none": "Niet ingesteld",
-    "duty": {
-      "primary": "Eerste",
-      "backup": "Back-up"
-    },
     "openAssigned_one": "{{count}} open",
     "openAssigned_other": "{{count}} open",
     "hours_one": "{{count}} uur per week",
@@ -76,13 +114,21 @@
       "decisions_one": "{{count}} beslissing wacht",
       "decisions_other": "{{count}} beslissingen wachten",
       "calm": "Niets vraagt om aandacht.",
-      "orientation": "Laatste oriëntatie van de leider, {{when}}",
+      "orientation": "Laatste oriëntatie van het aanspreekpunt, {{when}}",
       "quiet": "Niets nieuws sinds de vorige oriëntatie.",
-      "noOrientation": "De leider heeft nog niet georiënteerd. Dat doet hij op zijn schema in het afdelingsgesprek."
+      "noOrientation": "Het aanspreekpunt heeft nog niet georiënteerd. Dat gebeurt op schema in het afdelingsgesprek."
+    },
+    "visibility": {
+      "label": "Zichtbaarheid",
+      "open": "Open",
+      "shielded": "Afgeschermd",
+      "hint": "Open werk lezen collega's mee zonder het te kunnen wijzigen. Afgeschermd werk lezen alleen deze afdeling, de afdelingen eronder en erboven, en eigenaren en beheerders."
     },
     "awareness": {
-      "title": "Waar de leider op let",
-      "hint": "De wake is geen agenda-item. De agent kijkt rond op het gekozen moment en logt dat bij activiteiten.",
+      "title": "Waar het aanspreekpunt op let",
+      "titleFor": "Waar {{name}} op let",
+      "pickContact": "Kies een aanspreekpunt",
+      "hint": "Het wekmoment hoort bij de afdeling; het aanspreekpunt voert het uit. Een nieuw aanspreekpunt neemt het schema en de brief over. De wake is geen agenda-item.",
       "mode": "Wake",
       "modes": {
         "off": "Uit",
@@ -91,7 +137,7 @@
         "custom": "Eigen cadans"
       },
       "cron": "Cadans",
-      "follows": "Gebeurtenissen die de leider volgt",
+      "follows": "Gebeurtenissen die het aanspreekpunt volgt",
       "follow": {
         "inbound": "Nieuwe berichten",
         "stage_change": "Stapwissels",
@@ -107,12 +153,12 @@
       "nextOrientation": "Volgend wekmoment",
       "nextWake": "Volgend wekmoment",
       "save": "Opslaan",
-      "noLead": "Deze afdeling heeft geen leidende agent. Maak eerst een agent eerste onder Leiding."
+      "noLead": "Deze afdeling heeft nog geen agent. Voeg er een toe via Bewerken naast de bezetting."
     },
     "domain": {
       "title": "Domeinvragen",
-      "hint": "De leider vraagt de eindverantwoordelijke wat hij niet uit het werk kan lezen. Antwoorden worden feiten in zijn vaste brief.",
-      "empty": "De leider heeft nog niets gevraagd.",
+      "hint": "Het aanspreekpunt vraagt de verantwoordelijke wat het niet uit het werk kan lezen. Antwoorden worden feiten in zijn vaste brief.",
+      "empty": "Het aanspreekpunt heeft nog niets gevraagd.",
       "placeholder": "Jouw antwoord",
       "answer": "Antwoorden",
       "inThread": "Antwoord in het gesprek"
@@ -151,7 +197,7 @@
     },
     "outcomes": {
       "title": "Uitkomsten",
-      "hint": "Hoe de voorstellen van de leider vielen (60 dagen) en de correcties per werk (30 dagen).",
+      "hint": "Hoe de voorstellen van het aanspreekpunt vielen (60 dagen) en de correcties per werk (30 dagen).",
       "accepted_one": "{{count}} voorstel goedgekeurd",
       "accepted_other": "{{count}} voorstellen goedgekeurd",
       "rejected_one": "{{count}} afgewezen",
@@ -159,7 +205,13 @@
       "feedback_one": "{{count}} correctie",
       "feedback_other": "{{count}} correcties"
     },
-    "scorecardHint": "Gesloten, autonoom en gecorrigeerd komen uit de scorekaart van elk werklabel over de laatste 7 dagen."
+    "scorecardHint": "Gesloten, autonoom en gecorrigeerd komen uit de scorekaart van elk werklabel over de laatste 7 dagen.",
+    "orgRules": {
+      "label": "Organisatieregels",
+      "off": "Uit",
+      "on": "Aan",
+      "hint": "Aan: alleen de agent die een gesprek houdt handelt erin, anderen lezen mee of worden gevraagd; afgeschermde afdelingen blijven buiten bereik; vragen gaan langs de boom en escaleren naar de verantwoordelijke erboven."
+    }
   },
   "comingSoon": "Binnenkort",
   "errorBoundary": {
@@ -536,7 +588,9 @@
         "select": "Klik een stap of een pijl om hem in te stellen.",
         "draw": "Sleep vanaf de stip rechts op een stap naar een andere stap, of laat los op een lege plek voor een nieuwe stap.",
         "move": "Sleep een losse stap naar een andere kolom, boven of onder een stap.",
-        "rightClick": "Rechtsklik op een stap, een pijl of de achtergrond voor meer acties."
+        "rightClick": "Rechtsklik op een stap, een pijl of de achtergrond voor meer acties.",
+        "branch": "Hover een pijl. Op het plusje zie je een stap boven de volgende, met een tak erheen. Klik om die te plaatsen, of sleep naar een andere stap; de lijn loopt om de stappen heen.",
+        "zoom": "Scroll om in te zoomen, sleep de achtergrond om te verschuiven. Verder uitzoomen dan het hele werk in beeld kan niet."
       },
       "wie": {
         "none": "Niet ingesteld",
@@ -562,6 +616,7 @@
       "line": "Deze lijn",
       "draw": "Verbinding maken",
       "newStep": "Nieuwe stap",
+      "branchAdd": "Nieuwe tak",
       "save": "Opslaan",
       "close": "Sluiten",
       "source": "Notatie",
@@ -1634,33 +1689,42 @@
     }
   },
   "signupPage": {
-    "subtitle": "Maak je workspace aan",
+    "subtitle": "Maak je account",
+    "title": "Maak je account aan",
+    "intro": "Start direct in je workspace.",
+    "orEmail": "of gebruik je e-mailadres",
+    "emailLabel": "E-mail",
+    "continue": "Doorgaan",
+    "accountSubtitle": "Je naam en een wachtwoord",
+    "createAccount": "Account aanmaken",
+    "creatingAccount": "Account aanmaken...",
+    "changeEmail": "Ander adres",
+    "showPassword": "Wachtwoord tonen",
+    "hidePassword": "Wachtwoord verbergen",
+    "workspaceTitle": "Hoe heet je workspace?",
+    "workspaceBody": "Dit is de naam die je team ziet. Je kunt hem later wijzigen.",
+    "workspaceName": "Workspacenaam",
+    "workspacePlaceholder": "Acme",
+    "invitedTitle": "Je bent uitgenodigd",
+    "invitedBody": "Je kunt meteen meedoen, of zelf een workspace starten.",
     "yourName": "Je naam",
     "firstName": "Voornaam",
     "lastName": "Achternaam",
     "firstNamePlaceholder": "Jane",
     "lastNamePlaceholder": "Doe",
     "namePlaceholder": "Jane Doe",
-    "workEmail": "Werk-e-mail",
+    "workEmail": "E-mail",
     "passwordPlaceholder": "Minimaal 8 tekens",
-    "companyName": "Bedrijfsnaam",
-    "companyPlaceholder": "Acme Inc.",
-    "workspaceUrl": "Workspace-URL",
-    "slugHint": "Kleine letters, cijfers en streepjes. Dit identificeert je workspace.",
     "creating": "Workspace aanmaken...",
     "createWorkspace": "Workspace aanmaken",
     "microsoft": "Doorgaan met Microsoft",
     "google": "Doorgaan met Google",
     "alreadyAccount": "Heb je al een account?",
     "passwordMin": "Wachtwoord moet minstens 8 tekens zijn.",
-    "needSlug": "Kies een workspace-URL.",
     "failed": "Registreren mislukt",
-    "slugTaken": "Die workspace-URL is al in gebruik. Kies een andere.",
     "emailTaken": "Er bestaat al een account met dit e-mailadres. Log in.",
     "emailPlaceholder": "jij@bedrijf.nl",
-    "slugPlaceholder": "acme",
-    "passwordHint": "{{count}} van 8 tekens",
-    "slugPreview": "Je workspace wordt {{slug}}.bokito.ai"
+    "passwordHint": "{{count}} van 8 tekens"
   },
   "forgotPage": {
     "subtitle": "Wachtwoord vergeten",
@@ -2062,14 +2126,6 @@
     "digestGroup_one": "Overzicht: {{count}} update",
     "digestGroup_other": "Overzicht: {{count}} updates"
   },
-  "bindingPicker": {
-    "ariaLabel": "Behandelende agent",
-    "hint": "De agent die nieuwe gesprekken op dit item behandelt.",
-    "leadDefault": "Standaardagent",
-    "defaultBadge": "Standaard",
-    "unknownAgent": "Onbekende agent",
-    "saveError": "Kon de behandelende agent niet bijwerken."
-  },
   "channelsPage": {
     "listTitle": "Kanalen",
     "listDescription": "Elk kanaal dat gesprekken binnenbrengt: mailboxen, Bokito-adressen, de websitechat, WhatsApp en Slack. Open een rij voor status, Autonomie en wat alleen dit kanaal heeft.",
@@ -2138,8 +2194,6 @@
     "edit": "Wijzigen",
     "open": "Openen",
     "name": "Naam",
-    "agent": "AI-agent",
-    "agentHint": "De agent die nieuwe gesprekken met Autonomie oppakt. Zonder keuze doet de standaardagent van de werkruimte dat.",
     "foldersHint": "Inbox en Verzonden staan aan. Spam komt in Spam zonder agent. Concepten en prullenbak niet.",
     "signatureHint": "Gedeelde template voor antwoorden vanaf dit adres. Placeholders zoals {{name}} worden per afzender ingevuld.",
     "signatureHintSender": "Deze mailbox gebruikt ieders eigen handtekening (Profiel). De template hieronder geldt pas weer als je terugschakelt naar mailbox-handtekening.",
@@ -2397,15 +2451,16 @@
     "oauthFailedTitle": "Kon {{provider}} niet koppelen",
     "access": "Toegang",
     "accessHint": "Welke mensen, agents en afdelingen dit kanaal zien of afhandelen.",
-    "team": "Eigenaar",
-    "teamHint": "Wie het gesprek krijgt als een mens het moet overnemen: een persoon, een team, of Alle mensen zodat iedereen het mag oppakken.",
+    "team": "Komt binnen bij",
+    "teamHint": "De afdeling waar nieuwe gesprekken binnenkomen. Het aanspreekpunt pakt op; zonder aanspreekpunt de mensen, anders de afdeling erboven. De organisatie als niets is gekozen.",
     "ownerPeople": "Mensen",
     "ownerTeams": "Afdelingen",
     "defaultBadge": "Standaard",
     "unknownTeam": "Onbekend team",
     "unknownPerson": "Onbekende persoon",
     "widgetLive": "Live overdracht",
-    "widgetLiveHint": "Beschikbaar zodra iemand met Afhandelen-toegang op de widget beschikbaar is."
+    "widgetLiveHint": "Beschikbaar zodra iemand met Afhandelen-toegang op de widget beschikbaar is.",
+    "homeAgent": "Komt binnen bij {{node}}. {{agent}} pakt op."
   },
   "automationRules": {
     "title": "Automatiseringsregels",
@@ -3317,6 +3372,42 @@
       "outboundHint": "Neemt werk over uit een gesprek",
       "setup": "Instellen"
     },
+    "hubTabs": {
+      "label": "Koppelingenweergaven",
+      "discover": "Ontdekken",
+      "installed": "Geïnstalleerd"
+    },
+    "moduleShowcase": {
+      "title": "Modules",
+      "count_one": "{{count}} pakket",
+      "count_other": "{{count}} pakketten",
+      "curated": "Domeinpakket",
+      "explore": "Bekijken",
+      "prev": "Vorige module",
+      "next": "Volgende module",
+      "dots": "Moduleslides"
+    },
+    "installed": {
+      "listTitle_one": "{{count}} koppeling",
+      "listTitle_other": "{{count}} koppelingen",
+      "searchPlaceholder": "Zoek een koppeling of administratie",
+      "view": "Weergave",
+      "viewCards": "Kaarten",
+      "viewList": "Lijst",
+      "colConnector": "Koppeling",
+      "colType": "Type",
+      "colStatus": "Status",
+      "statusReady": "Actief",
+      "statusError": "Fout",
+      "statusAttention": "Actie nodig",
+      "reconnect": "Opnieuw koppelen",
+      "empty": "Nog geen koppelingen. Ontdek modules en apps om te verbinden.",
+      "emptyModules": "Nog geen modules geïnstalleerd.",
+      "browseModules": "Modules ontdekken",
+      "browseDiscover": "Ontdekken",
+      "addConnection": "Koppeling toevoegen",
+      "openDiscoverHint": "Open Ontdekken om deze koppeling te beheren."
+    },
     "connectedStrip": {
       "title": "Verbonden",
       "count_one": "{{count}} actief",
@@ -3420,6 +3511,9 @@
       "projects": "Mappen",
       "projectsAllHint": "Niet gekoppeld: elke map en elk gesprek kan deze koppeling gebruiken.",
       "projectsExclusiveHint": "Gekoppeld: alleen werk in deze mappen kan deze koppeling gebruiken.",
+      "department": "Afdeling",
+      "departmentHint": "Alleen gesprekken van deze afdeling of een afdeling eronder kunnen deze koppeling gebruiken.",
+      "departmentAll": "Hele organisatie",
       "projectsNone": "Nog geen mappen.",
       "projectsSave": "Mappen opslaan",
       "projectsSaveError": "De mappen voor deze koppeling konden niet worden bijgewerkt.",
@@ -3721,51 +3815,51 @@
           "accounting": {
             "name": "Boekito",
             "title": "Controller",
-            "blurb": "Houdt de administratie bij: administraties, relaties, facturen, grootboek en openstaande posten. Boekingen en betaalmatches legt ze voor ter goedkeuring.",
+            "blurb": "Houdt de administratie bij: facturen, relaties en openstaande posten. Controleert een genoemd btw-tarief, de factuurvermeldingen en de betalingstermijn. Boekingen wachten op jouw goedkeuring.",
             "usps": [
               "Facturen en open posten in één oogopslag",
-              "Boekingen pas na jouw goedkeuring",
-              "Klaar voor Moneybird, KING en Bjorn Lunden"
+              "Btw, factuurvermeldingen en betalingstermijn uit de wet",
+              "Boekingen pas na jouw goedkeuring"
             ]
           },
           "banking": {
             "name": "Finito",
             "title": "Kassier",
-            "blurb": "Bewaakt gekoppelde rekeningen, saldi en transacties. Uitgaande betalingen vertrekken alleen als voorstel dat jij goedkeurt.",
+            "blurb": "Bewaakt gekoppelde rekeningen, saldi en transacties. Controleert een IBAN en een betaling voordat die wordt voorgesteld. Verstuurt geen overboeking.",
             "usps": [
               "Saldi en transacties zonder export",
-              "Betalingen alleen als voorstel",
-              "Eén plek voor al je rekeningen"
+              "IBAN-check voordat een betaling wordt voorgesteld",
+              "Een voorstel verstuurt de overboeking niet"
             ]
           },
           "investing": {
             "name": "Investo",
             "title": "Marktanalist",
-            "blurb": "Volgt posities, koersen en volglijsten. Orders wachten op jouw goedkeuring.",
+            "blurb": "Maakt een order die de operator al koos, en weigert een persoonlijk advies. Er is geen broker gekoppeld, dus er is geen live koers.",
             "usps": [
-              "Posities en koersen bij de hand",
-              "Orders wachten op jou",
-              "Signalen landen in het gesprek"
+              "Weigert een advies over een specifiek instrument",
+              "Orders wachten tot jij ze al koos",
+              "Geen koers tot een broker is gekoppeld"
             ]
           },
           "documents": {
             "name": "Documento",
             "title": "Archivaris",
-            "blurb": "Zoekt en leest bestanden in gekoppelde opslag zodat het team ze kan citeren. Uploads wachten op jouw goedkeuring.",
+            "blurb": "Zoekt en leest bestanden, zegt hoe lang ze bewaard blijven, en citeert alleen wat gelezen is. Uploads wachten op jouw goedkeuring.",
             "usps": [
               "Het juiste bestand zonder zoeken",
-              "Inhoud komt in de kennisbank",
+              "Zeven jaar voor een factuur, tien voor onroerend goed",
               "Uploads pas na goedkeuring"
             ]
           },
           "accountant": {
             "name": "Accounto",
             "title": "Accountant",
-            "blurb": "Beoordeelt de periode op de pakketten die Boekhouding al gekoppeld heeft: balans, btw, ouderdom en afwijkingen. Afsluiten wacht op jouw goedkeuring. Boeken blijft bij Boekhouding.",
+            "blurb": "Maakt het jaarwerk klaar: grootteklasse, aansluitingen, schattingen, de fiscale brug en deponeerdatums. Boeken blijft bij Boekito. Een ingeschreven accountant tekent buiten Bokito.",
             "usps": [
-              "Kolommenbalans en btw in één oogopslag",
-              "Afwijkingen voordat de periode dichtgaat",
-              "Dezelfde koppelingen als Boekhouding"
+              "Grootteklasse en datums vanuit het boekjaar",
+              "Fiscale brug zonder verzonnen winst",
+              "Geen boeking, geen deponering, geen handtekening"
             ]
           }
         },
@@ -3810,8 +3904,8 @@
       },
       "setup": {
         "assistantPrefill": "Help me {{name}} af te ronden: koppel een pakket als dat nodig is, zet de standaard en indexeer bronnen.",
-        "intro": "Wijs minstens één AI-agent toe. Chat daarna met de standaardagent om pakketten te koppelen, standaarden te zetten en bronnen te indexeren.",
-        "openAssistant": "Ga verder met de toegewezen agent"
+        "intro": "Zorg dat er een agent in de afdeling van de module zit en chat daarna met die agent om pakketten te koppelen, standaarden te zetten en bronnen te indexeren.",
+        "openAssistant": "Verder met het aanspreekpunt"
       },
       "workspace": {
         "status": "Status",
@@ -3849,7 +3943,6 @@
         "connectionNotReady": "Inloggegevens ontbreken",
         "defaultCompany": "standaard",
         "noCompanies": "Nog geen administraties zichtbaar voor deze koppeling.",
-        "manageAgents": "Roster beheren",
         "genericBody": "Deze module is geïnstalleerd. Open Beheren voor koppelingen, bronnen en setup.",
         "domainHints": {
           "administrations": "Administraties die agents kunnen aanspreken.",
@@ -3861,30 +3954,11 @@
         }
       },
       "agents": {
-        "sectionTitle": "Toegewezen agents",
-        "label": "Toegewezen agents",
-        "hint": "Minimaal één agent is verplicht. Alleen toegewezen agents kunnen de tools van deze module gebruiken.",
-        "loading": "Agents laden…",
-        "empty": "Nog geen agents toegewezen. Voeg er een toe om verder te gaan met de setup.",
-        "openAgents": "Agents openen",
-        "addPlaceholder": "Agent toewijzen…",
-        "addError": "Kon deze agent niet toewijzen.",
-        "defaultBadge": "Standaard",
-        "makeDefault": "Maak standaard voor setup-chat",
-        "defaultError": "Kon de standaardagent niet instellen.",
-        "remove": "Verwijderen",
-        "removeError": "Kon deze agent niet verwijderen.",
-        "chatSetup": "Ga verder met setup via de standaardagent",
-        "writeBadge": "Schrijven",
-        "readOnlyBadge": "Alleen lezen",
-        "scopeBadge": "{{count}} administratie(s)",
-        "scopeAll": "Alle administraties",
-        "access": "Toegang: scope en schrijfrechten",
-        "accessError": "Kon de moduletoegang van deze agent niet bijwerken.",
-        "canWrite": "Schrijftoegang",
-        "canWriteHint": "Sta voorstellen voor boekhoudwijzigingen toe. Uitvoeren vereist nog steeds menselijke goedkeuring en de schrijfschakelaar van de workspace.",
-        "scopeTitle": "Administratie-scope",
-        "scopeHint": "Geen selectie = toegang tot alle administraties."
+        "hire": "Specialist aannemen",
+        "hireError": "De modulespecialist kon niet worden aangenomen.",
+        "openSetup": "Setupgesprek openen",
+        "setupChatPrompt": "Help me de setup van deze module af te ronden.",
+        "openSpecialist": "Specialist openen"
       },
       "verbs": {
         "administrations": "Administraties",
@@ -3908,7 +3982,7 @@
       "accounting": {
         "name": "Boekhouding",
         "description": "Eén boekhoudcontract voor agents: administraties, relaties, facturen, grootboek en openstaande posten over elk gekoppeld pakket.",
-        "capability": "Agents kunnen administraties, relaties, facturen, grootboekregels en openstaande posten ophalen.",
+        "capability": "Agents kunnen administraties, relaties, facturen, grootboekregels en openstaande posten ophalen, en een genoemd btw-tarief, factuurvermeldingen en de betalingstermijn controleren.",
         "setup": [
           "Installeer Boekhouding onder Instellingen > Koppelingen.",
           "Koppel optioneel een platformintegratie die deze module kan gebruiken (KING, Bjorn Lunden of Moneybird).",
@@ -3918,39 +3992,42 @@
       },
       "banking": {
         "name": "Bankieren",
-        "description": "Lees bankrekeningen, saldi en transacties. Betalingen blijven een voorstel dat jij goedkeurt.",
-        "capability": "Later: rekeningen, saldi en transacties lezen. Betalingen blijven een voorstel dat een mens goedkeurt.",
+        "description": "Lees bankrekeningen, saldi en transacties. Controleer een IBAN en een betaalchecklist. Een voorstel verstuurt geen overboeking.",
+        "capability": "Leest rekeningen, saldi en transacties. Controleert een IBAN en een betaalchecklist. Verstuurt geen overboeking.",
         "setup": [
-          "Deze module is voorbereid maar nog niet koppelbaar.",
-          "Als een bankkoppeling live gaat, kies je die hier en keur je betalingen goed als beslissing."
+          "Installeer Bankieren onder Instellingen > Koppelingen.",
+          "Koppel een PSD2-provider om rekeningen te lezen. De checklist werkt al voordat een bank gekoppeld is.",
+          "Betalingen blijven een voorstel dat jij goedkeurt. De boeking blijft bij Boekhouding."
         ]
       },
       "investing": {
         "name": "Beleggen",
-        "description": "Marktdata, posities en watchlists. Orders blijven een voorstel dat jij goedkeurt.",
-        "capability": "Later: posities, koersen en watchlists. Orders blijven een voorstel dat een mens goedkeurt.",
+        "description": "Houdt een order die de operator al koos binnen de adviesgrens. Er is geen broker gekoppeld, dus geen live koers en geen uitvoering.",
+        "capability": "Bewaakt de adviesgrens en een orderbriefje. Geeft geen koers, beveelt geen instrument aan en verstuurt geen order.",
         "setup": [
-          "Deze module is voorbereid maar nog niet koppelbaar.",
-          "Als een broker- of koerskoppeling live gaat, komen orders binnen als beslissing."
+          "Installeer Beleggen onder Instellingen > Koppelingen.",
+          "Deze module voegt geen brokerlogin toe. Koersen en posities wachten op een broker.",
+          "Investo geeft geen advies over een instrument. Orders blijven een voorstel dat jij goedkeurt."
         ]
       },
       "documents": {
         "name": "Documenten",
-        "description": "Lees bestanden uit Drive, SharePoint of Dropbox naar Kennis. Uploads blijven een voorstel dat jij goedkeurt.",
-        "capability": "Later: externe bestanden zoeken en lezen naar Kennis. Uploads blijven een voorstel dat een mens goedkeurt.",
+        "description": "Lees bestanden uit gekoppelde opslag, zeg hoe lang een stuk bewaard blijft, en citeer alleen wat gelezen is. Uploads blijven een voorstel dat jij goedkeurt.",
+        "capability": "Zoekt en leest Drive-bestanden en Sheets. Zegt hoe lang een stuk bewaard blijft en welke specialist de volgende stap doet.",
         "setup": [
-          "Deze module is voorbereid maar nog niet koppelbaar.",
-          "Als een opslagkoppeling live gaat, vullen reads Kennis en blijven uploads beslissingen."
+          "Installeer Documenten onder Instellingen > Koppelingen.",
+          "Koppel Google Drive als agents bestanden moeten zoeken. De bewaartermijn werkt al voordat Drive gekoppeld is.",
+          "Uploads en schrijven in een Sheet blijven een voorstel dat jij goedkeurt."
         ]
       },
       "accountant": {
         "name": "Accountant",
-        "description": "Beoordeelt de boekhouding die Boekhouding al gekoppeld heeft: kolommenbalans, btw, ouderdom en afwijkingen. Afsluiten blijft een voorstel dat jij goedkeurt.",
-        "capability": "Later: balans, btw, ouderdom en afwijkingen lezen op de pakketten van Boekhouding. Geen eigen koppeling. Boeken blijft daar.",
+        "description": "Maakt het jaarwerk klaar: grootteklasse, aansluitingen, schattingen, de commerciële-naar-fiscale brug en deponeerdatums. Houdt de administratie niet bij en voegt geen pakketlogin toe.",
+        "capability": "Maakt het jaarwerk klaar. Boekt niet, matcht de bank niet, deponeert niet en tekent geen verklaring.",
         "setup": [
-          "Dit is een idee en nog niet koppelbaar.",
-          "De module leest dezelfde pakketten als Boekhouding en voegt geen login toe.",
-          "Schrijven blijft bij Boekhouding en wacht op goedkeuring."
+          "Installeer Accountant onder Instellingen > Koppelingen.",
+          "Installeer ook Boekhouding als het jaarwerk live cijfers nodig heeft. Deze module voegt geen pakketlogin toe.",
+          "Boekingen, facturen en bankmatches blijven bij Boekhouding en Bankieren."
         ]
       },
       "tools": {
@@ -4022,6 +4099,114 @@
           "propose_send": {
             "label": "Stel verzenden voor",
             "description": "Stel voor om een factuur vanuit het package te versturen; wacht op goedkeuring."
+          },
+          "vat_rates": {
+            "label": "Btw-tarieven",
+            "description": "Wettelijke btw-tarieven. Rekent btw alleen als het tarief en het bedrag exclusief btw zijn meegegeven. Kiest de tabel niet."
+          },
+          "invoice_check": {
+            "label": "Factuurcheck",
+            "description": "Welke factuurvermeldingen nog ontbreken. Een vereenvoudigde factuur mag tot €100 inclusief btw."
+          },
+          "payment_terms": {
+            "label": "Betalingstermijn",
+            "description": "Wettelijke betalingstermijn. Berekent geen rente."
+          }
+        },
+        "banking": {
+          "iban_check": {
+            "label": "IBAN-check",
+            "description": "Controleert de controlecijfers van het IBAN. Zoekt de bank niet op."
+          },
+          "consent": {
+            "label": "Rekeningtoestemming",
+            "description": "Hoe lang toestemming om rekeningen te lezen geldig is. Deze module verstuurt geen betaling."
+          },
+          "liquidity": {
+            "label": "Kaspositie",
+            "description": "Telt al gelezen saldi op, per valuta. Rekent niet om en verzint geen saldo."
+          },
+          "payment_guard": {
+            "label": "Betaalchecklist",
+            "description": "Welke velden een betalingsvoorstel nog mist. Verstuurt de betaling niet."
+          }
+        },
+        "documents": {
+          "retention": {
+            "label": "Bewaartermijn",
+            "description": "Hoe lang het bestand blijft: 7 jaar voor een factuur, 10 jaar als het om onroerend goed gaat."
+          },
+          "classify": {
+            "label": "Bestand indelen",
+            "description": "Welke specialist de volgende stap doet. Boekt het bestand niet."
+          },
+          "cite": {
+            "label": "Bestand citeren",
+            "description": "Citeer titel, bestands-id en een zin die je al las. Verzin geen zin."
+          }
+        },
+        "investing": {
+          "advice_boundary": {
+            "label": "Adviesgrens",
+            "description": "Weiger een persoonlijk advies over een specifiek instrument."
+          },
+          "order_ticket": {
+            "label": "Orderbriefje",
+            "description": "Welke velden een ordervoorstel nog mist. Vult geen koers in en verstuurt de order niet."
+          },
+          "concentration": {
+            "label": "Positiegewichten",
+            "description": "Aandeel van elke positie in het totaal dat je meegeeft. Geen huislimiet en geen advies."
+          }
+        },
+        "accountant": {
+          "engagement": {
+            "label": "Opdracht",
+            "description": "Samenstellen, fiscale positie of advies. Een beoordeling of controle wordt geweigerd. Er wordt niets getekend."
+          },
+          "size_class": {
+            "label": "Grootteklasse",
+            "description": "Deel de entiteit in op activa, omzet en werknemers. Twee opeenvolgende jaren bevestigen de klasse. Leest het grootboek niet."
+          },
+          "filing_calendar": {
+            "label": "Datums",
+            "description": "Opmaken, deponeren en aangiftedatums vanuit het boekjaar. Deponeert niets."
+          },
+          "tie_outs": {
+            "label": "Aansluitingen",
+            "description": "Vragen die subadministraties op het grootboek aansluiten. Cijfers komen uit Boekhouding; deze tool haalt ze niet op."
+          },
+          "estimates": {
+            "label": "Schattingen",
+            "description": "Oordelen die het bestuur houdt: grondslagen, voorzieningen, overlopende posten, continuïteit. Boekt ze niet."
+          },
+          "tax_bridge": {
+            "label": "Fiscale brug",
+            "description": "Commerciële winst naar een indicatief fiscaal resultaat. Geen aanslag."
+          },
+          "statements_outline": {
+            "label": "Opzet jaarrekening",
+            "description": "Welke overzichten en toelichtingen de grootteklasse vraagt. Niet de jaarrekening zelf."
+          },
+          "plausibility": {
+            "label": "Plausibiliteit",
+            "description": "Vragen over marge, btw, afkap en ongebruikelijke journalen. Geen lijst met bevindingen."
+          },
+          "propose_findings": {
+            "label": "Stel bevindingen voor",
+            "description": "Leg bevindingen voor het jaarwerk vast voor het bestuur. Boekingen blijven een voorstel voor Boekhouding."
+          },
+          "propose_appropriation": {
+            "label": "Stel resultaatbestemming voor",
+            "description": "Stel voor hoe het resultaat wordt bestemd. De algemene vergadering beslist. Er wordt niets geboekt."
+          },
+          "propose_compilation": {
+            "label": "Stel samenstelpakket voor",
+            "description": "Markeer het pakket als klaar voor een ingeschreven accountant. Tekent niet en deponeert niet."
+          },
+          "request_dossier": {
+            "label": "Vraag jaarwerkstukken",
+            "description": "Vraag de stukken die het jaarwerk nog nodig heeft. Niet de ontbrekende facturen van de administratie."
           }
         }
       },
@@ -4040,7 +4225,15 @@
         "useThis": "Deze koppeling gebruiken",
         "detachConfirm": "Deze registratie uit de module halen? De koppeling blijft op Koppelingen.",
         "defaultRequiresReady": "Alleen een gecontroleerde registratie kan de standaard zijn."
-      }
+      },
+      "department": {
+        "title": "Afdeling",
+        "hint": "Agents in {{name}} en de afdelingen eronder gebruiken deze tools.",
+        "hintNone": "Voeg de module toe aan een afdeling; de agents daarin gebruiken dan deze tools.",
+        "contact": "Aanspreekpunt: {{name}}",
+        "open": "Afdeling openen"
+      },
+      "finishSetupNeedsAgent": "Voeg een agent toe aan de afdeling van de module voordat je de setup afrondt"
     },
     "marketplace": {
       "searchPlaceholder": "Zoek modules, koppelingen en tools",
@@ -4098,7 +4291,11 @@
     "pageMeta": {
       "connected": {
         "title": "Koppelingen",
-        "description": "Modules, koppelingen en AI-tools op één plek. Wat verbonden is staat bovenaan; open iets hieronder om te lezen wat het doet en het te koppelen."
+        "description": "Ontdek modules, partnerlogins en AI-tools. Beheer elke losse registratie onder Geïnstalleerd."
+      },
+      "installed": {
+        "title": "Geïnstalleerd",
+        "description": "Elke login en administratie in deze workspace. Schakel naar lijstweergave om er veel tegelijk te beheren."
       },
       "connections": {
         "title": "Verbonden",
@@ -4313,6 +4510,7 @@
       "settingsHint": "Model, instructies, regels, handtekening en tools voor deze agent.",
       "moreActions": "Meer acties",
       "historyMenu": "Geschiedenis",
+      "pinToDock": "Vastzetten in dock",
       "historyHint": "Sessies, wakes en recente runs van deze agent.",
       "duplicate": "Dupliceren",
       "duplicateName": "{{name}} (kopie)",
@@ -4331,6 +4529,11 @@
       "profileAddDescription": "Omschrijving toevoegen",
       "profileAddJobTitle": "Functie toevoegen",
       "identityVoiceHint": "Standaard in een gesprek. Iedereen kan dit in de gespreksinstellingen aanpassen. Een andere stem speelt een kort fragment af.",
+      "identityVoiceQuality": "Stemkwaliteit",
+      "identityVoiceQualityHint": "Huidig of Top voor deze agent. Workspace-standaard volgt Ops.",
+      "identityVoiceQualityInherit": "Workspace-standaard (Ops)",
+      "identityVoiceQualityCurrent": "Huidig (standaard)",
+      "identityVoiceQualityTop": "Top (Ferrari)",
       "identityVoicePreviewFailed": "Kon die stem niet afspelen.",
       "identitySaved": "Agentidentiteit opgeslagen",
       "identitySaveError": "Kon identiteit niet opslaan.",
@@ -4798,7 +5001,7 @@
       "title": "Mappen",
       "unnamed": "Naamloze map",
       "tenantTitle": "Mappen van {{name}}",
-      "subtitle": "Elke map verzamelt het werk over één onderwerp, in een vrije boom. Optionele labels bepalen welke gesprekken erin landen; opbergen zet de labels van die map.",
+      "subtitle": "Elke map verzamelt het werk over één onderwerp, in een vrije boom. Optionele labels bepalen welke gesprekken erin landen.",
       "new": "Nieuwe map",
       "loading": "Mappen laden...",
       "emptyTitle": "Nog geen mappen",
@@ -4895,6 +5098,18 @@
       "view": "Weergave",
       "rows": "Rijen",
       "cards": "Kaarten",
+      "sheet": "Sheet",
+      "colName": "Naam",
+      "colKind": "Soort",
+      "colDetail": "Details",
+      "colChannel": "Kanaal",
+      "colStatus": "Status",
+      "colLabels": "Labels",
+      "colUpdated": "Bijgewerkt",
+      "kindFolder": "Map",
+      "kindConversation": "Gesprek",
+      "kindImage": "Afbeelding",
+      "kindFile": "Bestand",
       "tabAll": "Alles ({{count}})",
       "tabConversations": "Gesprekken",
       "tabImages": "Afbeeldingen",
@@ -5098,6 +5313,7 @@
       "agendaOpen": "Openen in Agenda",
       "agendaPlan": "Iets inplannen",
       "agendaEmpty": "Niets open of gepland voor deze map in de komende twee weken.",
+      "agendaEmptyDepartment": "Niets open of gepland voor deze afdeling in de komende twee weken.",
       "agendaDue": "Open"
     },
     "work": {
@@ -5192,8 +5408,10 @@
       "noLinkedItems": "Nog geen queue-items gekoppeld aan deze sectie.",
       "docsLoadError": "Kon de folderdocumentatie niet laden.",
       "docsEmpty": "Nog geen folderdocumentatie.",
+      "docsEmptyDepartment": "Nog geen documentatie voor deze afdeling.",
       "docsEmptyTitle": "Nog geen documentatie",
       "docsEmptyBody": "Documenten van de map staan in Kennis onder deze map. Gekoppelde queue-aanvragen verschijnen op elk document; de status blijft op de queue.",
+      "docsEmptyBodyDepartment": "Documenten van deze afdeling staan in Kennis. Een nieuw document maak je op een map.",
       "openKnowledge": "Kennis openen",
       "openInKnowledge": "Openen in Kennishub",
       "openAgents": "Agents openen",
@@ -5265,14 +5483,22 @@
         "image": "Beeld",
         "code": "Code",
         "email": "E-mail",
-        "sheet": "Sheet"
+        "sheet": "Sheet",
+        "design": "Ontwerp"
       },
       "askAgent": "Vraag agent om bij te werken",
+      "askShort": "Bijwerken",
+      "askDraft": "Pas \"{{title}}\" aan: ",
+      "unfiled": "Niet in een map",
+      "openFolder": "Map",
+      "rowCount_one": "{{count}} rij",
+      "rowCount_other": "{{count}} rijen",
       "openThread": "Open gesprek",
       "ownerAgent": "Eigenaar",
       "moreActions": "Meer acties",
       "lastUpdated": "Bijgewerkt {{time}}",
       "showSource": "Bron tonen",
+      "operatorSource": "Dit bericht",
       "hideSource": "Bron verbergen",
       "viewLabel": "Canvasweergave",
       "preview": "Voorbeeld",
@@ -5284,7 +5510,17 @@
       "openFull": "Vergroten",
       "minimize": "Minimaliseren",
       "close": "Sluiten",
-      "version": "Versie {{n}}"
+      "version": "Versie {{n}}",
+      "versions": "Versies",
+      "versionCurrent": "Versie {{n}} (huidig)",
+      "noVersions": "Nog geen eerdere versie",
+      "restoreFailed": "Deze versie kon niet worden teruggezet.",
+      "saveFailed": "Dit ontwerp kon niet worden opgeslagen.",
+      "addFrame": "Vlak toevoegen",
+      "frame": "vlak",
+      "frameTitle": "Titel",
+      "frameText": "Tekst",
+      "askFrame": "Pas het vlak \"{{frame}}\" van \"{{title}}\" aan: "
     },
     "worksIn": {
       "title": "Werkt in",
@@ -5674,6 +5910,7 @@
       "reports": "Vandaag",
       "developers": "Voor ontwikkelaars",
       "models": "Modellen",
+      "usage": "Verbruik",
       "billing": "Facturatie",
       "accessSecurity": "Toegang en beveiliging",
       "users": "Gebruikers",
@@ -5706,6 +5943,7 @@
       "reports": "Dagelijkse scan, aandacht en verbruik",
       "developers": "AI-tools, API-tokens en webhooks",
       "models": "Bokito-standaard en optioneel eigen modellen",
+      "usage": "Modelkosten, volume en budgetlimieten van de workspace",
       "categories": "Labels om te groeperen; open het werk om een label met een werk in te richten"
     }
   },
@@ -6455,8 +6693,6 @@
     "welcomeTitle": "Welkomstberichten",
     "displayName": "Assistentnaam",
     "displayNamePlaceholder": "Assistentnaam",
-    "handlingAgent": "Behandelende agent",
-    "handlingAgentHint": "De agent die nieuwe widgetgesprekken beantwoordt. De widgetnaam volgt deze agent tenzij je hierboven een naam instelt.",
     "welcomeHeading": "Welkomsttitel",
     "welcomeSubtitle": "Welkomstondertitel",
     "colorsTitle": "Kleuren",
@@ -6757,12 +6993,12 @@
     }
   },
   "membersPage": {
-    "scopeLabel": "Wat dit lid ziet",
+    "scopeLabel": "Scope",
     "hoursLabel": "Uren per week",
-    "hoursPlaceholder": "Uren per week",
+    "hoursPlaceholder": "Uren",
     "scopes": {
-      "workspace": "Hele werkruimte",
-      "departments": "Eigen afdelingen"
+      "workspace": "Workspace",
+      "departments": "Afdelingen"
     },
     "loadError": "Kon leden niet laden.",
     "inviteError": "Kon de uitnodiging niet versturen.",
@@ -6793,9 +7029,9 @@
     "hireAgentsSoon": "binnenkort",
     "hireAgentsBody": "Een module uit het aanbod is een afdeling in een doos: een specialist-agent met zijn labels en werk. Voeg hem toe als nieuwe afdeling of laat hem aansluiten bij een bestaande.",
     "hireAgentsCta": "Aanbod",
-    "agentsSectionHint": "Bedrijfsagents naast je mensen. Neem er meer aan via het aanbod.",
+    "agentsSectionHint": "Bedrijfsagents naast je mensen. Meer via Aanbod onderaan de pagina.",
     "agentsEmpty": "Nog geen bedrijfsagents.",
-    "agentsEmptyHint": "Gebruik Neem nieuwe agents aan om specialisten uit het aanbod te kiezen.",
+    "agentsEmptyHint": "Kies onderaan Aanbod om specialisten als afdeling toe te voegen.",
     "emailPlaceholder": "naam@bedrijf.com",
     "role": "Rol",
     "invite": "Uitnodigen",
@@ -6814,6 +7050,8 @@
     "colType": "Type",
     "colRole": "Rol",
     "colRoleOrCeiling": "Rol / plafond",
+    "colScope": "Scope",
+    "colHours": "Uren",
     "colTeams": "Afdelingen",
     "colOpen": "Open",
     "colLastActive": "Laatst actief",
@@ -6952,6 +7190,72 @@
         "flow_run_completed": "Werk-run afgerond",
         "manual_reply": "Handmatig antwoord"
       }
+    },
+    "voiceModel": {
+      "title": "Stemkwaliteit",
+      "hint": "Standaard OpenAI-modellen voor voicemail-TTS en live calls in deze API-omgeving. Werkt meteen — geen deploy. Agents kunnen dit overschrijven onder Agents → Bewerken (identiteit).",
+      "tier": "Standaardniveau",
+      "ttsLabel": "Voicemail-TTS",
+      "realtimeLabel": "Live gesprekken",
+      "perAgentHint": "Per agent: open de agent → Bewerken (identiteit) → Stemkwaliteit.",
+      "save": "Stemkwaliteit opslaan",
+      "saving": "Opslaan…",
+      "savedToast": "Stemkwaliteit opgeslagen.",
+      "loadError": "Kon stemkwaliteit niet laden.",
+      "saveError": "Kon stemkwaliteit niet opslaan.",
+      "tiers": {
+        "current": "Huidig (standaard)",
+        "top": "Top (Ferrari)"
+      }
+    },
+    "tabs": {
+      "directory": "Directory",
+      "usage": "Gebruik"
+    },
+    "usage": {
+      "title": "Tokenverbruik en marge",
+      "hint": "Gemeten platformkosten per tenant versus doorverkoopmeter. Providerkost is catalogus-COGS; klantkost is wat we zouden factureren.",
+      "period": "Periode",
+      "periods": {
+        "7d": "7 dagen",
+        "30d": "30 dagen",
+        "90d": "90 dagen",
+        "mtd": "Maand tot nu"
+      },
+      "loadError": "Kon gebruik niet laden.",
+      "totals": {
+        "tokens": "Tokens",
+        "provider": "Providerkost",
+        "customer": "Doorverkoopmeter",
+        "margin": "Marge"
+      },
+      "col": {
+        "workspace": "Workspace",
+        "tokens": "Tokens",
+        "provider": "Provider",
+        "customer": "Doorverkoop",
+        "margin": "Marge",
+        "book": "Prijsboek",
+        "cap": "Cap",
+        "calls": "Calls",
+        "model": "Model",
+        "backing": "Backing",
+        "callType": "Calltype",
+        "kind": "Tokensoort",
+        "day": "Dag"
+      },
+      "blocked": "Geblokkeerd",
+      "ok": "Ok",
+      "empty": "Geen gebruik in deze periode.",
+      "back": "Terug naar overzicht",
+      "detailTitle": "Gebruik {{name}}",
+      "bindBook": "Prijsboek",
+      "bindSaved": "Prijsboek bijgewerkt.",
+      "bindError": "Kon prijsboek niet bijwerken.",
+      "booksTitle": "Prijsboeken",
+      "booksHint": "Regels die doorverkoopprijzen zetten. Nieuwe writes gebruiken het gekoppelde boek; historie wordt niet herberekend.",
+      "rule": "{{mode}} · {{kind}}={{value}}",
+      "defaultBook": "Standaard"
     }
   },
   "helpPublic": {
@@ -6976,7 +7280,7 @@
   },
   "orgCanvas": {
     "title": "Grid",
-    "issueOwner": "{{department}}, leider {{lead}}",
+    "issueOwner": "{{department}}, aanspreekpunt {{lead}}",
     "subtitle": "Van binnenkomst tot resultaat: wie het oppakt, hoe het loopt en in welke map het landt.",
     "link": "Grid",
     "openInGrid": "Open in Grid",
@@ -7181,19 +7485,28 @@
     "turnCount_other": "{{count}} wachten op hen",
     "newTeam": "Nieuwe afdeling",
     "editTitle": "Team bewerken",
-    "dialogHint": "Een team kan eigenaar zijn van gesprekken en vragen van agents krijgen. Combineer mensen en agents.",
+    "dialogHint": "Een afdeling bezit werk en gesprekken. De bezetting stel je in op de afdelingspagina.",
+    "parentLabel": "Valt onder",
+    "parentOrg": "De organisatie",
+    "parentHint": "Afdelingen gaan maximaal twee niveaus diep.",
+    "crewAfterCreate": "Na opslaan opent de afdeling, zodat je de bezetting kunt toevoegen.",
+    "orgRow": "Organisatie",
+    "unplacedTitle": "Nog niet ingedeeld",
+    "unplaced_one": "Deze agent zit in geen afdeling en pakt dus alleen werk op dat direct wordt doorgegeven.",
+    "unplaced_other": "Deze agents zitten in geen afdeling en pakken dus alleen werk op dat direct wordt doorgegeven.",
+    "place": "Plaatsen",
+    "placeLabel": "{{name}} in een afdeling plaatsen",
+    "placed": "{{name}} zit nu in {{department}}",
     "namePlaceholder": "Teamnaam, bijvoorbeeld Support",
     "descriptionPlaceholder": "Wat dit team afhandelt (optioneel)",
     "pickupLabel": "Gesprekken oppakken",
     "pickup": {
       "people": "Mensen pakken op",
-      "agent_first": "Agent eerst",
       "round_robin": "Om de beurt",
       "least_open": "Minst open"
     },
     "pickupHint": {
       "people": "Het gesprek blijft bij het team tot iemand reageert; de eerste reactie pakt het op.",
-      "agent_first": "Een agent in het team antwoordt eerst; mensen springen bij als die het vraagt.",
       "round_robin": "Nieuwe gesprekken gaan om de beurt naar het volgende beschikbare lid.",
       "least_open": "Nieuwe gesprekken gaan naar het beschikbare lid met de minste open gesprekken."
     },
@@ -7202,7 +7515,7 @@
     },
     "systemBadge": "Root",
     "systemHint": {
-      "all": "Iedereen in de werkruimte. Leden van kindafdelingen erven Alles."
+      "all": "De top van de boom. Iedereen in de werkruimte valt eronder; de lead is het aanspreekpunt."
     },
     "noDescription": "Geen omschrijving",
     "memberCount_one": "{{count}} lid",

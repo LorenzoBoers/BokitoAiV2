@@ -117,6 +117,12 @@ export interface RuntimeAgent extends AgentPassport {
   call_voices?: { id: string; label: string }[]
   call_speeds?: number[]
   call_languages?: string[]
+  /** null / omitted = inherit Ops platform default (current | top). */
+  call_voice_model?: string | null
+  call_voice_model_effective?: string
+  call_voice_models?: { id: string; label: string; tts_model: string; realtime_model: string }[]
+  call_tts_model?: string
+  call_realtime_model?: string
 }
 
 export interface TriggerAgentPayload {

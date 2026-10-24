@@ -6,13 +6,14 @@ import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
-import { Archive, ArrowLeft, CalendarDays, Copy, History, MessageSquare, MoreHorizontal, Pencil, RotateCcw, Settings, ShieldCheck } from 'lucide-react'
+import { Archive, ArrowLeft, CalendarDays, Copy, History, MessageSquare, MoreHorizontal, Pencil, Pin, RotateCcw, Settings, ShieldCheck } from 'lucide-react'
 import { NameEdit } from '../components/ui/NameEdit'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { ThreadStatusDot } from '../components/ui/ThreadStatusDot'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
+import { DockPinPicker } from '../components/chat-stack/DockPinPicker'
 import { AgentModuleOrigin } from '../components/workforce/AgentModuleOrigin'
 import { LiveWorkLog } from '../components/observability/LiveWorkLog'
 import { WorkLogsTable } from '../components/workforce/WorkLogsTable'
@@ -74,7 +75,9 @@ export default function AiAgentDetail() {
   const { agentId, workLogId } = useParams<{ agentId: string; workLogId?: string }>()
   const navigate = useNavigate()
   const isAdmin = useIsAdmin()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const agentCallsEnabled = Boolean(user?.agentCallsEnabled)
+  const [dockPinOpen, setDockPinOpen] = useState(false)
   const [agent, setAgent] = useState<RuntimeAgent | null>(null)
   const [passport, setPassport] = useState<AgentPassport | null>(null)
   const [runs, setRuns] = useState<WorkLogRow[]>([])
@@ -335,6 +338,15 @@ export default function AiAgentDetail() {
                       <History size={14} />
                       {t('workforce.agents.historyMenu')}
                     </DropdownMenu.Item>
+                    {agentCallsEnabled && agent.is_active !== false ? (
+                      <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-text-primary outline-none data-[highlighted]:bg-bg-hover"
+                        onSelect={() => setDockPinOpen(true)}
+                      >
+                        <Pin size={14} />
+                        {t('workforce.agents.pinToDock')}
+                      </DropdownMenu.Item>
+                    ) : null}
                     {isAdmin ? (
                       <>
                       <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
@@ -377,6 +389,9 @@ export default function AiAgentDetail() {
                   </DropdownMenu.Content>
                 </DropdownMenu.Portal>
               </DropdownMenu.Root>
+              {agentCallsEnabled ? (
+                <DockPinPicker open={dockPinOpen} onOpenChange={setDockPinOpen} agentId={agent.id} />
+              ) : null}
             </div>
 
             <div className="flex flex-col items-center text-center">
@@ -615,6 +630,8 @@ export default function AiAgentDetail() {
               callVoices={agent.call_voices}
               callSpeeds={agent.call_speeds}
               callLanguages={agent.call_languages}
+              callVoiceModel={agent.call_voice_model}
+              callVoiceModels={agent.call_voice_models}
               onChanged={() => void load()}
             />
           ) : null}

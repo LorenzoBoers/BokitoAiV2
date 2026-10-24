@@ -313,10 +313,9 @@ async def thread_agent_candidates(
             add(await get_lead_agent(session, tenant_id), "project")
 
     # Module specialists for installed modules (and ticket/folder-related work).
-    from app.services.module_agents import module_roster_summaries
+    from app.services.module_agents import module_summaries
 
-    roster = await module_roster_summaries(session, tenant_id)
-    for slug, summary in roster.items():
+    for slug, summary in (await module_summaries(session, tenant_id)).items():
         sid = summary.get("specialist_agent_id")
         if not sid:
             continue

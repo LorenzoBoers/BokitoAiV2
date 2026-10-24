@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { marked } from 'marked'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
@@ -6,6 +7,8 @@ import { Callout } from '../ui/callout'
 import type { ProjectCanvas } from '../../lib/project-canvas-api'
 import { canvasKindOf } from '../../lib/project-canvas/types'
 import { cn } from '../../lib/utils'
+import { DesignBoard } from './DesignBoard'
+import { mermaidInitConfig, readDiagramPalette } from './mermaid-theme'
 
 function asObject(source: string): Record<string, unknown> {
   try {
@@ -16,18 +19,35 @@ function asObject(source: string): Record<string, unknown> {
   }
 }
 
-function DocumentBody({ source }: { source: string }) {
-  const html = marked.parse(source || '', { async: false })
+/** Drop a leading heading that only repeats the window title. */
+export function documentSource(source: string, title: string): string {
+  const trimmed = (source || '').trim()
+  const heading = trimmed.match(/^#\s+(.+?)\s*(?:\n|$)/)
+  if (!heading) return source || ''
+  const same = heading[1].trim().toLowerCase() === title.trim().toLowerCase()
+  return same ? trimmed.slice(heading[0].length).trimStart() : source || ''
+}
+
+function DocumentBody({ source, title }: { source: string; title: string }) {
+  const html = marked.parse(documentSource(source, title), { async: false })
   const safe = typeof html === 'string' ? html.replace(/<script[\s\S]*?<\/script>/gi, '') : ''
-  return (
-    <div
-      className="prose-sm max-w-none text-sm leading-relaxed text-text-primary"
-      dangerouslySetInnerHTML={{ __html: safe }}
-    />
-  )
+  return <div className="canvas-prose" dangerouslySetInnerHTML={{ __html: safe }} />
+}
+
+function useCanvasTheme(): string {
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark')
+  useEffect(() => {
+    const root = document.documentElement
+    const sync = () => setTheme(root.dataset.theme || 'dark')
+    const observer = new MutationObserver(sync)
+    observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => observer.disconnect()
+  }, [])
+  return theme
 }
 
 function DiagramBody({ source, title }: { source: string; title: string }) {
+  const theme = useCanvasTheme()
   const [svg, setSvg] = useState('')
   const [error, setError] = useState('')
   useEffect(() => {
@@ -36,7 +56,8 @@ function DiagramBody({ source, title }: { source: string; title: string }) {
     ;(async () => {
       try {
         const mermaid = (await import('mermaid')).default
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false })
+        const palette = readDiagramPalette(document.documentElement)
+        mermaid.initialize(mermaidInitConfig(palette))
         const rendered = await mermaid.render(id, source)
         if (!cancel) {
           setSvg(rendered.svg)
@@ -48,11 +69,12 @@ function DiagramBody({ source, title }: { source: string; title: string }) {
     })()
     return () => {
       cancel = true
+      document.getElementById(id)?.remove()
     }
-  }, [source])
+  }, [source, theme])
   if (error) return <Callout tone="error">{error}</Callout>
   if (!svg) return <div className="skeleton-shimmer h-40 rounded-lg" aria-label={title} />
-  return <div className="overflow-auto" dangerouslySetInnerHTML={{ __html: svg }} />
+  return <div className="canvas-diagram overflow-auto" dangerouslySetInnerHTML={{ __html: svg }} />
 }
 
 function DrawingBody({ source }: { source: string }) {
@@ -97,7 +119,7 @@ function EmailBody({ canvas }: { canvas: ProjectCanvas }) {
           {preheader ? <p className="truncate text-xs text-text-muted">{preheader}</p> : null}
         </div>
       </div>
-      <div className="px-4 py-4 text-sm leading-relaxed text-text-primary" dangerouslySetInnerHTML={{ __html: body }} />
+      <div className="canvas-prose px-4 py-4" dangerouslySetInnerHTML={{ __html: body }} />
     </Card>
   )
 }
@@ -118,12 +140,28 @@ function sheetTabs(source: string): SheetTab[] {
   })
 }
 
+function looksNumeric(value: string): boolean {
+  return /^-?\d+(?:[.,]\d+)?%?$/.test(value.trim().replace(/\s/g, ''))
+}
+
+/** A column of figures lines up on the right, like a spreadsheet. */
+export function numericColumns(columns: string[], rows: string[][]): boolean[] {
+  return columns.map((_, columnIndex) => {
+    const cells = rows.map((row) => (row[columnIndex] || '').trim()).filter(Boolean)
+    if (!cells.length) return false
+    const numeric = cells.filter((cell) => looksNumeric(cell)).length
+    return numeric / cells.length >= 0.8
+  })
+}
+
 function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
+  const { t } = useTranslation('nav')
   const tabs = sheetTabs(canvas.source)
   const [index, setIndex] = useState(0)
   const tab = tabs[index] ?? tabs[0]
 
   if (!tab) return null
+  const numeric = numericColumns(tab.columns, tab.rows)
   return (
     <div className="space-y-3">
       {tabs.length > 1 ? (
@@ -149,7 +187,10 @@ function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
               {tab.columns.map((column, columnIndex) => (
                 <th
                   key={`${column}-${columnIndex}`}
-                  className="border-b border-border bg-bg-input/40 px-2 py-1.5 font-medium text-text-muted"
+                  className={cn(
+                    'sticky top-0 border-b border-border bg-bg-elevated px-2 py-1.5 font-medium text-text-muted',
+                    numeric[columnIndex] && 'text-right',
+                  )}
                 >
                   {column}
                 </th>
@@ -160,7 +201,13 @@ function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
             {tab.rows.map((row, rowIndex) => (
               <tr key={rowIndex} className="border-b border-border last:border-0">
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="px-2 py-1.5 text-text-primary">
+                  <td
+                    key={cellIndex}
+                    className={cn(
+                      'px-2 py-1.5 text-text-primary',
+                      numeric[cellIndex] && 'text-right tabular-nums',
+                    )}
+                  >
                     {cell}
                   </td>
                 ))}
@@ -169,21 +216,24 @@ function SheetBody({ canvas }: { canvas: ProjectCanvas }) {
           </tbody>
         </table>
       </div>
+      <p className="text-2xs text-text-muted">{t('projects.canvas.rowCount', { count: tab.rows.length })}</p>
     </div>
   )
 }
 
-export function CanvasKindBody({ canvas }: { canvas: ProjectCanvas }) {
+export function CanvasKindBody({ canvas, editable = false }: { canvas: ProjectCanvas; editable?: boolean }) {
   const kind = canvasKindOf(canvas.kind)
+  const framed = kind === 'diagram' || kind === 'drawing' || kind === 'image'
   return (
-    <div className={cn('min-h-[12rem]')}>
-      {kind === 'document' ? <DocumentBody source={canvas.source} /> : null}
+    <div className={cn('min-h-[12rem]', framed && 'flex flex-1 items-center justify-center')}>
+      {kind === 'document' ? <DocumentBody source={canvas.source} title={canvas.title} /> : null}
       {kind === 'diagram' ? <DiagramBody source={canvas.source} title={canvas.title} /> : null}
       {kind === 'drawing' ? <DrawingBody source={canvas.source} /> : null}
       {kind === 'image' ? <ImageBody source={canvas.source} /> : null}
       {kind === 'code' ? <CodeBody source={canvas.source} language={canvas.language} /> : null}
       {kind === 'email' ? <EmailBody canvas={canvas} /> : null}
       {kind === 'sheet' ? <SheetBody canvas={canvas} /> : null}
+      {kind === 'design' ? <DesignBoard canvas={canvas} editable={editable} /> : null}
     </div>
   )
 }

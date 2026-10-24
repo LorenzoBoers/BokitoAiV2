@@ -694,6 +694,24 @@ def _openai_user_parts(parts: list[dict[str, Any]]) -> dict[str, Any]:
     return {"role": "user", "content": parts}
 
 
+def _drop_orphan_tool_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop a tool result that does not follow an assistant tool call.
+
+    A result sitting right after the system prompt makes the provider reject
+    the whole turn. Consecutive results after one call stay.
+    """
+    cleaned: list[dict[str, Any]] = []
+    armed = False
+    for message in messages:
+        if message.get("role") == "tool":
+            if armed:
+                cleaned.append(message)
+            continue
+        armed = message.get("role") == "assistant" and bool(message.get("tool_calls"))
+        cleaned.append(message)
+    return cleaned
+
+
 class OpenAILLMProvider:
     """OpenAI chat provider that speaks the Anthropic-shaped message protocol.
 
@@ -780,7 +798,7 @@ class OpenAILLMProvider:
                             parts.append(image)
                 if parts:
                     out.append(_openai_user_parts(parts))
-        return out
+        return _drop_orphan_tool_messages(out)
 
     async def chat(
         self,

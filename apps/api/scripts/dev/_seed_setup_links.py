@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.models.module_agent import AgentScope
+from app.models.agent_scope import AgentScope
 from app.models.project import Project
 from app.models.relations import WorkstreamChannel, WorkstreamConnection
 from app.models.team import Team

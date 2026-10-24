@@ -66,7 +66,19 @@ async def _get_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
         signal = await _signal(ctx.session, ctx.tenant_id, signal_id)
     except (HTTPException, AppError) as exc:
         return {"error": exc.detail}
-    return {"ticket": await ticket_payload(ctx.session, signal)}
+    from app.services.department_domain import department_of_signal
+    from app.services.department_visibility import department_visible
+    from app.tools.workspace_read import mark_responsibility
+
+    if ctx.agent is not None and not await department_visible(
+        ctx.session, ctx.tenant_id, await department_of_signal(ctx.session, signal), kind="agent", member_id=ctx.agent.id
+    ):
+        return {"error": "This ticket sits in a shielded department you are not part of."}
+    ticket = await ticket_payload(ctx.session, signal)
+    marked = [{"id": str(signal.id)}]
+    await mark_responsibility(ctx, marked)
+    ticket.update({k: v for k, v in marked[0].items() if k != "id"})
+    return {"ticket": ticket}
 
 
 async def _file_ticket(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:

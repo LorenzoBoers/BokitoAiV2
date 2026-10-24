@@ -18,6 +18,8 @@ type PageHeaderProps = {
   primaryAction?: ReactNode
   /** Other controls: inline from `sm`, behind a menu on a narrow screen. */
   actions?: ReactNode
+  /** Second row under the action buttons (e.g. search), right-aligned with the subtitle. */
+  belowActions?: ReactNode
   /** Page-guide slug: renders a quiet "Learn more" link next to the controls. */
   guide?: PageGuideSlug
   /** Detail pages: arrow + label back to the parent list. */
@@ -36,6 +38,7 @@ export function PageHeader({
   subtitle,
   primaryAction,
   actions,
+  belowActions,
   guide,
   back,
   icon,
@@ -45,9 +48,10 @@ export function PageHeader({
   // Detail pages keep their name: the topbar only shows the section there.
   const inShell = useContext(ShellTitleContext) && !back
   const controls = Boolean(primaryAction || actions || guide)
+  const aside = controls || belowActions
   return (
-    <section className={cn('mb-4 flex flex-wrap items-end justify-between gap-3', className)}>
-      <div className="min-w-0">
+    <section className={cn('mb-4 flex flex-wrap items-start justify-between gap-3', className)}>
+      <div className="min-w-0 max-w-3xl flex-1">
         {back ? (
           <Link
             to={back.to}
@@ -67,23 +71,28 @@ export function PageHeader({
           </div>
         </div>
       </div>
-      {controls ? (
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          {guide ? <PageGuideLink page={guide} compact={Boolean(primaryAction || actions)} /> : null}
-          {actions ? <div className="hidden flex-wrap items-center gap-2 sm:flex">{actions}</div> : null}
-          {actions ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="sm:hidden" aria-label={t('topbar.pageActions')}>
-                  <MoreHorizontal size={16} aria-hidden />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="flex flex-col items-stretch gap-1 p-2">
-                {actions}
-              </DropdownMenuContent>
-            </DropdownMenu>
+      {aside ? (
+        <div className="flex min-w-0 flex-col items-stretch gap-2 sm:items-end">
+          {controls ? (
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+              {guide ? <PageGuideLink page={guide} compact={Boolean(primaryAction || actions)} /> : null}
+              {actions ? <div className="hidden flex-wrap items-center gap-2 sm:flex">{actions}</div> : null}
+              {actions ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="sm:hidden" aria-label={t('topbar.pageActions')}>
+                      <MoreHorizontal size={16} aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="flex flex-col items-stretch gap-1 p-2">
+                    {actions}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+              {primaryAction}
+            </div>
           ) : null}
-          {primaryAction}
+          {belowActions ? <div className="w-full min-w-0 sm:w-64">{belowActions}</div> : null}
         </div>
       ) : null}
     </section>

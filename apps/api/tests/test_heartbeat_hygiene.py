@@ -57,7 +57,6 @@ async def _setup(session, slug: str) -> Trigger:
         slug="kantoor-ai",
         model="claude-haiku-4-5-20251001",
         system_prompt="Reply briefly.",
-        is_lead=True,
     )
     session.add(agent)
     await session.flush()

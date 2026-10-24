@@ -306,6 +306,14 @@ register_tool(
                     "type": "string",
                     "description": "Default spoken language on a call: nl or en.",
                 },
+                "call_voice_model": {
+                    "type": "string",
+                    "description": (
+                        "Voice quality tier: current (standard TTS + realtime-mini), "
+                        "top (latest TTS snapshot + gpt-realtime-2.1), or inherit "
+                        "(follow the Ops platform default)."
+                    ),
+                },
             },
             "required": ["agent_id"],
         },
@@ -323,6 +331,81 @@ _FLOW_RECIPE_PROPERTIES: dict[str, Any] = {
     },
     "expected_outcome": {"type": "string", "description": "What done produces, in one sentence."},
 }
+
+async def _set_department_crew(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Validate first so a bad crew fails here instead of on an approved card."""
+    from app.services.teams import crew_entries, get_team, validate_crew
+
+    try:
+        department_id = UUID(str(tool_input.get("department_id") or ""))
+    except ValueError:
+        return {"error": "department_id is required; take it from list_departments"}
+    team = await get_team(ctx.session, ctx.tenant_id, department_id)
+    if team is None:
+        return {"error": "Department not found"}
+    crew = [
+        {
+            "kind": str(e.get("kind") or ""),
+            "id": str(e.get("id") or ""),
+            "role": str(e.get("role") or "member"),
+            "focus": str(e.get("focus") or ""),
+        }
+        for e in tool_input.get("crew") or []
+        if isinstance(e, dict)
+    ]
+    try:
+        await validate_crew(ctx.session, team, crew)
+    except ValueError as exc:
+        return {"error": str(exc)}
+    return await _platform_change(
+        ctx,
+        resource_type="department_crew",
+        change_kind="update",
+        summary=f"Change the crew of {team.name}",
+        after={"department_id": str(team.id), "crew": crew},
+        before={"department_id": str(team.id), "crew": await crew_entries(ctx.session, team)},
+        tool_name="set_department_crew",
+    )
+
+
+register_tool(
+    ToolSpec(
+        name="set_department_crew",
+        description=(
+            "Replace who sits on a department (or on the organization) after an "
+            "operator asked for it. Send the whole crew: read the current one with "
+            "list_departments and change only what was asked. Roles: contact "
+            "(Aanspreekpunt, one agent that picks up work and delegates), "
+            "accountable (Verantwoordelijk, one person who answers its questions) "
+            "and member. Focus is one short line on what that member handles. "
+            "Always raises a decision; nothing changes until someone approves."
+        ),
+        category="agents",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "department_id": {"type": "string"},
+                "crew": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "kind": {"type": "string", "enum": ["agent", "user"]},
+                            "id": {"type": "string"},
+                            "role": {"type": "string", "enum": ["contact", "accountable", "member"]},
+                            "focus": {"type": "string", "maxLength": 80},
+                        },
+                        "required": ["kind", "id"],
+                    },
+                },
+            },
+            "required": ["department_id", "crew"],
+        },
+        handler=_set_department_crew,
+        handles_ask=True,
+        consequential=True,
+    )
+)
 
 register_tool(
     ToolSpec(
@@ -390,7 +473,11 @@ register_tool(
 register_tool(
     ToolSpec(
         name="connect_integration",
-        description="Connect an external integration provider.",
+        description=(
+            "Connect an external integration provider. Afterwards ask which department it is for "
+            "(default: the whole organization) and whether only certain folders may use it, then "
+            "record the answer with set_connection_scope."
+        ),
         category="integrations",
         input_schema={
             "type": "object",

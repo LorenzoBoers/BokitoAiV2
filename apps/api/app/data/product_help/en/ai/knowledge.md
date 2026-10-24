@@ -16,7 +16,7 @@ Knowledge is what agents read on every run. Open **Knowledge** to manage organiz
 ![Knowledge page](/api/docs/assets/knowledge/add-doc.png)
 *Each chip is a real entity, labeled Platform, Folder, or Agent.*
 
-1. Open **Knowledge**.
+1. Open **Agents** and choose **Knowledge** under Related (or go to `/agents/knowledge`).
 2. Click your **workspace name** (default, marked **Platform**), a **folder name**, or an **agent name**. Creating a document in that scope stores it on the same `WorkspaceDoc` table Folder Documentation uses.
 3. With a folder or agent selected, **Open folder** or **Open agent** appears under the chips and takes you to that folder page or agent page, so documentation and the work it belongs to stay one click apart.
 

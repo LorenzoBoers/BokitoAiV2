@@ -1,8 +1,8 @@
 ---
 title: Labels en tickets
 intro: Een label heeft kleur en een icoon alleen zolang er een werk aan hangt. Dat label vastleggen maakt van het gesprek een ticket dat door de fasen van het werk gaat.
-description: Koppel een werk aan een label, leg een ticket vast via Labels toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en splits een gesprek als er een tweede verzoek in opduikt.
-keywords: labels, werk, tickets, fasen, map, intake, gesprek splitsen
+description: Koppel een werk aan een label, leg een ticket vast via Labels toevoegen, bevestig wat de AI voorstelde, verplaats een ticket door zijn fasen en verplaats een tweede verzoek naar een eigen gesprek.
+keywords: labels, werk, tickets, fasen, map, intake, gesprek verplaatsen, gesprekken samenvoegen
 sort: 46
 related: flows,communication,channels,folders,widget
 ---
@@ -60,14 +60,15 @@ Een ticket kan een deadline hebben met waar die vandaan komt. Het paneel en de b
 4. Binnen de periode waarin de deadline nadert toont de kaart **Deadline over 3 dagen**; na de datum **2 dagen te laat**, en de map telt het ticket als te laat. De check-up van de fase komt eerder bij de deadline en dagelijks als die voorbij is. Deadlines staan ook op [Agenda](/docs/ai/agenda).
 5. **Deadline wissen** haalt de datum weg.
 
-## Een nieuw verzoek afsplitsen
+## Een nieuw verzoek naar een eigen gesprek verplaatsen
 
 Als een klant iets nieuws in een oud thread opbrengt, krijgt dat verzoek een eigen gesprek zodat elk gesprek één label houdt.
 
-1. Hover het bericht waar het nieuwe verzoek begint en kies **Vanaf hier splitsen**.
-2. Kies de **Label voor het nieuwe gesprek**, of **Later beslissen**, dan **Splitsen**.
+1. Hover het bericht waar het nieuwe verzoek begint en kies **Verplaatsen naar**.
+2. Houd **Nieuw gesprek**, kies de **Label voor het nieuwe gesprek** of **Later bepalen**, dan **Verplaatsen**. **Bestaand gesprek** verplaatst de berichten in plaats daarvan naar een gesprek dat je zoekt.
 3. Dat bericht en alles erna gaan naar een nieuw gesprek met dezelfde contactpersoon en hetzelfde kanaal. Beide tijdlijnen tonen de link, en latere antwoorden op dezelfde e-mailthread of chat landen in het nieuwe gesprek.
-4. Agents volgen de Autonomie van het gesprek: op **Autonoom** splitsen ze zelf, op **Geassisteerd** stellen ze de split voor als beslissing, op **Handmatig** laten ze het aan jou.
+4. Agents volgen de Autonomie van het gesprek: op **Autonoom** verplaatsen ze zelf, op **Geassisteerd** stellen ze het verplaatsen voor als beslissing, op **Handmatig** laten ze het aan jou.
+5. Twee gesprekken over hetzelfde verzoek: kies **Samenvoegen met...** in het menu in de kop. Alle berichten gaan mee; dit gesprek sluit en verwijst naar het andere.
 
 ## Labels laten voorstellen
 

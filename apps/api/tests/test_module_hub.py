@@ -44,15 +44,6 @@ async def test_module_prefs_and_connections(client: AsyncClient, session_overrid
     token = await _login(client)
     headers = _auth(token)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    from app.models.agent import Agent
-    from app.services.module_agents import add_module_agent
-
-    agent = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
-        )
-    ).scalar_one()
-    await add_module_agent(session_override, tenant.id, "accounting", agent.id, is_default=True)
     await set_module_enabled(session_override, tenant.id, "accounting", True)
     # Only credentialed + verified connections are listed and can become the
     # module default, so seed both markers.
@@ -102,15 +93,6 @@ async def test_platform_seeds_and_tenant_source(
     token = await _login(client)
     headers = _auth(token)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    from app.models.agent import Agent
-    from app.services.module_agents import add_module_agent
-
-    agent = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.role == "assistant")
-        )
-    ).scalar_one()
-    await add_module_agent(session_override, tenant.id, "accounting", agent.id, is_default=True)
     await set_module_enabled(session_override, tenant.id, "accounting", True)
     seeds = await ensure_platform_seeds(session_override, tenant.id, "accounting")
     assert len(seeds) >= len(ACCOUNTING_PLATFORM_SEEDS)

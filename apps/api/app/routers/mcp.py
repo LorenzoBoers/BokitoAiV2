@@ -158,6 +158,111 @@ _PROMPTS = [
             "3. Answer with citations (doc titles/ids). Say when nothing matches."
         ),
     },
+    {
+        "name": "build_sheet",
+        "description": (
+            "Create a spreadsheet canvas (kind=sheet) with columns and rows — "
+            "never dashboard blocks"
+        ),
+        "arguments": [
+            {
+                "name": "title",
+                "description": "Sheet title, e.g. Weersvoorspelling Nederland",
+                "required": True,
+            },
+            {
+                "name": "topic",
+                "description": "What rows and columns should contain",
+                "required": True,
+            },
+        ],
+        "text": (
+            "Build a Bokito spreadsheet canvas for: {title}\n"
+            "Topic / data: {topic}\n"
+            "1. Call create_canvas with title, kind=\"sheet\", and new_thread=true "
+            "if you are not already in a conversation.\n"
+            "2. Read edit_field, edit_example, and hint from the create result. "
+            "edit_field is source. Do not pass blocks.\n"
+            "3. Call edit_canvas with that canvas_id and source set to an object "
+            "{{columns: [...], rows: [[...], ...]}} (or tabs). Follow edit_example "
+            "for the shape; fill real values for the topic.\n"
+            "4. Call finish_canvas with the same canvas_id.\n"
+            "5. Do not paste the sheet into chat. If edit returns invalid, retry "
+            "with edit_example — never with empty blocks: []."
+        ),
+    },
+    {
+        "name": "build_dashboard",
+        "description": (
+            "Create a dashboard canvas with blocks (stats/charts) and cite tool sources"
+        ),
+        "arguments": [
+            {
+                "name": "title",
+                "description": "Dashboard title",
+                "required": True,
+            },
+            {
+                "name": "goal",
+                "description": "What the dashboard should show",
+                "required": True,
+            },
+        ],
+        "text": (
+            "Build a Bokito dashboard canvas for: {title}\n"
+            "Goal: {goal}\n"
+            "1. Call create_canvas with title, kind=\"dashboard\", and an optional "
+            "skill (overview, trend, breakdown, comparison, report).\n"
+            "2. Read skill.example, edit_field, and edit_example from the result. "
+            "edit_field is blocks.\n"
+            "3. Fetch any numbers with tools first. Then call edit_canvas with "
+            "blocks in reading order. Every stat, chart, pie and table needs "
+            "source.tool_use_id from this turn.\n"
+            "4. Call finish_canvas. Do not paste blocks into chat.\n"
+            "5. Do not use kind=sheet for a KPI dashboard."
+        ),
+    },
+    {
+        "name": "build_canvas",
+        "description": (
+            "Create any canvas kind using create → edit → finish and the "
+            "edit_example from create"
+        ),
+        "arguments": [
+            {
+                "name": "title",
+                "description": "Canvas title",
+                "required": True,
+            },
+            {
+                "name": "kind",
+                "description": (
+                    "dashboard | document | diagram | drawing | image | code | "
+                    "email | sheet | design"
+                ),
+                "required": True,
+            },
+            {
+                "name": "brief",
+                "description": "What the body should contain",
+                "required": True,
+            },
+        ],
+        "text": (
+            "Build a Bokito canvas.\n"
+            "Title: {title}\n"
+            "Kind: {kind}\n"
+            "Brief: {brief}\n"
+            "1. create_canvas(title, kind). Spreadsheet asks use kind=sheet.\n"
+            "2. Use edit_field and edit_example from the result on edit_canvas. "
+            "Kind → field: dashboard→blocks; document→markdown source; "
+            "diagram→Mermaid source; drawing→SVG source; code→source+language; "
+            "email→source object; sheet→source {{columns, rows}}; "
+            "design→source frames; image→image_prompt.\n"
+            "3. finish_canvas. Never paste the body in chat. Never pass empty "
+            "blocks on a non-dashboard kind."
+        ),
+    },
 ]
 
 

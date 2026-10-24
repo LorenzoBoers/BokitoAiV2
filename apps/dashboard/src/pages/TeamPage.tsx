@@ -1,13 +1,12 @@
-import { Checkbox } from '../components/ui/checkbox'
-import { departmentPath, GRID_PATH } from '../lib/navigation'
+import { departmentPath, GRID_PATH, ORGANIZATION_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { asAgentStatus } from '../lib/presence'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Building2, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { PageContent } from '../components/layout/PageContent'
+import { MarketplaceHireHint } from '../components/layout/MarketplaceHireHint'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { Card } from '../components/ui/card'
 import { EntityList, EntityRow } from '../components/ui/entity-row'
@@ -17,8 +16,8 @@ import { Button } from '../components/ui/button'
 import { PageHeader } from '../components/ui/page-header'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { Input } from '../components/ui/input'
-import { Avatar } from '../components/ui/avatar'
 import { AvatarStack } from '../components/ui/AvatarStack'
+import { ChoiceSelect, type ChoiceGroup } from '../components/ui/ChoiceSelect'
 import { resolveTeamStackMembers } from '../lib/team-facepile'
 import { platformIcon } from '../lib/platform-icons'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
@@ -38,17 +37,12 @@ import {
   getTeamOverview,
   patchTeam,
   PICKUP_MODES,
-  setTeamMembers,
+  placeAgent,
   type Team,
-  type TeamMemberRef,
   type TeamOverview,
   type TeamPickup,
 } from '../lib/teams-api'
-import { useAgentLive, agentPresenceOf } from '../hooks/useAgentPresence'
-
-function memberKey(ref: TeamMemberRef): string {
-  return `${ref.kind}:${ref.id}`
-}
+import { useAgentLive } from '../hooks/useAgentPresence'
 
 function resolveTeamMembers(team: Team, overview: TeamOverview) {
   return resolveTeamStackMembers(team.members, {
@@ -72,7 +66,8 @@ export default function TeamPage() {
   const { hash } = useLocation()
   const [overview, setOverview] = useState<TeamOverview | null>(null)
   const [teamsLoading, setTeamsLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState(() => params.get('new') === '1')
+  const newParent = params.get('parent')
   const showDepartments = params.get('tab') === 'departments'
 
   const reload = useCallback(async () => {
@@ -133,6 +128,29 @@ export default function TeamPage() {
     return map
   }, [overview, teamNames])
 
+  const unplaced = useMemo(() => (overview?.agents ?? []).filter((agent) => agent.unplaced), [overview])
+  const departmentChoices: ChoiceGroup[] = useMemo(
+    () => [
+      {
+        items: (overview?.teams ?? [])
+          .filter((team) => !team.system && !team.root)
+          .map((team) => ({ value: team.id, label: team.name, kind: 'icon' as const, icon: platformIcon(team.icon) ?? Building2 })),
+      },
+    ],
+    [overview],
+  )
+
+  const place = async (agentId: string, agentName: string, departmentId: string) => {
+    if (!token) return
+    try {
+      await placeAgent(token, departmentId, agentId)
+      toast.success(t('teamPage.placed', { name: agentName, department: teamNames[departmentId] ?? '' }))
+      await reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('teamPage.saveError'))
+    }
+  }
+
   const directoryTeamNames = useMemo(() => {
     const map: Record<string, string> = {}
     for (const team of overview?.teams ?? []) {
@@ -184,14 +202,20 @@ export default function TeamPage() {
               return (
                 <EntityRow
                   key={team.id}
-                  href={canOpen ? departmentPath(team.id) : undefined}
-                  data-testid={canOpen ? 'open-department' : undefined}
+                  href={canOpen ? departmentPath(team.id) : ORGANIZATION_PATH}
+                  data-testid={canOpen ? 'open-department' : 'open-organization'}
                   leading={
                     <IconTile icon={Icon} tone="accent" />
                   }
-                  title={teamNames[team.id]}
+                  title={team.system ? t('teamPage.orgRow') : teamNames[team.id]}
                   badges={team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
-                  description={team.system ? about : `${t(`teamPage.pickup.${team.pickup}`)} · ${about}`}
+                  description={[
+                    team.contact ? t('departmentPage.children.contact', { name: team.contact.name }) : null,
+                    team.system ? null : t(`teamPage.pickup.${team.pickup}`),
+                    about,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                   meta={
                     <span data-testid="team-metrics">
                       {t('teamPage.metrics', {
@@ -210,6 +234,33 @@ export default function TeamPage() {
             })}
           </EntityList>
         </Card>
+        {unplaced.length > 0 && overview ? (
+          <Card className="space-y-2 p-4" data-testid="unplaced-agents">
+            <div>
+              <p className="text-sm font-medium text-text-heading">{t('teamPage.unplacedTitle')}</p>
+              <p className="text-xs text-text-muted">{t('teamPage.unplaced', { count: unplaced.length })}</p>
+            </div>
+            <ul className="divide-y divide-border/50">
+              {unplaced.map((agent) => (
+                <li key={agent.id} className="flex items-center gap-3 py-2">
+                  <Link to={`/agents/${agent.id}`} className="min-w-0 flex-1 truncate text-sm text-text-heading hover:underline">
+                    {agent.name}
+                  </Link>
+                  {canManage ? (
+                    <ChoiceSelect
+                      triggerClassName="w-56"
+                      groups={departmentChoices}
+                      value=""
+                      placeholder={t('teamPage.place')}
+                      aria-label={t('teamPage.placeLabel', { name: agent.name })}
+                      onValueChange={(departmentId) => void place(agent.id, agent.name, departmentId)}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
       </section>
       ) : null}
 
@@ -217,7 +268,11 @@ export default function TeamPage() {
         <TeamDialog
           team={null}
           overview={overview}
-          onClose={() => setCreating(false)}
+          initialParent={newParent}
+          onClose={() => {
+            setCreating(false)
+            if (params.get('new')) setParams({ tab: 'departments' }, { replace: true })
+          }}
           onSaved={() => {
             setCreating(false)
             void reload()
@@ -225,6 +280,7 @@ export default function TeamPage() {
         />
       ) : null}
 
+      <MarketplaceHireHint />
       <PageRelatedLinks
         links={[
           { to: GRID_PATH, label: t('orgCanvas.link') },
@@ -236,64 +292,61 @@ export default function TeamPage() {
   )
 }
 
+const ORG_PARENT = 'org'
+
 function TeamDialog({
   team,
   overview,
+  initialParent = null,
   onClose,
   onSaved,
 }: {
   team: Team | null
   overview: TeamOverview
+  initialParent?: string | null
   onClose: () => void
   onSaved: () => void
 }) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
+  const navigate = useNavigate()
   const confirm = useConfirm()
   const [name, setName] = useState(team?.name ?? '')
   const [description, setDescription] = useState(team?.description ?? '')
   const [pickup, setPickup] = useState<TeamPickup>(team?.pickup ?? 'people')
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set((team?.members ?? []).map(memberKey)),
-  )
+  const rootId = overview.teams.find((row) => row.system || row.root)?.id ?? null
+  const [parent, setParent] = useState<string>(() => {
+    const start = team ? team.parent_id : initialParent
+    const takesChild = overview.teams.some((row) => row.id === start && row.parent_id === rootId)
+    return start && start !== rootId && takesChild ? start : ORG_PARENT
+  })
   const [busy, setBusy] = useState(false)
   const isSystem = team?.system ?? false
-
-  const toggle = (ref: TeamMemberRef) =>
-    setSelected((prev) => {
-      const next = new Set(prev)
-      const key = memberKey(ref)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-
-  const members = (): TeamMemberRef[] =>
-    [...selected].map((key) => {
-      const [kind, id] = key.split(':')
-      return { kind: kind as 'user' | 'agent', id }
-    })
+  // Departments go at most two levels deep, so only top-level departments can take a child.
+  const parentGroups: ChoiceGroup[] = [
+    {
+      items: [
+        { value: ORG_PARENT, label: t('teamPage.parentOrg'), kind: 'icon', icon: Building2 },
+        ...overview.teams
+          .filter((row) => !row.system && !row.root && row.parent_id === rootId && row.id !== team?.id)
+          .map((row) => ({ value: row.id, label: row.name, kind: 'icon' as const, icon: platformIcon(row.icon) ?? Building2 })),
+      ],
+    },
+  ]
 
   const save = async () => {
     if (!token) return
     setBusy(true)
     try {
+      const parent_id = parent === ORG_PARENT ? null : parent
       if (!team) {
-        await createTeam(token, {
-          name,
-          description,
-          pickup,
-          members: members(),
-        })
-      } else {
-        if (isSystem) return
-        await patchTeam(token, team.id, {
-          name,
-          description,
-          pickup,
-        })
-        await setTeamMembers(token, team.id, members())
+        const created = await createTeam(token, { name, description, pickup, parent_id })
+        onSaved()
+        navigate(departmentPath(created.id))
+        return
       }
+      if (isSystem) return
+      await patchTeam(token, team.id, { name, description, pickup, parent_id })
       onSaved()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('teamPage.saveError'))
@@ -351,48 +404,18 @@ function TeamDialog({
             <p className="text-xs text-text-muted">{t(`teamPage.pickupHint.${pickup}`)}</p>
           </div>
           {!isSystem ? (
-            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-              {overview.people.filter((p) => !p.deactivated).map((p) => {
-                const ref: TeamMemberRef = { kind: 'user', id: p.uuid }
-                return (
-                  <label key={p.uuid} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
-                    <Checkbox checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    <Avatar
-                      kind="person"
-                      name={p.name}
-                      email={p.email}
-                      imageUrl={p.avatar_url}
-                      size={20}
-                      presence={p.presence.status}
-                      decorative
-                    />
-                    <span className="text-sm">{p.name}</span>
-                  </label>
-                )
-              })}
-              {overview.agents.filter((a) => !a.deactivated).map((a) => {
-                const ref: TeamMemberRef = { kind: 'agent', id: a.id }
-                return (
-                  <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-bg-hover">
-                    <Checkbox checked={selected.has(memberKey(ref))} onChange={() => toggle(ref)} />
-                    <Avatar
-                      kind="agent"
-                      agent={a}
-                      size={20}
-                      decorative={false}
-                      mode="static"
-                      activity={
-                        agentPresenceOf(a.id) !== 'standby'
-                          ? agentPresenceOf(a.id)
-                          : asAgentStatus(a.status)
-                      }
-                    />
-                    <span className="text-sm">{a.name}</span>
-                  </label>
-                )
-              })}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-text-heading">{t('teamPage.parentLabel')}</p>
+              <ChoiceSelect
+                groups={parentGroups}
+                value={parent}
+                onValueChange={setParent}
+                aria-label={t('teamPage.parentLabel')}
+              />
+              <p className="text-xs text-text-muted">{t('teamPage.parentHint')}</p>
             </div>
           ) : null}
+          {!team ? <p className="text-xs text-text-muted">{t('teamPage.crewAfterCreate')}</p> : null}
         </div>
         <DialogFooter className="flex items-center justify-between gap-2 sm:justify-between">
           {team && !isSystem ? (

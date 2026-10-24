@@ -107,4 +107,4 @@ The same mode decides who an unknown chatter is. When a visitor gives an email o
 
 ## What to do next
 
-Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Set **Who answers** on [Channels](/docs/inbox/channels) when a channel should skip the workspace default agent — that is routing, not Autonomy.
+Load [Knowledge](/docs/ai/knowledge) so drafts stay grounded. Set **Lands on** on [Channels](/docs/inbox/channels) to send a channel to a department — that is routing, not Autonomy.

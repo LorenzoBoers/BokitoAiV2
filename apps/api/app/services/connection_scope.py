@@ -1,10 +1,11 @@
-"""Where and by whom a connection may be used: project links + access list.
+"""Where and by whom a connection may be used: folder links, department, access list.
 
-Project links are ``ProjectResource`` rows with ``resource_type="connection"``.
+Folder links are ``ProjectResource`` rows with ``resource_type="connection"``.
 A connection without links is workspace-wide; with one or more links it is
-exclusive to those projects, and calls outside them (or without a project)
-cannot use it. The access list (``connection_access``) then decides which
-agents may use it.
+exclusive to those folders (and their sub-folders), and calls outside them
+cannot use it. With org rules on, a connection with a ``department_id`` is
+only usable from conversations of that department or one below it. The
+access list (``connection_access``) then decides which agents may use it.
 
 Enforced here for every agent-driven lookup (accounting verbs, module
 listings, partner MCP); denials are audited. Operator listings without an
@@ -13,6 +14,7 @@ agent see every connection.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import Any, Iterable
 from uuid import UUID
 
@@ -25,6 +27,31 @@ from app.models.project import Project
 from app.models.project_work import ProjectResource
 
 CONNECTION_RESOURCE = "connection"
+
+# The conversation of the tool call in flight. Module providers resolve
+# connections without a signal argument (``call_verb`` has a fixed shape),
+# so the executor sets this around every call.
+tool_conversation: ContextVar[UUID | None] = ContextVar("tool_conversation", default=None)
+
+
+async def _conversation(session: AsyncSession, tenant_id: UUID, signal: Any | None) -> Any | None:
+    if signal is not None:
+        return signal
+    signal_id = tool_conversation.get()
+    if signal_id is None:
+        return None
+    from app.models.signal import Signal
+
+    row = await session.get(Signal, signal_id)
+    return row if row is not None and row.tenant_id == tenant_id else None
+
+
+async def _flow(session: AsyncSession, signal: Any | None) -> Any | None:
+    if signal is None:
+        return None
+    from app.services.workstreams import flow_means
+
+    return await flow_means(session, signal)
 
 
 def _uuid(value: Any) -> UUID | None:
@@ -141,6 +168,41 @@ async def set_connection_projects(
     return sorted(str(p) for p in wanted)
 
 
+async def folder_chain(session: AsyncSession, tenant_id: UUID, project_id: UUID | None) -> list[UUID]:
+    """The folder and its parents, nearest first."""
+    out: list[UUID] = []
+    while project_id is not None and project_id not in out and len(out) < 8:
+        row = await session.get(Project, project_id)
+        if row is None or row.tenant_id != tenant_id or row.deleted_at is not None:
+            break
+        out.append(row.id)
+        project_id = row.parent_id
+    return out
+
+
+async def conversation_departments(
+    session: AsyncSession, tenant_id: UUID, signal: Any | None, agent_id: UUID | None
+) -> set[UUID] | None:
+    """Departments whose connections this call may use: the chain of the conversation's department.
+
+    Without a conversation, the chains of the agent's own departments. None
+    while org rules are off (no department rule).
+    """
+    from app.services.org_rules import org_rules_on
+    from app.services.teams import department_chain, direct_department_ids
+
+    if not await org_rules_on(session, tenant_id):
+        return None
+    if signal is not None:
+        from app.services.department_domain import department_of_signal
+
+        return set(await department_chain(session, tenant_id, await department_of_signal(session, signal)))
+    out: set[UUID] = set()
+    for department_id in await direct_department_ids(session, tenant_id, "agent", agent_id) if agent_id else set():
+        out |= set(await department_chain(session, tenant_id, department_id))
+    return out
+
+
 async def denial_reason(
     session: AsyncSession,
     tenant_id: UUID,
@@ -149,23 +211,47 @@ async def denial_reason(
     agent_id: UUID | None,
     project_id: UUID | None,
     links: dict[str, list[str]] | None = None,
+    folders: list[UUID] | None = None,
+    departments: set[UUID] | None = None,
+    flow: Any | None = None,
 ) -> str | None:
-    """Plain-text reason this agent may not use ``conn`` here, else None."""
+    """Plain-text reason this agent may not use ``conn`` here, else None.
+
+    ``folders`` is the conversation's folder chain (defaults to ``project_id``
+    alone); a link on any of them counts. ``departments`` is the chain of
+    the conversation's department (``conversation_departments``). ``flow``
+    is the conversation flow's means (``workstreams.flow_means``).
+    """
     if agent_id is None:
         return None
     linked = (links if links is not None else await project_links(session, tenant_id, [conn.id])).get(
         str(conn.id), []
     )
     label = conn.display_name or conn.provider
-    if linked and (project_id is None or str(project_id) not in linked):
+    here = [str(f) for f in (folders if folders is not None else ([project_id] if project_id else []))]
+    if linked and not set(here) & set(linked):
         names = await project_names(session, tenant_id, linked)
         where = ", ".join(sorted(names.get(p, p) for p in linked))
-        if project_id is None:
+        if not here:
             return (
-                f"The {label} connection belongs to project {where}. Work on it from "
-                "a conversation in that project."
+                f"The {label} connection belongs to folder {where}. Work on it from "
+                "a conversation in that folder."
             )
-        return f"The {label} connection belongs to project {where}, not this project."
+        return f"The {label} connection belongs to folder {where}, not this folder."
+    if flow is not None and flow.connection_ids is not None and str(conn.id) not in flow.connection_ids:
+        return (
+            f"The flow {flow.flow_name} works with other connections than {label}. Use one it "
+            "names, or ask a person to widen the flow."
+        )
+    if departments is not None and conn.department_id and conn.department_id not in departments:
+        from app.models.team import Department
+
+        dept = await session.get(Department, conn.department_id)
+        name = dept.name if dept is not None else "another department"
+        return (
+            f"The {label} connection belongs to {name}. Work on it from a conversation "
+            f"of {name} or a department below it."
+        )
     from app.services.connection_access import agent_level
 
     if await agent_level(session, conn, agent_id) is None:
@@ -183,11 +269,22 @@ async def usable_connection_ids(
     *,
     agent_id: UUID | None,
     project_id: UUID | None,
+    signal: Any | None = None,
 ) -> tuple[set[str], dict[str, str]]:
-    """(usable ids, {denied id: reason}) for an agent call in a project context."""
+    """(usable ids, {denied id: reason}) for an agent call from a conversation.
+
+    In order: the folder link of the conversation's folder or a parent; the
+    department chain of the conversation (org rules on); the access list.
+    """
     ids = list(connection_ids)
     if agent_id is None:
         return {str(i) for i in ids}, {}
+    signal = await _conversation(session, tenant_id, signal)
+    if project_id is None and signal is not None:
+        project_id = getattr(signal, "project_id", None)
+    folders = await folder_chain(session, tenant_id, project_id)
+    departments = await conversation_departments(session, tenant_id, signal, agent_id)
+    flow = await _flow(session, signal)
     rows = (
         await session.execute(
             select(IntegrationConnection).where(
@@ -201,7 +298,15 @@ async def usable_connection_ids(
     denied: dict[str, str] = {}
     for conn in rows:
         reason = await denial_reason(
-            session, tenant_id, conn, agent_id=agent_id, project_id=project_id, links=links
+            session,
+            tenant_id,
+            conn,
+            agent_id=agent_id,
+            project_id=project_id,
+            links=links,
+            folders=folders,
+            departments=departments,
+            flow=flow,
         )
         if reason:
             denied[str(conn.id)] = reason
@@ -213,11 +318,61 @@ async def usable_connection_ids(
 async def project_linked_ids(
     session: AsyncSession, tenant_id: UUID, project_id: UUID | None, connection_ids: Iterable[UUID]
 ) -> set[str]:
-    """Connections among ``connection_ids`` linked to ``project_id``."""
+    """Connections among ``connection_ids`` linked to the nearest folder in ``project_id``'s chain that has any.
+
+    Without ``project_id`` the folder of the conversation in flight counts.
+    """
     if project_id is None:
-        return set()
+        signal = await _conversation(session, tenant_id, None)
+        project_id = getattr(signal, "project_id", None)
     links = await project_links(session, tenant_id, list(connection_ids))
-    return {cid for cid, projects in links.items() if str(project_id) in projects}
+    for folder in await folder_chain(session, tenant_id, project_id):
+        here = {cid for cid, projects in links.items() if str(folder) in projects}
+        if here:
+            return here
+    return set()
+
+
+async def default_connection(
+    session: AsyncSession,
+    tenant_id: UUID,
+    signal: Any | None,
+    candidates: Iterable[UUID],
+    *,
+    module_default: str | None = None,
+) -> str | None:
+    """The connection to use when the call names none.
+
+    One candidate linked to the nearest folder of the conversation wins;
+    otherwise the module default when it is a candidate; otherwise None (ask).
+    """
+    ids = [str(c) for c in candidates]
+    linked = await project_linked_ids(
+        session, tenant_id, getattr(signal, "project_id", None), [UUID(i) for i in ids]
+    )
+    if len(linked) == 1:
+        return next(iter(linked))
+    if module_default and module_default in ids:
+        return module_default
+    return None
+
+
+async def set_connection_department(
+    session: AsyncSession, tenant_id: UUID, conn: IntegrationConnection, department_id: UUID | None
+) -> None:
+    """Home department of a connection; None (or the organization) makes it workspace-wide. Caller commits."""
+    from app.models.team import is_root_department
+    from app.services.teams import get_team
+
+    if department_id is not None:
+        dept = await get_team(session, tenant_id, department_id)
+        if dept is None:
+            raise ValueError("Unknown department")
+        if is_root_department(dept):
+            department_id = None
+    conn.department_id = department_id
+    session.add(conn)
+    await session.flush()
 
 
 async def mcp_server_denial(
@@ -227,6 +382,7 @@ async def mcp_server_denial(
     *,
     agent_id: UUID | None,
     project_id: UUID | None,
+    signal: Any | None = None,
 ) -> tuple[str, str] | None:
     """(connection id, reason) when an agent may not call this MCP server here."""
     if agent_id is None or not server_name:
@@ -259,8 +415,18 @@ async def mcp_server_denial(
         conn = await session.get(IntegrationConnection, binding.connection_id)
         if conn is None or conn.tenant_id != tenant_id:
             return None
+        signal = await _conversation(session, tenant_id, signal)
+        if project_id is None and signal is not None:
+            project_id = getattr(signal, "project_id", None)
         reason = await denial_reason(
-            session, tenant_id, conn, agent_id=agent_id, project_id=project_id
+            session,
+            tenant_id,
+            conn,
+            agent_id=agent_id,
+            project_id=project_id,
+            folders=await folder_chain(session, tenant_id, project_id),
+            departments=await conversation_departments(session, tenant_id, signal, agent_id),
+            flow=await _flow(session, signal),
         )
         return (str(conn.id), reason) if reason else None
     return None

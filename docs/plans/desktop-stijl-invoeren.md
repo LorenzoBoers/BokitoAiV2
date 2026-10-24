@@ -610,3 +610,7 @@ In `apps/dashboard/scripts/copy-tsx-allowlist.txt`, onder `# WIP andere agent, o
 
 - De mobiele app laadt nog geen Geist. `apps/mobile` laadt Inter en JetBrains Mono via `@expo-google-fonts`, en `fontFamily.sansNative`/`monoNative` wijzen daar nog naar. Niet zelf gebouwd. Nodig: Geist als Expo-font laden en de native namen in `typography.ts` omzetten.
 - De screenshots in `docs/product-help/assets` tonen nog Inter en serif-koppen. De tekst klopt nog; het font in de beelden niet. Opnieuw vastleggen met `capture_product_help_screenshots.py` hoort bij een volgende ronde.
+
+### Docs-skin gelijk aan de app
+
+- De publieke `/docs` hadden een eigen Grok-achtige skin (puur zwart/wit, grotere display-titels). Die is gelijkgetrokken: `--docs-*` wijst naar de app-tokens (warm neutraal, Geist via `title-*` en `text-docs-body` = `base`). Het platformgroen blijft vergrendeld zodat een tenantkleur de publieke site niet herkleurt. `/docs/api` blijft forced dark voor Scalar.

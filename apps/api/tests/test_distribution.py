@@ -195,7 +195,7 @@ async def test_learned_routing_proposal_and_rule(client: AsyncClient, session_ov
     ).scalar_one()
     assert change.status == "pending_review"
     after = json.loads(change.after_json)
-    assert after["topic"] == str(invoices_id) and after["topic_label"] == "#invoices"
+    assert after["topic"] == str(invoices_id) and after["topic_label"] == "invoices"
     change_id = change.id
 
     await accept_platform_change(session_override, tenant_id, change_id, owner_id)

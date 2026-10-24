@@ -256,9 +256,8 @@ export default function AppShell() {
           </div>
 
           <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-          {/* Mounted on every page, including Messages: the Bokito rail
-            section there hands its threads to this one widget instead of
-            rendering a second chat surface. */}
+          {/* Dev-only in-app helper (no FAB): opens from topbar Help.
+            Production never mounts it — Help goes to /settings/help. */}
           <PersonalAssistantWidget />
           <ChatStack />
           {user?.agentCallsEnabled ? <AgentCallOverlay /> : null}

@@ -154,9 +154,9 @@ export class TwoFactorRequiredError extends Error {
   }
 }
 
-/** Thrown by `login` when the account is valid but has no workspace membership
- * (e.g. an admin removed it from its last tenant). The account persists; the
- * user joins via a pending invite or creates a new workspace. */
+/** Thrown by `login` and `signup` when the account is valid but has no workspace
+ * yet (a new signup, or a member removed from its last tenant). The account
+ * persists; the user joins via a pending invite or creates a new workspace. */
 export class WorkspaceRequiredError extends Error {
   setupToken: string;
   email: string;
@@ -746,6 +746,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signup = useCallback(async (params: SignupParams): Promise<string> => {
     const data = await authSignup(params) as AuthTokens;
+    const raw = data as unknown as AuthSessionResponse;
+    if (raw.requires_workspace && raw.setup_token) {
+      throw new WorkspaceRequiredError(raw.setup_token, raw.email ?? params.email, raw.pending_invites ?? []);
+    }
     const nextToken = applySession(data);
     try {
       const me = await authMe(nextToken);

@@ -122,11 +122,11 @@ function Landing({
         <p className="text-sm text-[var(--docs-muted)]">{t('docs.indexLoading')}</p>
       ) : (
         <div className="pb-20">
-          <p className="text-sm text-[var(--docs-muted)]">{t('docs.title')}</p>
-          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight text-[var(--docs-fg)] sm:text-5xl">
+          <p className="title-eyebrow text-[var(--docs-muted)]">{t('docs.title')}</p>
+          <h1 className="mt-3 text-balance title-page text-[var(--docs-fg)]">
             {t('docs.heroTitle')}
           </h1>
-          <p className="mt-5 max-w-2xl text-pretty text-docs-body leading-7 text-[var(--docs-subtle)]">
+          <p className="mt-5 max-w-2xl text-pretty text-docs-body text-[var(--docs-subtle)]">
             {t('docs.heroBody')}
           </p>
 
@@ -157,7 +157,7 @@ function Landing({
           <section className="mt-14 space-y-10">
             {index.sections.map((section) => (
               <div key={section.id}>
-                <h2 className="text-lg font-semibold text-[var(--docs-fg)]">
+                <h2 className="title-section text-[var(--docs-fg)]">
                   {t(`docs.sections.${section.id}.title`)}
                 </h2>
                 <p className="mt-1.5 text-sm leading-6 text-[var(--docs-muted)]">
@@ -291,11 +291,11 @@ function ArticleView({
         <ArticleSkeleton />
       ) : (
         <article className="pb-20">
-          <p className="text-sm text-[var(--docs-muted)]">
+          <p className="title-eyebrow text-[var(--docs-muted)]">
             {t(`docs.sections.${article.section}.title`)}
           </p>
 
-          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight text-[var(--docs-fg)] sm:text-display sm:leading-tight">
+          <h1 className="mt-3 text-balance title-page text-[var(--docs-fg)]">
             {article.title}
           </h1>
 

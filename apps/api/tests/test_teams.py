@@ -19,21 +19,22 @@ async def _headers(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
-async def test_all_root_exists_with_members(client: AsyncClient, session_override):
+async def test_organization_root_exists_and_people_are_on_it_implicitly(client: AsyncClient, session_override):
     headers = await _headers(client)
     r = await client.get("/api/departments", headers=headers)
     assert r.status_code == 200
     assert all(row["kind"] == "custom" for row in r.json())
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    root = await teams_svc.ensure_org_root(session_override, tenant.id)
     assert root.name == "All"
     assert root.parent_id is None
-    members = await teams_svc.team_members(session_override, root)
-    assert members
-    assert any(member.kind == "user" for member in members)
+    assert root.id in await teams_svc.user_team_ids(session_override, tenant.id, user.id)
 
 
-async def test_new_company_agent_sits_on_all(client: AsyncClient, session_override):
+async def test_new_company_agent_is_unplaced_but_in_everyone(client: AsyncClient, session_override):
+    from app.services.access_list import agent_principals
+
     headers = await _headers(client)
     created = await client.post(
         "/api/workforce/agents",
@@ -43,56 +44,55 @@ async def test_new_company_agent_sits_on_all(client: AsyncClient, session_overri
     assert created.status_code == 200, created.text
     agent_id = UUID(created.json()["agent"]["id"])
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    root = await teams_svc.ensure_org_root(session_override, tenant.id)
     members = await teams_svc.team_members(session_override, root)
-    seat = next((member for member in members if member.kind == "agent" and member.id == agent_id), None)
-    assert seat is not None
-    assert seat.duty == "member"
-
-
-async def test_unseated_company_agent_is_seated_on_all(client: AsyncClient, session_override):
-    del client
-    tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    root = await teams_svc.ensure_all_department(session_override, tenant.id)
-    agent = Agent(tenant_id=tenant.id, name="Loose agent", kind="company", is_active=True, acts_for_user=False)
-    session_override.add(agent)
-    await session_override.commit()
-    seated = await teams_svc.seat_company_agents_without_department(session_override)
-    await session_override.commit()
-    assert seated >= 1
-    members = await teams_svc.team_members(session_override, root)
-    assert any(member.kind == "agent" and member.id == agent.id for member in members)
+    assert not any(member.kind == "agent" and member.id == agent_id for member in members)
+    principal = (await agent_principals(session_override, tenant.id, [agent_id]))[agent_id]
+    assert str(root.id) in principal.team_ids
 
 
 async def test_custom_team_crud(client: AsyncClient, session_override):
     headers = await _headers(client)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
-    agent = Agent(tenant_id=tenant.id, name="Support agent")
+    agent = Agent(tenant_id=tenant.id, name="Support agent", kind="company", is_active=True)
     session_override.add(agent)
     await session_override.commit()
 
-    r = await client.post(
-        "/api/departments",
-        headers=headers,
-        json={
-            "name": "Support",
-            "members": [{"kind": "user", "id": str(user.id)}, {"kind": "agent", "id": str(agent.id)}],
-        },
-    )
+    r = await client.post("/api/departments", headers=headers, json={"name": "Support"})
     assert r.status_code == 201, r.text
     team = r.json()
-    assert team["member_count"] == 2
+    assert team["member_count"] == 0
     assert team["system"] is False
     assert team["pinned"] is True
+
+    r = await client.put(
+        f"/api/departments/{team['id']}/members",
+        headers=headers,
+        json={
+            "crew": [
+                {"kind": "agent", "id": str(agent.id), "role": "contact", "focus": "First line"},
+                {"kind": "user", "id": str(user.id), "role": "accountable"},
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["contact_agent_id"] == str(agent.id)
+    assert body["contact_implicit"] is False
+    assert body["accountable_user_id"] == str(user.id)
+    assert body["previous"] == []
+    assert next(e for e in body["crew"] if e["kind"] == "agent")["focus"] == "First line"
 
     r = await client.patch(f"/api/departments/{team['id']}", headers=headers, json={"pickup": "round_robin"})
     body = r.json()
     assert body["pickup"] == "round_robin"
     assert body["pinned"] is True
 
-    r = await client.put(f"/api/departments/{team['id']}/members", headers=headers, json={"members": []})
-    assert r.json()["member_count"] == 0
+    r = await client.put(f"/api/departments/{team['id']}/members", headers=headers, json={"crew": []})
+    assert r.status_code == 200
+    assert r.json()["crew"] == []
+    assert len(r.json()["previous"]) == 2
 
     r = await client.delete(f"/api/departments/{team['id']}", headers=headers)
     assert r.status_code == 204
@@ -101,20 +101,90 @@ async def test_custom_team_crud(client: AsyncClient, session_override):
     assert removed is None or removed.deleted_at is not None
 
 
-async def test_all_root_is_protected(client: AsyncClient, session_override):
+async def test_crew_refuses_two_contacts_and_a_person_as_contact(client: AsyncClient, session_override):
     headers = await _headers(client)
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
-    all_id = str((await teams_svc.ensure_all_department(session_override, tenant.id)).id)
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    a = Agent(tenant_id=tenant.id, name="A", kind="company", is_active=True)
+    b = Agent(tenant_id=tenant.id, name="B", kind="company", is_active=True)
+    paused = Agent(tenant_id=tenant.id, name="Paused", kind="company", is_active=False)
+    session_override.add_all([a, b, paused])
+    await session_override.commit()
+    team_id = (await client.post("/api/departments", headers=headers, json={"name": "Desk two"})).json()["id"]
+    url = f"/api/departments/{team_id}/members"
+    two = {"crew": [{"kind": "agent", "id": str(a.id), "role": "contact"}, {"kind": "agent", "id": str(b.id), "role": "contact"}]}
+    assert (await client.put(url, headers=headers, json=two)).status_code == 400
+    person = {"crew": [{"kind": "user", "id": str(user.id), "role": "contact"}]}
+    assert (await client.put(url, headers=headers, json=person)).status_code == 400
+    r = await client.put(url, headers=headers, json={"crew": [{"kind": "agent", "id": str(paused.id)}]})
+    assert r.status_code == 200
+    assert r.json()["crew"] == []
+
+    implicit = await client.put(
+        url,
+        headers=headers,
+        json={"crew": [{"kind": "agent", "id": str(b.id)}, {"kind": "agent", "id": str(a.id)}]},
+    )
+    assert implicit.json()["contact_agent_id"] == str(b.id)
+    assert implicit.json()["contact_implicit"] is True
+
+
+async def test_department_tree_is_at_most_two_levels(client: AsyncClient, session_override):
+    headers = await _headers(client)
+    top = (await client.post("/api/departments", headers=headers, json={"name": "Ops"})).json()["id"]
+    sub = await client.post("/api/departments", headers=headers, json={"name": "Ops desk", "parent_id": top})
+    assert sub.status_code == 201, sub.text
+    deeper = await client.post(
+        "/api/departments", headers=headers, json={"name": "Too deep", "parent_id": sub.json()["id"]}
+    )
+    assert deeper.status_code == 400
+    loop = await client.patch(f"/api/departments/{top}", headers=headers, json={"parent_id": sub.json()["id"]})
+    assert loop.status_code == 400
+    back = await client.patch(f"/api/departments/{sub.json()['id']}", headers=headers, json={"parent_id": None})
+    assert back.status_code == 200
+    assert back.json()["parent_id"] != top
+
+
+async def test_organization_root_is_protected_but_has_a_crew(client: AsyncClient, session_override):
+    headers = await _headers(client)
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
+    all_id = str((await teams_svc.ensure_org_root(session_override, tenant.id)).id)
     assert (await client.delete(f"/api/departments/{all_id}", headers=headers)).status_code == 400
     assert (
         await client.patch(f"/api/departments/{all_id}", headers=headers, json={"name": "Everyone"})
     ).status_code == 400
+    owner_as_member = {"crew": [{"kind": "user", "id": str(user.id), "role": "member"}]}
     assert (
-        await client.put(f"/api/departments/{all_id}/members", headers=headers, json={"members": []})
+        await client.put(f"/api/departments/{all_id}/members", headers=headers, json=owner_as_member)
     ).status_code == 400
     assert (
         await client.post(f"/api/departments/{all_id}/room", headers=headers)
     ).status_code == 400
+    org = await client.get("/api/departments/organization", headers=headers)
+    assert org.status_code == 200, org.text
+    body = org.json()
+    assert body["is_org"] is True
+    assert body["name"] == tenant.name
+    assert body["path"][0]["is_org"] is True
+    assert body["contact"] is not None
+    assert any(row["id"] == str(user.id) for row in body["admins"])
+
+
+async def test_owner_switches_organization_rules(client: AsyncClient, session_override):
+    from app.services.org_rules import org_rules_on
+
+    headers = await _headers(client)
+    tenant_id = (await session_override.execute(select(Tenant.id))).scalar_one()
+    assert (await client.get("/api/departments/organization", headers=headers)).json()["org_rules"] == "off"
+    r = await client.put("/api/departments/organization/rules", headers=headers, json={"mode": "on"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"org_rules": "on"}
+    session_override.expire_all()
+    assert await org_rules_on(session_override, tenant_id)
+    assert (await client.get("/api/departments/organization", headers=headers)).json()["org_rules"] == "on"
+    bad = await client.put("/api/departments/organization/rules", headers=headers, json={"mode": "maybe"})
+    assert bad.status_code == 422
 
 
 async def test_custom_team_room_is_reused(client: AsyncClient, session_override):
@@ -321,7 +391,7 @@ async def test_list_members_counts_a_live_socket(session_override):
 async def test_user_team_ids_includes_all_root(client: AsyncClient, session_override):
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
-    root = await teams_svc.ensure_all_department(session_override, tenant.id)
+    root = await teams_svc.ensure_org_root(session_override, tenant.id)
     await session_override.commit()
     ids = await teams_svc.user_team_ids(session_override, tenant.id, user.id)
     assert root.id in ids

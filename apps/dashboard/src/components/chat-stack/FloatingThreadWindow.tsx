@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
-import { Maximize2, Minus, Pin, PinOff, X } from 'lucide-react'
+import { Maximize2, Minus, X } from 'lucide-react'
 import ThreadDetail from '../inbox/ThreadDetail'
 import { useThreadDetail } from '../../hooks/useThreadDetail'
 import { useMailboxConnections } from '../../hooks/useMailboxConnections'
@@ -21,6 +21,8 @@ import {
   useAgentCallSpeaking,
   useAgentCallUserSpeaking,
 } from '../../lib/agent-call-live'
+import { playEarcon } from '../../lib/earcons'
+import { closeFloatingThread, onFloatingThreadCloseRequest } from '../../lib/chat-stack'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
 
@@ -64,21 +66,68 @@ function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-/** FLIP between a small rect (a stack card) and the window rect. */
-function flipKeyframes(from: DOMRect, to: DOMRect): Keyframe[] {
-  const dx = from.left - to.left
-  const dy = from.top - to.top
-  const sx = Math.max(0.05, from.width / to.width)
-  const sy = Math.max(0.05, from.height / to.height)
-  return [
-    { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 0.4, borderRadius: '14px' },
-    { transform: 'none', opacity: 1, borderRadius: '12px' },
-  ]
+const OPEN_MS = 520
+const CLOSE_MS = 420
+const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const EASE_IN = 'cubic-bezier(0.4, 0, 0.15, 1)'
+
+/** A fixed rectangle. Both frames use `position: fixed` so the box can leave its anchor. */
+function boxFrame(rect: DOMRect, radius: string): Keyframe {
+  return {
+    position: 'fixed',
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    right: 'auto',
+    bottom: 'auto',
+    transform: 'none',
+    borderRadius: radius,
+  }
+}
+
+/** Where a card would sit when this window was not opened from one. */
+function dockFallback(win: DOMRect): DOMRect {
+  const width = Math.min(248, win.width)
+  const height = 62
+  return new DOMRect(win.right - width, win.bottom + 32, width, height)
 }
 
 function cardRect(threadId: string): DOMRect | null {
   const el = document.querySelector(`[data-stack-card-id="${CSS.escape(threadId)}"] .chat-stack-card-body`)
   return el ? el.getBoundingClientRect() : null
+}
+
+function fadeSurface(el: HTMLElement | null, direction: 'in' | 'out', ms: number) {
+  if (!el) return
+  el.getAnimations().forEach((anim) => anim.cancel())
+  if (direction === 'in') {
+    el.style.opacity = '0'
+    el.style.pointerEvents = 'none'
+    const anim = el.animate(
+      [
+        { opacity: 0, offset: 0 },
+        { opacity: 0, offset: 0.22 },
+        { opacity: 1, offset: 0.58 },
+      ],
+      { duration: ms, easing: 'linear', fill: 'forwards' },
+    )
+    const clear = () => {
+      anim.onfinish = null
+      el.style.opacity = ''
+      el.style.pointerEvents = ''
+      anim.cancel()
+    }
+    anim.onfinish = clear
+    return
+  }
+  el.animate(
+    [
+      { opacity: 1, offset: 0 },
+      { opacity: 0, offset: 0.32 },
+    ],
+    { duration: ms, easing: 'linear', fill: 'forwards' },
+  )
 }
 
 export type FloatingThreadWindowProps = {
@@ -90,13 +139,12 @@ export type FloatingThreadWindowProps = {
   onMinimize: () => void
   onClose: () => void
   onExpand: () => void
-  onTogglePin: () => void
 }
 
 /**
  * A conversation from the chat stack, opened over the current page. Grows
  * out of its card and shrinks back into it; the full conversation is one
- * click away.
+ * click away. Pin and unpin live on the corner card.
  */
 export function FloatingThreadWindow({
   threadId,
@@ -107,7 +155,6 @@ export function FloatingThreadWindow({
   onMinimize,
   onClose,
   onExpand,
-  onTogglePin,
 }: FloatingThreadWindowProps) {
   const { t } = useTranslation('communication')
   const call = useAgentCallLive()
@@ -141,6 +188,8 @@ export function FloatingThreadWindow({
     changeAiHandling,
   } = useThreadDetail(threadId, pinnedIds)
   const rootRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const surfaceRef = useRef<HTMLDivElement>(null)
   const closingRef = useRef(false)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const onMailSurfaceChange = useCallback((open: boolean) => {
@@ -153,17 +202,24 @@ export function FloatingThreadWindow({
   )
 
   useLayoutEffect(() => {
-    const el = rootRef.current
-    if (!el || prefersReducedMotion()) return
-    const to = el.getBoundingClientRect()
-    const from = origin ?? cardRect(threadId)
-    const frames: Keyframe[] = from
-      ? flipKeyframes(from, to)
-      : [
-          { transform: 'translateY(16px) scale(0.96)', opacity: 0 },
-          { transform: 'none', opacity: 1 },
-        ]
-    el.animate(frames, { duration: 380, easing: 'cubic-bezier(0.22, 1.2, 0.36, 1)' })
+    const el = panelRef.current
+    const anchor = rootRef.current
+    if (!el || !anchor || prefersReducedMotion()) return
+    const win = anchor.getBoundingClientRect()
+    const from = origin ?? cardRect(threadId) ?? dockFallback(win)
+    if (from.width < 2 || win.width < 2) return
+    const anim = el.animate([boxFrame(from, '8px'), boxFrame(win, '12px')], {
+      duration: OPEN_MS,
+      easing: EASE_OUT,
+      fill: 'both',
+    })
+    fadeSurface(surfaceRef.current, 'in', OPEN_MS)
+    const release = () => {
+      anim.onfinish = null
+      anim.cancel()
+    }
+    anim.onfinish = release
+    return () => anim.cancel()
     // Only on open; a new thread id remounts this component.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -175,8 +231,13 @@ export function FloatingThreadWindow({
       if (target?.closest('button, a, input, textarea, [role="button"]')) return
       const el = rootRef.current
       if (!el) return
-      // Drop the open FLIP so drag translate owns the transform.
-      el.getAnimations().forEach((anim) => anim.cancel())
+      // Drop the open morph so the panel sits in the anchor and drag can move it.
+      panelRef.current?.getAnimations().forEach((anim) => anim.cancel())
+      if (surfaceRef.current) {
+        surfaceRef.current.getAnimations().forEach((anim) => anim.cancel())
+        surfaceRef.current.style.opacity = ''
+        surfaceRef.current.style.pointerEvents = ''
+      }
       dragRef.current = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -234,36 +295,57 @@ export function FloatingThreadWindow({
     })
   }, [right, bottom])
 
-  const shrinkThen = useCallback(
+  /** Shrink the real window onto its card, then unmount. */
+  const leaveThen = useCallback(
     (done: () => void) => {
-      const el = rootRef.current
+      const el = panelRef.current
       if (closingRef.current) return
       closingRef.current = true
+      playEarcon('panelClose')
       if (!el || prefersReducedMotion()) {
         done()
         return
       }
+      const seen = el.getBoundingClientRect()
+      el.style.pointerEvents = 'none'
       el.getAnimations().forEach((anim) => anim.cancel())
-      const to = cardRect(threadId)
-      const from = el.getBoundingClientRect()
-      const frames: Keyframe[] = to
-        ? [...flipKeyframes(to, from)].reverse()
-        : [
-            { transform: 'none', opacity: 1 },
-            { transform: 'translateY(16px) scale(0.96)', opacity: 0 },
-          ]
-      const anim = el.animate(frames, {
-        duration: 260,
-        easing: 'cubic-bezier(0.4, 0, 0.8, 0.4)',
+      const root = rootRef.current
+      if (root) {
+        root.style.transition = 'none'
+        root.style.transform = 'none'
+      }
+      setOffset({ x: 0, y: 0 })
+      const to = cardRect(threadId) ?? dockFallback(seen)
+      fadeSurface(surfaceRef.current, 'out', CLOSE_MS)
+      const anim = el.animate([boxFrame(seen, '12px'), boxFrame(to, '8px')], {
+        duration: CLOSE_MS,
+        easing: EASE_IN,
         fill: 'forwards',
       })
-      anim.onfinish = done
+      let settled = false
+      const finish = () => {
+        if (settled) return
+        settled = true
+        done()
+      }
+      anim.onfinish = finish
+      anim.oncancel = finish
+      window.setTimeout(finish, CLOSE_MS + 80)
     },
     [threadId],
   )
 
-  const minimize = useCallback(() => shrinkThen(onMinimize), [shrinkThen, onMinimize])
-  const close = useCallback(() => shrinkThen(onClose), [shrinkThen, onClose])
+  const minimize = useCallback(() => leaveThen(onMinimize), [leaveThen, onMinimize])
+  const close = useCallback(() => leaveThen(onClose), [leaveThen, onClose])
+
+  useEffect(
+    () =>
+      onFloatingThreadCloseRequest((kind) => {
+        if (kind === 'minimize') minimize()
+        else leaveThen(() => closeFloatingThread({ sound: false }))
+      }),
+    [minimize, leaveThen],
+  )
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -343,12 +425,17 @@ export function FloatingThreadWindow({
       role="dialog"
       aria-label={title}
       data-floating-thread={threadId}
-      className={cn(
-        'fixed z-[60] flex flex-col overflow-hidden rounded-xl border bg-bg-elevated shadow-overlay',
-        onCall ? 'border-ai shadow-[0_0_32px_rgb(var(--color-ai)/0.35)]' : 'border-border',
-      )}
+      className="pointer-events-none fixed z-[60]"
       style={style}
     >
+      <div
+        ref={panelRef}
+        className={cn(
+          'pointer-events-auto absolute inset-0 flex flex-col overflow-hidden rounded-xl border bg-bg-elevated shadow-overlay',
+          onCall ? 'border-ai shadow-[0_0_32px_rgb(var(--color-ai)/0.35)]' : 'border-border',
+        )}
+      >
+      <div ref={surfaceRef} className="flex min-h-0 flex-1 flex-col">
       <div
         className={cn(
           'flex shrink-0 touch-none items-center gap-2 border-b border-border px-3 py-2 select-none',
@@ -393,17 +480,6 @@ export function FloatingThreadWindow({
             </p>
           )}
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="iconSm"
-          aria-label={pinned ? t('chatStack.unpin') : t('chatStack.pin')}
-          title={pinned ? t('chatStack.unpin') : t('chatStack.pin')}
-          onClick={onTogglePin}
-          className={cn(pinned && 'text-accent')}
-        >
-          {pinned ? <PinOff size={14} aria-hidden /> : <Pin size={14} aria-hidden />}
-        </Button>
         <Button
           type="button"
           variant="ghost"
@@ -471,6 +547,8 @@ export function FloatingThreadWindow({
           mailboxNeedsSetup={mailboxNeedsSetup}
           onMailSurfaceChange={onMailSurfaceChange}
         />
+      </div>
+      </div>
       </div>
     </div>
   )

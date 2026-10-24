@@ -33,8 +33,10 @@ _RULES = (
     "the columns; do not use grid or card for layout.",
     "Only real numbers from tools or the conversation. No placeholders, no zeros "
     "for missing data; leave a block out instead.",
-    "On every stat, chart, pie and table set source to {tool_use_id} of the "
-    "tool call in this turn that produced the number. The server fills the tool name and time.",
+    "On every stat, chart, pie and table set source.tool_use_id to the "
+    "tool_use_id string on the tool result that produced the number. Copy that "
+    "string exactly. Do not invent an id, a time, or a conversation id. The "
+    "server fills the tool name and time.",
     "Write labels and text in the operator's language; the example only shows the shape.",
 )
 

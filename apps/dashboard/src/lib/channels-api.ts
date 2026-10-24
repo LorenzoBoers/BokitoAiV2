@@ -61,7 +61,10 @@ export type ChannelRow = {
   defaultTeamId: string | null
   /** Person that owns new conversations when a human must take over. */
   defaultUserId: string | null
-  defaultAgentId: string | null
+  /** Node new conversations land on; empty on list rows. */
+  homeName: string
+  /** Agent that picks up at the home node; empty when people pick up. */
+  homeAgentName: string
   createdAt: string
   /** Initial backfill window in days for sync channels; 0 = everything. */
   syncWindowDays: number
@@ -135,7 +138,8 @@ export function normalizeChannelRow(raw: unknown): ChannelRow | null {
     access: normalizeAccess(value.access, value.access_is_default),
     defaultTeamId: asString(value.default_team_id) || null,
     defaultUserId: asString(value.default_user_id) || null,
-    defaultAgentId: asString(value.default_agent_id) || null,
+    homeName: asString(value.home_name),
+    homeAgentName: asString(value.home_agent_name),
     createdAt: asString(value.created_at),
     syncWindowDays:
       typeof value.sync_window_days === 'number' ? value.sync_window_days : 30,

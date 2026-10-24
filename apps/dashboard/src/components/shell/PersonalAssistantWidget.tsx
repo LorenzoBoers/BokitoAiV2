@@ -7,6 +7,7 @@ import { livechatWidgetHttpOrigin } from '../../lib/api.config'
 import { ensureChatWidgetScript } from '../../lib/chat-widget-loader'
 import {
   consumeAssistantThreadRequest,
+  inAppAssistantEnabled,
   launcherHiddenFor,
   launcherSuppressed,
   onLauncherSuppressedChange,
@@ -78,12 +79,12 @@ function removeOtherInAppWidgets(keep: Element | null) {
 }
 
 /**
- * Every user's personal Bokito helper, mounted as the real `bokito-chat`
+ * Dev-only personal Bokito helper, mounted as the real `bokito-chat`
  * element — the same bundle a tenant embeds on their own website. The
  * `in_app` surface makes the backend answer as the platform-owned Bokito
  * agent, serve Bokito's product help in the help tab, and keep the animated
- * Bokito mark instead of tenant messenger branding. The workspace accent
- * colour tints the launcher and chrome so the helper feels part of the app.
+ * Bokito mark. No floating FAB: open via topbar Help. Production hosts skip
+ * the mount entirely (`inAppAssistantEnabled`).
  */
 export default function PersonalAssistantWidget() {
   const { token } = useAuth()
@@ -100,7 +101,7 @@ export default function PersonalAssistantWidget() {
   const locale = (i18n.language || 'en').slice(0, 2)
 
   useEffect(() => {
-    if (!token) return
+    if (!token || !inAppAssistantEnabled()) return
     const generation = ++inAppMountGeneration
     let cancelled = false
     let el: HTMLElement | null = null
@@ -131,11 +132,12 @@ export default function PersonalAssistantWidget() {
           window.location.search,
         )
         // Keep the Bokito mark; tint chrome with the workspace accent so the
-        // FAB matches the rest of the dashboard instead of default green.
+        // panel matches the rest of the dashboard instead of default green.
         if (brandColor) {
           el.dataset.previewOverrides = JSON.stringify({ main_color: brandColor })
         }
         el.setAttribute('data-theme', currentTheme())
+        // FAB stays hidden until Help (or another open*) force-opens the panel.
         applyLauncherVisibility(el, window.location.pathname, false)
         el.addEventListener('bokito:panel', onPanel)
         document.body.appendChild(el)
@@ -148,7 +150,7 @@ export default function PersonalAssistantWidget() {
         if (pending) openAssistantThread(pending)
       })
       .catch(() => {
-        // Bundle missing (widget not built in this checkout): no launcher.
+        // Bundle missing (widget not built in this checkout): no helper.
       })
     return () => {
       cancelled = true

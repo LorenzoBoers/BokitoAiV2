@@ -42,6 +42,13 @@ async def trigger_scheduler_loop() -> None:
                 if wakes:
                     logger.info("Ambient wake for %s agent(s)", wakes)
 
+                from app.services.awareness import process_department_orientations
+
+                oriented = await process_department_orientations(session)
+                await session.commit()
+                if oriented:
+                    logger.info("Orientation queued for %s department(s)", oriented)
+
                 count = await process_due_triggers(session)
                 if count:
                     logger.info("Trigger scheduler fired %s trigger(s)", count)

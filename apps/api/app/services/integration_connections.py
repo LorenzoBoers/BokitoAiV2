@@ -85,6 +85,15 @@ async def enrich_rows(
     links = await project_links(session, tenant_id, ic_ids)
     names = await project_names(session, tenant_id, {p for ps in links.values() for p in ps})
     modules = await attached_modules_by_connection(session, tenant_id)
+    from app.models.team import Department
+
+    department_ids = {c.department_id for c in conns.values() if c.department_id}
+    departments = {
+        d.id: d
+        for d in (
+            await session.execute(select(Department).where(Department.id.in_(department_ids)))
+        ).scalars().all()
+    } if department_ids else {}
     for row in rows:
         cid = str(row.get("connection_id") or row["id"])
         conn = conns.get(cid)
@@ -92,6 +101,9 @@ async def enrich_rows(
         row["instance_key"] = (conn.instance_key or None) if conn is not None else None
         project_ids = links.get(cid, [])
         row["projects"] = [{"id": p, "name": names.get(p, "")} for p in project_ids]
+        home = departments.get(conn.department_id) if conn is not None and conn.department_id else None
+        row["department_id"] = str(home.id) if home is not None else None
+        row["department_name"] = home.name if home is not None else ""
         row["attached_modules"] = modules.get(cid, [])
         if conn is not None:
             row["access_restricted"] = not is_default_access(conn)

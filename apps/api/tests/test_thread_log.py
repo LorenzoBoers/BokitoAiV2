@@ -48,6 +48,25 @@ async def test_turn_completed_carries_stop_reason_and_leaves_the_live_set():
     assert await thread_log.live(sid) == []
 
 
+@pytest.mark.asyncio
+async def test_delta_after_turn_end_does_not_reopen_the_live_slot():
+    """A late strip/rewrite after end_turn must not leave a ghost writing turn."""
+    tenant, sid = uuid.uuid4(), uuid.uuid4()
+    await thread_log.append(tenant, sid, "agent.turn", {"stream_id": "t1", "phase": "start"})
+    await thread_log.append(tenant, sid, "message.delta", {"stream_id": "t1", "delta": "Hallo"})
+    await thread_log.append(tenant, sid, "agent.turn", {"stream_id": "t1", "phase": "end"})
+    assert await thread_log.live(sid) == []
+    await thread_log.append(
+        tenant,
+        sid,
+        "message.delta",
+        {"stream_id": "t1", "delta": "", "surface": {"blocks": [{"type": "speech", "text": "Hallo"}]}},
+    )
+    assert await thread_log.live(sid) == []
+    frames = await thread_log.sync_frames(sid, None)
+    assert all(f.get("event") != "message.delta" for f in frames)
+
+
 @pytest.mark.parametrize(
     ("outcome", "reason"),
     [(None, "end_turn"), ("silent", "passed"), ("cancelled", "cancelled"), ("superseded", "superseded"), ("error", "error")],

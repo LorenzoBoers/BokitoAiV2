@@ -59,6 +59,10 @@ export const canvasesRoutes = {
       ? `/canvases/default-location?canvas_id=${encodeURIComponent(canvasId)}`
       : '/canvases/default-location',
   byId: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}`,
+  revisions: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}/revisions`,
+  restore: (canvasId: string, revision: number) =>
+    `/canvases/${encodeURIComponent(canvasId)}/revisions/${revision}/restore`,
+  source: (canvasId: string) => `/canvases/${encodeURIComponent(canvasId)}/source`,
   exportFile: (canvasId: string, format: 'csv' | 'xlsx') =>
     `/canvases/${encodeURIComponent(canvasId)}/export?format=${format}`,
   exportGoogle: (canvasId: string) =>

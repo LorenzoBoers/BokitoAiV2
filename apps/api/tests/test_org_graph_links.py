@@ -8,7 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.auth import Tenant, User
-from app.models.module_agent import AgentScope
+from app.models.agent_scope import AgentScope
 from app.services.org_graph import (
     ALL_AREA_RADIUS,
     MEMBER_CLEARANCE,
@@ -241,10 +241,9 @@ async def test_org_graph_excludes_personal_assistant(client: AsyncClient, sessio
 
 @pytest.mark.asyncio
 async def test_org_graph_module_specialist_sits_on_department(client: AsyncClient, session_override):
-    """Module roster / managed provenance do not draw agent↔module; department does."""
+    """Managed provenance does not draw agent↔module; the department does."""
     from app.models.agent import Agent
     from app.models.team import DepartmentMember
-    from app.services.module_agents import add_module_agent
     from app.services.module_department import bind_module_department
 
     del client
@@ -266,7 +265,6 @@ async def test_org_graph_module_specialist_sits_on_department(client: AsyncClien
     await session_override.commit()
     await session_override.refresh(specialist)
 
-    await add_module_agent(session_override, tenant.id, "accounting", specialist.id, is_default=True)
     session_override.add(
         DepartmentMember(
             tenant_id=tenant.id,
@@ -298,12 +296,12 @@ async def test_org_graph_module_specialist_sits_on_department(client: AsyncClien
 async def test_org_graph_department_hierarchy_edge(client: AsyncClient, session_override):
     """Nested custom departments link with kind hierarchy, not an org spoke each."""
     from app.models.team import Department
-    from app.services.teams import ensure_all_department
+    from app.services.teams import ensure_org_root
 
     del client
     tenant = (await session_override.execute(select(Tenant))).scalars().first()
     assert tenant is not None
-    root = await ensure_all_department(session_override, tenant.id)
+    root = await ensure_org_root(session_override, tenant.id)
     parent = Department(
         tenant_id=tenant.id,
         name="Parent Ops",
@@ -359,12 +357,12 @@ async def test_org_graph_department_hierarchy_edge(client: AsyncClient, session_
 async def test_org_graph_all_only_item_sits_on_center(client: AsyncClient, session_override):
     """A folder homed only on All lands on the center island, not a spare plot."""
     from app.models.project import Project
-    from app.services.teams import ensure_all_department
+    from app.services.teams import ensure_org_root
 
     del client
     tenant = (await session_override.execute(select(Tenant))).scalars().first()
     assert tenant is not None
-    root = await ensure_all_department(session_override, tenant.id)
+    root = await ensure_org_root(session_override, tenant.id)
     folder = Project(
         tenant_id=tenant.id,
         name="Company handbook",

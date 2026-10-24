@@ -21,6 +21,9 @@ const LEGACY_TASK_LAYERS = new Set([
 export type AgendaView = 'day' | 'week' | 'month' | 'list'
 
 export const AGENDA_VIEWS: AgendaView[] = ['day', 'week', 'month', 'list']
+/** Default when the URL has no `view` and the browser has no remembered choice. */
+export const AGENDA_DEFAULT_VIEW: AgendaView = 'list'
+const AGENDA_VIEW_STORAGE_KEY = 'bokito.agenda.view'
 
 /** Who to show: everyone, the signed-in person, or one person or agent. */
 export type AgendaWho = 'all' | 'me' | `user:${string}` | `agent:${string}`
@@ -77,7 +80,27 @@ export function layerOf(item: TimeItem): AgendaLayer | 'calendar' {
 }
 
 export function parseView(raw: string | null): AgendaView {
-  return AGENDA_VIEWS.includes(raw as AgendaView) ? (raw as AgendaView) : 'day'
+  return AGENDA_VIEWS.includes(raw as AgendaView) ? (raw as AgendaView) : AGENDA_DEFAULT_VIEW
+}
+
+/** Last Agenda view on this browser (`day` | `week` | `month` | `list`). */
+export function readAgendaViewPref(): AgendaView {
+  try {
+    const raw = globalThis.localStorage?.getItem(AGENDA_VIEW_STORAGE_KEY)
+    if (AGENDA_VIEWS.includes(raw as AgendaView)) return raw as AgendaView
+  } catch {
+    /* private mode */
+  }
+  return AGENDA_DEFAULT_VIEW
+}
+
+export function writeAgendaViewPref(view: AgendaView): void {
+  try {
+    if (view === AGENDA_DEFAULT_VIEW) globalThis.localStorage?.removeItem(AGENDA_VIEW_STORAGE_KEY)
+    else globalThis.localStorage?.setItem(AGENDA_VIEW_STORAGE_KEY, view)
+  } catch {
+    /* private mode: the choice still applies until reload */
+  }
 }
 
 export function parseLayers(raw: string | null): Set<AgendaLayer> {

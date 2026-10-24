@@ -74,16 +74,16 @@ module.exports = {
         "docs-nav": ["0.8125rem", {
           lineHeight: "1.25rem",
         }],
-        "docs-body": ["1.0625rem", {
+        "docs-body": ["0.9375rem", {
+          lineHeight: "1.4375rem",
+        }],
+        "docs-h2": ["1.25rem", {
           lineHeight: "1.75rem",
+          letterSpacing: "-0.025em",
         }],
-        "docs-h2": ["1.65rem", {
-          lineHeight: "2.125rem",
-          letterSpacing: "-0.015em",
-        }],
-        display: ["2.75rem", {
-          lineHeight: "1.15",
-          letterSpacing: "-0.02em",
+        display: ["1.875rem", {
+          lineHeight: "2.25rem",
+          letterSpacing: "-0.035em",
         }],
       },
       borderRadius: {

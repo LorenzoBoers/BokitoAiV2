@@ -59,32 +59,68 @@ _SKIP_EXT = (
 )
 
 # Curated public start pages. Shallow same-origin follow fills the rest (cap).
+# Accounting keeps the operational packs. Reporting standards live on Accountant.
 ACCOUNTING_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
     {
-        "title": "Belastingdienst",
+        "title": "Belastingdienst — ondernemers en btw",
         "url": "https://www.belastingdienst.nl/",
         "seed_key": "belastingdienst",
         "start_urls": [
             "https://www.belastingdienst.nl/",
             "https://www.belastingdienst.nl/wps/wcm/connect/nl/ondernemers/ondernemers",
             "https://www.belastingdienst.nl/wps/wcm/connect/nl/btw/btw",
-            "https://www.belastingdienst.nl/wps/wcm/connect/nl/inkomstenbelasting/inkomstenbelasting",
-            "https://www.belastingdienst.nl/wps/wcm/connect/nl/vennootschapsbelasting/vennootschapsbelasting",
             "https://www.belastingdienst.nl/wps/wcm/connect/nl/loonheffingen/loonheffingen",
         ],
     },
     {
-        "title": "NBA — Handleiding Regelgeving Accountancy (HRA)",
-        "url": "https://www.nba.nl/wet-en-regelgeving/hra/",
-        "seed_key": "nba_hra",
+        "title": "Referentie GrootboekSchema (RGS)",
+        "url": "https://www.referentiegrootboekschema.nl/",
+        "seed_key": "rgs",
         "start_urls": [
-            "https://www.nba.nl/wet-en-regelgeving/hra/",
-            "https://www.nba.nl/wet--en-regelgeving/hra/",
-            "https://www.nba.nl/over-de-nba/regelgeving/",
+            "https://www.referentiegrootboekschema.nl/",
+            "https://www.referentiegrootboekschema.nl/rgs-en-de-koppeling-tussen-sbr-en-auditfile-financieel",
         ],
     },
     {
-        "title": "RJNet — Richtlijnen voor de Jaarverslaggeving",
+        "title": "Belastingdienst — btw-tarieven en factuureisen",
+        "url": "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/btw/btw_berekenen_aan_uw_klanten/btw_berekenen/btw_tarief/btw_tarief",
+        "seed_key": "btw_factuur",
+        "start_urls": [
+            "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/btw/btw_berekenen_aan_uw_klanten/btw_berekenen/btw_tarief/btw_tarief",
+            "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/btw/administratie_bijhouden/facturen_maken/factuureisen/aangepaste_regels_facturen/vereenvoudigde_factuur",
+        ],
+    },
+    {
+        "title": "Ondernemersplein — betalingstermijn",
+        "url": "https://ondernemersplein.overheid.nl/wetten-en-regels/betalingstermijn-incassokosten-en-wettelijke-rente/",
+        "seed_key": "betaaltermijn",
+        "start_urls": [
+            "https://ondernemersplein.overheid.nl/wetten-en-regels/betalingstermijn-incassokosten-en-wettelijke-rente/",
+        ],
+    },
+)
+
+# Professional standards for the year file. Not the bookkeeping packs.
+ACCOUNTANT_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
+    {
+        "title": "NBA — welk accountantsproduct",
+        "url": "https://www.nba.nl/over-nba/zoek-een-accountant/welk-accountantsproduct-heb-ik-nodig/",
+        "seed_key": "nba_products",
+        "start_urls": [
+            "https://www.nba.nl/over-nba/zoek-een-accountant/welk-accountantsproduct-heb-ik-nodig/",
+        ],
+    },
+    {
+        "title": "NBA — Standaard 4410 samenstellingsopdrachten",
+        "url": "https://www.nba.nl/wet--en-regelgeving/hra/1619/10430/10543/",
+        "seed_key": "nba_hra",
+        "start_urls": [
+            "https://www.nba.nl/wet--en-regelgeving/hra/1619/10430/10543/",
+            "https://www.nba.nl/wet-en-regelgeving/hra/",
+        ],
+    },
+    {
+        "title": "RJ — Richtlijnen voor de jaarverslaggeving",
         "url": "https://www.rjnet.nl/",
         "seed_key": "rjnet",
         "start_urls": [
@@ -92,12 +128,13 @@ ACCOUNTING_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
         ],
     },
     {
-        "title": "KvK — Jaarrekening deponeren",
-        "url": "https://www.kvk.nl/inschrijven-en-wijzigen/deponeren/jaarrekening-deponeren/",
+        "title": "KvK — bedrijfsklasse en deponeren",
+        "url": "https://www.kvk.nl/deponeren/in-welke-bedrijfsklasse-valt-je-bedrijf/",
         "seed_key": "kvk_jaarrekening",
         "start_urls": [
-            "https://www.kvk.nl/inschrijven-en-wijzigen/deponeren/jaarrekening-deponeren/",
-            "https://www.kvk.nl/jaarstukken-deponeren/",
+            "https://www.kvk.nl/deponeren/in-welke-bedrijfsklasse-valt-je-bedrijf/",
+            "https://www.kvk.nl/deponeren/deponeren-met-sbr/",
+            "https://www.kvk.nl/hulp-en-contact/deponeren/",
         ],
     },
     {
@@ -106,13 +143,103 @@ ACCOUNTING_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
         "seed_key": "bw2_titel9",
         "start_urls": [
             "https://wetten.overheid.nl/BWBR0003045/",
-            "https://wetten.overheid.nl/BWBR0003045/#Titeldeel9",
+        ],
+    },
+    {
+        "title": "Belastingdienst — tarieven vennootschapsbelasting",
+        "url": "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/winst/vennootschapsbelasting/tarieven_vennootschapsbelasting",
+        "seed_key": "vpb_rates",
+        "start_urls": [
+            "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/winst/vennootschapsbelasting/tarieven_vennootschapsbelasting",
+            "https://www.belastingdienst.nl/wps/wcm/connect/nl/vennootschapsbelasting/vennootschapsbelasting",
+        ],
+    },
+    {
+        "title": "Belastingdienst — inkomstenbelasting",
+        "url": "https://www.belastingdienst.nl/wps/wcm/connect/nl/inkomstenbelasting/inkomstenbelasting",
+        "seed_key": "ib_winst",
+        "start_urls": [
+            "https://www.belastingdienst.nl/wps/wcm/connect/nl/inkomstenbelasting/inkomstenbelasting",
+        ],
+    },
+    {
+        "title": "SBR — documentatie handelsregister",
+        "url": "https://www.sbr-nl.nl/sbr-domeinen/handelsregister/documentatie-boekjaar-2026",
+        "seed_key": "sbr_handelsregister",
+        "start_urls": [
+            "https://www.sbr-nl.nl/sbr-domeinen/handelsregister/documentatie-boekjaar-2026",
+        ],
+    },
+)
+
+# These used to ship on Accounting. Installing Accountant disables them there.
+MOVED_ACCOUNTING_SEED_KEYS = frozenset(
+    {"nba_hra", "rjnet", "kvk_jaarrekening", "bw2_titel9"}
+)
+
+BANKING_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
+    {
+        "title": "DNB — Instant Payments Regulation",
+        "url": "https://www.dnb.nl/nieuws-voor-de-sector/toezicht-2025/instant-payments-regulation-nieuwe-verplichtingen/",
+        "seed_key": "dnb_ipr",
+        "start_urls": [
+            "https://www.dnb.nl/nieuws-voor-de-sector/toezicht-2025/instant-payments-regulation-nieuwe-verplichtingen/",
+        ],
+    },
+    {
+        "title": "Betaalvereniging — Instant Payments Verordening",
+        "url": "https://www.betaalvereniging.nl/kennisbank/europese-regelgeving/instant-payments-verordening/",
+        "seed_key": "betaalvereniging_ipr",
+        "start_urls": [
+            "https://www.betaalvereniging.nl/kennisbank/europese-regelgeving/instant-payments-verordening/",
+        ],
+    },
+)
+
+DOCUMENTS_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
+    {
+        "title": "Belastingdienst — facturen bewaren",
+        "url": "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/btw/administratie_bijhouden/facturen_maken/uw_facturen_bewaren",
+        "seed_key": "facturen_bewaren",
+        "start_urls": [
+            "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/btw/administratie_bijhouden/facturen_maken/uw_facturen_bewaren",
+        ],
+    },
+    {
+        "title": "Ondernemersplein — facturen, bewaarplicht en privacy",
+        "url": "https://ondernemersplein.overheid.nl/wetten-en-regels/facturen-maken-en-versturen/",
+        "seed_key": "factuur_bewaarplicht",
+        "start_urls": [
+            "https://ondernemersplein.overheid.nl/wetten-en-regels/facturen-maken-en-versturen/",
+        ],
+    },
+)
+
+INVESTING_PLATFORM_SEEDS: tuple[dict[str, Any], ...] = (
+    {
+        "title": "AFM — wanneer is iets advies",
+        "url": "https://www.afm.nl/nl-nl/sector/adviseurs-bemiddelaars-en-gevolmachtigde-agenten/vergunning-nodig/het-verschil-tussen-adviseren-en-bemiddelen",
+        "seed_key": "afm_advies",
+        "start_urls": [
+            "https://www.afm.nl/nl-nl/sector/adviseurs-bemiddelaars-en-gevolmachtigde-agenten/vergunning-nodig/het-verschil-tussen-adviseren-en-bemiddelen",
+        ],
+    },
+    {
+        "title": "AFM — execution only",
+        "url": "https://www.afm.nl/nl-nl/consumenten/themas/financieel-advies/execution-only-zonder-advies",
+        "seed_key": "afm_execution_only",
+        "start_urls": [
+            "https://www.afm.nl/nl-nl/consumenten/themas/financieel-advies/execution-only-zonder-advies",
         ],
     },
 )
 
 PLATFORM_SEEDS: dict[str, tuple[dict[str, Any], ...]] = {
     "accounting": ACCOUNTING_PLATFORM_SEEDS,
+    "accountant": ACCOUNTANT_PLATFORM_SEEDS,
+    "banking": BANKING_PLATFORM_SEEDS,
+    "documents": DOCUMENTS_PLATFORM_SEEDS,
+    "investing": INVESTING_PLATFORM_SEEDS,
 }
 
 
@@ -434,6 +561,8 @@ def serialize_source(row: ModuleSource) -> dict[str, Any]:
 async def list_sources(
     session: AsyncSession, tenant_id: UUID, module_slug: str
 ) -> list[dict[str, Any]]:
+    """List sources, creating any platform pack that is not on the tenant yet."""
+    await ensure_platform_seeds(session, tenant_id, module_slug)
     result = await session.execute(
         select(ModuleSource)
         .where(
@@ -487,13 +616,46 @@ async def ensure_platform_seeds(
         session.add(row)
         created.append(row)
         by_key[key] = row
-    if created:
+    retired = False
+    if module_slug == "accountant":
+        retired = await _retire_accounting_standards(session, tenant_id)
+    if created or retired:
         await session.commit()
         for row in created:
             await session.refresh(row)
     rows = list(by_key.values())
     await queue_idle_sources(session, created)
     return rows
+
+
+async def _retire_accounting_standards(session: AsyncSession, tenant_id: UUID) -> bool:
+    """Disable reporting packs that used to sit on Accounting.
+
+    Search is per module. Leaving NBA, RJ, KvK, and BW2 on Accounting made
+    Boekito answer year-file questions from Accounto's sources.
+    """
+    rows = (
+        await session.execute(
+            select(ModuleSource).where(
+                ModuleSource.tenant_id == tenant_id,
+                ModuleSource.module_slug == "accounting",
+                ModuleSource.origin == "platform",
+            )
+        )
+    ).scalars().all()
+    changed = False
+    for row in rows:
+        meta = _row_meta(row)
+        key = str(meta.get("seed_key") or "")
+        if key not in MOVED_ACCOUNTING_SEED_KEYS or row.status == "disabled":
+            continue
+        meta["retired_reason"] = "moved_to_accountant"
+        row.metadata_json = json.dumps(meta)
+        row.status = "disabled"
+        row.updated_at = utcnow()
+        session.add(row)
+        changed = True
+    return changed
 
 
 async def queue_idle_sources(

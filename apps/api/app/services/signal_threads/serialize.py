@@ -878,6 +878,9 @@ def serialize_message(
     if meta.get("source") == "agent_call" and isinstance(meta.get("call_log"), dict):
         payload["source"] = "agent_call"
         payload["call_log"] = meta["call_log"]
+    # Dock hold-to-talk. The timeline marks both the person's line and the reply.
+    if meta.get("source") == "intercom":
+        payload["source"] = "intercom"
     has_html = bool((message.body_html or "").strip())
     body_html = (message.body_html or None) if include_html else None
     from app.services.agent.turn_surface import spoken_text

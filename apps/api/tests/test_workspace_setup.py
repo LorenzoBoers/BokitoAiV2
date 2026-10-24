@@ -172,6 +172,55 @@ async def test_setup_create_workspace_makes_owner(client: AsyncClient, session_o
 
 
 @pytest.mark.asyncio
+async def test_signup_without_workspace_then_create(client: AsyncClient, session_override):
+    """Public signup collects the account first. The workspace name comes next."""
+    r = await client.post(
+        "/api/auth/signup",
+        json={
+            "email": "jane@acme.example",
+            "password": "longenough",
+            "first_name": "Jane",
+            "last_name": "Doe",
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["requires_workspace"] is True
+    assert body["setup_token"]
+    assert body["email"] == "jane@acme.example"
+    assert "access_token" not in body
+
+    user = (
+        await session_override.execute(select(User).where(User.email == "jane@acme.example"))
+    ).scalar_one()
+    assert user.first_name == "Jane"
+    memberships = (
+        await session_override.execute(select(Membership).where(Membership.user_id == user.id))
+    ).scalars().all()
+    assert memberships == []
+
+    r = await client.post(
+        "/api/auth/workspace-setup/create",
+        json={"setup_token": body["setup_token"], "workspace_name": "Acme"},
+    )
+    assert r.status_code == 200, r.text
+    created = r.json()
+    assert created["access_token"]
+    assert created["tenant"]["name"] == "Acme"
+    assert created["tenant"]["slug"] == "acme"
+    assert created["user"]["role"] == "owner"
+
+
+@pytest.mark.asyncio
+async def test_signup_rejects_short_password(client: AsyncClient, session_override):
+    r = await client.post(
+        "/api/auth/signup",
+        json={"email": "short@acme.example", "password": "short"},
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_setup_endpoints_reject_invalid_token(client: AsyncClient, session_override):
     r = await client.post(
         "/api/auth/workspace-setup/create",

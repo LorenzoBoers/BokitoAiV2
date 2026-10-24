@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTitle } from '../components/ui/dialog'
 import { ConfirmDialog } from '../components/ui/confirm-dialog'
 import { formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
 import { Button } from '../components/ui/button'
+import { Input } from '../components/ui/input'
 import { ChannelDetailSkeleton, FolderChecklistSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
 import { PageHeader } from '../components/ui/page-header'
@@ -376,10 +377,10 @@ export default function ChannelDetailPage() {
             <p className="mb-3 text-sm text-text-secondary">
               {t('channelsPage.renameBody', { address: row.address || row.label })}
             </p>
-            <input
+            <Input
               value={renameDraft}
               onChange={(e) => setRenameDraft(e.target.value)}
-              className="h-8"
+              aria-label={t('channelsPage.renameTitle')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && token) {
                   e.preventDefault()

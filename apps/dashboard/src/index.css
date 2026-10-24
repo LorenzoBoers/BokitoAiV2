@@ -2384,8 +2384,8 @@
   }
 }
 
-/* Public /docs — Grok-like developer docs skin.
-   Lock platform Bokito green here so tenant brand_color (applyBrandColor on
+/* Public /docs — same neutrals and type as the app (Geist, warm bg).
+   Lock platform Bokito green so tenant brand_color (applyBrandColor on
    :root) cannot turn CTAs / links blue on prod workspaces. */
 .docs-site {
   --color-accent: 50 191 142;
@@ -2394,15 +2394,16 @@
   --color-accent-fg: 255 255 255;
   --color-accent-ink: 110 220 180;
   --color-border-focus: 50 191 142;
-  --docs-bg: rgb(0 0 0);
-  --docs-fg: rgb(255 255 255);
-  --docs-muted: rgb(138 138 138);
-  --docs-subtle: rgb(179 179 179);
-  --docs-border: rgb(255 255 255 / 0.1);
-  --docs-hover: rgb(255 255 255 / 0.06);
-  --docs-active-ring: rgb(255 255 255 / 0.22);
+  --docs-bg: rgb(var(--color-bg));
+  --docs-fg: rgb(var(--color-text-heading));
+  --docs-muted: rgb(var(--color-text-muted));
+  --docs-subtle: rgb(var(--color-text-secondary));
+  --docs-border: rgb(var(--color-border));
+  --docs-hover: rgb(var(--color-bg-hover) / 0.5);
+  --docs-active-ring: rgb(var(--color-border-light));
   --docs-accent: rgb(var(--color-accent-ink));
-  --docs-kbd: rgb(255 255 255 / 0.12);
+  --docs-kbd: rgb(var(--color-bg-hover));
+  @apply font-sans;
   background: var(--docs-bg);
   color: var(--docs-fg);
 }
@@ -2413,15 +2414,6 @@
   --color-accent-fg: 255 255 255;
   --color-accent-ink: 8 112 78;
   --color-border-focus: 20 166 116;
-  --docs-bg: rgb(255 255 255);
-  --docs-fg: rgb(10 10 10);
-  --docs-muted: rgb(107 107 107);
-  --docs-subtle: rgb(61 61 61);
-  --docs-border: rgb(0 0 0 / 0.1);
-  --docs-hover: rgb(0 0 0 / 0.04);
-  --docs-active-ring: rgb(0 0 0 / 0.18);
-  --docs-accent: rgb(var(--color-accent-ink));
-  --docs-kbd: rgb(0 0 0 / 0.08);
 }
 /* /docs/api stays black — Scalar is dark-only; avoid a split light chrome. */
 .docs-site.docs-api-forced-dark {
@@ -2467,24 +2459,17 @@
 }
 .docs-site .docs-header {
   border-bottom: none;
-  background: rgb(0 0 0 / 0.35);
+  background: color-mix(in srgb, var(--docs-bg) 72%, transparent);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .docs-site .docs-header {
-    background: rgb(0 0 0 / 0.94);
+    background: var(--docs-bg);
   }
 }
-:root[data-theme='light'] .docs-site:not(.docs-api-forced-dark) .docs-header {
-  background: rgb(255 255 255 / 0.5);
-  backdrop-filter: blur(24px) saturate(1.3);
-  -webkit-backdrop-filter: blur(24px) saturate(1.3);
-}
-:root[data-theme='light'] .docs-site.docs-api-forced-dark .docs-header {
+.docs-site.docs-api-forced-dark .docs-header {
   background: rgb(0 0 0 / 0.35);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
 }
 .docs-site .docs-api-host {
   background: rgb(0 0 0);
@@ -2521,11 +2506,8 @@
 }
 .docs-site .docs-nav-link[data-active='true'] {
   color: var(--docs-fg);
-  background: rgb(255 255 255 / 0.1);
-  font-weight: 500;
-}
-:root[data-theme='light'] .docs-site:not(.docs-api-forced-dark) .docs-nav-link[data-active='true'] {
-  background: rgb(0 0 0 / 0.07);
+  background: rgb(var(--color-bg-hover));
+  font-weight: 600;
 }
 .docs-site .docs-search-trigger {
   border: 1px solid var(--docs-border);
@@ -2543,29 +2525,30 @@
   align-items: center;
   gap: 0.35rem;
   height: 2rem;
-  padding: 0 0.9rem;
-  border-radius: 0.5rem;
-  background: var(--docs-fg);
-  color: var(--docs-bg);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: 0 0.75rem;
+  border-radius: 0.375rem;
+  background: rgb(var(--color-accent));
+  color: rgb(var(--color-accent-fg));
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 .docs-site .docs-cta:hover {
-  opacity: 0.9;
+  background: rgb(var(--color-accent-hover));
 }
 .docs-site .docs-cta-outline {
   align-items: center;
   gap: 0.35rem;
   height: 2rem;
-  padding: 0 0.9rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgb(var(--color-accent));
-  color: rgb(var(--color-accent-ink));
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding: 0 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--docs-border);
+  background: rgb(var(--color-bg-surface));
+  color: var(--docs-fg);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 .docs-site .docs-cta-outline:hover {
-  background: rgb(var(--color-accent) / 0.1);
+  background: rgb(var(--color-bg-hover));
 }
 .docs-site .docs-util {
   display: inline-flex;
@@ -2579,19 +2562,16 @@
 }
 .docs-site .docs-link-card {
   border: 1px solid var(--docs-border);
-  background: rgb(255 255 255 / 0.03);
+  background: rgb(var(--color-bg-surface));
 }
 .docs-site .docs-link-card:hover {
-  background: var(--docs-hover);
+  background: rgb(var(--color-bg-hover));
   border-color: var(--docs-active-ring);
-}
-:root[data-theme='light'] .docs-site:not(.docs-api-forced-dark) .docs-link-card {
-  background: rgb(0 0 0 / 0.02);
 }
 .docs-site .docs-prose {
   color: var(--docs-subtle);
-  font-size: 1.0625rem;
-  line-height: 1.75;
+  font-size: 0.9375rem;
+  line-height: 1.4375rem;
 }
 .docs-site .docs-prose .text-text-heading,
 .docs-site .docs-prose [class*='text-text-heading'] {
@@ -2599,8 +2579,8 @@
 }
 .docs-site .docs-prose p {
   color: var(--docs-subtle);
-  font-size: 1.0625rem;
-  line-height: 1.75;
+  font-size: 0.9375rem;
+  line-height: 1.4375rem;
 }
 .docs-site .docs-prose strong {
   color: var(--docs-fg);
@@ -2629,6 +2609,186 @@
 .docs-site .docs-prose figure img {
   border-color: var(--docs-border) !important;
   border-radius: 0.75rem;
+}
+
+/* A chat preview is a fixed frame. Shrink a tall diagram so the last step stays visible. */
+[data-testid='canvas-showcase'] .canvas-diagram svg {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  margin-inline: auto;
+}
+
+/* Mermaid's default lines are near-black and vanish on the dark canvas.
+   Paint nodes, arrows and labels from the app tokens. Inline Mermaid
+   strokes lose to these rules, including after a light/dark switch. */
+.canvas-diagram svg {
+  background: transparent;
+}
+.canvas-diagram svg .node rect,
+.canvas-diagram svg .node polygon,
+.canvas-diagram svg .node circle,
+.canvas-diagram svg .node ellipse,
+.canvas-diagram svg .node path,
+.canvas-diagram svg .actor,
+.canvas-diagram svg .entityBox,
+.canvas-diagram svg .attributeBoxOdd,
+.canvas-diagram svg .attributeBoxEven {
+  fill: rgb(var(--color-bg-hover)) !important;
+  stroke: rgb(var(--color-text-muted) / 0.75) !important;
+  stroke-width: 1.25px !important;
+}
+.canvas-diagram svg .node rect {
+  rx: 10px;
+  ry: 10px;
+}
+.canvas-diagram svg .edgePath path,
+.canvas-diagram svg .edgePaths path,
+.canvas-diagram svg .flowchart-link,
+.canvas-diagram svg .messageLine0,
+.canvas-diagram svg .messageLine1,
+.canvas-diagram svg .loopLine,
+.canvas-diagram svg .relationshipLine,
+.canvas-diagram svg .actor-line {
+  stroke: rgb(var(--color-text-secondary)) !important;
+  stroke-width: 1.75px !important;
+}
+.canvas-diagram svg marker path,
+.canvas-diagram svg marker polygon {
+  fill: rgb(var(--color-text-secondary)) !important;
+  stroke: rgb(var(--color-text-secondary)) !important;
+}
+.canvas-diagram svg .edgeLabel rect,
+.canvas-diagram svg .labelBkg {
+  fill: rgb(var(--color-bg-surface)) !important;
+  stroke: rgb(var(--color-border-light)) !important;
+}
+.canvas-diagram svg .node text,
+.canvas-diagram svg .node tspan,
+.canvas-diagram svg .edgeLabel text,
+.canvas-diagram svg .edgeLabel tspan,
+.canvas-diagram svg .messageText,
+.canvas-diagram svg .loopText,
+.canvas-diagram svg .labelText {
+  fill: rgb(var(--color-text-heading)) !important;
+  font-family: var(--font-sans) !important;
+  color: rgb(var(--color-text-heading));
+}
+.canvas-diagram svg .cluster rect {
+  fill: rgb(var(--color-bg-surface) / 0.4) !important;
+  stroke: rgb(var(--color-border-light)) !important;
+}
+
+/* Canvas documents and email. Tailwind resets headings, so this is the reading style. */
+.canvas-prose {
+  color: rgb(var(--color-text-primary));
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.canvas-prose > :first-child {
+  margin-top: 0;
+}
+.canvas-prose > :last-child {
+  margin-bottom: 0;
+}
+.canvas-prose h1,
+.canvas-prose h2,
+.canvas-prose h3 {
+  color: rgb(var(--color-text-heading));
+  font-weight: 600;
+}
+.canvas-prose h1 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  margin: 0 0 0.75rem;
+}
+.canvas-prose h2 {
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  margin: 1.25rem 0 0.4rem;
+}
+.canvas-prose h3 {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin: 1rem 0 0.25rem;
+}
+.canvas-prose p {
+  margin: 0.45rem 0;
+}
+.canvas-prose ul,
+.canvas-prose ol {
+  margin: 0.4rem 0 0.7rem;
+  padding-left: 1.25rem;
+}
+.canvas-prose ul {
+  list-style: disc;
+}
+.canvas-prose ol {
+  list-style: decimal;
+}
+.canvas-prose li {
+  margin: 0.15rem 0;
+}
+.canvas-prose li > p {
+  margin: 0;
+}
+.canvas-prose strong {
+  font-weight: 600;
+}
+.canvas-prose a {
+  color: rgb(var(--color-accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.canvas-prose blockquote {
+  margin: 0.75rem 0;
+  border-left: 3px solid rgb(var(--color-border));
+  padding-left: 0.75rem;
+  color: rgb(var(--color-text-secondary));
+}
+.canvas-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: rgb(var(--color-bg-input));
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+}
+.canvas-prose pre {
+  overflow: auto;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgb(var(--color-bg-input));
+}
+.canvas-prose pre code {
+  background: transparent;
+  padding: 0;
+}
+.canvas-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.75rem;
+}
+.canvas-prose th,
+.canvas-prose td {
+  border-bottom: 1px solid rgb(var(--color-border));
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.canvas-prose hr {
+  border: 0;
+  border-top: 1px solid rgb(var(--color-border));
+  margin: 1rem 0;
+}
+
+.bk-design .moveable-line {
+  background: rgb(var(--color-accent)) !important;
+}
+.bk-design .moveable-control {
+  border: 1px solid rgb(var(--color-accent)) !important;
+  background: rgb(var(--color-bg-surface)) !important;
 }
 
 

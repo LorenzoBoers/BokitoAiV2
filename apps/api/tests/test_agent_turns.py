@@ -436,7 +436,11 @@ async def test_history_marks_an_ask_and_reads_peers_as_users(client, session_ove
     history = await signal_chat_history(
         session_override, signal.id, compact=False, for_agent_id=asker.id
     )
-    assert history[-2] == {"role": "assistant", "content": "@Boekito Zelfportret?\n[Sent with ask_agent.]"}
+    assert history[-2] == {
+        "role": "assistant",
+        "content": "@Boekito Zelfportret?\n[Sent with ask_agent.]\n"
+        "[Tools already ran: ask_agent. Do not repeat them unless this turn asks.]",
+    }
     assert history[-1] == {"role": "user", "content": "Boekito: Nee."}
 
 

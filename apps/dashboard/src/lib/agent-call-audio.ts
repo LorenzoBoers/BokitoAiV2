@@ -604,7 +604,7 @@ export async function startAgentCallAudio(opts: {
     const audio: Record<string, unknown> = {}
     if (update.language) {
       audio.input = {
-        transcription: { model: 'whisper-1', language: update.language },
+        transcription: { model: 'gpt-4o-transcribe', language: update.language },
       }
     }
     if (typeof update.speed === 'number') {

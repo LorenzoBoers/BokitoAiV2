@@ -30,6 +30,7 @@ async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     tag_ids = None
     if ctx.signal_id:
         tag_ids = await conversation_tag_ids(ctx.session, ctx.tenant_id, ctx.signal_id) or None
+    chain, hidden = await knowledge_scope(ctx)
     results = await hybrid_search(
         ctx.session,
         ctx.tenant_id,
@@ -37,8 +38,19 @@ async def _search_index(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         tool_input.get("top_k", 8),
         agent_id=ctx.agent.id if ctx.agent is not None else None,
         tag_ids=tag_ids,
+        department_chain=chain,
+        hidden_departments=hidden,
     )
     return {"results": results}
+
+
+async def knowledge_scope(ctx: ToolContext) -> tuple[list[UUID] | None, set[UUID] | None]:
+    """With org rules on: the conversation's department chain and the departments the agent may not read."""
+    from app.models.signal import Signal
+    from app.services import org_context
+
+    signal = await ctx.session.get(Signal, ctx.signal_id) if ctx.signal_id else None
+    return await org_context.knowledge_scope(ctx.session, ctx.tenant_id, ctx.agent, signal)
 
 
 async def _web_search(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -190,7 +202,8 @@ async def _list_docs(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
         agent_id=agent_id,
         scope=str(scope) if scope else None,
     )
-    rows = [serialize_doc(d, include_content=False) for d in docs]
+    _chain, hidden = await knowledge_scope(ctx)
+    rows = [serialize_doc(d, include_content=False) for d in docs if getattr(d, "department_id", None) not in (hidden or set())]
     return {"docs": rows}
 
 
@@ -701,6 +714,8 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
     tag_raw = tool_input.get("tag")
     if tag_raw is None and tool_input.get("tags") is not None:
         tag_raw = tool_input.get("tags")
+    from app.services.department_visibility import agent_hidden_clause
+
     payload = await list_threads_summary(
         ctx.session,
         ctx.tenant_id,
@@ -711,8 +726,31 @@ async def _list_threads(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[st
         scheduled_from=scheduled_from,
         scheduled_to=scheduled_to,
         tag=tag_raw,
+        exclude=await agent_hidden_clause(ctx.session, ctx.tenant_id, ctx.agent),
     )
+    await mark_responsibility(ctx, payload.get("threads") or [])
     return payload
+
+
+async def mark_responsibility(ctx: ToolContext, rows: list[dict[str, Any]]) -> None:
+    """Add ``responsible`` and ``you_may_act`` per conversation when org rules are on."""
+    from app.models.signal import Signal
+    from app.services.org_rules import org_rules_on
+    from app.services.work_holder import may_act, responsibility
+
+    if ctx.agent is None or not rows or not await org_rules_on(ctx.session, ctx.tenant_id):
+        return
+    for row in rows:
+        try:
+            signal = await ctx.session.get(Signal, UUID(str(row.get("id"))))
+        except ValueError:
+            continue
+        if signal is None:
+            continue
+        who = await responsibility(ctx.session, signal)
+        allowed, _why = await may_act(ctx.session, signal, ctx.agent)
+        row["responsible"] = who.department_name
+        row["you_may_act"] = allowed
 
 
 register_tool(
@@ -1014,28 +1052,17 @@ register_tool(
 
 
 async def _list_teams(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    from app.services.teams import list_teams as list_team_rows, serialize_team
+    from app.services.teams import department_tree
 
-    rows = await list_team_rows(ctx.session, ctx.tenant_id)
-    teams: list[dict[str, Any]] = []
-    for row in rows:
-        data = await serialize_team(ctx.session, row)
-        name = str(data.get("name") or "Team")
-        team_id = str(data["id"])
-        data["mention"] = f"@[{name}](team:{team_id})"
-        data["path"] = f"/team?team={team_id}"
-        # Operators see Alle mensen / Alle agents; API name is All people / All agents.
-        if data.get("kind") == "people":
-            data["label_nl"] = "Alle mensen"
-        elif data.get("kind") == "agents":
-            data["label_nl"] = "Alle agents"
-        teams.append(data)
+    rows = await department_tree(ctx.session, ctx.tenant_id)
     return {
-        "departments": teams,
-        "count": len(teams),
+        "departments": rows,
+        "count": len(rows),
         "note": (
-            "Departments (afdelingen): groups of people and agents. "
-            "Not folders (mappen). Call list_folders to list or file into folders."
+            "Departments (afdelingen) form a tree under the organization (is_org). "
+            "The point of contact (Aanspreekpunt) picks up work for a department and "
+            "asks its crew; the accountable person (Verantwoordelijk) answers its "
+            "questions. Not folders (mappen): call list_folders for those."
         ),
     }
 
@@ -1044,15 +1071,15 @@ register_tool(
     ToolSpec(
         name="list_departments",
         description=(
-            "List departments (Afdelingen): groups of people and agents. Always "
-            "includes the two system departments (kind=people / All people / "
-            "Alle mensen, and kind=agents / All agents / Alle agents) plus custom "
-            "departments such as Accounting or Support. These are not folders "
-            "(Mappen). Never present this list as folders or mappen; to "
-            "list or file places where work is stored, call list_folders. Returns "
-            "mention chips @[Name](team:{id}). Use this for which departments "
-            "exist — never list_threads, list_contacts, or list_folders. Do not "
-            "say there are no departments when only the two system ones exist."
+            "List departments (Afdelingen) as a tree: the organization first "
+            "(is_org, under the workspace name), then departments at most two "
+            "levels below it. Each row has its path, point of contact "
+            "(Aanspreekpunt, an agent that picks up and delegates), accountable "
+            "person (Verantwoordelijk), crew with role and focus, and a mention "
+            "chip @[Name](team:{id}). These are not folders (Mappen); to list or "
+            "file places where work is stored, call list_folders. Use this for "
+            "which departments exist and who sits on them — never list_threads, "
+            "list_contacts, or list_folders."
         ),
         category="agents",
         input_schema={"type": "object", "properties": {}},

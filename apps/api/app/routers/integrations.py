@@ -330,41 +330,15 @@ async def install_module_tag_template(
     return {"tag": serialize_tag(row)}
 
 
-class ModuleAgentAddBody(BaseModel):
-    agent_id: str
-    is_default: bool = False
-
-
-class ModuleAgentPatchBody(BaseModel):
-    is_default: bool | None = None
-    # Company/administration ids this agent may access; [] or null via
-    # clear_company_scope=True means all companies.
-    company_ids: list[str] | None = None
-    clear_company_scope: bool = False
-    can_write: bool | None = None
-
-
-class ModuleAgentHireBody(BaseModel):
+class ModuleSpecialistHireBody(BaseModel):
     open_setup_chat: bool = True
     name: str | None = None
-
-
-@router.get("/modules/{slug}/agents")
-async def get_module_agents(
-    slug: str,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import module_agents as module_agents_svc
-
-    await _ensure_module_access(session, auth, slug)
-    return await module_agents_svc.list_module_agents(session, auth.tenant.id, slug)
 
 
 @router.post("/modules/{slug}/agents/hire")
 async def hire_module_specialist(
     slug: str,
-    body: ModuleAgentHireBody,
+    body: ModuleSpecialistHireBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
@@ -384,79 +358,6 @@ async def hire_module_specialist(
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.post("/modules/{slug}/agents")
-async def post_module_agent(
-    slug: str,
-    body: ModuleAgentAddBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import module_agents as module_agents_svc
-
-    try:
-        agent_id = UUID(body.agent_id)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid agent_id") from exc
-    return await module_agents_svc.add_module_agent(
-        session,
-        auth.tenant.id,
-        slug,
-        agent_id,
-        is_default=body.is_default,
-    )
-
-
-@router.patch("/modules/{slug}/agents/{agent_id}")
-async def patch_module_agent(
-    slug: str,
-    agent_id: UUID,
-    body: ModuleAgentPatchBody,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import module_agents as module_agents_svc
-
-    row = None
-    if body.is_default is not None:
-        row = await module_agents_svc.set_module_agent_default(
-            session,
-            auth.tenant.id,
-            slug,
-            agent_id,
-            is_default=body.is_default,
-        )
-    if body.company_ids is not None or body.clear_company_scope or body.can_write is not None:
-        row = await module_agents_svc.update_module_agent_access(
-            session,
-            auth.tenant.id,
-            slug,
-            agent_id,
-            company_ids=body.company_ids,
-            clear_company_scope=body.clear_company_scope,
-            can_write=body.can_write,
-        )
-    if row is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Provide is_default, company_ids, clear_company_scope, or can_write",
-        )
-    return row
-
-
-@router.delete("/modules/{slug}/agents/{agent_id}")
-async def delete_module_agent(
-    slug: str,
-    agent_id: UUID,
-    auth: Annotated[AuthContext, Depends(get_current_auth)],
-    session: Annotated[AsyncSession, Depends(get_session)],
-):
-    from app.services import module_agents as module_agents_svc
-
-    return await module_agents_svc.remove_module_agent(
-        session, auth.tenant.id, slug, agent_id
-    )
 
 
 @router.get("/connected-summary")
@@ -897,6 +798,8 @@ class ProviderConnectionRow(BaseModel):
     can_use: bool = True
     instance_key: str | None = None
     projects: list[ConnectionProjectRef] = Field(default_factory=list)
+    department_id: str | None = None
+    department_name: str = ""
     attached_modules: list[str] = Field(default_factory=list)
     access_restricted: bool = False
     access: list[AccessEntry] = Field(default_factory=list)
@@ -929,11 +832,15 @@ class ConnectionVerifyResult(BaseModel):
 
 class ConnectionProjectsBody(BaseModel):
     project_ids: list[str] = Field(default_factory=list)
+    # Home department; null (or the organization) makes it workspace-wide. Omitted keeps it.
+    department_id: UUID | None = None
 
 
 class ConnectionProjects(BaseModel):
     connection_id: str
     projects: list[ConnectionProjectRef]
+    department_id: str | None = None
+    department_name: str = ""
 
 
 class ConnectionAccessBody(BaseModel):
@@ -963,11 +870,16 @@ async def _connection_projects(
 ) -> ConnectionProjects:
     from app.services.connection_scope import project_links, project_names
 
+    from app.models.team import Department
+
     ids = (await project_links(session, tenant_id, [conn.id])).get(str(conn.id), [])
     names = await project_names(session, tenant_id, ids)
+    dept = await session.get(Department, conn.department_id) if conn.department_id else None
     return ConnectionProjects(
         connection_id=str(conn.id),
         projects=[ConnectionProjectRef(id=p, name=names.get(p, "")) for p in ids],
+        department_id=str(dept.id) if dept else None,
+        department_name=dept.name if dept else "",
     )
 
 
@@ -1060,13 +972,15 @@ async def put_connection_projects(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Replace the project links (requires Manage).
+    """Replace the folder links and, when sent, the home department (requires Manage).
 
-    With one or more projects, agents reach the connection only inside those
-    projects. An empty list makes it workspace-wide again.
+    With one or more folders, agents reach the connection only inside those
+    folders and their sub-folders. An empty list makes it workspace-wide
+    again. With a department, only conversations of that department or one
+    below it use the connection.
     """
     from app.services.audit import record_audit
-    from app.services.connection_scope import set_connection_projects
+    from app.services.connection_scope import set_connection_department, set_connection_projects
 
     conn = await _managed_connection(session, auth, connection_id)
     before = await _connection_projects(session, auth.tenant.id, conn)
@@ -1074,6 +988,8 @@ async def put_connection_projects(
         await set_connection_projects(
             session, auth.tenant.id, conn, body.project_ids, actor_user_id=auth.user.id
         )
+        if "department_id" in body.model_fields_set:
+            await set_connection_department(session, auth.tenant.id, conn, body.department_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await session.commit()
@@ -1086,8 +1002,8 @@ async def put_connection_projects(
         actor_id=auth.user.id,
         resource_type="connection",
         resource_id=conn.id,
-        before={"project_ids": [p.id for p in before.projects]},
-        after={"project_ids": [p.id for p in after.projects]},
+        before={"project_ids": [p.id for p in before.projects], "department_id": before.department_id},
+        after={"project_ids": [p.id for p in after.projects], "department_id": after.department_id},
     )
     return after
 

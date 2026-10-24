@@ -29,9 +29,7 @@ import { EmptyState } from '../components/ui/empty-state'
 import { CardGridSkeleton } from '../components/ui/skeleton'
 import { ModuleInstallControls } from '../components/integrations/ModuleInstallControls'
 import { ModuleStatusBadge } from '../components/integrations/ModuleStatusBadge'
-import { ModuleAgentsSection } from '../components/modules/ModuleAgentsSection'
-import { listAgents } from '../lib/agents-api'
-import type { RuntimeAgent } from '../lib/workforce-api'
+import { ModuleDepartmentSection } from '../components/modules/ModuleDepartmentSection'
 import { moduleIsInSetup, moduleIsOn } from '../lib/integration-modules'
 import {
   parseHubConnectParam,
@@ -76,18 +74,11 @@ export default function ModuleSetupPage() {
   const [hubOffer, setHubOffer] = useState<IntegrationOffer | null>(null)
   const [hubStep, setHubStep] = useState<ApplicationHubStep>('app')
   const [hubBanner, setHubBanner] = useState<HubBanner>(null)
-  const [companyAgents, setCompanyAgents] = useState<RuntimeAgent[]>([])
   const [providerPickerOpen, setProviderPickerOpen] = useState(false)
   const [connectionsRefreshToken, setConnectionsRefreshToken] = useState(0)
 
   const bumpConnections = useCallback(() => {
     setConnectionsRefreshToken((n) => n + 1)
-  }, [])
-
-  useEffect(() => {
-    void listAgents()
-      .then((rows) => setCompanyAgents(rows.filter((a) => a.kind !== 'personal')))
-      .catch(() => setCompanyAgents([]))
   }, [])
 
   const module = useMemo(
@@ -423,16 +414,9 @@ export default function ModuleSetupPage() {
                   </section>
                   <section>
                     <h3 className="mb-2 text-sm font-semibold text-text-primary">
-                      {t('integrations.modules.agents.sectionTitle', {
-                        defaultValue: 'Assigned agents',
-                      })}
+                      {t('integrations.modules.department.title', { defaultValue: 'Department' })}
                     </h3>
-                    <ModuleAgentsSection
-                      moduleSlug={slug}
-                      agents={companyAgents}
-                      defaultName={module.package?.agent_template?.name}
-                      onChanged={() => void refreshCatalog()}
-                    />
+                    <ModuleDepartmentSection module={module} onChanged={() => void refreshCatalog()} />
                   </section>
                 </>
               ) : null}
@@ -458,15 +442,10 @@ export default function ModuleSetupPage() {
               <p className="max-w-2xl text-sm text-text-secondary">
                 {t('integrations.modules.setup.intro', {
                   defaultValue:
-                    'Assign at least one AI agent, then chat with the default agent to connect packages, set defaults, and index sources.',
+                    "Make sure an agent sits in the module's department, then chat with it to connect packages, set defaults, and index sources.",
                 })}
               </p>
-              <ModuleAgentsSection
-                moduleSlug={slug}
-                agents={companyAgents}
-                defaultName={module.package?.agent_template?.name}
-                onChanged={() => void refreshCatalog()}
-              />
+              <ModuleDepartmentSection module={module} onChanged={() => void refreshCatalog()} />
               {visibleSteps.length > 0 ? (
                 <ol className="list-decimal space-y-1.5 pl-5 text-sm text-text-secondary">
                   {visibleSteps.map((step) => (
@@ -478,14 +457,14 @@ export default function ModuleSetupPage() {
                 <Button asChild>
                   <Link to={setupChatPath}>
                     {t('integrations.modules.setup.openAssistant', {
-                      defaultValue: 'Continue with assigned agent',
+                      defaultValue: 'Continue with the point of contact',
                     })}
                   </Link>
                 </Button>
               ) : (
                 <Button type="button" disabled>
                   {t('integrations.modules.setup.openAssistant', {
-                    defaultValue: 'Continue with assigned agent',
+                    defaultValue: 'Continue with the point of contact',
                   })}
                 </Button>
               )}

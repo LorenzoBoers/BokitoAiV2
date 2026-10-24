@@ -193,6 +193,94 @@ async def test_google_sheet_export_creates_a_spreadsheet():
     assert batch["data"][0]["values"][1][1] == 2
 
 
+def test_sheet_edit_stores_a_table_block_as_source():
+    from app.services.canvas_content import retarget_kind_edit
+
+    blocks, source, error = retarget_kind_edit(
+        "sheet",
+        [
+            {"type": "text", "text": "Weersvoorspellingen"},
+            {
+                "type": "table",
+                "title": "Twee weken",
+                "columns": ["Dag", "Max"],
+                "rows": [["za 24 okt", 14], {"Dag": "zo 25 okt", "Max": 13}],
+            },
+        ],
+        None,
+    )
+    assert error is None
+    assert blocks is None
+    tab = json.loads(source)["tabs"][0]
+    assert tab["name"] == "Twee weken"
+    assert tab["columns"] == ["Dag", "Max"]
+    assert tab["rows"] == [["za 24 okt", 14], ["zo 25 okt", 13]]
+
+    blocks, source, error = retarget_kind_edit(
+        "sheet",
+        [{"type": "text", "text": "alleen een zin"}],
+        None,
+    )
+    assert blocks is None and source is None
+    assert error["status"] == "invalid"
+    assert "sheet" in error["error"]
+    assert "edit_example" in error
+    assert error["edit_example"]["columns"] == ["Dag", "Temp"]
+    assert "Not a stat" not in error["error"]
+    assert "heading alone" not in error["error"]
+
+    blocks, source, error = retarget_kind_edit("sheet", [], None)
+    assert error["status"] == "invalid"
+    assert "empty blocks" in error["error"]
+    assert error["edit_field"] == "source"
+
+    kept, kept_source, error = retarget_kind_edit(
+        "dashboard",
+        [{"type": "stat", "label": "Omzet", "value": "1"}],
+        None,
+    )
+    assert error is None
+    assert kept[0]["type"] == "stat"
+    assert kept_source is None
+
+    _blocks, kept_source, error = retarget_kind_edit(
+        "document",
+        [{"type": "heading", "text": "Not markdown"}],
+        None,
+    )
+    assert error["status"] == "invalid"
+    assert "markdown" in error["error"]
+    assert error["edit_field"] == "source"
+    assert kept_source is None
+
+
+def test_edit_body_contract_covers_every_kind():
+    from app.models.project_canvas import CANVAS_KINDS
+    from app.services.canvas_content import attach_edit_contract, edit_body_contract
+
+    expected_field = {
+        "dashboard": "blocks",
+        "document": "source",
+        "diagram": "source",
+        "drawing": "source",
+        "image": "image_prompt",
+        "code": "source",
+        "email": "source",
+        "sheet": "source",
+        "design": "source",
+    }
+    for kind in CANVAS_KINDS:
+        contract = edit_body_contract(kind)
+        assert contract["field"] == expected_field[kind]
+        assert contract["example"] not in (None, "")
+        assert "edit_example" in contract["hint"] or kind == "dashboard"
+        reply = attach_edit_contract({"canvas_id": "x"}, kind)
+        assert reply["edit_field"] == contract["field"]
+        assert reply["edit_example"] == contract["example"]
+    sheet = edit_body_contract("sheet")
+    assert sheet["example"] == {"columns": ["Dag", "Temp"], "rows": [["za", "12"]]}
+
+
 def test_diagram_and_code_are_stored_without_the_jsx_compiler():
     from app.services.canvas_content import edit_body_hint
 
@@ -301,3 +389,113 @@ async def test_kinds_share_one_thread_and_reject_a_refresh_of_a_document(
             updated_by_type="user",
         )
     assert brand.value.status_code == 400
+
+
+def test_design_frames_are_plain_text():
+    from app.services.canvas_content import edit_body_hint
+
+    stored, lang = prepare_content(
+        "design",
+        json.dumps(
+            {
+                "frames": [
+                    {
+                        "id": "home",
+                        "x": 10,
+                        "y": 20,
+                        "w": 300,
+                        "h": 200,
+                        "title": "<b>Start</b>",
+                        "text": "Hello<script>nope</script>",
+                    }
+                ]
+            }
+        ),
+        language=None,
+        tenant_id="T",
+    )
+    assert lang is None
+    data = json.loads(stored)
+    assert data["frames"][0]["title"] == "Start"
+    assert "<" not in data["frames"][0]["text"]
+    assert "frames" in edit_body_hint("design")
+    empty, _ = prepare_content("design", "", language=None, tenant_id="T")
+    assert content_is_empty("design", empty)
+    with pytest.raises(CanvasContentError):
+        prepare_content("design", "not json", language=None, tenant_id="T")
+
+
+@pytest.mark.asyncio
+async def test_every_kind_keeps_the_previous_body(client: AsyncClient, session_override):
+    """A document and a dashboard both snapshot before the next write."""
+    from sqlalchemy import select
+
+    from app.models.auth import Tenant
+    from app.models.project import Project
+    from app.services.project_canvas import (
+        create_canvas,
+        list_canvas_revisions,
+        put_canvas_source,
+        restore_canvas_revision,
+    )
+    from app.services.projects import create_project
+
+    tenant = (await session_override.execute(select(Tenant))).scalar_one()
+    made = await create_project(session_override, tenant.id, name="Versions home", tags=["versions-home"])
+    await session_override.commit()
+    folder = await session_override.get(Project, UUID(str(made["id"])))
+    assert folder is not None
+
+    note = await create_canvas(
+        session_override,
+        tenant.id,
+        new_thread=True,
+        folder_id=folder.id,
+        title="Version document",
+        canvas_kind="document",
+        source="# First",
+        updated_by_type="user",
+    )
+    second = await put_canvas_source(
+        session_override,
+        tenant.id,
+        canvas_id=UUID(note["id"]),
+        source="# Second",
+    )
+    assert second["revision"] == note["revision"] + 1
+    kept = await list_canvas_revisions(session_override, tenant.id, UUID(note["id"]))
+    assert kept[0]["revision"] == note["revision"]
+    assert kept[0]["kind"] == "document"
+
+    board = await create_canvas(
+        session_override,
+        tenant.id,
+        title="Version dashboard",
+        canvas_kind="dashboard",
+        signal_id=UUID(note["signal_id"]),
+        updated_by_type="user",
+    )
+    first_blocks = [{"type": "stat", "label": "Berichten", "value": "3"}]
+    filled = await put_canvas_source(
+        session_override,
+        tenant.id,
+        canvas_id=UUID(board["id"]),
+        blocks=first_blocks,
+    )
+    changed = await put_canvas_source(
+        session_override,
+        tenant.id,
+        canvas_id=UUID(board["id"]),
+        blocks=[{"type": "stat", "label": "Berichten", "value": "9"}],
+    )
+    assert changed["blocks"][0]["value"] == "9"
+    restored = await restore_canvas_revision(
+        session_override,
+        tenant.id,
+        UUID(board["id"]),
+        filled["revision"],
+    )
+    assert restored["revision"] > changed["revision"]
+    assert restored["blocks"][0]["value"] == "3"
+    history = await list_canvas_revisions(session_override, tenant.id, UUID(board["id"]))
+    assert any(row["kind"] == "dashboard" for row in history)

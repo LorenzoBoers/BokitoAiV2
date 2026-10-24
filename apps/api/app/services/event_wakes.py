@@ -91,6 +91,7 @@ async def _run(event_ids: list[UUID]) -> None:
 async def wake_for_events(session: AsyncSession, events: list[SignalEvent]) -> list[dict[str, Any]]:
     """Queue a turn for the first agent that follows each event. Caller commits."""
     from app.models.agent import Agent
+    from app.models.team import Department
     from app.services.agent_awareness import (
         EVENT_KIND,
         awareness_config,
@@ -98,7 +99,7 @@ async def wake_for_events(session: AsyncSession, events: list[SignalEvent]) -> l
         spent_today_cents,
     )
     from app.services.agent_turns import enqueue_turn
-    from app.services.department_access import department_leads
+    from app.services.department_access import department_roles
     from app.services.department_domain import department_of_signal
 
     out: list[dict[str, Any]] = []
@@ -115,19 +116,20 @@ async def wake_for_events(session: AsyncSession, events: list[SignalEvent]) -> l
             continue
         # The thread's own agent already answers inbound mail and resumes on its own cards.
         handled = kind in SELF_HANDLED
-        candidates: list[UUID] = []
+        # The thread's own agent follows its own settings; the point of contact follows the department's.
+        candidates: list[tuple[UUID, Any]] = []
         if signal.assignee_kind == "agent" and signal.agent_id and not handled:
-            candidates.append(signal.agent_id)
-        lead = (await department_leads(session, signal.tenant_id, department_id))["lead_agent_id"]
-        if lead and lead not in candidates and not (handled and lead == signal.agent_id):
-            candidates.append(lead)
-        for agent_id in candidates:
+            candidates.append((signal.agent_id, None))
+        lead = (await department_roles(session, signal.tenant_id, department_id))["contact_agent_id"]
+        if lead and lead not in [c[0] for c in candidates] and not (handled and lead == signal.agent_id):
+            candidates.append((lead, await session.get(Department, department_id)))
+        for agent_id, owner in candidates:
             if ev.actor_type == "agent" and ev.actor_id == str(agent_id):
                 continue
             agent = await session.get(Agent, agent_id)
             if agent is None or not agent.is_active:
                 continue
-            config = awareness_config(agent)
+            config = awareness_config(owner or agent)
             if kind not in config["follows"]:
                 continue
             cap = config["daily_cost_cents"]
@@ -136,8 +138,9 @@ async def wake_for_events(session: AsyncSession, events: list[SignalEvent]) -> l
                 break
             prompt = (
                 f"You follow {KIND_LABEL[kind]} in conversations of your department, and this conversation "
-                f"just had one ({ev.event_type}). Check whether it needs you now: act within your tools, or "
-                "post a short note for whoever picks it up. If nothing is needed, reply with exactly: pass"
+                f"just had one ({ev.event_type}). Read it, leave one internal note, or reply "
+                "with exactly: pass. Do not create, send, assign, or look up a customer "
+                "who is not named in the event."
             )
             result = await enqueue_turn(
                 session,

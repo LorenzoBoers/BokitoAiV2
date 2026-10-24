@@ -1,5 +1,6 @@
 from app.models.agent import Agent, AgentChatUser, AgentRun, RunEvent
 from app.models.agent_call import AgentCall
+from app.models.voice_note import VoiceNote
 from app.models.agent_turn import AgentAsk, AgentTurn
 from app.models.agent_context import SignalCompaction, SubagentMessage
 from app.models.audit import AuditEvent
@@ -45,8 +46,14 @@ from app.models.oauth_as import (
 from app.models.webhook import WebhookDelivery, WebhookEndpoint
 from app.models.staff import StaffAccessLog
 from app.models.usage import PushSubscription, UsageLedger
+from app.models.pricing import (
+    PriceBook,
+    PriceBookRule,
+    TenantPriceBinding,
+    TenantPriceOverride,
+)
 from app.models.project import Project, ProjectTagLink
-from app.models.project_canvas import ProjectCanvas
+from app.models.project_canvas import CanvasRevision, ProjectCanvas
 from app.models.project_work import (
     ProjectResource,
     TaskDocLink,
@@ -58,7 +65,7 @@ from app.models.orchestration import (
 from app.models.model_catalog import ModelCatalog, PlatformSecret, PlatformSetting
 from app.models.provider import ProviderConnection, TenantModel
 from app.models.module_source import ModuleSource
-from app.models.module_agent import AgentScope, ModuleAgent
+from app.models.agent_scope import AgentScope
 from app.models.calendar import CalendarEvent, CalendarTagLink, TenantCalendar
 from app.models.user_memory import UserAssistantMemory
 from app.models.customer_verify import CustomerVerifyToken, HandoverCode
@@ -84,6 +91,7 @@ __all__ = [
     "UserNotificationPreference",
     "DecisionRequest",
     "AgentCall",
+    "VoiceNote",
     "AgentTurn",
     "AgentAsk",
     "SignalCompaction",
@@ -123,9 +131,14 @@ __all__ = [
     "Project",
     "ProjectTagLink",
     "ProjectCanvas",
+    "CanvasRevision",
     "TaskDocLink",
     "ProjectResource",
     "UsageLedger",
+    "PriceBook",
+    "PriceBookRule",
+    "TenantPriceBinding",
+    "TenantPriceOverride",
     "PushSubscription",
     "Signal",
     "SignalMessage",
@@ -150,7 +163,6 @@ __all__ = [
     "TenantModel",
     "ModuleSource",
     "AgentScope",
-    "ModuleAgent",
     "CalendarEvent",
     "TenantCalendar",
     "CalendarTagLink",

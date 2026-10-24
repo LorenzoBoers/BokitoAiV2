@@ -3,10 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ListChecks } from 'lucide-react'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { Input } from '../ui/input'
+import { Textarea } from '../ui/textarea'
 import { patchWorkstream, type WorkstreamDetail } from '../../lib/flows-api'
-
-const FIELD_CLASS =
-  'w-full resize-y rounded-md border border-border bg-transparent px-2 py-1 text-sm leading-relaxed text-text-secondary outline-none placeholder:text-text-muted hover:border-border focus:border-border focus:bg-bg-input/60 focus:ring-1 focus:ring-border/60'
 
 /** The flow as a recipe: how the agent works on its label's conversations and what done produces. */
 export function FlowRecipe({
@@ -45,7 +44,7 @@ export function FlowRecipe({
         <ListChecks size={14} className="shrink-0 text-text-muted" aria-hidden />
         <span className="shrink-0 font-medium">{t('workstreamsPage.recipe.done')}</span>
         {canEdit ? (
-          <input
+          <Input
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
             onBlur={() => {
@@ -55,14 +54,14 @@ export function FlowRecipe({
             aria-label={t('workstreamsPage.recipe.done')}
             disabled={saving}
             maxLength={500}
-            className={FIELD_CLASS}
+            className="min-w-0 flex-1"
           />
         ) : (
           <span className="text-text-primary">{flow.expected_outcome}</span>
         )}
       </div>
       {canEdit ? (
-        <textarea
+        <Textarea
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
           onBlur={() => {
@@ -72,7 +71,6 @@ export function FlowRecipe({
           aria-label={t('workstreamsPage.recipe.instructions')}
           disabled={saving}
           rows={instructions ? 3 : 1}
-          className={FIELD_CLASS}
         />
       ) : flow.instructions ? (
         <p className="whitespace-pre-line text-sm text-text-secondary">{flow.instructions}</p>

@@ -73,6 +73,7 @@ async def test_invite_accept_role_change_and_remove(client: AsyncClient):
     assert len(members) == 2
     newbie = next(m for m in members if m["email"] == "newbie@example.com")
     assert newbie["role"] == "member"
+    assert newbie["scope"] == "workspace"
     assert newbie["uuid"]
 
     # Role change member -> admin.
@@ -338,6 +339,56 @@ async def test_delete_account(client: AsyncClient):
         "/api/auth/login", json={"email": "goner@example.com", "password": "gonerpass123"}
     )
     assert r.status_code in (400, 401)
+
+
+@pytest.mark.asyncio
+async def test_invite_scope_is_chosen_up_front(client: AsyncClient):
+    headers = await _owner_headers(client)
+    ws = await _workspace_id(client, headers)
+
+    r = await client.post(
+        "/api/app/workspace-invites",
+        headers=headers,
+        json={
+            "workspace_id": ws,
+            "email": "freelancer@example.com",
+            "role": "member",
+            "scope": "departments",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["scope"] == "departments"
+    token = r.json()["invite_link"].split("token=")[1]
+    r = await client.post(
+        "/api/auth/accept-invite",
+        json={"token": token, "password": "freelancer123", "display_name": "Freelancer"},
+    )
+    assert r.status_code == 200, r.text
+    r = await client.get(f"/api/app/workspaces/{ws}/members", headers=headers)
+    freelancer = next(m for m in r.json() if m["email"] == "freelancer@example.com")
+    assert freelancer["scope"] == "departments"
+
+    r = await client.post(
+        "/api/app/workspace-invites",
+        headers=headers,
+        json={
+            "workspace_id": ws,
+            "email": "lead@example.com",
+            "role": "admin",
+            "scope": "departments",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["scope"] == "workspace"
+    token = r.json()["invite_link"].split("token=")[1]
+    r = await client.post(
+        "/api/auth/accept-invite",
+        json={"token": token, "password": "leadpass123", "display_name": "Lead"},
+    )
+    assert r.status_code == 200, r.text
+    r = await client.get(f"/api/app/workspaces/{ws}/members", headers=headers)
+    lead = next(m for m in r.json() if m["email"] == "lead@example.com")
+    assert lead["scope"] == "workspace"
 
 
 @pytest.mark.asyncio

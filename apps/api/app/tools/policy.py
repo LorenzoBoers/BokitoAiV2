@@ -337,6 +337,7 @@ def _mode_stage(tenant: Tenant, agent: Any | None, spec: ToolSpec) -> tuple[str,
     if spec.name in (
         "create_canvas",
         "edit_canvas",
+        "restore_canvas",
         "update_folder_canvas",
         "finish_canvas",
         "delete_canvas",

@@ -1169,4 +1169,5 @@ def test_asking_a_peer_ends_the_turn():
     text, _ = asyncio.run(loop.run_chat([{"role": "user", "content": "vraag Boekito"}]))
 
     assert len(calls) == 1
-    assert text == "@[Boekito](agent:1) Zelfportret?"
+    assert "agent:" not in text
+    assert "Zelfportret" not in text

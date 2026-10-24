@@ -600,6 +600,8 @@ async def create_decision(
     bell_payload: dict[str, Any] = {**(notification_payload or {})}
     if not announce:
         bell_payload["announce"] = False
+    if addressee.via:
+        bell_payload["via"] = addressee.via
     if agent_id and "from" not in bell_payload:
         agent = await session.get(Agent, agent_id)
         mark = from_agent(agent)
@@ -630,7 +632,7 @@ async def create_decision(
         signal_id=signal_id,
         tier=1,
         kind="decision_request",
-        title=notification_title or title,
+        title=(notification_title or title) + (f" (via {addressee.via})" if addressee.via else ""),
         body=(summary or title)[:500],
         status="pending" if not reveal else bell_status,
         payload_json=json.dumps(

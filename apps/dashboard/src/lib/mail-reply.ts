@@ -79,6 +79,141 @@ export function formatAddressListDisplay(raw: string | null | undefined): string
   return trimmed
 }
 
+export type RecipientFieldState = {
+  /** Comma-separated value the composer stores (confirmed addresses, plus the text still being typed). */
+  value: string
+  /** When true, the text after the last comma is not a pill yet. */
+  drafting: boolean
+}
+
+/** Confirmed entries and the unconfirmed tail of a recipient field. */
+export function readRecipientField(
+  raw: string | null | undefined,
+  drafting: boolean,
+): { chips: string[]; draft: string } {
+  const source = raw || ''
+  if (!drafting) {
+    return {
+      chips: source
+        .split(/[,;\n]/)
+        .map((part) => part.trim())
+        .filter(Boolean),
+      draft: '',
+    }
+  }
+  const parts = source.split(/[,;\n]/)
+  let draft = parts.pop() ?? ''
+  // The stored form is "chips, draft"; drop only the separator space.
+  if (draft.startsWith(' ')) draft = draft.slice(1)
+  return {
+    chips: parts.map((part) => part.trim()).filter(Boolean),
+    draft,
+  }
+}
+
+/** One token becomes the addresses inside it, or the raw text when it is not an address. */
+function recipientPieces(token: string): string[] {
+  const trimmed = token.trim()
+  if (!trimmed) return []
+  const parsed = parseAddressList(trimmed)
+  if (parsed.length) return parsed
+  return [trimmed]
+}
+
+function joinRecipientChips(tokens: string[]): string {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const token of tokens) {
+    for (const piece of recipientPieces(token)) {
+      const key = piece.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(piece)
+    }
+  }
+  return out.join(', ')
+}
+
+function withRecipientDraft(chips: string[], draft: string): RecipientFieldState {
+  const base = joinRecipientChips(chips)
+  if (!draft) return { value: base, drafting: false }
+  return { value: base ? `${base}, ${draft}` : draft, drafting: true }
+}
+
+/**
+ * What the operator just typed in the recipient input (chips stay put).
+ * Comma, semicolon, newline, or a trailing space after a bare address confirms a pill.
+ */
+export function applyRecipientTyping(chips: string[], typed: string): RecipientFieldState {
+  if (!typed) return { value: joinRecipientChips(chips), drafting: false }
+  if (/[,;\n]/.test(typed)) {
+    const bits = typed.split(/[,;\n]/)
+    const tail = bits.pop() ?? ''
+    const committed = bits.flatMap(recipientPieces)
+    const tailTrim = tail.trim()
+    if (/[,;\n]\s*$/.test(typed) || !tailTrim) {
+      return { value: joinRecipientChips([...chips, ...committed]), drafting: false }
+    }
+    return withRecipientDraft([...chips, ...committed], tailTrim)
+  }
+  if (/\s$/.test(typed)) {
+    const trimmed = typed.trim()
+    const parsed = parseAddressList(trimmed)
+    if (parsed.length === 1 && parsed[0] === trimmed.toLowerCase()) {
+      return { value: joinRecipientChips([...chips, parsed[0]]), drafting: false }
+    }
+  }
+  return withRecipientDraft(chips, typed)
+}
+
+/** Enter, blur, or picking a contact confirms the text still in the input. */
+export function commitRecipientDraft(chips: string[], draft: string): RecipientFieldState {
+  return { value: joinRecipientChips([...chips, draft]), drafting: false }
+}
+
+/** Backspace on an empty input puts the last pill back in the field so it can be edited. */
+export function editLastRecipient(chips: string[]): RecipientFieldState {
+  if (!chips.length) return { value: '', drafting: false }
+  const last = chips[chips.length - 1] ?? ''
+  return withRecipientDraft(chips.slice(0, -1), last)
+}
+
+export function removeRecipientAt(
+  chips: string[],
+  index: number,
+  draft: string,
+  drafting: boolean,
+): RecipientFieldState {
+  const next = chips.filter((_, i) => i !== index)
+  if (!drafting || !draft) return { value: joinRecipientChips(next), drafting: false }
+  return withRecipientDraft(next, draft)
+}
+
+/**
+ * A paste of one or more finished addresses confirms them as pills.
+ * Returns null when the clipboard is still a fragment the input should take as typed text.
+ */
+export function applyRecipientPaste(chips: string[], text: string): RecipientFieldState | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  if (!/[,;\n]/.test(trimmed)) {
+    const parsed = parseAddressList(trimmed)
+    if (parsed.length === 1 && parsed[0] === trimmed.toLowerCase()) {
+      return { value: joinRecipientChips([...chips, parsed[0]]), drafting: false }
+    }
+    return null
+  }
+  const bits = trimmed
+    .split(/[,;\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+  const tail = bits[bits.length - 1] ?? ''
+  const tailParsed = parseAddressList(tail)
+  const tailIsAddress = tailParsed.length === 1 && tailParsed[0] === tail.toLowerCase()
+  if (tailIsAddress) return { value: joinRecipientChips([...chips, ...bits]), drafting: false }
+  return withRecipientDraft([...chips, ...bits.slice(0, -1)], tail)
+}
+
 function excludeOwn(addresses: string[], ownAddresses: string[]): string[] {
   const own = new Set(ownAddresses.map((a) => a.trim().toLowerCase()).filter(Boolean))
   return addresses.filter((a) => !own.has(a))

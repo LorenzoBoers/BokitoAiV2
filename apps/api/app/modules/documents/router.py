@@ -40,7 +40,33 @@ async def call_verb(
     agent_id: UUID | None = None,
     project_id: UUID | None = None,
 ) -> dict[str, Any]:
-    del agent_id, project_id
+    del project_id
+    args = dict(args or {})
+    from app.modules.documents.workpapers import WORKPAPERS
+
+    paper = WORKPAPERS.get(verb)
+    if paper is not None:
+        from app.modules.catalog import module_is_on
+
+        if not await module_is_on(session, tenant_id, "documents"):
+            return module_error(
+                "module_off",
+                "Documents is off. Turn it on at /connections/documents before agents use documents tools.",
+            )
+        if agent_id is not None:
+            from app.services.module_agents import agent_has_module
+
+            if not await agent_has_module(session, tenant_id, agent_id, "documents"):
+                return module_error(
+                    "agent_forbidden",
+                    "This agent is not in the documents department. Ask its point of contact, or add the agent to that department.",
+                )
+        try:
+            return paper(args)
+        except ValueError as exc:
+            return module_error("invalid_input", str(exc))
+
+    del agent_id
     from app.services.calendar_sync import _access_token
 
     run = google_drive.VERBS.get(verb)

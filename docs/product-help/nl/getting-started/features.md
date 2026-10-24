@@ -89,7 +89,7 @@ Bovenaan de knop **Nieuw gesprek**, daarna **Inbox** los boven de groep **Werk**
 
 ### {icon:delivered} Opgeleverd
 
-**EN:** Delivered. Waar het werk uit een gesprek terechtkwam: een antwoord via het kanaal, een plek in een map of kennis na een correctie. Het gesprek toont een chip zoals "Opgeleverd in administratie › Exact", en het paneel Waarom noemt de laatste opleveringen. Hangt aan [Mappen](/docs/ai/folders) en [Communicatie](/docs/inbox/communication).
+**EN:** Delivered. Waar het werk uit een gesprek terechtkwam: een antwoord via het kanaal, een canvas of bestand op het gesprek, een schrijfactie naar een koppeling, of kennis na een correctie. Een canvas toont als "{item} op dit gesprek"; labels op het gesprek bepalen de map. Een koppeling noemt die plek, zoals Exact. Het paneel Waarom somt de uitkomsten op. Hangt aan [Mappen](/docs/ai/folders) en [Communicatie](/docs/inbox/communication).
 
 ### {icon:plan} Plannen
 
@@ -99,9 +99,13 @@ Bovenaan de knop **Nieuw gesprek**, daarna **Inbox** los boven de groep **Werk**
 
 **EN:** Assignment. Eén eigenaar: een persoon, een agent of een afdeling. Toewijzen aan een persoon zet de Autonomie van dat gesprek op Handmatig. Zonder toewijzing valt het op de eigenaar van het kanaal, anders op Alle mensen. Hangt aan [Workforce](/docs/getting-started/team) en [Kanalen](/docs/inbox/channels).
 
-### {icon:split} Gesprek splitsen
+### {icon:split} Gesprekken verplaatsen en samenvoegen
 
-**EN:** Split conversation. Een tweede verzoek in dezelfde mailthread wordt een nieuw gesprek. Nieuwe antwoorden landen daar. Hangt aan [Labels](/docs/ai/categories).
+**EN:** Move and merge. **Verplaatsen naar** stuurt een bericht en wat volgt naar een nieuw of bestaand gesprek; een tweede verzoek in een mailthread krijgt een eigen gesprek en nieuwe antwoorden landen daar. **Samenvoegen met...** zet een heel gesprek in een ander. Hangt aan [Labels](/docs/ai/categories).
+
+### {icon:mic} Agent-dock
+
+**EN:** Agent dock. Een rij agentgezichten rechtsonder. Houd een gezicht of zijn toets vast (F1, F2, F4, F8, F9, Shift+F2; F12 voor iedereen) en praat; antwoorden komen terug als spraakberichten in één wachtrij per persoon. Hangt aan [Communicatie](/docs/inbox/communication).
 
 ### {icon:participants} Deelnemers
 
@@ -157,7 +161,7 @@ Bovenaan de knop **Nieuw gesprek**, daarna **Inbox** los boven de groep **Werk**
 
 ### {icon:department} Afdeling
 
-**EN:** Department. Een groep mensen en agents. Alle mensen en Alle agents bestaan altijd en verschijnen niet in de zijbalk van Communicatie. Eigen afdelingen wel, met een manier van oppakken: mensen pakken op, agent eerst, om de beurt, of minst open. Een module-installatie maakt één afdeling. Hangt aan [Workforce](/docs/getting-started/team) en [Kanalen](/docs/inbox/channels).
+**EN:** Department. Een groep mensen en agents in een boom onder de organisatie, maximaal twee niveaus diep. Elke afdeling heeft één aanspreekpunt, een agent die het werk oppakt en de bezetting vraagt, en eventueel één verantwoordelijke. Zonder agent gebruikt ze een manier van oppakken: mensen pakken op, om de beurt, of minst open. Een module-installatie maakt één afdeling. Hangt aan [Workforce](/docs/getting-started/team) en [Kanalen](/docs/inbox/channels).
 
 ### {icon:presence} Aanwezigheid
 
@@ -185,7 +189,7 @@ Persoonlijk is van het lid. Werkruimte, kanalen, labels, Govern, modellen, koppe
 
 ### {icon:channels} Kanalen
 
-**EN:** Channels. E-mail, websitechat, Slack en WhatsApp. Per kanaal een standaardagent, een eigenaar en een handtekening. De Autonomie per kanaal staat in Govern. Een keuze op het gesprek wint van de standaardagent. Hangt aan [Kanalen](/docs/inbox/channels).
+**EN:** Channels. E-mail, websitechat, Slack en WhatsApp. Per kanaal de afdeling waar het binnenkomt en een handtekening. De Autonomie per kanaal staat in Govern. Een keuze op het gesprek wint van het aanspreekpunt van de afdeling. Hangt aan [Kanalen](/docs/inbox/channels).
 
 ### {icon:labels} Labels
 
@@ -201,7 +205,7 @@ Persoonlijk is van het lid. Werkruimte, kanalen, labels, Govern, modellen, koppe
 
 ### {icon:connections} Koppelingen
 
-**EN:** Connections. Modules, partnerlogins en AI-gereedschap op één pagina. Een login geeft agents nog geen tools: installeer eerst de module en wijs een agent toe. Een koppeling die werk ontvangt, zet je onder Werkt in van een map. Mailboxen openen Kanalen. Agenda-apps openen Agenda. Hangt aan [Koppelingen](/docs/integrations/integrations) en [MCP](/docs/integrations/mcp).
+**EN:** Connections. Ontdekken voor modules en partnerlogins; Geïnstalleerd toont elke registratie (kaarten of lijst), ook meerdere administraties bij één host. Een login geeft agents nog geen tools: installeer eerst de module en wijs een agent toe. Een koppeling die werk ontvangt, zet je onder Werkt in van een map. Mailboxen openen Kanalen. Agenda-apps openen Agenda. Hangt aan [Koppelingen](/docs/integrations/integrations) en [MCP](/docs/integrations/mcp).
 
 ### {icon:module} Module
 

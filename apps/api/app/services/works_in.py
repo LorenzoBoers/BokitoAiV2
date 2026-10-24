@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import AppError, NotFoundError
@@ -325,3 +325,178 @@ async def add_item(
         if row is not None:
             item = canvas_item(row, project_id)
     return {"item": item, "created": created}
+
+
+def _department_tag_ids(tenant_id: UUID, department_id: UUID):
+    """Labels of the flows that belong to this department."""
+    from app.models.orchestra import Workstream
+    from app.models.signal import SignalTag
+    from app.services.trash import alive
+
+    flow_ids = select(Workstream.id).where(
+        Workstream.tenant_id == tenant_id,
+        Workstream.department_id == department_id,
+        alive(Workstream),
+    )
+    return select(SignalTag.id).where(
+        SignalTag.tenant_id == tenant_id,
+        SignalTag.workstream_id.in_(flow_ids),
+    )
+
+
+async def department_folder_ids(
+    session: AsyncSession, tenant_id: UUID, department_id: UUID
+) -> list[UUID]:
+    """Home folders of the department, plus every folder a department ticket sits in.
+
+    Those folders are the filter set. The department view is their union.
+    """
+    homes = list(
+        (
+            await session.execute(
+                select(Project.id).where(
+                    Project.tenant_id == tenant_id,
+                    Project.department_id == department_id,
+                    Project.deleted_at.is_(None),
+                )
+            )
+        ).scalars()
+    )
+    lands = list(
+        (
+            await session.execute(
+                select(Signal.project_id)
+                .where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.deleted_at.is_(None),
+                    Signal.ticket_tag_id.in_(_department_tag_ids(tenant_id, department_id)),
+                    Signal.project_id.is_not(None),
+                )
+                .distinct()
+            )
+        ).scalars()
+    )
+    out: list[UUID] = []
+    seen: set[UUID] = set()
+    for folder_id in [*homes, *lands]:
+        if folder_id is None or folder_id in seen:
+            continue
+        seen.add(folder_id)
+        out.append(folder_id)
+    return out
+
+
+async def department_items(
+    session: AsyncSession, tenant_id: UUID, department_id: UUID
+) -> list[dict[str, Any]]:
+    """Works in for the whole department: one board, one file count, then canvases and resources.
+
+    Not grouped by folder. A folder tab still reads ``works_in_items`` for that filter.
+    """
+    folder_ids = await department_folder_ids(session, tenant_id, department_id)
+
+    def in_folder():
+        return Signal.project_id.in_(folder_ids) if folder_ids else false()
+
+    def on_department():
+        return or_(Signal.ticket_tag_id.in_(_department_tag_ids(tenant_id, department_id)), in_folder())
+
+    tickets = (
+        await session.execute(
+            select(func.count(Signal.id)).where(
+                Signal.tenant_id == tenant_id,
+                Signal.deleted_at.is_(None),
+                on_department(),
+                Signal.ticket_tag_id.in_(_department_tag_ids(tenant_id, department_id)),
+                Signal.ticket_status != "proposed",
+            )
+        )
+    ).scalar_one()
+    files = (
+        await session.execute(
+            select(func.count(SignalMessage.id))
+            .join(Signal, Signal.id == SignalMessage.signal_id)
+            .where(
+                Signal.tenant_id == tenant_id,
+                Signal.deleted_at.is_(None),
+                on_department(),
+                SignalMessage.attachments_json != "[]",
+            )
+        )
+    ).scalar_one()
+    href = f"/departments/{department_id}"
+    items: list[dict[str, Any]] = []
+    if tickets:
+        items.append(
+            {
+                "key": board_key(),
+                "kind": "board",
+                "origin": ORIGIN_BOKITO,
+                "label": "",
+                "detail": "",
+                "href": href,
+                "status": "active",
+                "count": int(tickets or 0),
+            }
+        )
+    if files:
+        items.append(
+            {
+                "key": files_key(),
+                "kind": "files",
+                "origin": ORIGIN_BOKITO,
+                "label": "",
+                "detail": "",
+                "href": href,
+                "status": "active",
+                "count": int(files or 0),
+            }
+        )
+    canvases = (
+        await session.execute(
+            select(ProjectCanvas, Signal.project_id)
+            .join(Signal, Signal.id == ProjectCanvas.signal_id)
+            .where(
+                ProjectCanvas.tenant_id == tenant_id,
+                ProjectCanvas.deleted_at.is_(None),
+                Signal.tenant_id == tenant_id,
+                Signal.deleted_at.is_(None),
+                or_(
+                    Signal.ticket_tag_id.in_(_department_tag_ids(tenant_id, department_id)),
+                    in_folder(),
+                    ProjectCanvas.department_id == department_id,
+                ),
+            )
+            .order_by(ProjectCanvas.created_at)
+        )
+    ).all()
+    seen_canvas: set[UUID] = set()
+    for canvas, project_id in canvases:
+        if canvas.id in seen_canvas:
+            continue
+        seen_canvas.add(canvas.id)
+        if project_id is None:
+            row = canvas_item(canvas, department_id)
+            row["href"] = None
+            items.append(row)
+        else:
+            items.append(canvas_item(canvas, project_id))
+    if folder_ids:
+        resources = (
+            await session.execute(
+                select(ProjectResource)
+                .where(
+                    ProjectResource.tenant_id == tenant_id,
+                    ProjectResource.project_id.in_(folder_ids),
+                    ProjectResource.deleted_at.is_(None),
+                )
+                .order_by(ProjectResource.created_at)
+            )
+        ).scalars().all()
+        seen_resource: set[UUID] = set()
+        for resource in resources:
+            if resource.id in seen_resource:
+                continue
+            seen_resource.add(resource.id)
+            items.append(resource_item(resource))
+    return items

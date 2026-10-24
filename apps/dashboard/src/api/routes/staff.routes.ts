@@ -7,6 +7,16 @@ export const staffRoutes = {
   opsTenantFeatures: (tenantId: string) =>
     `/ops/tenants/${encodeURIComponent(tenantId)}/features`,
   opsTimeSavedWeights: '/ops/time-saved-weights',
+  opsVoiceModel: '/ops/voice-model',
+  opsUsage: (period?: string) =>
+    period ? `/ops/usage?period=${encodeURIComponent(period)}` : '/ops/usage',
+  opsUsageTenant: (tenantId: string, period?: string) => {
+    const base = `/ops/usage/tenants/${encodeURIComponent(tenantId)}`
+    return period ? `${base}?period=${encodeURIComponent(period)}` : base
+  },
+  opsPriceBooks: '/ops/price-books',
+  opsTenantPriceBook: (tenantId: string) =>
+    `/ops/tenants/${encodeURIComponent(tenantId)}/price-book`,
   opsUserImpersonate: (userId: string) =>
     `/ops/users/${encodeURIComponent(userId)}/impersonate`,
   models: {

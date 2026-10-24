@@ -694,17 +694,29 @@ export async function unpinSignalThread(token: string, threadId: string): Promis
   await apiDelete<unknown>(appRoutes.signals.threadPin(threadId), token)
 }
 
-/** Move the messages from `fromMessageId` on into a new linked conversation. */
-export async function splitSignalThread(
+export type MoveResult = { signal_id: string; title: string; source_signal_id: string }
+
+/** Move `fromMessageId` and what follows to `targetId`, or to a new conversation when empty. */
+export async function moveSignalMessages(
   token: string,
   threadId: string,
-  input: { fromMessageId: string; categoryId?: string | null },
-): Promise<{ signal_id: string; parent_signal_id: string }> {
-  return apiPost<{ signal_id: string; parent_signal_id: string }>(
-    appRoutes.signals.threadSplit(threadId),
-    { from_message_id: input.fromMessageId, category_id: input.categoryId || null },
+  input: { fromMessageId: string; targetId?: string | null; categoryId?: string | null; title?: string },
+): Promise<MoveResult> {
+  return apiPost<MoveResult>(
+    appRoutes.signals.threadMove(threadId),
+    {
+      from_message_id: input.fromMessageId,
+      target_signal_id: input.targetId || null,
+      category_id: input.categoryId || null,
+      title: input.title ?? '',
+    },
     token,
   )
+}
+
+/** Merge this conversation into `targetId`; this one closes and points forward. */
+export async function mergeSignalThread(token: string, threadId: string, targetId: string): Promise<MoveResult> {
+  return apiPost<MoveResult>(appRoutes.signals.threadMerge(threadId), { target_signal_id: targetId }, token)
 }
 
 export async function replyToSignalThread(

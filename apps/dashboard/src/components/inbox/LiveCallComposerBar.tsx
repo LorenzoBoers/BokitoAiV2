@@ -3,6 +3,7 @@ import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
 import { List, Mic, MicOff, PhoneOff, Settings } from 'lucide-react'
 import { toast } from 'sonner'
+import { groupCallLines } from './CallRecord'
 import { callRoutes } from '../../api/routes/calls.routes'
 import { useAuth } from '../../context/AuthContext'
 import { useAgents } from '../../hooks/useAgents'
@@ -258,22 +259,23 @@ export default function LiveCallComposerBar({ threadId }: { threadId: string }) 
             className="max-h-40 px-3 py-2"
           >
             {prefs?.lines.length ? (
-              <ul className="space-y-2">
-                {prefs.lines.map((line, index) => {
-                  const mine = line.role === 'user'
-                  return (
-                    <li
-                      key={`${index}-${line.role}`}
-                      className={cn(
-                        'flex max-w-[85%] flex-col text-xs',
-                        mine ? 'ml-auto items-end text-right' : 'mr-auto items-start text-left',
-                      )}
-                    >
-                      <span className="text-text-muted">{mine ? user?.name?.trim() || t('agentCall.you') : name}</span>
-                      <p className={mine ? 'text-text-primary' : 'text-text-secondary'}>{line.text}</p>
-                    </li>
-                  )
-                })}
+              <ul className="space-y-3">
+                {groupCallLines(prefs.lines, user?.name?.trim() || t('agentCall.you'), name).map((group, index) => (
+                  <li
+                    key={`${index}-${group.texts[0]?.slice(0, 12)}`}
+                    className={cn(
+                      'flex max-w-[85%] flex-col gap-0.5 text-xs',
+                      group.mine ? 'ml-auto items-end text-right' : 'mr-auto items-start text-left',
+                    )}
+                  >
+                    <span className="text-text-muted">{group.name}</span>
+                    {group.texts.map((text, lineIndex) => (
+                      <p key={`${index}-${lineIndex}`} className={group.mine ? 'text-text-primary' : 'text-text-secondary'}>
+                        {text}
+                      </p>
+                    ))}
+                  </li>
+                ))}
               </ul>
             ) : (
               <p className="text-xs text-text-muted">{t('agentCall.transcriptEmpty')}</p>

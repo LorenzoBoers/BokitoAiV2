@@ -277,6 +277,10 @@ async def _store_integration_credentials(
         meta["identity"] = identity["email"]
     meta.pop("mock", None)
     meta.pop("verify_error", None)
+    # Fresh tokens: allow cron/sync again after a prior reconnect mark.
+    if provider in oauth_providers.CALENDAR_PROVIDERS:
+        meta.pop("sync_status", None)
+        meta.pop("sync_error", None)
     instance_key = ""
     if provider == "moneybird":
         from datetime import datetime, timezone

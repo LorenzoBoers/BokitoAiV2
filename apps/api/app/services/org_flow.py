@@ -655,12 +655,18 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
         nodes[SINK_CLOSED]["closed_on_purpose"] = {reason: closed_counts.get(reason, 0) for reason in CLOSED_ON_PURPOSE}
 
     # Zones: the department that saw most of an executor's work, ties by name.
+    # The hint says whether an agent (the point of contact) picks up first.
+    from app.services.department_access import department_roles as _roles
+
+    contact_departments = {
+        d.id for d in departments.values() if (await _roles(session, tenant_id, d.id))["contact_agent_id"]
+    }
     zones = [
         {
             "id": str(d.id),
             "label": d.name,
             "href": f"/departments/{d.id}",
-            "hint": "agent_first" if d.pickup == "agent_first" else "people",
+            "hint": "agent_first" if d.id in contact_departments else "people",
         }
         for d in sorted(departments.values(), key=lambda d: d.name.lower())
     ]
@@ -750,16 +756,16 @@ async def build_org_flow(session: AsyncSession, tenant: Tenant, user_id: UUID | 
     if used.get(NO_LABEL):
         labels.append({"id": None, "name": "", "color": NO_LABEL_COLOR, "icon": None, "flow_id": None})
 
-    # Bottlenecks per department, addressed to its lead. Unassigned work is All's.
-    from app.services.department_access import department_leads
-    from app.services.teams import all_department
+    # Bottlenecks per department, addressed to its point of contact. Unassigned work is the root's.
+    from app.services.department_access import department_roles
+    from app.services.teams import org_root
 
-    root = await all_department(session, tenant_id)
+    root = await org_root(session, tenant_id)
     lead_names: dict[UUID, str | None] = {}
 
     async def lead_of(dept_id: UUID) -> str | None:
         if dept_id not in lead_names:
-            lead_id = (await department_leads(session, tenant_id, dept_id))["lead_agent_id"]
+            lead_id = (await department_roles(session, tenant_id, dept_id))["contact_agent_id"]
             lead = agents.get(lead_id) if lead_id else None
             lead_names[dept_id] = lead.name if lead else None
         return lead_names[dept_id]
@@ -952,10 +958,13 @@ async def open_label_suggestion(
     if not company:
         return {"error": "no_agent"}
     pref = await get_user_preference(session, tenant.id, user.id)
+    from app.services.lead_agent import lead_agent_id
+
     by_id = {a.id: a for a in company}
+    lead_id = await lead_agent_id(session, tenant.id)
     agent = (
         by_id.get(pref.default_chat_agent_id) if pref and pref.default_chat_agent_id else None
-    ) or next((a for a in company if a.is_lead), None) or company[0]
+    ) or by_id.get(lead_id) or company[0]
 
     lines = "\n".join(
         f"- [{(s.subject or s.contact_name or str(s.id)[:8]).strip()}](/threads/{s.id})"

@@ -172,15 +172,36 @@ def _delivery_lines(deliveries: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 )
             )
         elif kind == "works_in":
-            lines.append(
-                _line(
-                    "delivered_works_in",
-                    row.get("href"),
-                    folder=row.get("folder_name") or "",
-                    item=row.get("item_label") or "",
-                    item_kind=row.get("item_kind") or "",
+            item_kind = str(row.get("item_kind") or "")
+            works_key = str(row.get("works_in_key") or "")
+            folder = str(row.get("folder_name") or "")
+            item = str(row.get("item_label") or "")
+            general = folder.strip().lower() in ("algemeen", "general")
+            on_thread = item_kind == "canvas" or works_key.startswith("canvas:") or general
+            # Canvas (and catch-all General) lives on the conversation; labels
+            # put the thread in a map. Do not say the agent delivered into Algemeen.
+            if on_thread:
+                if item:
+                    lines.append(
+                        _line(
+                            "delivered_on_thread",
+                            row.get("href"),
+                            item=item,
+                            item_kind=item_kind,
+                        )
+                    )
+                else:
+                    lines.append(_line("delivered_on_thread_generic", row.get("href")))
+            else:
+                lines.append(
+                    _line(
+                        "delivered_works_in",
+                        row.get("href"),
+                        folder=folder,
+                        item=item,
+                        item_kind=item_kind,
+                    )
                 )
-            )
         elif kind == "folder":
             lines.append(
                 _line("delivered_folder", row.get("href"), folder=row.get("folder_name") or "", title=row.get("title") or "")

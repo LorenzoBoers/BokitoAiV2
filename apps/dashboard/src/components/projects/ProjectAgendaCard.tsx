@@ -22,11 +22,19 @@ export function projectAgendaPath(projectId: string, opts: { plan?: boolean } = 
   return `/agenda?${params.toString()}`
 }
 
-/** What is due and what comes next for this project's tickets and agents. */
-export function ProjectAgendaCard({ projectId }: { projectId: string }) {
+/** What is due and what comes next. A department card is the whole department; a folder card filters it. */
+export function ProjectAgendaCard({
+  projectId,
+  departmentId,
+}: {
+  projectId?: string
+  departmentId?: string
+}) {
   const { t, i18n } = useTranslation('nav')
   const [items, setItems] = useState<TimeItem[] | null>(null)
   const [nowMs] = useState(() => Date.now())
+  const openPath = projectId ? projectAgendaPath(projectId) : '/agenda'
+  const planPath = projectId ? projectAgendaPath(projectId, { plan: true }) : '/agenda'
 
   useEffect(() => {
     let cancelled = false
@@ -35,6 +43,7 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
       to: new Date(nowMs + 14 * 86_400_000).toISOString(),
       sources: ['checkup', 'task', 'session'],
       projectId,
+      departmentId,
     })
       .then((res) => {
         if (!cancelled) setItems(res.items)
@@ -45,7 +54,7 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true
     }
-  }, [projectId, nowMs])
+  }, [projectId, departmentId, nowMs])
 
   const rows = useMemo(() => {
     const list = items ?? []
@@ -82,7 +91,7 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
         </CardTitle>
         <CardHeaderActions>
           <Link
-            to={projectAgendaPath(projectId)}
+            to={openPath}
             className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
             data-testid="project-agenda-open"
           >
@@ -101,8 +110,8 @@ export function ProjectAgendaCard({ projectId }: { projectId: string }) {
             className="px-0 py-1"
             title={
               <>
-                {t('projects.home.agendaEmpty')}{' '}
-                <Link to={projectAgendaPath(projectId, { plan: true })} className="font-medium text-accent hover:underline">
+                {t(departmentId ? 'projects.home.agendaEmptyDepartment' : 'projects.home.agendaEmpty')}{' '}
+                <Link to={planPath} className="font-medium text-accent hover:underline">
                   {t('projects.home.agendaPlan')}
                 </Link>
               </>

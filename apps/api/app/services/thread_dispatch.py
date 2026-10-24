@@ -5,10 +5,11 @@ Mentions use the same inline markup as people mentions:
 
 - An agent target runs that agent on the thread with the note as instruction;
   its answer lands as an internal note.
-- A team target follows the team's pickup: ``agent_first`` runs the first agent
-  member that may handle the channel; otherwise the people in the team get a
-  tier 1 notice and the first to respond picks it up.
-- The system team All agents lets the lead agent pick and delegate.
+- A department target starts its point of contact, which handles it or asks a
+  crew member. Without one, the people in the department get a tier 1 notice
+  and the first to respond picks it up.
+- The organization root starts the lead (its point of contact), which picks
+  the department or agent and delegates.
 """
 
 from __future__ import annotations
@@ -36,10 +37,35 @@ NOTE_INSTRUCTION = (
     "instructions."
 )
 LEAD_PICK_INSTRUCTION = (
-    "A teammate addressed all agents. Pick the company agent that fits this "
-    "conversation best and hand it over with handoff_to, saying in one "
-    "line who picks it up and why. Handle it yourself when you fit best."
+    "A teammate addressed the whole organization. You are its point of contact. "
+    "Pick the department or agent that fits this conversation best and ask it "
+    "with ask_agent, or hand it over with handoff_to when that department "
+    "should own it; say in one line who picks it up and why. Handle it "
+    "yourself when you fit best."
 )
+
+CONTACT_PICK_INSTRUCTION = (
+    "A teammate addressed your department. You are its point of contact. "
+    "Handle it yourself, or ask the crew member whose focus fits with "
+    "ask_agent; say in one line who picks it up and why."
+)
+
+
+async def addressed_agent(session: AsyncSession, tenant_id: UUID, team: Any) -> tuple[Agent | None, str]:
+    """The agent that picks up when a department is addressed, with its instruction.
+
+    The point of contact of the department; for the organization the lead.
+    """
+    from app.models.team import is_root_department
+
+    if is_root_department(team):
+        from app.services.lead_agent import get_lead_agent
+
+        return await get_lead_agent(session, tenant_id), LEAD_PICK_INSTRUCTION
+    from app.services.department_access import department_contact
+
+    contact, _implicit = await department_contact(session, tenant_id, team.id)
+    return contact, CONTACT_PICK_INSTRUCTION
 
 
 def entity_mentions(body_text: str) -> list[tuple[str, UUID]]:
@@ -249,10 +275,10 @@ async def dispatch_to(
     user_role: str = "member",
 ) -> dict[str, Any]:
     """Route one agent or team target; returns what happened for the caller."""
-    from app.models.team import is_root_department
     from app.services.channel_access import agent_can_handle
     from app.services.notify import TIER_NOW, notify
-    from app.services.teams import get_team, team_agent_ids, team_user_ids
+    from app.services.org_routing import route_to_node
+    from app.services.teams import get_team
 
     account = await _channel_account(session, signal)
     if kind == "agent":
@@ -306,45 +332,47 @@ async def dispatch_to(
     team = await get_team(session, tenant_id, target_id)
     if team is None:
         return {"kind": "department", "id": str(target_id), "dispatched": False}
-    if is_root_department(team):
-        from app.services.lead_agent import get_lead_agent
-
-        lead = await get_lead_agent(session, tenant_id)
-        if lead is not None and lead.is_active:
-            await _start_agent(
-                session,
-                tenant_id,
-                author_user_id,
-                signal,
-                lead,
-                operator_text=text,
-                user_role=user_role,
-                base_instruction=LEAD_PICK_INSTRUCTION,
-            )
-            return {"kind": "department", "id": str(team.id), "dispatched": True, "agent_id": str(lead.id)}
-        return {"kind": "department", "id": str(team.id), "dispatched": False}
-    if team.pickup == "agent_first":
-        for agent_id in await team_agent_ids(session, team):
-            agent = await _active_agent(session, tenant_id, agent_id)
-            if agent is not None and await agent_can_handle(session, account, agent.id):
-                await _start_agent(
-                    session, tenant_id, author_user_id, signal, agent, operator_text=text, user_role=user_role
-                )
-                return {"kind": "department", "id": str(team.id), "dispatched": True, "agent_id": str(agent.id)}
-    people = [uid for uid in await team_user_ids(session, team) if uid != author_user_id]
-    if people:
+    route = await route_to_node(
+        session, tenant_id, team, account=account, signal=signal, skip_user=author_user_id
+    )
+    via = {"via_department_id": str(route.node.id)} if route.walked_up and route.node else {}
+    if route.agent is not None:
+        await _start_agent(
+            session,
+            tenant_id,
+            author_user_id,
+            signal,
+            route.agent,
+            operator_text=text,
+            user_role=user_role,
+            base_instruction=route.instruction,
+        )
+        return {
+            "kind": "department",
+            "id": str(team.id),
+            "dispatched": True,
+            "agent_id": str(route.agent.id),
+            **via,
+        }
+    if route.people:
         await notify(
             session,
             tenant_id,
             kind="mention",
-            recipients=people,
+            recipients=route.people,
             title=f"{author_name or 'A teammate'} asked {team.name} in {signal.subject or 'a conversation'}",
             body=plain_mentions(text)[:300],
             tier=TIER_NOW,
             category="mentions",
             signal_id=signal.id,
         )
-    return {"kind": "department", "id": str(team.id), "dispatched": bool(people), "notified": len(people)}
+    return {
+        "kind": "department",
+        "id": str(team.id),
+        "dispatched": bool(route.people),
+        "notified": len(route.people),
+        **via,
+    }
 
 
 async def dispatch_mentions(
@@ -356,6 +384,7 @@ async def dispatch_mentions(
     author_user_id: UUID,
     author_name: str = "",
     user_role: str = "member",
+    follow_holder: bool = True,
 ) -> list[dict[str, Any]]:
     """Act on @agent and @team mentions in a note or reply.
 
@@ -373,6 +402,7 @@ async def dispatch_mentions(
         author_name=author_name,
         wake_default=False,
         channel_agent_id=signal.agent_id,
+        follow_holder=follow_holder,
     )
     if moved.get("action") in ("give", "clear") or moved.get("reason") == "human_only":
         return [

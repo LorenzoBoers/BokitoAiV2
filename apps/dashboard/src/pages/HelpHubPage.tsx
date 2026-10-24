@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { PageContent } from '../components/layout/PageContent'
 import { useTour } from '../components/tour/TourContext'
-import { openAssistant } from '../lib/personal-assistant-widget'
+import { inAppAssistantEnabled, openAssistant } from '../lib/personal-assistant-widget'
 
 const SUPPORT_EMAIL = 'support@bokito.ai'
 
@@ -60,11 +60,15 @@ export default function HelpHubPage() {
       href: `mailto:${SUPPORT_EMAIL}`,
       external: true,
     },
-    {
-      key: 'assistant',
-      icon: MessageSquare,
-      onClick: () => openAssistant(),
-    },
+    ...(inAppAssistantEnabled()
+      ? [
+          {
+            key: 'assistant',
+            icon: MessageSquare,
+            onClick: () => openAssistant(),
+          } satisfies HubLink,
+        ]
+      : []),
   ]
 
   return (

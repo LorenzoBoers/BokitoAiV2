@@ -30,6 +30,7 @@ import {
 import { ChoiceSelect } from '../ui/ChoiceSelect'
 import type { ChoiceItem } from '../ui/ChoiceOption'
 import { Label } from '../ui/label'
+import { Input } from '../ui/input'
 import { Switch } from '../ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
@@ -50,7 +51,6 @@ import { listAgents } from '../../lib/agents-api'
 import { EDITABLE_STAGE_KINDS, waitingStageFill } from '../../lib/stage-order'
 import { StageProgressIcon } from './StageProgressIcon'
 import { cn } from '../../lib/utils'
-import { Input } from '../ui/input'
 
 const KINDS: TicketStageKind[] = EDITABLE_STAGE_KINDS
 const FIELD_TYPES: TicketStageFieldType[] = ['text', 'textarea', 'number', 'enum']
@@ -405,7 +405,7 @@ function SortablePhaseCard({
             {index + 1}.
           </span>
           {canEdit ? (
-            <input
+            <Input
               value={stage.name}
               onChange={(e) => onUpdate({ name: e.target.value })}
               placeholder={t('workstreamsPage.stages.namePlaceholder')}
@@ -413,7 +413,7 @@ function SortablePhaseCard({
               title={t('workstreamsPage.stages.editNameHint', {
                 defaultValue: 'Click to edit',
               })}
-              className="min-w-0 flex-1 cursor-text rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-caps text-text-heading outline-none transition-colors placeholder:normal-case placeholder:tracking-normal placeholder:text-text-muted hover:border-border hover:bg-bg-input/90 focus:border-border focus:bg-bg-input focus:ring-1 focus:ring-border/60"
+              className="min-w-0 flex-1"
             />
           ) : (
             <p className="truncate text-xs font-semibold uppercase tracking-caps text-text-heading">
@@ -842,12 +842,11 @@ export function StageEditorDialog({
         </DialogHeader>
         {draft ? (
           <div className="space-y-3">
-            <input
+            <Input
               value={draft.name}
               onChange={(event) => update({ name: event.target.value })}
               placeholder={t('workstreamsPage.stages.namePlaceholder')}
               aria-label={t('workstreamsPage.stages.namePlaceholder')}
-              className="h-9 w-full rounded-md border border-border bg-bg-input/80 px-2.5 text-sm font-medium text-text-heading outline-none focus:border-border focus:ring-1 focus:ring-border/60"
             />
             {onMove ? (
               <div className="flex gap-2">

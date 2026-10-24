@@ -143,12 +143,12 @@ def _is_runnable_company(agent: Agent) -> bool:
     )
 
 
-def _lead_agent(agents: list[Agent]) -> Agent | None:
+def _lead_agent(agents: list[Agent], lead_id: UUID | None = None) -> Agent | None:
     """Same fallback as ``lead_agent.get_lead_agent``, from agents already loaded."""
     company = [a for a in agents if _is_runnable_company(a)]
-    leads = [a for a in company if a.is_lead]
-    if leads:
-        return min(leads, key=lambda a: a.created_at or datetime.min)
+    lead = next((a for a in company if a.id == lead_id), None)
+    if lead is not None:
+        return lead
     assistants = [a for a in company if (a.role or "") == "assistant"]
     pool = assistants or company
     if not pool:
@@ -156,7 +156,9 @@ def _lead_agent(agents: list[Agent]) -> Agent | None:
     return min(pool, key=lambda a: a.created_at or datetime.min)
 
 
-def _agent_for_trigger(trigger: Trigger, agents: list[Agent]) -> Agent | None:
+def _agent_for_trigger(
+    trigger: Trigger, agents: list[Agent], lead_id: UUID | None = None
+) -> Agent | None:
     """Who actually fires the trigger — never a role slug such as ``orchestrator``."""
     by_id = {a.id: a for a in agents}
     if trigger.agent_id:
@@ -168,16 +170,16 @@ def _agent_for_trigger(trigger: Trigger, agents: list[Agent]) -> Agent | None:
     for agent in agents:
         if _is_runnable_company(agent) and (agent.role or "") in roles:
             return agent
-    return _lead_agent(agents)
+    return _lead_agent(agents, lead_id)
 
 
 def _wake_who(
-    trigger: Trigger, agents: list[Agent]
+    trigger: Trigger, agents: list[Agent], lead_id: UUID | None = None
 ) -> tuple[str, UUID | None, str | None]:
     """Actor kind, agent id and display name for a planned wake."""
     if trigger.kind == "event":
         return "person", None, None
-    agent = _agent_for_trigger(trigger, agents)
+    agent = _agent_for_trigger(trigger, agents, lead_id)
     if agent is None:
         return "agent", None, None
     return "agent", agent.id, agent.name
@@ -377,6 +379,7 @@ async def list_time_items(
     sources: Iterable[str] | None = None,
     scheduled_only: bool = False,
     project_id: UUID | None = None,
+    department_id: UUID | None = None,
     connection_ids: Iterable[str] | None = None,
     calendar_ids: Iterable[str] | None = None,
     calendar_tags: Iterable[str] | None = None,
@@ -390,6 +393,7 @@ async def list_time_items(
     ``scheduled_only`` keeps only sessions fired by a trigger (planning view);
     on-demand work such as email replies stays on the activity timeline.
     ``project_id`` keeps items tied to that project's conversations or runs.
+    ``department_id`` keeps items on this department's tickets or in its folders.
     ``tag`` and ``path`` keep items whose conversation carries that tag (own or inherited).
     ``calendar_ids`` limits calendar events to those tenant calendars (None = all visible).
     ``connection_ids`` is a legacy filter on connection id (None = all).
@@ -419,6 +423,9 @@ async def list_time_items(
     now = utcnow()
 
     agents = (await session.execute(select(Agent).where(Agent.tenant_id == tenant_id))).scalars().all()
+    from app.services.lead_agent import lead_agent_id
+
+    lead_id = await lead_agent_id(session, tenant_id)
     names = await _names(session, tenant_id, agents)
     agent_names = names.agents
 
@@ -493,7 +500,7 @@ async def list_time_items(
 
     if "wake" in wanted and not project_id:
         for trigger in wakes:
-            actor_kind, resolved_id, resolved_name = _wake_who(trigger, agents)
+            actor_kind, resolved_id, resolved_name = _wake_who(trigger, agents, lead_id)
             base = dict(
                 kind="wake",
                 trigger_kind=trigger.kind,
@@ -770,7 +777,50 @@ async def list_time_items(
         )
 
     items.sort(key=lambda item: item["start"] or "")
+    if department_id is not None:
+        items = await _filter_items_by_department(session, tenant_id, items, department_id)
     return await _filter_items_by_tag(session, tenant_id, items, tag=tag, path=path)
+
+
+async def _filter_items_by_department(
+    session: AsyncSession,
+    tenant_id: UUID,
+    items: list[dict[str, Any]],
+    department_id: UUID,
+) -> list[dict[str, Any]]:
+    """Keep items on a department ticket, or filed in one of its folders."""
+    from sqlalchemy import false
+
+    from app.services.works_in import _department_tag_ids, department_folder_ids
+
+    if not items:
+        return items
+    folder_ids = {str(folder_id) for folder_id in await department_folder_ids(session, tenant_id, department_id)}
+    in_folder = Signal.project_id.in_([UUID(folder_id) for folder_id in folder_ids]) if folder_ids else false()
+    allowed = {
+        str(signal_id)
+        for signal_id in (
+            await session.execute(
+                select(Signal.id).where(
+                    Signal.tenant_id == tenant_id,
+                    Signal.deleted_at.is_(None),
+                    or_(
+                        Signal.ticket_tag_id.in_(_department_tag_ids(tenant_id, department_id)),
+                        in_folder,
+                    ),
+                )
+            )
+        ).scalars()
+    }
+    kept: list[dict[str, Any]] = []
+    for item in items:
+        signal_id = str(item.get("signal_id") or "")
+        project_id = str(item.get("project_id") or "")
+        if signal_id and signal_id in allowed:
+            kept.append(item)
+        elif project_id and project_id in folder_ids:
+            kept.append(item)
+    return kept
 
 
 async def _filter_items_by_tag(

@@ -320,7 +320,7 @@ export function DictationMicButton({
   }
 
   const label = listening ? t('composer.dictationConfirm') : t('composer.dictationStart')
-  const tip = listening ? t('composer.dictationConfirmHint') : t('composer.dictationHoldHint')
+  const detail = listening ? t('composer.dictationConfirmHint') : t('composer.dictationHoldHint')
   const dim = size === 'sm' ? 'h-7 w-7' : 'h-8 w-8'
 
   // Native title only — no Radix Tooltip. Agent chat is a lazy route chunk;
@@ -331,7 +331,8 @@ export function DictationMicButton({
       disabled={disabled}
       aria-pressed={listening}
       aria-label={label}
-      title={tip}
+      title={label}
+      data-bokito-tip-detail={detail}
       onPointerDown={onPointerDown}
       onPointerUp={finishPointer}
       onPointerCancel={finishPointer}

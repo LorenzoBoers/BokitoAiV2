@@ -10,13 +10,18 @@ import {
 } from './smooth-stream.js'
 
 describe('smoothStreamRate', () => {
-  it('stays at the cruise while the turn is live', () => {
-    expect(smoothStreamRate(5, true)).toBe(SMOOTH_STREAM_CPS.cruiseCps)
-    expect(smoothStreamRate(4000, true)).toBe(SMOOTH_STREAM_CPS.cruiseCps)
+  it('stays inside the live band and speeds up with the backlog', () => {
+    expect(smoothStreamRate(1, true)).toBe(SMOOTH_STREAM_CPS.liveMinCps)
+    expect(smoothStreamRate(4000, true)).toBe(SMOOTH_STREAM_CPS.liveMaxCps)
+    const mid = smoothStreamRate(20, true)
+    expect(mid).toBeGreaterThan(SMOOTH_STREAM_CPS.liveMinCps)
+    expect(mid).toBeLessThan(SMOOTH_STREAM_CPS.liveMaxCps)
   })
 
-  it('drains leftover after the turn ends', () => {
-    expect(smoothStreamRate(40, false)).toBe(SMOOTH_STREAM_CPS.finishMinCps)
+  it('drains leftover after the turn ends, still bounded', () => {
+    const small = smoothStreamRate(4, false)
+    expect(small).toBe(SMOOTH_STREAM_CPS.finishMinCps)
+    expect(smoothStreamRate(8000, false)).toBe(SMOOTH_STREAM_CPS.finishMaxCps)
   })
 })
 
@@ -31,10 +36,10 @@ describe('streamRateJitter', () => {
 })
 
 describe('revealLimit', () => {
-  it('holds a live lead and opens fully when finished', () => {
+  it('plays the whole buffer so waiting text cannot sit hidden', () => {
     expect(revealLimit(0, true)).toBe(0)
-    expect(revealLimit(10, true)).toBeLessThan(10)
-    expect(revealLimit(100, true)).toBe(100 - SMOOTH_STREAM.leadChars)
+    expect(revealLimit(10, true)).toBe(10)
+    expect(revealLimit(100, true)).toBe(100)
     expect(revealLimit(100, false)).toBe(100)
   })
 })
@@ -71,7 +76,7 @@ describe('advanceSmoothStream', () => {
     expect(visible.length).toBeGreaterThan(0)
     expect(visible.length).toBeLessThan(goal.length)
 
-    for (let i = 0; i < 40; i++) step(false, false, 16)
+    for (let i = 0; i < 120; i++) step(false, false, 16)
     expect(visible).toBe(goal)
   })
 
@@ -87,6 +92,21 @@ describe('advanceSmoothStream', () => {
       carry: 0.5,
     })
     expect(result.visible).toBe('Ik begin met het ')
+    expect(result.reset).toBe(true)
+  })
+
+  it('snaps when the server shrinks a long dump to a short sentence', () => {
+    const result = advanceSmoothStream({
+      goal: 'Het canvas staat naast dit bericht.',
+      prev: 'Het canvas staat naast dit bericht.\n\n```json\n{"blocks":[]}\n```',
+      active: true,
+      holdLead: false,
+      nowMs: 2000,
+      lastMs: 1984,
+      startedAtMs: 1000,
+      carry: 0,
+    })
+    expect(result.visible).toBe('Het canvas staat naast dit bericht.')
     expect(result.reset).toBe(true)
   })
 

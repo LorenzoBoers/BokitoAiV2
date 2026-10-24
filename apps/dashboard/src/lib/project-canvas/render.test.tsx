@@ -52,8 +52,9 @@ describe('renderCanvasTree', () => {
     }
     render(<>{renderCanvasTree(tree)}</>)
     expect(screen.queryByTestId('canvas-source')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: '4' }))
-    expect(screen.getByTestId('canvas-source').textContent).toBe('list_threads · 2026-10-22T17:00:00')
+    fireEvent.click(screen.getByRole('button', { name: /4/ }))
+    expect(screen.getByTestId('canvas-source').textContent).toContain('list_threads · ')
+    expect(screen.getByTestId('canvas-source').textContent).not.toContain('T17:00:00')
   })
 
   it('renders a KPI tile with delta, status and target', () => {

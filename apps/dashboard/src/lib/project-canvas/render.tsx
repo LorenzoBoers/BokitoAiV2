@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import i18n from '../../i18n'
+import { formatAppDateTime } from '../app-locale'
 import { CanvasNotice } from '../../components/project-canvas/sdk'
 import {
   AreaChart,
@@ -24,10 +26,20 @@ function prop(node: CanvasNode, key: string): unknown {
   return node.props?.[key]
 }
 
+function sourceTime(when: string): string {
+  if (!when) return ''
+  const normalized = /(?:Z|[+-]\d{2}:\d{2})$/.test(when) ? when : `${when}Z`
+  const parsed = new Date(normalized)
+  if (Number.isNaN(parsed.getTime())) return when
+  return formatAppDateTime(parsed, i18n.language)
+}
+
 function sourceLine(raw: unknown): string {
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     const rec = raw as Record<string, unknown>
-    return [asString(rec.tool), asString(rec.as_of)].filter((part) => part.length > 0).join(' · ')
+    const tool = asString(rec.tool)
+    const label = tool === 'operator' ? i18n.t('projects.canvas.operatorSource', { ns: 'nav' }) : tool
+    return [label, sourceTime(asString(rec.as_of))].filter((part) => part.length > 0).join(' · ')
   }
   return asString(raw)
 }

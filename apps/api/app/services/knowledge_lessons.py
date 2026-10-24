@@ -296,7 +296,7 @@ async def judge_lesson(
     neighbor_body: str,
 ) -> JudgeRelation:
     """One cheap call. A failed judge does not invent a contradiction."""
-    from app.services.model_resolution import resolve_model_call
+    from app.services.model_resolution import record_usage, resolve_model_call
 
     resolved = await resolve_model_call(session, tenant_id, kind="chat")
     if not getattr(resolved, "live", False) or not getattr(resolved, "api_key", ""):
@@ -321,6 +321,16 @@ async def judge_lesson(
             model=resolved.model_id,
             temperature=0,
             messages=[{"role": "user", "content": prompt}],
+        )
+        usage = getattr(response, "usage", None)
+        await record_usage(
+            session,
+            tenant_id,
+            resolved,
+            tokens_in=int(getattr(usage, "prompt_tokens", 0) or 0),
+            tokens_out=int(getattr(usage, "completion_tokens", 0) or 0),
+            call_type="knowledge_lesson",
+            commit=False,
         )
         text = (response.choices[0].message.content or "").strip()
         start = text.find("{")
@@ -697,7 +707,7 @@ async def _turn_ready(session: AsyncSession, message) -> str | None:
 
 
 async def extract_lesson(session: AsyncSession, tenant_id: UUID, text: str) -> dict[str, Any] | None:
-    from app.services.model_resolution import resolve_model_call
+    from app.services.model_resolution import record_usage, resolve_model_call
 
     resolved = await resolve_model_call(session, tenant_id, kind="chat")
     if not getattr(resolved, "live", False) or not getattr(resolved, "api_key", ""):
@@ -716,6 +726,16 @@ async def extract_lesson(session: AsyncSession, tenant_id: UUID, text: str) -> d
             model=resolved.model_id,
             temperature=0,
             messages=[{"role": "user", "content": prompt}],
+        )
+        usage = getattr(response, "usage", None)
+        await record_usage(
+            session,
+            tenant_id,
+            resolved,
+            tokens_in=int(getattr(usage, "prompt_tokens", 0) or 0),
+            tokens_out=int(getattr(usage, "completion_tokens", 0) or 0),
+            call_type="knowledge_lesson",
+            commit=False,
         )
         raw = response.choices[0].message.content or ""
         start, end = raw.find("{"), raw.rfind("}")

@@ -1,5 +1,5 @@
 import { Card } from '../ui/card'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -17,11 +17,8 @@ import {
   setModulePrefs,
   type ModuleConnectionsResponse,
 } from '../../lib/module-api'
-import { listModuleAgents, type ModuleAgentRow } from '../../lib/integrations-api'
-import { AgentOptionRow } from '../ui/AgentOptionRow'
-import { Badge } from '../ui/badge'
 import { Switch } from '../ui/switch'
-import { ModuleAgentBadges } from './ModuleAgentBadges'
+import { ModuleDepartmentSection } from './ModuleDepartmentSection'
 
 type Props = {
   module: IntegrationModuleRow
@@ -36,7 +33,6 @@ export function ModuleOverview({ module }: Props) {
   const isAdmin = user?.role === 'owner' || user?.role === 'admin'
 
   const [connections, setConnections] = useState<ModuleConnectionsResponse | null>(null)
-  const [roster, setRoster] = useState<ModuleAgentRow[]>([])
   const [writesBusy, setWritesBusy] = useState(false)
   const [customerToolsBusy, setCustomerToolsBusy] = useState<string | null>(null)
 
@@ -50,18 +46,9 @@ export function ModuleOverview({ module }: Props) {
 
   useEffect(() => {
     void loadConnections()
-    void listModuleAgents(module.slug)
-      .then(setRoster)
-      .catch(() => setRoster([]))
-  }, [module.slug, loadConnections])
+  }, [loadConnections])
 
-  const specialist = useMemo(
-    () =>
-      roster.find(
-        (r) => r.is_pack_specialist || r.agent_slug === `module-${module.slug}`,
-      ) ?? null,
-    [roster, module.slug],
-  )
+  const specialistId = module.specialist_agent_id ?? null
   const customerCards = (module.tool_cards ?? []).filter((card) => card.exposure === 'customer')
   const customerTools = connections?.prefs?.customer_tools ?? {}
 
@@ -189,59 +176,12 @@ export function ModuleOverview({ module }: Props) {
         </Card>
       ) : null}
 
-      {roster.length > 0 ? (
-        <section>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-text-heading">
-              {t('integrations.modules.agents.sectionTitle', { defaultValue: 'Agents for this module' })}
-            </h2>
-            <Link
-              to={`${moduleHomePath(module)}?tab=setup`}
-              className="text-xs text-accent hover:underline"
-            >
-              {t('integrations.modules.workspace.manageAgents', {
-                defaultValue: 'Manage roster',
-              })}
-            </Link>
-          </div>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {roster.map((row) => (
-              <Card asChild padding="compact">
-                <li
-                  key={row.id}
-                  className="flex flex-wrap items-center gap-2"
-                >
-                  <Link
-                    to={`/agents/${row.agent_id}`}
-                    className="min-w-0 flex-1 hover:opacity-90"
-                  >
-                    <AgentOptionRow
-                      agent={{
-                        id: row.agent_id,
-                        name: row.name,
-                        avatar_kind: row.avatar_kind,
-                        avatar_icon: row.avatar_icon,
-                        avatar_color: row.avatar_color,
-                        avatar_shape: row.avatar_shape,
-                        avatar_image_url: row.avatar_image_url,
-                      }}
-                      size={22}
-                    />
-                  </Link>
-                  <ModuleAgentBadges row={row} />
-                  {!row.company_ids || row.company_ids.length === 0 ? (
-                    <Badge variant="neutral" className="px-1.5 py-0 text-2xs">
-                      {t('integrations.modules.agents.scopeAll', {
-                        defaultValue: 'All administrations',
-                      })}
-                    </Badge>
-                  ) : null}
-                </li>
-              </Card>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold text-text-heading">
+          {t('integrations.modules.department.title', { defaultValue: 'Department' })}
+        </h2>
+        <ModuleDepartmentSection module={module} />
+      </section>
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-text-heading">
@@ -257,9 +197,9 @@ export function ModuleOverview({ module }: Props) {
           {t('integrations.modules.workspace.actionsTitle', { defaultValue: 'Quick actions' })}
         </h2>
         <div className="flex flex-wrap gap-2">
-          {specialist ? (
+          {specialistId ? (
             <Link
-              to={`/agents/${specialist.agent_id}`}
+              to={`/agents/${specialistId}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs text-text-secondary hover:border-border-light hover:text-text-heading"
             >
               {t('integrations.modules.agents.openSpecialist', {

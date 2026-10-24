@@ -278,6 +278,36 @@ MODULES: list[ModuleSpec] = [
                 "Produce a short financial snapshot (open items, recent documents) for the agent.",
             ),
             ModuleToolCard(
+                "vat_rates",
+                "VAT rates",
+                "Statutory Dutch VAT rates. Computes VAT only when the rate and the net amount are passed. Does not choose the table.",
+                props=(
+                    ("rate", {"type": "string", "description": "21, 9, 0, or exempt."}),
+                    ("net_amount", {"type": "number"}),
+                ),
+            ),
+            ModuleToolCard(
+                "invoice_check",
+                "Invoice check",
+                "Which article 35a mentions are still missing. A simplified invoice is only up to €100 including VAT.",
+                props=(
+                    ("amount_incl", {"type": "number"}),
+                    ("present", {"type": "array", "items": {"type": "string"}}),
+                    ("intra_community", {"type": "boolean"}),
+                    ("distance_sales", {"type": "boolean"}),
+                    ("reverse_charge_abroad", {"type": "boolean"}),
+                ),
+            ),
+            ModuleToolCard(
+                "payment_terms",
+                "Payment term",
+                "Statutory payment term for a business, a large buyer of an SME, a public authority, or a consumer. Does not calculate interest.",
+                props=(
+                    ("party", {"type": "string", "enum": ["business", "large_to_sme", "government", "consumer"]}),
+                    ("agreed_days", {"type": "integer"}),
+                ),
+            ),
+            ModuleToolCard(
                 "list_my_invoices",
                 "My invoices",
                 "List sales invoices that belong to the verified customer on this conversation.",
@@ -374,7 +404,7 @@ MODULES: list[ModuleSpec] = [
                 ),
             ),
         ),
-        needs_when="invoices, VAT, ledgers, outstanding balances, or bookkeeping",
+        needs_when="invoices, VAT, payment terms, ledgers, outstanding balances, or bookkeeping",
         setup_steps=(
             "Install Accounting under Settings > Modules.",
             "Assign at least one AI agent (mark one as default for setup chat).",
@@ -416,6 +446,36 @@ MODULES: list[ModuleSpec] = [
                 props=(("account_id", {"type": "string"}),),
             ),
             ModuleToolCard(
+                "iban_check",
+                "IBAN check",
+                "Check the IBAN check digits. Does not look up the bank.",
+                props=(("iban", {"type": "string"}),),
+                required=("iban",),
+            ),
+            ModuleToolCard(
+                "consent",
+                "Account consent",
+                "How long an account-information consent lasts. This module does not send a payment.",
+            ),
+            ModuleToolCard(
+                "liquidity",
+                "Cash position",
+                "Sum balances already read, per currency. Does not convert and does not invent a balance.",
+                props=(("balances", {"type": "array", "items": {"type": "object"}}),),
+            ),
+            ModuleToolCard(
+                "payment_guard",
+                "Payment checklist",
+                "Fields a payment proposal still needs, including the IBAN check. Does not send the payment.",
+                props=(
+                    ("iban", {"type": "string"}),
+                    ("amount", {"type": "number"}),
+                    ("currency", {"type": "string"}),
+                    ("payee_name", {"type": "string"}),
+                    ("reference", {"type": "string"}),
+                ),
+            ),
+            ModuleToolCard(
                 "propose_payment",
                 "Propose payment",
                 "Draft an outgoing payment that only runs after you approve.",
@@ -425,54 +485,87 @@ MODULES: list[ModuleSpec] = [
         needs_when="bank balances, transactions, or outgoing payments",
         setup_steps=(
             "Install Banking under Settings > Modules.",
-            "Assign at least one AI agent to the module roster.",
+            "Make sure an agent sits in the Banking department.",
             "Connect a PSD2 provider (GoCardless Bank Account Data) with your secret id and key.",
             "Link bank accounts through the provider's requisition flow.",
         ),
         capability_summary=(
-            "Agents can read accounts, balances, and transactions; payments "
-            "only ship as proposals."
+            "Reads accounts, balances, and transactions. Checks an IBAN and a payment "
+            "checklist. Does not send a transfer."
         ),
     ),
     ModuleSpec(
         slug="investing",
         name="Investing",
         description=(
-            "Market data, positions, and watchlists; TradingView webhook alerts "
-            "land as Signals. Orders only as a proposal that a human approves."
+            "Keeps an order the operator already chose inside the advice boundary. "
+            "No broker is connected, so there is no live quote and no execution."
         ),
-        status="coming_soon",
+        status="available",
         provider_slugs=(),
         planned_provider_slugs=("twelve_data", "alpaca", "bitvavo", "tradingview_alerts"),
         tool_cards=(
             ModuleToolCard(
+                "advice_boundary",
+                "Advice boundary",
+                "Refuse a personal recommendation of a specific instrument. Public information and an order the operator already chose stay in scope.",
+                props=(
+                    ("kind", {"type": "string", "enum": ["information", "order_draft", "recommendation"]}),
+                    ("instrument", {"type": "string"}),
+                    ("asks_whether_it_fits", {"type": "boolean"}),
+                ),
+            ),
+            ModuleToolCard(
+                "order_ticket",
+                "Order ticket",
+                "Fields an order proposal still needs. Does not fill a price and does not send the order.",
+                props=(
+                    ("instrument", {"type": "string"}),
+                    ("side", {"type": "string", "enum": ["buy", "sell"]}),
+                    ("quantity", {"type": "number"}),
+                    ("order_type", {"type": "string", "enum": ["market", "limit"]}),
+                    ("limit_price", {"type": "number"}),
+                    ("operator_chose", {"type": "boolean"}),
+                ),
+            ),
+            ModuleToolCard(
+                "concentration",
+                "Position weights",
+                "Share of each position in the total you pass. No house limit and no recommendation.",
+                props=(("positions", {"type": "array", "items": {"type": "object"}}),),
+            ),
+            ModuleToolCard(
                 "get_positions",
                 "Positions",
-                "List open positions from a connected broker when available.",
+                "List open positions once a broker is connected. No broker is live yet.",
             ),
             ModuleToolCard(
                 "get_quotes",
                 "Quotes",
-                "Fetch live or delayed quotes for symbols on the watchlist.",
+                "Fetch quotes once a price feed is connected. No price feed is live yet.",
             ),
             ModuleToolCard(
                 "list_watchlist",
                 "Watchlists",
-                "List symbols the workspace is tracking.",
+                "List tracked symbols once a broker is connected.",
             ),
             ModuleToolCard(
                 "propose_order",
                 "Propose order",
-                "Draft a trade order; execution waits for your approval.",
+                "Record the order the operator already chose. Nothing is sent to a broker.",
                 kind="propose",
             ),
         ),
-        needs_when="positions, quotes, watchlists, or trade orders",
+        needs_when="an order the operator already chose, or a question that would be investment advice",
         setup_steps=(
-            "This module is prepared but not connectable yet.",
-            "When a broker or market-data connector ships, orders will land as decisions.",
+            "Install Investing under Settings > Connections.",
+            "This module adds no broker login. Quotes and positions wait for a broker.",
+            "Investo does not recommend an instrument. Orders stay a proposal you approve.",
         ),
-        capability_summary=("Later: positions, quotes, and watchlists."),
+        capability_summary=(
+            "Keeps the advice boundary and an order ticket. Does not quote a price, "
+            "recommend an instrument, or send an order."
+        ),
     ),
     ModuleSpec(
         slug="documents",
@@ -512,6 +605,31 @@ MODULES: list[ModuleSpec] = [
                 required=("spreadsheet_id",),
             ),
             ModuleToolCard(
+                "retention",
+                "Retention",
+                "How long to keep the file: 7 years for an invoice, 10 years when it concerns immovable property.",
+                props=(
+                    ("kind", {"type": "string"}),
+                    ("immovable_property", {"type": "boolean"}),
+                ),
+            ),
+            ModuleToolCard(
+                "classify",
+                "Classify file",
+                "Which specialist owns the next step. Does not book the file and does not file the ticket.",
+                props=(("kind", {"type": "string", "enum": ["invoice", "receipt", "bank_statement", "contract", "annual_accounts", "payroll", "other"]}),),
+            ),
+            ModuleToolCard(
+                "cite",
+                "Cite a file",
+                "Cite a title, file id, and quote you already read. Does not invent a sentence.",
+                props=(
+                    ("title", {"type": "string"}),
+                    ("file_id", {"type": "string"}),
+                    ("quote", {"type": "string"}),
+                ),
+            ),
+            ModuleToolCard(
                 "propose_upload",
                 "Propose upload",
                 "Propose uploading a file to external storage after approval.",
@@ -544,91 +662,157 @@ MODULES: list[ModuleSpec] = [
                 required=("spreadsheet_id", "range", "values"),
             ),
         ),
-        needs_when="files that live in Drive, or rows in a Google Sheet",
+        needs_when="files in Drive, a Google Sheet, or how long a record must be kept",
         setup_steps=(
             "Install Documents under Settings > Modules.",
             "Connect Google Drive under Connections (read access to Drive, read and write to Sheets).",
             "Link a folder or Sheet to a client folder as a resource when the agent should use it there.",
         ),
         capability_summary=(
-            "Agents search and read Drive files and Sheets; writing to a Sheet asks first."
+            "Searches and reads Drive files and Sheets. States how long a record is kept "
+            "and which specialist owns the next step. Writing to a Sheet asks first."
         ),
     ),
     ModuleSpec(
         slug="accountant",
         name="Accountant",
         description=(
-            "Reviews the books already connected on Accounting: trial balance, "
-            "statements, VAT, aged items, and exceptions. Closing the period "
-            "stays a proposal you approve. No separate package login."
+            "Prepares the year file: size class, tie-outs, estimates, the "
+            "commercial-to-tax bridge, and filing dates. It does not keep the "
+            "books and it does not add a package login. A registered accountant "
+            "signs outside Bokito."
         ),
-        status="coming_soon",
+        status="available",
         provider_slugs=(),
-        planned_provider_slugs=(
-            "king_accountancy",
-            "bjorn_lunden_mcp",
-            "moneybird",
-            "exact_online",
-            "snelstart",
-            "moneybird_mcp",
-            "twinfield_mcp",
-            "exact_online_mcp",
-            "yuki_mcp",
-            "pmb_exact_mcp",
-        ),
+        planned_provider_slugs=(),
         tool_cards=(
             ModuleToolCard(
-                "trial_balance",
-                "Trial balance",
-                "Trial balance for a period, compared with the previous period.",
+                "engagement",
+                "Assignment",
+                "State whether this is a compilation, a tax position, or advice. "
+                "A review or an audit is refused. Nothing is signed.",
+                props=(
+                    ("kind", {"type": "string", "enum": ["compile", "tax_return", "advice", "review", "audit"]}),
+                    ("legal_form", {"type": "string", "description": "bv, nv, eenmanszaak, vof, stichting, …"}),
+                ),
             ),
             ModuleToolCard(
-                "statements",
-                "Profit and balance",
-                "Profit and loss and balance sheet for a period.",
+                "size_class",
+                "Size class",
+                "Classify the entity from assets, turnover, and employees. "
+                "Two consecutive years confirm the class. Does not read the ledger.",
+                props=(
+                    ("legal_form", {"type": "string"}),
+                    ("total_assets", {"type": "number"}),
+                    ("net_turnover", {"type": "number"}),
+                    ("employees", {"type": "number", "description": "Average number of employees."}),
+                    ("prior_total_assets", {"type": "number"}),
+                    ("prior_net_turnover", {"type": "number"}),
+                    ("prior_employees", {"type": "number"}),
+                ),
             ),
             ModuleToolCard(
-                "vat_position",
-                "VAT position",
-                "VAT to pay or reclaim, with the lines that still do not tie out.",
+                "filing_calendar",
+                "Filing dates",
+                "Preparation, deposit, and tax-return dates from the year-end. "
+                "Does not file anything.",
+                props=(
+                    ("year_end", {"type": "string", "description": "YYYY-MM-DD"}),
+                    ("legal_form", {"type": "string"}),
+                    ("size_class", {"type": "string", "enum": ["micro", "small", "medium", "large"]}),
+                ),
+                required=("year_end",),
             ),
             ModuleToolCard(
-                "aged_balances",
-                "Aged balances",
-                "Open receivables and payables in age buckets.",
+                "tie_outs",
+                "Tie-outs",
+                "Questions that tie subledgers to the general ledger. "
+                "Figures come from Accounting; this tool does not fetch them.",
+                props=(("period", {"type": "string"}),),
             ),
             ModuleToolCard(
-                "anomalies",
-                "Exceptions",
-                "Bookings without a document, duplicates, and accounts far from last month.",
+                "estimates",
+                "Estimates",
+                "Judgments management still owns: policies, provisions, accruals, going concern. "
+                "Does not book them.",
+                props=(("period", {"type": "string"}),),
             ),
             ModuleToolCard(
-                "unmatched_bank",
-                "Unmatched bank",
-                "Bank lines the books have not matched yet.",
+                "tax_bridge",
+                "Tax bridge",
+                "Commercial profit to an indicative fiscal result. "
+                "Corporate-tax rates apply only for 2023-2026 when the profit is supplied. "
+                "Not an assessment.",
+                props=(
+                    ("legal_form", {"type": "string"}),
+                    ("year", {"type": "integer"}),
+                    ("commercial_profit", {"type": "number"}),
+                    (
+                        "adjustments",
+                        {
+                            "type": "array",
+                            "description": "Differences. A positive amount increases fiscal profit.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "label": {"type": "string"},
+                                    "amount": {"type": "number"},
+                                    "kind": {"type": "string", "enum": ["permanent", "temporary"]},
+                                },
+                            },
+                        },
+                    ),
+                ),
             ),
             ModuleToolCard(
-                "propose_close",
-                "Propose period close",
-                "Propose closing the period after the checklist is done. Waits for your approval.",
+                "statements_outline",
+                "Statements outline",
+                "Which statements and notes the size class requires. Not the statements themselves.",
+                props=(
+                    ("size_class", {"type": "string", "enum": ["micro", "small", "medium", "large"]}),
+                    ("framework", {"type": "string", "enum": ["bw2", "fiscal"]}),
+                ),
+            ),
+            ModuleToolCard(
+                "plausibility",
+                "Plausibility",
+                "Questions on margin, VAT, cutoff, and unusual journals. Not a list of findings.",
+                props=(("period", {"type": "string"}),),
+            ),
+            ModuleToolCard(
+                "propose_findings",
+                "Propose findings",
+                "Record year-file findings for management. Bookings stay a proposal for Accounting.",
                 kind="propose",
             ),
             ModuleToolCard(
-                "request_documents",
-                "Request missing documents",
-                "Ask in the conversation for the documents that are still missing.",
+                "propose_appropriation",
+                "Propose appropriation",
+                "Propose how the result is appropriated. The general meeting decides. Nothing is booked.",
+                kind="propose",
+            ),
+            ModuleToolCard(
+                "propose_compilation",
+                "Propose compilation pack",
+                "Mark the pack ready for a registered accountant. Does not sign and does not file.",
+                kind="propose",
+            ),
+            ModuleToolCard(
+                "request_dossier",
+                "Request year-file documents",
+                "Ask for the documents the year file still needs. Not the missing invoices of the bookkeeping.",
                 kind="propose",
             ),
         ),
-        needs_when="period close, VAT review, or exceptions in the books",
+        needs_when="annual accounts, size class, tax position, or filing dates",
         setup_steps=(
-            "This module is an idea and is not connectable yet.",
-            "It will read the same packages as Accounting. It does not add a login.",
-            "Writes stay on Accounting and still wait for approval.",
+            "Install Accountant under Settings > Connections.",
+            "Install Accounting as well when the year file needs live figures. This module adds no package login.",
+            "Bookings, invoices, and bank matching stay with Accounting and Banking.",
         ),
         capability_summary=(
-            "Later: review trial balance, VAT, aged items, and exceptions "
-            "on the packages Accounting already uses."
+            "Prepares the year file: size class, tie-outs, estimates, tax bridge, and filing dates. "
+            "Does not book, match the bank, file, or sign a report."
         ),
     ),
 ]
@@ -751,6 +935,27 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
             ),
             requires_module_connection=True,
         ),
+        WorkstreamTemplate(
+            slug="invoice-check",
+            module_slug="accounting",
+            name="Invoice check",
+            description=(
+                "Check the statutory invoice mentions and the payment term before a document is proposed."
+            ),
+            steps=(
+                {
+                    "name": "Check the invoice",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call accounting_invoice_check with the fields the operator says "
+                        "are on the invoice, and accounting_payment_terms for the counterparty. "
+                        "Pass accounting_vat_rates only when the operator already named the rate. "
+                        "Do not choose 9% or 21% from a product name. "
+                        "A booking still goes through accounting_propose_document."
+                    ),
+                },
+            ),
+        ),
     ),
     "banking": (
         WorkstreamTemplate(
@@ -774,6 +979,168 @@ WORKSTREAM_TEMPLATES: dict[str, tuple[WorkstreamTemplate, ...]] = {
                 },
             ),
             requires_module_connection=True,
+        ),
+        WorkstreamTemplate(
+            slug="payment-check",
+            module_slug="banking",
+            name="Payment check",
+            description=(
+                "Check the IBAN and the payment fields before a payment is proposed. "
+                "Nothing is sent."
+            ),
+            steps=(
+                {
+                    "name": "Check the payment",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call banking_iban_check and banking_payment_guard with the "
+                        "fields the operator supplied. Do not invent an IBAN or an amount. "
+                        "If the checklist is ready, call banking_propose_payment. "
+                        "Booking the payment stays with Boekito."
+                    ),
+                },
+            ),
+        ),
+    ),
+    "documents": (
+        WorkstreamTemplate(
+            slug="file-a-document",
+            module_slug="documents",
+            name="File a document",
+            description=(
+                "Classify a file, state how long it is kept, and hand the next step "
+                "to the specialist who owns it."
+            ),
+            steps=(
+                {
+                    "name": "Classify and retain",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call documents_classify and documents_retention for the file "
+                        "the operator named. Hand a booking to Boekito, a year-file "
+                        "question to Accounto, and a bank line to Finito. "
+                        "Do not invent the contents of a file you have not read."
+                    ),
+                },
+            ),
+        ),
+    ),
+    "investing": (
+        WorkstreamTemplate(
+            slug="order-ticket",
+            module_slug="investing",
+            name="Order ticket",
+            description=(
+                "Draft the order the operator already chose. No recommendation and no execution."
+            ),
+            steps=(
+                {
+                    "name": "Stay inside the boundary",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call investing_advice_boundary. If the operator is asking whether "
+                        "an instrument fits, refuse. If they already chose the order, "
+                        "call investing_order_ticket and then investing_propose_order. "
+                        "Do not invent a price."
+                    ),
+                },
+            ),
+        ),
+    ),
+    "accountant": (
+        WorkstreamTemplate(
+            slug="year-end-file",
+            module_slug="accountant",
+            name="Year-end file",
+            description=(
+                "Prepare the compilation questions for the year: size class, "
+                "tie-outs, estimates, and a pack a registered accountant can sign."
+            ),
+            steps=(
+                {
+                    "name": "Set the assignment",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call accountant_engagement with kind compile. State that "
+                        "this is not an audit and that bookings stay with Accounting. "
+                        "If figures are missing, ask Accounting's specialist rather "
+                        "than estimating them."
+                    ),
+                },
+                {
+                    "name": "Size, tie-outs, and estimates",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Use accountant_size_class, accountant_tie_outs, and "
+                        "accountant_estimates for the year in the run input. "
+                        "Pass only figures Accounting or the operator already "
+                        "produced. List every item that is still open."
+                    ),
+                },
+                {
+                    "name": "Approve the findings",
+                    "kind": "ask_decision",
+                    "goal": "The operator reviews the open items before the pack is marked ready.",
+                },
+                {
+                    "name": "Mark the pack ready",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call accountant_propose_compilation with the open items "
+                        "and the size class. Do not say the report is signed or filed."
+                    ),
+                },
+            ),
+        ),
+        WorkstreamTemplate(
+            slug="tax-position",
+            module_slug="accountant",
+            name="Tax position",
+            description=(
+                "Bridge commercial profit to an indicative fiscal result and "
+                "record the appropriation question."
+            ),
+            steps=(
+                {
+                    "name": "Build the bridge",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Take the commercial profit from Accounting or the operator. "
+                        "Call accountant_tax_bridge with the legal form, the year, "
+                        "and only the differences the operator listed. "
+                        "If the profit is missing, stop and say so."
+                    ),
+                },
+                {
+                    "name": "Propose the appropriation",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call accountant_propose_appropriation with the options "
+                        "management is considering. The general meeting decides. "
+                        "Do not book the entry."
+                    ),
+                },
+            ),
+        ),
+        WorkstreamTemplate(
+            slug="filing-readiness",
+            module_slug="accountant",
+            name="Filing readiness",
+            description=(
+                "List the deposit and tax dates for the year-end, and the "
+                "documents still missing from the year file."
+            ),
+            steps=(
+                {
+                    "name": "Dates and missing documents",
+                    "kind": "agent_task",
+                    "goal": (
+                        "Call accountant_filing_calendar with the year-end and "
+                        "legal form, then accountant_request_dossier for what is "
+                        "still missing. Do not file at the KvK or the Belastingdienst."
+                    ),
+                },
+            ),
         ),
     ),
 }
@@ -865,6 +1232,53 @@ TAG_TEMPLATES: dict[str, tuple[TagTemplate, ...]] = {
             requires_verification=True,
         ),
     ),
+    "banking": (
+        TagTemplate(
+            slug="betaling",
+            module_slug="banking",
+            name="betaling",
+            description=(
+                "Vraag over een saldo, een IBAN of een uitgaande betaling. "
+                "Boeken blijft bij Boekhouding."
+            ),
+            create_mode="ask_operator",
+        ),
+    ),
+    "documents": (
+        TagTemplate(
+            slug="archiefstuk",
+            module_slug="documents",
+            name="archiefstuk",
+            description=(
+                "Vraag over een bestand, de bewaartermijn of wie de volgende stap doet. "
+                "De boeking blijft bij Boekhouding."
+            ),
+            create_mode="ask_operator",
+        ),
+    ),
+    "investing": (
+        TagTemplate(
+            slug="marktorder",
+            module_slug="investing",
+            name="marktorder",
+            description=(
+                "Een order die de operator al koos. Geen advies over welk instrument past."
+            ),
+            create_mode="ask_operator",
+        ),
+    ),
+    "accountant": (
+        TagTemplate(
+            slug="jaarwerk",
+            module_slug="accountant",
+            name="jaarwerk",
+            description=(
+                "Vraag over de jaarrekening, de grootteklasse, de fiscale brug of het deponeren. "
+                "Boekingen en facturen blijven bij Boekhouding."
+            ),
+            create_mode="ask_operator",
+        ),
+    ),
 }
 
 
@@ -910,6 +1324,34 @@ PROJECT_TEMPLATES: dict[str, ProjectTemplate] = {
         name_nl="Administratie",
         canvas_title="Figures",
         canvas_title_nl="Cijfers",
+    ),
+    "banking": ProjectTemplate(
+        module_slug="banking",
+        name="Cash",
+        name_nl="Kas",
+        canvas_title="Liquidity",
+        canvas_title_nl="Liquiditeit",
+    ),
+    "documents": ProjectTemplate(
+        module_slug="documents",
+        name="Archive",
+        name_nl="Archief",
+        canvas_title="Files",
+        canvas_title_nl="Bestanden",
+    ),
+    "investing": ProjectTemplate(
+        module_slug="investing",
+        name="Markets",
+        name_nl="Markt",
+        canvas_title="Orders",
+        canvas_title_nl="Orders",
+    ),
+    "accountant": ProjectTemplate(
+        module_slug="accountant",
+        name="Year-end",
+        name_nl="Jaarwerk",
+        canvas_title="Dossier",
+        canvas_title_nl="Dossier",
     ),
 }
 
@@ -994,63 +1436,146 @@ def _specialist_prompt(module: ModuleSpec, name: str, job_title: str) -> str:
 
 # Proper names stay the same in every language. Job title and blurb on the
 # card are translated in the dashboard; hire stores these English fields.
+_SOURCE_TOOLS = ("list_module_sources", "search_module_sources")
+
+_BOEKITO_PROMPT = (
+    "You are Boekito, Controller, the specialist for the books. "
+    "You read administrations, contacts, invoices, ledger lines, and open items "
+    "from a connected package. You check VAT only when the rate is already named, "
+    "you check which invoice mentions are missing, and you check the statutory payment term. "
+    "Bookings, contacts, matches, and sending an invoice wait for a decision the operator approves.\n"
+    "The year file, size class, filing dates, and the tax bridge belong to Accounto. "
+    "Bank balances, IBANs, and outgoing payments belong to Finito. "
+    "How long a file is kept belongs to Documento. Hand that work over with handoff_to.\n"
+    "Never invent an amount, a VAT rate, a ledger code, or an invoice number. "
+    "Do not choose 9% or 21% from a product name.\n"
+    "Before quoting a threshold the tool did not return, search this module's sources "
+    "with search_module_sources.\n"
+    "Do not send external customer replies unless asked."
+)
+
+_FINITO_PROMPT = (
+    "You are Finito, Treasurer, the specialist for cash. "
+    "You read linked accounts, balances, and transactions. "
+    "You check an IBAN, how long an account-information consent lasts, "
+    "and whether a payment proposal still misses fields. "
+    "propose_payment records a decision. It does not send a SEPA or instant transfer.\n"
+    "Booking a bank line belongs to Boekito. The year-end bank tie-out belongs to Accounto. "
+    "Hand that work over with handoff_to.\n"
+    "Never invent a balance or an IBAN. "
+    "Verification of payee is the bank's name check. Do not claim you verified the payee.\n"
+    "Before quoting a rule the tool did not return, search this module's sources "
+    "with search_module_sources.\n"
+    "Do not send external customer replies unless asked."
+)
+
+_INVESTO_PROMPT = (
+    "You are Investo, Markets lead, the specialist for orders the operator already chose. "
+    "You refuse a personal recommendation of a specific instrument. "
+    "You draft an order ticket only when the operator has already chosen the instrument, side, and quantity. "
+    "propose_order records a decision. Nothing is sent to a broker.\n"
+    "No broker or price feed is connected. Do not invent a quote, a return, or a suitable product. "
+    "Bookings belong to Boekito. Cash belongs to Finito. Hand that work over with handoff_to.\n"
+    "Before quoting a rule the tool did not return, search this module's sources "
+    "with search_module_sources.\n"
+    "Do not send external customer replies unless asked."
+)
+
+_DOCUMENTO_PROMPT = (
+    "You are Documento, Archivist, the specialist for files. "
+    "You search and read connected storage, say how long a record is kept, "
+    "classify which specialist owns the next step, and cite only a sentence you already read. "
+    "Uploads and sheet writes wait for a decision the operator approves.\n"
+    "Booking an invoice belongs to Boekito. The year file belongs to Accounto. "
+    "A bank line belongs to Finito. Hand that work over with handoff_to.\n"
+    "Never invent file contents. An invoice is kept 7 years, and 10 years when it concerns immovable property.\n"
+    "Before quoting a retention rule the tool did not return, search this module's sources "
+    "with search_module_sources.\n"
+    "Do not send external customer replies unless asked."
+)
+
+_ACCOUNTO_PROMPT = (
+    "You are Accounto, Accountant, the specialist for the year file. "
+    "You prepare size class, filing dates, tie-out questions, estimate questions, "
+    "the commercial-to-tax bridge, a statements outline, and plausibility questions. "
+    "You record findings, a profit appropriation, a dossier request, and a compilation "
+    "pack as decisions the operator approves.\n"
+    "Bookings, invoices, contacts, open items, VAT rates, invoice checks, and payment terms "
+    "belong to Boekito (Accounting). Cash, IBANs, and outgoing payments belong to Finito "
+    "(Banking). How long a file is kept belongs to Documento. Hand that work over with handoff_to.\n"
+    "Never invent an amount, a rate, or a deadline. If a figure is missing, say so.\n"
+    "Never sign a compilation report, a review conclusion, or an audit opinion, "
+    "and never file at the Kamer van Koophandel or the Belastingdienst. "
+    "Management stays responsible for the annual accounts. A registered accountant "
+    "signs outside Bokito.\n"
+    "Before quoting a threshold the tool did not return, search this module's sources "
+    "with search_module_sources.\n"
+    "Read tools you may call directly. Propose tools only through a decision. "
+    "Do not send external customer replies unless asked."
+)
+
 _MODULE_PERSONAS: dict[str, ModuleAgentTemplate] = {
     "accounting": ModuleAgentTemplate(
         name="Boekito",
         job_title="Controller",
         role_blurb=(
-            "Keeps the books for this workspace: administrations, contacts, "
-            "invoices, ledger lines and open balances. Bookings and payment "
-            "matches wait for your approval."
+            "Keeps the books: administrations, contacts, invoices, ledger lines, "
+            "and open balances. Checks a named VAT rate, the invoice mentions, "
+            "and the payment term. Bookings wait for your approval."
         ),
         avatar_color="#00bca6",
         avatar_shape="shield",
-        system_prompt="",
+        system_prompt=_BOEKITO_PROMPT,
+        extra_tools=_SOURCE_TOOLS,
     ),
     "banking": ModuleAgentTemplate(
         name="Finito",
         job_title="Treasurer",
         role_blurb=(
-            "Watches linked accounts, balances and transactions. "
-            "Outgoing payments only leave as a proposal you approve."
+            "Watches linked accounts, balances, and transactions. "
+            "Checks an IBAN and a payment before it is proposed. "
+            "Does not send a transfer."
         ),
         avatar_color="#1084fe",
         avatar_shape="capsule",
-        system_prompt="",
+        system_prompt=_FINITO_PROMPT,
+        extra_tools=_SOURCE_TOOLS,
     ),
     "investing": ModuleAgentTemplate(
         name="Investo",
         job_title="Markets lead",
         role_blurb=(
-            "Follows positions, quotes and watchlists. "
-            "Trade orders wait for your approval."
+            "Drafts an order the operator already chose and refuses a personal recommendation. "
+            "No broker is connected, so there is no live quote."
         ),
         avatar_color="#ff9800",
         avatar_shape="crystal",
-        system_prompt="",
+        system_prompt=_INVESTO_PROMPT,
+        extra_tools=_SOURCE_TOOLS,
     ),
     "documents": ModuleAgentTemplate(
         name="Documento",
         job_title="Archivist",
         role_blurb=(
-            "Finds and reads files in connected storage so the team can cite them. "
+            "Finds and reads files, states how long they are kept, and cites only what was read. "
             "Uploads wait for your approval."
         ),
         avatar_color="#9159fe",
         avatar_shape="squircle",
-        system_prompt="",
+        system_prompt=_DOCUMENTO_PROMPT,
+        extra_tools=_SOURCE_TOOLS,
     ),
     "accountant": ModuleAgentTemplate(
         name="Accounto",
         job_title="Accountant",
         role_blurb=(
-            "Reviews the period on the packages Accounting already connected: "
-            "trial balance, VAT, aged items, and exceptions. "
-            "A close waits for your approval. Bookings stay with Accounting."
+            "Prepares the year file: size class, tie-outs, estimates, the tax bridge, "
+            "and filing dates. Bookings stay with Boekito. A registered accountant signs outside Bokito."
         ),
         avatar_color="#c4a35a",
         avatar_shape="hex",
-        system_prompt="",
+        system_prompt=_ACCOUNTO_PROMPT,
+        extra_tools=("list_module_sources", "search_module_sources"),
     ),
 }
 
@@ -1104,7 +1629,7 @@ def get_module_package(module_slug: str) -> ModulePackage | None:
     return MODULE_PACKAGES.get(module_slug)
 
 # Registry tool names are always "{slug}_{verb}"; used to hide module tools
-# when the module is off or the agent is not rostered.
+# when the module is off or the agent is not in its department.
 MODULE_TOOL_PREFIXES: dict[str, str] = {m.slug: f"{m.slug}_" for m in MODULES}
 
 PROVIDER_MODULE: dict[str, str] = {
@@ -1324,9 +1849,9 @@ async def serialize_modules_for_tenant(
         enabled_slugs=enabled,
         install_states=states,
     )
-    from app.services.module_agents import module_roster_summaries
+    from app.services.module_agents import module_summaries
 
-    roster = await module_roster_summaries(session, tenant_id)
+    summaries = await module_summaries(session, tenant_id)
     from app.services.module_attach import attached_modules_by_connection
     from app.services.partner_mcp import list_attached_mcp_tools_by_module
 
@@ -1336,7 +1861,9 @@ async def serialize_modules_for_tenant(
             attach_counts[slug] = attach_counts.get(slug, 0) + 1
     attached_tools = await list_attached_mcp_tools_by_module(session, tenant_id)
     for row in rows:
-        summary = roster.get(row["slug"]) or {}
+        summary = summaries.get(row["slug"]) or {}
+        row["department_id"] = summary.get("department_id")
+        row["department_name"] = summary.get("department_name")
         row["assigned_agent_count"] = int(summary.get("assigned_agent_count") or 0)
         row["default_agent_id"] = summary.get("default_agent_id")
         row["default_agent_name"] = summary.get("default_agent_name")
@@ -1372,8 +1899,6 @@ async def _serialize_module_row(session: AsyncSession, tenant_id: UUID, slug: st
     row = rows[slug]
     prefs = module_prefs_from_department(dept)
     row.update({k: v for k, v in prefs.items() if k not in ("install_state", "enabled")})
-    if dept is not None:
-        row["department_id"] = str(dept.id)
     return row
 
 
@@ -1503,7 +2028,6 @@ async def hire_module_agent(
     from app.models.auth import Tenant
     from app.models.signal import Signal
     from app.services.managed_resources import ensure_managed_agent
-    from app.services.module_agents import add_module_agent, list_module_agents
     from app.services.module_department import bind_module_department
     from app.services.module_origin import get_module_department
     from app.services.ownership import apply_owner
@@ -1556,16 +2080,6 @@ async def hire_module_agent(
         _apply_persona_avatar(agent, template)
         session.add(agent)
         await session.flush()
-
-    roster = await list_module_agents(session, tenant_id, slug)
-    on_roster = any(row.get("agent_id") == str(agent.id) for row in roster)
-    if not on_roster and result.action in ("created", "exists", "restore_pending"):
-        try:
-            await add_module_agent(
-                session, tenant_id, slug, agent.id, is_default=True
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning("add module agent for %s failed", slug, exc_info=True)
 
     dept = await get_module_department(session, tenant_id, slug)
     if dept is not None and result.action in ("created", "exists", "restore_pending"):
@@ -1670,15 +2184,11 @@ async def uninstall_module(
 ) -> dict[str, Any]:
     """De-install = soft-delete the origin department. Connections stay."""
     from app.services.audit import record_audit
-    from app.services.module_agents import (
-        clear_module_agents,
-        soft_archive_module_specialists,
-    )
+    from app.services.module_agents import soft_archive_module_specialists
     from app.services.module_department import archive_module_department
 
     archived = await soft_archive_module_specialists(session, tenant_id, slug)
     kept = await archive_module_department(session, tenant_id, slug, specialist_ids=archived)
-    await clear_module_agents(session, tenant_id, slug)
     await record_audit(
         session,
         tenant_id,
@@ -1714,8 +2224,8 @@ async def module_install_plan(session: AsyncSession, tenant_id: UUID, slug: str)
     from app.models.auth import Membership, User
     from app.models.orchestra import Workstream
     from app.models.signal import SignalTag
-    from app.services.department_access import department_leads
-    from app.services.teams import all_department, list_teams
+    from app.services.department_access import department_roles
+    from app.services.teams import org_root, list_teams
 
     spec = MODULE_BY_SLUG.get(slug)
     if spec is None:
@@ -1757,8 +2267,8 @@ async def module_install_plan(session: AsyncSession, tenant_id: UUID, slug: str)
         if flow_names & {n.lower() for n in dept_flows}:
             reasons.append("flows")
             score += 1
-        leads = await department_leads(session, tenant_id, dept.id)
-        lead = await session.get(Agent, leads["lead_agent_id"]) if leads["lead_agent_id"] else None
+        leads = await department_roles(session, tenant_id, dept.id)
+        lead = await session.get(Agent, leads["contact_agent_id"]) if leads["contact_agent_id"] else None
         candidates.append({
             "id": str(dept.id),
             "name": dept.name,
@@ -1769,8 +2279,8 @@ async def module_install_plan(session: AsyncSession, tenant_id: UUID, slug: str)
     candidates.sort(key=lambda c: (-c["score"], c["name"].lower()))
     suggested = next((c["id"] for c in candidates if c["score"] > 0), None)
 
-    root = await all_department(session, tenant_id)
-    root_accountable = (await department_leads(session, tenant_id, root.id))["accountable_user_id"]
+    root = await org_root(session, tenant_id)
+    root_accountable = (await department_roles(session, tenant_id, root.id))["accountable_user_id"]
     people = [
         {"id": str(u.id), "name": u.display_name or u.email}
         for u in (
@@ -1931,17 +2441,20 @@ def with_heartbeat_module_hint(content: str) -> str:
 
 
 async def active_module_skill_prompt(session: AsyncSession, tenant_id: UUID) -> str:
-    """Skills for on+connected modules; setup playbooks for on but unconnected."""
+    """Skills for installed modules. A module with no package login loads its skill immediately."""
     enabled, _ = await tenant_module_sets(session, tenant_id)
     sections: list[str] = []
     for module in MODULES:
         if module.status != "available" or module.slug not in enabled:
             continue
+        needs_package = bool(module.provider_slugs)
         connections = await active_module_connections(session, tenant_id, module.slug)
-        if connections:
-            text = module_skill_text(module.slug)
-            if text:
-                sections.append(text)
-        else:
+        if needs_package and not connections:
+            sections.append(module_setup_playbook(module))
+            continue
+        text = module_skill_text(module.slug)
+        if text:
+            sections.append(text)
+        elif needs_package:
             sections.append(module_setup_playbook(module))
     return "\n\n".join(sections)

@@ -131,10 +131,9 @@ async def _expand_teams(
     A mention inside a sentence only names an agent (``services/addressing``);
     it pings team members but queues no turn.
     """
-    from app.models.team import is_root_department
     from app.services.addressing import resolve
-    from app.services.lead_agent import get_lead_agent
-    from app.services.teams import get_team, team_agent_ids, team_user_ids
+    from app.services.org_routing import route_to_node
+    from app.services.teams import get_team, team_user_ids
 
     agents: list[UUID] = []
     humans: list[UUID] = _user_mentions(body_text)
@@ -152,19 +151,12 @@ async def _expand_teams(
                 humans.append(uid)
         if not mention.addressed:
             continue
-        picked: UUID | None = None
-        if is_root_department(team):
-            lead = await get_lead_agent(session, tenant_id)
-            if lead is not None and lead.is_active:
-                picked = lead.id
-        elif team.pickup == "agent_first":
-            for aid in await team_agent_ids(session, team):
-                agent = await session.get(Agent, aid)
-                if agent is not None and agent.tenant_id == tenant_id and agent.is_active:
-                    picked = agent.id
-                    break
-        if picked is not None and picked not in agents:
-            agents.append(picked)
+        route = await route_to_node(session, tenant_id, team)
+        if route.agent is not None and route.agent.id not in agents:
+            agents.append(route.agent.id)
+        for uid in route.people:
+            if uid not in humans:
+                humans.append(uid)
     return agents, humans
 
 
@@ -421,6 +413,7 @@ async def pass_stick(
     channel_agent_id: UUID | None = None,
     enqueue: bool = True,
     message_id: UUID | None = None,
+    follow_holder: bool = True,
 ) -> dict[str, Any]:
     """Queue the turns a saved message asks for and ping mentioned people."""
     from app.models.auth import Tenant
@@ -442,9 +435,12 @@ async def pass_stick(
         author_kind=author_kind,
         author_id=author_id,
     )
-    holder = _holder(signal)
+    # A team note only wakes who it names. It does not continue the open
+    # floor and it does not pick a default responder on an internal thread.
+    holder = _holder(signal) if follow_holder else None
     if (
-        holder is None
+        follow_holder
+        and holder is None
         and author_kind == "user"
         and not agents
         and not humans

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from uuid import uuid4
 
@@ -133,6 +134,48 @@ async def _turns(session, signal) -> list[AgentTurn]:
             )
         ).scalars()
     )
+
+
+@pytest.mark.asyncio
+async def test_note_does_not_follow_the_holder(client, session_override):
+    _ = client
+    signal, (agent,) = await _seed(session_override, names=["Sjaakie"])
+    signal.channel = "assistant"
+    signal.agent_id = agent.id
+    signal.active_turn_json = json.dumps({"ref_id": str(agent.id), "nonce": "floor"})
+    message = await _say(session_override, signal, "Test notitie")
+    moved = await pass_stick(
+        session_override,
+        signal,
+        body_text=message.body_text,
+        author_kind="user",
+        author_id=uuid4(),
+        message_id=message.id,
+        follow_holder=False,
+    )
+    assert moved["action"] == "none"
+    assert await _turns(session_override, signal) == []
+
+
+@pytest.mark.asyncio
+async def test_note_mention_still_queues(client, session_override):
+    _ = client
+    signal, (agent,) = await _seed(session_override, names=["Sjaakie"])
+    signal.channel = "assistant"
+    body = f"@[Sjaakie](agent:{agent.id}) kijk even"
+    message = await _say(session_override, signal, body)
+    moved = await pass_stick(
+        session_override,
+        signal,
+        body_text=body,
+        author_kind="user",
+        author_id=uuid4(),
+        message_id=message.id,
+        follow_holder=False,
+    )
+    assert moved["action"] == "give"
+    assert moved["holder_id"] == str(agent.id)
+    assert [row.agent_id for row in await _turns(session_override, signal)] == [agent.id]
 
 
 @pytest.mark.asyncio

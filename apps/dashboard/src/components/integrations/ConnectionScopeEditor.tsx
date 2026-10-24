@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { ChoiceSelect } from '../ui/ChoiceSelect'
 import { AccessPicker, type AccessState } from '../access/AccessPicker'
 import { formatApiErrorMessage } from '../ui/ApiErrorBanner'
+import { useAuth } from '../../context/AuthContext'
 import {
   getConnectionAccess,
   setConnectionAccess,
@@ -14,32 +16,40 @@ import {
   type ConnectionProjectRef,
 } from '../../lib/integrations-api'
 import { listProjects, type ProjectRow } from '../../lib/projects-api'
+import { listTeams, type Team } from '../../lib/teams-api'
 import { cn } from '../../lib/utils'
 
 const CONNECTION_LEVELS = ['use', 'manage'] as const
+const ORGANIZATION = '__organization__'
 
-/** Projects (exclusive scope) and Use/Manage access for one connection. */
+/** Department and folders (where it may be used) and Use/Manage access for one connection. */
 export function ConnectionScopeEditor({
   connectionId,
   projects,
+  departmentId = null,
   onSaved,
   showProjects = true,
   accessHint,
 }: {
   connectionId: string
   projects: ConnectionProjectRef[]
+  departmentId?: string | null
   onSaved?: () => Promise<void> | void
   /** Off for connections that are not project-scoped (calendars). */
   showProjects?: boolean
   accessHint?: string
 }) {
   const { t } = useTranslation('nav')
+  const { token } = useAuth()
   const [allProjects, setAllProjects] = useState<ProjectRow[] | null>(null)
+  const [departments, setDepartments] = useState<Team[]>([])
   const [selected, setSelected] = useState<string[]>(() => projects.map((p) => p.id))
+  const [department, setDepartment] = useState<string | null>(departmentId)
   const [access, setAccess] = useState<AccessState<ConnectionAccessLevel> | null>(null)
   const [busy, setBusy] = useState(false)
 
   useEffect(() => setSelected(projects.map((p) => p.id)), [projects])
+  useEffect(() => setDepartment(departmentId), [departmentId])
 
   useEffect(() => {
     let alive = true
@@ -47,6 +57,11 @@ export function ConnectionScopeEditor({
       listProjects()
         .then((rows) => alive && setAllProjects(rows))
         .catch(() => alive && setAllProjects([]))
+      if (token) {
+        listTeams(token)
+          .then((rows) => alive && setDepartments(rows.filter((row) => !row.system && !row.root)))
+          .catch(() => alive && setDepartments([]))
+      }
     }
     getConnectionAccess(connectionId)
       .then((res) => alive && setAccess({ entries: res.entries, isDefault: res.is_default }))
@@ -54,20 +69,28 @@ export function ConnectionScopeEditor({
     return () => {
       alive = false
     }
-  }, [connectionId, showProjects])
+  }, [connectionId, showProjects, token])
 
   const dirty = useMemo(() => {
     const before = new Set(projects.map((p) => p.id))
-    return selected.length !== before.size || selected.some((id) => !before.has(id))
-  }, [projects, selected])
+    return (
+      department !== departmentId ||
+      selected.length !== before.size ||
+      selected.some((id) => !before.has(id))
+    )
+  }, [projects, selected, department, departmentId])
 
   const toggle = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
-  const saveProjects = async () => {
+  const saveScope = async () => {
     setBusy(true)
     try {
-      await setConnectionProjects(connectionId, selected)
+      await setConnectionProjects(
+        connectionId,
+        selected,
+        department !== departmentId ? department : undefined,
+      )
       await onSaved?.()
     } catch (err) {
       toast.error(formatApiErrorMessage(err, t('integrations.connections.projectsSaveError')))
@@ -79,38 +102,61 @@ export function ConnectionScopeEditor({
   return (
     <div className={cn('grid gap-4', showProjects && 'sm:grid-cols-[1fr_auto]')}>
       {showProjects ? (
-        <div className="min-w-0 space-y-2">
-          <div>
-            <p className="text-xs font-medium text-text-heading">{t('integrations.connections.projects')}</p>
-            <p className="mt-0.5 text-xs text-text-muted">
-              {selected.length === 0
-                ? t('integrations.connections.projectsAllHint')
-                : t('integrations.connections.projectsExclusiveHint')}
-            </p>
-          </div>
-          {allProjects == null ? null : allProjects.length === 0 ? (
-            <p className="text-xs text-text-muted">{t('integrations.connections.projectsNone' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>
-          ) : (
-            <div className="flex flex-wrap gap-1.5">
-              {allProjects.map((project) => {
-                const on = selected.includes(project.id)
-                return (
-                  <FilterChip active={on}
-                    key={project.id}
-                    aria-pressed={on}
-                    disabled={busy}
-                    onClick={() => toggle(project.id)}
-                  >
-                    {on ? <Check size={14} aria-hidden /> : null}
-                    {project.name}
-                  </FilterChip>
-                )
-              })}
+        <div className="min-w-0 space-y-3">
+          <div className="space-y-2">
+            <div>
+              <p className="text-xs font-medium text-text-heading">{t('integrations.connections.department')}</p>
+              <p className="mt-0.5 text-xs text-text-muted">{t('integrations.connections.departmentHint')}</p>
             </div>
-          )}
+            <ChoiceSelect
+              aria-label={t('integrations.connections.department')}
+              triggerClassName="h-8 w-56 text-xs"
+              value={department ?? ORGANIZATION}
+              disabled={busy}
+              onValueChange={(next) => setDepartment(next === ORGANIZATION ? null : next)}
+              groups={[
+                {
+                  items: [
+                    { value: ORGANIZATION, label: t('integrations.connections.departmentAll'), kind: 'team', team: { name: t('integrations.connections.departmentAll') } },
+                    ...departments.map((row) => ({ value: row.id, label: row.name, kind: 'team' as const, team: row })),
+                  ],
+                },
+              ]}
+            />
+          </div>
+          <div className="space-y-2">
+            <div>
+              <p className="text-xs font-medium text-text-heading">{t('integrations.connections.projects')}</p>
+              <p className="mt-0.5 text-xs text-text-muted">
+                {selected.length === 0
+                  ? t('integrations.connections.projectsAllHint')
+                  : t('integrations.connections.projectsExclusiveHint')}
+              </p>
+            </div>
+            {allProjects == null ? null : allProjects.length === 0 ? (
+              <p className="text-xs text-text-muted">{t('integrations.connections.projectsNone' /* design-system-ignore: waarde, label of keuze, geen lege lijst */)}</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {allProjects.map((project) => {
+                  const on = selected.includes(project.id)
+                  return (
+                    <FilterChip active={on}
+                      key={project.id}
+                      aria-pressed={on}
+                      disabled={busy}
+                      onClick={() => toggle(project.id)}
+                    >
+                      {on ? <Check size={14} aria-hidden /> : null}
+                      {project.name}
+                    </FilterChip>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           {dirty ? (
             <div className="flex gap-2">
-              <Button type="button" size="sm" disabled={busy} onClick={() => void saveProjects()}>
+              <Button type="button" size="sm" disabled={busy} onClick={() => void saveScope()}>
                 {t('integrations.connections.projectsSave')}
               </Button>
               <Button
@@ -118,7 +164,10 @@ export function ConnectionScopeEditor({
                 size="sm"
                 variant="ghost"
                 disabled={busy}
-                onClick={() => setSelected(projects.map((p) => p.id))}
+                onClick={() => {
+                  setSelected(projects.map((p) => p.id))
+                  setDepartment(departmentId)
+                }}
               >
                 {t('common:cancel', { defaultValue: 'Cancel' })}
               </Button>

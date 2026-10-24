@@ -3,9 +3,15 @@ import {
   buildMailDraftIntent,
   buildQuotedHtml,
   canReplyAll,
+  applyRecipientPaste,
+  applyRecipientTyping,
+  commitRecipientDraft,
+  editLastRecipient,
   formatAddressListDisplay,
   forwardSubject,
   parseAddressList,
+  readRecipientField,
+  removeRecipientAt,
   replySubject,
 } from './mail-reply'
 import type { InboxMessage } from './inbox-api'
@@ -40,6 +46,47 @@ describe('mail-reply', () => {
   it('parses name-addr and bare headers', () => {
     expect(parseAddressList('Harold <h@x.nl>, b@y.nl')).toEqual(['h@x.nl', 'b@y.nl'])
     expect(parseAddressList('')).toEqual([])
+  })
+
+  it('confirms typed addresses as pills and keeps a fragment as draft', () => {
+    expect(applyRecipientTyping([], 'a@b.com,')).toEqual({ value: 'a@b.com', drafting: false })
+    expect(applyRecipientTyping(['a@b.com'], 'c@d.com ')).toEqual({
+      value: 'a@b.com, c@d.com',
+      drafting: false,
+    })
+    expect(applyRecipientTyping(['a@b.com'], 'jan de ')).toEqual({
+      value: 'a@b.com, jan de ',
+      drafting: true,
+    })
+    expect(readRecipientField('a@b.com, jan de ', true)).toEqual({
+      chips: ['a@b.com'],
+      draft: 'jan de ',
+    })
+    expect(readRecipientField('Harold <h@x.nl>, b@y.nl', false).chips).toEqual([
+      'Harold <h@x.nl>',
+      'b@y.nl',
+    ])
+    expect(commitRecipientDraft(['a@b.com'], 'Not An Address')).toEqual({
+      value: 'a@b.com, Not An Address',
+      drafting: false,
+    })
+    expect(commitRecipientDraft(['a@b.com'], 'C@D.com')).toEqual({
+      value: 'a@b.com, c@d.com',
+      drafting: false,
+    })
+    expect(editLastRecipient(['a@b.com', 'c@d.com'])).toEqual({
+      value: 'a@b.com, c@d.com',
+      drafting: true,
+    })
+    expect(removeRecipientAt(['a@b.com', 'c@d.com'], 0, '', false)).toEqual({
+      value: 'c@d.com',
+      drafting: false,
+    })
+    expect(applyRecipientPaste(['a@b.com'], 'c@d.com, e@f.com')).toEqual({
+      value: 'a@b.com, c@d.com, e@f.com',
+      drafting: false,
+    })
+    expect(applyRecipientPaste([], 'jan')).toBeNull()
   })
 
   it('parses JSON-array address headers and formats for display', () => {

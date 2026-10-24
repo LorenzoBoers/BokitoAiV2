@@ -120,6 +120,7 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "set_doc_section_status",
     "create_agent",
     "update_agent",
+    "set_department_crew",
     "create_flow",
     "update_flow",
     "set_platform_watch",
@@ -149,6 +150,7 @@ TOOL_ALLOWLIST: tuple[str, ...] = (
     "link_queue_item_to_doc",
     "propose_folder_resource",
     "edit_canvas",
+    "restore_canvas",
     "finish_canvas",
     "update_folder_canvas",
     "create_canvas",
@@ -223,7 +225,6 @@ async def ensure_personal_assistant(
             tools_json=allowlist,
             autonomy_level="assisted",
             settings_json=_settings_json(),
-            is_lead=False,
             acts_for_user=True,
         )
         session.add(agent)

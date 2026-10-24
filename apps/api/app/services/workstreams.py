@@ -7,6 +7,7 @@ retired; attribution for agent work uses ``AgentRun.workstream_id``.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -210,6 +211,43 @@ async def set_flow_autonomy(
         commit=False,
     )
     return None
+
+
+MCP_MEANS_TOOLS = frozenset({"call_mcp_tool"})
+
+
+def is_means_tool(tool_name: str) -> bool:
+    """Tools that act through an outside system (module verbs, MCP); flow capabilities narrow these."""
+    from app.services.module_agents import is_module_tool
+
+    return tool_name in MCP_MEANS_TOOLS or is_module_tool(tool_name) is not None
+
+
+@dataclass(frozen=True)
+class FlowMeans:
+    flow_name: str
+    tools: frozenset[str] | None
+    connection_ids: frozenset[str] | None
+
+
+async def flow_means(session: AsyncSession, signal: Any) -> FlowMeans | None:
+    """What the conversation's flow narrows to. ``None`` per kind when it names none of that kind."""
+    from app.models.signal import SignalTag
+
+    if signal is None or not getattr(signal, "ticket_tag_id", None):
+        return None
+    tag = await session.get(SignalTag, signal.ticket_tag_id)
+    if tag is None or tag.workstream_id is None:
+        return None
+    ws = await session.get(Workstream, tag.workstream_id)
+    if ws is None or ws.deleted_at is not None:
+        return None
+    caps = recipe_of(ws)["capabilities"]
+    conns = frozenset(c[len(CONNECTION_CAPABILITY):] for c in caps if c.startswith(CONNECTION_CAPABILITY))
+    tools = frozenset(c for c in caps if not c.startswith(CONNECTION_CAPABILITY) and is_means_tool(c))
+    if not conns and not tools:
+        return None
+    return FlowMeans(ws.name or tag.name, tools or None, conns or None)
 
 
 async def recipe_block(session: AsyncSession, signal: Any) -> str:

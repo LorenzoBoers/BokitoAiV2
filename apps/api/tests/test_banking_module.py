@@ -27,16 +27,10 @@ async def _tenant(session: AsyncSession) -> Tenant:
 
 
 async def _enable_banking(session: AsyncSession, tenant: Tenant):
-    from app.models.agent import Agent
-    from app.services.module_agents import add_module_agent
+    from app.services.module_agents import managed_module_specialist
 
-    agent = Agent(tenant_id=tenant.id, name=f"Bankier {uuid4().hex[:6]}", kind="company")
-    session.add(agent)
-    await session.commit()
-    await session.refresh(agent)
-    await add_module_agent(session, tenant.id, "banking", agent.id, is_default=True)
     await set_module_enabled(session, tenant.id, "banking", True)
-    return agent
+    return await managed_module_specialist(session, tenant.id, "banking")
 
 
 async def _bank_connection(session: AsyncSession, tenant: Tenant) -> IntegrationConnection:

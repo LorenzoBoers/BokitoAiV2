@@ -38,10 +38,7 @@ class ChannelAccount(SQLModel, table=True):
     sync_cursor: str = ""
     credentials_json: str = Field(default="{}")
     settings_json: str = Field(default="{}")
-    default_agent_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="agents.id", index=True
-    )
-    # Routing owner. Kept in step with settings_json.routing.
+    # Home node (None: the organization); its point of contact picks up. Kept in step with settings_json.routing. Kept in step with settings_json.routing.
     routing_department_id: Optional[uuid.UUID] = Field(
         default=None, foreign_key="departments.id", index=True
     )

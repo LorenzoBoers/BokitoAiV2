@@ -301,13 +301,13 @@ async def test_channel_visibility_acl(client: AsyncClient, session_override: Asy
     assert r.status_code == 403
 
     # A team grant gives handle access through membership.
-    team = (
-        await client.post(
-            "/api/departments",
-            headers=owner,
-            json={"name": "Mailbox team", "members": [{"kind": "user", "id": str(member_user.id)}]},
-        )
-    ).json()
+    team = (await client.post("/api/departments", headers=owner, json={"name": "Mailbox team"})).json()
+    crew = await client.put(
+        f"/api/departments/{team['id']}/members",
+        headers=owner,
+        json={"crew": [{"kind": "user", "id": str(member_user.id)}]},
+    )
+    assert crew.status_code == 200, crew.text
     r = await client.put(
         f"/api/channels/accounts/{account.id}/access",
         headers=owner,

@@ -49,7 +49,7 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** b
 
 1. Open de map. Het zoekveld boven de lijst zoekt op onderwerp of contact van een gesprek, op bestandsnaam, of op de titel van een canvas.
 2. **Alles (n)** zet submappen bovenaan en daarna de rest op laatste activiteit. Een aantal boven 99 wordt **99+**. Andere tabs verschijnen alleen als dat soort er is: **Gesprekken**, **Afbeeldingen**, **Bestanden**, **Mappen**, en één tab per canvassoort (Sheet, Dashboard, Document, en de rest).
-3. Open een rij. Een gesprek opent in Communicatie, in deze map. Een canvas opent op deze pagina. Een afbeelding of bestand opent het bestand, met een link **Gesprek** terug naar het gesprek waar het vandaan komt. **Meer laden** haalt de volgende pagina.
+3. Open een rij. Een gesprek opent in Communicatie, in deze map. Een canvas opent op deze pagina. Onder de titel van een canvas staat het soort, bijvoorbeeld **Diagram**, zodat het niet hetzelfde oogt als het gesprek met dezelfde naam. Een afbeelding of bestand opent het bestand, met een link **Gesprek** terug naar het gesprek waar het vandaan komt. **Meer laden** haalt de volgende pagina.
 
 ## Filter op label
 
@@ -57,9 +57,9 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** b
 2. Vink er een of meer aan. De lijst houdt items waarvan het gesprek elk aangevinkt label draagt. Afbeeldingen, bestanden en canvases volgen het gesprek waar ze bij horen.
 3. Haal een vinkje weg om de lijst weer te verbreden.
 
-## Wissel rijen en kaarten
+## Wissel rijen, kaarten en sheet
 
-1. Naast zoeken kies je **Rijen** of **Kaarten**. Rijen zijn één lijst. Kaarten zijn een raster; afbeeldingen tonen een groter voorbeeld.
+1. Naast zoeken kies je **Rijen**, **Kaarten** of **Sheet**. Rijen zijn één lijst met naam, labels en tijdstip in vaste kolommen. Kaarten zijn een raster; afbeeldingen tonen een groter voorbeeld. Sheet is een tabel met soort, details, kanaal, status, labels en wanneer het is bijgewerkt.
 2. De keuze blijft in het adres en wordt de volgende keer dat je een map opent onthouden.
 3. Beheerders zien **Nieuwe map** bij de submappen. Die maakt een map onder deze.
 
@@ -67,16 +67,17 @@ Een map heeft een **naam** en een plek in een vrije boom. Optionele **labels** b
 
 1. Open een canvas uit de lijst van de map en kies in de weergave **Canvas toevoegen**. Kies de agent die het beheert. Nieuwe plekken waar werk landt (een koppeling of een bestandsmap) voeg je toe op het maptabblad van de afdeling, onder **Werkt in**. Zie [Workforce](/docs/getting-started/team).
 2. Dat opent een gesprek: de agent vraagt wat je wilt zien, stelt een kort plan voor (titel, widgets, verversing), bouwt de snapshot en zet het verversingsritme. Blijf in dat gesprek praten om het te wijzigen. Een dashboard is het plaatje: grafieken, cijfers en tabellen. De agent plakt dat niet in de chat. Hij kiest een recept dat bij de vraag past (overzicht, trend, verdeling, vergelijking of rapport). Een dashboard opent met een kop die de conclusie noemt, dan een rij kerncijfers met hun verandering, doel of status, dan de grafiek die het verklaart, en de detailtabel onderaan. Bokito verdeelt de kolommen zelf, zodat een dashboard er in het zijpaneel en op volledig scherm hetzelfde uitziet.
-3. Tik op een cijfer, of op de titel van een grafiek, taart of tabel, om de uitlezing en het tijdstip te zien. Boven het canvas staan de beheeragent, wanneer het is bijgewerkt en de verversperiode. De titelbalk noemt het soort. Een dashboard toont het plaatje. Andere soorten hebben ook **Voorbeeld** / **Code**, kopiëren en downloaden. Vernieuwen en **Verwijderen** zitten in de titelbalk. **Terug naar de map** keert terug naar de lijst. Alleen een **Dashboard** heeft een verversperiode.
+3. Tik op een cijfer, of op de titel van een grafiek, taart of tabel, om de uitlezing en het tijdstip te zien. Komt het cijfer uit wat je zelf typte, dan staat daar **Dit bericht**. Het cijfer is onderstreept. **Meer acties** op een dashboard kopieert of downloadt die cijfers als tekst. De titelbalk noemt het soort, de beheeragent, wanneer het is bijgewerkt, en de map. Staat het gesprek in geen map, dan staat daar **Niet in een map**. Naast het gesprek staat **Bijwerken**: dat zet een zin in het berichtveld, zodat je de agent vraagt het canvas te wijzigen. **Meer acties** bevat downloaden, kopiëren, **Bron tonen** en **Verwijderen**. Een sheet toont het aantal rijen en zet cijferkolommen rechts. Op de mappagina staan daarboven de beheeragent en het tijdstip, en rechts **Open gesprek**. **Vernieuwen** zit in **Meer acties**. **Terug naar de map** keert terug naar de lijst. Alleen een **Dashboard** heeft een verversperiode.
 
 ## Bewaar meer dan een dashboard op een canvas
 
-Een canvas hoort bij zijn gesprek. De map van dat gesprek is waar het canvas in de lijst staat (inclusief submappen). Dat gesprek kan meerdere canvases bevatten. De agent kiest het soort: **Document** (een rapport in Markdown), **Diagram** (een Mermaid-werk), **Tekening** (een SVG, eventueel met een plaatje dat in Bokito is opgeslagen), **Beeld** (een gegenereerde foto bij het gesprek), **Code** (een script dat je kunt downloaden), **E-mail** (een brief met onderwerp en body) of **Sheet** (een tabel). Logo en kleuren blijven in Instellingen. Een kort antwoord blijft in de chat.
+Een canvas hoort bij zijn gesprek. De map van dat gesprek is waar het canvas in de lijst staat (inclusief submappen). Dat gesprek kan meerdere canvases bevatten. De agent kiest het soort: **Document** (een rapport in Markdown), **Diagram** (een Mermaid-werk), **Tekening** (een SVG, eventueel met een plaatje dat in Bokito is opgeslagen), **Beeld** (een gegenereerde foto bij het gesprek), **Code** (een script dat je kunt downloaden), **E-mail** (een brief met onderwerp en body) **Sheet** (een tabel) of **Ontwerp** (vlakken die je sleept en schaalt). Logo en kleuren blijven in Instellingen. Een kort antwoord blijft in de chat. Elke bewerking bewaart de vorige versie, voor elk soort.
 
 1. Vraag in het canvasgesprek om het stuk, bijvoorbeeld een diagram, een plaatje om te bewaren of een tabel.
-2. Open het canvas uit de lijst van de map, of het venster onder het antwoord van de agent. De titelbalk toont het soort. Elk soort gebruikt hetzelfde venster; het vergroot-icoon opent het canvas naast het gesprek. Het gesprek blijft links, het canvas vult rechts, en de verdeling ertussen is te slepen. **Meer acties** op dat venster bevat **Verwijderen**. Het canvas gaat naar de prullenbak en de Agenda-verversing stopt. Sluiten keert terug naar het gesprek.
-3. Gebruik het download-icoon in de titelbalk. Een document downloadt als Markdown, een diagram als Mermaid, een tekening als SVG, code als eigen bestandstype. Op een sheet kies je **CSV**, **Excel** of **Google Sheets**. CSV en Excel downloaden een bestand. Google Sheets maakt een spreadsheet in de gekoppelde Google Drive en opent die. Koppel Google Drive onder Koppelingen wanneer die export daarom vraagt.
-4. Wijzig het in datzelfde gesprek. Het canvas krijgt geen tweede gesprek.
+2. Open het canvas uit de lijst van de map, of klik de kaart onder het antwoord van de agent. De titelbalk toont het soort. Het gesprek blijft links, het canvas vult rechts, en de verdeling ertussen is te slepen. **Bijwerken** vult het berichtveld. **Meer acties** bevat **Verwijderen**. Het canvas gaat naar de prullenbak en de Agenda-verversing stopt. Sluiten keert terug naar het gesprek.
+3. Downloaden zit in **Meer acties**. Een document downloadt als Markdown, een diagram als Mermaid, een tekening als SVG, code als eigen bestandstype. Op een sheet kies je **CSV**, **Excel** of **Google Sheets**. CSV en Excel downloaden een bestand. Google Sheets maakt een spreadsheet in de gekoppelde Google Drive en opent die. Koppel Google Drive onder Koppelingen wanneer die export daarom vraagt.
+4. Wijzig het in datzelfde gesprek. Het canvas krijgt geen tweede gesprek. **Meer acties** toont **Versies**. De huidige versie staat bovenaan. Kies een eerdere versie om die terug te zetten; dat wordt de nieuwste versie, het nummer loopt door.
+5. Op een **Ontwerp** sleep je een vlak aan de greep en schaal je het aan de randen. De titel en de tekst typ je op het vlak. **Bijwerken** op het vlak zet een zin in het berichtveld over dat vlak. Vraag de agent anders in het gesprek om het ontwerp; elke bewerking is weer een versie.
 
 ## Posts plannen op een contentkalender
 

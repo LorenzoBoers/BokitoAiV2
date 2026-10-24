@@ -1,5 +1,5 @@
 import { canvasesRoutes } from '../api/routes'
-import { WORKFORCE_API_BASE, buildAuthHeaders, workforceDelete, workforceGet, workforcePatch, workforcePost } from './api'
+import { WORKFORCE_API_BASE, buildAuthHeaders, workforceDelete, workforceGet, workforcePatch, workforcePost, workforcePut } from './api'
 import type { CanvasKind, CanvasNode } from './project-canvas/types'
 
 export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'custom'
@@ -7,6 +7,7 @@ export type RefreshCadence = 'manual' | 'hourly' | 'daily' | 'weekly' | 'monthly
 export type ProjectCanvas = {
   id: string
   folder_id?: string | null
+  folder_name?: string | null
   slug: string
   title: string
   kind?: CanvasKind
@@ -77,12 +78,55 @@ export async function patchCanvasMeta(
   return workforcePatch<ProjectCanvas>(canvasesRoutes.byId(canvasId), body)
 }
 
+export type CanvasRevisionSummary = {
+  revision: number
+  title: string
+  kind: string
+  updated_at?: string | null
+  updated_by_type: string
+}
+
+export async function listCanvasRevisions(canvasId: string): Promise<CanvasRevisionSummary[]> {
+  const data = await workforceGet<{ items: CanvasRevisionSummary[] }>(canvasesRoutes.revisions(canvasId))
+  return data.items ?? []
+}
+
+export async function restoreCanvasRevision(canvasId: string, revision: number): Promise<ProjectCanvas> {
+  return workforcePost<ProjectCanvas>(canvasesRoutes.restore(canvasId, revision), {})
+}
+
+/** Drag and text on a design canvas. Other kinds change through the conversation. */
+export async function putDesignSource(
+  canvasId: string,
+  source: string,
+  expectedRevision?: number,
+): Promise<ProjectCanvas> {
+  return workforcePut<ProjectCanvas>(canvasesRoutes.source(canvasId), {
+    source,
+    expected_revision: expectedRevision ?? null,
+  })
+}
+
 export async function deleteCanvas(canvasId: string): Promise<void> {
   await workforceDelete(canvasesRoutes.byId(canvasId))
 }
 
 /** Fired after a canvas is moved to the Bin, so open lists drop the card. */
 export const CANVAS_REMOVED_EVENT = 'bokito:canvas-removed'
+
+/** Asks the open composer to draft a change for the canvas beside the thread. */
+export const CANVAS_ASK_EVENT = 'bokito:canvas-ask'
+
+export function askCanvasChange(text: string): void {
+  window.dispatchEvent(new CustomEvent(CANVAS_ASK_EVENT, { detail: { text } }))
+}
+
+/** The open stage should replace itself when a card reloads a newer revision. */
+export const CANVAS_UPDATED_EVENT = 'bokito:canvas-updated'
+
+export function notifyCanvasUpdated(canvas: ProjectCanvas): void {
+  window.dispatchEvent(new CustomEvent(CANVAS_UPDATED_EVENT, { detail: canvas }))
+}
 
 export function notifyCanvasRemoved(canvasId: string): void {
   window.dispatchEvent(new CustomEvent(CANVAS_REMOVED_EVENT, { detail: canvasId }))

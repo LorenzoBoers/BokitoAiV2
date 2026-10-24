@@ -34,6 +34,7 @@ import {
   type WorksInAddKind,
   type WorksInItem,
 } from '../../lib/project-work-api'
+import { listDepartmentWorksIn } from '../../lib/teams-api'
 import { listIntegrationConnections, type IntegrationConnectionRow } from '../../lib/integrations-api'
 
 const KIND_ICON: Record<string, typeof Folder> = {
@@ -129,16 +130,25 @@ function ItemCard({
 /** Opening a folder with this hash starts adding an item (the Grid links here). */
 export const WORKS_IN_ADD_HASH = '#works-in-add'
 
-/** Works in: every place inside this folder where work lands, one card each. */
-export function WorksInSection({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+/** Works in. `departmentId` is the whole department; `projectId` is one folder filter. Adding needs a folder. */
+export function WorksInSection({
+  projectId,
+  departmentId,
+  canEdit,
+}: {
+  projectId?: string
+  departmentId?: string
+  canEdit: boolean
+}) {
   const { t } = useTranslation('nav')
   const { hash } = useLocation()
+  const folderEdit = canEdit && Boolean(projectId)
   const [items, setItems] = useState<WorksInItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [adding, setAdding] = useState(() => canEdit && hash === WORKS_IN_ADD_HASH)
+  const [adding, setAdding] = useState(() => folderEdit && hash === WORKS_IN_ADD_HASH)
   useEffect(() => {
-    if (canEdit && hash === WORKS_IN_ADD_HASH) setAdding(true)
-  }, [canEdit, hash])
+    if (folderEdit && hash === WORKS_IN_ADD_HASH) setAdding(true)
+  }, [folderEdit, hash])
   const [busy, setBusy] = useState(false)
   const [kind, setKind] = useState<WorksInAddKind>('canvas')
   const [title, setTitle] = useState('')
@@ -147,14 +157,15 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
   const [connectionId, setConnectionId] = useState('')
 
   const load = useCallback(async () => {
+    if (!departmentId && !projectId) return
     try {
-      setItems(await listWorksIn(projectId))
+      setItems(departmentId ? await listDepartmentWorksIn(departmentId) : await listWorksIn(projectId!))
     } catch {
       setItems([])
     } finally {
       setLoading(false)
     }
-  }, [projectId])
+  }, [departmentId, projectId])
 
   useEffect(() => {
     void load()
@@ -179,7 +190,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
   }
 
   const add = async () => {
-    if (!canSubmit) return
+    if (!canSubmit || !projectId) return
     setBusy(true)
     try {
       await addWorksIn(projectId, {
@@ -199,6 +210,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
   }
 
   const remove = async (item: WorksInItem) => {
+    if (!projectId) return
     setBusy(true)
     try {
       await deleteProjectResource(projectId, item.key.slice('resource:'.length))
@@ -212,7 +224,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
   }
 
   if (loading) return <ResourceRowsSkeleton />
-  if (items.length === 0 && !canEdit) return null
+  if (items.length === 0 && !folderEdit && !departmentId) return null
 
   return (
     <section className="space-y-2" aria-labelledby="project-works-in" data-testid="works-in-section">
@@ -220,7 +232,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
         <h2 id="project-works-in" className="text-sm font-semibold text-text-heading">
           {t('projects.worksIn.title')}
         </h2>
-        {canEdit && !adding ? (
+        {folderEdit && !adding ? (
           <Button type="button" size="xs" variant="secondary" onClick={() => setAdding(true)}>
             <Plus size={14} className="mr-1" />
             {t('projects.worksIn.add')}
@@ -236,7 +248,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
             <ItemCard
               key={item.key}
               item={item}
-              canRemove={canEdit && item.key.startsWith('resource:') && item.kind !== 'repo'}
+              canRemove={folderEdit && item.key.startsWith('resource:') && item.kind !== 'repo'}
               busy={busy}
               onRemove={() => void remove(item)}
             />
@@ -244,7 +256,7 @@ export function WorksInSection({ projectId, canEdit }: { projectId: string; canE
         </ul>
       )}
 
-      {canEdit && adding ? (
+      {folderEdit && adding ? (
         <div className="space-y-2 rounded-md border border-border p-2.5">
           <div className="flex flex-wrap gap-2">
             <ChoiceSelect

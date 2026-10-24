@@ -190,6 +190,7 @@ export function ModuleConnectionsPanel({
                   <ConnectionScopeEditor
                     connectionId={row.connection_id}
                     projects={row.projects ?? []}
+                    departmentId={row.department_id ?? null}
                     onSaved={refresh}
                   />
                 ) : undefined

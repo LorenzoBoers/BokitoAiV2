@@ -1,4 +1,3 @@
-import { Spinner } from '../components/ui/spinner'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -12,7 +11,6 @@ import {
   ChevronRight,
   ClipboardCheck,
   Plus,
-  RefreshCw,
   Repeat,
   Webhook,
 } from 'lucide-react'
@@ -28,7 +26,7 @@ import {
 } from '../components/ui/dropdown-menu'
 import { AgendaGridSkeleton } from '../components/ui/skeleton'
 import { ApiErrorBanner, formatApiErrorMessage } from '../components/ui/ApiErrorBanner'
-import { Input } from '../components/ui/input'
+import { SearchField } from '../components/ui/search-field'
 import { toast } from 'sonner'
 import TriggerDialog, { type TargetOption } from '../components/agenda/TriggerDialog'
 import CalendarEventDialog, { type CalendarEventEditSeed } from '../components/agenda/CalendarEventDialog'
@@ -59,8 +57,9 @@ import { listTriggers, type Trigger, type TriggerKind } from '../lib/orchestrati
 import { listProjects } from '../lib/projects-api'
 import { listTimeItems, type TimeItem, type TimeItemKind } from '../lib/time-items'
 import { listWorkstreams } from '../lib/flows-api'
-import { formatAppDate, formatAppTime } from '../lib/app-locale'
+import { formatAppDate } from '../lib/app-locale'
 import {
+  AGENDA_DEFAULT_VIEW,
   AGENDA_LAYERS,
   addDays,
   attentionOf,
@@ -76,9 +75,11 @@ import {
   parseLayers,
   parseView,
   parseWho,
+  readAgendaViewPref,
   shiftAnchor,
   startOfDay,
   viewRange,
+  writeAgendaViewPref,
   type AgendaLayer,
   type AgendaView,
 } from '../lib/agenda-layout'
@@ -99,7 +100,8 @@ export default function AgendaPage() {
   const { members } = useMembers()
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const view = parseView(searchParams.get('view'))
+  const viewParam = searchParams.get('view')
+  const view = viewParam !== null ? parseView(viewParam) : readAgendaViewPref()
   const anchor = useMemo(
     () => parseDayKey(searchParams.get('date')) ?? startOfDay(new Date()),
     [searchParams],
@@ -197,11 +199,18 @@ export default function AgendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentParam, newParam, searchParams, setParams])
 
-  const setView = (next: AgendaView) =>
+  const setView = (next: AgendaView) => {
+    writeAgendaViewPref(next)
     setParams({
-      view: next === 'day' ? null : next,
+      view: next === AGENDA_DEFAULT_VIEW ? null : next,
       ...(next === 'list' ? { date: null } : {}),
     })
+  }
+
+  // Deep links and keyboard shortcuts also stick as the next visit's default.
+  useEffect(() => {
+    writeAgendaViewPref(view)
+  }, [view])
   const setAnchor = (next: Date) =>
     setParams({ date: dayKey(next) === dayKey(new Date()) ? null : dayKey(next) })
   const toggleLayer = (layer: AgendaLayer) => {
@@ -571,7 +580,7 @@ export default function AgendaPage() {
   const attentionTotal = attention.tasks.length + attention.failed.length
 
   return (
-    <PageContent width="full" className="flex h-full min-h-0 flex-col gap-3 px-6 pb-4 pt-4">
+    <PageContent width="full" className="flex h-full min-h-0 flex-col gap-4 px-6 pb-6 pt-4 sm:px-8">
       <PageHeader className="sr-only" title={t('tabs.agenda.title')} />
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="flex">
@@ -591,16 +600,13 @@ export default function AgendaPage() {
             : rangeLabel}
         </h2>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Input
+          <SearchField
             value={agendaQuery}
-            onChange={(event) => setAgendaQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') setAgendaQuery('')
-            }}
+            onChange={setAgendaQuery}
             placeholder={t('agendaPage.search')}
             aria-label={t('agendaPage.search')}
-            type="search"
-            className="h-8 w-44"
+            size="sm"
+            className="w-44"
           />
           <Tabs value={view} onValueChange={(value) => setView(value as AgendaView)}>
             <TabsList>
@@ -611,17 +617,6 @@ export default function AgendaPage() {
               ))}
             </TabsList>
           </Tabs>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            aria-label={t('agendaPage.refresh')}
-            title={t('agendaPage.refreshedAt', { time: formatAppTime(new Date(nowMs), i18n.language) })}
-            onClick={reload}
-            disabled={loading}
-          >
-            {loading ? <Spinner size="md" /> : <RefreshCw className="h-4 w-4" aria-hidden />}
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" size="sm">
@@ -671,7 +666,7 @@ export default function AgendaPage() {
 
       <div
         className={cn(
-          'grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)]',
+          'grid min-h-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)] gap-4 overflow-hidden lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-5',
           selection && 'xl:grid-cols-[16.5rem_minmax(0,1fr)_21rem]',
         )}
       >

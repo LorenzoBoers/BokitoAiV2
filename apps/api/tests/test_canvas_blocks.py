@@ -297,6 +297,30 @@ def test_turn_stamps_tool_and_time_from_the_ledger():
     assert cleaned[0]["blocks"][0]["source"] == _SOURCE
 
 
+def test_source_nested_in_series_lands_on_the_chart():
+    ledger = {"toolu_1": {"tool": "list_threads", "as_of": "2026-10-22T17:00:00"}}
+    token = bind_source_ledger(ledger)
+    try:
+        cleaned, errors = validate_blocks(
+            [
+                {
+                    "type": "bar_chart",
+                    "title": "Open",
+                    "labels": ["Nu"],
+                    "series": [
+                        {"name": "Gesprekken", "values": [25]},
+                        {"source": {"tool_use_id": "toolu_1"}},
+                    ],
+                }
+            ]
+        )
+    finally:
+        reset_source_ledger(token)
+    assert errors == []
+    assert cleaned[0]["source"] == _SOURCE
+    assert cleaned[0]["series"] == [{"name": "Gesprekken", "values": [25.0]}]
+
+
 def test_turn_rejects_a_number_without_a_call_from_this_turn():
     token = bind_source_ledger({})
     try:
@@ -324,6 +348,142 @@ def test_turn_rejects_a_number_without_a_call_from_this_turn():
     finally:
         reset_source_ledger(token)
     assert any("does not match" in error for error in lied)
+    assert any("list_threads" in error for error in lied)
+
+
+def test_turn_rejects_figures_that_are_not_in_the_tool_result():
+    ledger = {
+        "toolu_1": {
+            "tool": "get_tenant_overview",
+            "as_of": "2026-10-23T20:10:43",
+            "figures": "4 17",
+        }
+    }
+    token = bind_source_ledger(ledger)
+    try:
+        _blocks, errors = validate_blocks(
+            [
+                {
+                    "type": "stat",
+                    "label": "Aantal posts",
+                    "value": "12",
+                    "delta": "+15%",
+                    "source": {"tool_use_id": "toolu_1", "tool": "get_tenant_overview"},
+                }
+            ]
+        )
+    finally:
+        reset_source_ledger(token)
+    assert any("12 is not in the get_tenant_overview result" in error for error in errors)
+    assert any("Do not invent figures" in error for error in errors)
+
+
+def test_thousand_dot_matches_the_integer_in_the_result():
+    ledger = {
+        "toolu_1": {
+            "tool": "list_threads",
+            "as_of": "2026-10-22T17:00:00",
+            "figures": "52000",
+        }
+    }
+    token = bind_source_ledger(ledger)
+    try:
+        cleaned, errors = validate_blocks(
+            [
+                {
+                    "type": "stat",
+                    "label": "Bereik",
+                    "value": "52.000",
+                    "source": {"tool_use_id": "toolu_1"},
+                }
+            ]
+        )
+    finally:
+        reset_source_ledger(token)
+    assert errors == []
+    assert cleaned[0]["source"]["tool"] == "list_threads"
+
+
+def test_operator_message_is_a_source_for_numbers_they_wrote():
+    from app.services.canvas_blocks import note_operator_message
+
+    ledger: dict = {}
+    note_operator_message(ledger, "Maak een dashboard: Berichten 12, Goedgekeurd 9, Bewaard 3.")
+    token = bind_source_ledger(ledger)
+    try:
+        cleaned, errors = validate_blocks(
+            [
+                {"type": "heading", "text": "Kerncijfers", "level": 2},
+                {"type": "stat", "label": "Berichten", "value": "12", "source": {"tool_use_id": "operator-message"}},
+                {"type": "stat", "label": "Verzonnen", "value": "99", "source": {"tool_use_id": "operator-message"}},
+            ]
+        )
+    finally:
+        reset_source_ledger(token)
+    assert errors
+    assert "99" in errors[0]
+    assert cleaned == []
+    assert render_problems([{"type": "heading", "text": "Alleen een titel"}])
+
+
+def test_operator_message_ignores_a_wrong_tool_label():
+    from app.services.canvas_blocks import note_operator_message
+
+    ledger: dict = {}
+    note_operator_message(ledger, "Berichten 12")
+    token = bind_source_ledger(ledger)
+    try:
+        cleaned, errors = validate_blocks(
+            [
+                {
+                    "type": "stat",
+                    "label": "Berichten",
+                    "value": "12",
+                    "source": {"tool_use_id": "operator-message", "tool": "Lorenzo Boers"},
+                }
+            ]
+        )
+    finally:
+        reset_source_ledger(token)
+    assert errors == []
+    assert cleaned[0]["source"]["tool"] == "operator"
+
+
+def test_canvas_figures_seed_operator_message():
+    from app.services.canvas_blocks import note_canvas_figures
+
+    ledger: dict = {}
+    note_canvas_figures(
+        ledger,
+        [
+            {"type": "stat", "label": "Berichten", "value": "12"},
+            {"type": "stat", "label": "Goedgekeurd", "value": "9"},
+        ],
+    )
+    token = bind_source_ledger(ledger)
+    try:
+        cleaned, errors = validate_blocks(
+            [
+                {
+                    "type": "bar_chart",
+                    "title": "Verloop",
+                    "labels": ["Berichten", "Goedgekeurd"],
+                    "series": [{"name": "Aantal", "values": [12, 9]}],
+                    "source": {"tool_use_id": "operator-message"},
+                }
+            ]
+        )
+    finally:
+        reset_source_ledger(token)
+    assert errors == []
+    assert cleaned[0]["type"] == "bar_chart"
+
+
+def test_note_turn_tool_records_figures_from_the_result():
+    ledger: dict = {}
+    note_turn_tool(ledger, "toolu_1", "get_tenant_overview", ok=True, result={"agents": 4, "open": "17"})
+    assert "4" in ledger["toolu_1"]["figures"].split()
+    assert "17" in ledger["toolu_1"]["figures"].split()
 
 
 def test_outside_a_turn_a_number_does_not_need_a_source():
@@ -340,3 +500,56 @@ def test_note_turn_tool_skips_canvas_writes_and_failures():
     assert list(ledger) == ["toolu_1"]
     assert ledger["toolu_1"]["tool"] == "list_threads"
     assert ledger["toolu_1"]["as_of"]
+
+
+def test_tool_result_for_model_puts_the_call_id_in_the_body():
+    from app.services.canvas_blocks import tool_result_for_model
+
+    stamped = tool_result_for_model("list_threads", {"threads": []}, "toolu_1")
+    assert stamped["tool_use_id"] == "toolu_1"
+    assert stamped["threads"] == []
+    assert tool_result_for_model("edit_canvas", {"status": "applied"}, "toolu_2") == {
+        "status": "applied"
+    }
+    failed = {"error": "nope"}
+    assert tool_result_for_model("list_threads", failed, "toolu_3") is failed
+
+
+def test_citeable_calls_follow_the_ledger():
+    from app.services.canvas_blocks import citeable_calls
+
+    token = bind_source_ledger({"toolu_1": {"tool": "list_threads", "as_of": "2026-10-22T17:00:00"}})
+    try:
+        assert citeable_calls() == [("list_threads", "toolu_1")]
+    finally:
+        reset_source_ledger(token)
+
+
+def test_keep_editable_blocks_cites_operator_when_canvas_has_figures():
+    from app.services.canvas_blocks import OPERATOR_SOURCE_ID, keep_editable_blocks, note_canvas_figures
+
+    ledger: dict = {}
+    note_canvas_figures(ledger, [{"type": "stat", "label": "Open", "value": "4"}])
+    kept = keep_editable_blocks(
+        [
+            {"type": "heading", "text": "Overzicht"},
+            {"type": "stat", "label": "Open", "value": "4"},
+        ],
+        ledger,
+    )
+    assert len(kept) == 2
+    assert kept[1]["source"]["tool_use_id"] == OPERATOR_SOURCE_ID
+    assert "4" in ledger[OPERATOR_SOURCE_ID]["figures"]
+
+
+def test_keep_editable_blocks_drops_unsourced_stats_without_figures():
+    from app.services.canvas_blocks import keep_editable_blocks
+
+    kept = keep_editable_blocks(
+        [
+            {"type": "heading", "text": "Overzicht"},
+            {"type": "stat", "label": "Verzonnen", "value": "99"},
+        ],
+        {},
+    )
+    assert kept == [{"type": "heading", "text": "Overzicht"}]

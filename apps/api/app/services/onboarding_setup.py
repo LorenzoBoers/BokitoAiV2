@@ -17,6 +17,27 @@ from app.models.signal import Signal
 
 ONBOARDING_KEY = "onboarding"
 
+# Named in the setup SOP. A lead created before these were on the assistant
+# passport still has the older tool list; the allowlist unions these in
+# while the prompt still contains the SOP.
+SETUP_TOOLS = (
+    "write_doc",
+    "list_docs",
+    "recommend_module",
+    "suggest_integration",
+    "update_agent",
+    "set_platform_watch",
+)
+
+
+def extra_setup_tools(agent: object | None) -> set[str]:
+    """Tools the workspace-setup prompt tells the lead to call."""
+    prompt = str(getattr(agent, "system_prompt", "") or "")
+    if "## Workspace setup" not in prompt:
+        return set()
+    return set(SETUP_TOOLS)
+
+
 SETUP_SOP = """## Workspace setup
 You are onboarding this workspace in one conversation. Ask one question at a
 time, confirm the answer, then write. Stop when the person says they are

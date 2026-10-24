@@ -85,7 +85,7 @@ MANUAL_READ_TOOLS = frozenset(
         "search_index",
         "list_docs",
         "read_doc",
-        "split_conversation",
+        "move_to_conversation",
     }
 )
 

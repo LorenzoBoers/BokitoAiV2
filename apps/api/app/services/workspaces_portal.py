@@ -425,6 +425,8 @@ async def update_member_role(
         for other in owners_result.scalars().all():
             other.role = "admin"
     membership.role = role
+    if role in ("owner", "admin"):
+        membership.scope = "workspace"
     await session.commit()
     return {
         "id": user_numeric_id(user.id),
@@ -612,6 +614,7 @@ async def list_invites(session: AsyncSession, tenant_id: UUID, inviter: User | N
                 "id": str(invite.id),
                 "email": invite.email,
                 "role": invite.role,
+                "scope": invite_scope(invite.role, getattr(invite, "scope", None)),
                 "invited_by_name": names_by_id.get(invite.invited_by_user_id, fallback_name)
                 if invite.invited_by_user_id
                 else fallback_name,
@@ -662,12 +665,23 @@ def _invite_response(
         "token": invite.token,
         "email": invite.email,
         "role": invite.role,
+        "scope": invite_scope(invite.role, invite.scope),
         "invited_by_name": inviter.display_name or inviter.email,
         "invited_at": invite.created_at.isoformat() if invite.created_at else None,
         "expires_at": invite.expires_at.isoformat() if invite.expires_at else None,
         "invite_link": link,
         "mail_sent": mailed,
     }
+
+
+def invite_scope(role: str, scope: str | None) -> str:
+    """Scope stored on an invite and copied onto the membership at accept.
+
+    Owners and admins always see the whole workspace.
+    """
+    if canonical_workspace_role(role) != "member":
+        return "workspace"
+    return "departments" if scope == "departments" else "workspace"
 
 
 async def create_workspace_invite(
@@ -677,10 +691,12 @@ async def create_workspace_invite(
     email: str,
     role: str,
     inviter: User,
+    scope: str = "workspace",
 ) -> dict[str, Any]:
     normalized_role = role if role in ("owner", "admin", "member") else "member"
     if normalized_role == "owner":
         normalized_role = "admin"
+    normalized_scope = invite_scope(normalized_role, scope)
     normalized_email = email.strip().lower()
 
     # Existing members cannot be invited again.
@@ -715,6 +731,7 @@ async def create_workspace_invite(
     if invite:
         invite.token = token
         invite.role = normalized_role
+        invite.scope = normalized_scope
         invite.invited_by_user_id = inviter.id
         invite.expires_at = utcnow() + INVITE_TTL
     else:
@@ -722,6 +739,7 @@ async def create_workspace_invite(
             tenant_id=tenant.id,
             email=normalized_email,
             role=normalized_role,
+            scope=normalized_scope,
             token=token,
             invited_by_user_id=inviter.id,
             expires_at=utcnow() + INVITE_TTL,

@@ -44,7 +44,11 @@ export function useSpeechDictation(opts: {
   lang?: string
   onFinal: (text: string) => void
   onInterim?: (text: string) => void
+  /** The caller plays its own start and stop cues. */
+  silent?: boolean
 }) {
+  const silentRef = useRef(Boolean(opts.silent))
+  silentRef.current = Boolean(opts.silent)
   const [listening, setListening] = useState(false)
   const [supported] = useState(() => speechDictationSupported())
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
@@ -59,7 +63,7 @@ export function useSpeechDictation(opts: {
     const wasLive = !closedRef.current
     // Close first so a late final (same text as the last interim) is ignored.
     closedRef.current = true
-    if (wasLive) void playDictationStopSound()
+    if (wasLive && !silentRef.current) void playDictationStopSound()
     const rec = recognitionRef.current
     recognitionRef.current = null
     try {
@@ -113,7 +117,7 @@ export function useSpeechDictation(opts: {
     try {
       rec.start()
       setListening(true)
-      void playDictationStartSound()
+      if (!silentRef.current) void playDictationStartSound()
       return true
     } catch {
       closedRef.current = true

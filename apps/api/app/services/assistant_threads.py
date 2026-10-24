@@ -165,6 +165,31 @@ def _from_customer(m: SignalMessage) -> bool:
     return m.direction == "inbound" and m.author_user_id is None and m.author_agent_id is None
 
 
+def _tools_already_ran(meta: Any) -> list[str]:
+    """Tool names that finished on a saved turn (for the next agent read)."""
+    if not isinstance(meta, dict):
+        return []
+    from app.services.agent.turn_persist import message_activity
+
+    names: list[str] = []
+    seen: set[str] = set()
+    shown = message_activity(meta, detail=False)
+    for key in ("activity", "activity_after"):
+        for item in shown.get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            tool = str(item.get("tool") or "").strip()
+            if not tool or tool in seen:
+                continue
+            if str(item.get("status") or "") == "running":
+                continue
+            seen.add(tool)
+            names.append(tool)
+            if len(names) >= 12:
+                return names
+    return names
+
+
 async def context_thread_transcript(
     session: AsyncSession, signal_id: UUID, *, max_chars: int = 6000
 ) -> str:
@@ -314,29 +339,34 @@ async def signal_chat_history(
         body = message_plain_text(m)
         if customer_channel and body and _from_customer(m):
             body = fence(body, signal.channel)
-        if for_agent_id is not None and body:
-            if m.author_agent_id == for_agent_id:
-                role = "assistant"
-            else:
-                role = "user"
-                speaker = names.get(m.author_agent_id or m.author_user_id) if (m.author_agent_id or m.author_user_id) else None
-                if speaker:
-                    body = f"{speaker}: {body}"
         try:
             parsed_attachments = json.loads(m.attachments_json or "[]")
         except (TypeError, ValueError, json.JSONDecodeError):
             parsed_attachments = []
         attachments = [a for a in parsed_attachments if isinstance(a, dict)] if isinstance(parsed_attachments, list) else []
-        if not body and not attachments:
-            continue
-        if not body:
-            body = "The operator attached an image."
-        # Operator Ja/Nee bubbles: tell the model the choice already applied so
-        # the continue-after-decision wake confirms instead of re-doing the work.
         try:
             meta = json.loads(m.metadata_json or "{}")
         except json.JSONDecodeError:
             meta = {}
+        tools_ran = _tools_already_ran(meta)
+        if not body and not attachments and not tools_ran:
+            continue
+        if for_agent_id is not None:
+            if m.author_agent_id == for_agent_id:
+                role = "assistant"
+            else:
+                role = "user"
+                speaker = (
+                    names.get(m.author_agent_id or m.author_user_id)
+                    if (m.author_agent_id or m.author_user_id)
+                    else None
+                )
+                if speaker and body:
+                    body = f"{speaker}: {body}"
+        if not body and attachments:
+            body = "The operator attached an image."
+        # Operator Ja/Nee bubbles: tell the model the choice already applied so
+        # the continue-after-decision wake confirms instead of re-doing the work.
         if for_agent_id is not None and m.author_agent_id == for_agent_id and isinstance(meta, dict):
             peer_tool = next(
                 (
@@ -347,7 +377,14 @@ async def signal_chat_history(
                 None,
             )
             if peer_tool:
-                body = f"{body}\n[Sent with {peer_tool}.]"
+                body = f"{(body or '').rstrip()}\n[Sent with {peer_tool}.]".lstrip()
+        if tools_ran:
+            listed = ", ".join(tools_ran)
+            note = (
+                f"[Tools already ran: {listed}. "
+                "Do not repeat them unless this turn asks.]"
+            )
+            body = f"{(body or '').rstrip()}\n{note}".lstrip()
         if m.kind == "decision_request" and m.decision_id in card_status:
             body = f"{body}\n{_DECISION_STATUS_NOTE.get(card_status[m.decision_id], '')}".rstrip()
         if isinstance(meta, dict) and meta.get("decision_response"):

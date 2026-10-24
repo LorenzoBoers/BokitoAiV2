@@ -70,6 +70,8 @@ const GAP_Y = 44
 const BOX_PAD = 24
 const LOOP_DROP = 96
 const VIEW_PAD = 56
+/** Zoom is a factor on the fit-to-view scale: 1 = whole flow in frame, higher = closer. */
+const MAX_ZOOM = 2.5
 const NONE = '__none__'
 const STOP = 'stop'
 const MAX_RE = /^\d+\s*(m|u|d|werkdagen)$/
@@ -157,6 +159,12 @@ function layout(nodes: FlowSchemaNode[], edges: FlowSchemaEdge[], order: string[
     const pinned = parsePlek(node.plek)
     if (pinned && node.name !== STOP && !taken.has(cellKey(pinned))) claim(node.name, pinned)
   }
+  // Board stages stay in column order. A branch or a skip draws around them
+  // and does not pull a later stage into an earlier column.
+  order.forEach((name, index) => {
+    if (!names.includes(name) || cells.has(name) || name === STOP) return
+    claim(name, freeCell({ col: index, row: 0 }, taken))
+  })
   const pinnedCols = [...cells.values()].map((cell) => cell.col)
   let max = Math.max(0, ...pinnedCols)
   for (const level of depth.values()) max = Math.max(max, level)
@@ -286,6 +294,66 @@ function curve(from: Point, to: Point, lane: number) {
   }
 }
 
+function roundedOrthogonal(points: Point[], radius = 16): string {
+  const kept = points.filter((point, index) => {
+    if (index === 0) return true
+    const prev = points[index - 1]
+    return Math.hypot(point.x - prev.x, point.y - prev.y) > 0.5
+  })
+  if (kept.length < 2) return ''
+  let d = `M ${kept[0].x} ${kept[0].y}`
+  for (let index = 1; index < kept.length - 1; index += 1) {
+    const prev = kept[index - 1]
+    const curr = kept[index]
+    const next = kept[index + 1]
+    const inLen = Math.hypot(curr.x - prev.x, curr.y - prev.y)
+    const outLen = Math.hypot(next.x - curr.x, next.y - curr.y)
+    const bend = Math.min(radius, inLen / 2, outLen / 2)
+    if (bend < 1 || inLen < 1 || outLen < 1) {
+      d += ` L ${curr.x} ${curr.y}`
+      continue
+    }
+    const before = { x: curr.x - ((curr.x - prev.x) / inLen) * bend, y: curr.y - ((curr.y - prev.y) / inLen) * bend }
+    const after = { x: curr.x + ((next.x - curr.x) / outLen) * bend, y: curr.y + ((next.y - curr.y) / outLen) * bend }
+    d += ` L ${before.x} ${before.y} Q ${curr.x} ${curr.y} ${after.x} ${after.y}`
+  }
+  const last = kept[kept.length - 1]
+  return `${d} L ${last.x} ${last.y}`
+}
+
+/** A line between two cards. Neighbours stay a short curve; a skip or a step on another row goes through the gutter so it clears the cards. */
+function route(from: Point, to: Point, lane: number, cards: Point[] = []): { d: string; label: Point } {
+  const steps = Math.round((to.x - from.x) / (CARD_W + GAP_X))
+  const sameRow = Math.abs(to.y - from.y) < 4
+  if (steps <= 0 || (steps === 1 && sameRow)) return curve(from, to, lane)
+
+  const start = { x: from.x + CARD_W, y: from.y + CARD_H / 2 + lane }
+  const end = { x: to.x, y: to.y + CARD_H / 2 }
+  if (steps === 1) {
+    const midX = (start.x + end.x) / 2
+    return {
+      d: roundedOrthogonal([start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]),
+      label: { x: midX, y: (start.y + end.y) / 2 },
+    }
+  }
+
+  const between = cards.filter((card) => card.x > from.x + 4 && card.x + CARD_W < to.x + 4)
+  const ceiling = Math.min(from.y, to.y, ...between.map((card) => card.y))
+  const gutterY = ceiling - Math.max(22, GAP_Y / 2) + lane
+  const out = 26
+  return {
+    d: roundedOrthogonal([
+      start,
+      { x: start.x + out, y: start.y },
+      { x: start.x + out, y: gutterY },
+      { x: end.x - out, y: gutterY },
+      { x: end.x - out, y: end.y },
+      end,
+    ]),
+    label: { x: (start.x + end.x) / 2, y: gutterY },
+  }
+}
+
 function graphKey(nodes: FlowSchemaNode[], edges: FlowSchemaEdge[]) {
   return JSON.stringify({ nodes, edges })
 }
@@ -318,7 +386,22 @@ export function FlowSchemaEditor({
   const [nodes, setNodes] = useState<FlowSchemaNode[]>(seeded.nodes)
   const [edges, setEdges] = useState<FlowSchemaEdge[]>(seeded.edges)
   const [selected, setSelected] = useState<Selection>(null)
-  const [drag, setDrag] = useState<{ from: string; x: number; y: number; target: Cell | null } | null>(null)
+  const [drag, setDrag] = useState<{ from: string; x: number; y: number; target: Cell | null; over: string | null } | null>(null)
+  const [lineHover, setLineHover] = useState<number | null>(null)
+  const [branchHover, setBranchHover] = useState<number | null>(null)
+  const [branchDrag, setBranchDrag] = useState<{
+    index: number
+    src: string
+    x: number
+    y: number
+    startX: number
+    startY: number
+    moved: boolean
+    over: string | null
+    cell: Cell | null
+  } | null>(null)
+  const lineTimer = useRef<number | null>(null)
+  const branchRef = useRef<typeof branchDrag>(null)
   const [move, setMove] = useState<{ name: string; startX: number; startY: number; dx: number; dy: number; moved: boolean } | null>(
     null,
   )
@@ -388,10 +471,78 @@ export function FlowSchemaEditor({
     return Math.min(1, availW / Math.max(placed.width, 1), availH / Math.max(placed.height, 1))
   }, [placed.width, placed.height, view])
 
-  const scale = fitScale
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const panRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    moved: boolean
+  } | null>(null)
+
+  const clampPan = (px: number, py: number, nextScale: number) => {
+    const contentW = placed.width * nextScale
+    const contentH = placed.height * nextScale
+    const baseTx = view.w / 2 - contentW / 2
+    const baseTy = view.h / 2 - contentH / 2
+    // Stay inside the fit frame: no empty space past the diagram, no zooming out past fit.
+    const minTx = Math.min(baseTx, view.w - VIEW_PAD - contentW)
+    const maxTx = Math.max(baseTx, VIEW_PAD)
+    const minTy = Math.min(baseTy, view.h - VIEW_PAD - contentH)
+    const maxTy = Math.max(baseTy, VIEW_PAD)
+    const tx = Math.min(maxTx, Math.max(minTx, baseTx + px))
+    const ty = Math.min(maxTy, Math.max(minTy, baseTy + py))
+    return { x: tx - baseTx, y: ty - baseTy }
+  }
+
+  const scale = fitScale * zoom
   const ready = view.w >= 8 && view.h >= 8
-  const tx = view.w / 2 - (placed.width * scale) / 2
-  const ty = view.h / 2 - (placed.height * scale) / 2
+  const tx = view.w / 2 - (placed.width * scale) / 2 + pan.x
+  const ty = view.h / 2 - (placed.height * scale) / 2 + pan.y
+
+  useEffect(() => {
+    setPan((current) => clampPan(current.x, current.y, fitScale * zoom))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reclamp when the fit frame changes
+  }, [fitScale, placed.width, placed.height, view.w, view.h, zoom])
+
+  useEffect(() => {
+    const el = viewRef.current
+    if (!el || mode !== 'diagram') return
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey || Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+        event.preventDefault()
+        const factor = Math.exp(-event.deltaY * 0.0018)
+        const nextZoom = Math.min(MAX_ZOOM, Math.max(1, zoom * factor))
+        if (Math.abs(nextZoom - zoom) < 0.0005) {
+          if (nextZoom <= 1) setPan({ x: 0, y: 0 })
+          return
+        }
+        const rect = el.getBoundingClientRect()
+        const mx = event.clientX - rect.left
+        const my = event.clientY - rect.top
+        const worldX = (mx - tx) / scale
+        const worldY = (my - ty) / scale
+        const nextScale = fitScale * nextZoom
+        const nextBaseTx = view.w / 2 - (placed.width * nextScale) / 2
+        const nextBaseTy = view.h / 2 - (placed.height * nextScale) / 2
+        const nextPan =
+          nextZoom <= 1
+            ? { x: 0, y: 0 }
+            : clampPan(mx - nextBaseTx - worldX * nextScale, my - nextBaseTy - worldY * nextScale, nextScale)
+        setZoom(nextZoom)
+        setPan(nextPan)
+        return
+      }
+      if (zoom > 1) {
+        event.preventDefault()
+        setPan((current) => clampPan(current.x - event.deltaX, current.y - event.deltaY, scale))
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  })
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -498,7 +649,9 @@ export function FlowSchemaEditor({
 
   const startMove = (name: string, event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
+    event.preventDefault()
     event.stopPropagation()
+    window.getSelection()?.removeAllRanges()
     event.currentTarget.setPointerCapture(event.pointerId)
     const at = point(event)
     movedRef.current = false
@@ -518,6 +671,27 @@ export function FlowSchemaEditor({
   const endMove = () => {
     if (move?.moved && moveTarget) updateNode(move.name, { plek: cellKey(moveTarget) })
     setMove(null)
+  }
+
+  const armLine = (index: number) => {
+    if (lineTimer.current) window.clearTimeout(lineTimer.current)
+    setLineHover(index)
+  }
+
+  const releaseLine = () => {
+    if (lineTimer.current) window.clearTimeout(lineTimer.current)
+    lineTimer.current = window.setTimeout(() => {
+      setLineHover(null)
+      setBranchHover(null)
+    }, 140)
+  }
+
+  const branchCellFor = (index: number): Cell | null => {
+    const edge = edges[index]
+    if (!edge) return null
+    const dest = placed.cells.get(edge.dst)
+    if (!dest) return null
+    return freeCell({ col: dest.col, row: dest.row - 1 }, takenExcept())
   }
 
   const connect = (src: string, dst: string) => {
@@ -608,12 +782,82 @@ export function FlowSchemaEditor({
   const clearOnBackground = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
     const target = event.target as HTMLElement
-    if (!target.closest('[data-step], [data-edge], button, input, textarea')) setSelected(null)
+    if (target.closest('[data-step], [data-edge], button, input, textarea')) return
+    event.preventDefault()
+    window.getSelection()?.removeAllRanges()
+    if (zoom > 1) {
+      event.currentTarget.setPointerCapture(event.pointerId)
+      panRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: pan.x,
+        originY: pan.y,
+        moved: false,
+      }
+      return
+    }
+    setSelected(null)
+  }
+
+  const onPanMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const current = panRef.current
+    if (!current || current.pointerId !== event.pointerId) return
+    const dx = event.clientX - current.startX
+    const dy = event.clientY - current.startY
+    if (!current.moved && Math.hypot(dx, dy) > 4) current.moved = true
+    if (!current.moved) return
+    setPan(clampPan(current.originX + dx, current.originY + dy, scale))
+  }
+
+  const onPanEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const current = panRef.current
+    if (!current || current.pointerId !== event.pointerId) return
+    panRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    if (!current.moved) setSelected(null)
   }
 
   const selectedNode = selected?.kind === 'node' ? nodes.find((node) => node.name === selected.name) ?? null : null
   const selectedEdge = selected?.kind === 'edge' ? edges[selected.index] ?? null : null
   const stepCount = nodes.filter((node) => node.name !== STOP).length
+
+  const edgePath = (from: Point, to: Point, lane: number) => {
+    const cards = [...placed.pos.values()].filter((card) => card !== from && card !== to)
+    return route(from, to, lane, cards)
+  }
+
+  const dragPath = (fromName: string, over: string | null, cell: Cell | null, x: number, y: number) => {
+    const from = posOf(fromName)
+    if (!from) return ''
+    const end = over ? posOf(over) : cell ? cellPoint(cell, placed.origin) : { x: x - CARD_W, y: y - CARD_H / 2 }
+    if (!end) return ''
+    return edgePath(from, end, 0).d
+  }
+
+  const branchPreview = () => {
+    const index = branchDrag?.index ?? branchHover
+    if (index === null || index === undefined) return null
+    const edge = edges[index]
+    const from = edge ? posOf(edge.src) : undefined
+    if (!edge || !from) return null
+    if (branchDrag?.index === index && branchDrag.moved) {
+      const end = branchDrag.over
+        ? posOf(branchDrag.over)
+        : branchDrag.cell
+          ? cellPoint(branchDrag.cell, placed.origin)
+          : null
+      if (!end) return null
+      return { path: edgePath(from, end, 0), cell: branchDrag.over ? null : branchDrag.cell }
+    }
+    const cell = branchCellFor(index)
+    if (!cell) return null
+    return { path: edgePath(from, cellPoint(cell, placed.origin), 0), cell }
+  }
+
+  const preview = branchPreview()
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -691,16 +935,22 @@ export function FlowSchemaEditor({
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
-          <div className="relative min-w-0 flex-1 overflow-hidden bg-bg-base" onContextMenu={openMenu}>
-            <DotGridBackground />
+          <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-bg" onContextMenu={openMenu}>
+            <DotGridBackground stronger />
             <div
               ref={viewRef}
-              className="absolute inset-0 touch-none"
+              className={cn(
+                'absolute inset-0 z-[1] touch-none select-none',
+                zoom > 1 ? 'cursor-grab active:cursor-grabbing' : undefined,
+              )}
               onPointerDown={clearOnBackground}
+              onPointerMove={onPanMove}
+              onPointerUp={onPanEnd}
+              onPointerCancel={onPanEnd}
             >
               <div
                 ref={stageRef}
-                className="absolute left-0 top-0"
+                className="absolute left-0 top-0 select-none"
                 style={{
                   width: placed.width,
                   height: placed.height,
@@ -722,10 +972,12 @@ export function FlowSchemaEditor({
                     const from = posOf(edge.src)
                     const to = posOf(edge.dst)
                     if (!from || !to) return null
-                    const path = curve(from, to, laneOf(edges, index))
+                    const cards = [...placed.pos.values()].filter((card) => card !== from && card !== to)
+                    const path = route(from, to, laneOf(edges, index), cards)
                     const on =
                       (selected?.kind === 'edge' && selected.index === index) ||
-                      (selected?.kind === 'node' && (selected.name === edge.src || selected.name === edge.dst))
+                      (selected?.kind === 'node' && (selected.name === edge.src || selected.name === edge.dst)) ||
+                      lineHover === index
                     return (
                       <g key={`${edge.src}-${edge.dst}-${index}`}>
                         <path
@@ -733,6 +985,8 @@ export function FlowSchemaEditor({
                           fill="none"
                           className={on ? 'stroke-accent' : 'stroke-accent/60'}
                           strokeWidth={on ? 2.25 : 1.75}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                           strokeDasharray={edge.dst === STOP ? '5 4' : undefined}
                           markerEnd={on ? 'url(#flow-arrow-on)' : 'url(#flow-arrow)'}
                         />
@@ -740,36 +994,50 @@ export function FlowSchemaEditor({
                           d={path.d}
                           fill="none"
                           stroke="transparent"
-                          strokeWidth={14}
+                          strokeWidth={16}
                           data-edge={index}
                           className="cursor-pointer"
                           style={{ pointerEvents: 'stroke' }}
+                          onPointerEnter={() => armLine(index)}
+                          onPointerLeave={releaseLine}
                           onClick={() => setSelected({ kind: 'edge', index })}
                         />
                       </g>
                     )
                   })}
-                  {drag ? (
-                    <line
-                      x1={placed.pos.get(drag.from) ? placed.pos.get(drag.from)!.x + CARD_W : drag.x}
-                      y1={placed.pos.get(drag.from) ? placed.pos.get(drag.from)!.y + CARD_H / 2 : drag.y}
-                      x2={drag.x}
-                      y2={drag.y}
+                  {preview ? (
+                    <path
+                      d={preview.path.d}
+                      fill="none"
                       className="stroke-accent"
                       strokeWidth={2}
-                      strokeDasharray="4 4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray="5 4"
+                      markerEnd="url(#flow-arrow-on)"
+                    />
+                  ) : null}
+                  {drag ? (
+                    <path
+                      d={dragPath(drag.from, drag.over, drag.target, drag.x, drag.y)}
+                      fill="none"
+                      className="stroke-accent"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeDasharray="5 4"
                     />
                   ) : null}
                 </svg>
 
-                {[drag?.target, moveTarget].map((cell, index) =>
+                {[drag?.target, moveTarget, preview?.cell].map((cell, index) =>
                   cell ? (
                     <div
-                      key={index === 0 ? 'line-target' : 'move-target'}
-                      className="pointer-events-none absolute z-0 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-accent/70 bg-accent/5 text-2xs text-accent"
+                      key={index === 0 ? 'line-target' : index === 1 ? 'move-target' : 'branch-target'}
+                      className="pointer-events-none absolute z-0 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-accent/70 bg-accent/10 text-2xs text-accent"
                       style={{ ...cellStyle(cellPoint(cell, placed.origin)) }}
                     >
-                      {index === 0 ? (
+                      {index !== 1 ? (
                         <>
                           <Plus size={14} aria-hidden />
                           {t('workstreamsPage.schema.newStep')}
@@ -783,40 +1051,123 @@ export function FlowSchemaEditor({
                   const from = posOf(edge.src)
                   const to = posOf(edge.dst)
                   if (!from || !to) return null
-                  const at = curve(from, to, laneOf(edges, index)).label
+                  const at = edgePath(from, to, laneOf(edges, index)).label
                   const active = selected?.kind === 'edge' && selected.index === index
                   const extra = [edge.geeft, edge.faalt, edge.stil].filter(Boolean).length
+                  const labeled = Boolean(edge.when || extra)
+                  const hot = lineHover === index || branchHover === index || branchDrag?.index === index
                   return (
-                    <Button
-                      key={`line-${edge.src}-${edge.dst}-${index}`}
-                      type="button"
-                      variant="ghost"
-                      size={edge.when || extra ? 'xs' : 'iconSm'}
-                      className={cn(
-                        'absolute z-10 max-w-[150px] -translate-x-1/2 -translate-y-1/2 justify-start gap-1 border px-2 text-2xs font-normal shadow-sm',
-                        active
-                          ? 'border-accent bg-accent text-accent-fg hover:bg-accent hover:text-accent-fg'
-                          : edge.when || extra
-                            ? 'border-accent/50 bg-bg-surface text-text-primary hover:border-accent hover:bg-bg-surface'
-                            : 'justify-center border-border bg-bg-surface px-0 text-text-muted hover:border-border hover:bg-bg-surface',
-                      )}
-                      style={{ left: at.x, top: at.y }}
-                      data-edge={index}
-                      aria-label={t('workstreamsPage.schema.configureLine')}
-                      title={edge.when || t('workstreamsPage.schema.configureLine')}
-                      onClick={() => setSelected(active ? null : { kind: 'edge', index })}
-                    >
-                      {edge.when ? (
-                        <span className="truncate">{edge.when}</span>
-                      ) : extra ? (
-                        <>
-                          <Settings2 size={14} aria-hidden />
-                          <span className="tabular-nums">{extra}</span>
-                        </>
-                      ) : (
-                        <Settings2 size={14} aria-hidden />
-                      )}
-                    </Button>
+                    <div key={`line-${edge.src}-${edge.dst}-${index}`}>
+                      {labeled || !hot ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size={labeled ? 'xs' : 'iconSm'}
+                          className={cn(
+                            'absolute z-10 max-w-[150px] -translate-x-1/2 -translate-y-1/2 justify-start gap-1 border px-2 text-2xs font-normal shadow-sm',
+                            active
+                              ? 'border-accent bg-accent text-accent-fg hover:bg-accent hover:text-accent-fg'
+                              : labeled
+                                ? 'border-accent/50 bg-bg-hover text-text-primary hover:border-accent hover:bg-bg-hover'
+                                : 'justify-center border-border-light bg-bg-hover px-0 text-text-muted hover:border-accent hover:bg-bg-hover',
+                          )}
+                          style={{ left: at.x, top: at.y }}
+                          data-edge={index}
+                          aria-label={t('workstreamsPage.schema.configureLine')}
+                          title={edge.when || t('workstreamsPage.schema.configureLine')}
+                          onPointerEnter={() => armLine(index)}
+                          onPointerLeave={releaseLine}
+                          onClick={() => setSelected(active ? null : { kind: 'edge', index })}
+                        >
+                          {edge.when ? (
+                            <span className="truncate">{edge.when}</span>
+                          ) : extra ? (
+                            <>
+                              <Settings2 size={14} aria-hidden />
+                              <span className="tabular-nums">{extra}</span>
+                            </>
+                          ) : (
+                            <Settings2 size={14} aria-hidden />
+                          )}
+                        </Button>
+                      ) : null}
+                      {hot ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="iconSm"
+                          className="absolute z-20 h-6 w-6 min-w-0 -translate-x-1/2 -translate-y-1/2 justify-center rounded-full border border-accent bg-bg-hover p-0 text-accent shadow-sm hover:bg-accent hover:text-accent-fg"
+                          style={{ left: at.x, top: labeled ? at.y - 22 : at.y }}
+                          aria-label={t('workstreamsPage.schema.branchAdd')}
+                          onPointerEnter={() => {
+                            armLine(index)
+                            setBranchHover(index)
+                          }}
+                          onPointerLeave={releaseLine}
+                          onClick={(event) => event.stopPropagation()}
+                          onPointerDown={(event) => {
+                            if (event.button !== 0) return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            window.getSelection()?.removeAllRanges()
+                            event.currentTarget.setPointerCapture(event.pointerId)
+                            const atPoint = point(event)
+                            const next = {
+                              index,
+                              src: edge.src,
+                              x: atPoint.x,
+                              y: atPoint.y,
+                              startX: atPoint.x,
+                              startY: atPoint.y,
+                              moved: false,
+                              over: null,
+                              cell: branchCellFor(index),
+                            }
+                            branchRef.current = next
+                            setBranchHover(index)
+                            setBranchDrag(next)
+                          }}
+                          onPointerMove={(event) => {
+                            const current = branchRef.current
+                            if (!current || current.index !== index) return
+                            const atPoint = point(event)
+                            const moved = current.moved || Math.hypot(atPoint.x - current.startX, atPoint.y - current.startY) > 5
+                            const hit = document.elementFromPoint(event.clientX, event.clientY)
+                            const step = hit?.closest('[data-step]')?.getAttribute('data-step')
+                            const over = step && step !== edge.src ? step : null
+                            const next = {
+                              ...current,
+                              x: atPoint.x,
+                              y: atPoint.y,
+                              moved,
+                              over,
+                              cell: over ? null : lineTarget(event, edge.src, atPoint) ?? branchCellFor(index),
+                            }
+                            branchRef.current = next
+                            setBranchDrag(next)
+                          }}
+                          onPointerUp={(event) => {
+                            const current = branchRef.current
+                            if (!current || current.index !== index) return
+                            branchRef.current = null
+                            setBranchDrag(null)
+                            setBranchHover(null)
+                            if (!current.moved) {
+                              const spot = branchCellFor(index)
+                              if (spot) addStepAt(current.src, spot)
+                              return
+                            }
+                            const hit = document.elementFromPoint(event.clientX, event.clientY)
+                            const step = hit?.closest('[data-step]')?.getAttribute('data-step')
+                            if (step && step !== current.src) connect(current.src, step)
+                            else if (current.over) connect(current.src, current.over)
+                            else if (current.cell) addStepAt(current.src, current.cell)
+                          }}
+                        >
+                          <Plus size={14} aria-hidden />
+                        </Button>
+                      ) : null}
+                    </div>
                   )
                 })}
 
@@ -832,7 +1183,7 @@ export function FlowSchemaEditor({
                       <div
                         key={node.name}
                         data-step={node.name}
-                        className="absolute z-20 flex items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-bg-surface/80 text-sm text-text-secondary"
+                        className="absolute z-20 flex items-center justify-center gap-2 rounded-lg border border-dashed border-border-light bg-bg-surface/90 text-sm text-text-secondary dark:border-[rgb(122_118_112)] dark:bg-[rgb(84_81_77)]/90"
                         style={{ left: at.x, top: at.y + CARD_H / 4, width: CARD_W * 0.6, height: CARD_H / 2 }}
                       >
                         <Square size={14} aria-hidden />
@@ -850,6 +1201,7 @@ export function FlowSchemaEditor({
                       count={stage && counts ? counts[stage.key] ?? 0 : undefined}
                       at={at}
                       active={active}
+                      hinted={drag?.over === node.name || branchDrag?.over === node.name}
                       lifted={move?.name === node.name && move.moved}
                       onSelect={() => {
                         if (movedRef.current) {
@@ -865,12 +1217,21 @@ export function FlowSchemaEditor({
                         event.stopPropagation()
                         event.currentTarget.setPointerCapture(event.pointerId)
                         const atPoint = point(event)
-                        setDrag({ from: node.name, x: atPoint.x, y: atPoint.y, target: null })
+                        setDrag({ from: node.name, x: atPoint.x, y: atPoint.y, target: null, over: null })
                       }}
                       onDragMove={(event) => {
                         if (!drag || drag.from !== node.name) return
                         const atPoint = point(event)
-                        setDrag({ from: node.name, x: atPoint.x, y: atPoint.y, target: lineTarget(event, node.name, atPoint) })
+                        const hit = document.elementFromPoint(event.clientX, event.clientY)
+                        const step = hit?.closest('[data-step]')?.getAttribute('data-step')
+                        const over = step && step !== node.name ? step : null
+                        setDrag({
+                          from: node.name,
+                          x: atPoint.x,
+                          y: atPoint.y,
+                          over,
+                          target: over ? null : lineTarget(event, node.name, atPoint),
+                        })
                       }}
                       onDragEnd={(event) => {
                         const hit = document.elementFromPoint(event.clientX, event.clientY)
@@ -949,6 +1310,8 @@ export function FlowSchemaEditor({
                   <li>{t('workstreamsPage.schema.tips.draw')}</li>
                   <li>{t('workstreamsPage.schema.tips.move')}</li>
                   <li>{t('workstreamsPage.schema.tips.rightClick')}</li>
+                  <li>{t('workstreamsPage.schema.tips.branch')}</li>
+                  <li>{t('workstreamsPage.schema.tips.zoom')}</li>
                 </ul>
                 <div className="space-y-1.5 border-t border-border pt-4">
                   {nodes.map((node) => {
@@ -993,6 +1356,7 @@ function StepCard({
   count,
   at,
   active,
+  hinted,
   lifted,
   onSelect,
   onMoveStart,
@@ -1009,6 +1373,7 @@ function StepCard({
   count?: number
   at: Point
   active: boolean
+  hinted: boolean
   lifted: boolean
   onSelect: () => void
   /** Set for steps the operator may place by hand. */
@@ -1048,12 +1413,14 @@ function StepCard({
           onSelect()
         }
       }}
+      onDragStart={(event) => event.preventDefault()}
       className={cn(
-        'group absolute flex flex-col rounded-lg border bg-bg-surface px-3 py-2.5 text-left shadow-sm outline-none',
-        'hover:border-border hover:shadow-md focus-visible:ring-1 focus-visible:ring-accent/60',
+        'group absolute flex flex-col rounded-lg border border-border-light bg-bg-surface px-3 py-2.5 text-left outline-none select-none dark:border-[rgb(122_118_112)] dark:bg-[rgb(84_81_77)]',
+        'shadow-[inset_0_1px_0_rgb(255_255_255/0.08),0_12px_28px_-14px_rgb(0_0_0/0.85)]',
+        'hover:brightness-110 focus-visible:ring-1 focus-visible:ring-accent/60',
         onMoveStart ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
         lifted ? 'z-40 opacity-90 shadow-lg' : 'z-20 transition',
-        active ? 'border-accent ring-1 ring-accent/40' : 'border-border',
+        active ? 'border-accent ring-1 ring-accent/40' : hinted ? 'border-accent' : 'border-border-light',
       )}
       style={cellStyle(at)}
     >
@@ -1097,7 +1464,9 @@ function StepCard({
         className="absolute -right-2 top-1/2 h-4 w-4 min-w-0 -translate-y-1/2 cursor-crosshair rounded-full border-2 border-accent bg-bg-surface p-0 opacity-0 shadow-sm transition-opacity hover:bg-accent group-hover:opacity-100"
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => {
+          event.preventDefault()
           event.stopPropagation()
+          window.getSelection()?.removeAllRanges()
           onDragStart(event)
         }}
         onPointerMove={onDragMove}

@@ -89,7 +89,7 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:delivered} Delivered
 
-**NL:** Opgeleverd. Where the work from a conversation landed: a reply through the channel, a place in a folder, or knowledge after a correction. The conversation shows a chip such as "Delivered in administration › Exact", and the Why panel lists the latest deliveries. Connects to [Folders](/docs/ai/folders) and [Communication](/docs/inbox/communication).
+**NL:** Opgeleverd. Where the work from a conversation landed: a reply through the channel, a canvas or file on the conversation, a write to a connection, or knowledge after a correction. A canvas shows as "{item} on this conversation"; labels on the conversation decide the folder. A connection names that place, such as Exact. The Why panel lists the outcomes. Connects to [Folders](/docs/ai/folders) and [Communication](/docs/inbox/communication).
 
 ### {icon:plan} Plan
 
@@ -99,9 +99,13 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 **NL:** Toewijzen. One owner: a person, an agent or a department. Assigning a person sets the Autonomy of that conversation to Manual. Without an assignment it falls to the channel owner, otherwise to All people. Connects to [Workforce](/docs/getting-started/team) and [Channels](/docs/inbox/channels).
 
-### {icon:split} Split conversation
+### {icon:split} Move and merge conversations
 
-**NL:** Gesprek splitsen. A second request in the same mail thread becomes a new conversation. New replies land there. Connects to [Labels](/docs/ai/categories).
+**NL:** Verplaatsen en samenvoegen. **Move to** sends a message and what follows to a new or an existing conversation; a second request in a mail thread gets its own conversation and new replies land there. **Merge into...** moves a whole conversation into another. Connects to [Labels](/docs/ai/categories).
+
+### {icon:mic} Agent dock
+
+**NL:** Agent-dock. A row of agent faces in the bottom-right corner. Hold a face or its key (F1, F2, F4, F8, F9, Shift+F2; F12 for all) and talk; answers come back as voice notes in one queue per person. Connects to [Communication](/docs/inbox/communication).
 
 ### {icon:participants} Participants
 
@@ -157,7 +161,7 @@ At the top the **New conversation** button, then **Inbox** on its own, above the
 
 ### {icon:department} Department
 
-**NL:** Afdeling. A group of people and agents. All people and All agents always exist and do not show in the Communication sidebar. Your own departments do, with a pickup mode: people pick up, agent first, round robin, or least open. A module install creates one department. Connects to [Workforce](/docs/getting-started/team) and [Channels](/docs/inbox/channels).
+**NL:** Afdeling. A group of people and agents in a tree under the organization, at most two levels deep. Each department has one point of contact, an agent that picks up its work and asks its crew, and optionally one accountable person. Without an agent it uses a pickup mode: people pick up, round robin, or least open. A module install creates one department. Connects to [Workforce](/docs/getting-started/team) and [Channels](/docs/inbox/channels).
 
 ### {icon:presence} Presence
 
@@ -185,7 +189,7 @@ Personal belongs to the member. Workspace, channels, labels, Govern, models, con
 
 ### {icon:channels} Channels
 
-**NL:** Kanalen. Email, website chat, Slack and WhatsApp. Per channel a default agent, an owner and a signature. Autonomy per channel sits in Govern. A choice on the conversation wins over the default agent. Connects to [Channels](/docs/inbox/channels).
+**NL:** Kanalen. Email, website chat, Slack and WhatsApp. Per channel the department it lands on and a signature. Autonomy per channel sits in Govern. A choice on the conversation wins over the department's point of contact. Connects to [Channels](/docs/inbox/channels).
 
 ### {icon:labels} Labels
 
@@ -201,7 +205,7 @@ Personal belongs to the member. Workspace, channels, labels, Govern, models, con
 
 ### {icon:connections} Connections
 
-**NL:** Koppelingen. Modules, partner logins and AI tools on one page. A login does not give agents tools yet: install the module first and assign an agent. A connection that receives work goes under Works in on a folder. Mailboxes open Channels. Calendar apps open Agenda. Connects to [Connections](/docs/integrations/integrations) and [MCP](/docs/integrations/mcp).
+**NL:** Koppelingen. Discover modules and partner logins; Installed lists every registration (cards or list), including several administrations on one host. A login does not give agents tools yet: install the module first and assign an agent. A connection that receives work goes under Works in on a folder. Mailboxes open Channels. Calendar apps open Agenda. Connects to [Connections](/docs/integrations/integrations) and [MCP](/docs/integrations/mcp).
 
 ### {icon:module} Module
 

@@ -64,7 +64,6 @@ import {
   channelSettingsPath,
 } from '../lib/channels-api'
 import { ChoiceSelect } from '../components/ui/ChoiceSelect'
-import AgentBindingPicker from '../components/settings/AgentBindingPicker'
 import { DEFAULT_BRAND_COLOR } from '../lib/tenant-branding'
 import { cn } from '../lib/utils'
 import { inboxPath } from '../lib/messages-paths'
@@ -87,11 +86,11 @@ function ColorField({
           className="block h-9 w-9 rounded-lg border border-border transition-transform hover:scale-105"
           style={{ background: value }}
         />
-        <input
+        <Input
           type="color"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          className="absolute inset-0 cursor-pointer opacity-0"
         />
       </label>
       <Input
@@ -149,6 +148,7 @@ function MessengerSettingsContent({
   const { token } = useAuth()
   const previewHostRef = useRef<HTMLDivElement>(null)
   const previewWidgetRef = useRef<HTMLElement | null>(null)
+  const faviconInputRef = useRef<HTMLInputElement>(null)
 
   const [customizationPanel, setCustomizationPanel] = useState<CustomizationPanel>('content')
   const [previewTheme, setPreviewTheme] = useState<PreviewTheme>('dark')
@@ -647,15 +647,6 @@ function MessengerSettingsContent({
                           />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-text-heading">{t('messengerPage.handlingAgent')}</p>
-                          <p className="mt-0.5 text-xs text-text-muted">{t('messengerPage.handlingAgentHint')}</p>
-                          <AgentBindingPicker
-                            channel="widget"
-                            channelAccountId={channelId}
-                            className="mt-2 h-9 w-full max-w-sm rounded-md border border-border bg-bg-elevated px-2 text-sm text-text-secondary focus:outline-none focus:ring-1 focus:ring-border-focus disabled:opacity-40"
-                          />
-                        </div>
-                        <div>
                           <p className="text-sm font-medium text-text-heading">{t('messengerPage.welcomeHeading')}</p>
                           <Input
                             className="mt-2"
@@ -712,11 +703,24 @@ function MessengerSettingsContent({
                             {t('messengerPage.remove')}
                           </Button>
                         ) : (
-                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-bg-hover">
-                            <Upload size={14} />
-                            {t('messengerPage.upload')}
-                            <input type="file" accept="image/*" className="hidden" onChange={handleWidgetFaviconPick} />
-                          </label>
+                          <>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => faviconInputRef.current?.click()}
+                            >
+                              <Upload size={14} />
+                              {t('messengerPage.upload')}
+                            </Button>
+                            <input // design-system-ignore: hidden file input opened by the upload button
+                              ref={faviconInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleWidgetFaviconPick}
+                            />
+                          </>
                         )}
                       </div>
                     </FoldableSection>

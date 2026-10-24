@@ -31,7 +31,8 @@ Rare one-off styles fold into the nearest catalog component.
 | | `SearchField` | Search input with clear |
 | | `Input`, `Textarea`, `Select`, `Switch`, `Checkbox`, `Label` | Forms (never native `<select>` or checkbox) |
 | | `DropdownMenu`, `Dialog`, `SidePanel` | Menus, modals, side sheets and drawers (never a hand-rolled `fixed inset-0`) |
-| Feedback | `Callout` | Inline status / warning / error banner |
+| Feedback | `Tip` | Hover hint. A native `title` gets the same look. A trailing `(Esc)` is the muted shortcut |
+| | `Callout` | Inline status / warning / error banner |
 | | `ConfirmDialog` / `useConfirm()` | Every confirmation (never `window.confirm`) |
 | | `EmptyState` (`tone="card" \| "dashed" \| "plain"`) | Empty lists and pages |
 | | `Spinner`, `LoadingBlock`, `Skeleton` | Loading |

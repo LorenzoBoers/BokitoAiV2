@@ -223,6 +223,54 @@ async def publish_google_sheet(
     }
 
 
+def source_from_blocks(blocks: Any) -> str | None:
+    """A dashboard table written onto a sheet canvas, as sheet JSON.
+
+    Returns None when the blocks hold no table. Invalid cells raise
+    CanvasContentError so the edit error names the sheet rule.
+    """
+    tables = _tables_in(blocks)
+    if not tables:
+        return None
+    payload = []
+    for table in tables:
+        columns = table.get("columns") if isinstance(table.get("columns"), list) else []
+        rows = table.get("rows") if isinstance(table.get("rows"), list) else []
+        if not columns and not rows:
+            continue
+        tab: dict[str, Any] = {"columns": columns, "rows": rows}
+        name = str(table.get("title") or table.get("name") or "").strip()
+        if name:
+            tab["name"] = name
+        payload.append(tab)
+    if not payload:
+        return None
+    body = payload[0] if len(payload) == 1 else payload
+    return normalize_source(json.dumps(body, ensure_ascii=False))
+
+
+def _tables_in(blocks: Any) -> list[dict[str, Any]]:
+    found: list[dict[str, Any]] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            nested = node.get("blocks")
+            if isinstance(nested, list):
+                walk(nested)
+            kind = str(node.get("type") or "")
+            if kind == "table" or (
+                not kind and ("columns" in node or "rows" in node)
+            ):
+                found.append(node)
+            return
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(blocks)
+    return found
+
+
 def detach_sheet_speech(text: str) -> str:
     """Chat stays a sentence. The sheet table and its JSON belong on the canvas."""
     if not text or not text.strip():

@@ -37,8 +37,10 @@ _CHARTS = (*_XY_CHARTS, "pie_chart")
 _NUMBER_BLOCKS = ("stat", *_CHARTS, "table")
 # Writing the canvas is not a reading of a number.
 _NOT_A_SOURCE = frozenset(
-    {"create_canvas", "edit_canvas", "update_folder_canvas", "finish_canvas"}
+    {"create_canvas", "edit_canvas", "update_folder_canvas", "finish_canvas", "restore_canvas"}
 )
+# Figures the operator typed in this message. Not a tool read.
+OPERATOR_SOURCE_ID = "operator-message"
 # Tool calls finished earlier in this agent turn. None means "not a turn".
 _SOURCE_LEDGER: ContextVar[dict[str, dict[str, str]] | None] = ContextVar(
     "canvas_source_ledger", default=None
@@ -255,8 +257,12 @@ def blocks_json_schema() -> dict[str, Any]:
         "not under props. Charts use labels plus series of {name, values} with "
         "the same length as labels. A stat can carry delta ('+12%'), status "
         "(good, watch, bad), target and spark (a few numbers). "
-        "Every stat, chart, pie and table carries source.tool_use_id from a "
-        "tool call already made this turn. The server sets the tool name and time. "
+        "Every stat, chart, pie and table carries source.tool_use_id copied "
+        "exactly from the tool_use_id field on the tool result that produced "
+        "the number. Copy only numbers that appear in that result. "
+        "Numbers the operator wrote in this message use source.tool_use_id "
+        "operator-message. "
+        "Do not invent an id, a tool name, or a figure. The server sets the tool name and time. "
         f"Types: {', '.join(BLOCK_TYPES)}."
     )
     return schema
@@ -275,13 +281,156 @@ def source_ledger() -> dict[str, dict[str, str]] | None:
     return _SOURCE_LEDGER.get()
 
 
-def note_turn_tool(ledger: dict[str, dict[str, str]], tool_id: str, name: str, *, ok: bool) -> None:
-    """Remember a finished call so a later edit_canvas can cite it."""
+def _merge_operator_figures(
+    ledger: dict[str, dict[str, str]], tokens: set[str], text: str = ""
+) -> None:
+    """Union figures (and their words) onto the operator-message ledger entry."""
+    if not tokens:
+        return
+    from app.core.time import utcnow
+
+    existing = ledger.get(OPERATOR_SOURCE_ID)
+    prior = existing if isinstance(existing, dict) else {}
+    if prior.get("figures"):
+        tokens |= {part for part in str(prior["figures"]).split() if part}
+    ledger[OPERATOR_SOURCE_ID] = {
+        "tool": "operator",
+        "as_of": str(prior.get("as_of") or utcnow().isoformat(timespec="seconds")),
+        "figures": " ".join(sorted(tokens)[:400]),
+        "text": " | ".join(part for part in (str(prior.get("text") or ""), text) if part)[:_TEXT_CAP],
+    }
+
+
+def note_operator_message(ledger: dict[str, dict[str, str]], text: str) -> None:
+    """Let a dashboard cite numbers the operator wrote in this message.
+
+    A live figure still has to come from a tool. A figure they dictated is
+    theirs: the tile says so, and a number that is not in their words is refused.
+    """
+    tokens: set[str] = set()
+    for match in _FIGURE_IN_TEXT.finditer(text or ""):
+        token = _canon_figure(match.group(0))
+        if token:
+            tokens.add(token)
+        if len(tokens) >= 400:
+            break
+    _merge_operator_figures(ledger, tokens, _norm_text(text))
+
+
+def note_canvas_figures(ledger: dict[str, dict[str, str]], body: Any) -> None:
+    """Reuse numbers already on the canvas when the operator asks to reshape it.
+
+    "Add a chart" often repeats the same KPIs that are already on the board.
+    Without this, a short follow-up with no digits cannot cite operator-message
+    and the model pastes the edit payload into chat after repeated refusals.
+    """
+    tokens: set[str] = set()
+    _collect_figures(body, tokens)
+    _merge_operator_figures(ledger, tokens, _result_text(body))
+
+
+_NUMBER_BLOCK_KINDS = frozenset(
+    {"stat", "bar_chart", "pie", "pie_chart", "table", "line_chart", "area_chart"}
+)
+
+
+def keep_editable_blocks(
+    blocks: list[Any] | None,
+    ledger: dict[str, dict[str, str]] | None,
+) -> list[dict[str, Any]]:
+    """Drop invented number tiles, or cite operator-message when figures exist.
+
+    Stripping every stat without a cite used to leave a heading-only list;
+    ``render_problems`` then refused the board and ``finish_canvas`` failed
+    with a red activity chip. Prefer attaching ``operator-message`` when the
+    ledger already holds figures from the operator or the current canvas.
+    """
+    op_entry = ledger.get(OPERATOR_SOURCE_ID) if isinstance(ledger, dict) else None
+    op_figures = bool(isinstance(op_entry, dict) and str(op_entry.get("figures") or "").strip())
+    kept: list[dict[str, Any]] = []
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, dict):
+            continue
+        kind = str(block.get("type") or "")
+        if kind in _NUMBER_BLOCK_KINDS:
+            source = block.get("source") if isinstance(block.get("source"), dict) else {}
+            if not str(source.get("tool_use_id") or "").strip():
+                if not op_figures or not isinstance(op_entry, dict):
+                    continue
+                block = {
+                    **block,
+                    "source": {
+                        "tool": str(op_entry.get("tool") or "operator"),
+                        "tool_use_id": OPERATOR_SOURCE_ID,
+                        "as_of": str(op_entry.get("as_of") or ""),
+                    },
+                }
+        kept.append(block)
+    if kept:
+        return kept
+    return [
+        block
+        for block in (blocks if isinstance(blocks, list) else [])
+        if isinstance(block, dict) and str(block.get("type") or "") in ("heading", "text")
+    ]
+
+
+def note_turn_tool(
+    ledger: dict[str, dict[str, str]],
+    tool_id: str,
+    name: str,
+    *,
+    ok: bool,
+    result: Any = None,
+) -> None:
+    """Remember a finished call so a later edit_canvas can cite it.
+
+    ``figures`` is the set of numbers in that result. A later stat may only
+    repeat one of those. ``text`` holds its words, so a status tile must
+    quote that result too. Both are absent when the caller did not pass a
+    result, so older ledgers keep working.
+    """
     if not ok or not tool_id or name in _NOT_A_SOURCE:
         return
     from app.core.time import utcnow
 
-    ledger[str(tool_id)] = {"tool": name, "as_of": utcnow().isoformat(timespec="seconds")}
+    entry: dict[str, str] = {"tool": name, "as_of": utcnow().isoformat(timespec="seconds")}
+    if result is not None:
+        tokens: set[str] = set()
+        _collect_figures(result, tokens)
+        entry["figures"] = " ".join(sorted(tokens)[:400])
+        entry["text"] = _result_text(result)
+    ledger[str(tool_id)] = entry
+
+
+def tool_result_for_model(name: str, result: Any, tool_use_id: str) -> Any:
+    """Put this call's id in the result text the model reads back.
+
+    The id already sits on the tool-result envelope. Models copy fields from
+    the result body, and invent one when the body has none. Canvas writes and
+    failed calls stay as they are: they are not a source.
+    """
+    tool_use_id = str(tool_use_id or "").strip()
+    if (
+        not tool_use_id
+        or name in _NOT_A_SOURCE
+        or not isinstance(result, dict)
+        or result.get("error")
+    ):
+        return result
+    if result.get("tool_use_id") == tool_use_id:
+        return result
+    return {"tool_use_id": tool_use_id, **result}
+
+
+def citeable_calls() -> list[tuple[str, str]]:
+    """Successful reads in this turn, as (tool name, tool_use_id)."""
+    ledger = source_ledger() or {}
+    return [
+        (str(entry.get("tool") or ""), tool_id)
+        for tool_id, entry in ledger.items()
+        if tool_id and isinstance(entry, dict) and entry.get("tool")
+    ]
 
 
 def _complete_source(raw: Any) -> dict[str, str] | None:
@@ -313,8 +462,24 @@ def _attach_source(block: dict[str, Any], path: str, errors: list[str]) -> None:
         errors.append(f"{path}.source: cite tool_use_id from a tool call in this turn")
         block.pop("source", None)
         return
-    if claimed and claimed != entry["tool"]:
-        errors.append(f"{path}.source: tool does not match that call")
+    # The server stamps the tool name. A wrong label on operator-message
+    # (a person name, "dit bericht") must not reject numbers they already wrote.
+    if claimed and claimed != entry["tool"] and tool_use_id != OPERATOR_SOURCE_ID:
+        errors.append(
+            f"{path}.source: tool does not match that call. That id is {entry['tool']}"
+            + (f", not {claimed}." if claimed else ".")
+            + " Do not invent a tool name. If the figures are not in that result, drop the block."
+        )
+        block.pop("source", None)
+        return
+    missing = _figures_missing(block, entry.get("figures"), entry.get("text"))
+    if missing:
+        shown = ", ".join(missing[:4])
+        errors.append(
+            f"{path}: {shown} is not in the {entry['tool']} result. "
+            "Do not invent figures or statuses. Copy only values from that result, "
+            "or drop this block and answer in chat."
+        )
         block.pop("source", None)
         return
     block["source"] = {
@@ -322,6 +487,151 @@ def _attach_source(block: dict[str, Any], path: str, errors: list[str]) -> None:
         "tool_use_id": tool_use_id,
         "as_of": entry["as_of"],
     }
+
+
+_FIGURE_TEXT = re.compile(r"^[+-]?(?:\d{1,3}(?:[.\s]\d{3})+|\d+)(?:[.,]\d+)?%?$")
+# "EUR 120.000", "€120.000,-", "120.000 euro": the amount is the figure.
+_CURRENCY = re.compile(r"(?i)^(?:eur|euro|usd|gbp|[€$£])\.?\s*|\s*(?:eur|euro's|euros?|usd|gbp|[€$£])$")
+_TEXT_CAP = 20000
+# A number inside a sentence, not a whole-string figure.
+_FIGURE_IN_TEXT = re.compile(r"(?<![\w])[+-]?(?:\d{1,3}(?:[.\u00a0\s]\d{3})+|\d+)(?:[.,]\d+)?%?(?![\w])")
+
+
+def _canon_figure(raw: Any) -> str:
+    """One comparable token. ``52.000`` and ``52000`` become the same token."""
+    if isinstance(raw, bool) or raw is None:
+        return ""
+    if isinstance(raw, float):
+        if raw != raw:  # NaN
+            return ""
+        if raw.is_integer():
+            return str(int(raw))
+        return f"{raw:.6f}".rstrip("0").rstrip(".")
+    if isinstance(raw, int):
+        return str(raw)
+    text = _CURRENCY.sub("", str(raw).strip().replace("\u00a0", " ")).strip()
+    text = re.sub(r"[.,]-$", "", text.replace(" ", ""))
+    if not re.search(r"\d", text):
+        return ""
+    if text.endswith("%"):
+        text = text[:-1]
+    if re.fullmatch(r"[+-]?\d{1,3}(?:\.\d{3})+,\d+", text):
+        text = text.replace(".", "")
+    if re.fullmatch(r"[+-]?\d{1,3}(?:\.\d{3})+", text):
+        return text.replace(".", "").lstrip("+")
+    if re.fullmatch(r"[+-]?\d{1,3}(?:,\d{3})+", text):
+        return text.replace(",", "").lstrip("+")
+    text = text.replace(",", ".").lstrip("+")
+    try:
+        num = float(text)
+    except ValueError:
+        return ""
+    if num.is_integer():
+        return str(int(num))
+    return f"{num:.6f}".rstrip("0").rstrip(".")
+
+
+def _collect_figures(value: Any, into: set[str], depth: int = 0) -> None:
+    if depth > 6 or len(into) > 500:
+        return
+    if isinstance(value, bool) or value is None:
+        return
+    if isinstance(value, (int, float)):
+        token = _canon_figure(value)
+        if token:
+            into.add(token)
+        return
+    if isinstance(value, str):
+        if _FIGURE_TEXT.match(_CURRENCY.sub("", value.strip()).strip()):
+            token = _canon_figure(value)
+            if token:
+                into.add(token)
+        return
+    if isinstance(value, dict):
+        for item in value.values():
+            _collect_figures(item, into, depth + 1)
+        return
+    if isinstance(value, list):
+        for item in value[:200]:
+            _collect_figures(item, into, depth + 1)
+
+
+def _block_figures(block: dict[str, Any]) -> list[str]:
+    found: list[str] = []
+
+    def add(raw: Any) -> None:
+        token = _canon_figure(raw)
+        if token:
+            found.append(token)
+
+    if "value" in block:
+        add(block.get("value"))
+    for row in block.get("series") or []:
+        if isinstance(row, dict):
+            for item in row.get("values") or []:
+                add(item)
+    for row in block.get("slices") or []:
+        if isinstance(row, dict):
+            add(row.get("value"))
+    for row in block.get("rows") or []:
+        cells = row if isinstance(row, list) else [row.get("value")] if isinstance(row, dict) else []
+        for cell in cells:
+            add(cell)
+    return found
+
+
+def _figures_missing(
+    block: dict[str, Any], figures: str | None, text: str | None = None
+) -> list[str]:
+    """Values on this block that the cited result does not contain.
+
+    ``None`` means the ledger has no figure list (a caller that did not pass
+    the result). An empty string means the result had no numbers. A stat
+    whose value is words ("Volledig klaar") must appear in the result text.
+    """
+    if figures is None:
+        return []
+    have = set(figures.split())
+    missing: list[str] = []
+    for token in _block_figures(block):
+        if token not in have and token not in missing:
+            missing.append(token)
+    value = block.get("value") if block.get("type") == "stat" else None
+    if isinstance(value, str) and value.strip() and not _canon_figure(value):
+        if re.search(r"\d", value):
+            for match in _FIGURE_IN_TEXT.finditer(value):
+                token = _canon_figure(match.group(0))
+                if token and token not in have and token not in missing:
+                    missing.append(token)
+        elif text is not None and _norm_text(value).strip(" .!?:;'\"“”‘’") not in text:
+            missing.append(value.strip())
+    return missing
+
+
+def _norm_text(raw: Any) -> str:
+    return " ".join(str(raw or "").casefold().split())
+
+
+def _result_text(value: Any) -> str:
+    """The words of a tool result, lowercased, to check a status tile against."""
+    parts: list[str] = []
+
+    def walk(item: Any, depth: int) -> None:
+        if depth > 6 or len(parts) > 2000:
+            return
+        if isinstance(item, bool) or item is None:
+            return
+        if isinstance(item, (str, int, float)):
+            parts.append(str(item))
+        elif isinstance(item, dict):
+            for inner in item.values():
+                walk(inner, depth + 1)
+        elif isinstance(item, list):
+            for inner in item[:200]:
+                walk(inner, depth + 1)
+
+    walk(value, 0)
+    return _norm_text(" | ".join(parts))[:_TEXT_CAP]
 
 
 def _number(value: Any) -> float | None:
@@ -379,6 +689,41 @@ def _points_to_values(points: Any) -> list[Any]:
         else:
             values.append(point)
     return values
+
+
+def _lift_nested_source(block: dict[str, Any]) -> None:
+    """A source object parked inside series or slices belongs on the block.
+
+    Models copy the chart example and then tuck the citation into the series
+    list. A row that only carries source is not a data series.
+    """
+    if isinstance(block.get("source"), dict) and str(
+        block["source"].get("tool_use_id") or ""
+    ).strip():
+        return
+    for key in ("series", "slices", "data"):
+        rows = block.get(key)
+        if not isinstance(rows, list):
+            continue
+        kept: list[Any] = []
+        found: dict[str, Any] | None = None
+        for row in rows:
+            nested = row.get("source") if isinstance(row, dict) else None
+            if (
+                found is None
+                and isinstance(nested, dict)
+                and str(nested.get("tool_use_id") or "").strip()
+            ):
+                found = nested
+                rest = {name: value for name, value in row.items() if name != "source"}
+                if rest and any(field in rest for field in ("values", "value", "name", "points", "label")):
+                    kept.append(rest)
+                continue
+            kept.append(row)
+        if found is not None:
+            block["source"] = found
+            block[key] = kept
+            return
 
 
 def _lift_chart(item: dict[str, Any]) -> dict[str, Any]:
@@ -563,6 +908,7 @@ def _prepare_item(item: Any, path: str, *, parent: str | None = None) -> tuple[d
         block["value"] = "" if value is None else str(value).strip()
         block.update(_stat_context(block, path, errors))
     elif kind in _XY_CHARTS:
+        _lift_nested_source(block)
         block["title"] = str(block.get("title") or "").strip()
         block["stacked"] = bool(block.get("stacked") or block.get("stack"))
         block["wide"] = bool(block.get("wide") or block.get("full_width"))
@@ -589,6 +935,7 @@ def _prepare_item(item: Any, path: str, *, parent: str | None = None) -> tuple[d
             series.append({"name": str(row.get("name") or "").strip() or "Value", "values": values})
         block["series"] = series
     elif kind == "pie_chart":
+        _lift_nested_source(block)
         block["title"] = str(block.get("title") or "").strip()
         block["wide"] = bool(block.get("wide") or block.get("full_width"))
         block = _lift_pie(block)
@@ -727,7 +1074,64 @@ def render_problems(blocks: list[dict[str, Any]] | list[Any]) -> list[str]:
                 walk(block.get("blocks") or [], f"{here}.blocks")
 
     walk(list(blocks or []), "blocks")
+    if blocks and not _has_number_block(list(blocks)):
+        problems.append(NO_FIGURES_PROBLEM)
     return problems
+
+
+NO_FIGURES_PROBLEM = (
+    "A dashboard needs at least one stat, chart or table. A heading alone is not a dashboard."
+)
+
+
+def text_only_markdown(blocks: list[Any] | None) -> str:
+    """Markdown for blocks that hold only text; "" when any block is not plain text.
+
+    A dashboard request that carries no figures is a document. This keeps the
+    words and refuses to guess at anything that is not heading, text, callout,
+    list or divider.
+    """
+    lines: list[str] = []
+
+    def walk(items: list[Any]) -> bool:
+        for block in items:
+            if not isinstance(block, dict):
+                return False
+            kind = block.get("type")
+            text = str(block.get("text") or "").strip()
+            if kind == "heading":
+                level = min(3, max(1, int(block.get("level") or 2)))
+                lines.append("#" * level + " " + text if text else "")
+            elif kind in ("text", "callout"):
+                lines.append(text)
+            elif kind == "list":
+                lines.append("\n".join(f"- {item}" for item in block.get("items") or []))
+            elif kind == "divider":
+                lines.append("---")
+            elif kind in _CONTAINERS:
+                title = str(block.get("title") or "").strip()
+                if title:
+                    lines.append(f"### {title}")
+                if not walk(block.get("blocks") or []):
+                    return False
+            else:
+                return False
+        return True
+
+    if not blocks or not walk(list(blocks)):
+        return ""
+    return "\n\n".join(line for line in lines if line.strip()).strip()
+
+
+def _has_number_block(items: list[Any]) -> bool:
+    for block in items or []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") in _NUMBER_BLOCKS:
+            return True
+        if block.get("type") in _CONTAINERS and _has_number_block(block.get("blocks") or []):
+            return True
+    return False
 
 
 _MAX_PIE_SLICES = 6

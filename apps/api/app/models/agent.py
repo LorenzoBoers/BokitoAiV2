@@ -26,9 +26,6 @@ class Agent(SQLModel, table=True):
     default_signal_types_json: str = Field(default="[]")
     # Who may open a direct chat with this company agent.
     chat_access: str = Field(default="nobody")  # everyone | selected | nobody
-    # Exactly one active company agent per tenant carries the lead flag; it is
-    # the default fallback whenever nothing more specific is bound to an item.
-    is_lead: bool = Field(default=False, index=True)
     model: str = "bokito-ai-3-1"
     provider: str = Field(default="platform")
     # Short required title (library, identity). Max 20 chars; distinct from role enum.

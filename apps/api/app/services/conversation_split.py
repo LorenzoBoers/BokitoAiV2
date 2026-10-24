@@ -377,7 +377,7 @@ async def split_or_propose(
             {
                 "id": "split",
                 "label": "Split",
-                "action_type": "split_conversation",
+                "action_type": "move_to_conversation",
                 "payload": payload,
             },
             {"id": "keep", "label": "Keep here", "action_type": "reject"},

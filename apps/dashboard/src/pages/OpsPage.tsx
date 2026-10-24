@@ -18,15 +18,21 @@ import {
   deleteStaffOpsTenant,
   getStaffOpsDirectory,
   getStaffTimeSavedWeights,
+  getStaffVoiceModel,
   impersonateStaffOpsUser,
   putStaffTimeSavedWeights,
+  putStaffVoiceModel,
   setStaffTenantCustomModels,
   type StaffOpsDirectory,
   type StaffOpsTenant,
   type StaffOpsUser,
   type StaffTimeSavedWeight,
+  type StaffVoiceModel,
 } from '../lib/ops-api'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { EmptyState } from '../components/ui/empty-state'
+import { SegmentedControl } from '../components/ui/segmented-control'
+import { OpsUsagePanel } from '../components/ops/OpsUsagePanel'
 
 function envLabel(environment: string, apiUrl: string): string {
   const env = environment.trim().toLowerCase()
@@ -64,6 +70,11 @@ export default function OpsPage() {
   const [weightDraft, setWeightDraft] = useState<Record<string, number>>({})
   const [weightsLoading, setWeightsLoading] = useState(false)
   const [weightsSaving, setWeightsSaving] = useState(false)
+  const [voiceModel, setVoiceModel] = useState<StaffVoiceModel | null>(null)
+  const [voiceTierDraft, setVoiceTierDraft] = useState('current')
+  const [voiceLoading, setVoiceLoading] = useState(false)
+  const [voiceSaving, setVoiceSaving] = useState(false)
+  const [opsTab, setOpsTab] = useState<'directory' | 'usage'>('directory')
 
   const load = useCallback(async (q: string) => {
     if (!token) return
@@ -111,6 +122,30 @@ export default function OpsPage() {
     }
   }, [isStaff, token, t])
 
+  useEffect(() => {
+    if (!isStaff || !token) return
+    let cancelled = false
+    setVoiceLoading(true)
+    void getStaffVoiceModel(token)
+      .then((payload) => {
+        if (cancelled) return
+        setVoiceModel(payload)
+        setVoiceTierDraft(payload.tier || 'current')
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setVoiceModel(null)
+          toast.error(err instanceof Error ? err.message : t('ops.voiceModel.loadError'))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setVoiceLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isStaff, token, t])
+
   const onSaveWeights = useCallback(async () => {
     if (!token || weightsSaving) return
     setWeightsSaving(true)
@@ -128,7 +163,26 @@ export default function OpsPage() {
     }
   }, [token, weightDraft, weightsSaving, t])
 
+  const onSaveVoiceModel = useCallback(async () => {
+    if (!token || voiceSaving) return
+    setVoiceSaving(true)
+    try {
+      const payload = await putStaffVoiceModel(token, voiceTierDraft)
+      setVoiceModel(payload)
+      setVoiceTierDraft(payload.tier || 'current')
+      toast.success(t('ops.voiceModel.savedToast'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('ops.voiceModel.saveError'))
+    } finally {
+      setVoiceSaving(false)
+    }
+  }, [token, voiceTierDraft, voiceSaving, t])
+
   const activeTenantId = user?.organisationId ?? ''
+  const selectedVoiceChoice =
+    voiceModel?.choices.find((row) => row.id === voiceTierDraft) ??
+    voiceModel?.choices.find((row) => row.id === voiceModel.tier) ??
+    null
 
   const onSearch = useCallback(
     (event: FormEvent) => {
@@ -273,6 +327,20 @@ export default function OpsPage() {
         }
       />
 
+      <SegmentedControl
+        value={opsTab}
+        onChange={setOpsTab}
+        aria-label={t('ops.title')}
+        options={[
+          { value: 'directory', label: t('ops.tabs.directory') },
+          { value: 'usage', label: t('ops.tabs.usage') },
+        ]}
+      />
+
+      {opsTab === 'usage' && token ? <OpsUsagePanel token={token} /> : null}
+
+      {opsTab === 'directory' ? (
+        <>
       <form onSubmit={onSearch} className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
@@ -319,6 +387,70 @@ export default function OpsPage() {
               }
             />
           </StatGrid>
+
+          <section className="space-y-2">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-text-heading">{t('ops.voiceModel.title')}</h2>
+                <p className="mt-0.5 max-w-2xl text-xs text-text-muted">{t('ops.voiceModel.hint')}</p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={
+                  voiceLoading ||
+                  voiceSaving ||
+                  !voiceModel ||
+                  voiceTierDraft === voiceModel.tier
+                }
+                onClick={() => void onSaveVoiceModel()}
+              >
+                {voiceSaving ? t('ops.voiceModel.saving') : t('ops.voiceModel.save')}
+              </Button>
+            </div>
+            <div className="rounded-lg border border-border px-3 py-3">
+              {voiceLoading && !voiceModel ? (
+                <DirectoryRowsSkeleton rows={2} />
+              ) : (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-[220px] space-y-1.5">
+                    <p className="text-xs font-medium text-text-secondary">{t('ops.voiceModel.tier')}</p>
+                    <Select
+                      value={voiceTierDraft}
+                      onValueChange={setVoiceTierDraft}
+                      disabled={voiceLoading || voiceSaving || !voiceModel}
+                    >
+                      <SelectTrigger className="h-9 w-full max-w-xs text-sm" aria-label={t('ops.voiceModel.tier')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(voiceModel?.choices ?? []).map((row) => (
+                          <SelectItem key={row.id} value={row.id}>
+                            {t(`ops.voiceModel.tiers.${row.id}`, { defaultValue: row.label })}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1 text-xs text-text-muted">
+                    <p>
+                      {t('ops.voiceModel.ttsLabel')}:{' '}
+                      <span className="font-mono text-text-heading">
+                        {selectedVoiceChoice?.tts_model || voiceModel?.tts_model || '—'}
+                      </span>
+                    </p>
+                    <p>
+                      {t('ops.voiceModel.realtimeLabel')}:{' '}
+                      <span className="font-mono text-text-heading">
+                        {selectedVoiceChoice?.realtime_model || voiceModel?.realtime_model || '—'}
+                      </span>
+                    </p>
+                    <p className="pt-1">{t('ops.voiceModel.perAgentHint')}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
 
           <section className="space-y-2">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -602,6 +734,8 @@ export default function OpsPage() {
               </table>
             </div>
           </section>
+        </>
+      ) : null}
         </>
       ) : null}
     </PageContent>

@@ -119,10 +119,6 @@ async def init_db() -> None:
         await deactivate_personal_agents(session)
         await ensure_front_desks(session)
         await ensure_lead_agents(session)
-        from app.services.teams import seat_company_agents_without_department
-
-        if await seat_company_agents_without_department(session):
-            await session.commit()
         # Platform-owned Bokito helper per tenant; also refreshes its prompt
         # and passport so a shipped improvement reaches every workspace.
         await ensure_personal_assistants(session)

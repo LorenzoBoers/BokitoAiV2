@@ -126,6 +126,9 @@ class Invite(SQLModel, table=True):
     tenant_id: uuid.UUID = Field(foreign_key="tenants.id", index=True)
     email: str = Field(index=True)
     role: str = Field(default="member")
+    # workspace | departments. Copied onto the membership when the invite is accepted.
+    # Owners and admins always land on workspace.
+    scope: str = Field(default="workspace", max_length=16)
     token: str = Field(index=True, unique=True)
     invited_by_user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id")
     expires_at: datetime

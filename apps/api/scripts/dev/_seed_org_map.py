@@ -21,7 +21,7 @@ from app.models.auth import Tenant, User
 from app.models.calendar import CalendarTagLink, TenantCalendar
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection
-from app.models.module_agent import AgentScope
+from app.models.agent_scope import AgentScope
 from app.models.module_source import ModuleSource
 from app.models.orchestra import Workstream
 from app.models.project import Project, ProjectTagLink
@@ -32,7 +32,7 @@ from app.models.workspace import WorkspaceDoc
 from app.services.calendar_access import set_calendar_access
 from app.services.channel_access import set_account_access
 from app.services.connection_access import set_connection_access
-from app.services.teams import ensure_all_department
+from app.services.teams import ensure_org_root
 from app.services.tickets import DEFAULT_TICKET_STAGES
 
 
@@ -171,7 +171,7 @@ async def main() -> None:
         if tenant is None:
             raise SystemExit("bokito tenant missing")
         tid = tenant.id
-        root = await ensure_all_department(session, tid)
+        root = await ensure_org_root(session, tid)
         print("All root", root.id)
 
         def one(model, *where):
@@ -211,7 +211,7 @@ async def main() -> None:
             name="Development",
             description="Builds the product. Owns bugs and features.",
             parent_id=root_id,
-            pickup="agent_first",
+            pickup="people",
         )
         hr = await _ensure_department(
             session,
@@ -403,7 +403,7 @@ async def main() -> None:
             )
             print("removed label rules on deleted folders", len(deleted_folders))
 
-        def route(account: ChannelAccount, department_id, agent_id=None):
+        def route(account: ChannelAccount, department_id):
             try:
                 settings = json.loads(account.settings_json or "{}")
             except json.JSONDecodeError:
@@ -416,14 +416,12 @@ async def main() -> None:
             settings["routing"] = routing
             account.settings_json = json.dumps(settings)
             account.routing_department_id = department_id
-            if agent_id:
-                account.default_agent_id = agent_id
             session.add(account)
 
         widget = channels.get("Website chat")
         support_mail = channels.get("Support")
         if widget:
-            route(widget, support_id, assistant.id if assistant else None)
+            route(widget, support_id)
             await set_account_access(
                 session,
                 widget,
@@ -431,7 +429,7 @@ async def main() -> None:
             )
             print("routed Website chat")
         if support_mail:
-            route(support_mail, support_id, assistant.id if assistant else None)
+            route(support_mail, support_id)
             await set_account_access(
                 session,
                 support_mail,

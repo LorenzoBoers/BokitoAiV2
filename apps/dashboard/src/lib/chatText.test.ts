@@ -183,6 +183,28 @@ describe('parseChatText', () => {
     expect(first.rest).toEqual([{ type: 'text', text: 'New work' }])
   })
 
+  it('keeps a growing list item inside the list while streaming', () => {
+    const blocks = parseChatText('- eerste\n- twee', { streaming: true })
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]).toMatchObject({ type: 'list', ordered: false })
+    if (blocks[0].type !== 'list') return
+    expect(blocks[0].items).toHaveLength(2)
+    const bare = parseChatText('- eerste\n-', { streaming: true })
+    expect(bare).toHaveLength(1)
+    expect(bare[0]).toMatchObject({ type: 'list' })
+    if (bare[0].type !== 'list') return
+    expect(bare[0].items).toHaveLength(2)
+  })
+
+  it('lets an unfinished heading grow as a plain line', () => {
+    const live = parseChatText('para\n# Nog bezig', { streaming: true })
+    const last = live[live.length - 1]
+    expect(last).toMatchObject({ type: 'line' })
+    expect(last).not.toMatchObject({ bold: true })
+    const done = parseChatText('para\n# Nog bezig\n', { streaming: true })
+    expect(done.some((block) => block.type === 'line' && block.bold)).toBe(true)
+  })
+
   it('keeps an unclosed fence as a code window only while streaming', () => {
     const text = '```javascript\ncreate_canvas(\n)\nIk voeg dit nu toe.'
     const live = parseChatText(text, { streaming: true })

@@ -67,15 +67,15 @@ A stage can list what has to be there before the work moves on, and say who it w
 The steps and the arrows between them live in one editor. An arrow says when it applies and what it carries.
 
 1. Open the flow and choose **Edit** at the top right, next to **Open in Grid**.
-2. The diagram always fits the whole flow in the window, also after you add or move a step. Each stage shows its progress icon and ticket count, as on the board.
+2. The diagram fits the whole flow in the window; you cannot zoom out past that. Scroll to zoom in, drag the background to pan. Each stage shows its progress icon and ticket count, as on the board.
 3. Click a step to set who, mode, max, tools, expects, gives, on failure and on silence in the panel on the right. Click an arrow to set when it applies and what it carries, or point it at another step. Right-click a step, an arrow or the background for a menu with **New step after this**, **Arrow to**, who and mode, **Reverse direction**, **New step here** and **Remove**.
-4. Drag from the dot on the right of a step to another step for a new arrow. Release on an empty spot and a new step appears there with that arrow. **Step** and **Add arrow to** in the panel do the same without dragging. Drag an extra step to another column, above or below a step; **Place automatically** puts it back. **Notation** shows the same flow as text and checks it as you type.
+4. Drag from the dot on the right of a step to another step for a new arrow. Release on an empty spot and a new step appears there with that arrow. Hover an arrow and a plus appears. Hover the plus and you see a step above the next one, with a branch to it. Click to place it, or drag the plus onto another step, including one further along; the line goes around the steps. **Step** and **Add arrow to** in the panel do the same without dragging. Drag an extra step to another column, above or below a step; **Place automatically** puts it back. **Notation** shows the same flow as text and checks it as you type.
 5. **Save** stores the notation on the flow. The board keeps its columns until those transitions are applied there.
 
 A flow is also the approach for one kind of work: the label says what it is, the flow says how the agent works and what done produces.
 
 1. Open the flow and choose the gear at the top right. In **Done means**, write what done produces in one sentence, for example **The posts of the month are scheduled**.
-2. In **Working method**, write in a few sentences how the agent handles this work. It saves when you leave the field. Agents on this flow's conversations get the working method, the tools and connections it uses (**Uses**), and what done means.
+2. In **Working method**, write in a few sentences how the agent handles this work. It saves when you leave the field. Agents on this flow's conversations get the working method, the tools and connections it uses (**Uses**), and what done means. With organization rules on, a flow that names module tools or connections under **Uses** limits its conversations to those; a kind it names nothing of stays open.
 3. A flow with no waiting stage has no board in folders. The stages themselves decide whether there is a waiting step.
 4. An agent can propose the same changes in a conversation with `update_flow`; the proposal follows [Govern](/docs/govern/govern).
 
@@ -85,19 +85,19 @@ Each flow has its own dial under the workspace ceiling. The department lives on 
 
 1. Open the flow and choose the gear at the top right. **Autonomy** shows **Workspace default**, **Manual**, **Assisted** or **Autonomous**. Owners and admins pick one.
 2. Stricter than the workspace applies at once. Looser waits for approval in [Govern](/docs/govern/autonomy); the window says **Looser than now goes through Govern**. On **Assisted**, every reply on a ticket of this flow becomes a draft a person sends, even when the conversation is on Autonomous. Hover the mode in the conversation header to see that the flow set it.
-3. Under **Department**, pick the department of the label. Its lead agent includes the flow's tickets in the morning briefing, and the [department page](/docs/getting-started/team) shows the flow with its scorecard.
-4. When a flow's scorecard shows enough clean outcomes, the department lead proposes a looser dial in the department conversation (see the next section).
+3. Under **Department**, pick the department of the label. Its point of contact includes the flow's tickets in the morning briefing, and the [department page](/docs/getting-started/team) shows the flow with its scorecard.
+4. When a flow's scorecard shows enough clean outcomes, the department's point of contact proposes a looser dial in the department conversation (see the next section).
 
-## Let the department lead improve a flow
+## Let the point of contact improve a flow
 
-Once a day the lead agent of a department reads the scorecards of its flows and proposes improvements in the department conversation.
+Once a day the point of contact of a department reads the scorecards of its flows and proposes improvements in the department conversation.
 
 1. Open the department in the left menu. Under **Improvement proposals**, each open proposal shows what it changes: **Autonomy**, **Instructions**, **Capabilities** or **New flow**. Choose **Open** to go to the department conversation.
-2. **Autonomy:** after enough tickets without a correction or a rejected decision the lead proposes **Autonomous**; when many tickets need a correction it proposes a step back to **Assisted**. The number of clean tickets is a workspace setting (20 by default).
-3. **Instructions:** when the team corrects three or more drafts on the flow's label, the lead proposes to add how the team wrote those replies to the **Working method**.
-4. **Capabilities:** when the team rejects the same tool three or more times on the flow's tickets, the lead proposes to take it out of **Uses**, or to add a line that the agent asks first.
-5. **New flow:** when the same kind of work keeps arriving without a label that fits, the lead of the department that saw it proposes a flow with a new label for that department.
-6. Approve or reject the card in the conversation. Nothing changes before someone approves. The same proposal does not come back for 30 days, and how often a lead's proposals are approved counts on that agent's scorecard.
+2. **Autonomy:** after enough tickets without a correction or a rejected decision the point of contact proposes **Autonomous**; when many tickets need a correction it proposes a step back to **Assisted**. The number of clean tickets is a workspace setting (20 by default).
+3. **Instructions:** when the team corrects three or more drafts on the flow's label, the point of contact proposes to add how the team wrote those replies to the **Working method**.
+4. **Capabilities:** when the team rejects the same tool three or more times on the flow's tickets, the point of contact proposes to take it out of **Uses**, or to add a line that the agent asks first.
+5. **New flow:** when the same kind of work keeps arriving without a label that fits, the point of contact of the department that saw it proposes a flow with a new label for that department.
+6. Approve or reject the card in the conversation. Nothing changes before someone approves. The same proposal does not come back for 30 days, and how often a point of contact's proposals are approved counts on that agent's scorecard.
 
 ## Open a ticket every period
 

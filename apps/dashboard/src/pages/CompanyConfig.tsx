@@ -16,6 +16,7 @@ import { brandPalette, BRAND_DEFAULT_BG } from '@bokito/shared'
 import { DEFAULT_BRAND_COLOR, normalizeBrandHex, resolveBrandSeed } from '../lib/tenant-branding'
 import { inboxPath } from '../lib/messages-paths'
 import { TextLink } from '../components/ui/text-link'
+import { Input } from '../components/ui/input'
 
 const SUPPORTED_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] as const
 const SUBDOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
@@ -119,21 +120,19 @@ function ColorField({
           className="block w-9 h-9 rounded-lg border border-border transition-transform hover:scale-105"
           style={{ background: hex ?? 'transparent' }}
         />
-        <input
+        <Input
           type="color"
           value={(hex ?? DEFAULT_BRAND_COLOR).toLowerCase()}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+          className="absolute inset-0 cursor-pointer opacity-0"
         />
       </label>
-      <input
+      <Input
         type="text"
         value={value.toUpperCase()}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={invalid}
-        className={`w-28 bg-bg-input border rounded-lg px-3 py-2 text-sm text-text-primary font-mono focus:outline-none transition-colors ${
-          invalid ? 'border-status-error focus:border-status-error' : 'border-border focus:border-accent/55'
-        }`}
+        className="w-28 font-mono"
       />
     </div>
   )
@@ -469,8 +468,8 @@ export default function CompanyConfig() {
               </SettingRow>
 
               <SettingRow label={t('brandingPage.subdomain')} description={t('brandingPage.subdomainHint')}>
-                <div className="flex items-center">
-                  <input
+                <div className="flex items-center gap-2">
+                  <Input
                     type="text"
                     value={subdomain}
                     onChange={(e) => {
@@ -485,9 +484,10 @@ export default function CompanyConfig() {
                         void handleSave()
                       }
                     }}
-                    className="flex-1 bg-bg-input border border-border rounded-l-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent/55 transition-colors"
+                    aria-label={t('brandingPage.subdomain')}
+                    className="min-w-0 flex-1"
                   />
-                  <span className="px-3 py-2 bg-bg-hover border border-l-0 border-border rounded-r-lg text-xs text-text-muted whitespace-nowrap">.bokito.ai</span>
+                  <span className="whitespace-nowrap text-xs text-text-muted">.bokito.ai</span>
                 </div>
                 {subdomainError ? (
                   <p className="mt-2 text-xs text-status-error">{subdomainError}</p>

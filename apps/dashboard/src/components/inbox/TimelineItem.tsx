@@ -118,7 +118,7 @@ import { MailMessageCard, type EnvelopeRow, type MailCardTone } from './MailMess
 import { threadPatchHasMeaning } from '../../lib/thread-events'
 import { WorkbenchJobCard } from './WorkbenchJobCard'
 import { stageLabel, type TicketStageKind } from '../../lib/tickets-api'
-import { SplitConversationAction } from './SplitConversationAction'
+import { MoveConversationAction } from './MoveConversationAction'
 import { ProposalItemList } from './ProposalItemPreview'
 import { ActionBundleCard } from './ActionBundleCard'
 import { ProposalActions } from './ProposalActions'
@@ -744,9 +744,25 @@ a { color: #2563eb; }
     onDisplayHeightRef.current?.(displayHeight)
   }, [html, displayHeight])
 
-  // Height and quoted history are separate: short replies with a trail must
-  // not look like a truncated long message.
+  // One control. A clipped letter and a hidden quote trail are the same
+  // "show the rest" action. A short reply keeps the history label, because
+  // the new text itself is already fully visible.
   const showQuoteToggle = hasQuotes
+  const revealRest = () => {
+    if (hasQuotes && quotesCollapsed) applyQuoteCollapse(false)
+    setExpandedFull(true)
+  }
+  const collapseRest = () => {
+    if (hasQuotes && !quotesCollapsed) applyQuoteCollapse(true)
+    setExpandedFull(false)
+  }
+  const moreHidden = heightCapped || (showQuoteToggle && quotesCollapsed && !expandedFull)
+  const lessVisible =
+    !heightCapped && (canCollapseHeight || (showQuoteToggle && !quotesCollapsed))
+  const lessLabel =
+    showQuoteToggle && !quotesCollapsed && !canCollapseHeight
+      ? t('timeline.hideQuoted')
+      : t('timeline.showLessMessage')
 
   return (
     <div className="space-y-1.5">
@@ -775,31 +791,21 @@ a { color: #2563eb; }
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex h-14 items-end bg-gradient-to-t from-bg-surface via-bg-surface/95 to-transparent pb-1.5">
             <TextLink tone="muted"
               className="text-xs pointer-events-auto"
-              onClick={() => setExpandedFull(true)}
+              onClick={revealRest}
             >
               {t('timeline.showFullMessage')}
             </TextLink>
           </div>
         ) : null}
       </div>
-      {canCollapseHeight || showQuoteToggle ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-1">
-          {canCollapseHeight ? (
-            <TextLink tone="muted"
-              className="text-xs"
-              onClick={() => setExpandedFull(false)}
-            >
-              {t('timeline.showLessMessage')}
-            </TextLink>
-          ) : null}
-          {showQuoteToggle ? (
-            <TextLink tone="muted"
-              className="text-xs"
-              onClick={() => applyQuoteCollapse(!quotesCollapsed)}
-            >
-              {quotesCollapsed ? t('timeline.showQuoted') : t('timeline.hideQuoted')}
-            </TextLink>
-          ) : null}
+      {!heightCapped && (moreHidden || lessVisible) ? (
+        <div className="pb-1">
+          <TextLink tone="muted"
+            className="text-xs"
+            onClick={lessVisible ? collapseRest : revealRest}
+          >
+            {lessVisible ? lessLabel : t('timeline.showQuoted')}
+          </TextLink>
         </div>
       ) : null}
     </div>
@@ -1033,6 +1039,12 @@ export function eventClusterKey(event: InboxEvent): string {
 
 type EventActorVoice = 'you' | 'them' | null
 
+/** Catch-all map with no label rules. Never a delivery destination in copy. */
+function isGeneralFolderName(name: string): boolean {
+  const n = name.trim().toLowerCase()
+  return n === 'algemeen' || n === 'general'
+}
+
 const EVENT_LABELS: Record<string, EventLabelFn> = {
   thread_created: (t) => t('timeline.events.threadCreated'),
   signal_created: (t, p) => {
@@ -1070,7 +1082,7 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
   delivered: (t, p) => {
     const folder = typeof p.folder_name === 'string' ? p.folder_name : ''
     if (p.target_kind === 'knowledge') return t('timeline.events.deliveredKnowledge')
-    if (p.target_kind === 'works_in' && folder) {
+    if (p.target_kind === 'works_in') {
       const kind =
         typeof p.canvas_kind === 'string' && p.canvas_kind && p.canvas_kind !== 'dashboard'
           ? t(`nav:projects.canvas.kinds.${p.canvas_kind}`, { defaultValue: '' })
@@ -1079,9 +1091,21 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
         (typeof p.item_label === 'string' && p.item_label) ||
         t(`nav:projects.worksIn.kind.${String(p.item_kind ?? '')}`, { defaultValue: '' })
       const item = named && kind ? `${named} · ${kind}` : named
-      return item
-        ? t('timeline.events.deliveredItem', { folder, item })
-        : t('timeline.events.deliveredFolder', { folder })
+      const worksKey = typeof p.works_in_key === 'string' ? p.works_in_key : ''
+      const onThread =
+        p.item_kind === 'canvas' ||
+        worksKey.startsWith('canvas:') ||
+        isGeneralFolderName(folder)
+      // Canvas and catch-all General sit on the conversation; labels put the
+      // thread in a map. Do not say the agent delivered into Algemeen.
+      if (onThread) {
+        return item
+          ? t('timeline.events.deliveredOnThread', { item })
+          : t('timeline.events.deliveredOnThreadGeneric')
+      }
+      if (folder && item) return t('timeline.events.deliveredItem', { folder, item })
+      if (folder) return t('timeline.events.deliveredFolder', { folder })
+      return item ? t('timeline.events.deliveredOnThread', { item }) : ''
     }
     return folder ? t('timeline.events.deliveredFolder', { folder }) : ''
   },
@@ -1192,6 +1216,11 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     }),
   no_reply_noted: (t) => t('timeline.events.noReplyNoted' /* design-system-ignore: waarde, label of keuze, geen lege lijst */),
   agent_invoked: (t) => t('timeline.events.agentInvoked'),
+  taken_over: (t, p) =>
+    t('timeline.events.takenOver', {
+      name: typeof p.agent_name === 'string' ? p.agent_name : '',
+      department: typeof p.from_department === 'string' ? p.from_department : '',
+    }),
   agent_replied: (t) => t('timeline.events.agentReplied'),
   suggestion_created: (t) => t('timeline.events.suggestionCreated'),
   decision_created: (t) => t('timeline.events.decisionCreated'),
@@ -1238,6 +1267,19 @@ const EVENT_LABELS: Record<string, EventLabelFn> = {
     return category
       ? t('timeline.events.splitOutCategory', { category })
       : t('timeline.events.splitOut')
+  },
+  moved: (t, p) => {
+    const title = typeof p.other_subject === 'string' && p.other_subject ? p.other_subject : t('chatStack.untitled')
+    const count = typeof p.moved === 'number' ? p.moved : 1
+    return p.direction === 'in'
+      ? t('timeline.events.movedIn', { count, title })
+      : t('timeline.events.movedOut', { count, title })
+  },
+  merged: (t, p) => {
+    const title = typeof p.other_subject === 'string' && p.other_subject ? p.other_subject : t('chatStack.untitled')
+    return p.direction === 'in'
+      ? t('timeline.events.mergedIn', { title })
+      : t('timeline.events.mergedOut', { title })
   },
   ticket_stage_changed: (t, p) => {
     const kind = p.to_kind as TicketStageKind | undefined
@@ -1355,6 +1397,7 @@ const AI_EVENT_TYPES = new Set([
   'agent_blocked',
   'no_reply_noted',
   'agent_invoked',
+  'taken_over',
   'agent_replied',
   'suggestion_created',
   'decision_created',
@@ -1885,7 +1928,10 @@ function EventPill({
       </Link>
     )
   }
-  const linkedId = event.eventType === 'split' ? event.payload?.other_signal_id : null
+  const linkedId =
+    event.eventType === 'split' || event.eventType === 'moved' || event.eventType === 'merged'
+      ? event.payload?.other_signal_id
+      : null
   if (typeof linkedId === 'string' && linkedId) {
     return (
       <Link to={inboxPath('all', linkedId)} className="rounded-md hover:text-text-primary">
@@ -2495,6 +2541,7 @@ export function MessageTimelineItem({
   // notes always show who wrote them (avatar + name) because authorship is
   // the main signal on a team-only message. Agent notes get the AI chip so
   // they read as AI team notes, not human amber notes.
+  const isIntercom = message.payload?.source === 'intercom'
   const isAgentNote = isInternal && (isSystemNote || authorKind === 'agent')
   const header = (() => {
     if (isAgentNote) {
@@ -2533,7 +2580,7 @@ export function MessageTimelineItem({
         <BubbleHeader
           name={displayAgentName}
           chip={<RoleChip kind="ai" />}
-          subtitle={agentSubtitle}
+          subtitle={isIntercom ? t('timeline.intercom') : agentSubtitle}
         />
       )
     }
@@ -2551,6 +2598,7 @@ export function MessageTimelineItem({
       )
     }
     // Own outbound email renders as a mail card; the envelope band carries the header.
+    if (isIntercom) return <BubbleHeader subtitle={t('timeline.intercom')} />
     return null
   })()
 
@@ -2929,9 +2977,9 @@ export function MessageTimelineItem({
         <XIcon size={14} />
       </BubbleAction>
     ) : null
-  const splitAction =
-    isInbound && authorKind === 'external' && threadId && typeof message.id === 'string' && isCustomerChannel(channel) ? (
-      <SplitConversationAction threadId={String(threadId)} messageId={message.id} />
+  const moveAction =
+    threadId && typeof message.id === 'string' && (!isCustomerChannel(channel) || (isInbound && authorKind === 'external')) ? (
+      <MoveConversationAction threadId={String(threadId)} messageId={message.id} customer={isCustomerChannel(channel)} />
     ) : null
   // Mail-client actions (top-right on the envelope): Reply / Reply all /
   // Forward on inbound external mail; Forward only on mail we or a colleague sent.
@@ -2968,12 +3016,12 @@ export function MessageTimelineItem({
       </>
     ) : null
   const actions =
-    copyAction || cancelSendAction || noteEditControls || splitAction ? (
+    copyAction || cancelSendAction || noteEditControls || moveAction ? (
       <>
         {cancelSendAction}
         {noteEditControls}
         {copyAction}
-        {splitAction}
+        {moveAction}
       </>
     ) : null
 
@@ -3087,6 +3135,9 @@ export function MessageTimelineItem({
       <ProposalItemList items={canvasItems} />
     </div>
   ) : null
+  // A finished canvas is the reply. An empty bubble under the activity trail
+  // is the leftover "Done." placeholder.
+  const spokenBubble = displayBody.trim() || canvasItems.length === 0 ? bubble : null
   const proposalActions =
     proposal && threadId ? (
       <div
@@ -3151,7 +3202,7 @@ export function MessageTimelineItem({
     if (!workbenchCard && !proposalActions) {
       return (
         <>
-          {bubble}
+          {spokenBubble}
           {canvasAside}
           {mailReadOverlay}
         </>
@@ -3159,7 +3210,7 @@ export function MessageTimelineItem({
     }
     return (
       <div className={cn('flex flex-col gap-1.5', isOwn && !workTranscript ? 'items-end' : 'items-start')}>
-        <div className="w-full">{bubble}</div>
+        {spokenBubble ? <div className="w-full">{spokenBubble}</div> : null}
         {canvasAside}
         {proposalActions}
         {workbenchCard}
@@ -3179,7 +3230,7 @@ export function MessageTimelineItem({
           className={traceIndent}
         />
       ) : null}
-      <div className="w-full">{bubble}</div>
+      {spokenBubble ? <div className="w-full">{spokenBubble}</div> : null}
       {canvasAside}
       {mailReadOverlay}
       {proposalActions}

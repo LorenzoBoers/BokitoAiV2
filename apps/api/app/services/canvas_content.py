@@ -22,6 +22,7 @@ from app.models.project_canvas import (
     KIND_DIAGRAM,
     KIND_DOCUMENT,
     KIND_DRAWING,
+    KIND_DESIGN,
     KIND_EMAIL,
     KIND_IMAGE,
     KIND_SHEET,
@@ -56,33 +57,201 @@ def normalize_kind(value: str | None) -> str:
     kind = (value or "dashboard").strip().lower()
     if kind not in CANVAS_KINDS:
         raise CanvasContentError(
-            "kind must be dashboard, document, diagram, drawing, image, code, email, or sheet"
+            "kind must be dashboard, document, diagram, drawing, image, code, email, sheet, or design"
         )
     return kind
 
 
 def edit_body_hint(kind: str | None) -> str:
     """What edit_canvas expects after create, by kind."""
+    return str(edit_body_contract(kind)["hint_short"])
+
+
+def edit_body_contract(kind: str | None) -> dict[str, Any]:
+    """Machine-readable body for the next edit_canvas call.
+
+    ``field`` is the tool argument to fill. ``example`` is a tiny valid body.
+    ``hint`` is the full retry line for agents and MCP.
+    """
     name = (kind or "dashboard").strip().lower() or "dashboard"
     if name == "dashboard":
-        return (
-            "blocks (stat, bar_chart, line_chart, pie_chart, table, heading, text, …)"
-        )
-    if name == KIND_DIAGRAM:
-        return "source (Mermaid)"
+        from app.services.canvas_skills import skill_brief
+
+        brief = skill_brief(None)
+        example = brief["example"][:4]
+        return {
+            "kind": "dashboard",
+            "field": "blocks",
+            "example": example,
+            "hint_short": (
+                "blocks (stat, bar_chart, line_chart, pie_chart, table, heading, text, …)"
+            ),
+            "hint": (
+                "Call edit_canvas with blocks like the edit_example. "
+                "Every stat, chart, pie and table needs source.tool_use_id. "
+                "Then finish_canvas. Do not paste blocks in chat."
+            ),
+        }
     if name == KIND_DOCUMENT:
-        return "source (markdown)"
+        example = "# Title\n\nOne short paragraph."
+        return _source_contract(name, example, "source (markdown)")
+    if name == KIND_DIAGRAM:
+        example = "flowchart TD\n  A-->B"
+        return _source_contract(name, example, "source (Mermaid)")
     if name == KIND_DRAWING:
-        return "source (one SVG)"
+        example = (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80">'
+            '<rect width="120" height="80" fill="#e8e8e5"/></svg>'
+        )
+        return _source_contract(name, example, "source (one SVG)")
     if name == KIND_CODE:
-        return "source and language"
+        return {
+            "kind": name,
+            "field": "source",
+            "example": "select 1;",
+            "language": "sql",
+            "hint_short": "source and language",
+            "hint": (
+                "Call edit_canvas with source set to edit_example and language "
+                '"sql". Then finish_canvas. Do not paste the code in chat.'
+            ),
+        }
     if name == KIND_SHEET:
-        return "source (JSON columns and rows, or tabs)"
+        example = {"columns": ["Dag", "Temp"], "rows": [["za", "12"]]}
+        return {
+            "kind": name,
+            "field": "source",
+            "example": example,
+            "hint_short": "source (JSON columns and rows, or tabs)",
+            "hint": (
+                "Call edit_canvas with source set to edit_example "
+                "(columns and rows, or tabs). Not blocks, not a heading or a "
+                "stat. Then finish_canvas. Do not paste the sheet in chat."
+            ),
+        }
     if name == KIND_EMAIL:
-        return "source (JSON subject, preheader, body_html)"
+        example = {
+            "subject": "Subject line",
+            "preheader": "",
+            "body_html": "<p>Hello.</p>",
+        }
+        return _source_contract(name, example, "source (JSON subject, preheader, body_html)")
     if name == KIND_IMAGE:
-        return "image_prompt or image_url"
-    return "source"
+        return {
+            "kind": name,
+            "field": "image_prompt",
+            "example": "A calm product photo on a white desk",
+            "hint_short": "image_prompt or image_url",
+            "hint": (
+                "Call edit_canvas with image_prompt set to edit_example "
+                "(or a workspace image_url). Then finish_canvas. "
+                "Do not paste the image in chat."
+            ),
+        }
+    if name == KIND_DESIGN:
+        example = {
+            "frames": [
+                {
+                    "id": "f1",
+                    "x": 32,
+                    "y": 32,
+                    "w": 320,
+                    "h": 220,
+                    "title": "Frame",
+                    "text": "Plain text only.",
+                }
+            ]
+        }
+        return _source_contract(
+            name, example, "source (JSON frames: id, x, y, w, h, title, text)"
+        )
+    return _source_contract(name or "document", "", "source")
+
+
+def _source_contract(kind: str, example: Any, hint_short: str) -> dict[str, Any]:
+    return {
+        "kind": kind,
+        "field": "source",
+        "example": example,
+        "hint_short": hint_short,
+        "hint": (
+            f"Call edit_canvas with source set to edit_example. "
+            f"This canvas is a {kind}. Then finish_canvas. "
+            "Do not paste the body in chat."
+        ),
+    }
+
+
+def attach_edit_contract(reply: dict[str, Any], kind: str | None) -> dict[str, Any]:
+    """Put edit_field / edit_example / hint on a create or exists reply."""
+    contract = edit_body_contract(kind)
+    reply["edit_field"] = contract["field"]
+    reply["edit_example"] = contract["example"]
+    reply["hint"] = contract["hint"]
+    if contract.get("language"):
+        reply["edit_language"] = contract["language"]
+    return reply
+
+
+def invalid_edit_for_kind(kind: str | None, *, error: str) -> dict[str, Any]:
+    """Refuse an edit and hand back the same example create would have given."""
+    contract = edit_body_contract(kind)
+    return {
+        "status": "invalid",
+        "error": error,
+        "edit_field": contract["field"],
+        "edit_example": contract["example"],
+        "hint": contract["hint"],
+    }
+
+
+def retarget_kind_edit(
+    kind: str | None,
+    blocks: Any,
+    source: Any,
+) -> tuple[Any, Any, dict[str, Any] | None]:
+    """Keep dashboard blocks on a dashboard. A sheet stores the table as source.
+
+    Other kinds refuse dashboard blocks so the edit error names their body,
+    not a dashboard rule.
+    """
+    name = (kind or "").strip().lower()
+    if not name or name == "dashboard" or blocks is None:
+        return blocks, source, None
+    if source is not None:
+        return None, source, None
+    if name == KIND_SHEET:
+        from app.services.canvas_sheet import source_from_blocks
+
+        # Empty list is a failed dashboard-shaped guess, not a table to convert.
+        if isinstance(blocks, list) and len(blocks) == 0:
+            return None, None, invalid_edit_for_kind(
+                name,
+                error=(
+                    "This canvas is a sheet. Pass source with columns and rows "
+                    "(see edit_example). Not an empty blocks list."
+                ),
+            )
+        try:
+            converted = source_from_blocks(blocks)
+        except CanvasContentError as exc:
+            return None, None, invalid_edit_for_kind(name, error=str(exc))
+        if converted:
+            return None, converted, None
+        return None, None, invalid_edit_for_kind(
+            name,
+            error=(
+                "This canvas is a sheet. Pass source with columns and rows "
+                "(see edit_example). Not a heading or a stat."
+            ),
+        )
+    return None, None, invalid_edit_for_kind(
+        name,
+        error=(
+            f"This canvas is a {name}. Pass {edit_body_hint(name)} "
+            "(see edit_example), not dashboard blocks."
+        ),
+    )
 
 
 def tenant_file_url(url: str, tenant_id: str) -> bool:
@@ -114,7 +283,76 @@ def content_is_empty(kind: str, source: str | None) -> bool:
         from app.services.canvas_sheet import is_empty
 
         return is_empty(text)
+    if kind == KIND_DESIGN:
+        frames = data.get("frames") if isinstance(data, dict) else None
+        if not isinstance(frames, list) or not frames:
+            return True
+        return not any(
+            str(frame.get("title") or frame.get("text") or "").strip()
+            for frame in frames
+            if isinstance(frame, dict)
+        )
     return not text
+
+
+def _frame_number(value: Any, default: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    if number != number or number in (float("inf"), float("-inf")):
+        return default
+    return number
+
+
+def _clamp(number: float, low: float, high: float) -> float:
+    return min(high, max(low, number))
+
+
+def normalize_design(text: str) -> str:
+    """A design is a list of plain-text frames. No HTML, scripts, or remote URLs."""
+    raw = (text or "").strip()
+    if not raw:
+        return json.dumps({"frames": []}, ensure_ascii=False)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise CanvasContentError(
+            'A design is JSON: {"frames":[{"id","x","y","w","h","title","text"}]}'
+        ) from exc
+    frames = data.get("frames") if isinstance(data, dict) else data
+    if not isinstance(frames, list):
+        raise CanvasContentError("A design needs a frames list")
+    if len(frames) > 24:
+        raise CanvasContentError("A design holds at most 24 frames")
+    cleaned: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, frame in enumerate(frames):
+        if not isinstance(frame, dict):
+            raise CanvasContentError("Each frame is an object with id, x, y, w, h, title and text")
+        frame_id = re.sub(r"[^a-zA-Z0-9_-]", "", str(frame.get("id") or ""))[:40]
+        if not frame_id:
+            frame_id = f"f{index + 1}"
+        base = frame_id
+        suffix = 2
+        while frame_id in seen:
+            frame_id = f"{base}-{suffix}"[:40]
+            suffix += 1
+        seen.add(frame_id)
+        title = _HTML_TAG.sub("", str(frame.get("title") or ""))
+        body = _HTML_TAG.sub("", str(frame.get("text") or ""))
+        cleaned.append(
+            {
+                "id": frame_id,
+                "x": round(_clamp(_frame_number(frame.get("x"), 32), 0, 4000), 1),
+                "y": round(_clamp(_frame_number(frame.get("y"), 32 + index * 24), 0, 4000), 1),
+                "w": round(_clamp(_frame_number(frame.get("w"), 320), 160, 960), 1),
+                "h": round(_clamp(_frame_number(frame.get("h"), 220), 120, 800), 1),
+                "title": title.strip()[:80],
+                "text": body.strip()[:4000],
+            }
+        )
+    return json.dumps({"frames": cleaned}, ensure_ascii=False)
 
 
 def coerce_canvas_source(value: Any) -> str | None:
@@ -160,6 +398,8 @@ def prepare_content(
         from app.services.canvas_sheet import normalize_source
 
         return normalize_source(text), None
+    if kind == KIND_DESIGN:
+        return normalize_design(text), None
     raise CanvasContentError("Dashboard source is compiled, not stored raw")
 
 

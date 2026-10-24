@@ -125,7 +125,7 @@ async def test_awareness_is_set_on_the_lead_through_the_department(client: Async
 
 @pytest.mark.asyncio
 async def test_event_wakes_the_lead_once_per_window_and_respects_the_cap(client: AsyncClient, session_override):
-    tenant, _owner, lead, _team, _flow, label = await _department(session_override)
+    tenant, _owner, lead, team, _flow, label = await _department(session_override)
     signal = await _ticket(session_override, tenant, label)
 
     def event(actor_type: str = "user", actor_id: str = "") -> SignalEvent:
@@ -143,17 +143,57 @@ async def test_event_wakes_the_lead_once_per_window_and_respects_the_cap(client:
     own = await wake_for_events(session_override, [event("agent", str(lead.id))])
     assert own == []
 
+    # The point of contact follows what its department follows, not its own agent settings.
     agent = await session_override.get(Agent, lead.id)
     set_awareness(agent, {"follows": ["deadline"]})
     session_override.add(agent)
     await session_override.flush()
+    assert [r["outcome"] for r in await wake_for_events(session_override, [event()])] == ["duplicate"]
+
+    dept = await session_override.get(Department, team.id)
+    set_awareness(dept, {"follows": ["deadline"]})
+    session_override.add(dept)
+    await session_override.flush()
     assert await wake_for_events(session_override, [event()]) == []
 
-    set_awareness(agent, {"follows": ["stage_change"], "daily_cost_cents": 0})
-    session_override.add(agent)
+    set_awareness(dept, {"follows": ["stage_change"], "daily_cost_cents": 0})
+    session_override.add(dept)
     await session_override.flush()
     capped = await wake_for_events(session_override, [event()])
     assert [r["outcome"] for r in capped] == ["cost_cap"]
+
+
+@pytest.mark.asyncio
+async def test_orientation_runs_as_the_point_of_contact_and_the_brief_stays_with_the_department(
+    client: AsyncClient, session_override
+):
+    from app.models.agent_turn import AgentTurn
+    from app.services.awareness import process_department_orientations, record_orientation
+    from app.services.teams import get_or_create_team_room
+
+    tenant, _owner, lead, team, _flow, _label = await _department(session_override)
+    dept = await session_override.get(Department, team.id)
+    set_awareness(dept, {"mode": "daily"})
+    data = json.loads(dept.settings_json)
+    data["awareness"]["next_wake_at"] = "2000-01-01T00:00:00"
+    dept.settings_json = json.dumps(data)
+    session_override.add(dept)
+    await session_override.flush()
+
+    assert await process_department_orientations(session_override) == 1
+    turn = (
+        await session_override.execute(select(AgentTurn).where(AgentTurn.cause_kind == "orientation"))
+    ).scalar_one()
+    assert turn.agent_id == lead.id
+    assert json.loads(dept.settings_json)["awareness"]["next_wake_at"] > "2001"
+    assert await process_department_orientations(session_override) == 0
+
+    room = await get_or_create_team_room(session_override, tenant.id, dept)
+    agent = await session_override.get(Agent, lead.id)
+    await record_orientation(session_override, room, agent, "Two tickets wait on the customer.", quiet=False)
+    await session_override.flush()
+    assert json.loads(dept.settings_json)["awareness"]["brief"]["summary"] == "Two tickets wait on the customer."
+    assert "Two tickets wait on the customer." in await aware_context(session_override, agent)
 
 
 def test_quiet_hours_wrap_midnight_and_urgency_scores():
@@ -254,14 +294,12 @@ async def test_call_me_rings_and_is_a_reach_event(client: AsyncClient, session_o
     monkeypatch.setattr(get_settings(), "agent_calls_enabled", True)
     headers = await _headers(client)
     tenant, _owner, _lead, team, _flow, _label = await _department(session_override, with_flow=False)
-    signal, decision = await _department_decision(session_override, tenant, team)
+    _signal, decision = await _department_decision(session_override, tenant, team)
 
     res = await client.post("/api/calls/request", json={"decision_id": str(decision.id)}, headers=headers)
-    assert res.status_code == 200 and res.json()["status"] == "ringing"
-    again = await client.post("/api/calls/request", json={"decision_id": str(decision.id)}, headers=headers)
-    assert again.json()["call_id"] == res.json()["call_id"]
-    events = await _reach_events(session_override, signal.id)
-    assert [e["channel"] for e in events] == ["call"]
+    assert res.status_code == 409
+    events = await _reach_events(session_override, _signal.id)
+    assert "call" not in [e["channel"] for e in events]
 
 
 @pytest.mark.asyncio

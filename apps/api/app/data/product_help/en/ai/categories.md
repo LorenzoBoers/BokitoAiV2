@@ -1,8 +1,8 @@
 ---
 title: Labels and tickets
 intro: A label has color and an icon only while a flow is attached. Filing that label turns the conversation into a ticket that moves through the flow's stages.
-description: Attach a flow to a label, file a ticket from the Labels picker, confirm what the AI proposed, move a ticket through its stages, and split a conversation when a second request shows up.
-keywords: labels, flows, tickets, stages, folder, intake, split conversation
+description: Attach a flow to a label, file a ticket from the Labels picker, confirm what the AI proposed, move a ticket through its stages, and move a second request to its own conversation.
+keywords: labels, flows, tickets, stages, folder, intake, move conversation, merge conversations
 sort: 46
 related: flows,communication,channels,folders,widget
 ---
@@ -60,14 +60,15 @@ A ticket can carry a deadline with where it comes from. The panel and the board 
 4. Within the near window the card shows **Due in 3 days**; after the date it shows **2 days overdue** and the folder counts it as overdue. The stage check-up comes earlier near the deadline and daily once it has passed. Deadlines also show on [Agenda](/docs/ai/agenda).
 5. **Clear deadline** removes the date.
 
-## Split off a new request
+## Move a new request to its own conversation
 
 When a customer raises something new in an old thread, the new request gets its own conversation so each one keeps one label.
 
-1. Hover the message where the new request starts and choose **Split from here**.
-2. Pick the **Label for the new conversation**, or **Decide later**, then **Split**.
+1. Hover the message where the new request starts and choose **Move to**.
+2. Keep **New conversation**, pick the **Label for the new conversation** or **Decide later**, then **Move**. **Existing conversation** moves the messages to a conversation you search for instead.
 3. That message and everything after it move into a new conversation with the same contact and channel. Both timelines show the link, and later replies on the same email thread or chat land in the new conversation.
-4. Agents follow the conversation's Autonomy: on **Autonomous** they split on their own, on **Assisted** they propose the split as a decision, on **Manual** they leave it to you.
+4. Agents follow the conversation's Autonomy: on **Autonomous** they move it on their own, on **Assisted** they propose the move as a decision, on **Manual** they leave it to you.
+5. Two conversations about the same request: choose **Merge into...** in the header menu. Every message moves; this conversation closes and points to the other one.
 
 ## Let an agent propose labels
 

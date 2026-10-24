@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent import Agent
+from app.services.lead_agent import get_lead_agent
 from app.models.auth import Tenant
 from app.models.signal import Signal, SignalMessage
 from app.models.trigger import Trigger
@@ -96,11 +97,7 @@ async def test_backfill_migrates_legacy_operations_thread(
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
     ).scalar_one()
-    assistant = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
-        )
-    ).scalar_one()
+    assistant = await get_lead_agent(session_override, tenant.id)
     legacy = Signal(
         tenant_id=tenant.id,
         channel="internal",
@@ -172,11 +169,7 @@ async def test_set_platform_watch_toggles(client: AsyncClient, session_override:
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
     ).scalar_one()
-    assistant = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
-        )
-    ).scalar_one()
+    assistant = await get_lead_agent(session_override, tenant.id)
     off = await set_platform_watch(session_override, tenant.id, False)
     assert off["enabled"] is False
     on = await set_platform_watch(session_override, tenant.id, True)
@@ -194,11 +187,7 @@ async def test_heartbeat_findings_land_in_their_own_thread(
     tenant = (
         await session_override.execute(select(Tenant).where(Tenant.slug == "test"))
     ).scalar_one()
-    agent = (
-        await session_override.execute(
-            select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead.is_(True), Agent.acts_for_user.is_(False))
-        )
-    ).scalar_one()
+    agent = await get_lead_agent(session_override, tenant.id)
     first = await set_platform_watch(session_override, tenant.id, True)
     from uuid import UUID
 

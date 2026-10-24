@@ -82,8 +82,11 @@ class LoginRequest(BaseModel):
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
-    tenant_slug: str
-    tenant_name: str
+    # Optional. Omitted on the public form: the account is created first and
+    # the workspace name is collected on the next step. Callers that still
+    # send both keep the one-shot signup.
+    tenant_slug: str = ""
+    tenant_name: str = ""
     first_name: str = ""
     last_name: str = ""
     # Legacy full-name field; used when first/last are empty.
@@ -102,6 +105,7 @@ class SwitchTenantRequest(BaseModel):
 class InviteRequest(BaseModel):
     email: EmailStr
     role: str = "member"
+    scope: str = "workspace"
 
 
 class AcceptInviteRequest(BaseModel):
@@ -217,18 +221,21 @@ def _tenant_dict(tenant: Tenant) -> dict:
 
 @router.post("/signup", response_model=LoginResponse, dependencies=[Depends(rate_limit("auth-signup", limit=5))])
 async def signup(body: SignupRequest, response: Response, session: Annotated[AsyncSession, Depends(get_session)]):
+    if len(body.password or "") < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     existing = await session.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
-    slug_check = await session.execute(select(Tenant).where(Tenant.slug == body.tenant_slug))
-    if slug_check.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Tenant slug taken")
 
-    tenant = Tenant(
-        slug=body.tenant_slug,
-        name=body.tenant_name,
-        settings_json=serialize_settings(default_tenant_settings()),
-    )
+    slug = (body.tenant_slug or "").strip()
+    tenant_name = (body.tenant_name or "").strip()
+    if bool(slug) != bool(tenant_name):
+        raise HTTPException(status_code=400, detail="Workspace name is required")
+    if slug:
+        slug_check = await session.execute(select(Tenant).where(Tenant.slug == slug))
+        if slug_check.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Tenant slug taken")
+
     user = User(
         email=body.email,
         password_hash=hash_password(body.password),
@@ -240,12 +247,21 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
         display_name=body.display_name,
         fallback=body.email.split("@")[0],
     )
-    session.add(tenant)
     session.add(user)
-    await session.flush()
-    session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
-    user.last_tenant_id = tenant.id
-    await bootstrap_tenant(session, tenant.id)
+    tenant: Tenant | None = None
+    if slug:
+        tenant = Tenant(
+            slug=slug,
+            name=tenant_name,
+            settings_json=serialize_settings(default_tenant_settings()),
+        )
+        session.add(tenant)
+        await session.flush()
+        session.add(Membership(tenant_id=tenant.id, user_id=user.id, role="owner"))
+        user.last_tenant_id = tenant.id
+        await bootstrap_tenant(session, tenant.id)
+    else:
+        await session.flush()
     await session.commit()
 
     # Soft verification gate: the account works immediately, but outbound
@@ -257,6 +273,11 @@ async def signup(body: SignupRequest, response: Response, session: Annotated[Asy
     await send_verification_mail(
         user.email, verify_link=_absolute_app_link("/verify-email", verify_token)
     )
+
+    if tenant is None:
+        # Account exists; the next screen asks for a workspace name (or shows
+        # a pending invite). Same payload as a login with no membership.
+        return await _workspace_required_response(session, user)
 
     access_token = create_access_token(user.id, tenant.id, user.email)
     refresh_token, _ = await create_refresh_session(session, user.id)
@@ -828,6 +849,7 @@ async def invite_user(
         email=body.email,
         role=body.role if body.role in ("admin", "member") else "member",
         inviter=auth.user,
+        scope=body.scope,
     )
     return {
         "token": invite["token"],
@@ -910,18 +932,23 @@ async def accept_invite(
             )
         )
     ).scalar_one_or_none()
+    from app.services.workspaces_portal import invite_scope
+
+    accepted_scope = invite_scope(invite.role, invite.scope)
     if not existing_membership:
         session.add(
             Membership(
                 tenant_id=invite.tenant_id,
                 user_id=user.id,
                 role=canonical_workspace_role(invite.role),
+                scope=accepted_scope,
             )
         )
     else:
         existing_membership.is_active = True
         existing_membership.deactivated_at = None
         existing_membership.role = canonical_workspace_role(invite.role)
+        existing_membership.scope = accepted_scope
     user.last_tenant_id = invite.tenant_id
     # Reaching the tokenized link proves control of the invited mailbox.
     user.email_verified = True
@@ -1019,18 +1046,23 @@ async def workspace_setup_accept_invite(
             )
         )
     ).scalar_one_or_none()
+    from app.services.workspaces_portal import invite_scope
+
+    accepted_scope = invite_scope(invite.role, invite.scope)
     if not existing_membership:
         session.add(
             Membership(
                 tenant_id=invite.tenant_id,
                 user_id=user.id,
                 role=canonical_workspace_role(invite.role),
+                scope=accepted_scope,
             )
         )
     else:
         existing_membership.is_active = True
         existing_membership.deactivated_at = None
         existing_membership.role = canonical_workspace_role(invite.role)
+        existing_membership.scope = accepted_scope
     user.last_tenant_id = invite.tenant_id
     invite.accepted_at = utcnow()
     from app.services.audit import record_audit

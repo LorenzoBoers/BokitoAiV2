@@ -20,6 +20,25 @@ def _names(agent) -> set[str]:
     return {t["name"] for t in filter_tools_for_agent(get_tool_definitions(), agent)}
 
 
+def test_setup_prompt_adds_the_tools_it_names():
+    from app.services.onboarding_setup import SETUP_SOP
+
+    agent = _agent(
+        tools_json=json.dumps(["read_doc"]),
+        system_prompt=f"You are the lead.\n\n{SETUP_SOP}",
+    )
+    names = _names(agent)
+    assert "write_doc" in names
+    assert "recommend_module" in names
+    assert "set_platform_watch" in names
+    blocked = _agent(
+        tools_json=json.dumps(["read_doc"]),
+        system_prompt=agent.system_prompt,
+        disallowed_tools_json=json.dumps(["write_doc"]),
+    )
+    assert "write_doc" not in _names(blocked)
+
+
 def test_denylist_beats_allowlist():
     agent = _agent(tools_json=json.dumps(["read_doc", "write_doc"]), disallowed_tools_json=json.dumps(["write_doc"]))
     assert _names(agent) == {"read_doc"}

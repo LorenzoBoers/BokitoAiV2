@@ -30,7 +30,7 @@ from app.services.access_list import (
     user_principal,
     validate_entries,
 )
-from app.services.teams import ensure_all_department
+from app.services.teams import ensure_org_root
 
 __all__ = [
     "ACCESS_KINDS",
@@ -62,7 +62,7 @@ def _legacy_access(settings: dict[str, Any]) -> list[dict[str, str]] | None:
 
 
 async def default_access(session: AsyncSession, tenant_id: UUID) -> list[dict[str, str]]:
-    root = await ensure_all_department(session, tenant_id)
+    root = await ensure_org_root(session, tenant_id)
     return [{"kind": "department", "id": str(root.id), "level": "handle"}]
 
 
@@ -179,12 +179,37 @@ async def can_handle_account(
     return access_level(account, principal) == "handle"
 
 
-async def agent_can_handle(session: AsyncSession, account: ChannelAccount | None, agent_id: UUID) -> bool:
-    """Whether an agent may act on a channel's conversations. No channel: allowed."""
+async def agent_can_handle(
+    session: AsyncSession, account: ChannelAccount | None, agent_id: UUID, *, signal: Any | None = None
+) -> bool:
+    """Whether an agent may act on a channel's conversations. No channel: allowed.
+
+    With ``signal``, the crew of the department responsible for that conversation
+    may always reply on it, also without access to the channel.
+    """
     if account is None or is_default_access(account):
         return True
     principal = await agent_principal(session, account.tenant_id, agent_id)
-    return access_level(account, principal) == "handle"
+    if access_level(account, principal) == "handle":
+        return True
+    if signal is None:
+        return False
+    return await crew_of_responsible(session, signal, agent_id)
+
+
+async def crew_of_responsible(session: AsyncSession, signal: Any, agent_id: UUID) -> bool:
+    """Whether the agent sits in the crew of the department responsible for ``signal``."""
+    from app.models.team import is_root_department
+    from app.services.department_domain import department_of_signal
+    from app.services.teams import direct_department_ids, get_team
+
+    department_id = await department_of_signal(session, signal)
+    if department_id is None:
+        return False
+    department = await get_team(session, signal.tenant_id, department_id)
+    if department is None or is_root_department(department):
+        return False
+    return department_id in await direct_department_ids(session, signal.tenant_id, "agent", agent_id)
 
 
 async def agents_that_can_handle(
@@ -209,12 +234,12 @@ async def agents_that_can_handle(
 
 async def handler_user_ids(session: AsyncSession, account: ChannelAccount) -> set[UUID] | None:
     """People who may handle the channel besides owners/admins. None = everyone."""
-    from app.services.teams import all_department, get_team, team_user_ids
+    from app.services.teams import org_root, get_team, team_user_ids
 
     if is_default_access(account):
         return None
     entries = account_access(account)
-    root = await all_department(session, account.tenant_id)
+    root = await org_root(session, account.tenant_id)
     if any(
         e["kind"] == "department" and e["id"] == str(root.id) and e["level"] == "handle"
         for e in entries

@@ -8,6 +8,9 @@ def _loop(*, trust: str = "operator", tools: list[str] | None = None) -> AgentLo
     loop._canvas_placed = False
     loop._canvas_opened = False
     loop._canvas_nudged = False
+    loop._canvas_finished = False
+    loop._canvas_edit_failures = 0
+    loop._CANVAS_EDIT_FAIL_LIMIT = 3
     return loop
 
 
@@ -79,6 +82,58 @@ def test_copyable_text_fence_stays_in_chat():
     loop = _loop()
     assert not loop._canvas_in_chat(text)
     assert "Antwoord op beide vragen." in loop._keep_chat_speech(text)
+
+
+def test_finished_canvas_drops_the_build_log():
+    loop = _loop()
+    loop._canvas_finished = True
+    log = (
+        "Het seems dat de bronvermelding niet wordt herkend. "
+        "Ik zal de bronvermelding als operator-message gebruiken.\n\n"
+        "```markdown\nBerichten: 12\n```"
+    )
+    assert loop._chat_after_canvas(log) == ""
+    assert loop._chat_after_canvas("De cijfers staan naast dit bericht.") == (
+        "De cijfers staan naast dit bericht."
+    )
+    assert loop._chat_after_canvas("Done.") == ""
+
+
+def test_failed_canvas_edit_drops_the_build_log():
+    loop = _loop()
+    loop._canvas_finished = False
+    loop._canvas_placed = False
+    loop._canvas_edit_failures = 2
+    log = (
+        "Ik probeer de grafiek opnieuw.\n\n"
+        "```json\n"
+        '{"blocks": [{"type": "bar_chart"}]}\n'
+        "```"
+    )
+    assert loop._canvas_bubble(log) == "Ik probeer de grafiek opnieuw."
+    dumped = (
+        "Omdat de bronvermelding niet klopt, hier de definitieve aanpak.\n\n"
+        "```json\n{}\n```"
+    )
+    assert loop._canvas_bubble(dumped) == ""
+
+
+def test_json_blocks_fence_is_dropped_from_chat():
+    loop = _loop()
+    text = (
+        "Hier is de definitieve aanpassing:\n\n"
+        "```json\n"
+        '{"blocks": [{"type": "stat", "label": "Berichten", "value": "12"}]}\n'
+        "```\n"
+    )
+    assert loop._canvas_in_chat(text)
+    assert loop._keep_chat_speech(text) == ""
+    assert "blocks" not in loop._keep_chat_speech(text)
+
+
+def test_unfenced_blocks_object_is_canvas_body():
+    loop = _loop()
+    assert loop._canvas_body_in_text('{"blocks": [{"type": "bar_chart", "title": "X"}]}')
 
 
 def test_no_nudge_without_tool_or_after_canvas():

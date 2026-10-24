@@ -81,11 +81,13 @@ const OrgCanvasPage = lazy(() => import('./pages/OrgCanvasPage'))
 const WorkflowPage = lazy(() => import('./pages/WorkflowPage'))
 const OrganogramPage = lazy(() => import('./pages/OrganogramPage'))
 const DepartmentPage = lazy(() => import('./pages/DepartmentPage'))
+const OrganizationPage = lazy(() => import('./pages/DepartmentPage').then((m) => ({ default: m.OrganizationPage })))
 const InboxSettings = lazy(() => import('./pages/InboxSettings'))
 const ChannelDetailPage = lazy(() => import('./pages/ChannelDetailPage'))
 const MessengerSettings = lazy(() => import('./pages/MessengerSettings'))
 const MyAssistantSettings = lazy(() => import('./pages/MyAssistantSettings'))
 const ConnectionsHub = lazy(() => import('./pages/ConnectionsHub'))
+const InstalledConnections = lazy(() => import('./pages/InstalledConnections'))
 const ModuleSetupPage = lazy(() => import('./pages/ModuleSetupPage'))
 const SetupHubPage = lazy(() => import('./pages/SetupHubPage'))
 const HelpHubPage = lazy(() => import('./pages/HelpHubPage'))
@@ -481,6 +483,7 @@ export default function App() {
             element={<LegacyDepartmentRedirect />}
           />
           <Route path="/departments/:id" element={<DepartmentPage />} />
+          <Route path="/organisatie" element={<OrganizationPage />} />
           {/* Cases hub retired: a typed signal lives on its conversation. The
               type catalog moved to Settings. */}
           <Route path="/learn" element={<LearnPage />} />
@@ -504,8 +507,9 @@ export default function App() {
           <Route path="/flows/runs/:runId" element={<WorkstreamRunDetail />} />
           <Route path="/flows/:workstreamId" element={<WorkstreamDetail />} />
 
-          {/* Modules hub (first-class product surface; one Connections story) */}
+          {/* Modules hub: Discover + Installed; module slug pages stay under /connections/:slug */}
           <Route path="/connections" element={<ConnectionsHub />} />
+          <Route path="/connections/installed" element={<InstalledConnections />} />
           <Route path="/connections/marketplace" element={<RedirectModulesLegacy />} />
           <Route path="/connections/connected" element={<RedirectModulesLegacy />} />
           <Route path="/connections/tools" element={<RedirectModulesLegacy />} />

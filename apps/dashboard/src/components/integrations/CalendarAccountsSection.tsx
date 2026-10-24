@@ -1,5 +1,4 @@
 import { Card } from '../ui/card'
-import { LoadingBlock } from '../ui/loading-block'
 import { Spinner } from '../ui/spinner'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,9 +27,8 @@ import {
   type CalendarProvider,
 } from '../../lib/calendars-api'
 import { revokeIntegrationConnection } from '../../lib/integrations-api'
-import { EmptyState } from '../ui/empty-state'
 
-/** Google and Microsoft calendar accounts on the Connections page (Agenda filter). */
+/** Connected Google and Microsoft calendar accounts on Connections (Agenda filter). */
 export function CalendarAccountsSection() {
   const { t } = useTranslation('calendar')
   const [rows, setRows] = useState<CalendarConnection[] | null>(null)
@@ -61,7 +59,10 @@ export function CalendarAccountsSection() {
     }
   }
 
-  const hasAny = (rows?.length ?? 0) > 0
+  // Empty state lives on the catalog cards below; this block is only for
+  // managing accounts that are already connected.
+  if (rows != null && rows.length === 0 && !error) return null
+  if (rows == null) return null
 
   return (
     <section className="space-y-3" data-testid="calendar-accounts">
@@ -76,43 +77,29 @@ export function CalendarAccountsSection() {
               key={provider}
               type="button"
               size="sm"
-              variant={hasAny ? 'secondary' : 'default'}
+              variant="secondary"
               className="gap-1.5"
               disabled={connecting != null}
               onClick={() => void connect(provider)}
               data-testid={`calendar-connect-${provider}`}
             >
-              {connecting === provider ? (
-                <Spinner size="md" />
-              ) : hasAny ? (
-                <Plus size={14} aria-hidden />
-              ) : (
-                <BrandMark slug={calendarBrandSlug(provider)} size={14} />
-              )}
-              {provider === 'google_calendar'
-                ? t(hasAny ? 'accounts.addGoogle' : 'accounts.connectGoogle')
-                : t(hasAny ? 'accounts.addOutlook' : 'accounts.connectOutlook')}
+              {connecting === provider ? <Spinner size="md" /> : <Plus size={14} aria-hidden />}
+              {provider === 'google_calendar' ? t('accounts.addGoogle') : t('accounts.addOutlook')}
             </Button>
           ))}
         </div>
       </div>
       {error ? <ApiErrorBanner message={error} /> : null}
-      {rows == null ? (
-        <LoadingBlock className="py-4" />
-      ) : rows.length === 0 ? (
-        <EmptyState tone="dashed" size="sm" className="py-4" title={t('accounts.empty')} />
-      ) : (
-        <ul className="space-y-2">
-          {rows.map((row) => (
-            <CalendarAccountRow
-              key={row.id}
-              row={row}
-              onReconnect={() => void connect(row.provider as CalendarProvider)}
-              onChanged={refresh}
-            />
-          ))}
-        </ul>
-      )}
+      <ul className="space-y-2">
+        {rows.map((row) => (
+          <CalendarAccountRow
+            key={row.id}
+            row={row}
+            onReconnect={() => void connect(row.provider as CalendarProvider)}
+            onChanged={refresh}
+          />
+        ))}
+      </ul>
     </section>
   )
 }

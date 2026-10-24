@@ -55,6 +55,15 @@ def _call_prefs(user: User | None, agent: Agent | None = None) -> dict[str, Any]
     )
 
 
+async def _voice_models(session: AsyncSession, agent: Agent | None) -> dict[str, str]:
+    from app.services.voice_models import resolve_voice_models
+
+    return await resolve_voice_models(
+        session,
+        agent_settings=agent.settings_json if agent is not None else None,
+    )
+
+
 def _public_prefs(prefs: dict[str, Any]) -> dict[str, Any]:
     return {
         "voice": prefs["voice"],
@@ -264,88 +273,9 @@ async def maybe_ring_for_decision(
     tenant_id: UUID,
     decision: DecisionRequest,
 ) -> AgentCall | None:
-    """Start a ring after a turn reveals a card. Never removes the card."""
-    if not calls_enabled():
-        return None
-    if decision.status != "awaiting_human" or decision.signal_id is None:
-        return None
-    if decision.message_id is None:
-        return None
-    existing = (
-        await session.execute(
-            select(AgentCall.id).where(
-                AgentCall.tenant_id == tenant_id,
-                AgentCall.decision_id == decision.id,
-                AgentCall.status.in_(tuple(OPEN_STATUSES)),
-            )
-        )
-    ).first()
-    if existing is not None:
-        return None
-    user_id = await _ring_user_id(session, tenant_id, decision)
-    if user_id is None:
-        return None
-    await _lock_open_line(session, user_id)
-    busy = (
-        await session.execute(
-            select(AgentCall.id).where(
-                AgentCall.tenant_id == tenant_id,
-                AgentCall.user_id == user_id,
-                AgentCall.status.in_(tuple(OPEN_STATUSES)),
-            )
-        )
-    ).first()
-    if busy is not None:
-        return None
-    now = utcnow()
-    call = AgentCall(
-        tenant_id=tenant_id,
-        signal_id=decision.signal_id,
-        agent_id=None,
-        decision_id=decision.id,
-        run_id=decision.run_id,
-        user_id=user_id,
-        status=RINGING,
-        ring_until=now + timedelta(seconds=ring_seconds()),
-        created_at=now,
-    )
-    agent_name = ""
-    from app.models.notification import Notification
-
-    agent_id = None
-    if decision.notification_id:
-        note = await session.get(Notification, decision.notification_id)
-        if note is not None:
-            try:
-                payload = json.loads(note.payload_json or "{}")
-            except json.JSONDecodeError:
-                payload = {}
-            mark = payload.get("from") if isinstance(payload, dict) else None
-            if isinstance(mark, dict) and mark.get("kind") == "agent" and mark.get("id"):
-                try:
-                    agent_id = UUID(str(mark["id"]))
-                except ValueError:
-                    agent_id = None
-                agent_name = str(mark.get("name") or "")
-    if agent_id is None:
-        signal = await session.get(Signal, decision.signal_id)
-        if signal is not None and signal.agent_id:
-            agent_id = signal.agent_id
-    if agent_id is not None:
-        agent = await session.get(Agent, agent_id)
-        if agent is not None and agent.tenant_id == tenant_id:
-            call.agent_id = agent.id
-            agent_name = agent_name or agent.name
-    session.add(call)
-    await session.flush()
-    await _record_call(session, call, RINGING)
-    await publish_call(
-        call,
-        agent_name=agent_name,
-        title=decision.title,
-        summary=decision.summary or "",
-    )
-    return call
+    """Incoming phone is off. The card stays; the person hears a voice message."""
+    del session, tenant_id, decision
+    return None
 
 
 async def request_call(
@@ -354,58 +284,9 @@ async def request_call(
     user_id: UUID,
     decision_id: UUID,
 ) -> AgentCall:
-    """Call me: the person asked for the ring, so presence and quiet hours do not apply."""
-
-    if not calls_enabled():
-        raise status_error(status_code=409, detail="Calls are off in this workspace")
-    decision = await session.get(DecisionRequest, decision_id)
-    if (
-        decision is None
-        or decision.tenant_id != tenant_id
-        or decision.status != "awaiting_human"
-        or decision.signal_id is None
-    ):
-        raise NotFoundError("Decision not found")
-    await _lock_open_line(session, user_id)
-    open_call = (
-        await session.execute(
-            select(AgentCall).where(
-                AgentCall.tenant_id == tenant_id,
-                AgentCall.user_id == user_id,
-                AgentCall.status.in_(tuple(OPEN_STATUSES)),
-            )
-        )
-    ).scalars().first()
-    if open_call is not None:
-        if open_call.decision_id == decision.id:
-            return open_call
-        raise status_error(status_code=409, detail="Already on a call")
-    from app.services.reach import decision_agent
-
-    signal = await session.get(Signal, decision.signal_id)
-    agent = await decision_agent(session, decision, signal)
-    now = utcnow()
-    call = AgentCall(
-        tenant_id=tenant_id,
-        signal_id=decision.signal_id,
-        agent_id=agent.id if agent is not None else None,
-        decision_id=decision.id,
-        run_id=decision.run_id,
-        user_id=user_id,
-        status=RINGING,
-        ring_until=now + timedelta(seconds=ring_seconds()),
-        created_at=now,
-    )
-    session.add(call)
-    await session.flush()
-    await _record_call(session, call, "requested")
-    await publish_call(
-        call,
-        agent_name=agent.name if agent is not None else "",
-        title=decision.title,
-        summary=decision.summary or "",
-    )
-    return call
+    """Incoming phone is off. A decision stays a card; the person hears a voice message."""
+    del session, tenant_id, user_id, decision_id
+    raise status_error(status_code=409, detail="Incoming calls are off")
 
 
 async def _load_owned(
@@ -985,6 +866,7 @@ async def start_voice_call(
     await _record_call(session, call, "voice")
     user = await session.get(User, user_id)
     prefs = _call_prefs(user, agent)
+    voice_models = await _voice_models(session, agent)
     from app.services.agent_call_voice import create_realtime_secret
 
     title = decision.title if decision is not None else (signal.subject or "")
@@ -1006,6 +888,9 @@ async def start_voice_call(
         voice=prefs["voice"],
         speed=prefs["speed"],
         push_to_talk=push_to_talk,
+        realtime_model=voice_models["realtime_model"],
+        session=session,
+        tenant_id=call.tenant_id,
     )
     await publish_call(
         call,
@@ -1022,7 +907,7 @@ async def start_voice_call(
         ),
         "client_secret": secret["value"],
         "expires_at": secret.get("expires_at"),
-        "model": get_settings().openai_realtime_model,
+        "model": secret.get("model") or voice_models["realtime_model"],
         **_public_prefs(prefs),
     }
 
@@ -1058,6 +943,7 @@ async def accept_call(
     agent = await session.get(Agent, call.agent_id) if call.agent_id else None
     user = await session.get(User, user_id)
     prefs = _call_prefs(user, agent)
+    voice_models = await _voice_models(session, agent)
     from app.services.agent_call_voice import create_realtime_secret
 
     secret = await create_realtime_secret(
@@ -1073,6 +959,9 @@ async def accept_call(
         language=prefs["language"],
         voice=prefs["voice"],
         speed=prefs["speed"],
+        realtime_model=voice_models["realtime_model"],
+        session=session,
+        tenant_id=call.tenant_id,
     )
     call.status = LIVE
     call.answered_at = utcnow()
@@ -1095,7 +984,7 @@ async def accept_call(
         ),
         "client_secret": secret["value"],
         "expires_at": secret.get("expires_at"),
-        "model": get_settings().openai_realtime_model,
+        "model": secret.get("model") or voice_models["realtime_model"],
         **_public_prefs(prefs),
     }
 
@@ -1122,6 +1011,7 @@ async def resume_call(
     agent = await session.get(Agent, call.agent_id) if call.agent_id else None
     user = await session.get(User, user_id)
     prefs = _call_prefs(user, agent)
+    voice_models = await _voice_models(session, agent)
     title = decision.title if decision is not None else ""
     summary = (decision.summary or "") if decision is not None else ""
     options = _options(decision) if decision is not None and decision.status == "awaiting_human" else []
@@ -1142,6 +1032,9 @@ async def resume_call(
         language=prefs["language"],
         voice=prefs["voice"],
         speed=prefs["speed"],
+        realtime_model=voice_models["realtime_model"],
+        session=session,
+        tenant_id=call.tenant_id,
     )
     return {
         **serialize_call(
@@ -1152,7 +1045,7 @@ async def resume_call(
         ),
         "client_secret": secret["value"],
         "expires_at": secret.get("expires_at"),
-        "model": get_settings().openai_realtime_model,
+        "model": secret.get("model") or voice_models["realtime_model"],
         **_public_prefs(prefs),
     }
 
@@ -1250,14 +1143,19 @@ async def update_call_settings(
     }
     if voice_changed:
         call = await _claim_voice(session, call, client_id)
+        voice_models = await _voice_models(session, agent)
         secret = await create_realtime_secret(
             instructions,
             language=next_language,
             voice=next_voice,
             speed=next_speed,
             push_to_talk=push_to_talk,
+            realtime_model=voice_models["realtime_model"],
+            session=session,
+            tenant_id=call.tenant_id,
         )
         payload["client_secret"] = secret["value"]
         payload["expires_at"] = secret.get("expires_at")
+        payload["model"] = secret.get("model") or voice_models["realtime_model"]
     await session.flush()
     return payload

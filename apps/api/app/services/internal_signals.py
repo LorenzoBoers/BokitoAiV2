@@ -60,14 +60,14 @@ async def raise_internal_signal(
     """Open (or add to) the internal signal for ``key``. Returns (signal, created). Flushes."""
     from app.models.agent import Agent
     from app.services.signal_tags import add_signal_tags
-    from app.services.teams import ensure_all_department
+    from app.services.teams import ensure_org_root
 
     now = utcnow()
     signal = await _open_with_key(session, tenant_id, key)
     created = signal is None
     if signal is None:
         if department_id is None:
-            department_id = (await ensure_all_department(session, tenant_id)).id
+            department_id = (await ensure_org_root(session, tenant_id)).id
         agent = await session.get(Agent, agent_id) if agent_id else None
         signal = Signal(
             tenant_id=tenant_id,

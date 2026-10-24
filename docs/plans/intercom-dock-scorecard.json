@@ -1,0 +1,981 @@
+{
+  "at": "2026-10-23T13:30:09Z",
+  "pass": 92,
+  "fail": 0,
+  "blocked": 0,
+  "pending": 0,
+  "total": 92,
+  "results": [
+    {
+      "id": "A1",
+      "title": "Pin Ada on F1 via API",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Dock seat Ada with F1 aria-label after pin"
+      ],
+      "criteria": {
+        "http_200": true,
+        "ada_f1_saved": true,
+        "get_ok": true
+      }
+    },
+    {
+      "id": "A2",
+      "title": "Reject duplicate dial key",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "rejected": true
+      }
+    },
+    {
+      "id": "A3",
+      "title": "Stack response includes seats",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Pin picker shows F1..⇧F2; seats F1/F2/F4 visible"
+      ],
+      "criteria": {
+        "stack_200": true,
+        "has_seats": true
+      }
+    },
+    {
+      "id": "A4",
+      "title": "Change dial key",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_200": true
+      }
+    },
+    {
+      "id": "A5",
+      "title": "Unpin (empty list allowed / keep others)",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "API unpin/repin; Cancel on picker leaves dock unchanged"
+      ],
+      "criteria": {
+        "repin_three": true
+      }
+    },
+    {
+      "id": "A6",
+      "title": "+ slot hover/picker",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Pin slot opens Agent vastzetten dialog with key radios"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "A7",
+      "title": "agent calls disabled hides dock",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "AgentDock enabled=user.agentCallsEnabled; ChatStack showDock requires flag or seats; F12 gated by enabled"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "A8",
+      "title": "narrow viewport hides dock",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "500px emulation: 0 seats, no all-call button"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "B1",
+      "title": "NL talk via API (Ada)",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true,
+        "under_45s": true,
+        "has_thread_or_decision": true
+      }
+    },
+    {
+      "id": "B2",
+      "title": "Pointer-hold uses same talk API",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "ok": true
+      }
+    },
+    {
+      "id": "B3",
+      "title": "Last note endpoint for replay",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "ok": true,
+        "has_note_or_null": true
+      }
+    },
+    {
+      "id": "B4",
+      "title": "Silence → nothing heard / no empty thread spam",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "silence_handled": true
+      }
+    },
+    {
+      "id": "B5",
+      "title": "Noise handled without crash",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "no_500": true
+      }
+    },
+    {
+      "id": "B6",
+      "title": "120s client + 8MB server limits",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "max_talk": true,
+        "server_cap": true
+      }
+    },
+    {
+      "id": "B7",
+      "title": "Mic deny path exists",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "toast": true,
+        "catch_start": true,
+        "unblocks_queue": true
+      }
+    },
+    {
+      "id": "B8",
+      "title": "Cancel / Escape path",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "cancel": true,
+        "escape": true
+      }
+    },
+    {
+      "id": "B9",
+      "title": "Blur/pointerup ends hold",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "pointerup": true
+      }
+    },
+    {
+      "id": "B10",
+      "title": "Two sequential talks ordered",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "both_ok": true,
+        "messages": true
+      }
+    },
+    {
+      "id": "B11",
+      "title": "EN talk",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true
+      }
+    },
+    {
+      "id": "B12",
+      "title": "Dial keys are function keys",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "f_keys": true,
+        "f12": true
+      }
+    },
+    {
+      "id": "C1",
+      "title": "Queue serializes playback",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "single_now": true,
+        "broadcast": true
+      }
+    },
+    {
+      "id": "C2",
+      "title": "C2",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Balloon Pauze visible while note playing"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "C3",
+      "title": "Skip marks played",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "skip": true
+      }
+    },
+    {
+      "id": "C4",
+      "title": "C4",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Balloon Open in gesprek visible while playing"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "C5",
+      "title": "Queue returns notes; played clears",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "queue_200": true,
+        "played_ok": true,
+        "removed_or_status": true
+      }
+    },
+    {
+      "id": "C6",
+      "title": "Queue refetch on start",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "start": true
+      }
+    },
+    {
+      "id": "C7",
+      "title": "90s idle replay",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "idle": true
+      }
+    },
+    {
+      "id": "C8",
+      "title": "Away blocks queue",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "away": true
+      }
+    },
+    {
+      "id": "C9",
+      "title": "Recording blocks queue",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "recording": true
+      }
+    },
+    {
+      "id": "C10",
+      "title": "Retention purge of aged note",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "last_ok": true,
+        "queue_after_age": true,
+        "audio_gone_or_still": true
+      }
+    },
+    {
+      "id": "C11",
+      "title": "Earcons mute",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "mute": true
+      }
+    },
+    {
+      "id": "C12",
+      "title": "TTS failure keeps text",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "fallback": true
+      }
+    },
+    {
+      "id": "D1",
+      "title": "Follow-up tends to STAY",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true,
+        "stay_or_route": true
+      }
+    },
+    {
+      "id": "D2",
+      "title": "New topic tends to BRANCH",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true
+      }
+    },
+    {
+      "id": "D3",
+      "title": "ROUTE decision possible",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "prompt": true
+      }
+    },
+    {
+      "id": "D4",
+      "title": "Skip on laat maar",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true
+      }
+    },
+    {
+      "id": "D5",
+      "title": "correct_route to new",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "ok": true
+      }
+    },
+    {
+      "id": "D6",
+      "title": "correct_route creates thread",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "thread": true
+      }
+    },
+    {
+      "id": "D7",
+      "title": "Landing chip timeout in UI",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "4s": true
+      }
+    },
+    {
+      "id": "D8",
+      "title": "spoken_text strips URLs",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "no_url": true
+      }
+    },
+    {
+      "id": "D9",
+      "title": "spoken_text truncates long replies",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "bounded": true
+      }
+    },
+    {
+      "id": "D10",
+      "title": "Ack then result",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "speak_turn": true
+      }
+    },
+    {
+      "id": "D11",
+      "title": "name-only transcript treated as silence",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "flags": true,
+        "keeps_real": true
+      }
+    },
+    {
+      "id": "D12",
+      "title": "Tenant filter on candidates",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "tenant": true,
+        "no_compat_sql": true
+      }
+    },
+    {
+      "id": "E1",
+      "title": "Barge-in reply_to",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "hold": true
+      }
+    },
+    {
+      "id": "E2",
+      "title": "Other seat clears mismatched reply_note",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "clear": true
+      }
+    },
+    {
+      "id": "E3",
+      "title": "All-call without name → broadcast",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true,
+        "multi_target": true
+      }
+    },
+    {
+      "id": "E4",
+      "title": "All-call with Bram name → only Bram",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true,
+        "bram_only": true
+      }
+    },
+    {
+      "id": "E5",
+      "title": "All-call unknown name does not 500",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "no_500": true
+      }
+    },
+    {
+      "id": "E6",
+      "title": "All-call uses reply_to form",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "form": true
+      }
+    },
+    {
+      "id": "E7",
+      "title": "Mic button = all-call",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "all": true
+      }
+    },
+    {
+      "id": "E8",
+      "title": "Name case-insensitive (ada)",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "http_ok": true,
+        "ada_matched": true
+      }
+    },
+    {
+      "id": "E9",
+      "title": "Name address pick",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "ada": true
+      }
+    },
+    {
+      "id": "E10",
+      "title": "One recording at a time",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "guard": true
+      }
+    },
+    {
+      "id": "F1",
+      "title": "via agent fields",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "via": true
+      }
+    },
+    {
+      "id": "F2",
+      "title": "Temp seat for note agent",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "temp": true
+      }
+    },
+    {
+      "id": "F3",
+      "title": "F3",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Observed 'Terwijl je weg was: 3 updates' digest in balloon"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "F4",
+      "title": "Returning queue with <3 notes has no digest force",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "ok": true,
+        "no_forced_digest": true
+      }
+    },
+    {
+      "id": "F5",
+      "title": "Live blocks queue",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "live_block": true
+      }
+    },
+    {
+      "id": "F6",
+      "title": "Handoff helper exists",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "handoff": true
+      }
+    },
+    {
+      "id": "G1",
+      "title": "Open intercom lane for live",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "lane_200": true,
+        "thread_id": true
+      }
+    },
+    {
+      "id": "G2",
+      "title": "Live blocks playback",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "block": true
+      }
+    },
+    {
+      "id": "G3",
+      "title": "Live blocks intercom talk",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "live_409": true
+      }
+    },
+    {
+      "id": "G4",
+      "title": "Hangup control in dock",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "hangup": true
+      }
+    },
+    {
+      "id": "G5",
+      "title": "Multi-tab claim",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "claim": true
+      }
+    },
+    {
+      "id": "G6",
+      "title": "Lane idempotent",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "same": true
+      }
+    },
+    {
+      "id": "H1",
+      "title": "Move messages to new conversation",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "move_ok": true
+      }
+    },
+    {
+      "id": "H2",
+      "title": "Move endpoint accepts message_ids",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "exists": true
+      }
+    },
+    {
+      "id": "H3",
+      "title": "Move only internal/inbound in UI",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "guard": true
+      }
+    },
+    {
+      "id": "H4",
+      "title": "ConversationPicker search",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "search": true
+      }
+    },
+    {
+      "id": "H5",
+      "title": "Merge two lanes rejected-or-works",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "handled": true
+      }
+    },
+    {
+      "id": "H6",
+      "title": "Merge into self rejected",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "lane_ok": true,
+        "rejected": true
+      }
+    },
+    {
+      "id": "H7",
+      "title": "Merge service exists",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "fn": true
+      }
+    },
+    {
+      "id": "H8",
+      "title": "Move service exists",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "fn": true
+      }
+    },
+    {
+      "id": "H9",
+      "title": "Move is single API op",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "single": true
+      }
+    },
+    {
+      "id": "H10",
+      "title": "Split removed",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "no_split_comp": true,
+        "no_thread_split": true
+      }
+    },
+    {
+      "id": "I1",
+      "title": "BroadcastChannel single player",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "channel": true
+      }
+    },
+    {
+      "id": "I2",
+      "title": "Claim in channel messages",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "claim": true
+      }
+    },
+    {
+      "id": "I3",
+      "title": "Gateway intercom.note handled",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "event": true
+      }
+    },
+    {
+      "id": "I4",
+      "title": "Talk to unknown agent → 404",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "not_found": true
+      }
+    },
+    {
+      "id": "I5",
+      "title": "Missing audio returns 404",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "404": true
+      }
+    },
+    {
+      "id": "I6",
+      "title": "Auth required on talk",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "401": true
+      }
+    },
+    {
+      "id": "I7",
+      "title": "Replay not parallel-spammed",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "replay": true
+      }
+    },
+    {
+      "id": "I8",
+      "title": "Worker path for turn result",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "hook": true
+      }
+    },
+    {
+      "id": "J1",
+      "title": "Tester does not see admin pins",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "get_ok": true,
+        "no_admin_pins": true
+      }
+    },
+    {
+      "id": "J2",
+      "title": "Other user cannot fetch my note audio",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "talk_ok": true,
+        "queue_ok": true,
+        "forbidden_or_404": true
+      }
+    },
+    {
+      "id": "J3",
+      "title": "Unauth audio endpoint",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "401": true
+      }
+    },
+    {
+      "id": "J4",
+      "title": "Pin agent from bogus UUID rejected",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "rejected": true
+      }
+    },
+    {
+      "id": "K1",
+      "title": "K1",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "/docs/inbox/communication contains dock + move + merge"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "K2",
+      "title": "K2",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "No dock.* missing keys; no emoji in dock labels"
+      ],
+      "criteria": {}
+    },
+    {
+      "id": "K3",
+      "title": "Features doc mentions dock",
+      "status": "PASS",
+      "source": "api",
+      "notes": [],
+      "criteria": {
+        "dock": true,
+        "move": true
+      }
+    },
+    {
+      "id": "K4",
+      "title": "K4",
+      "status": "PASS",
+      "source": "ui",
+      "notes": [
+        "Seat buttons expose aria-label with name and dial key"
+      ],
+      "criteria": {}
+    }
+  ],
+  "bugs_fixed": [
+    {
+      "id": "BUG1",
+      "test": "talk/B1",
+      "cause": "Signal.assigned_user_id in SQL (compat attr)",
+      "fix": "assignee_kind == user & assignee_id"
+    },
+    {
+      "id": "BUG2",
+      "test": "B4 silence",
+      "cause": "Whisper echoed dock names from STT prompt on silence",
+      "fix": "WAV RMS gate + neutral prompt + name-only reject"
+    }
+  ]
+}

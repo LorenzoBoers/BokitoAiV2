@@ -16,14 +16,16 @@ type AuthShellProps = {
   above?: ReactNode
   /** Under the copyright line (build stamp, dev hints). */
   below?: ReactNode
+  /** Replaces the default `max-w-sm` frame. */
+  frameClassName?: string
 }
 
 /** Every signed-out page: wordmark, one card, one footer line. */
-export function AuthShell({ subtitle, intro, title, children, cardClassName, above, below }: AuthShellProps) {
+export function AuthShell({ subtitle, intro, title, children, cardClassName, above, below, frameClassName }: AuthShellProps) {
   const { t } = useTranslation('nav')
   return (
     <div className="app-atmosphere relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-      <div className="relative w-full max-w-sm">
+      <div className={cn('relative w-full max-w-sm', frameClassName)}>
         <div className="mb-8 flex flex-col items-center text-center">
           <img
             src="/bokito-logo.png"

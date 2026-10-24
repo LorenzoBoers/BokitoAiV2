@@ -315,9 +315,9 @@ async def call_accounting_verb(
 ) -> dict[str, Any]:
     """Execute one module verb against the right adapter with normalized output.
 
-    ``agent_id`` enables per-agent enforcement: roster membership, company
-    scope, and write access from the ModuleAgent row, plus connection scope
-    (project links and access list) evaluated in ``project_id``.
+    ``agent_id`` enables per-agent enforcement: the agent sits in the
+    accounting department (or below, or a granted one), plus connection scope
+    (folder links, department, access list) of the conversation.
     """
     args = dict(args or {})
     from app.modules.catalog import module_is_on
@@ -329,24 +329,24 @@ async def call_accounting_verb(
             "before agents use accounting tools.",
         )
 
-    company_scope: list[str] | None = None
     if agent_id is not None:
-        from app.services.module_agents import module_agent_access, parse_company_scope
+        from app.services.module_agents import agent_has_module
 
-        access = await module_agent_access(session, tenant_id, agent_id, "accounting")
-        if access is None:
+        if not await agent_has_module(session, tenant_id, agent_id, "accounting"):
             return module_error(
                 "agent_forbidden",
-                "This agent is not on the accounting module roster. An operator "
-                "can add it under Modules > Accounting > Agents.",
+                "This agent is not in the accounting department. Ask its point of "
+                "contact, or add the agent to that department.",
             )
-        company_scope = parse_company_scope(access)
-        if verb in APPLY_VERBS and not access.can_write:
-            return module_error(
-                "write_forbidden",
-                "This agent has read-only access to accounting. An operator can "
-                "grant write access under Modules > Accounting > Agents.",
-            )
+
+    from app.modules.accounting.workpapers import WORKPAPERS
+
+    paper = WORKPAPERS.get(verb)
+    if paper is not None:
+        try:
+            return paper(args)
+        except ValueError as exc:
+            return module_error("invalid_input", str(exc))
 
     connections, denied, project_linked = await scoped_accounting_connections(
         session, tenant_id, agent_id=agent_id, project_id=project_id
@@ -408,8 +408,6 @@ async def call_accounting_verb(
                 companies.extend(outcome.get("companies") or [])
             elif outcome.get("message"):
                 errors.append(f"{VENDOR_LABELS.get(conn.vendor, conn.vendor)}: {outcome['message']}")
-        if company_scope is not None:
-            companies = [c for c in companies if str(c.get("id") or "") in company_scope]
         result = ok_result(
             companies=companies,
             connections=[
@@ -461,13 +459,7 @@ async def call_accounting_verb(
             args = {**args, **validated.model_dump()}
 
     if verb == "summarize":
-        requested = str(args.get("company_id") or "").strip()
-        if company_scope is not None:
-            if requested and requested not in company_scope:
-                return _company_forbidden(requested)
-            if not requested and len(company_scope) == 1:
-                args["company_id"] = company_scope[0]
-        return await _summarize(conn, args, company_scope=company_scope)
+        return await _summarize(conn, args)
 
     if not str(args.get("company_id") or "").strip():
         company_map = prefs.get("default_company_by_connection")
@@ -476,34 +468,16 @@ async def call_accounting_verb(
             if preferred:
                 args["company_id"] = preferred
         if not str(args.get("company_id") or "").strip():
-            if company_scope is not None and len(company_scope) == 1:
-                args["company_id"] = company_scope[0]
-            else:
-                default = await _default_company_id(conn)
-                if default:
-                    args["company_id"] = default
-
-    company_id = str(args.get("company_id") or "").strip()
-    if company_scope is not None and company_id and company_id not in company_scope:
-        return _company_forbidden(company_id)
+            default = await _default_company_id(conn)
+            if default:
+                args["company_id"] = default
 
     return await _dispatch(conn, verb, args)
-
-
-def _company_forbidden(company_id: str) -> dict[str, Any]:
-    return module_error(
-        "company_forbidden",
-        f"This agent is not allowed to access administration {company_id}. "
-        "Its accounting scope is limited; ask an operator to widen it under "
-        "Modules > Accounting > Agents.",
-    )
 
 
 async def _summarize(
     conn: AccountingConnection,
     args: dict[str, Any],
-    *,
-    company_scope: list[str] | None = None,
 ) -> dict[str, Any]:
     """Composite overview: companies, outstanding, recent documents, ledger tail.
 
@@ -516,8 +490,6 @@ async def _summarize(
     )
     companies_outcome = await _dispatch(conn, "list_companies", {})
     companies = companies_outcome.get("companies") or []
-    if company_scope is not None:
-        companies = [c for c in companies if str(c.get("id") or "") in company_scope]
     summary["companies"] = companies
 
     company_id = str(args.get("company_id") or "").strip()

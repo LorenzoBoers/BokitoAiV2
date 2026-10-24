@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     refresh_cookie_name: str = "bokito_refresh_token"
 
     llm_mode: str = "mock"  # mock | live
+    # DevOps kill-switch: force every chat call onto this catalog slug
+    # (e.g. bokito-maki / maki). Empty = normal selection. Embeddings untouched.
+    force_chat_model: str = ""
     # Dev-only: short-circuit agent/orchestration execution with canned results.
     bokito_mock_execution: bool = False
 

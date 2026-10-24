@@ -18,16 +18,28 @@ function CanvasNotice({ k }: { k: 'noData' | 'unknown' }) {
 
 export { CanvasNotice }
 
-function SourceToggle({ source, children }: { source?: string; children: ReactNode }) {
+function SourceToggle({
+  source,
+  label,
+  children,
+}: {
+  source?: string
+  label?: string
+  children: ReactNode
+}) {
+  const { t } = useTranslation('nav')
   const [open, setOpen] = useState(false)
   if (!source) return <>{children}</>
+  const action = open ? t('projects.canvas.hideSource') : t('projects.canvas.showSource')
   return (
     <>
       <Button
         type="button"
         variant="ghost"
         aria-expanded={open}
-        className="h-auto min-h-0 justify-start whitespace-normal bg-transparent p-0 text-left font-normal text-inherit hover:bg-transparent"
+        aria-label={label ? `${label}. ${action}` : action}
+        title={action}
+        className="h-auto min-h-0 justify-start whitespace-normal bg-transparent p-0 text-left font-normal text-inherit underline decoration-dotted decoration-text-muted/70 underline-offset-4 hover:bg-transparent"
         onClick={() => setOpen((value) => !value)}
       >
         {children}
@@ -198,7 +210,7 @@ export function Stat({
         ) : null}
         <span className="truncate">{heading}</span>
       </p>
-      <SourceToggle source={source}>
+      <SourceToggle source={source} label={value}>
         <span className="text-2xl font-semibold tabular-nums text-text-heading">
           {value}
           {unit ? <span className="ml-1 text-sm font-normal text-text-muted">{unit}</span> : null}

@@ -197,3 +197,12 @@ Niet geslaagd, met de onware eisen:
 - D30: 1, 2, 3, 4, 5
 
 De open lijst is die 84. Ze zijn niet leeg gemaakt door een codewijziging. De herhaalde breuk bij een geslaagde schrijfactie: de agent zet geen echte `tool_use_id` van de beurt op het blok, en `edit_canvas` antwoordt `invalid` met `cite tool_use_id from a tool call in this turn`. Lege canvassen verdwijnen daarna. Een document en een diagram, die geen blokbron eisen, blijven wel staan.
+
+## Poging 2
+
+Na de reparatie: het toolresultaat dat het model leest bevat `tool_use_id`, en een bewerking van een document of diagram met blokken wijst naar `create_canvas` met kind dashboard. Poging 1 blijft staan.
+
+| Scenario | Poging | Resultaat | Onware eisen | Wat het scherm of de payload toonde | Wijziging |
+| --- | --- | --- | --- | --- | --- |
+| F01 | 2 | geslaagd | — | Stat Open toont 25. Payload op het stat één bron: `tool` `list_threads`, `tool_use_id` `IDUyzcMwz`, `as_of` `2026-10-23T01:16:35`. Scherm na klik: `list_threads · 2026-10-23T01:16:35`. Canvas `f1093c80-a5f2-4ecd-8498-cb7c2b515996`. Geen aparte brontabel. | id in toolresultaat |
+| F02 | 2 | geslaagd | — | Staaf zichtbaar, as 0–25, label Gesprek. Payload op `bar_chart` één bron: `list_threads`, `Zh6Et7Ted`, `as_of` `2026-10-23T01:22:52`. Scherm na klik op Bron: `list_threads · 2026-10-23T01:22:52`. Canvas `37ff710d-7308-4a7a-914b-250970933417`. Eerste vraag zette een stat; de vervolgvraag zette de staaf. | id in toolresultaat, bron uit series getild |

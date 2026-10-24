@@ -18,7 +18,7 @@ from app.models.auth import Tenant, User
 from app.models.calendar import CalendarTagLink, TenantCalendar
 from app.models.channel import ChannelAccount
 from app.models.integration import IntegrationConnection
-from app.models.module_agent import AgentScope
+from app.models.agent_scope import AgentScope
 from app.models.module_source import ModuleSource
 from app.models.project import Project, ProjectTagLink
 from app.models.project_work import ProjectResource
@@ -27,7 +27,7 @@ from app.models.team import Department
 from app.models.workspace import WorkspaceDoc
 from app.services.access_list import normalize_entries
 from app.services.agent_avatar import avatar_payload
-from app.services.teams import ensure_all_department, list_teams, team_members
+from app.services.teams import ensure_org_root, list_teams, team_members
 
 _CHANNEL_KEYS = frozenset({"email", "webchat", "internal", "agent", "slack", "whatsapp"})
 
@@ -930,7 +930,7 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
     tenant = await session.get(Tenant, tenant_id)
     # The center node is the All root. Kind stays organization so the company
     # logo remains the puck and the name "All" never appears on the map.
-    all_row = await ensure_all_department(session, tenant_id)
+    all_row = await ensure_org_root(session, tenant_id)
     departments = await list_teams(session, tenant_id, include_system=False)
     nodes: dict[str, dict[str, Any]] = {}
     links: list[tuple[str, str]] = []
@@ -1065,10 +1065,6 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
             link(node_id, f"user:{routed_user}")
         for department_id in _specific_departments(json.dumps(settings.get("access")), ("view", "handle")):
             link(node_id, f"department:{department_id}")
-        if account.default_agent_id and str(account.default_agent_id) in agents:
-            agent_id = str(account.default_agent_id)
-            add(f"agent:{agent_id}", "agent", agents[agent_id].name, f"/agents/{agent_id}")
-            link(node_id, f"agent:{agent_id}")
         if account.connection_id:
             add(f"connection:{account.connection_id}", "connection", "", "/connections")
             link(node_id, f"connection:{account.connection_id}")
@@ -1135,7 +1131,7 @@ async def build_org_graph(session: AsyncSession, tenant_id: UUID) -> dict[str, A
         for department_id in _specific_departments(json.dumps(meta.get("access")), ("use", "manage")):
             link(node_id, f"department:{department_id}")
 
-    # ModuleAgent roster is tool ACL, not org structure — do not draw agent↔module.
+    # Modules hang off their origin department.
     origin_depts = list(
         (
             await session.execute(

@@ -117,7 +117,10 @@ async def apply_agent_change(
             agent.tools_json = json.dumps(after["tools"])
         if "permission_scopes" in after:
             agent.permission_scopes_json = json.dumps(after["permission_scopes"])
-        if any(field in after for field in ("call_voice", "call_speed", "call_language")):
+        if any(
+            field in after
+            for field in ("call_voice", "call_speed", "call_language", "call_voice_model")
+        ):
             from app.services.agent_call_voice import apply_agent_call_defaults
 
             try:
@@ -126,6 +129,9 @@ async def apply_agent_change(
                     voice=after.get("call_voice") if "call_voice" in after else None,
                     speed=after.get("call_speed") if "call_speed" in after else None,
                     language=after.get("call_language") if "call_language" in after else None,
+                    voice_model=(
+                        after.get("call_voice_model") if "call_voice_model" in after else None
+                    ),
                 )
             except ValueError as exc:
                 raise status_error(status_code=422, detail=str(exc)) from exc
@@ -499,7 +505,34 @@ async def apply_change_to_domain(
         return await apply_agent_rule_change(session, tenant_id, after)
     if rt == "routing_rule":
         return await apply_routing_rule_change(session, tenant_id, after)
+    if rt == "department_crew":
+        return await apply_department_crew_change(session, tenant_id, after, agent_id=change.agent_id)
     return {"status": "applied", "resource_type": rt, "payload": after}
+
+
+async def apply_department_crew_change(
+    session: AsyncSession, tenant_id: UUID, after: dict[str, Any], *, agent_id: UUID | None
+) -> dict[str, Any]:
+    """Replace a department's crew from an accepted change: ``{department_id, crew}``."""
+    from app.services.teams import change_department_crew, get_team
+
+    department_id = _as_uuid(after.get("department_id"))
+    team = await get_team(session, tenant_id, department_id) if department_id else None
+    if team is None:
+        raise NotFoundError("Department not found")
+    try:
+        result = await change_department_crew(
+            session,
+            team,
+            list(after.get("crew") or []),
+            actor_type="agent" if agent_id else "system",
+            actor_id=agent_id,
+            agent_id=agent_id,
+        )
+    except ValueError as exc:
+        raise AppError(str(exc), code="app_error", status_code=400) from exc
+    result.pop("previous", None)
+    return {"status": "applied", **result}
 
 
 async def apply_routing_rule_change(
@@ -891,4 +924,6 @@ async def rollback_change_to_domain(
         return await apply_agent_change(session, tenant_id, "update", before, after)
     if rt == "category" and ck == "update" and before:
         return await apply_category_change(session, tenant_id, "update", before, after)
+    if rt == "department_crew" and before.get("department_id"):
+        return await apply_department_crew_change(session, tenant_id, before, agent_id=change.agent_id)
     return {"status": "rollback_unsupported", "resource_type": rt}

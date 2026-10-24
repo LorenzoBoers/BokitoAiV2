@@ -1,7 +1,7 @@
 """Banking module provider: the proof that the module backbone is generic.
 
 Read-only PSD2 reads through GoCardless Bank Account Data. The module gate,
-roster enforcement, connection resolution, and mock fallback follow the same
+department check, connection resolution, and mock fallback follow the same
 contract as accounting — but this provider was written without touching any
 shared code: the catalog spec + this package is the whole module.
 """
@@ -51,15 +51,23 @@ async def call_verb(
         )
 
     if agent_id is not None:
-        from app.services.module_agents import module_agent_access
+        from app.services.module_agents import agent_has_module
 
-        access = await module_agent_access(session, tenant_id, agent_id, "banking")
-        if access is None:
+        if not await agent_has_module(session, tenant_id, agent_id, "banking"):
             return module_error(
                 "agent_forbidden",
-                "This agent is not on the banking module roster. An operator "
-                "can add it under Modules > Banking > Agents.",
+                "This agent is not in the banking department. Ask its point of "
+                "contact, or add the agent to that department.",
             )
+
+    from app.modules.banking.workpapers import WORKPAPERS
+
+    paper = WORKPAPERS.get(verb)
+    if paper is not None:
+        try:
+            return paper(args)
+        except ValueError as exc:
+            return module_error("invalid_input", str(exc))
 
     if verb not in READ_VERBS:
         return module_error(

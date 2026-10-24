@@ -198,9 +198,18 @@ class AgentLoop:
         self._canvas_caption_asked = False
         self._canvas_nudged = False
         self._canvas_kind = "dashboard"  # last opened/edited kind this turn
+        self._canvas_edit_example: Any = None  # from create_canvas edit_example
         # Finished tool calls this turn. A canvas number may only cite one of these.
         self._source_ledger: dict[str, dict[str, str]] = {}
+        # A failed call is not run again with the same arguments this turn.
+        self._failed_calls: dict[str, str] = {}
+        # Set when this turn may only look up names from the spoken request.
+        self.job_sentence = ""
+        self.job_slots: dict[str, str] = {}
         self._suppress_tools = False
+        # Denied repeats of a call that already failed. After a few, the turn
+        # answers from what it has instead of looping.
+        self._repeat_denials = 0
         self._speech_hold = ""
         self._pseudo_dropped = False
         self._pseudo_nudged = False
@@ -224,6 +233,7 @@ class AgentLoop:
         self.usage_call_type = "chat"
         # Passport: an agent only sees the tools it is permitted to use.
         tools = filter_tools_for_agent(get_tool_definitions(), agent)
+        self._allowed_tool_names = allowed_tool_names
         if allowed_tool_names is not None:
             tools = [t for t in tools if t["name"] in allowed_tool_names]
         # External conversations (widget/inbound) must always be able to
@@ -276,8 +286,21 @@ class AgentLoop:
         return all(not text or is_progress_filler(text) for text in texts)
 
     _STRUCTURE_LINE_RE = re.compile(r"^\s*(#{1,6}\s|[-*\u2022]\s|\d+[.)]\s|\*\*[^*]+:\*\*|\|)")
+    # A finished canvas is the answer. This is the build log, not something to keep.
+    _PROCESS_CHAT_RE = re.compile(
+        r"(tool_use_id|operator-message|edit_canvas|finish_canvas|create_canvas|restore_canvas|"
+        r"bronvermelding|gridstructuur|definitieve aanpak|definitieve aanpassing|"
+        r"correcte structuur|grafische (?:informatie|visualisatie))",
+        re.IGNORECASE,
+    )
     _CANVAS_FENCE_RE = re.compile(r"```[^\n]*\n.*?```", re.DOTALL)
     _CANVAS_FENCE_LANGS = frozenset({"mermaid", "mmd", "jsx", "tsx", "svg", "bokito"})
+    # JSON / markdown fences that are an edit_canvas payload, not copyable chat.
+    _CANVAS_PAYLOAD_RE = re.compile(
+        r'"blocks"\s*:\s*\[|"type"\s*:\s*"(?:stat|bar_chart|line_chart|area_chart|'
+        r'pie_chart|table|heading|callout|grid|card)"',
+        re.IGNORECASE,
+    )
     _CANVAS_MARKUP_RE = re.compile(
         r"<\s*(?:BarChart|LineChart|PieChart|Stat|Stack|Grid|Row|Card|Table|Callout|"
         r"ScatterPlot|BoxPlot|Heatmap|bokito-canvas)\b"
@@ -293,20 +316,34 @@ class AgentLoop:
         re.IGNORECASE,
     )
     _CANVAS_WRITE_TOOLS = frozenset(
-        {"create_canvas", "edit_canvas", "update_folder_canvas", "finish_canvas"}
+        {"create_canvas", "edit_canvas", "update_folder_canvas", "finish_canvas", "restore_canvas"}
     )
+    # After this many failed edits the turn stops. Pasting the payload in chat
+    # is not a recovery path.
+    _CANVAS_EDIT_FAIL_LIMIT = 3
 
     def _canvas_markup(self, text: str) -> bool:
         """JSX or an SVG the operator should see on the canvas, not in the bubble."""
         body = text or ""
         return bool(self._CANVAS_MARKUP_RE.search(body) or "<svg" in body.lower())
 
-    def _canvas_body_in_text(self, text: str) -> bool:
-        """True when the bubble contains canvas source (JSX, import, or SVG)."""
+    def _canvas_payload_in_text(self, text: str) -> bool:
+        """True when the bubble holds an edit_canvas JSON or markdown layout dump."""
         body = text or ""
         if not body.strip():
             return False
-        if self._canvas_markup(body) or "<svg" in body.lower():
+        if self._CANVAS_PAYLOAD_RE.search(body):
+            return True
+        # Unfenced object the model streams after a failed edit.
+        stripped = body.lstrip()
+        return stripped.startswith("{") and '"blocks"' in stripped[:400]
+
+    def _canvas_body_in_text(self, text: str) -> bool:
+        """True when the bubble contains canvas source (JSX, import, SVG, or blocks JSON)."""
+        body = text or ""
+        if not body.strip():
+            return False
+        if self._canvas_markup(body) or "<svg" in body.lower() or self._canvas_payload_in_text(body):
             return True
         return bool(
             re.search(r"(?i)export\s+default\s+function\s+Canvas\b", body)
@@ -318,11 +355,13 @@ class AgentLoop:
         return head.lstrip("`").strip().lower().split()[0] if head else ""
 
     def _fence_is_canvas(self, fence: str) -> bool:
-        """Mermaid, JSX, and SVG fences belong on a canvas. Text fences stay in chat."""
+        """Mermaid, JSX, SVG, and canvas JSON/markdown dumps leave the bubble."""
         lang = self._fence_lang(fence)
         if lang in self._CANVAS_FENCE_LANGS:
             return True
         body = fence.split("\n", 1)[1] if "\n" in fence else fence
+        if lang in {"json", "markdown", "md"} and self._canvas_payload_in_text(body):
+            return True
         return self._canvas_body_in_text(body)
 
     def _drop_canvas_fences(self, text: str) -> str:
@@ -334,6 +373,8 @@ class AgentLoop:
     def _keep_chat_speech(self, text: str) -> str:
         """Drop canvas source. Keep prose and copyable text fences in the bubble."""
         cleaned = self._drop_canvas_fences(text)
+        if self._canvas_payload_in_text(cleaned) or self._PROCESS_CHAT_RE.search(cleaned or ""):
+            return self._chat_after_canvas(cleaned)
         if not self._canvas_body_in_text(cleaned):
             return cleaned
         kept = [
@@ -379,6 +420,29 @@ class AgentLoop:
             return ""
         return opening
 
+    def _chat_after_canvas(self, text: str) -> str:
+        """Once the canvas is finished, the bubble is one short sentence or empty.
+
+        The activity trail is the confirmation. A build log, a markdown copy of
+        the figures, or a sentence about tool ids does not stay in the chat.
+        """
+        opening = self._canvas_chat_opening(text)
+        if not opening or self._PROCESS_CHAT_RE.search(opening):
+            return ""
+        if re.fullmatch(r"(done|klaar|gedaan)\.?", opening.strip(), re.IGNORECASE):
+            return ""
+        return opening
+
+    def _canvas_bubble(self, text: str) -> str:
+        """One short sentence once a canvas edit was tried, including a failed one.
+
+        A failed finish used to leave the build log in the thread. The activity
+        trail already shows that step.
+        """
+        if self._canvas_finished or self._canvas_placed or self._canvas_edit_failures:
+            return self._chat_after_canvas(text)
+        return self._keep_chat_speech(text)
+
     def _canvas_in_chat(self, text: str) -> bool:
         """The reply is a canvas body: code, SVG, or a long layout spec. No canvas was made."""
         if self._canvas_nudged or self.trust != "operator":
@@ -407,7 +471,7 @@ class AgentLoop:
         raw = turn.open_speech_text
         if not raw and turn.segments:
             raw = str(turn.segments[-1].get("text") or "")
-        opening = self._keep_chat_speech(raw)
+        opening = self._canvas_bubble(raw)
         # Rewrite only when canvas source actually left the text. A no-op
         # rewrite of streamed prose made the live bubble start over.
         if turn.has_open_speech and opening != turn.open_speech_text:
@@ -416,7 +480,8 @@ class AgentLoop:
             else:
                 turn.discard_open_speech()
         for seg in turn.segments:
-            cleaned = self._keep_chat_speech(str(seg.get("text") or ""))
+            raw_seg = str(seg.get("text") or "")
+            cleaned = self._canvas_bubble(raw_seg)
             if cleaned != str(seg.get("text") or "").strip():
                 seg["text"] = cleaned
         return opening
@@ -528,7 +593,7 @@ class AgentLoop:
             # it when the bubble actually carries sheet data.
             if "|" in text or '"rows"' in text or '"columns"' in text:
                 text = detach_sheet_speech(text)
-            return self._keep_chat_speech(text)
+            return self._canvas_bubble(text)
 
         changed = False
         for seg in turn.segments:
@@ -594,9 +659,7 @@ class AgentLoop:
         self.tools = []
         try:
             response = await self._llm_chat(llm_messages, 400)
-            usage = response.get("usage") or {}
-            tokens["input_tokens"] += int(usage.get("input_tokens") or 0)
-            tokens["output_tokens"] += int(usage.get("output_tokens") or 0)
+            self._add_usage_tokens(tokens, response.get("usage"))
             text = "\n".join(
                 b["text"]
                 for b in (response.get("content") or [])
@@ -646,30 +709,48 @@ class AgentLoop:
         finish_canvas is the done confirmation (activity trail). Chat stays the
         short opening sentence only — not a second \"it's finished\" line.
         """
+        await self._strip_canvas_speech()
+        # Failed edits on an existing canvas used to loop until max_turns and
+        # dump the JSON into chat. Stop once the limit is hit, create or edit.
+        if self._canvas_edit_failures >= self._CANVAS_EDIT_FAIL_LIMIT and not self._canvas_placed:
+            await self._bin_empty_canvases_this_turn()
+            return True
         if self._canvas_opened and not self._canvas_placed:
             # Empty create without a successful edit. Keep nudging; never leave a
             # permanent "writing" card. After a few failed edits, stop clean.
-            await self._strip_canvas_speech()
-            if self._canvas_edit_failures >= 3:
+            if self._canvas_edit_failures >= self._CANVAS_EDIT_FAIL_LIMIT:
                 await self._bin_empty_canvases_this_turn()
                 return True
             self._canvas_edit_asked = True
-            from app.services.canvas_content import edit_body_hint
+            from app.services.canvas_content import edit_body_contract
 
-            body = edit_body_hint(self._canvas_kind)
+            contract = edit_body_contract(self._canvas_kind)
+            field = contract["field"]
+            sample = (
+                self._canvas_edit_example
+                if self._canvas_edit_example is not None
+                else contract["example"]
+            )
+            example = json.dumps(sample, ensure_ascii=False)
+            if len(example) > 400:
+                example = example[:400] + "..."
             llm_messages.append(
                 {
                     "role": "user",
                     "content": (
                         "The empty canvas is open. Call edit_canvas now with that "
-                        f"canvas_id and {body}. If the last edit returned errors, fix "
-                        "those and call it again. Then finish_canvas. Do not describe "
+                        f"canvas_id and {field} set like {example}. "
+                        "If the last edit returned errors, follow edit_example "
+                        "and call it again. Then finish_canvas. Do not describe "
                         "the canvas in chat. Do not create another. Do not reply Done "
                         "until finish_canvas succeeds."
                     ),
                 }
             )
             return False
+        if self._canvas_edit_failures >= self._CANVAS_EDIT_FAIL_LIMIT:
+            # Existing canvas, edits keep failing. Activity shows the error.
+            return True
         if not self._canvas_placed:
             return False
         await self._settle_canvas_speech()
@@ -911,6 +992,12 @@ class AgentLoop:
         showcase = list(self._showcase_items)
         self._showcase_items = []
         reads, self._knowledge_reads = self._knowledge_reads, []
+        # A finished canvas is the reply. "Done." is only a placeholder for a
+        # turn that never spoke; it must not appear under the canvas card.
+        effective_fallback = fallback_text
+        if self._canvas_finished and turn is not None:
+            if not any(str(seg.get("text") or "").strip() for seg in turn.segments):
+                effective_fallback = ""
         saved = await persist_agent_turn(
             self.session,
             signal,
@@ -921,7 +1008,7 @@ class AgentLoop:
             first_metadata=first_metadata,
             final_metadata=final_metadata,
             turn_id=turn.stream_id if turn else None,
-            fallback_text=fallback_text,
+            fallback_text=effective_fallback,
             append_to_last=append_to_last,
             showcase_items=showcase,
             knowledge_hits=[*self.last_rag_hits, *reads],
@@ -1139,6 +1226,30 @@ class AgentLoop:
         self._tenant_resolved = True
         return self._tenant_cached
 
+    async def _operator_filing_block(self) -> str:
+        """Current labels, stage and folder for turns that are not an inbound read.
+
+        Inbound keeps its own stricter brief in the worker prompt. The thread
+        is the one tools write to, so an Ask session and a subagent see the
+        customer thread rather than an empty side chat.
+        """
+        if self.trust == "external":
+            return ""
+        target = self.tool_signal_id or self.signal_id
+        if target is None:
+            return ""
+        from app.models.signal import Signal
+        from app.services.assistant_context import conversation_filing_brief
+
+        signal = await self.session.get(Signal, target)
+        if signal is None:
+            return ""
+        try:
+            return await conversation_filing_brief(self.session, signal, voice="operator")
+        except Exception:
+            logger.debug("operator filing brief failed", exc_info=True)
+            return ""
+
     async def _situation_block(self) -> str:
         """Clock in the workspace timezone, and that browsing is a tool.
 
@@ -1227,24 +1338,46 @@ class AgentLoop:
                     "Do not use that fence for a dashboard, diagram, or drawing.\n"
                     "New canvas — first action is the create_canvas tool call (empty: title "
                     "and kind only). Optionally one short sentence before that tool, nothing "
-                    "else. Then edit_canvas with the full source, then finish_canvas.\n"
+                    "else. Do not describe the layout, the colors, or the steps, and do not "
+                    "tell the operator to build the canvas themselves. Then edit_canvas with "
+                    "the full source, then finish_canvas.\n"
                     "Existing canvas on this conversation — first action is edit_canvas, then "
                     "finish_canvas. Do not call create_canvas.\n"
                     "finish_canvas is the done confirmation in the activity trail — do not "
-                    "also write that it is finished in chat.\n"
+                    "also write that it is finished in chat. Do not post_internal_note or "
+                    "update_progress to explain tool ids or a failed edit; fix the edit "
+                    "and call finish_canvas.\n"
+                    "Pick the kind by what the result is, not by the word they use. A dashboard "
+                    "is for figures; a text to read or send is a document. When they ask for a "
+                    "dashboard but give only text (a quote, letter, a heading with a sentence and no "
+                    "figures), make kind=document and say only: 'Ik heb er een document van gemaakt, want een dashboard is voor cijfers.' "
+                    "Never add a stat or status to make it a dashboard.\n"
                     "Body kinds (only inside edit_canvas):\n"
                     "- dashboard, grafieken, statistieken, cijfers: kind=dashboard with "
                     "blocks (stat, bar_chart, line_chart, pie_chart, table, heading, text, "
                     "callout, list, divider, grid, card). A chart is not an SVG and not "
-                    "generate_image.\n"
+                    "generate_image. Temperatures, counts, or a comparison by day, city, or "
+                    "category are a dashboard even when they say tekening or plaatje. "
+                    "Figures they wrote in this message are a source: set source.tool_use_id "
+                    "to operator-message and copy only numbers that appear in their words. "
+                    "A dashboard needs at least one stat, chart or table with a source; text alone "
+                    "is saved as a document. Never add a date, number or status they did not say.\n"
                     "- diagram, flow, schema, process: kind=diagram with Mermaid source "
                     "(flowchart, sequenceDiagram, erDiagram, …).\n"
-                    "- sheet, table, list of values to export: kind=sheet with the values you read.\n"
-                    "- poster, tekening, ontwerp, infographic: kind=drawing with one complete "
-                    "<svg> document (viewBox, real text and numbers).\n"
-                    "- report, plan, uitleg to keep: kind=document with markdown.\n"
-                    "\"Put this in a design\" after an earlier canvas means a new drawing built "
-                    "from that canvas's data, with force_new. A chart is not generate_image.\n"
+                    "- sheet, table, list of values to export: kind=sheet with the values you read. "
+                    "A sheet is the exportable table, not the chart of those values.\n"
+                    "- poster or one illustration: kind=drawing with one complete "
+                    "<svg> document (viewBox, real text and numbers), and only when it is not a chart.\n"
+                    "- screen, mockup, artboard: kind=design. source is JSON frames with "
+                    "id, x, y, w, h, title and text. Plain text, not HTML and not JSX.\n"
+                    "- offerte, quote, letter, report, plan, notulen, uitleg to keep, print or send: "
+                    "kind=document with markdown (downloads as .md).\n"
+                    "- code or a script: kind=code with language. An email to send: kind=email "
+                    "(subject, preheader, body_html). A picture to keep: kind=image (image_prompt).\n"
+                    "Every edit keeps the previous version, on every kind. Call restore_canvas "
+                    "with canvas_id and revision, then finish_canvas. Omit revision for the previous one.\n"
+                    "\"Put this in a design\" after an earlier canvas means kind=design with force_new, "
+                    "restating that canvas in frames. A chart stays a dashboard, not generate_image.\n"
                     "The card sits beside your message."
                     + here
                 )
@@ -1335,28 +1468,53 @@ class AgentLoop:
         )
 
     async def _with_lead_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """A department lead can always ask its person accountable a domain question."""
-        if self.agent is None or self.trust == "external" or any(t["name"] == "ask_domain_question" for t in tools):
+        """A point of contact can always ask its crew and its person accountable."""
+        if self._allowed_tool_names is not None:
+            # A pinned turn (intercom) must not grow ask_agent through lead duty.
+            return tools
+        wanted = {"ask_domain_question", "ask_agent"} - {t["name"] for t in tools}
+        if self.agent is None or self.trust == "external" or not wanted:
             return tools
         from app.services.department_domain import agent_departments
 
         led = [d for d, duty in await agent_departments(self.session, self.tenant_id, self.agent.id) if duty == "primary"]
         if not led:
             return tools
-        extra = next((t for t in get_tool_definitions() if t["name"] == "ask_domain_question"), None)
-        return [*tools, extra] if extra else tools
+        return [*tools, *(t for t in get_tool_definitions() if t["name"] in wanted)]
 
-    async def _aware_context(self) -> str:
+    async def _aware_context(self, *, with_crew: bool = True) -> str:
         """Role, standing brief and domain facts. Never for visitors."""
         if self.agent is None or self.trust == "external":
             return ""
         from app.services.agent_awareness import aware_context
 
         try:
-            return await aware_context(self.session, self.agent)
+            return await aware_context(self.session, self.agent, with_crew=with_crew)
         except Exception:  # noqa: BLE001 — a missing brief never blocks a run
             logger.debug("aware context failed", exc_info=True)
             return ""
+
+    async def _org_blocks(self, thread: Any | None) -> tuple[str, str]:
+        """(org chart + responsibility + knowledge chain, crew) while org rules are on; else empty."""
+        if self.agent is None or self.trust == "external":
+            return "", ""
+        from app.services.org_rules import org_rules_on
+
+        if not await org_rules_on(self.session, self.tenant_id):
+            return "", ""
+        from app.services.agent_awareness import crew_context
+        from app.services.department_domain import agent_departments
+        from app.services.org_context import org_context
+
+        try:
+            org = await org_context(self.session, self.tenant_id, self.agent, thread)
+            led = [
+                d for d, duty in await agent_departments(self.session, self.tenant_id, self.agent.id) if duty == "primary"
+            ]
+            return org, await crew_context(self.session, self.agent, led)
+        except Exception:  # noqa: BLE001 — org context never blocks a run
+            logger.debug("org context failed", exc_info=True)
+            return "", ""
 
     async def _build_system_prompt(self, extra_context: str = "", user_query: str = "") -> str:
         # Chat turns skip the full tenant snapshot. Scoring docs + snapshot
@@ -1374,12 +1532,19 @@ class AgentLoop:
             )
         rag_context = ""
         product_help_context = ""
+        from app.models.signal import Signal
+
+        thread = await self.session.get(Signal, self.signal_id) if self.signal_id else None
+        org_block, crew_block = ("", "") if skip_heavy else await self._org_blocks(thread)
         if user_query and not skip_heavy:
             tag_ids: list = []
             if self.signal_id:
                 from app.services.workspace import conversation_tag_ids
 
                 tag_ids = await conversation_tag_ids(self.session, self.tenant_id, self.signal_id)
+            from app.services.org_context import knowledge_scope
+
+            chain, hidden = await knowledge_scope(self.session, self.tenant_id, self.agent, thread)
             try:
                 hits = await asyncio.wait_for(
                     hybrid_search(
@@ -1389,6 +1554,8 @@ class AgentLoop:
                         top_k=5,
                         agent_id=self.agent.id if self.agent is not None else None,
                         tag_ids=tag_ids or None,
+                        department_chain=chain,
+                        hidden_departments=hidden,
                     ),
                     timeout=6,
                 )
@@ -1438,12 +1605,16 @@ class AgentLoop:
         parts = [base]
         if self.canvas_refresh:
             # Snapshot wakes only rewrite one canvas. Skip operator/RAG/skills
-            # bulk so the prompt stays under the model context window.
+            # bulk so the prompt stays under the model context window. Keep the
+            # soft filing brief so a refresh still sees labels, stage and folder.
             from app.services.agent.style import CANVAS_REFRESH_TURN
 
             lean = [base, SYSTEM_RULE, CANVAS_REFRESH_TURN]
             if extra_context:
                 lean.append(extra_context)
+            filing = await self._operator_filing_block()
+            if filing:
+                lean.append(filing)
             lean.append(await self._situation_block())
             return "\n\n".join(lean).strip()
         skills = "\n\n".join(
@@ -1458,11 +1629,15 @@ class AgentLoop:
                 parts.append(skills)
             if rag_context:
                 parts.append(f"## Relevant context\n{rag_context}")
-            aware = await self._aware_context()
+            aware = await self._aware_context(with_crew=not org_block)
             if aware:
                 parts.append(aware)
+            parts.extend(p for p in (org_block, crew_block) if p)
             if extra_context:
                 parts.append(extra_context)
+            filing = await self._operator_filing_block()
+            if filing:
+                parts.append(filing)
             tenant_for_lang = await self._get_tenant()
             parts.append(language_rules_for_trust(self.trust, tenant_for_lang))
             if self.trust != "external":
@@ -1585,21 +1760,26 @@ class AgentLoop:
         category_map = await category_map_block(self.session, self.tenant_id)
         if category_map:
             parts.append(category_map)
-        aware = await self._aware_context()
+        aware = await self._aware_context(with_crew=not org_block)
         if aware:
             parts.append(aware)
-        if self.signal_id:
-            from app.models.signal import Signal
+        if org_block:
+            parts.append(org_block)
+        if thread is not None:
             from app.services.project_work import client_knowledge_block
             from app.services.workstreams import recipe_block
 
-            thread = await self.session.get(Signal, self.signal_id)
             client = await client_knowledge_block(self.session, self.tenant_id, thread)
             if client:
                 parts.append(client)
             approach = await recipe_block(self.session, thread)
             if approach:
                 parts.append(approach)
+        filing = await self._operator_filing_block()
+        if filing:
+            parts.append(filing)
+        if crew_block:
+            parts.append(crew_block)
         if extra_context:
             parts.append(extra_context)
         # Platform-wide response style: applies to every agent, custom or not.
@@ -1632,7 +1812,13 @@ class AgentLoop:
         tools = with_platform_core(tools, trust=self.trust, refresh=self.canvas_refresh)
         if self.canvas_refresh:
             tools = [t for t in tools if t["name"] not in CANVAS_WAKE_DENY]
-        return self._apply_definition(tools)
+        tools = self._apply_definition(tools)
+        # Intercom pins a closed set. Platform core must not reopen it — including
+        # when prepare times out after this call and falls back to a bare prompt.
+        if self._allowed_tool_names is not None:
+            allowed = self._allowed_tool_names
+            tools = [t for t in tools if t.get("name") in allowed]
+        return tools
 
     def _apply_definition(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Denylist and capability mode win over every default tool."""
@@ -1803,6 +1989,7 @@ class AgentLoop:
         tools = [] if self._suppress_tools else self.tools
         lean_tool_names = {
             "edit_canvas",
+            "restore_canvas",
             "update_folder_canvas",
             "list_canvases",
             "get_folder_canvas",
@@ -1931,24 +2118,23 @@ class AgentLoop:
             from app.services.module_agents import (
                 filter_tools_for_agent_modules,
                 module_slugs_for_agent,
-                writable_module_slugs_for_agent,
             )
 
             enabled = await enabled_module_slugs(self.session, self.tenant_id)
-            rostered: set[str] = set()
-            writable: set[str] = set()
+            reachable: set[str] = set()
             if self.agent is not None:
-                rostered = await module_slugs_for_agent(
-                    self.session, self.tenant_id, self.agent.id
-                )
-                writable = await writable_module_slugs_for_agent(
+                reachable = await module_slugs_for_agent(
                     self.session, self.tenant_id, self.agent.id
                 )
             self.tools = filter_tools_for_agent_modules(
                 self.tools,
                 enabled_slugs=enabled,
-                rostered_slugs=rostered,
-                writable_slugs=writable,
+                reachable_slugs=reachable,
+                all_tools=(
+                    get_tool_definitions()
+                    if self._allowed_tool_names is None and not self.canvas_refresh
+                    else None
+                ),
             )
             from app.services.customer_verify import enabled_customer_tool_names
 
@@ -1973,6 +2159,11 @@ class AgentLoop:
                     enabled=not image_generation_disabled(prefs),
                 )
                 self.tools = self._apply_definition(self.tools)
+            # Intercom (and other callers) pin a tool set. Platform core must not
+            # put ask_agent and the rest back after that pin.
+            if self._allowed_tool_names is not None:
+                allowed = self._allowed_tool_names
+                self.tools = [t for t in self.tools if t.get("name") in allowed]
             self._module_tools_applied = True
         if self.trust == "external" and not getattr(self, "_reachability_tools_applied", False):
             await self._apply_reachability_tools()
@@ -2060,6 +2251,9 @@ class AgentLoop:
         return llm_messages, {
             "input_tokens": 0,
             "output_tokens": 0,
+            "uncached_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "cache_read_input_tokens": 0,
         }
 
     async def _apply_attachments_to_messages(
@@ -2151,6 +2345,25 @@ class AgentLoop:
         label = " and ".join(parts) if parts else f"{len(attachments)} attachment(s)"
         return f"\n\nUser attached {label}. Describe and use them if relevant."
 
+    @staticmethod
+    def _add_usage_tokens(tokens: dict[str, int], usage: dict | None) -> None:
+        usage = usage or {}
+        tokens["input_tokens"] = int(tokens.get("input_tokens") or 0) + int(
+            usage.get("input_tokens") or 0
+        )
+        tokens["output_tokens"] = int(tokens.get("output_tokens") or 0) + int(
+            usage.get("output_tokens") or 0
+        )
+        tokens["uncached_input_tokens"] = int(tokens.get("uncached_input_tokens") or 0) + int(
+            usage.get("uncached_input_tokens") or 0
+        )
+        tokens["cache_creation_input_tokens"] = int(
+            tokens.get("cache_creation_input_tokens") or 0
+        ) + int(usage.get("cache_creation_input_tokens") or 0)
+        tokens["cache_read_input_tokens"] = int(tokens.get("cache_read_input_tokens") or 0) + int(
+            usage.get("cache_read_input_tokens") or 0
+        )
+
     async def _record_usage(self, tokens: dict[str, int]) -> None:
         if self.resolved_call is None:
             return
@@ -2167,6 +2380,9 @@ class AgentLoop:
             self.resolved_call,
             tokens_in=tokens.get("input_tokens", 0),
             tokens_out=tokens.get("output_tokens", 0),
+            tokens_in_uncached=tokens.get("uncached_input_tokens"),
+            tokens_cache_write=tokens.get("cache_creation_input_tokens", 0),
+            tokens_cache_read=tokens.get("cache_read_input_tokens", 0),
             scope=self.usage_scope,
             scope_id=scope_id,
             call_type=self.usage_call_type,
@@ -2234,25 +2450,17 @@ class AgentLoop:
                     logger.debug("re-get after tool failed", exc_info=True)
 
     async def _speak_peer_request(self, tool: str, tool_input: Any, result: Any) -> None:
-        """The question to another agent is a bubble of this turn, said once.
+        """One ask or handoff ends this turn. The person hears the answer, not the assignment.
 
-        The peer turn is queued and only starts after this turn is saved, so the
-        question is always above the answer.
+        The peer turn starts after this turn is saved. Speaking the ``said`` line
+        here read the question and the agent link aloud, and ``intercom_agent``
+        was missing so the model kept asking.
         """
-        if self.turn is None or tool not in ("ask_agent", "handoff_to"):
+        if tool not in ("ask_agent", "handoff_to", "intercom_agent"):
             return
         if not isinstance(result, dict) or result.get("error") or not result.get("ok"):
             return
         self._passed_floor = True
-        line = str(result.get("said") or "").strip()
-        if not line:
-            return
-        already = f"{self.turn.full_text}\n{self.turn.open_speech_text}"
-        if line not in already:
-            await self.turn.say(line)
-        self.turn.note_said(line)
-        if isinstance(tool_input, dict):
-            self.turn.note_said(str(tool_input.get("question") or tool_input.get("brief") or ""))
 
     async def _recover_leaked_proposal(self, turn: TurnRecorder) -> bool:
         """Run a ``<propose_action>`` the model wrote as text, and drop the tag."""
@@ -2286,8 +2494,15 @@ class AgentLoop:
         response_content: list[dict[str, Any]],
         stream_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        from app.services.canvas_blocks import bind_source_ledger, reset_source_ledger
+        from app.services.canvas_blocks import (
+            OPERATOR_SOURCE_ID,
+            bind_source_ledger,
+            note_operator_message,
+            reset_source_ledger,
+        )
 
+        if OPERATOR_SOURCE_ID not in self._source_ledger:
+            note_operator_message(self._source_ledger, str(getattr(self, "_turn_user_text", "") or ""))
         token = bind_source_ledger(self._source_ledger)
         try:
             return await self._execute_tool_loop_bound(llm_messages, response_content, stream_id)
@@ -2395,12 +2610,48 @@ class AgentLoop:
                 if tool_use["name"] in _SPEECH_DECISION_TOOLS
                 else self.tool_signal_id
             )
-            if tool_use["name"] == "finish_canvas" and self._canvas_edit_failures:
+            from app.services.job_card import call_key, lookup_argument, query_in_bounds
+
+            repeat_key = call_key(tool_use["name"], tool_input)
+            prior_failure = self._failed_calls.get(repeat_key)
+            lookup_query = (
+                lookup_argument(tool_use["name"], tool_input) if self.job_sentence else None
+            )
+            if prior_failure:
                 result = {
-                    "status": "invalid",
-                    "error": "The last edit_canvas failed; the canvas still shows the old body.",
-                    "hint": "Fix the blocks and call edit_canvas, then finish_canvas.",
+                    "status": "denied",
+                    "error": prior_failure,
+                    "hint": "That call already failed. Use different arguments, or stop.",
                 }
+                self._repeat_denials += 1
+                if self._repeat_denials >= 3:
+                    self._suppress_tools = True
+            elif lookup_query is not None and not query_in_bounds(
+                lookup_query, self.job_sentence, self.job_slots
+            ):
+                result = {
+                    "status": "denied",
+                    "error": "That name is not in the request.",
+                }
+            elif (
+                self._allowed_tool_names is not None
+                and tool_use["name"] not in self._allowed_tool_names
+            ):
+                result = {
+                    "status": "denied",
+                    "error": f"Tool {tool_use['name']} is not available on this turn.",
+                    "hint": "Answer from what you already have, or use only the tools offered.",
+                }
+            elif tool_use["name"] == "finish_canvas" and self._canvas_edit_failures:
+                from app.services.canvas_content import invalid_edit_for_kind
+
+                kind_name = (self._canvas_kind or "dashboard").strip().lower() or "dashboard"
+                result = invalid_edit_for_kind(
+                    kind_name,
+                    error=(
+                        "The last edit_canvas failed; the canvas still shows the old body."
+                    ),
+                )
             else:
                 try:
                     user_role = await self._session_user_role()
@@ -2419,6 +2670,8 @@ class AgentLoop:
                         surface=self.surface,
                         turn_id=self.turn.stream_id if self.turn is not None else None,
                         tainted=self.tainted is not None,
+                        # A person started this turn: the holder rule lets the addressed agent act.
+                        operator_asked=self.user_id is not None and self.trust != "external",
                     )
                 except Exception as exc:
                     # MissingGreenlet after a mid-tool commit must not kill the turn.
@@ -2432,6 +2685,11 @@ class AgentLoop:
                         "status": "error",
                         "hint": "Call the tool again with the same arguments.",
                     }
+            from app.services.job_card import failure_text as _failure_text
+
+            failed = _failure_text(result)
+            if failed:
+                self._failed_calls[repeat_key] = failed
             if (
                 tool_use["name"] == "attach_items"
                 and isinstance(result, dict)
@@ -2456,6 +2714,7 @@ class AgentLoop:
                     str(tool_use.get("id") or ""),
                     str(tool_use.get("name") or ""),
                     ok=True,
+                    result=result,
                 )
             try:
                 if self.turn is not None and item is not None:
@@ -2479,6 +2738,7 @@ class AgentLoop:
                 "edit_canvas",
                 "update_folder_canvas",
                 "finish_canvas",
+                "restore_canvas",
             ) and isinstance(result, dict):
                 if result.get("error") or result.get("status") == "invalid":
                     if tool_use["name"] in ("edit_canvas", "update_folder_canvas"):
@@ -2495,10 +2755,12 @@ class AgentLoop:
                         self._canvas_kind = kind
                     if tool_use["name"] == "create_canvas":
                         self._canvas_opened = True
+                        if "edit_example" in result:
+                            self._canvas_edit_example = result.get("edit_example")
                         cid = str(result.get("canvas_id") or "")
                         if cid and (canvas.get("empty") is not False):
                             self._canvas_empty_ids.append(cid)
-                    elif tool_use["name"] in ("edit_canvas", "update_folder_canvas"):
+                    elif tool_use["name"] in ("edit_canvas", "update_folder_canvas", "restore_canvas"):
                         self._canvas_placed = True
                         self._canvas_edit_failures = 0
                         cid = str(result.get("canvas_id") or "")
@@ -2516,17 +2778,21 @@ class AgentLoop:
                 {
                     "type": "tool_result",
                     "tool_use_id": tool_use["id"],
-                    "content": self._tool_result_content(tool_use["name"], result),
+                    "content": self._tool_result_content(
+                        tool_use["name"], result, str(tool_use.get("id") or "")
+                    ),
                 }
             )
             await self._revive_bound_rows()
         return tool_results
 
-    def _tool_result_content(self, name: str, result: Any) -> str:
+    def _tool_result_content(self, name: str, result: Any, tool_use_id: str = "") -> str:
         """JSON for the model; outside content is fenced and can taint the turn."""
         from app.services import prompt_guard
+        from app.services.canvas_blocks import tool_result_for_model
         from app.tools.registry import get_tool_spec
 
+        result = tool_result_for_model(name, result, tool_use_id)
         text = json.dumps(result)
         spec = get_tool_spec(name)
         if spec is None or not spec.untrusted_output:
@@ -2588,8 +2854,7 @@ class AgentLoop:
             await self._between_rounds(llm_messages)
             await self._log_event("think", f"Loop {loop_idx + 1}")
             response = await self._llm_chat(llm_messages, max_tokens)
-            tokens["input_tokens"] += response.get("usage", {}).get("input_tokens", 0)
-            tokens["output_tokens"] += response.get("usage", {}).get("output_tokens", 0)
+            self._add_usage_tokens(tokens, response.get("usage"))
 
             for block in response.get("content") or []:
                 if block.get("type") == "thinking" and block.get("thinking"):
@@ -2650,7 +2915,13 @@ class AgentLoop:
 
         if self.stop_reason != "user_interrupt" and not await self._is_cancelled():
             failures = self._unresolved_tool_failures()
-            canvas_unfinished = (self._canvas_opened or self._canvas_placed) and not self._canvas_finished
+            canvas_unfinished = (
+                ((self._canvas_opened or self._canvas_placed) and not self._canvas_finished)
+                or (
+                    self._canvas_edit_failures >= self._CANVAS_EDIT_FAIL_LIMIT
+                    and not self._canvas_finished
+                )
+            )
             if canvas_unfinished:
                 await self._bin_empty_canvases_this_turn()
                 await self._strip_canvas_speech()
@@ -2659,7 +2930,7 @@ class AgentLoop:
                 await self._say_failure(
                     llm_messages,
                     tokens,
-                    failures or ["finish_canvas: the canvas was not finished"],
+                    failures or ["edit_canvas: the canvas was not updated"],
                 )
             elif failures and not (turn.final_text or "").strip():
                 await self._say_failure(llm_messages, tokens, failures)
@@ -2780,8 +3051,7 @@ class AgentLoop:
                             }
                 elif event["type"] == "done":
                     usage = event.get("usage", {})
-                    tokens["input_tokens"] += usage.get("input_tokens", 0)
-                    tokens["output_tokens"] += usage.get("output_tokens", 0)
+                    self._add_usage_tokens(tokens, usage)
                     response_content = event.get("content") or []
                     if not self.thinking_text:
                         for block in response_content:
@@ -2885,7 +3155,13 @@ class AgentLoop:
             self.stop_reason = "user_interrupt"
 
         failures = [] if cancelled else self._unresolved_tool_failures()
-        canvas_unfinished = (self._canvas_opened or self._canvas_placed) and not self._canvas_finished
+        canvas_unfinished = (
+            ((self._canvas_opened or self._canvas_placed) and not self._canvas_finished)
+            or (
+                self._canvas_edit_failures >= self._CANVAS_EDIT_FAIL_LIMIT
+                and not self._canvas_finished
+            )
+        )
         if not cancelled and canvas_unfinished:
             await self._bin_empty_canvases_this_turn()
             await self._strip_canvas_speech()
@@ -2895,7 +3171,7 @@ class AgentLoop:
             await self._say_failure(
                 llm_messages,
                 tokens,
-                failures or ["finish_canvas: the canvas was not finished"],
+                failures or ["edit_canvas: the canvas was not updated"],
             )
             yield {
                 "type": "delta",
@@ -2945,9 +3221,7 @@ class AgentLoop:
             await self._log_event("think", "Summarizing")
             try:
                 response = await self._llm_chat(llm_messages, max_tokens)
-                usage = response.get("usage") or {}
-                tokens["input_tokens"] += int(usage.get("input_tokens") or 0)
-                tokens["output_tokens"] += int(usage.get("output_tokens") or 0)
+                self._add_usage_tokens(tokens, response.get("usage"))
                 text_blocks = [
                     b["text"]
                     for b in (response.get("content") or [])

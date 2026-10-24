@@ -107,4 +107,4 @@ Dezelfde modus bepaalt wie een onbekende chatter is. Geeft een bezoeker een e-ma
 
 ## Wat nu
 
-Vul [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Zet **Wie antwoordt** op [Kanalen](/docs/inbox/channels) wanneer een kanaal de workspace-standaardagent moet overslaan — dat is routering, geen Autonomie.
+Vul [Kennis](/docs/ai/knowledge) zodat concepten onderbouwd blijven. Zet **Komt binnen bij** op [Kanalen](/docs/inbox/channels) om een kanaal naar een afdeling te sturen — dat is routering, geen Autonomie.

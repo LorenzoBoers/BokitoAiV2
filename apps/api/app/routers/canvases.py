@@ -28,6 +28,11 @@ class CanvasCreateBody(BaseModel):
     notes: str | None = None
 
 
+class CanvasSourceBody(BaseModel):
+    source: str
+    expected_revision: int | None = None
+
+
 class CanvasMetaBody(BaseModel):
     title: str | None = None
     slug: str | None = None
@@ -160,6 +165,60 @@ async def _sheet_row(session: AsyncSession, tenant_id: UUID, canvas_id: UUID) ->
     if (row.get("kind") or "") != "sheet":
         raise HTTPException(status_code=400, detail="Only a sheet canvas can be exported")
     return row
+
+
+@router.get("/{canvas_id}/revisions")
+async def list_revisions(
+    canvas_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    items = await canvas_svc.list_canvas_revisions(session, auth.tenant.id, canvas_id)
+    return {"items": items}
+
+
+@router.post("/{canvas_id}/revisions/{revision}/restore")
+async def restore_revision(
+    canvas_id: UUID,
+    revision: int,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    auth.require_role("owner", "admin")
+    return await canvas_svc.restore_canvas_revision(
+        session,
+        auth.tenant.id,
+        canvas_id,
+        revision,
+        updated_by_type="user",
+        updated_by_id=str(auth.user.id) if auth.user else "",
+    )
+
+
+@router.put("/{canvas_id}/source")
+async def put_design_source(
+    canvas_id: UUID,
+    body: CanvasSourceBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Operator drag and text edits. Only a design canvas is written from the page."""
+    auth.require_role("owner", "admin")
+    current = await canvas_svc.get_canvas(session, auth.tenant.id, canvas_id=canvas_id)
+    if (current.get("kind") or "") != "design":
+        raise HTTPException(
+            status_code=400,
+            detail="Only a design canvas is edited on the page. Ask in the conversation for other kinds.",
+        )
+    return await canvas_svc.put_canvas_source(
+        session,
+        auth.tenant.id,
+        canvas_id=canvas_id,
+        source=body.source,
+        expected_revision=body.expected_revision,
+        updated_by_type="user",
+        updated_by_id=str(auth.user.id) if auth.user else "",
+    )
 
 
 @router.get("/{canvas_id}")

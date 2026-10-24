@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "bokito": {
-      "url": "https://app.bokito.ai/api/mcp"
+    "bokito-bourgondie": {
+      "url": "https://dev.app.bokito.ai/api/mcp"
     },
     "github-bokito-ai": {
       "command": "npx",

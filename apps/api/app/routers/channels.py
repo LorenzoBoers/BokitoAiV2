@@ -76,7 +76,6 @@ def _serialize_account(row: ChannelAccount) -> dict:
         "has_inbound_secret": bool(settings.get("inbound_secret")),
         "access": account_access(row),
         "access_is_default": is_default_access(row),
-        "default_agent_id": str(row.default_agent_id) if row.default_agent_id else None,
         "default_department_id": (
             settings.get("routing", {}).get("department_id")
             or settings.get("routing", {}).get("team_id")
@@ -346,7 +345,6 @@ async def create_widget_channel(
 
     label = body.label if body else ""
     account = await create_extra_widget_channel(session, auth.tenant, label=label)
-    # Empty default_agent_id = Standaard (workspace lead).
     await session.commit()
     await session.refresh(account)
     return await _row(session, auth, account)
@@ -483,9 +481,11 @@ class ChannelRow(BaseModel):
     last_error: str = ""
     # Resolved AI handling at channel scope plus ``breaker_tripped_at``.
     ai_handling: dict[str, Any]
-    default_agent_id: str | None = None
-    # Team that owns new conversations on this channel (None unless a team is set).
+    # Home node: the department new conversations land on (None: the organization).
     default_team_id: str | None = None
+    # Display name of the home node, and the agent that picks up there.
+    home_name: str = ""
+    home_agent_name: str = ""
     # Person that owns new conversations when a human must take over (None: team / All people).
     default_user_id: str | None = None
     access: list[ChannelAccessEntry]
@@ -514,7 +514,6 @@ class ChannelPatchBody(BaseModel):
     is_primary: bool | None = None
     sync_window_days: int | None = None
     archive_automated_mail: bool | None = None
-    default_agent_id: UUID | None = None
     default_team_id: UUID | None = None
     default_user_id: UUID | None = None
 
@@ -557,6 +556,17 @@ async def _row(session: AsyncSession, auth: AuthContext, account: ChannelAccount
         widget_count=widget_count,
     )
     row["conversation_count"] = await conversation_count(session, account)
+    from app.services.org_routing import route_to_node
+    from app.services.teams import get_team, org_root
+
+    home = (
+        await get_team(session, auth.tenant.id, account.routing_department_id)
+        if account.routing_department_id
+        else None
+    ) or await org_root(session, auth.tenant.id)
+    route = await route_to_node(session, auth.tenant.id, home, account=account)
+    row["home_name"] = home.name
+    row["home_agent_name"] = route.agent.name if route.agent else ""
     return row
 
 
@@ -681,24 +691,6 @@ async def patch_channel(
             from app.services.email_sync import clear_sync_pause
 
             clear_sync_pause(settings)
-    if "default_agent_id" in body.model_fields_set:
-        if body.default_agent_id is not None:
-            from app.models.agent import Agent
-
-            selected = (
-                await session.execute(
-                    select(Agent).where(
-                        Agent.id == body.default_agent_id,
-                        Agent.tenant_id == auth.tenant.id,
-                        Agent.kind == "company",
-                        Agent.is_active.is_(True),
-                        Agent.acts_for_user.is_(False),
-                    )
-                )
-            ).scalar_one_or_none()
-            if not selected:
-                raise HTTPException(status_code=400, detail="Default agent is unavailable")
-        account.default_agent_id = body.default_agent_id
     if "default_team_id" in body.model_fields_set or "default_user_id" in body.model_fields_set:
         routing = settings.get("routing") if isinstance(settings.get("routing"), dict) else {}
         # Person and team are mutually exclusive; All people clears both.

@@ -376,7 +376,7 @@ export default function Login() {
                   {t('loginPage.totpBody')}
                 </p>
               </div>
-              <input
+              <Input
                 autoFocus
                 inputMode="numeric"
                 autoComplete="one-time-code"
@@ -391,8 +391,9 @@ export default function Login() {
                     e.target.form?.requestSubmit();
                   }
                 }}
-                className="w-full rounded-md border border-border bg-bg-input px-4 py-2.5 text-center font-mono text-lg tracking-code text-text-primary placeholder-text-muted focus:outline-none focus:border-border-focus transition"
+                className="text-center font-mono"
                 placeholder={t('loginPage.totpPlaceholder')}
+                aria-label={t('loginPage.totpTitle')}
               />
               {error && (
                 <div className="px-4 py-3 rounded-md bg-status-error/10 border border-status-error/30 text-status-error text-sm">

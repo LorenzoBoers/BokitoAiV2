@@ -75,7 +75,7 @@ async def ask_domain_question(
     The same question (case and spacing ignored) is never asked twice. Caller commits.
     """
     from app.services.chat_runtime import post_message
-    from app.services.department_access import department_leads
+    from app.services.department_access import department_roles
     from app.services.teams import get_or_create_team_room
 
     text = question.strip()[:600]
@@ -87,7 +87,7 @@ async def ask_domain_question(
             return {**row, "duplicate": True}
     room = await get_or_create_team_room(session, tenant_id, dept)
     await session.flush()
-    leads = await department_leads(session, tenant_id, dept.id)
+    leads = await department_roles(session, tenant_id, dept.id)
     who = f"@[accountable](user:{leads['accountable_user_id']}) " if leads["accountable_user_id"] else ""
     message = await post_message(
         session,
@@ -167,7 +167,13 @@ def open_domain_questions(dept: Department | None) -> list[dict[str, Any]]:
 
 
 async def agent_departments(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> list[tuple[Department, str]]:
-    """The departments an agent is in, primary duty first."""
+    """The departments an agent is in, point of contact first.
+
+    Duty reads ``primary`` where the agent is the department's point of contact
+    (explicit or implicit), otherwise ``member``.
+    """
+    from app.services.department_access import department_roles
+
     rows = (
         await session.execute(
             select(Department, DepartmentMember.duty)
@@ -180,8 +186,11 @@ async def agent_departments(session: AsyncSession, tenant_id: UUID, agent_id: UU
             )
         )
     ).all()
-    order = {"primary": 0, "backup": 1}
-    return sorted(((d, duty or "member") for d, duty in rows), key=lambda r: (order.get(r[1], 2), r[0].name.lower()))
+    out: list[tuple[Department, str]] = []
+    for dept, _duty in rows:
+        contact = (await department_roles(session, tenant_id, dept.id))["contact_agent_id"]
+        out.append((dept, "primary" if contact == agent_id else "member"))
+    return sorted(out, key=lambda r: (r[1] != "primary", r[0].name.lower()))
 
 
 async def department_of_signal(session: AsyncSession, signal: Signal) -> UUID | None:
@@ -220,17 +229,25 @@ async def department_of_signal(session: AsyncSession, signal: Signal) -> UUID | 
 
 
 async def reach_people(session: AsyncSession, tenant_id: UUID, department_id: UUID) -> list[UUID]:
-    """People to reach for this department: accountable, backup, then members; All as last resort."""
-    from app.services.teams import all_department
+    """People to reach for this department: accountable, backup, then members.
+
+    Walks up the tree when a department has no people; at the organization
+    the accountable person comes first, then owners and admins.
+    """
+    from app.models.auth import Membership
+    from app.models.team import is_root_department
 
     order = {"primary": 0, "backup": 1}
     out: list[UUID] = []
-    for dept_id in (department_id, (await all_department(session, tenant_id)).id):
+    dept = await session.get(Department, department_id)
+    seen: set[UUID] = set()
+    while dept is not None and dept.id not in seen and dept.tenant_id == tenant_id:
+        seen.add(dept.id)
         rows = (
             await session.execute(
                 select(DepartmentMember).where(
                     DepartmentMember.tenant_id == tenant_id,
-                    DepartmentMember.department_id == dept_id,
+                    DepartmentMember.department_id == dept.id,
                     DepartmentMember.member_kind == "user",
                 )
             )
@@ -238,8 +255,18 @@ async def reach_people(session: AsyncSession, tenant_id: UUID, department_id: UU
         for row in sorted(rows, key=lambda r: (order.get(r.duty or "member", 2), r.position)):
             if row.user_id and row.user_id not in out:
                 out.append(row.user_id)
-        if out:
+        if is_root_department(dept):
+            admins = (
+                await session.execute(
+                    select(Membership.user_id)
+                    .where(Membership.tenant_id == tenant_id, Membership.role.in_(("owner", "admin")))
+                    .order_by(Membership.role.desc(), Membership.created_at)
+                )
+            ).scalars().all()
+            out.extend(u for u in admins if u not in out)
+        if out or dept.parent_id is None:
             break
+        dept = await session.get(Department, dept.parent_id)
     return out
 
 

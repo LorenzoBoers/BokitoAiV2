@@ -57,13 +57,18 @@ async def user_principal(
 async def agent_principals(
     session: AsyncSession, tenant_id: UUID, agent_ids: Sequence[UUID]
 ) -> dict[UUID, Principal]:
-    """Team memberships for many agents (direct + ancestors)."""
-    from app.services.teams import agent_team_ids
+    """Team memberships for many agents (direct + ancestors).
 
+    The organization root is always included: a grant to it means Everyone,
+    also for an agent that is not placed in any department.
+    """
+    from app.services.teams import agent_team_ids, ensure_org_root
+
+    root = str((await ensure_org_root(session, tenant_id)).id)
     unique = list(dict.fromkeys(agent_ids))
     out: dict[UUID, Principal] = {}
     for aid in unique:
-        teams = {str(t) for t in await agent_team_ids(session, tenant_id, aid)}
+        teams = {str(t) for t in await agent_team_ids(session, tenant_id, aid)} | {root}
         out[aid] = Principal("agent", str(aid), teams)
     return out
 
@@ -104,9 +109,9 @@ async def validate_entries(
     """Validate operator input; Everyone / legacy people|agents map to All."""
     from app.models.agent import Agent
     from app.models.auth import Membership
-    from app.services.teams import ensure_all_department
+    from app.services.teams import ensure_org_root
 
-    all_dept = await ensure_all_department(session, tenant_id)
+    all_dept = await ensure_org_root(session, tenant_id)
     all_id = str(all_dept.id)
     rank = {lvl: i for i, lvl in enumerate(levels)}
     seen: dict[tuple[str, str], str] = {}

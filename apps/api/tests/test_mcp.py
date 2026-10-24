@@ -92,7 +92,30 @@ async def test_mcp_initialize_and_list_tools(client: AsyncClient):
         "tenant_overview",
         "open_threads",
         "search_knowledge",
+        "build_sheet",
+        "build_dashboard",
+        "build_canvas",
     }
+
+    sheet_prompt = await client.post(
+        "/api/mcp",
+        json=_rpc(
+            "prompts/get",
+            {
+                "name": "build_sheet",
+                "arguments": {
+                    "title": "Weer",
+                    "topic": "twee weken NL",
+                },
+            },
+        ),
+        headers=headers,
+    )
+    assert sheet_prompt.status_code == 200
+    sheet_text = sheet_prompt.json()["result"]["messages"][0]["content"]["text"]
+    assert 'kind="sheet"' in sheet_text
+    assert "edit_example" in sheet_text
+    assert "blocks: []" in sheet_text
 
     prompt = await client.post(
         "/api/mcp",

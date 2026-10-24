@@ -66,6 +66,53 @@ async def _free(session: AsyncSession, team: Team, ref: MemberRef, signal_id: UU
     return True
 
 
+async def accountable_up(session: AsyncSession, team: Team) -> tuple[UUID | None, Team | None]:
+    """(person, node) for a decision on ``team``: its accountable person, else the parent's, up to the owner.
+
+    Someone away or inactive is skipped. At the organization without an
+    accountable person the first active owner answers.
+    """
+    from app.services.department_access import department_roles
+    from app.services.presence import AWAY, user_status
+    from app.services.teams import get_team
+
+    async def reachable(user_id: UUID | None) -> bool:
+        if user_id is None:
+            return False
+        user = await session.get(User, user_id)
+        membership = (
+            await session.execute(
+                select(Membership).where(Membership.tenant_id == team.tenant_id, Membership.user_id == user_id)
+            )
+        ).scalar_one_or_none()
+        return bool(
+            user is not None and user.is_active and membership is not None and membership.is_active
+            and user_status(user) != AWAY
+        )
+
+    node: Team | None = team
+    seen: set[UUID] = set()
+    while node is not None and node.id not in seen:
+        seen.add(node.id)
+        roles = await department_roles(session, team.tenant_id, node.id)
+        if await reachable(roles["accountable_user_id"]):
+            return roles["accountable_user_id"], node
+        if is_root_department(node):
+            owners = (
+                await session.execute(
+                    select(Membership.user_id)
+                    .where(Membership.tenant_id == team.tenant_id, Membership.role == "owner")
+                    .order_by(Membership.created_at)
+                )
+            ).scalars().all()
+            for owner_id in owners:
+                if await reachable(owner_id):
+                    return owner_id, node
+            return None, None
+        node = await get_team(session, team.tenant_id, node.parent_id) if node.parent_id else None
+    return None, None
+
+
 async def first_available(
     session: AsyncSession, team: Team, *, signal_id: UUID | None = None
 ) -> MemberRef | None:

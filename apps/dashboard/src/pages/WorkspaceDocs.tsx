@@ -68,7 +68,7 @@ import { cn } from '../lib/utils'
 import { useUnsavedChangesGuard } from '../hooks/useUnsavedChangesGuard'
 import { formatAppTime } from '../lib/app-locale'
 import { workspaceBrandName } from '../lib/tenant-branding'
-import { AgentsSectionTabs } from '../components/shell/SectionTabs'
+import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 
 const KIND_ORDER: WorkspaceDocKind[] = [
   'persona',
@@ -538,8 +538,7 @@ export default function WorkspaceDocs() {
     : []
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-3 animate-page-enter">
-      <AgentsSectionTabs className="mb-2 shrink-0" />
+    <div className="flex h-full min-h-0 flex-col gap-3 p-3 animate-page-enter">
       <Card className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-72 shrink-0 flex-col border-r border-border">
           <div className="space-y-2.5 border-b border-border px-3 pb-3 pt-3.5">
@@ -584,7 +583,7 @@ export default function WorkspaceDocs() {
                 >
                   <FilePlus className="h-3.5 w-3.5" />
                 </Button>
-                <input
+                <input // design-system-ignore: hidden file input opened by the upload button
                   ref={uploadInputRef}
                   type="file"
                   accept=".pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.rst,.log,.json"
@@ -1073,6 +1072,10 @@ export default function WorkspaceDocs() {
           )}
         </main>
       </Card>
+      <PageRelatedLinks
+        className="shrink-0 px-1"
+        links={[{ to: '/agents', label: t('teamPage.relatedAgents') }]}
+      />
     </div>
   )
 }

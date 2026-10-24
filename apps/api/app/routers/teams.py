@@ -32,10 +32,39 @@ class TeamMemberRef(BaseModel):
     id: str
     duty: Literal["primary", "backup", "member"] = "member"
     position: int = 0
+    focus: str = ""
+
+
+class CrewEntry(BaseModel):
+    kind: Literal["user", "agent"]
+    id: str
+    role: Literal["contact", "accountable", "member"] = "member"
+    focus: str = Field(default="", max_length=80)
+
+
+class CrewBody(BaseModel):
+    crew: list[CrewEntry]
+
+
+class CrewOut(BaseModel):
+    crew: list[CrewEntry]
+    previous: list[CrewEntry]
+    contact_agent_id: str | None = None
+    contact_implicit: bool = False
+    accountable_user_id: str | None = None
+    summary: str = ""
 
 
 class TeamPresenceOut(BaseModel):
     status: Literal["available", "away", "offline", "standby", "working"]
+
+
+class TeamContactOut(BaseModel):
+    """The point of contact; ``implicit`` when nobody was picked and the first agent acts."""
+
+    id: str
+    name: str
+    implicit: bool = False
 
 
 class TeamOut(BaseModel):
@@ -50,6 +79,7 @@ class TeamOut(BaseModel):
     pinned: bool = False
     members: list[TeamMemberRef]
     member_count: int
+    contact: TeamContactOut | None = None
     presence: TeamPresenceOut = Field(default_factory=lambda: TeamPresenceOut(status="offline"))
     avatar_kind: str = "initials"
     avatar_icon: str | None = None
@@ -61,19 +91,18 @@ class TeamOut(BaseModel):
 class TeamCreateBody(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     description: str = ""
-    pickup: Literal["people", "agent_first", "round_robin", "least_open"] = "people"
-    members: list[TeamMemberRef] = Field(default_factory=list)
+    pickup: Literal["people", "round_robin", "least_open"] = "people"
+    parent_id: str | None = None
 
 
 class TeamPatchBody(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = None
-    pickup: Literal["people", "agent_first", "round_robin", "least_open"] | None = None
+    pickup: Literal["people", "round_robin", "least_open"] | None = None
     icon: str | None = Field(default=None, max_length=64)
-
-
-class TeamMembersBody(BaseModel):
-    members: list[TeamMemberRef]
+    parent_id: str | None = None
+    # Shielded: only this branch, the departments above it and owners/admins read its work.
+    visibility: Literal["open", "shielded"] | None = None
 
 
 class PresenceOut(BaseModel):
@@ -116,6 +145,8 @@ class OverviewAgent(BaseModel):
     # Older rows can still have NULL; treat that as assisted for the overview.
     autonomy_level: str = "assisted"
     team_ids: list[str]
+    # Active and in no department: only picks up work handed to it directly.
+    unplaced: bool = False
     open_owned: int
     status: Literal["standby", "working", "error"] = "standby"
     # Same mark fields as serialize_agent / Agents page (orb shape was dropped here).
@@ -148,6 +179,13 @@ class AwayBody(BaseModel):
 class AvailabilityBody(BaseModel):
     mode: str
     until: datetime | None = None
+
+
+def _parse_uuid(raw: str) -> UUID:
+    try:
+        return UUID(raw)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid id") from exc
 
 
 async def _team_or_404(session: AsyncSession, tenant_id: UUID, team_id: str):
@@ -210,16 +248,22 @@ async def create_team(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Create a custom team of people and agents (owner or admin)."""
+    """Create a department under the organization or under ``parent_id`` (owner or admin).
+
+    The crew is set afterwards on the department page (PUT members).
+    """
     auth.require_role("owner", "admin")
-    team = await teams_svc.create_team(
-        session,
-        auth.tenant.id,
-        name=body.name,
-        description=body.description,
-        pickup=body.pickup,
-        members=[m.model_dump() for m in body.members],
-    )
+    try:
+        team = await teams_svc.create_team(
+            session,
+            auth.tenant.id,
+            name=body.name,
+            description=body.description,
+            pickup=body.pickup,
+            parent_id=_parse_uuid(body.parent_id) if body.parent_id else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await record_audit(
         session,
         auth.tenant.id,
@@ -242,21 +286,32 @@ async def patch_team(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Rename a team, change its description or pickup.
+    """Rename a department, change its description, pickup, icon or parent.
 
-    The All root is not editable. Custom departments
-    always appear in the Communication sidebar; mark/pin are not configurable.
+    The organization root is not editable here; its name is the workspace name.
+    A new parent must keep the tree at most two levels deep.
     """
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
     from app.models.team import is_root_department
 
     if is_root_department(team):
-        raise HTTPException(status_code=400, detail="The All department cannot be edited")
+        raise HTTPException(status_code=400, detail="The organization is edited in workspace settings")
+    if "parent_id" in body.model_fields_set:
+        root = await teams_svc.ensure_org_root(session, auth.tenant.id)
+        parent_id = _parse_uuid(body.parent_id) if body.parent_id else root.id
+        if parent_id != team.parent_id:
+            try:
+                await teams_svc.check_parent(session, auth.tenant.id, team.id, parent_id)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+            team.parent_id = parent_id
     if body.name is not None:
         team.name = body.name.strip()
     if body.description is not None:
         team.description = body.description.strip()[:300]
+    if body.visibility is not None:
+        team.visibility = body.visibility
     if body.pickup is not None:
         team.pickup = body.pickup
     if body.icon is not None:
@@ -285,26 +340,74 @@ async def patch_team(
     return await teams_svc.serialize_team(session, team)
 
 
-@router.put("/{team_id}/members", response_model=TeamOut)
-async def put_team_members(
+@router.put("/{team_id}/members", response_model=CrewOut)
+async def put_department_crew(
     team_id: str,
-    body: TeamMembersBody,
+    body: CrewBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Replace the members of a custom department. All is managed by membership seed."""
+    """Replace the crew of a department or of the organization (owner or admin).
+
+    One point of contact (an agent) and one accountable person at most. Without
+    an explicit contact the first agent by position acts as one. Owners and
+    admins are on the organization by role and are not listed there. Returns the
+    previous crew so the page can undo.
+    """
     auth.require_role("owner", "admin")
     team = await _team_or_404(session, auth.tenant.id, team_id)
-    from app.models.team import is_root_department
-
-    if is_root_department(team):
-        raise HTTPException(status_code=400, detail="The All department roster is managed automatically")
     try:
-        await teams_svc.set_team_members(session, team, [m.model_dump() for m in body.members])
+        result = await teams_svc.change_department_crew(
+            session, team, [e.model_dump() for e in body.crew], actor_type="user", actor_id=auth.user.id
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await session.commit()
-    return await teams_svc.serialize_team(session, team)
+    return CrewOut(
+        crew=[CrewEntry(**e) for e in result["crew"]],
+        previous=[CrewEntry(**e) for e in result["previous"]],
+        contact_agent_id=result["contact_agent_id"],
+        contact_implicit=result["contact_implicit"],
+        accountable_user_id=result["accountable_user_id"],
+        summary=result["summary"],
+    )
+
+
+class PlaceBody(BaseModel):
+    agent_id: UUID
+
+
+@router.post("/{team_id}/members/place", response_model=CrewOut)
+async def place_agent_in_department(
+    team_id: str,
+    body: PlaceBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Seat an agent in a department as a member (owner or admin). Already seated: no change.
+
+    The action behind Place on an agent that sits in no department yet.
+    """
+    auth.require_role("owner", "admin")
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    entries = await teams_svc.crew_entries(session, team)
+    if not any(e["kind"] == "agent" and e["id"] == str(body.agent_id) for e in entries):
+        entries = teams_svc.with_member(entries, "agent", body.agent_id)
+    try:
+        result = await teams_svc.change_department_crew(
+            session, team, entries, actor_type="user", actor_id=auth.user.id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await session.commit()
+    return CrewOut(
+        crew=[CrewEntry(**e) for e in result["crew"]],
+        previous=[CrewEntry(**e) for e in result["previous"]],
+        contact_agent_id=result["contact_agent_id"],
+        contact_implicit=result["contact_implicit"],
+        accountable_user_id=result["accountable_user_id"],
+        summary=result["summary"],
+    )
 
 
 class TeamRoomOut(BaseModel):
@@ -502,6 +605,7 @@ async def team_overview(
             {
                 "member_type": agent.member_type or WorkforceMemberType.ai_agent.value,
                 "team_ids": membership.get(f"agent:{agent.id}", []),
+                "unplaced": not deactivated and not membership.get(f"agent:{agent.id}"),
                 "open_owned": int(open_owned_agent.get(agent.id, 0)),
                 "deactivated": deactivated,
                 "metrics": metrics["agents"].get(str(agent.id), empty_metrics()),
@@ -525,17 +629,46 @@ class DepartmentRef(BaseModel):
     avatar_image_url: str | None = None
 
 
-class DepartmentMemberRow(BaseModel):
+class DepartmentContactRef(DepartmentRef):
+    """The point of contact; ``implicit`` when nobody was picked and the first agent acts."""
+
+    implicit: bool = False
+
+
+class DepartmentCrewRow(BaseModel):
     kind: Literal["user", "agent"]
     id: str
     name: str
-    duty: str
+    role: Literal["contact", "accountable", "member"] = "member"
+    focus: str = ""
+    workspace_role: str | None = None
     hours_per_week: int | None = None
     open_assigned: int | None = None
     presence: str | None = None
     status: str | None = None
     doing: str = ""
     cost_cents: int | None = None
+    avatar_kind: str | None = None
+    avatar_icon: str | None = None
+    avatar_color: str | None = None
+    avatar_shape: str | None = None
+    avatar_image_url: str | None = None
+
+
+class DepartmentPathRow(BaseModel):
+    id: str
+    name: str
+    is_org: bool = False
+    href: str
+
+
+class DepartmentChildRow(BaseModel):
+    id: str
+    name: str
+    icon: str = "building-2"
+    open: int = 0
+    href: str
+    contact: DepartmentRef | None = None
 
 
 class DepartmentStageRow(BaseModel):
@@ -626,37 +759,24 @@ class DepartmentQuestionRow(BaseModel):
     message_id: str | None = None
 
 
-class DepartmentParentMember(BaseModel):
-    kind: Literal["user", "agent"]
-    id: str
-    name: str
-    avatar_kind: str | None = None
-    avatar_icon: str | None = None
-    avatar_color: str | None = None
-    avatar_shape: str | None = None
-    avatar_image_url: str | None = None
-
-
-class DepartmentParentOut(BaseModel):
-    id: str
-    name: str
-    is_root: bool = False
-    members: list[DepartmentParentMember] = Field(default_factory=list)
-
-
 class DepartmentOverviewOut(BaseModel):
     id: str
     name: str
     description: str
     icon: str = "building-2"
-    parent: DepartmentParentOut | None = None
-    lead: DepartmentRef | None = None
+    is_org: bool = False
+    visibility: Literal["open", "shielded"] = "open"
+    parent_id: str | None = None
+    path: list[DepartmentPathRow] = Field(default_factory=list)
+    children: list[DepartmentChildRow] = Field(default_factory=list)
+    contact: DepartmentContactRef | None = None
     accountable: DepartmentRef | None = None
     autonomy: str | None = None
     origin_module: dict | None = None
     room_signal_id: str | None = None
     pickup: str = "people"
-    members: list[DepartmentMemberRow]
+    crew: list[DepartmentCrewRow] = Field(default_factory=list)
+    admins: list[DepartmentCrewRow] = Field(default_factory=list)
     flows: list[DepartmentFlowRow]
     totals: dict[str, int]
     today: DepartmentToday = Field(default_factory=DepartmentToday)
@@ -670,6 +790,12 @@ class DepartmentOverviewOut(BaseModel):
     domain_questions: list[DepartmentQuestionRow] = Field(default_factory=list)
     outcomes: dict | None = None
     grid_href: str = ""
+    # Organization only: whether agents follow the tree (holder, shielding, talk lines).
+    org_rules: Literal["off", "on"] | None = None
+
+
+class OrgRulesBody(BaseModel):
+    mode: Literal["off", "on"]
 
 
 @router.get("/{team_id}/overview", response_model=DepartmentOverviewOut)
@@ -678,8 +804,9 @@ async def department_overview(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """One department: who leads and is accountable, what asks attention today,
-    the work per flow and stage, people and agents, the lead's awareness,
+    """One department: its path from the organization, the point of contact and
+    the person accountable, the crew and the departments below, what asks
+    attention today, the work per flow and stage, the contact's awareness,
     what it can reach, where its work lands, pushes and calls, domain
     questions and outcomes."""
     from app.services.department_overview import department_overview as build
@@ -690,6 +817,101 @@ async def department_overview(
         raise HTTPException(status_code=404, detail="Team not found")
     await session.commit()
     return out
+
+
+@router.get("/organization", response_model=DepartmentOverviewOut)
+async def organization_overview(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """The organization (the root of the department tree) in the same shape as
+    a department: its point of contact (the workspace lead), the person
+    accountable, owners and admins by role, and the departments below."""
+    from app.services.department_overview import department_overview as build
+
+    root = await teams_svc.ensure_org_root(session, auth.tenant.id)
+    out = await build(session, auth.tenant.id, root.id)
+    if out is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    from app.services.org_rules import org_rules_on
+
+    out["name"] = auth.tenant.name or out["name"]
+    out["org_rules"] = "on" if await org_rules_on(session, auth.tenant.id) else "off"
+    await session.commit()
+    return out
+
+
+@router.put("/organization/rules")
+async def put_org_rules(
+    body: OrgRulesBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> dict[str, str]:
+    """Turn the organization rules on or off: with them on, only the holder acts on a
+    conversation, shielded departments stay out of reach and asks follow the tree."""
+    from app.services.audit import record_audit
+    from app.services.org_rules import org_rules_on, set_org_rules
+
+    auth.require_role("owner", "admin")
+    before = "on" if await org_rules_on(session, auth.tenant.id) else "off"
+    await set_org_rules(session, auth.tenant.id, body.mode)
+    await record_audit(
+        session,
+        auth.tenant.id,
+        action="govern:org_rules",
+        actor_type="user",
+        actor_id=str(auth.user.id),
+        resource_type="tenant",
+        resource_id=str(auth.tenant.id),
+        outcome="applied",
+        summary=f"Organization rules {body.mode}",
+        before={"org_rules": before},
+        after={"org_rules": body.mode},
+        commit=False,
+    )
+    await session.commit()
+    return {"org_rules": body.mode}
+
+
+@router.get("/{team_id}/board")
+async def department_board(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Kanban of this department's flows. Tickets are every conversation filed on those flows."""
+    from app.services.tickets import department_board as build
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    return {"playbooks": await build(session, auth.tenant.id, team.id)}
+
+
+@router.get("/{team_id}/works-in")
+async def department_works_in(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Works in for the whole department: one board, one file count, canvases and resources."""
+    from app.services.works_in import department_items
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    return {"items": await department_items(session, auth.tenant.id, team.id)}
+
+
+@router.get("/{team_id}/docs")
+async def department_docs(
+    team_id: str,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Documentation of this department, as one list. A folder tab still reads that folder's docs."""
+    from app.services.project_work import docs_for_department
+    from app.services.works_in import department_folder_ids
+
+    team = await _team_or_404(session, auth.tenant.id, team_id)
+    folder_ids = await department_folder_ids(session, auth.tenant.id, team.id)
+    return {"docs": await docs_for_department(session, auth.tenant.id, team.id, folder_ids)}
 
 
 class DomainQuestionBody(BaseModel):
@@ -758,27 +980,20 @@ class AwarenessPatch(BaseModel):
     scope: dict | None = None
 
 
-async def _lead_or_404(session: AsyncSession, tenant_id: UUID, team) -> Agent:
-    from app.services.department_access import department_leads
-
-    lead_id = (await department_leads(session, tenant_id, team.id))["lead_agent_id"]
-    lead = await session.get(Agent, lead_id) if lead_id else None
-    if lead is None or lead.tenant_id != tenant_id:
-        raise HTTPException(status_code=404, detail="This department has no lead agent")
-    return lead
-
-
 @router.get("/{team_id}/awareness")
 async def get_department_awareness(
     team_id: str,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """What the lead agent follows, may spend and last saw on its orientation."""
-    from app.services.agent_awareness import awareness_view
+    """What the department follows, may spend and last saw on its orientation.
+
+    ``agent_id`` is the point of contact that runs it; null when no agent sits in the department.
+    """
+    from app.services.agent_awareness import department_awareness_view
 
     team = await _team_or_404(session, auth.tenant.id, team_id)
-    return await awareness_view(session, await _lead_or_404(session, auth.tenant.id, team))
+    return await department_awareness_view(session, team)
 
 
 @router.patch("/{team_id}/awareness")
@@ -788,29 +1003,28 @@ async def patch_department_awareness(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Change what wakes the lead agent between orientations and what it may spend a day."""
-    from app.services.agent_awareness import awareness_view, set_awareness
+    """Change what wakes the department's point of contact between orientations and what it may spend a day."""
+    from app.services.agent_awareness import department_awareness_view, set_awareness
 
     team = await _team_or_404(session, auth.tenant.id, team_id)
-    lead = await _lead_or_404(session, auth.tenant.id, team)
     try:
-        set_awareness(lead, body.model_dump(exclude_none=True))
+        set_awareness(team, body.model_dump(exclude_none=True))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    session.add(lead)
+    session.add(team)
     await record_audit(
         session,
         auth.tenant.id,
         action="department.awareness_updated",
         actor_type="user",
         actor_id=str(auth.user.id),
-        resource_type="agent",
-        resource_id=str(lead.id),
-        summary=f"Awareness of {lead.name} changed",
+        resource_type="department",
+        resource_id=str(team.id),
+        summary=f"Awareness of {team.name} changed",
         after=body.model_dump(exclude_none=True),
     )
     await session.commit()
-    return await awareness_view(session, lead)
+    return await department_awareness_view(session, team)
 
 
 @router.put("/me/away", response_model=PresenceOut)

@@ -299,7 +299,13 @@ export async function bokitoCreateAgent(token: string, input: CreateAgentInput) 
 
 export async function bokitoPreviewAgentVoice(
   token: string,
-  input: { voice: string; speed: number; language: string; name: string },
+  input: {
+    voice: string
+    speed: number
+    language: string
+    name: string
+    voice_model?: string | null
+  },
 ): Promise<Blob> {
   const res = await fetch(`${WORKFORCE_API_BASE}${workforceRoutes.agents.voicePreview()}`, {
     method: 'POST',
@@ -344,6 +350,7 @@ export async function bokitoUpdateAgent(
     call_voice?: string
     call_speed?: number
     call_language?: string
+    call_voice_model?: string | null
   },
 ) {
   return bokitoFetch<{ ok: boolean; agent: RuntimeAgent }>(

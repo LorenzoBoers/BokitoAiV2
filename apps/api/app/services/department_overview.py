@@ -1,9 +1,9 @@
 """One department at a glance: who is responsible, and how the work runs.
 
-The department page reads this in one call: the lead and the person
-accountable with presence, what asks attention today, the lead's improvement
-proposals, the work per flow and stage, the people and agents, the lead's
-awareness, what the department can reach, the folders its work lands in, the
+The department page reads this in one call: the path from the organization,
+the point of contact and the person accountable with presence, the crew and
+the departments below, what asks attention today, the contact's improvement
+proposals, the work per flow and stage, the contact's awareness, what the department can reach, the folders its work lands in, the
 pushes and calls, the domain questions, the outcomes, and the Grid link.
 Per flow (``Workstream.department_id``) it counts open, waiting and overdue
 tickets and attaches the latest label scorecard (services/learning.py).
@@ -26,7 +26,7 @@ from app.models.learning import EvalScore
 from app.models.orchestra import Workstream
 from app.models.signal import Signal, SignalTag
 from app.models.team import Department, DepartmentMember
-from app.services.department_access import department_leads
+from app.services.department_access import department_roles
 from app.services.flow_proposals import open_proposals
 from app.services.trash import alive
 
@@ -77,9 +77,17 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
     dept = await session.get(Department, department_id)
     if dept is None or dept.tenant_id != tenant_id or dept.deleted_at is not None:
         return None
-    leads = await department_leads(session, tenant_id, department_id)
-    lead = await session.get(Agent, leads["lead_agent_id"]) if leads["lead_agent_id"] else None
-    accountable = await session.get(User, leads["accountable_user_id"]) if leads["accountable_user_id"] else None
+    from app.models.team import is_root_department
+
+    roles = await department_roles(session, tenant_id, department_id)
+    lead = await session.get(Agent, roles["contact_agent_id"]) if roles["contact_agent_id"] else None
+    accountable = await session.get(User, roles["accountable_user_id"]) if roles["accountable_user_id"] else None
+    is_org = is_root_department(dept)
+    if is_org and lead is None:
+        from app.services.lead_agent import get_lead_agent
+
+        lead = await get_lead_agent(session, tenant_id)
+        roles = {**roles, "contact_agent_id": lead.id if lead else None, "contact_implicit": lead is not None}
 
     members = (
         await session.execute(
@@ -88,14 +96,27 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
             .order_by(DepartmentMember.position)
         )
     ).scalars().all()
-    user_ids = [m.user_id for m in members if m.member_kind == "user" and m.user_id]
+    admin_rows = (
+        await session.execute(
+            select(Membership.user_id, Membership.role).where(
+                Membership.tenant_id == tenant_id, Membership.role.in_(("owner", "admin"))
+            )
+        )
+    ).all() if is_org else []
+    user_ids = list(
+        dict.fromkeys(
+            [m.user_id for m in members if m.member_kind == "user" and m.user_id] + [u for u, _r in admin_rows]
+        )
+    )
     hours = await _hours(session, tenant_id, user_ids)
     users = {
         u.id: u for u in (await session.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
     } if user_ids else {}
     agent_ids = [m.agent_id for m in members if m.member_kind == "agent" and m.agent_id]
     agents = {
-        a.id: a for a in (await session.execute(select(Agent).where(Agent.id.in_(agent_ids)))).scalars().all()
+        a.id: a
+        for a in (await session.execute(select(Agent).where(Agent.id.in_(agent_ids)))).scalars().all()
+        if a.kind == "company" and a.is_active and not a.acts_for_user
     } if agent_ids else {}
     open_per_user = dict(
         (
@@ -121,30 +142,44 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
     def presence(user: User) -> str:
         return visible_user_status(user, connected=str(user.id) in connected, now=now)
 
-    people = []
+    from app.services.agent_avatar import avatar_payload
+
+    def user_row(u: User, role: str, focus: str) -> dict[str, Any]:
+        return {
+            "kind": "user",
+            "id": str(u.id),
+            "name": u.display_name or u.email,
+            "role": role,
+            "focus": focus,
+            "hours_per_week": hours.get(u.id),
+            "open_assigned": int(open_per_user.get(u.id, 0)),
+            "presence": presence(u),
+        }
+
+    crew = []
     for m in members:
         if m.member_kind == "user" and m.user_id in users:
-            u = users[m.user_id]
-            people.append({
-                "kind": "user",
-                "id": str(u.id),
-                "name": u.display_name or u.email,
-                "duty": m.duty,
-                "hours_per_week": hours.get(u.id),
-                "open_assigned": int(open_per_user.get(u.id, 0)),
-                "presence": presence(u),
-            })
+            role = "accountable" if m.user_id == roles["accountable_user_id"] else "member"
+            crew.append(user_row(users[m.user_id], role, m.focus or ""))
         elif m.member_kind == "agent" and m.agent_id in agents:
             a = agents[m.agent_id]
-            people.append({
+            crew.append({
                 "kind": "agent",
                 "id": str(a.id),
                 "name": a.name,
-                "duty": m.duty,
+                "role": "contact" if a.id == roles["contact_agent_id"] else "member",
+                "focus": m.focus or "",
                 "status": a.runtime_status or "standby",
                 "doing": a.current_activity_summary or "",
                 "cost_cents": cost.get(a.id, 0),
+                **{k: v for k, v in avatar_payload(a).items() if k.startswith("avatar_")},
             })
+    seated = {r["id"] for r in crew if r["kind"] == "user"}
+    admins = [
+        {**user_row(users[uid], "member", ""), "workspace_role": role}
+        for uid, role in sorted(admin_rows, key=lambda r: r[1] != "owner")
+        if uid in users and str(uid) not in seated
+    ]
 
     flows = (
         await session.execute(
@@ -211,8 +246,7 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
 
     from app.models.auth import Tenant
     from app.modules.catalog import MODULE_BY_SLUG
-    from app.services.agent_avatar import avatar_payload
-    from app.services.agent_awareness import awareness_view
+    from app.services.agent_awareness import department_awareness_view
     from app.services.ai_handling import resolve_ai_handling
     from app.services.department_domain import domain_questions
     from app.services.flow_proposals import proposal_history
@@ -220,7 +254,7 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
     from app.services.teams import get_or_create_team_room
 
     tenant = await session.get(Tenant, tenant_id)
-    room = await get_or_create_team_room(session, tenant_id, dept)
+    room = None if is_org else await get_or_create_team_room(session, tenant_id, dept)
     await session.flush()
     module = MODULE_BY_SLUG.get(dept.origin_module_slug or "")
     history = await proposal_history(session, tenant_id, dept.id)
@@ -232,12 +266,17 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
         "name": dept.name,
         "description": dept.description or "",
         "icon": department_icon(dept),
-        "parent": await _parent_view(session, tenant_id, dept),
-        "lead": (
+        "is_org": is_org,
+        "visibility": dept.visibility or "open",
+        "parent_id": str(dept.parent_id) if dept.parent_id else None,
+        "path": await department_path(session, tenant_id, dept),
+        "children": await _children(session, tenant_id, dept),
+        "contact": (
             {
                 "id": str(lead.id),
                 "name": lead.name,
                 "status": lead.runtime_status or "standby",
+                "implicit": bool(roles["contact_implicit"]),
                 **{k: v for k, v in avatar_payload(lead).items() if k.startswith("avatar_")},
             }
             if lead
@@ -254,15 +293,16 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
         ),
         "autonomy": resolve_ai_handling(tenant, scope="workspace", agent=lead).effective if tenant else None,
         "origin_module": {"slug": module.slug, "name": module.name} if module else None,
-        "room_signal_id": str(room.id),
+        "room_signal_id": str(room.id) if room else None,
         "pickup": dept.pickup or "people",
-        "members": people,
+        "crew": crew,
+        "admins": admins,
         "flows": flow_rows,
         "totals": totals,
         "today": await _today(session, tenant_id, dept, tickets, lead, room, now),
         "proposals": await open_proposals(session, tenant_id, dept.id),
         "proposal_history": history,
-        "awareness": await awareness_view(session, lead) if lead else None,
+        "awareness": await department_awareness_view(session, dept),
         "reach": await _reach(session, tenant_id, dept, flow_rows),
         "lands": lands,
         "folders": _folder_scopes(lands, flows, tags, tickets, now),
@@ -276,58 +316,88 @@ async def department_overview(session: AsyncSession, tenant_id: UUID, department
     }
 
 
-async def _parent_view(session: AsyncSession, tenant_id: UUID, dept: Department) -> dict[str, Any] | None:
-    """The department above this one, with the people and agents who sit on it.
+async def department_path(session: AsyncSession, tenant_id: UUID, dept: Department) -> list[dict[str, Any]]:
+    """Breadcrumb from the organization down to this department.
 
-    Most departments hang under the All root. The child page names that parent;
-    membership still does not grant the child the parent's work.
+    The root carries the workspace name, not its stored name.
     """
+    from app.models.auth import Tenant
     from app.models.team import is_root_department
+
+    chain: list[Department] = []
+    node: Department | None = dept
+    seen: set[UUID] = set()
+    while node is not None and node.id not in seen and node.tenant_id == tenant_id:
+        seen.add(node.id)
+        chain.append(node)
+        node = await session.get(Department, node.parent_id) if node.parent_id else None
+    tenant = await session.get(Tenant, tenant_id)
+    out = []
+    for d in reversed(chain):
+        org = is_root_department(d)
+        out.append({
+            "id": str(d.id),
+            "name": tenant.name if org and tenant else d.name,
+            "is_org": org,
+            "href": "/organisatie" if org else f"/departments/{d.id}",
+        })
+    return out
+
+
+async def _children(session: AsyncSession, tenant_id: UUID, dept: Department) -> list[dict[str, Any]]:
+    """Departments directly below, each with its point of contact and open tickets."""
     from app.services.agent_avatar import avatar_payload
 
-    if dept.parent_id is None:
-        return None
-    parent = await session.get(Department, dept.parent_id)
-    if parent is None or parent.tenant_id != tenant_id or parent.deleted_at is not None:
-        return None
-    members = (
+    rows = (
         await session.execute(
-            select(DepartmentMember)
-            .where(DepartmentMember.tenant_id == tenant_id, DepartmentMember.department_id == parent.id)
-            .order_by(DepartmentMember.position)
+            select(Department)
+            .where(
+                Department.tenant_id == tenant_id,
+                Department.parent_id == dept.id,
+                Department.deleted_at.is_(None),
+            )
+            .order_by(Department.name)
         )
     ).scalars().all()
-    user_ids = [m.user_id for m in members if m.member_kind == "user" and m.user_id]
-    agent_ids = [m.agent_id for m in members if m.member_kind == "agent" and m.agent_id]
-    users = {
-        u.id: u for u in (await session.execute(select(User).where(User.id.in_(user_ids)))).scalars().all()
-    } if user_ids else {}
-    agents = {
-        a.id: a for a in (await session.execute(select(Agent).where(Agent.id.in_(agent_ids)))).scalars().all()
-    } if agent_ids else {}
-    people: list[dict[str, Any]] = []
-    for member in members:
-        if member.member_kind == "user" and member.user_id in users:
-            user = users[member.user_id]
-            people.append({
-                "kind": "user",
-                "id": str(user.id),
-                "name": user.display_name or user.email,
-            })
-        elif member.member_kind == "agent" and member.agent_id in agents:
-            agent = agents[member.agent_id]
-            people.append({
-                "kind": "agent",
-                "id": str(agent.id),
-                "name": agent.name,
-                **{k: v for k, v in avatar_payload(agent).items() if k.startswith("avatar_")},
-            })
-    return {
-        "id": str(parent.id),
-        "name": parent.name,
-        "is_root": is_root_department(parent),
-        "members": people,
-    }
+    if not rows:
+        return []
+    open_by = dict(
+        (
+            await session.execute(
+                select(Workstream.department_id, func.count(Signal.id))
+                .join(SignalTag, SignalTag.workstream_id == Workstream.id)
+                .join(Signal, Signal.ticket_tag_id == SignalTag.id)
+                .where(
+                    Workstream.tenant_id == tenant_id,
+                    Workstream.department_id.in_([d.id for d in rows]),
+                    alive(Signal),
+                    Signal.ticket_status.in_(("open", "waiting")),
+                )
+                .group_by(Workstream.department_id)
+            )
+        ).all()
+    )
+    out = []
+    for child in rows:
+        contact_id = (await department_roles(session, tenant_id, child.id))["contact_agent_id"]
+        contact = await session.get(Agent, contact_id) if contact_id else None
+        out.append({
+            "id": str(child.id),
+            "name": child.name,
+            "icon": department_icon(child),
+            "open": int(open_by.get(child.id, 0) or 0),
+            "href": f"/departments/{child.id}",
+            "contact": (
+                {
+                    "id": str(contact.id),
+                    "name": contact.name,
+                    **{k: v for k, v in avatar_payload(contact).items() if k.startswith("avatar_")},
+                }
+                if contact
+                else None
+            ),
+        })
+    return out
 
 
 PERIOD_DAYS = 7
@@ -469,10 +539,10 @@ async def _today(
     dept: Department,
     tickets: list[Signal],
     lead: Agent | None,
-    room: Signal,
+    room: Signal | None,
     now: datetime,
 ) -> dict[str, Any]:
-    """Bottlenecks, waiting decisions and the lead's last orientation."""
+    """Bottlenecks, waiting decisions and the point of contact's last orientation."""
     from app.models.notification import DecisionRequest
     from app.services.agent_awareness import awareness_config
 
@@ -483,7 +553,7 @@ async def _today(
         {"key": "overdue", "count": sum(1 for t in tickets if t.due_at and t.due_at < now)},
         {"key": "due_this_week", "count": sum(1 for t in tickets if t.due_at and now <= t.due_at < week)},
     ]
-    ids = [t.id for t in tickets] + [room.id]
+    ids = [t.id for t in tickets] + ([room.id] if room else [])
     decisions = int(
         (
             await session.execute(
@@ -496,7 +566,7 @@ async def _today(
         ).scalar_one()
         or 0
     )
-    brief = awareness_config(lead)["brief"] if lead else None
+    brief = awareness_config(dept)["brief"]
     return {
         "bottlenecks": [b for b in bottlenecks if b["count"]],
         "decisions_waiting": decisions,
@@ -505,7 +575,7 @@ async def _today(
                 "at": brief.get("at"),
                 "summary": brief.get("summary") or "",
                 "quiet": bool(brief.get("quiet")),
-                "signal_id": str(room.id),
+                "signal_id": str(room.id) if room else "",
             }
             if brief
             else None

@@ -8,6 +8,7 @@ import { ApiErrorBanner, formatApiErrorMessage } from '../ui/ApiErrorBanner'
 import { Hashtag } from '../ui/HashtagMark'
 import { KanbanColumnsSkeleton } from '../ui/skeleton'
 import { useEntityRefresh } from '../../lib/live-store'
+import { getDepartmentBoard } from '../../lib/teams-api'
 import {
   getProjectBoard,
   moveTicketToStage,
@@ -28,15 +29,16 @@ const Workflow = ENTITY_ICONS.flow
 const COLUMN_PREFIX = 'stage-col:'
 
 /**
- * Stacked kanban boards for flows that already have a ticket in this folder
- * (or a folder under it). Membership comes from those threads — not from
- * attaching a flow to the folder.
+ * Stacked kanban boards. `departmentId` is the department's own flows.
+ * `projectId` filters those tickets to one folder.
  */
 export function ProjectFlowBoards({
   projectId,
+  departmentId,
   canEdit,
 }: {
-  projectId: string
+  projectId?: string
+  departmentId?: string
   canEdit: boolean
   onFlowsChanged?: () => void
 }) {
@@ -46,16 +48,17 @@ export function ProjectFlowBoards({
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    if (!departmentId && !projectId) return
     setError(null)
     try {
-      const rows = await getProjectBoard(projectId)
+      const rows = departmentId ? await getDepartmentBoard(departmentId) : await getProjectBoard(projectId!)
       setBoards(rows.filter((row) => row.tickets.length > 0))
     } catch (err) {
       setError(formatApiErrorMessage(err, t('projects.home.boardLoadError')))
     } finally {
       setLoading(false)
     }
-  }, [projectId, t])
+  }, [departmentId, projectId, t])
 
   useEffect(() => {
     setLoading(true)

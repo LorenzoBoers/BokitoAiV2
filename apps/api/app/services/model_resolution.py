@@ -363,6 +363,13 @@ async def resolve_model_call(
     model_slug: str | None = None,
 ) -> ResolvedModelCall:
     from app.services import tenant_features
+    from app.services.model_policy import forced_chat_slug
+
+    # DevOps pin: every chat call uses FORCE_CHAT_MODEL when set.
+    if kind == "chat":
+        forced = forced_chat_slug()
+        if forced:
+            model_slug = forced
 
     tenant = await tenant_features.get_tenant(session, tenant_id)
     use_byok = bool(tenant and tenant_features.custom_models_active(tenant))
@@ -386,11 +393,10 @@ async def resolve_model_call(
 def compute_costs(
     resolved: ResolvedModelCall, tokens_in: int, tokens_out: int
 ) -> tuple[int, int]:
-    """Return (provider_cost_micros, customer_cost_micros) in micro-USD (1e-6 USD).
+    """Sync fallback (provider, customer) micros without a price book lookup.
 
-    Provider cost always follows the real backing model. The customer price is
-    based on the billing list price when set (Bokito virtual models), so a
-    cheaper backing model widens the margin instead of lowering the bill.
+    Prefer ``pricing.quote`` via ``record_usage``. Kept for orchestration run
+    events and tests that do not open a pricing session.
     """
     provider_micros = round(
         tokens_in * resolved.input_cost_per_mtok_cents / 100
@@ -411,6 +417,13 @@ def compute_costs(
     return provider_micros, customer_micros
 
 
+def _backing_fields(resolved: ResolvedModelCall) -> tuple[str, str]:
+    """Real provider/model when the usage label is a Bokito virtual slug."""
+    if bokito_models.is_bokito_provider(resolved.provider):
+        return resolved.provider_type or "", resolved.model_id or ""
+    return "", ""
+
+
 async def record_usage(
     session: AsyncSession,
     tenant_id: UUID,
@@ -426,12 +439,38 @@ async def record_usage(
     ticket_tag_id: UUID | None = None,
     workstream_id: UUID | None = None,
     user_id: UUID | None = None,
+    tokens_in_uncached: int | None = None,
+    tokens_cache_write: int = 0,
+    tokens_cache_read: int = 0,
+    units: int = 0,
+    unit_kind: str = "token",
     commit: bool = False,
 ) -> UsageLedger:
     """Write a metered usage row. Customer cost applies only to platform keys."""
-    provider_micros, customer_micros = compute_costs(resolved, tokens_in, tokens_out)
+    from app.services import pricing as pricing_svc
+
     billable = resolved.billable
+    quote = await pricing_svc.quote(
+        session,
+        tenant_id,
+        slug=resolved.slug,
+        provider=resolved.provider_type or resolved.provider,
+        billable=billable,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        units=units,
+        unit_kind=unit_kind,
+        provider_input_cents=resolved.input_cost_per_mtok_cents,
+        provider_output_cents=resolved.output_cost_per_mtok_cents,
+        legacy_bill_input_cents=resolved.bill_input_cost_per_mtok_cents,
+        legacy_bill_output_cents=resolved.bill_output_cost_per_mtok_cents,
+        legacy_markup=resolved.markup,
+    )
+    provider_micros = quote.provider_cost_micros
+    customer_micros = quote.customer_cost_micros
     legacy_cents = round((customer_micros if billable else provider_micros) / 10000)
+    backing_provider, backing_model = _backing_fields(resolved)
+    uncached = tokens_in if tokens_in_uncached is None else int(tokens_in_uncached)
 
     entry = UsageLedger(
         tenant_id=tenant_id,
@@ -440,14 +479,23 @@ async def record_usage(
         call_type=call_type,
         provider=resolved.provider,
         model=resolved.slug,
+        backing_provider=backing_provider,
+        backing_model=backing_model,
         key_source=resolved.key_source,
         region=resolved.region,
         billable=billable,
         tokens_in=tokens_in,
         tokens_out=tokens_out,
+        tokens_in_uncached=uncached,
+        tokens_cache_write=int(tokens_cache_write or 0),
+        tokens_cache_read=int(tokens_cache_read or 0),
+        units=int(units or 0),
+        unit_kind=unit_kind or "token",
         provider_cost_micros=provider_micros,
         customer_cost_micros=customer_micros,
         cost_cents=legacy_cents,
+        price_book_id=quote.price_book_id,
+        price_rule_version=quote.price_rule_version,
         agent_id=agent_id,
         run_id=run_id,
         ticket_tag_id=ticket_tag_id,
@@ -457,8 +505,75 @@ async def record_usage(
     session.add(entry)
     if commit:
         await session.commit()
-    if billable and (tokens_in or tokens_out):
+    if billable and (tokens_in or tokens_out or units):
         # Async 80%/100% budget alerts; never blocks the usage write path.
+        from app.services.spend_guard import schedule_spend_alert_check
+
+        schedule_spend_alert_check(tenant_id)
+    return entry
+
+
+async def record_platform_unit_usage(
+    session: AsyncSession,
+    tenant_id: UUID,
+    *,
+    call_type: str,
+    unit_kind: str,
+    units: int,
+    provider: str,
+    model: str,
+    region: str = "us",
+    key_source: str = "platform",
+    scope: str = "chat",
+    scope_id: str | None = None,
+    agent_id: UUID | None = None,
+    user_id: UUID | None = None,
+    commit: bool = False,
+) -> UsageLedger | None:
+    """Meter non-token platform spend (voice, image units) without a ResolvedModelCall."""
+    if units <= 0:
+        return None
+    from app.services import pricing as pricing_svc
+
+    billable = key_source == "platform"
+    quote = await pricing_svc.quote(
+        session,
+        tenant_id,
+        slug=model,
+        provider=provider,
+        billable=billable,
+        units=units,
+        unit_kind=unit_kind,
+    )
+    legacy_cents = round(
+        (quote.customer_cost_micros if billable else quote.provider_cost_micros) / 10000
+    )
+    entry = UsageLedger(
+        tenant_id=tenant_id,
+        scope=scope,
+        scope_id=scope_id,
+        call_type=call_type,
+        provider=provider,
+        model=model,
+        backing_provider=provider,
+        backing_model=model,
+        key_source=key_source,
+        region=region,
+        billable=billable,
+        units=units,
+        unit_kind=unit_kind,
+        provider_cost_micros=quote.provider_cost_micros,
+        customer_cost_micros=quote.customer_cost_micros,
+        cost_cents=legacy_cents,
+        price_book_id=quote.price_book_id,
+        price_rule_version=quote.price_rule_version,
+        agent_id=agent_id,
+        user_id=user_id,
+    )
+    session.add(entry)
+    if commit:
+        await session.commit()
+    if billable:
         from app.services.spend_guard import schedule_spend_alert_check
 
         schedule_spend_alert_check(tenant_id)

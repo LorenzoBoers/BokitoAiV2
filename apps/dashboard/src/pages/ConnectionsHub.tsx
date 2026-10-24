@@ -1,6 +1,6 @@
 import { GRID_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Search } from 'lucide-react'
@@ -8,9 +8,11 @@ import { CalendarAccountsSection } from '../components/integrations/CalendarAcco
 import { ConnectionSections } from '../components/integrations/ConnectionSections'
 import { MarketplaceModuleCard } from '../components/integrations/ModuleCard'
 import { ModuleShowcaseModal } from '../components/integrations/ModuleShowcaseModal'
+import { ModuleShowcaseCarousel } from '../components/integrations/ModuleShowcaseCarousel'
 import { ApplicationCard } from '../components/integrations/ApplicationCard'
 import { AiToolCard } from '../components/integrations/AiToolCard'
 import { ConnectedTile } from '../components/integrations/ConnectedTile'
+import { ConnectionsHubTabs } from '../components/integrations/ConnectionsHubTabs'
 import { IntegrationHostLogo } from '../components/integrations/IntegrationHostLogo'
 import { IntegrationKindNav } from '../components/integrations/IntegrationKindNav'
 import {
@@ -20,7 +22,6 @@ import {
 } from '../components/integrations/ApplicationHubPanel'
 import { Input } from '../components/ui/input'
 import { Button } from '../components/ui/button'
-import { IconTile } from '../components/ui/icon-tile'
 import { EmptyState } from '../components/ui/empty-state'
 import { useConfirm } from '../components/ui/confirm-dialog'
 import { CardGridSkeleton } from '../components/ui/skeleton'
@@ -33,6 +34,7 @@ import {
   parseKindFilter,
   kindFilterToParam,
   connectionsPathWithKind,
+  CONNECTIONS_INSTALLED_PATH,
   type IntegrationKindFilter,
 } from '../lib/integration-kind-url'
 import {
@@ -49,7 +51,7 @@ import {
   type IntegrationOffer,
 } from '../lib/integration-applications'
 import { resolveIntegrationKind } from '../lib/integration-kind'
-import { moduleHomePath, moduleIsOn, moduleNavIcon } from '../lib/integration-modules'
+import { moduleHomePath, moduleIsOn } from '../lib/integration-modules'
 import {
   applicationsForModule,
   marketplaceOfferRows,
@@ -82,9 +84,9 @@ type GridItem =
   | { kind: 'ai_tool'; key: string; row: AiToolCardRow }
 
 /**
- * Connections: one page for everything the workspace can talk to. A Connected
- * strip on top, then one searchable grid of modules, integrations and AI tools.
- * Detail and setup open in a right-hand panel; `?connect={slug}` deep-links it.
+ * Connections Discover: module showcase, then a searchable catalog of
+ * integrations and AI tools. Installed registrations live on
+ * `/connections/installed`. `?connect={slug}` deep-links the detail panel.
  */
 export default function ConnectionsHub() {
   const { t } = useTranslation(['nav', 'common'])
@@ -257,11 +259,6 @@ export default function ConnectionsHub() {
     [allOfferRows, t],
   )
 
-  const installedModules = useMemo(
-    () => modules.filter((module) => module.status !== 'coming_soon' && moduleIsOn(module)),
-    [modules],
-  )
-
   /** Custom MCP servers that no catalog offer already accounts for. */
   const mcpItems = useMemo((): ConnectionListItem[] => {
     const summaryById = Object.fromEntries(connections.map((row) => [row.id, row]))
@@ -299,6 +296,8 @@ export default function ConnectionsHub() {
 
   const visibleModules = useMemo(() => {
     if (kindFilter !== 'all' && kindFilter !== 'modules') return []
+    // On Discover with no search, modules live in the showcase carousel.
+    if (kindFilter === 'all' && !query.trim()) return []
     const filtered = modules.filter((module) =>
       moduleMatchesMarketplaceQuery(module, applications, query, t),
     )
@@ -415,7 +414,10 @@ export default function ConnectionsHub() {
   }
 
   const showConnectedStrip =
-    kindFilter === 'all' && !query.trim() && (connectedOffers.length > 0 || installedModules.length > 0)
+    kindFilter === 'all' && !query.trim() && connectedOffers.length > 0
+  const showModuleShowcase =
+    (kindFilter === 'all' || kindFilter === 'modules') && !query.trim() && modules.length > 0
+  const installedCount = connectedOffers.reduce((sum, row) => sum + row.offer.connectionCount, 0)
   const hasActiveFilter = Boolean(query.trim()) || kindFilter !== 'all'
   const catalogLoading = loading && applications.length === 0
 
@@ -426,7 +428,16 @@ export default function ConnectionsHub() {
         title={t('tabs.modules.title', { defaultValue: 'Connections' })}
         subtitle={t('integrations.pageMeta.connected.description')}
         className="mb-0"
+        actions={
+          <Button asChild size="sm" variant="secondary">
+            <Link to={CONNECTIONS_INSTALLED_PATH}>
+              {t('integrations.hubTabs.installed', { defaultValue: 'Installed' })}
+            </Link>
+          </Button>
+        }
       />
+
+      <ConnectionsHubTabs active="discover" installedCount={installedCount} />
 
       {loadError || catalogError ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -437,46 +448,27 @@ export default function ConnectionsHub() {
         </div>
       ) : null}
 
+      {showModuleShowcase ? (
+        <ModuleShowcaseCarousel
+          modules={modules}
+          applications={applications}
+          onOpen={(module) => setModuleShowcase(module)}
+        />
+      ) : null}
+
       {showConnectedStrip ? (
         <section className="space-y-3" aria-labelledby="connections-connected">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="connections-connected" className="text-xs font-semibold text-text-muted">
               {t('integrations.connectedStrip.title', { defaultValue: 'Connected' })}
             </h2>
-            <p className="text-2xs text-text-muted">
-              {t('integrations.connectedStrip.count', {
-                count: connectedOffers.length + installedModules.length,
-                defaultValue: '{{count}} active',
-              })}
-            </p>
+            <Button asChild size="sm" variant="ghost">
+              <Link to={CONNECTIONS_INSTALLED_PATH}>
+                {t('integrations.connected.viewAll', { defaultValue: 'View all' })}
+              </Link>
+            </Button>
           </div>
           <div className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(14rem,1fr))]">
-            {installedModules.map((module) => {
-              const Icon = moduleNavIcon(module.slug)
-              const specialist = module.specialist_agent_name
-              return (
-                <ConnectedTile
-                  key={`module:${module.slug}`}
-                  mark={<IconTile icon={Icon} />}
-                  name={t(`integrations.modules.${module.slug}.name`, { defaultValue: module.name })}
-                  meta={
-                    specialist
-                      ? t('integrations.connectedStrip.specialistMeta', {
-                          defaultValue: 'Specialist · {{name}}',
-                          name: specialist,
-                        })
-                      : t('integrations.filters.modules')
-                  }
-                  onClick={() =>
-                    navigate(
-                      specialist && module.specialist_agent_id
-                        ? moduleHomePath(module) + '?tab=setup'
-                        : moduleHomePath(module),
-                    )
-                  }
-                />
-              )
-            })}
             {connectedOffers.map(({ application, offer }) => {
               const copy = localizeOfferCopy(offer, t)
               return (
@@ -510,7 +502,9 @@ export default function ConnectionsHub() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0">
             <h2 id="connections-all" className="text-xs font-semibold text-text-muted">
-              {t('integrations.filters.all')}
+              {kindFilter === 'modules'
+                ? t('integrations.filters.modules')
+                : t('integrations.filters.all')}
             </h2>
             <IntegrationKindNav
               value={kindFilter}

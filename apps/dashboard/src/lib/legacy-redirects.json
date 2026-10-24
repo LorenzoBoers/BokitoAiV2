@@ -37,7 +37,7 @@
   { "from": "/automations", "to": "/agenda" },
   { "from": "/orchestra", "to": "/agenda" },
   { "from": "/integrations", "to": "/connections", "preserveSearch": true },
-  { "from": "/integrations/connected", "to": "/connections", "preserveSearch": true },
+  { "from": "/integrations/connected", "to": "/connections/installed", "preserveSearch": true },
   { "from": "/integrations/marketplace", "to": "/connections", "preserveSearch": true },
   { "from": "/integrations/mcp", "to": "/connections", "preserveSearch": true },
   { "from": "/marketplace", "to": "/connections", "preserveSearch": true },

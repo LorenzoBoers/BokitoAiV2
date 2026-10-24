@@ -12,9 +12,8 @@ Both are ``ProviderSpec`` rows with capability ``image`` and show up as
 ``TenantModel`` nodes (``origin=platform``) on the same tables a workspace
 uses for its own providers.
 
-Billing is not written. ``image_usage_event`` is the shape a future
-``record_usage`` sibling will persist (per image, or per token when the
-provider reports tokens).
+After generation, ``generate_image`` writes ``usage_ledger`` via
+``record_usage`` / ``record_platform_unit_usage`` (images or tokens).
 """
 
 from __future__ import annotations
@@ -90,7 +89,7 @@ class ResolvedImageCall:
 
 @dataclass
 class ImageUsageEvent:
-    """Metering hook. ``priced`` stays false until image billing is implemented."""
+    """Metering payload mirrored into ``usage_ledger`` after generation."""
 
     call_type: str
     provider: str
@@ -106,7 +105,7 @@ class ImageUsageEvent:
     tokens_out: int
     provider_list_price_cents: int | None
     customer_cost_micros: int = 0
-    priced: bool = False
+    priced: bool = True
 
 
 @dataclass
@@ -306,8 +305,63 @@ async def generate_image(
         resolved.provider_type, resolved.api_key, resolved.base_url or None
     )
     result = await provider.generate(text, model_id=resolved.model_id, size=size, n=n)
+    usage = image_usage_event(resolved, result)
+    if session is not None and not result.mock:
+        await _persist_image_usage(session, tenant_id, resolved, usage)
     return ImageGeneration(
         resolved=resolved,
         result=result,
-        usage=image_usage_event(resolved, result),
+        usage=usage,
+    )
+
+
+async def _persist_image_usage(
+    session: AsyncSession,
+    tenant_id: UUID,
+    resolved: ResolvedImageCall,
+    usage: ImageUsageEvent,
+) -> None:
+    from app.services.model_resolution import (
+        ResolvedModelCall,
+        record_platform_unit_usage,
+        record_usage,
+    )
+
+    if usage.tokens_in or usage.tokens_out:
+        fake = ResolvedModelCall(
+            slug=resolved.slug,
+            provider=resolved.provider,
+            provider_type=resolved.provider_type,
+            model_id=resolved.model_id,
+            kind="image",
+            api_key=resolved.api_key,
+            key_source=resolved.key_source,
+            region=resolved.region,
+            input_cost_per_mtok_cents=0,
+            output_cost_per_mtok_cents=0,
+            markup=1.0,
+        )
+        await record_usage(
+            session,
+            tenant_id,
+            fake,
+            tokens_in=usage.tokens_in,
+            tokens_out=usage.tokens_out,
+            call_type="image",
+            units=usage.images,
+            unit_kind="image",
+            commit=False,
+        )
+        return
+    await record_platform_unit_usage(
+        session,
+        tenant_id,
+        call_type="image",
+        unit_kind="image",
+        units=max(usage.images, 1),
+        provider=resolved.provider_type or resolved.provider,
+        model=resolved.model_id or resolved.slug,
+        region=resolved.region,
+        key_source=resolved.key_source,
+        commit=False,
     )

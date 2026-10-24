@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Filter, List, Mail, Pin, Rows3, Search, Settings, Users, X } from 'lucide-react'
+import { Filter, List, Mail, Pin, Rows3, Settings, Users, X } from 'lucide-react'
 import type { InboxListQuickFilter } from '../../context/InboxCommunicationContext'
 import { useOptionalInboxCommunication } from '../../context/InboxCommunicationContext'
 import type { InboxDensity } from '../../lib/inbox-prefs'
@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '../ui/select'
 import { Button } from '../ui/button'
+import { SearchField } from '../ui/search-field'
 
 function mailboxSyncLabel(
   lastSyncAt: string,
@@ -149,45 +150,20 @@ export default function ThreadListQuickFilters({
   return (
     <div className="border-b border-border">
       <div className="flex items-center gap-1.5 px-2.5 py-2">
-        <div className="relative min-w-0 flex-1">
-          <Search
-            size={14}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted"
-            aria-hidden
-          />
-          <input
-            type="search"
-            id="inbox-search"
-            value={search}
-            onChange={(e) => setSearch?.(e.target.value)}
-            disabled={!setSearch}
-            placeholder={t('threadList.searchPlaceholder')}
-            aria-label={t('threadList.searchPlaceholder')}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return
-              event.preventDefault()
-              if (search) setSearch?.('')
-              event.currentTarget.blur()
-            }}
-            className={cn(
-              'h-8 w-full rounded-md border border-border bg-bg-surface pl-8 pr-8 text-sm text-text-primary',
-              'placeholder:text-text-muted',
-              'outline-none transition-colors focus:border-accent/45 focus:bg-bg-surface focus:ring-2 focus:ring-accent/15',
-              '[&::-webkit-search-cancel-button]:hidden [&::-webkit-search-cancel-button]:[-webkit-appearance:none] [&::-webkit-search-decoration]:hidden',
-              !setSearch && 'opacity-60',
-            )}
-          />
-          {search && setSearch ? (
-            <Button variant="ghost" size="iconSm"
-              type="button"
-              onClick={() => setSearch('')}
-              aria-label={t('inboxSearchClear')}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2"
-            >
-              <X size={14} />
-            </Button>
-          ) : null}
-        </div>
+        <SearchField
+          id="inbox-search"
+          size="sm"
+          className="min-w-0 flex-1"
+          value={search}
+          onChange={(next) => setSearch?.(next)}
+          disabled={!setSearch}
+          placeholder={t('threadList.searchPlaceholder')}
+          aria-label={t('threadList.searchPlaceholder')}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') return
+            event.currentTarget.blur()
+          }}
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

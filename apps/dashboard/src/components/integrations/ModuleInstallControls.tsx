@@ -159,7 +159,7 @@ export function ModuleInstallControls({ module, onAction, compact = false, hideU
             hasAgent
               ? undefined
               : t('integrations.modules.finishSetupNeedsAgent', {
-                  defaultValue: 'Assign at least one AI agent before finishing setup',
+                  defaultValue: "Add an agent to the module's department before finishing setup",
                 })
           }
           onClick={() => run('complete_setup')}

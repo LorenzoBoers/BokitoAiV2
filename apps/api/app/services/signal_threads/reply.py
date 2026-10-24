@@ -355,6 +355,8 @@ async def reply_to_thread(
             author_user_id=user_id,
             author_name=author_name,
             user_role=actor_role,
+            # A note is for the team. It wakes an agent only when it names one.
+            follow_holder=resolved_kind != "internal_note",
         )
         await session.commit()
     return serialize_message(message)

@@ -216,6 +216,11 @@ async def spawn(ctx: Any, tool_input: dict[str, Any]) -> dict[str, Any]:
     prompt = str(tool_input.get("prompt") or "").strip()
     if not prompt:
         return {"error": "prompt required"}
+    from app.services.job_card import delegation_block
+
+    blocked = delegation_block(prompt)
+    if blocked:
+        return {"error": blocked, "status": "denied"}
     if await _is_child_run(session, ctx.run_id):
         return {"error": f"Subagents cannot start subagents (max depth {MAX_DEPTH})", "status": "denied"}
     tenant = await session.get(Tenant, ctx.tenant_id)

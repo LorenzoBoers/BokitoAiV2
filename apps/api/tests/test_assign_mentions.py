@@ -112,13 +112,15 @@ async def test_team_mention_notifies_the_people_in_the_team(client: AsyncClient,
         await session_override.execute(select(User).where(User.email == "support@example.com"))
     ).scalar_one()
     teammate_id = teammate.id
-    r = await client.post(
-        "/api/departments",
-        headers=owner,
-        json={"name": "Support", "members": [{"kind": "user", "id": str(teammate_id)}]},
-    )
+    r = await client.post("/api/departments", headers=owner, json={"name": "Support"})
     assert r.status_code == 201, r.text
     team_id = r.json()["id"]
+    crew = await client.put(
+        f"/api/departments/{team_id}/members",
+        headers=owner,
+        json={"crew": [{"kind": "user", "id": str(teammate_id)}]},
+    )
+    assert crew.status_code == 200, crew.text
     signal_id = await _thread(client, owner)
 
     r = await client.post(
@@ -137,7 +139,7 @@ async def test_team_mention_notifies_the_people_in_the_team(client: AsyncClient,
 
 async def test_agent_hands_conversation_to_a_team(client: AsyncClient, session_override):
     from app.models.signal import Signal
-    from app.services.teams import all_department
+    from app.services.teams import org_root
     from app.tools.builtin import _assign_conversation
     from app.tools.registry import ToolContext
 
@@ -146,7 +148,7 @@ async def test_agent_hands_conversation_to_a_team(client: AsyncClient, session_o
     agent = await _agent(session_override)
     agent_id, tenant_id = agent.id, agent.tenant_id
     user_id = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one().id
-    team_id = (await all_department(session_override, tenant_id)).id
+    team_id = (await org_root(session_override, tenant_id)).id
     await session_override.commit()
 
     ctx = ToolContext(

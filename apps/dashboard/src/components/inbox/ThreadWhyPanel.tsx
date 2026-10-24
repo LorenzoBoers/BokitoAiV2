@@ -38,7 +38,10 @@ export function ThreadWhyPanel({ threadId }: { threadId: string }) {
     if (params.channel) {
       params.channel = t(`composer.channel.${params.channel}`, { defaultValue: String(params.channel) })
     }
-    if (line.kind === 'delivered_works_in' && !params.item) {
+    if (
+      (line.kind === 'delivered_works_in' || line.kind === 'delivered_on_thread') &&
+      !params.item
+    ) {
       params.item = t(`nav:projects.worksIn.kind.${params.item_kind}`, { defaultValue: '' })
     }
     return t(`threadWhy.lines.${line.kind}`, params)

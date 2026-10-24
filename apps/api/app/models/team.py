@@ -8,13 +8,23 @@ from typing import Optional
 from sqlalchemy import Index, text
 from sqlmodel import Field, SQLModel
 
-# Custom departments nest under the All root (parent_id null, name All).
+# Custom departments nest under the organization root (parent_id null, name All).
 TEAM_KIND_CUSTOM = "custom"
 
 # How a team-owned conversation gets picked up.
-PICKUP_MODES = ("people", "agent_first", "round_robin", "least_open")
+PICKUP_MODES = ("people", "round_robin", "least_open")
 
 ALL_DEPARTMENT_NAME = "All"
+
+# Departments sit at most this many levels below the organization root.
+MAX_DEPARTMENT_DEPTH = 2
+
+# open: colleagues may read the work read-only. shielded: only the branch and above.
+DEPARTMENT_VISIBILITY = ("open", "shielded")
+
+# Crew roles as the API speaks them; stored as ``duty``.
+CREW_ROLES = ("contact", "accountable", "member")
+FOCUS_MAX = 80
 
 
 class Department(SQLModel, table=True):
@@ -22,8 +32,10 @@ class Department(SQLModel, table=True):
 
     The table is ``departments``. ``Team`` remains an alias for older imports.
 
-    Every tenant has one root **All** (``parent_id`` null, name All). Custom
-    departments are children of All (or of another custom department).
+    Every tenant has one root (``parent_id`` null, stored name All). Operators
+    see it as the organization: the workspace name and logo. Custom departments
+    hang below it, at most ``MAX_DEPARTMENT_DEPTH`` levels deep. Every person is
+    implicitly on the root; agents sit there only when placed.
 
     ``origin_module_slug`` marks a department created by a one-time module drop
     (see docs/architecture/module-one-time-drop.md). At most one live row per
@@ -52,6 +64,7 @@ class Department(SQLModel, table=True):
     description: str = ""
     kind: str = Field(default=TEAM_KIND_CUSTOM, index=True)
     pickup: str = Field(default="people")
+    visibility: str = Field(default="open", max_length=16)
     # Custom departments appear as Communication folders; All is pinned too.
     pinned: bool = Field(default=True)
     # Nesting: null = All root. Children inherit membership upward to All.
@@ -90,9 +103,11 @@ class DepartmentMember(SQLModel, table=True):
     member_kind: str = Field(default="user")  # user | agent
     user_id: Optional[uuid.UUID] = Field(default=None, foreign_key="users.id", index=True)
     agent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="agents.id", index=True)
-    # Escalation: one primary person and one primary agent. Others walk by position.
+    # primary agent = point of contact, primary user = accountable. Others walk by position.
     duty: str = Field(default="member", max_length=16)
     position: int = Field(default=0)
+    # What this member does here, e.g. "Writes social posts". The point of contact delegates on it.
+    focus: str = Field(default="", max_length=80)
     created_at: datetime = Field(default_factory=utcnow)
 
 

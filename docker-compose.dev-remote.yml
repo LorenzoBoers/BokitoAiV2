@@ -21,6 +21,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Cap memory: unbounded thread-log streams (bokito:tlog:*) previously OOM-killed the VPS.
+    command: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
     ports:
       - "127.0.0.1:6380:6379"
     restart: unless-stopped

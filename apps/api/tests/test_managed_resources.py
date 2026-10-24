@@ -201,15 +201,15 @@ async def test_affiliation_payload_uses_module_department(client: AsyncClient, s
 
 
 @pytest.mark.asyncio
-async def test_hire_module_agent_uses_roster_not_provenance(client: AsyncClient, session_override):
-    """Module hire creates a slug specialist on ModuleAgent."""
-    from app.models.module_agent import ModuleAgent
+async def test_hire_module_agent_joins_the_department(client: AsyncClient, session_override):
+    """Module hire creates a slug specialist in the module department."""
+    from app.models.team import DepartmentMember
     from app.modules.catalog import hire_module_agent
     from app.services.module_department import bind_module_department
 
     _ = client
     tenant = (await session_override.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
-    await bind_module_department(session_override, tenant.id, "accounting")
+    department = await bind_module_department(session_override, tenant.id, "accounting")
 
     hire = await hire_module_agent(
         session_override,
@@ -224,17 +224,15 @@ async def test_hire_module_agent_uses_roster_not_provenance(client: AsyncClient,
     assert agent is not None
     assert agent.slug == "module-accounting"
 
-    roster = (
+    seat = (
         await session_override.execute(
-            select(ModuleAgent).where(
-                ModuleAgent.tenant_id == tenant.id,
-                ModuleAgent.module_slug == "accounting",
-                ModuleAgent.agent_id == agent_id,
+            select(DepartmentMember).where(
+                DepartmentMember.department_id == department.id,
+                DepartmentMember.agent_id == agent_id,
             )
         )
     ).scalar_one_or_none()
-    assert roster is not None
-    assert roster.is_default is True
+    assert seat is not None
 
 
 @pytest.mark.asyncio

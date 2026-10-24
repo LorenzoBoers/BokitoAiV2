@@ -698,8 +698,25 @@ class StackItem(BaseModel):
     agents: list[StackAgent]
 
 
+class StackSeat(StackAgent):
+    """One agent in the dock rail. Each agent appears once."""
+
+    agent_id: str
+    thread_id: str | None = None
+    lane_id: str | None = None
+    on_card_id: str | None = None
+    pinned: bool = False
+    temporary: bool = False
+    state: Literal["idle", "thinking", "has_note", "speaking", "live"] = "idle"
+    unplayed: int = 0
+    dial_key: str | None = None
+    via_agent_id: str | None = None
+
+
 class StackResponse(BaseModel):
     items: list[StackItem]
+    agents: list[StackSeat] = []
+    all_call_key: str = "F12"
 
 
 @router.get("/stack", response_model=StackResponse)
@@ -1996,46 +2013,81 @@ async def unpin_signal(
     return {"ok": True}
 
 
-class SplitBody(BaseModel):
-    from_message_id: UUID
+class MoveBody(BaseModel):
+    from_message_id: UUID | None = None
+    message_ids: list[UUID] = []
+    target_signal_id: UUID | None = None
     category_id: UUID | None = None
+    title: str = ""
 
 
-class SplitResult(BaseModel):
+class MoveResult(BaseModel):
     signal_id: str
-    parent_signal_id: str
+    title: str
+    source_signal_id: str
 
 
-@router.post("/{signal_id}/split", response_model=SplitResult)
-async def split_signal(
+@router.post("/{signal_id}/move", response_model=MoveResult)
+async def move_signal_messages(
     signal_id: UUID,
-    body: SplitBody,
+    body: MoveBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ):
-    """Move the messages from ``from_message_id`` on into a new linked conversation.
+    """Move messages to another conversation, or to a new one when ``target_signal_id`` is empty.
 
-    The new conversation keeps the contact, channel and provider thread; later
-    inbound replies on that thread land there. ``category_id`` files its
-    category right away.
+    ``from_message_id`` moves that message and everything after it;
+    ``message_ids`` moves only those. A customer conversation moved to a new
+    one keeps contact, channel and provider thread; later replies land there.
+    ``category_id`` files a label on a new conversation.
     """
-    from app.services.conversation_split import resolve_category, split_conversation
+    from app.services.conversation_moves import move_messages
+    from app.services.conversation_split import resolve_category
 
     category = (
         await resolve_category(session, auth.tenant.id, str(body.category_id))
         if body.category_id
         else None
     )
-    child = await split_conversation(
+    target = await move_messages(
         session,
         auth.tenant.id,
         signal_id,
+        message_ids=body.message_ids or None,
         from_message_id=body.from_message_id,
+        target_id=body.target_signal_id,
+        title=body.title,
         category=category,
         actor_type="user",
         actor_id=str(auth.user.id),
+        user_id=auth.user.id,
     )
-    return SplitResult(signal_id=str(child.id), parent_signal_id=str(signal_id))
+    return MoveResult(signal_id=str(target.id), title=target.subject or "", source_signal_id=str(signal_id))
+
+
+class MergeBody(BaseModel):
+    target_signal_id: UUID
+
+
+@router.post("/{signal_id}/merge", response_model=MoveResult)
+async def merge_signal(
+    signal_id: UUID,
+    body: MergeBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Merge this conversation into another. Every message moves; this one closes and points forward."""
+    from app.services.conversation_moves import merge_conversations
+
+    target = await merge_conversations(
+        session,
+        auth.tenant.id,
+        signal_id,
+        body.target_signal_id,
+        actor_type="user",
+        actor_id=str(auth.user.id),
+    )
+    return MoveResult(signal_id=str(target.id), title=target.subject or "", source_signal_id=str(signal_id))
 
 
 @router.post("/{signal_id}/messages/{message_id}/resolve")

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CONNECTIONS_INSTALLED_PATH,
+  connectionsInstalledPath,
   connectionsPathWithKind,
   legacyModulesPath,
+  parseConnectionsView,
   parseKindFilter,
 } from './integration-kind-url'
 
@@ -24,13 +27,30 @@ describe('connectionsPathWithKind', () => {
   })
 })
 
+describe('connectionsInstalledPath', () => {
+  it('keeps list view and filters in the URL', () => {
+    expect(connectionsInstalledPath()).toBe(CONNECTIONS_INSTALLED_PATH)
+    expect(connectionsInstalledPath({ view: 'list', kind: 'app', q: 'king' })).toBe(
+      '/connections/installed?kind=app&q=king&view=list',
+    )
+  })
+})
+
+describe('parseConnectionsView', () => {
+  it('defaults to cards', () => {
+    expect(parseConnectionsView(null)).toBe('cards')
+    expect(parseConnectionsView('list')).toBe('list')
+    expect(parseConnectionsView('cards')).toBe('cards')
+  })
+})
+
 describe('legacyModulesPath', () => {
-  it('lands every legacy hub path on /connections', () => {
+  it('lands Discover leaves on /connections and Connected on Installed', () => {
     expect(legacyModulesPath('/modules')).toBe('/connections')
-    expect(legacyModulesPath('/modules/connected')).toBe('/connections')
+    expect(legacyModulesPath('/modules/connected')).toBe('/connections/installed')
     expect(legacyModulesPath('/modules/tools')).toBe('/connections')
     expect(legacyModulesPath('/modules/marketplace')).toBe('/connections')
-    expect(legacyModulesPath('/connections/connected')).toBe('/connections')
+    expect(legacyModulesPath('/connections/connected')).toBe('/connections/installed')
     expect(legacyModulesPath('/connections/tools')).toBe('/connections')
     expect(legacyModulesPath('/connections/marketplace')).toBe('/connections')
   })

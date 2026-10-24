@@ -171,6 +171,10 @@ def is_bokito_provider(provider: str | None) -> bool:
     return (provider or "").strip().lower() == BOKITO_PROVIDER
 
 
+def is_bokito_slug(slug: str | None) -> bool:
+    return (slug or "").strip().lower() in MANAGED_CHAT_SLUGS
+
+
 def tier_hint(slug: str) -> str:
     return TIER_HINTS.get((slug or "").strip().lower(), "standard")
 

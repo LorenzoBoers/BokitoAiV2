@@ -45,6 +45,7 @@ import {
 import { useSpeechDictation, appendSpeechChunk } from '../../hooks/useSpeechDictation'
 import { CHAT_COLUMN_CLASS } from '../../lib/chat-layout'
 import { cn } from '../../lib/utils'
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import type { MessageAttachment } from '../../lib/inbox-api'
 import { channelCanSend, listChannels, type ChannelRow } from '../../lib/channels-api'
@@ -71,7 +72,13 @@ import {
   type StoredMailDraft,
 } from '../../lib/mail-draft-store'
 import {
+  applyRecipientPaste,
+  applyRecipientTyping,
+  commitRecipientDraft,
+  editLastRecipient,
   parseAddressList,
+  readRecipientField,
+  removeRecipientAt,
   type MailComposerIntent,
   type MailComposerMode,
 } from '../../lib/mail-reply'
@@ -206,11 +213,19 @@ type RecipientFieldProps = {
   trailing?: ReactNode
 }
 
+function chipPresentation(raw: string): { text: string; valid: boolean } {
+  const parsed = parseAddressList(raw)
+  if (parsed.length) return { text: parsed.join(', '), valid: true }
+  return { text: raw.trim(), valid: false }
+}
+
 /**
- * One recipient row (To / CC / BCC) with a shared contact typeahead:
- * matches on the entry after the last comma, supports ArrowUp/Down + Enter
- * or Tab to pick, and Escape closes the dropdown before it closes the
- * composer.
+ * One recipient row (To / CC / BCC). Confirmed addresses are pills; the
+ * input holds only the address still being typed. Enter, comma, semicolon,
+ * a trailing space after a bare address, blur, paste, or a picked contact
+ * confirms the pill. Backspace on an empty input puts the last pill back
+ * so it can be corrected. ArrowUp/Down + Enter or Tab pick a contact, and
+ * Escape closes the dropdown before it closes the composer.
  */
 function RecipientField({
   label,
@@ -224,20 +239,38 @@ function RecipientField({
   onFocusChange,
   trailing,
 }: RecipientFieldProps) {
+  const { t } = useTranslation('communication')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  const [drafting, setDrafting] = useState(false)
+  const writtenRef = useRef(value)
+  const pickingRef = useRef(false)
   const localRef = useRef<HTMLInputElement>(null)
   const ref = inputRef ?? localRef
 
+  useEffect(() => {
+    if (value !== writtenRef.current) {
+      writtenRef.current = value
+      setDrafting(false)
+    }
+  }, [value])
+
+  const { chips, draft } = useMemo(() => readRecipientField(value, drafting), [value, drafting])
+
+  const publish = (next: { value: string; drafting: boolean }) => {
+    writtenRef.current = next.value
+    setDrafting(next.drafting)
+    if (next.value !== value) onChange(next.value)
+  }
+
   const matches = useMemo(() => {
     if (!suggestions.length) return []
-    const parts = value.split(',')
-    const query = (parts[parts.length - 1] ?? '').trim().toLowerCase()
+    const query = draft.trim().toLowerCase()
     return suggestions
       .filter((s) => !exclude.has(s.address.trim().toLowerCase()))
       .filter((s) => !query || `${s.label} ${s.address}`.toLowerCase().includes(query))
       .slice(0, 6)
-  }, [suggestions, exclude, value])
+  }, [suggestions, exclude, draft])
 
   // Typing changes the match list; drop a highlight that no longer exists.
   useEffect(() => {
@@ -245,17 +278,28 @@ function RecipientField({
   }, [matches.length])
 
   const pick = (address: string) => {
-    const parts = value.split(',')
-    parts[parts.length - 1] = address
-    onChange(
-      parts
-        .map((p) => p.trim())
-        .filter(Boolean)
-        .join(', '),
-    )
+    // mousedown on a suggestion blurs the input; skip confirming the search text.
+    pickingRef.current = true
+    publish(commitRecipientDraft(chips, address))
     setOpen(false)
     setActiveIndex(-1)
     ref.current?.focus()
+    window.setTimeout(() => {
+      pickingRef.current = false
+    }, 0)
+  }
+
+  const confirmDraft = () => {
+    // Read the input itself: Enter can land in the same turn as the last
+    // keystroke, before the drafting flag has rendered.
+    const typed = ref.current?.value ?? draft
+    if (!typed.trim()) {
+      if (drafting) publish(commitRecipientDraft(chips, ''))
+      return
+    }
+    publish(commitRecipientDraft(chips, typed))
+    setOpen(false)
+    setActiveIndex(-1)
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -274,6 +318,18 @@ function RecipientField({
       pick(matches[activeIndex].address)
       return
     }
+    if (e.key === 'Enter' && draft.trim()) {
+      e.preventDefault()
+      confirmDraft()
+      return
+    }
+    if (e.key === 'Backspace' && draft === '' && chips.length) {
+      e.preventDefault()
+      publish(editLastRecipient(chips))
+      setOpen(false)
+      setActiveIndex(-1)
+      return
+    }
     if (e.key === 'Escape' && open) {
       // First Escape only dismisses the dropdown; the next one reaches the
       // composer and closes it.
@@ -284,33 +340,96 @@ function RecipientField({
     }
   }
 
+  const hasChips = chips.length > 0
+
   return (
-    <div className={cn(FIELD_ROW, 'relative')}>
-      <span className={FIELD_LABEL}>{label}</span>
-      <input
-        ref={ref}
-        type="text"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value)
-          setOpen(true)
+    <div className={cn(FIELD_ROW, 'relative', hasChips && 'items-start')}>
+      <span className={cn(FIELD_LABEL, hasChips && 'pt-1')}>{label}</span>
+      <div
+        className="flex min-w-0 flex-1 flex-wrap items-center gap-1"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) {
+            e.preventDefault()
+            ref.current?.focus()
+          }
         }}
-        onFocus={() => {
-          setOpen(true)
-          onFocusChange?.(true)
-        }}
-        onBlur={() => {
-          onFocusChange?.(false)
-          window.setTimeout(() => {
+      >
+        {chips.map((raw, index) => {
+          const chip = chipPresentation(raw)
+          const known = suggestions.find(
+            (s) => s.address.trim().toLowerCase() === chip.text.toLowerCase(),
+          )
+          const title =
+            known && known.label.toLowerCase() !== chip.text.toLowerCase()
+              ? `${known.label} · ${chip.text}`
+              : chip.text
+          return (
+            <Badge
+              key={`${raw}:${index}`}
+              variant={chip.valid ? 'neutral' : 'error'}
+              size="sm"
+              title={title}
+              className="h-5 max-w-[18rem] gap-0.5 overflow-hidden px-1.5 font-normal"
+            >
+              <span className="min-w-0 truncate text-xs">{chip.text}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="iconSm"
+                className="h-4 w-4 shrink-0 text-current hover:bg-black/5 dark:hover:bg-white/10"
+                aria-label={t('compose.removeRecipient', { address: chip.text })}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  publish(removeRecipientAt(chips, index, draft, drafting))
+                  ref.current?.focus()
+                }}
+              >
+                <XIcon size={14} />
+              </Button>
+            </Badge>
+          )
+        })}
+        <input
+          ref={ref}
+          type="text"
+          value={draft}
+          onChange={(e) => {
+            const next = applyRecipientTyping(chips, e.target.value)
+            publish(next)
+            setOpen(next.drafting)
+            if (!next.drafting) setActiveIndex(-1)
+          }}
+          onPaste={(e) => {
+            const text = e.clipboardData.getData('text')
+            const next = applyRecipientPaste(chips, text)
+            if (!next) return
+            e.preventDefault()
+            publish(next)
             setOpen(false)
             setActiveIndex(-1)
-          }, 120)
-        }}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        className={FIELD_INPUT}
-        data-testid={testId}
-      />
+          }}
+          onFocus={() => {
+            onFocusChange?.(true)
+            if (pickingRef.current) return
+            if (!chips.length || draft.trim()) setOpen(true)
+          }}
+          onBlur={() => {
+            onFocusChange?.(false)
+            if (!pickingRef.current) confirmDraft()
+            window.setTimeout(() => {
+              setOpen(false)
+              setActiveIndex(-1)
+            }, 120)
+          }}
+          onKeyDown={onKeyDown}
+          placeholder={hasChips ? undefined : placeholder}
+          aria-label={label}
+          autoComplete="off"
+          spellCheck={false}
+          className={cn(FIELD_INPUT, 'w-auto min-w-[8rem] py-0.5')}
+          data-testid={testId}
+        />
+      </div>
       {open && matches.length ? (
         <div className="absolute left-[calc(0.75rem+5.5rem+0.75rem)] right-3 top-[calc(100%+2px)] z-20 overflow-hidden rounded-lg border border-border bg-bg-surface shadow-overlay">
           <div className="max-h-56 overflow-y-auto p-1">
@@ -340,7 +459,7 @@ function RecipientField({
           </div>
         </div>
       ) : null}
-      {trailing}
+      {trailing ? <div className={cn('shrink-0', hasChips && 'pt-0.5')}>{trailing}</div> : null}
     </div>
   )
 }
@@ -1148,7 +1267,7 @@ export default function MailComposer({
 
           {/* Footer: Bokito extras + send */}
           <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-2">
-            <input
+            <input // design-system-ignore: hidden file input opened by the attach button
               ref={fileInputRef}
               type="file"
               multiple

@@ -14,6 +14,7 @@ import {
   Hash,
   Link2,
   Mail,
+  Merge,
   Minimize2,
   MoreHorizontal,
   OctagonAlert,
@@ -39,6 +40,7 @@ import type {
 } from '../../lib/inbox-api'
 import { ParticipantStrip } from './ParticipantStrip'
 import { ThreadWhyPanel } from './ThreadWhyPanel'
+import { MergeConversationDialog } from './MergeConversationDialog'
 import { setThreadExample } from '../../lib/signals-api'
 import { ENTITY_ICONS } from '../../lib/entity-icons'
 import { openEntityPath } from '../../lib/open-entity'
@@ -176,6 +178,7 @@ export default function ThreadHeader({
   const { token } = useAuth()
   const canRaise = useIsAdmin()
   const [exampleBusy, setExampleBusy] = useState(false)
+  const [mergeOpen, setMergeOpen] = useState(false)
   const internal = isInternalThread(thread)
   const handling = thread.aiHandling ?? null
   const showHandling =
@@ -584,6 +587,10 @@ export default function ThreadHeader({
                   : t('threadChrome.useAsExample', { defaultValue: 'Use as example' })}
               </DropdownMenuItem>
             ) : null}
+            <DropdownMenuItem className="gap-2" disabled={loading} onClick={() => setMergeOpen(true)}>
+              <Merge size={14} />
+              {t('mergeConversation.action')}
+            </DropdownMenuItem>
             {onDelete ? (
               <DropdownMenuItem
                 disabled={deleting}
@@ -596,6 +603,7 @@ export default function ThreadHeader({
             ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
+        <MergeConversationDialog threadId={String(thread.id)} open={mergeOpen} onOpenChange={setMergeOpen} />
         {onToggleContact && !contactOpen ? (
           <Tooltip>
             <TooltipTrigger asChild>

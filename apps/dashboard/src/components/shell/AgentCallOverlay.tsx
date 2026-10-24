@@ -29,7 +29,6 @@ import { setLauncherSuppressed } from '../../lib/personal-assistant-widget'
 import { apiGet, apiPost } from '../../lib/api'
 import {
   postCallTool,
-  playRingTone,
   startAgentCallAudio,
   stopRingTone,
   type CallTranscriptLine,
@@ -257,6 +256,9 @@ export default function AgentCallOverlay() {
           if (cancelled || !rows?.length) return
           const liveRow = rows.find((row) => row.status === 'live')
           const ringRow = rows.find((row) => row.status === 'ringing')
+          if (ringRow) {
+            void apiPost(callRoutes.decline(ringRow.call_id), {}).catch(() => {})
+          }
           if (liveRow) {
             // Only the visible tab may open the voice line. A background tab
             // stays quiet so the same agent is not on the call twice.
@@ -266,15 +268,7 @@ export default function AgentCallOverlay() {
             surfaceOnStack(scope, liveRow.signal_id || '')
             publishLive(liveRow, 'live')
             void rejoin(liveRow)
-            return
           }
-          const next = ringRow ?? rows[0]
-          setRing(null)
-          setCall(next)
-          surfaceOnStack(scope, next.signal_id || '')
-          setPhase('ringing')
-          publishLive(next, 'ringing')
-          if (document.visibilityState === 'visible') playRingTone()
         })
         .catch(() => {
           if (cancelled || attempt >= 2) return
@@ -313,15 +307,8 @@ export default function AgentCallOverlay() {
         return
       }
       if (next.status === 'ringing') {
-        // One line at a time. A ring while this call is up is ignored.
-        if (sessionIdRef.current && sessionIdRef.current !== next.call_id) return
-        setRing(null)
-        setCall(next)
-        setPhase('ringing')
-        setError('')
-        publishLive(next, 'ringing')
-        surfaceOnStack(scope, next.signal_id || '')
-        if (document.visibilityState === 'visible') playRingTone()
+        void apiPost(callRoutes.decline(next.call_id), {}).catch(() => {})
+        stopRingTone()
         return
       }
       if (next.status === 'missed' || next.status === 'declined' || next.status === 'ended') {

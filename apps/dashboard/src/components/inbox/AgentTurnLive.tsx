@@ -196,8 +196,7 @@ function LiveSpeech({
   accent?: string | null
   documentMode?: boolean
 }) {
-  // Follow the backend buffer at cruise. holdReserve keeps a short lead
-  // while the model is still sending; after that the leftover drains.
+  // Follow the backend buffer. Chunks only fill it; the view reveals per frame.
   const smooth = useSmoothStreamText(text, streamActive, holdReserve)
   const caughtUp = text.length === 0 || smooth.length >= text.length
   useEffect(() => {

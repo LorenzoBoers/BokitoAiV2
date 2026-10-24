@@ -65,9 +65,9 @@ Een fase kan opsommen wat er moet zijn voordat het werk verder gaat, en zeggen o
 De stappen en de pijlen ertussen staan in één editor. Een pijl zegt wanneer hij geldt en wat hij meeneemt.
 
 1. Open het werk en kies **Bewerken** rechtsboven, naast **Open in Grid**.
-2. Het diagram houdt altijd het hele werk in beeld, ook nadat je een stap toevoegt of verplaatst. Elke fase toont het voortgangsicoon en het aantal tickets, net als op het bord.
+2. Het diagram past het hele werk in het venster; verder uitzoomen kan niet. Scroll om in te zoomen, sleep de achtergrond om te verschuiven. Elke fase toont het voortgangsicoon en het aantal tickets, net als op het bord.
 3. Klik een stap om rechts wie, stand, max, tools, krijgt, geeft, faalt en stil in te stellen. Klik een pijl om in te stellen wanneer hij geldt en wat hij meeneemt, of richt hem op een andere stap. Rechtsklik op een stap, een pijl of de achtergrond voor een menu met **Nieuwe stap hierna**, **Pijl naar**, wie en stand, **Richting omdraaien**, **Nieuwe stap hier** en **Verwijderen**.
-4. Sleep vanaf de stip rechts op een stap naar een andere stap voor een nieuwe pijl. Laat je los op een lege plek, dan komt daar een nieuwe stap met die pijl. **Stap** en **Pijl toevoegen naar** in het paneel doen hetzelfde zonder slepen. Een losse stap sleep je naar een andere kolom, boven of onder een stap; **Automatisch plaatsen** zet hem terug. **Notatie** toont hetzelfde werk als tekst en controleert die terwijl je typt.
+4. Sleep vanaf de stip rechts op een stap naar een andere stap voor een nieuwe pijl. Laat je los op een lege plek, dan komt daar een nieuwe stap met die pijl. Hover een pijl: er verschijnt een plus. Hover dat plusje en je ziet een stap boven de volgende, met een tak erheen. Klik om die te plaatsen, of sleep het plusje naar een andere stap, ook een stap verderop; de lijn loopt om de stappen heen. **Stap** en **Pijl toevoegen naar** in het paneel doen hetzelfde zonder slepen. Een losse stap sleep je naar een andere kolom, boven of onder een stap; **Automatisch plaatsen** zet hem terug. **Notatie** toont hetzelfde werk als tekst en controleert die terwijl je typt.
 5. **Opslaan** bewaart de notatie op het werk. Het bord houdt de kolommen tot de overgangen daarop worden toegepast.
 
 ## Beschrijven hoe het werk zijn werk afhandelt
@@ -75,7 +75,7 @@ De stappen en de pijlen ertussen staan in één editor. Een pijl zegt wanneer hi
 Een werk is ook de aanpak voor één soort werk: het label zegt wat het is, het werk zegt hoe de agent werkt en wat klaar oplevert.
 
 1. Open het werk en kies het tandwiel rechtsboven. Schrijf bij **Klaar betekent** in een zin wat klaar oplevert, bijvoorbeeld **De posts van de maand staan ingepland**.
-2. Schrijf bij **Werkwijze** in een paar zinnen hoe de agent dit werk afhandelt. Het slaat op als je het veld verlaat. Agents op de gesprekken van dit werk krijgen de werkwijze, de tools en koppelingen die hij gebruikt (**Gebruikt**) en wat klaar betekent.
+2. Schrijf bij **Werkwijze** in een paar zinnen hoe de agent dit werk afhandelt. Het slaat op als je het veld verlaat. Agents op de gesprekken van dit werk krijgen de werkwijze, de tools en koppelingen die hij gebruikt (**Gebruikt**) en wat klaar betekent. Met de organisatieregels aan beperkt werk dat moduletools of koppelingen onder **Gebruikt** noemt zijn gesprekken tot die; een soort waarvan het niets noemt blijft open.
 3. Een werk zonder wachtfase heeft geen bord in mappen. De fases zelf bepalen of er een wachtstap is.
 4. Een agent kan dezelfde wijzigingen in een gesprek voorstellen met `update_flow`; het voorstel volgt [Govern](/docs/govern/govern).
 
@@ -85,19 +85,19 @@ Elk werk heeft een eigen knop onder het plafond van de workspace. De afdeling st
 
 1. Open het werk en kies het tandwiel rechtsboven. **Autonomie** toont **Standaard van de workspace**, **Handmatig**, **Geassisteerd** of **Autonoom**. Eigenaren en beheerders kiezen er een.
 2. Strenger dan de workspace geldt meteen. Losser wacht op akkoord in [Govern](/docs/govern/autonomy); het venster zegt **Losser dan nu gaat via Govern**. Op **Geassisteerd** wordt elk antwoord op een ticket van dit werk een concept dat een mens verstuurt, ook als het gesprek op Autonoom staat. De modus in de gesprekskop zegt dan dat hij op het werk is ingesteld.
-3. Kies bij **Afdeling** de afdeling van het label. De leidende agent neemt de tickets van het werk mee in de ochtendbriefing, en de [afdelingspagina](/docs/getting-started/team) toont het werk met zijn scorekaart.
-4. Laat de scorekaart van een werk genoeg schone uitkomsten zien, dan stelt de afdelingsleider in het afdelingsgesprek een lossere stand voor (zie het volgende deel).
+3. Kies bij **Afdeling** de afdeling van het label. Het aanspreekpunt van die afdeling neemt de tickets van het werk mee in de ochtendbriefing, en de [afdelingspagina](/docs/getting-started/team) toont het werk met zijn scorekaart.
+4. Laat de scorekaart van een werk genoeg schone uitkomsten zien, dan stelt het aanspreekpunt van de afdeling in het afdelingsgesprek een lossere stand voor (zie het volgende deel).
 
-## De afdelingsleider een werk laten verbeteren
+## Het aanspreekpunt een werk laten verbeteren
 
-Eens per dag leest de leidende agent van een afdeling de scorekaarten van zijn werk en stelt verbeteringen voor in het afdelingsgesprek.
+Eens per dag leest het aanspreekpunt van een afdeling de scorekaarten van zijn werk en stelt verbeteringen voor in het afdelingsgesprek.
 
 1. Open de afdeling in het menu links. Onder **Verbetervoorstellen** toont elk open voorstel wat het wijzigt: **Autonomie**, **Instructies**, **Capabilities** of **Nieuw werk**. Kies **Openen** om naar het afdelingsgesprek te gaan.
-2. **Autonomie:** na genoeg tickets zonder correctie of afgewezen beslissing stelt de leider **Autonoom** voor; hebben veel tickets een correctie nodig, dan stelt die een stap terug naar **Geassisteerd** voor. Het aantal schone tickets is een werkruimte-instelling (standaard 20).
-3. **Instructies:** corrigeert het team drie of meer concepten op het label van het werk, dan stelt de leider voor om toe te voegen hoe het team die antwoorden schreef aan de **Werkwijze**.
-4. **Capabilities:** wijst het team dezelfde tool drie of meer keer af op tickets van het werk, dan stelt de leider voor om die uit **Gebruikt** te halen, of een regel toe te voegen dat de agent eerst vraagt.
-5. **Nieuw werk:** komt hetzelfde soort werk steeds binnen zonder passend label, dan stelt de leider van de afdeling die het zag een werk met een nieuw label voor die afdeling voor.
-6. Keur de kaart goed of wijs hem af in het gesprek. Er verandert niets voordat iemand goedkeurt. Hetzelfde voorstel komt 30 dagen niet terug, en hoe vaak de voorstellen van een leider worden goedgekeurd telt mee op de scorekaart van die agent.
+2. **Autonomie:** na genoeg tickets zonder correctie of afgewezen beslissing stelt het aanspreekpunt **Autonoom** voor; hebben veel tickets een correctie nodig, dan stelt die een stap terug naar **Geassisteerd** voor. Het aantal schone tickets is een werkruimte-instelling (standaard 20).
+3. **Instructies:** corrigeert het team drie of meer concepten op het label van het werk, dan stelt het aanspreekpunt voor om toe te voegen hoe het team die antwoorden schreef aan de **Werkwijze**.
+4. **Capabilities:** wijst het team dezelfde tool drie of meer keer af op tickets van het werk, dan stelt het aanspreekpunt voor om die uit **Gebruikt** te halen, of een regel toe te voegen dat de agent eerst vraagt.
+5. **Nieuw werk:** komt hetzelfde soort werk steeds binnen zonder passend label, dan stelt het aanspreekpunt van de afdeling die het zag een werk met een nieuw label voor die afdeling voor.
+6. Keur de kaart goed of wijs hem af in het gesprek. Er verandert niets voordat iemand goedkeurt. Hetzelfde voorstel komt 30 dagen niet terug, en hoe vaak de voorstellen van een aanspreekpunt worden goedgekeurd telt mee op de scorekaart van die agent.
 
 ## Elke periode een ticket openen
 

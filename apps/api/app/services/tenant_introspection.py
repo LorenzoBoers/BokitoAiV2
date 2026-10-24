@@ -37,9 +37,8 @@ async def collect_tenant_snapshot(
 ) -> dict[str, Any]:
     """Structured snapshot used by tools and the compact prompt block.
 
-    With ``agent_id``, module context is scoped to that agent's roster:
-    accounting connections disappear when the agent is not rostered, and the
-    per-agent company scope + write flag are included.
+    With ``agent_id``, module context is scoped to the modules that agent
+    reaches through its department.
     """
     from app.models.agent import Agent, AgentRun
     from app.models.integration import IntegrationConnection, McpServer
@@ -251,28 +250,21 @@ async def collect_tenant_snapshot(
 
     modules = await serialize_modules_for_tenant(session, tenant_id)
 
-    # Per-module connection names (cheap, via the module's snapshot hook) and
-    # the agent's roster scope. Modules where the agent is not rostered
-    # contribute nothing: the agent has no capability there at all.
+    # Per-module connection names (cheap, via the module's snapshot hook).
+    # Modules the agent does not reach through its department contribute
+    # nothing: the agent has no capability there at all.
     module_connections: dict[str, list[dict[str, Any]]] = {}
-    module_scopes: dict[str, dict[str, Any]] = {}
+    reachable: set[str] | None = None
     if agent_id is not None:
-        from app.services.module_agents import module_agent_access, parse_company_scope
+        from app.services.module_agents import module_slugs_for_agent
+
+        reachable = await module_slugs_for_agent(session, tenant_id, agent_id)
 
     for module in MODULES:
         if module.status != "available":
             continue
-        access = None
-        if agent_id is not None:
-            access = await module_agent_access(
-                session, tenant_id, agent_id, module.slug
-            )
-            if access is None:
-                continue
-            module_scopes[module.slug] = {
-                "company_ids": parse_company_scope(access),
-                "can_write": bool(access.can_write),
-            }
+        if reachable is not None and module.slug not in reachable:
+            continue
         rows = await _module_snapshot_rows(session, tenant_id, module.slug)
         if rows:
             module_connections[module.slug] = rows
@@ -307,7 +299,6 @@ async def collect_tenant_snapshot(
         "integrations": integrations,
         "mcp_servers": mcp_servers,
         "module_connections": module_connections,
-        "module_scopes": module_scopes,
         "modules": modules,
         "agent_runs_total": int(recent_runs_count or 0),
     }
@@ -435,7 +426,6 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
     lines.append("Connected: " + (", ".join(connected[:12]) if connected else "none"))
 
     module_connections = snapshot.get("module_connections") or {}
-    module_scopes = snapshot.get("module_scopes") or {}
     for slug, conns in list(module_connections.items())[:6]:
         if not conns:
             continue
@@ -446,20 +436,6 @@ def format_tenant_snapshot_prompt(snapshot: dict[str, Any], *, max_chars: int = 
             if _module_has_verb(slug, "list_companies")
             else f"{slug.capitalize()}: {len(conns)} connection(s) ({names}) — use the {slug}_* tools."
         )
-        scope = module_scopes.get(slug)
-        if isinstance(scope, dict):
-            company_ids = scope.get("company_ids")
-            if isinstance(company_ids, list) and company_ids:
-                lines.append(
-                    f"Your {slug} scope is limited to administration id(s): "
-                    + ", ".join(str(c) for c in company_ids[:6])
-                    + "."
-                )
-            if not scope.get("can_write"):
-                lines.append(
-                    f"You have read-only {slug} access; you cannot propose "
-                    f"or apply {slug} writes."
-                )
 
     modules = snapshot.get("modules") or []
     if modules:
@@ -640,8 +616,9 @@ async def list_threads_summary(
     scheduled_from: datetime | None = None,
     scheduled_to: datetime | None = None,
     tag: str | list[str] | None = None,
+    exclude: Any | None = None,
 ) -> dict[str, Any]:
-    """Summarize threads for agents/MCP.
+    """Summarize threads for agents/MCP. ``exclude`` is a clause for rows the caller may not read.
 
     Returns ``threads`` plus ``matched`` (total rows matching the filter) so
     callers know when ``limit`` truncated the page. ``older_than_days`` filters
@@ -658,6 +635,8 @@ async def list_threads_summary(
 
     limit = max(1, min(int(limit or 25), 200))
     filters = [Signal.tenant_id == tenant_id, Signal.deleted_at.is_(None)]
+    if exclude is not None:
+        filters.append(~exclude)
     scheduled = scheduled_from is not None or scheduled_to is not None
     if scheduled:
         filters.append(Signal.next_at.is_not(None))

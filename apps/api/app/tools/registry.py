@@ -196,6 +196,9 @@ def agent_allowed_tools(agent: Any | None) -> set[str] | None:
     # Search without reading the page is not browsing. A denylist still wins.
     if "web_search" in allowed:
         allowed.add("fetch_url")
+    from app.services.onboarding_setup import extra_setup_tools
+
+    allowed.update(extra_setup_tools(agent))
     return allowed
 
 
@@ -216,6 +219,7 @@ CANVAS_OPERATOR_TOOLS = frozenset(
         "get_folder_canvas",
         "create_canvas",
         "edit_canvas",
+        "restore_canvas",
         "finish_canvas",
         "update_folder_canvas",
         "delete_canvas",
@@ -237,12 +241,14 @@ CANVAS_WAKE_DENY = frozenset(
     {
         "create_canvas",
         "finish_canvas",
+        "restore_canvas",
         "delete_canvas",
         "create_decision_request",
         "propose_action",
         "send_reply",
         "handoff_to_human",
-        "split_conversation",
+        "move_to_conversation",
+        "merge_conversations",
         "close_thread",
         "create_task",
         "spawn_subagent",
@@ -262,6 +268,7 @@ CANVAS_WAKE_DENY = frozenset(
         "delete_folder",
         "create_agent",
         "update_agent",
+        "set_department_crew",
         "create_flow",
         "update_flow",
         "propose_session_checkout",
@@ -278,6 +285,7 @@ PLATFORM_CORE_TOOLS = frozenset(
         "list_agents",
         "list_departments",
         "react_to_message",
+        "take_over",
         "update_progress",
         "list_threads",
         "list_tags",
@@ -374,7 +382,14 @@ def _is_canvas_refresh_tool(name: str) -> bool:
         return True
     # Module read verbs: list_*, get_*, search_*, summarize_* on a slug prefix.
     return bool(
-        name.startswith(("list_", "get_", "search_", "fetch_", "summarize_", "accountant_"))
+        (
+            name.startswith(("list_", "get_", "search_", "fetch_", "summarize_"))
+            or (
+                name.startswith("accountant_")
+                and "_propose_" not in name
+                and not name.endswith("_request_dossier")
+            )
+        )
         and name not in CANVAS_WAKE_DENY
     )
 

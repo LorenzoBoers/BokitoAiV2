@@ -77,10 +77,10 @@ async def replace_resource_grants(
             agent_id = _uuid(ident)
         elif kind == "department":
             from app.services.access_list import EVERYONE_SENTINELS
-            from app.services.teams import ensure_all_department
+            from app.services.teams import ensure_org_root
 
             if ident in EVERYONE_SENTINELS:
-                department_id = (await ensure_all_department(session, tenant_id)).id
+                department_id = (await ensure_org_root(session, tenant_id)).id
             else:
                 department_id = _uuid(ident)
         else:

@@ -1,4 +1,6 @@
 import { Checkbox } from '../ui/checkbox'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { Pressable } from '../ui/pressable'
 import { useTranslation } from 'react-i18next'
@@ -278,7 +280,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                 required
                 className="sm:col-span-2"
               >
-                <input
+                <Input
                   value={email}
                   onChange={(e) => {
                     const next = e.target.value
@@ -289,7 +291,6 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                   type="email"
                   placeholder="you@company.com"
                   autoComplete="off"
-                  className={fieldClass}
                 />
               </Field>
               <Field
@@ -298,13 +299,13 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                 required
                 className="sm:col-span-2"
               >
-                <input
+                <Input
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
                   placeholder="••••••••"
                   autoComplete="off"
-                  className={cn(fieldClass, 'font-mono')}
+                  className="font-mono"
                 />
               </Field>
             </div>
@@ -324,12 +325,12 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                 label={t('channelsPage.email.smtp.username')}
                 hint={t('channelsPage.email.smtp.usernameHint')}
               >
-                <input
+                <Input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={email || 'you@company.com'}
                   autoComplete="off"
-                  className={cn(fieldClass, 'font-mono')}
+                  className="font-mono"
                 />
               </Field>
             )}
@@ -361,7 +362,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                   hint={t('channelsPage.email.smtp.imapHostHint')}
                   required
                 >
-                  <input
+                  <Input
                     value={imapHost}
                     onChange={(e) => {
                       markCustomIfEdited()
@@ -369,18 +370,18 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                       if (sameHost) setSmtpHost(e.target.value)
                     }}
                     placeholder="imap.example.com"
-                    className={cn(fieldClass, 'font-mono')}
+                    className="font-mono"
                     autoComplete="off"
                   />
                 </Field>
                 <Field label={t('channelsPage.email.smtp.imapPort')} hint={t('channelsPage.email.smtp.portHint993')}>
-                  <input
+                  <Input
                     value={imapPort}
                     onChange={(e) => {
                       markCustomIfEdited()
                       setImapPort(e.target.value)
                     }}
-                    className={cn(fieldClass, 'font-mono')}
+                    className="font-mono"
                     inputMode="numeric"
                   />
                 </Field>
@@ -410,18 +411,17 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
               </div>
             </ServerCard>
 
-            <label className="flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-3 py-2.5 text-sm text-text-secondary">
-              <Checkbox
-                checked={sameHost}
-                onChange={(e) => {
-                  const next = e.target.checked
-                  setSameHost(next)
-                  markCustomIfEdited()
-                  if (next) setSmtpHost(imapHost)
-                }}
-              />
-              <span>{t('channelsPage.email.smtp.sameHost')}</span>
-            </label>
+            <Checkbox
+              className="items-center rounded-lg border border-border bg-bg-elevated px-3 py-2.5 text-text-secondary"
+              label={t('channelsPage.email.smtp.sameHost')}
+              checked={sameHost}
+              onChange={(e) => {
+                const next = e.target.checked
+                setSameHost(next)
+                markCustomIfEdited()
+                if (next) setSmtpHost(imapHost)
+              }}
+            />
 
             <ServerCard title={t('channelsPage.email.smtp.outgoingTitle')}>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_5.5rem_8.5rem]">
@@ -436,7 +436,7 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                   }
                   required={!sameHost}
                 >
-                  <input
+                  <Input
                     value={sameHost ? imapHost : smtpHost}
                     onChange={(e) => {
                       if (sameHost) return
@@ -444,20 +444,20 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
                       setSmtpHost(e.target.value)
                     }}
                     placeholder="smtp.example.com"
-                    className={cn(fieldClass, 'font-mono', sameHost && 'opacity-70')}
+                    className={cn('font-mono', sameHost && 'opacity-70')}
                     autoComplete="off"
                     readOnly={sameHost}
                     disabled={sameHost}
                   />
                 </Field>
                 <Field label={t('channelsPage.email.smtp.smtpPort')} hint={t('channelsPage.email.smtp.portHint587')}>
-                  <input
+                  <Input
                     value={smtpPort}
                     onChange={(e) => {
                       markCustomIfEdited()
                       setSmtpPort(e.target.value)
                     }}
-                    className={cn(fieldClass, 'font-mono')}
+                    className="font-mono"
                     inputMode="numeric"
                   />
                 </Field>
@@ -558,9 +558,30 @@ export default function SmtpImapConnectForm({ onConnected }: { onConnected: () =
   )
 }
 
-const fieldClass =
-  'w-full rounded-md border border-border bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
-
+function Field({
+  label,
+  hint,
+  required,
+  children,
+  className,
+}: {
+  label: string
+  hint: string
+  required?: boolean
+  children: ReactNode
+  className?: string
+}) {
+  return (
+    <Label className={cn('flex flex-col items-start gap-1 font-normal', className)}>
+      <span className="font-medium text-text-heading">
+        {label}
+        {required ? <span className="ml-1 font-normal text-status-error">*</span> : null}
+      </span>
+      {children}
+      <span className="text-xs font-normal leading-snug text-text-muted">{hint}</span>
+    </Label>
+  )
+}
 function SectionHeading({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="space-y-0.5">
@@ -576,30 +597,5 @@ function ServerCard({ title, children }: { title: string; children: ReactNode })
       <h4 className="text-sm font-semibold text-text-heading">{title}</h4>
       {children}
     </section>
-  )
-}
-
-function Field({
-  label,
-  hint,
-  required,
-  children,
-  className,
-}: {
-  label: string
-  hint: string
-  required?: boolean
-  children: ReactNode
-  className?: string
-}) {
-  return (
-    <label className={cn('flex flex-col gap-1 text-xs text-text-muted', className)}>
-      <span className="flex items-baseline gap-1 text-text-secondary">
-        <span className="font-medium text-text-heading">{label}</span>
-        {required ? <span className="text-status-error">*</span> : null}
-      </span>
-      {children}
-      <span className="text-xs leading-snug text-text-muted">{hint}</span>
-    </label>
   )
 }

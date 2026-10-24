@@ -66,9 +66,6 @@ COLUMN_PATCHES: dict[str, dict[str, str]] = {
         "default_signal_types_json": "VARCHAR DEFAULT '[]'",
         "description": "VARCHAR DEFAULT ''",
     },
-    "channel_accounts": {
-        "default_agent_id": "VARCHAR",
-    },
     "signal_participants": {
         "unread_count": "INTEGER DEFAULT 0",
     },

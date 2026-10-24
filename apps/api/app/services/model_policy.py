@@ -1,4 +1,4 @@
-"""Chat model selection policy: override > agent > workspace > catalog.
+"""Chat model selection policy: FORCE_CHAT_MODEL > override > agent > workspace > catalog.
 
 Modes (stored on workspace prefs and ``Agent.model``):
 
@@ -9,7 +9,8 @@ Modes (stored on workspace prefs and ``Agent.model``):
 
 Callers that need a live provider key still use ``resolve_model_call`` with the
 slug this module returns. Per-item forces (flow stage, Agenda task, …) pass
-``override_slug`` and win over the agent default.
+``override_slug`` and win over the agent default. Ops can pin the whole
+platform with env ``FORCE_CHAT_MODEL`` (aliases: maki, bokito, kong).
 """
 
 from __future__ import annotations
@@ -66,10 +67,32 @@ class ModelSelectionContext:
 @dataclass(frozen=True)
 class SelectedChatModel:
     slug: str
-    """Where the slug came from: override | agent | workspace | automatic | catalog."""
+    """Where the slug came from: force | override | agent | workspace | automatic | catalog."""
     source: str
     """True when Automatic chose the tier (agent or workspace mode was automatic)."""
     automatic: bool = False
+
+
+_FORCE_ALIASES: dict[str, str] = {
+    "maki": "bokito-maki",
+    "lighter": "bokito-maki",
+    "bokito": catalog_svc.BOKITO_MODEL_SLUG,
+    "standard": catalog_svc.BOKITO_MODEL_SLUG,
+    "default": catalog_svc.BOKITO_MODEL_SLUG,
+    "kong": "bokito-kong",
+    "heavier": "bokito-kong",
+}
+
+
+def forced_chat_slug() -> str | None:
+    """Platform-wide chat slug from ``FORCE_CHAT_MODEL``, or None when unset."""
+    from app.config import get_settings
+
+    raw = (get_settings().force_chat_model or "").strip()
+    if not raw:
+        return None
+    lowered = raw.lower()
+    return _FORCE_ALIASES.get(lowered, lowered)
 
 
 def is_automatic(value: str | None) -> bool:
@@ -143,8 +166,12 @@ async def resolve_chat_model_slug(
 ) -> SelectedChatModel:
     """Resolve the product chat slug for an action.
 
-    Order: override → agent mode → workspace mode → catalog default.
+    Order: FORCE_CHAT_MODEL → override → agent mode → workspace mode → catalog default.
     """
+    forced = forced_chat_slug()
+    if forced:
+        return SelectedChatModel(slug=forced, source="force")
+
     ctx = ctx or ModelSelectionContext()
     prefs = await tenant_models.get_tenant_model_prefs(session, tenant_id)
 

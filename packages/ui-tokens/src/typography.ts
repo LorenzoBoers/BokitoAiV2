@@ -50,9 +50,11 @@ export const webFontSize = {
   xl: ['1.1875rem', { lineHeight: '1.6875rem', letterSpacing: '-0.01em' }],
   '2xl': ['1.5rem', { lineHeight: '1.9375rem', letterSpacing: '-0.015em' }],
   'docs-nav': ['0.8125rem', { lineHeight: '1.25rem' }],
-  'docs-body': ['1.0625rem', { lineHeight: '1.75rem' }],
-  'docs-h2': ['1.65rem', { lineHeight: '2.125rem', letterSpacing: '-0.015em' }],
-  display: ['2.75rem', { lineHeight: '1.15', letterSpacing: '-0.02em' }],
+  /** Same as `base` — kept as a named step so `/docs` call sites stay explicit. */
+  'docs-body': ['0.9375rem', { lineHeight: '1.4375rem' }],
+  /** Same metrics as `.title-dialog`; prefer the title role in new markup. */
+  'docs-h2': ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.025em' }],
+  display: ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.035em' }],
 } as const
 
 /** Utilities reference the CSS variables, not the raw family stack. `display` is reached through the title roles only. */

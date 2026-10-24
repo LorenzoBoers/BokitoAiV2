@@ -159,7 +159,6 @@ async def client(session_override: AsyncSession) -> AsyncGenerator[AsyncClient, 
             chat_access="everyone",
             runtime_status="standby",
             system_prompt="Test assistant",
-            is_lead=True,
         )
     )
     session_override.add(

@@ -1,9 +1,10 @@
 """SSO user provisioning: find-or-create a user (and workspace) from a
 verified identity-provider email.
 
-Used by the Microsoft "Sign in with Microsoft" login flow. New users get a
-passwordless account (`password_hash=""`) plus a bootstrapped workspace, the
-same as the password signup path.
+Used by Google and Microsoft sign-in. New users get a passwordless account
+(`password_hash=""`) plus a bootstrapped workspace, so that path stays one
+step. Password signup creates the account first and asks for the workspace
+name on the next screen.
 """
 
 from __future__ import annotations
@@ -66,7 +67,7 @@ async def provision_sso_user(
 
     The identity provider verified the address, so an existing account with the
     same email is linked (and marked verified). Users without any workspace get
-    a fresh bootstrapped tenant, mirroring signup.
+    a fresh bootstrapped tenant so SSO does not stop on a second form.
     """
     email = email.strip().lower()
     result = await session.execute(select(User).where(User.email == email))

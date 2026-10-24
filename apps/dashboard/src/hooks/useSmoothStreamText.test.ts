@@ -11,18 +11,21 @@ import {
 } from './useSmoothStreamText'
 
 describe('smoothStreamRate', () => {
-  it('stays at the cruise while the turn is live, regardless of backlog', () => {
-    expect(smoothStreamRate(5, true)).toBe(SMOOTH_STREAM_CPS.cruiseCps)
-    expect(smoothStreamRate(400, true)).toBe(SMOOTH_STREAM_CPS.cruiseCps)
-    expect(smoothStreamRate(4000, true)).toBe(SMOOTH_STREAM_CPS.cruiseCps)
+  it('stays inside the live band and speeds up with the backlog', () => {
+    expect(smoothStreamRate(1, true)).toBe(SMOOTH_STREAM_CPS.liveMinCps)
+    expect(smoothStreamRate(4000, true)).toBe(SMOOTH_STREAM_CPS.liveMaxCps)
+    const mid = smoothStreamRate(20, true)
+    expect(mid).toBeGreaterThan(SMOOTH_STREAM_CPS.liveMinCps)
+    expect(mid).toBeLessThan(SMOOTH_STREAM_CPS.liveMaxCps)
   })
 
   it('drains the leftover on a horizon after the turn ended', () => {
-    expect(smoothStreamRate(40, false)).toBe(SMOOTH_STREAM_CPS.finishMinCps)
-    const mid = (800 * 1000) / SMOOTH_STREAM.finishHorizonMs
-    expect(smoothStreamRate(800, false)).toBeCloseTo(
+    expect(smoothStreamRate(4, false)).toBe(SMOOTH_STREAM_CPS.finishMinCps)
+    const mid = (80 * 1000) / SMOOTH_STREAM.finishHorizonMs
+    expect(smoothStreamRate(80, false)).toBeCloseTo(
       Math.min(SMOOTH_STREAM_CPS.finishMaxCps, Math.max(SMOOTH_STREAM_CPS.finishMinCps, mid)),
     )
+    expect(smoothStreamRate(8000, false)).toBe(SMOOTH_STREAM_CPS.finishMaxCps)
   })
 })
 
@@ -37,13 +40,11 @@ describe('streamRateJitter', () => {
 })
 
 describe('revealLimit', () => {
-  it('starts immediately on a short live buffer and stays a lead behind', () => {
+  it('plays the whole buffer so waiting text cannot sit hidden', () => {
     expect(revealLimit(0, true)).toBe(0)
-    expect(revealLimit(2, true)).toBe(1)
-    expect(revealLimit(3, true)).toBe(1)
-    expect(revealLimit(10, true)).toBeGreaterThan(0)
-    expect(revealLimit(10, true)).toBeLessThan(10)
-    expect(revealLimit(100, true)).toBe(100 - SMOOTH_STREAM.leadChars)
+    expect(revealLimit(2, true)).toBe(2)
+    expect(revealLimit(10, true)).toBe(10)
+    expect(revealLimit(100, true)).toBe(100)
     expect(revealLimit(100, false)).toBe(100)
   })
 })
@@ -124,8 +125,8 @@ describe('useSmoothStreamText', () => {
     act(() => flushFrames(8, 16))
     const before = result.current.length
     act(() => flushFrames(1, 16))
-    const perFrameCap = Math.ceil((SMOOTH_STREAM_CPS.cruiseMaxCps * 16) / 1000) + 1
-    expect(result.current.length - before).toBeLessThanOrEqual(perFrameCap)
+    expect(result.current.length - before).toBeGreaterThan(0)
+    expect(result.current.length - before).toBeLessThanOrEqual(SMOOTH_STREAM.maxCharsPerFrameBurst)
   })
 
   it('starts as soon as the first characters arrive, not after a full sentence', () => {
@@ -140,37 +141,26 @@ describe('useSmoothStreamText', () => {
     expect(result.current.length).toBeLessThanOrEqual('Hi'.length)
   })
 
-  it('pauses when it catches the live lead, then continues when the buffer grows', () => {
+  it('keeps moving while text is waiting and does not dump a new chunk', () => {
     const { result, rerender } = renderHook(
       ({ target, active }: { target: string; active: boolean }) =>
         useSmoothStreamText(target, active),
       { initialProps: { target: '', active: true } },
     )
-    const first = 'abcdefghij'
+    const first = 'a'.repeat(400)
     act(() => rerender({ target: first, active: true }))
-    act(() => flushFrames(80, 16))
-    const paused = result.current.length
-    expect(paused).toBe(revealLimit(first.length, true))
-    expect(paused).toBeLessThan(first.length)
+    act(() => flushFrames(6, 16))
+    const mid = result.current.length
+    expect(mid).toBeGreaterThan(0)
+    expect(mid).toBeLessThan(first.length)
 
-    const next = `${first} more text behind the stream`
+    const next = first + 'b'.repeat(400)
     act(() => rerender({ target: next, active: true }))
-    act(() => flushFrames(4, 16))
-    expect(result.current.length).toBeGreaterThan(paused)
-    expect(result.current.length).toBeLessThanOrEqual(revealLimit(next.length, true))
-  })
-
-  it('holds the lead while live so a network pause does not empty the view', () => {
-    const target = 'abcdefghijklmnopqrstuvwxyz0123456789MORE'
-    const { result, rerender } = renderHook(
-      ({ target, active }: { target: string; active: boolean }) =>
-        useSmoothStreamText(target, active),
-      { initialProps: { target: '', active: true } },
-    )
-    act(() => rerender({ target, active: true }))
-    act(() => flushFrames(200, 16))
-    expect(result.current.length).toBe(revealLimit(target.length, true))
-    expect(result.current.length).toBeLessThan(target.length)
+    act(() => flushFrames(1, 16))
+    const gained = result.current.length - mid
+    expect(gained).toBeGreaterThan(0)
+    expect(gained).toBeLessThanOrEqual(SMOOTH_STREAM.maxCharsPerFrameBurst)
+    expect(result.current.length).toBeLessThan(next.length)
   })
 
   it('finishes the queued tail when the stream ends instead of snapping', () => {

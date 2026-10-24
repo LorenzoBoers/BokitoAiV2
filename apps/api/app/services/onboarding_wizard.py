@@ -262,7 +262,6 @@ async def _upsert_first_agent(
             chat_access="everyone",
         )
         agent_id = UUID(str(created["agent"]["id"]))
-        await set_lead_agent(session, tenant.id, agent_id, commit=False)
     else:
         agent_id = existing.id
     await update_agent(
@@ -282,11 +281,8 @@ async def _upsert_first_agent(
     agent = await session.get(Agent, agent_id)
     if agent is not None:
         agent.autonomy_level = posture
-        agent.is_lead = True
         session.add(agent)
-    from app.services.teams import ensure_agent_on_all
-
-    await ensure_agent_on_all(session, tenant.id, agent_id)
+    await set_lead_agent(session, tenant.id, agent_id, commit=False)
     await session.refresh(tenant)
 
 

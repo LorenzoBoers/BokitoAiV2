@@ -49,6 +49,7 @@ class WorkspaceInviteBody(BaseModel):
     workspace_id: str | int
     email: EmailStr
     role: str = "member"
+    scope: str = "workspace"
 
 
 @router.get("/onboarding")
@@ -470,6 +471,7 @@ async def post_workspace_invite(
         email=str(body.email),
         role=body.role,
         inviter=auth.user,
+        scope=body.scope,
     )
     from app.services.audit import record_audit
 

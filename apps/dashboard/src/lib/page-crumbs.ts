@@ -30,6 +30,9 @@ export function extraCrumbsForPath(pathname: string): PageCrumb[] {
   if (pathname.startsWith('/ai/assistant') && pathname.includes('/customization')) {
     return [{ labelKey: 'crumbs.widgetLook' }]
   }
+  if (pathname === '/connections/installed') {
+    return [{ labelKey: 'integrations.hubTabs.installed' }]
+  }
   if (pathname.startsWith('/connections/') && pathname !== '/connections') {
     return [{ labelKey: 'crumbs.moduleSetup' }]
   }

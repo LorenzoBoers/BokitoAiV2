@@ -148,95 +148,52 @@ async def _add_agent_member(
     *,
     lead: bool | None = None,
 ) -> None:
-    """The specialist leads a department without a lead; otherwise it joins as a member.
+    """The specialist is point of contact of a department without agents; otherwise a member.
 
-    ``lead=True`` makes it lead and moves the current lead agent to member.
+    ``lead=True`` makes it the point of contact and moves the current one to member.
     """
-    agents = (
-        await session.execute(
-            select(DepartmentMember).where(
-                DepartmentMember.department_id == department_id,
-                DepartmentMember.member_kind == "agent",
-            )
-        )
-    ).scalars().all()
-    current_lead = next((m for m in agents if m.duty == "primary" and m.agent_id != agent_id), None)
-    takes_lead = lead is True or (lead is None and current_lead is None)
-    existing = next((m for m in agents if m.agent_id == agent_id), None)
-    if takes_lead and current_lead is not None:
-        current_lead.duty = "member"
-        session.add(current_lead)
-    if existing is not None:
-        if takes_lead and existing.duty != "primary":
-            existing.duty = "primary"
-            session.add(existing)
+    from app.services.department_access import department_roles
+    from app.services.teams import edit_department_crew, get_team, with_member
+
+    team = await get_team(session, tenant_id, department_id)
+    if team is None:
         return
-    position = int(
-        (
-            await session.execute(
-                select(DepartmentMember.position)
-                .where(DepartmentMember.department_id == department_id)
-                .order_by(DepartmentMember.position.desc())
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        or -1
-    ) + 1
-    session.add(
-        DepartmentMember(
-            tenant_id=tenant_id,
-            department_id=department_id,
-            member_kind="agent",
-            agent_id=agent_id,
-            duty="primary" if takes_lead else "member",
-            position=position,
-        )
-    )
+    has_contact = (await department_roles(session, tenant_id, department_id))["contact_agent_id"] is not None
+    takes_lead = lead is True or (lead is None and not has_contact)
+
+    def change(crew: list[dict]) -> list[dict]:
+        seated = next((e for e in crew if e["kind"] == "agent" and e["id"] == str(agent_id)), None)
+        if takes_lead:
+            return with_member(crew, "agent", agent_id, "contact")
+        return crew if seated else with_member(crew, "agent", agent_id, "member")
+
+    await edit_department_crew(session, team, change)
 
 
 async def set_accountable(
     session: AsyncSession, tenant_id: UUID, department_id: UUID, user_id: UUID | None
 ) -> UUID | None:
     """The person accountable (user duty primary). Without a pick: keep one, else All's. Flushes."""
-    from app.services.department_access import department_leads
-    from app.services.teams import all_department
+    from app.services.department_access import department_roles
+    from app.services.teams import org_root
 
-    current = (await department_leads(session, tenant_id, department_id))["accountable_user_id"]
+    current = (await department_roles(session, tenant_id, department_id))["accountable_user_id"]
     if user_id is None:
         if current is not None:
             return current
-        root = await all_department(session, tenant_id)
-        user_id = (await department_leads(session, tenant_id, root.id))["accountable_user_id"]
+        root = await org_root(session, tenant_id)
+        user_id = (await department_roles(session, tenant_id, root.id))["accountable_user_id"]
         if user_id is None:
             return None
-    users = (
-        await session.execute(
-            select(DepartmentMember).where(
-                DepartmentMember.department_id == department_id,
-                DepartmentMember.member_kind == "user",
-            )
-        )
-    ).scalars().all()
-    for member in users:
-        if member.user_id != user_id and member.duty == "primary":
-            member.duty = "backup"
-            session.add(member)
-    mine = next((m for m in users if m.user_id == user_id), None)
-    if mine is None:
-        last = max((m.position for m in users), default=-1)
-        session.add(
-            DepartmentMember(
-                tenant_id=tenant_id,
-                department_id=department_id,
-                member_kind="user",
-                user_id=user_id,
-                duty="primary",
-                position=last + 1,
-            )
-        )
-    elif mine.duty != "primary":
-        mine.duty = "primary"
-        session.add(mine)
+    from app.services.teams import edit_department_crew, get_team, with_member
+
+    team = await get_team(session, tenant_id, department_id)
+    if team is None:
+        return None
+    try:
+        await edit_department_crew(session, team, lambda crew: with_member(crew, "user", user_id, "accountable"))
+    except ValueError:
+        return None
     await session.flush()
     return user_id
 

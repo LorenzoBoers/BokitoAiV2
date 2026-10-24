@@ -1,10 +1,10 @@
 /**
  * Frontend playback that follows a backend text buffer.
  *
- * Incoming chunks only fill the buffer. The view grows at a cruise (slightly
- * slower than a typical model), breathes with deterministic jitter, and pauses
- * at a short lead while live. When the stream ends, the leftover drains on a
- * short horizon — never a dump.
+ * Incoming chunks only fill the buffer. Each frame reveals graphemes between
+ * a floor (never a frozen frame while text is already waiting) and a cap
+ * (a chunk never lands in one paint). The rate rises with the backlog up to
+ * that cap. When the stream ends, the leftover drains inside the same cap.
  *
  * Token ≈ 4 characters (EN/NL mix). Framework-agnostic: dashboard wraps this
  * in a React hook; the chat widget drives it from rAF.
@@ -12,29 +12,35 @@
 
 export const SMOOTH_STREAM = {
   charsPerToken: 4,
-  /** Mean live playback. Below a typical model so the view stays behind. */
+  /** Glow reference only (1 = a steady type). Playback uses the horizon band. */
   cruiseTps: 30,
+  /** Live rate aims to clear the waiting buffer in about this long, then clamps. */
+  liveHorizonMs: 220,
+  /** Floor while text is waiting. A frame still shows at least one grapheme. */
+  liveMinCps: 48,
+  /** Ceiling. The per-frame grapheme cap is what stops a chunk from landing at once. */
+  liveMaxCps: 420,
+  /** Base graphemes in a 16ms frame. Grows with backlog so a long buffer does not stall. */
+  maxCharsPerFrame: 6,
+  /** Extra graphemes allowed per ~80 waiting chars, up to ``maxCharsPerFrameBurst``. */
+  backlogCharsPerExtra: 80,
+  maxCharsPerFrameBurst: 18,
   /** Floor for the post-stream drain of a short tail. */
-  finishMinTps: 28,
-  /** Ceiling when a large leftover remains after the model stops. */
-  finishMaxTps: 52,
-  /** Aim to empty a large leftover within this horizon once the turn ended. */
-  finishHorizonMs: 1600,
-  /** Stay at most this far behind a large live buffer. */
-  leadChars: 16,
-  /** Always keep at least this many live chars unpublished (the brake). */
-  minBrakeChars: 2,
-  /** Live lead is this fraction of the buffer, until `leadChars`. */
-  leadRatio: 0.16,
+  finishMinCps: 64,
+  /** Ceiling once the model has stopped. Still inside the per-frame cap. */
+  finishMaxCps: 420,
+  /** Aim to empty a leftover within this horizon once the turn ended. */
+  finishHorizonMs: 560,
+  /** No hidden lead: unpublished text in the buffer keeps moving. */
+  leadChars: 0,
+  minBrakeChars: 0,
+  leadRatio: 0,
   /** Brief wait so the first glyph is not a single-letter flash. */
-  startDelayMs: 28,
+  startDelayMs: 12,
   /** Frame gap cap: a background tab must not dump the buffer. */
-  maxFrameMs: 50,
-  /**
-   * Peak relative swing around the mean cruise (±). Two sines keep it
-   * irregular without RNG (tests stay stable).
-   */
-  jitterAmp: 0.32,
+  maxFrameMs: 40,
+  /** Kept at 0. Playback is a min/max band, not a breathing cruise. */
+  jitterAmp: 0,
 } as const
 
 function tpsToCps(tps: number): number {
@@ -42,15 +48,17 @@ function tpsToCps(tps: number): number {
 }
 
 export const SMOOTH_STREAM_CPS = {
+  /** Glow reference: reveal rate ÷ this is 1 at a steady type. */
   cruiseCps: tpsToCps(SMOOTH_STREAM.cruiseTps),
-  finishMinCps: tpsToCps(SMOOTH_STREAM.finishMinTps),
-  finishMaxCps: tpsToCps(SMOOTH_STREAM.finishMaxTps),
-  /** Live per-frame ceiling including jitter (tests). */
-  cruiseMaxCps: tpsToCps(SMOOTH_STREAM.cruiseTps) * (1 + SMOOTH_STREAM.jitterAmp),
+  liveMinCps: SMOOTH_STREAM.liveMinCps,
+  liveMaxCps: SMOOTH_STREAM.liveMaxCps,
+  finishMinCps: SMOOTH_STREAM.finishMinCps,
+  finishMaxCps: SMOOTH_STREAM.finishMaxCps,
   /** Alias used by older tests that called the live ceiling `maxCps`. */
-  maxCps: tpsToCps(SMOOTH_STREAM.cruiseTps) * (1 + SMOOTH_STREAM.jitterAmp),
-  minCps: tpsToCps(SMOOTH_STREAM.cruiseTps) * (1 - SMOOTH_STREAM.jitterAmp),
-  finishCps: tpsToCps(SMOOTH_STREAM.finishMinTps),
+  cruiseMaxCps: SMOOTH_STREAM.liveMaxCps,
+  maxCps: SMOOTH_STREAM.liveMaxCps,
+  minCps: SMOOTH_STREAM.liveMinCps,
+  finishCps: SMOOTH_STREAM.finishMinCps,
 } as const
 
 function clamp(value: number, min: number, max: number) {
@@ -58,9 +66,9 @@ function clamp(value: number, min: number, max: number) {
 }
 
 /**
- * How far the view may go. Live: stay a short lead behind the buffer so a
- * catch-up pauses instead of locking to network cadence. Finished: the
- * whole buffer is playable.
+ * How far the view may go. The whole buffer is playable: a hidden lead made
+ * the caret freeze while text was already waiting. `holdLead` still reserves
+ * a tail when `leadChars` is set above 0.
  */
 export function revealLimit(bufferLength: number, holdLead: boolean): number {
   if (!holdLead || bufferLength <= 0) return bufferLength
@@ -68,7 +76,8 @@ export function revealLimit(bufferLength: number, holdLead: boolean): number {
     SMOOTH_STREAM.leadChars,
     Math.max(SMOOTH_STREAM.minBrakeChars, Math.floor(bufferLength * SMOOTH_STREAM.leadRatio)),
   )
-  return bufferLength > 0 ? Math.max(1, bufferLength - tail) : 0
+  if (tail <= 0) return bufferLength
+  return Math.max(1, bufferLength - tail)
 }
 
 /**
@@ -86,15 +95,47 @@ export function streamRateJitter(nowMs: number): number {
 }
 
 /**
- * Character rate for this frame. Live: mean cruise (caller applies jitter).
- * Ended: drain the leftover on a short horizon, still bounded so it never dumps.
+ * Character rate for this frame. Live and finished both follow
+ * backlog / horizon, clamped so a short gap does not freeze and a large
+ * chunk does not set an unbounded rate. The per-frame grapheme cap is the
+ * hard stop.
  */
 export function smoothStreamRate(backlog: number, active: boolean): number {
-  const p = SMOOTH_STREAM
-  if (active) return tpsToCps(p.cruiseTps)
-  const finishMin = tpsToCps(p.finishMinTps)
-  const finishMax = tpsToCps(p.finishMaxTps)
-  return clamp((Math.max(backlog, 1) * 1000) / p.finishHorizonMs, finishMin, finishMax)
+  const waiting = Math.max(backlog, 1)
+  if (active) {
+    return clamp((waiting * 1000) / SMOOTH_STREAM.liveHorizonMs, SMOOTH_STREAM.liveMinCps, SMOOTH_STREAM.liveMaxCps)
+  }
+  return clamp(
+    (waiting * 1000) / SMOOTH_STREAM.finishHorizonMs,
+    SMOOTH_STREAM.finishMinCps,
+    SMOOTH_STREAM.finishMaxCps,
+  )
+}
+
+/** Advance `count` graphemes without splitting a character. */
+function revealEnd(source: string, from: number, count: number, hard: number): number {
+  const limit = Math.min(Math.max(hard, from), source.length)
+  if (from >= limit || count <= 0) return from
+  const windowEnd = Math.min(limit, from + count * 8 + 8)
+  const slice = source.slice(from, windowEnd)
+  const SegmenterCtor = (Intl as { Segmenter?: typeof Intl.Segmenter }).Segmenter
+  if (!SegmenterCtor) {
+    let end = Math.min(from + count, limit)
+    const prev = source.charCodeAt(end - 1)
+    if (end < limit && prev >= 0xd800 && prev <= 0xdbff) end += 1
+    return end
+  }
+  const segmenter = new SegmenterCtor(undefined, { granularity: 'grapheme' })
+  let taken = 0
+  let end = from
+  for (const part of segmenter.segment(slice)) {
+    const next = from + part.index + part.segment.length
+    if (next > limit) break
+    end = next
+    taken += 1
+    if (taken >= count) break
+  }
+  return end > from ? end : Math.min(from + 1, limit)
 }
 
 export type RevealCapFn = (
@@ -164,12 +205,14 @@ export function advanceSmoothStream(input: SmoothStreamAdvanceInput): SmoothStre
 
   if (!goal.startsWith(prev) && prev.length > 0) {
     // A server rewrite keeps what both texts share; only the changed tail
-    // is typed again. Restarting from '' read as the reply starting over.
+    // is typed again. A shrink (stripping a canvas dump) lands at once —
+    // retyping from the shared prefix read as the bubble starting over.
     let shared = 0
     const max = Math.min(goal.length, prev.length)
     while (shared < max && goal.charCodeAt(shared) === prev.charCodeAt(shared)) shared += 1
+    const shrunk = goal.length < prev.length && goal.length <= shared + 24
     return {
-      visible: goal.slice(0, shared),
+      visible: shrunk ? goal : goal.slice(0, shared),
       startedAtMs: input.startedAtMs ?? nowMs,
       carry: 0,
       lastMs: last,
@@ -191,23 +234,34 @@ export function advanceSmoothStream(input: SmoothStreamAdvanceInput): SmoothStre
     return { visible: prev, startedAtMs, carry, lastMs: last, reset: false }
   }
 
-  const baseRate = smoothStreamRate(backlog, active) * streamRateJitter(nowMs)
-  const trail = prev[prev.length - 1]
-  const pause =
-    trail === '.' || trail === '!' || trail === '?' || trail === '\n'
-      ? 0.42
-      : trail === ',' || trail === ';' || trail === ':'
-        ? 0.72
-        : 1
-  const step = (baseRate * pause * dt) / 1000 + carry
-  const chars = Math.floor(step)
+  const baseRate = smoothStreamRate(backlog, active)
+  const step = (baseRate * dt) / 1000 + carry
+  let chars = Math.floor(step)
   carry = step - chars
-  if (chars <= 0) {
-    return { visible: prev, startedAtMs, carry, lastMs: last, reset: false }
+  // Floor: one grapheme whenever text is already waiting, so the caret
+  // cannot sit still between chunks. Cap: a long frame cannot empty the buffer.
+  if (chars < 1) {
+    if (backlog > 0 && dt > 0) {
+      chars = 1
+      carry = 0
+    } else {
+      return { visible: prev, startedAtMs, carry, lastMs: last, reset: false }
+    }
   }
+  const extras = Math.floor(backlog / SMOOTH_STREAM.backlogCharsPerExtra)
+  const perFrame = Math.min(
+    SMOOTH_STREAM.maxCharsPerFrameBurst,
+    SMOOTH_STREAM.maxCharsPerFrame + extras,
+  )
+  const frameCap = Math.max(1, Math.round((perFrame * dt) / 16))
+  if (chars > frameCap) {
+    chars = frameCap
+    carry = 0
+  }
+  chars = Math.min(chars, backlog)
 
   const hardCap = prev.length + backlog
-  const cruiseEnd = prev.length + Math.min(chars, backlog)
+  const cruiseEnd = revealEnd(goal, prev.length, chars, hardCap)
   const capped = capLength(goal, prev.length, cruiseEnd, hardCap, active)
   if (capped <= prev.length) {
     return { visible: prev, startedAtMs, carry, lastMs: last, reset: false }

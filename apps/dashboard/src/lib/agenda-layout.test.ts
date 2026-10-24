@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AGENDA_DEFAULT_VIEW,
   attentionOf,
   calendarIdsParam,
   dayKey,
@@ -14,7 +15,10 @@ import {
   matchesWho,
   parseCalendarIds,
   parseLayers,
+  parseView,
+  readAgendaViewPref,
   viewRange,
+  writeAgendaViewPref,
 } from './agenda-layout'
 import type { TimeItem } from './time-items'
 
@@ -127,6 +131,24 @@ describe('layoutDay', () => {
     expect(byId.c.cols).toBe(1)
     expect(byId.a.top).toBe(9 * 60)
     expect(byId.c.height).toBe(30)
+  })
+})
+
+describe('parseView', () => {
+  it('defaults to list and accepts known views', () => {
+    expect(parseView(null)).toBe(AGENDA_DEFAULT_VIEW)
+    expect(parseView('list')).toBe('list')
+    expect(parseView('day')).toBe('day')
+    expect(parseView('nope')).toBe(AGENDA_DEFAULT_VIEW)
+  })
+})
+
+describe('agenda view preference', () => {
+  it('remembers the last non-default view on this browser', () => {
+    writeAgendaViewPref('week')
+    expect(readAgendaViewPref()).toBe('week')
+    writeAgendaViewPref(AGENDA_DEFAULT_VIEW)
+    expect(readAgendaViewPref()).toBe(AGENDA_DEFAULT_VIEW)
   })
 })
 

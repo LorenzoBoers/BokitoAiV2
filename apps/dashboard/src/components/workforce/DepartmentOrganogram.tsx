@@ -2,10 +2,9 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Building2 } from 'lucide-react'
 import { AvatarStack } from '../ui/AvatarStack'
-import { Badge } from '../ui/badge'
 import { Card } from '../ui/card'
 import { IconTile } from '../ui/icon-tile'
-import { departmentPath } from '../../lib/navigation'
+import { ORGANIZATION_PATH, departmentPath } from '../../lib/navigation'
 import { platformIcon } from '../../lib/platform-icons'
 import { resolveTeamStackMembers } from '../../lib/team-facepile'
 import type { DepartmentTreeNode } from '../../lib/department-tree'
@@ -48,19 +47,24 @@ function OrgNode({
 }) {
   const { t } = useTranslation('nav')
   const team = node.department
+  const isOrg = Boolean(team.system || team.root)
   const Icon = platformIcon(team.icon) ?? Building2
-  const canOpen = !team.system && !team.root
+  const name = isOrg ? t('teamPage.orgRow') : team.name
   const stack = resolveTeamStackMembers(team.members, {
     people: overview.people,
     agents: overview.agents,
   })
   const card = (
-    <Card interactive={canOpen} className="flex h-24 w-56 shrink-0 flex-col justify-between px-3 py-2.5">
+    <Card interactive className="flex h-24 w-56 shrink-0 flex-col justify-between px-3 py-2.5">
       <div className="flex min-w-0 items-start gap-2">
         <IconTile icon={Icon} tone="accent" size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-text-heading">{team.name}</p>
-          {team.system ? <Badge variant="neutral">{t('teamPage.systemBadge')}</Badge> : null}
+          <p className="truncate text-sm font-medium text-text-heading">{name}</p>
+          <p className="truncate text-xs text-text-muted">
+            {team.contact
+              ? t('departmentPage.children.contact', { name: team.contact.name })
+              : t('departmentPage.children.noContact' /* design-system-ignore: field value on a card */)}
+          </p>
         </div>
       </div>
       <div className="flex items-center justify-between gap-2">
@@ -80,22 +84,18 @@ function OrgNode({
       role="treeitem"
       aria-level={level}
       aria-expanded={node.children.length > 0 ? true : undefined}
-      aria-label={team.name}
+      aria-label={name}
       data-testid="organogram-node"
     >
       {connector ? <ChildConnector index={connector.index} count={connector.count} /> : null}
       <div className="px-2">
-      {canOpen ? (
         <Link
-          to={departmentPath(team.id)}
-          aria-label={t('organogram.openDepartment', { name: team.name })}
+          to={isOrg ? ORGANIZATION_PATH : departmentPath(team.id)}
+          aria-label={t('organogram.openDepartment', { name })}
           className="rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           {card}
         </Link>
-      ) : (
-        card
-      )}
       </div>
       {node.children.length > 0 ? (
         <div className="flex flex-col items-center">

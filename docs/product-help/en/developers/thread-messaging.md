@@ -89,7 +89,7 @@ Every turn ends with a stop reason on its run: `end_turn`, `max_turns`, `no_prog
 
 ## Module hire
 
-`POST /api/connections/modules/{slug}/agents/hire` creates or reuses a managed specialist (`managed_origin=module`), adds the roster, and opens a setup conversation.
+`POST /api/connections/modules/{slug}/agents/hire` creates or reuses a managed specialist (`managed_origin=module`), seats it in the module department, and opens a setup conversation.
 
 ## Client package
 

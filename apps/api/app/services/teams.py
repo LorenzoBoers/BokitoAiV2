@@ -1,12 +1,16 @@
 """Departments: groups of people and agents used as owner, addressee and mention target.
 
-Every workspace has one root **All** department (``parent_id`` null). Custom
-departments nest under All. Membership is stored in ``department_members``;
-a member of a child is treated as a member of every ancestor up to All.
+Every workspace has one root (``parent_id`` null, stored name All) that
+operators see as the organization. Custom departments hang below it, at most
+``MAX_DEPARTMENT_DEPTH`` levels deep. Membership is stored in
+``department_members``; a member of a child is treated as a member of every
+ancestor up to the root. Every person is implicitly on the root. Agents are on
+it only when placed there or through a department below it.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -20,6 +24,9 @@ from app.models.auth import Membership, User
 from app.models.signal import Signal
 from app.models.team import (
     ALL_DEPARTMENT_NAME,
+    CREW_ROLES,
+    FOCUS_MAX,
+    MAX_DEPARTMENT_DEPTH,
     PICKUP_MODES,
     TEAM_KIND_CUSTOM,
     Team,
@@ -40,7 +47,7 @@ class MemberRef:
         return f"{self.kind}:{self.id}"
 
 
-async def ensure_all_department(session: AsyncSession, tenant_id: UUID) -> Team:
+async def ensure_org_root(session: AsyncSession, tenant_id: UUID) -> Team:
     """Return the All root, creating it when missing."""
     from app.services.trash import alive
 
@@ -71,149 +78,96 @@ async def ensure_all_department(session: AsyncSession, tenant_id: UUID) -> Team:
     )
     session.add(team)
     await session.flush()
-    await _seed_all_members(session, team)
     return team
 
 
-async def ensure_agent_on_all(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> bool:
-    """Seat one company agent on All. Idempotent. Does not add every other agent."""
-    root = await ensure_all_department(session, tenant_id)
-    existing = (
-        await session.execute(
-            select(TeamMember.id).where(
-                TeamMember.department_id == root.id,
-                TeamMember.member_kind == "agent",
-                TeamMember.agent_id == agent_id,
-            )
-        )
-    ).scalar_one_or_none()
-    if existing is not None:
-        return False
-    position = int(
+async def org_root(session: AsyncSession, tenant_id: UUID) -> Team:
+    return await ensure_org_root(session, tenant_id)
+
+
+async def department_depth(session: AsyncSession, tenant_id: UUID, department_id: UUID) -> int:
+    """Levels below the root: the root is 0, a department 1, a sub-department 2."""
+    parent_of = await _parent_map(session, tenant_id)
+    depth = 0
+    cur = parent_of.get(department_id)
+    seen: set[UUID] = set()
+    while cur is not None and cur not in seen:
+        seen.add(cur)
+        depth += 1
+        cur = parent_of.get(cur)
+    return depth
+
+
+async def subtree_height(session: AsyncSession, tenant_id: UUID, department_id: UUID) -> int:
+    """How many levels hang below this department (0 for a leaf)."""
+    parent_of = await _parent_map(session, tenant_id)
+    children: dict[UUID, list[UUID]] = {}
+    for child, parent in parent_of.items():
+        if parent is not None:
+            children.setdefault(parent, []).append(child)
+
+    def height(node: UUID, seen: frozenset[UUID]) -> int:
+        kids = [k for k in children.get(node, []) if k not in seen]
+        return 1 + max((height(k, seen | {k}) for k in kids), default=-1) if kids else 0
+
+    return height(department_id, frozenset({department_id}))
+
+
+async def department_chain(session: AsyncSession, tenant_id: UUID, department_id: UUID | None) -> list[UUID]:
+    """From the organization down to ``department_id`` (inclusive). Just the root when None."""
+    parent_of = await _parent_map(session, tenant_id)
+    if department_id is None or department_id not in parent_of:
+        return [(await ensure_org_root(session, tenant_id)).id]
+    chain: list[UUID] = []
+    cur: UUID | None = department_id
+    while cur is not None and cur not in chain:
+        chain.append(cur)
+        cur = parent_of.get(cur)
+    return list(reversed(chain))
+
+
+async def direct_department_ids(session: AsyncSession, tenant_id: UUID, kind: str, member_id: UUID) -> set[UUID]:
+    """Departments a person or agent sits in directly (no ancestors)."""
+    column = TeamMember.agent_id if kind == "agent" else TeamMember.user_id
+    return set(
         (
             await session.execute(
-                select(TeamMember.position)
-                .where(TeamMember.department_id == root.id)
-                .order_by(TeamMember.position.desc())
-                .limit(1)
-            )
-        ).scalar()
-        or -1
-    ) + 1
-    session.add(
-        TeamMember(
-            tenant_id=tenant_id,
-            department_id=root.id,
-            member_kind="agent",
-            agent_id=agent_id,
-            duty="member",
-            position=position,
-        )
-    )
-    await session.flush()
-    return True
-
-
-async def all_department(session: AsyncSession, tenant_id: UUID) -> Team:
-    return await ensure_all_department(session, tenant_id)
-
-
-async def seat_company_agents_without_department(session: AsyncSession) -> int:
-    """Seat active company agents that belong to no department on All.
-
-    A personal helper (``acts_for_user``) stays out. An agent that already
-    sits on a custom department is left there. Caller commits.
-    """
-    agents = (
-        await session.execute(
-            select(Agent).where(
-                Agent.kind == "company",
-                Agent.is_active.is_(True),
-                Agent.acts_for_user.is_(False),
-            )
-        )
-    ).scalars().all()
-    seated = 0
-    for agent in agents:
-        has_seat = (
-            await session.execute(
-                select(TeamMember.id).where(
-                    TeamMember.member_kind == "agent",
-                    TeamMember.agent_id == agent.id,
-                )
-            )
-        ).scalars().first()
-        if has_seat is not None:
-            continue
-        if await ensure_agent_on_all(session, agent.tenant_id, agent.id):
-            seated += 1
-    return seated
-
-
-async def _seed_all_members(session: AsyncSession, all_team: Team) -> None:
-    """Put every active person and company agent into All (idempotent)."""
-    existing_users = set(
-        (
-            await session.execute(
-                select(TeamMember.user_id).where(
-                    TeamMember.department_id == all_team.id,
-                    TeamMember.member_kind == "user",
-                    TeamMember.user_id.is_not(None),
+                select(TeamMember.department_id).where(
+                    TeamMember.tenant_id == tenant_id,
+                    TeamMember.member_kind == kind,
+                    column == member_id,
                 )
             )
         ).scalars().all()
     )
-    existing_agents = set(
-        (
-            await session.execute(
-                select(TeamMember.agent_id).where(
-                    TeamMember.department_id == all_team.id,
-                    TeamMember.member_kind == "agent",
-                    TeamMember.agent_id.is_not(None),
-                )
-            )
-        ).scalars().all()
-    )
-    position = int(
-        (
-            await session.execute(
-                select(TeamMember.position)
-                .where(TeamMember.department_id == all_team.id)
-                .order_by(TeamMember.position.desc())
-                .limit(1)
-            )
-        ).scalar()
-        or -1
-    ) + 1
-    for uid in await _workspace_user_ids(session, all_team.tenant_id):
-        if uid in existing_users:
-            continue
-        session.add(
-            TeamMember(
-                tenant_id=all_team.tenant_id,
-                department_id=all_team.id,
-                member_kind="user",
-                user_id=uid,
-                duty="member",
-                position=position,
-            )
-        )
-        position += 1
-    for aid in await _workspace_agent_ids(session, all_team.tenant_id):
-        if aid in existing_agents:
-            continue
-        session.add(
-            TeamMember(
-                tenant_id=all_team.tenant_id,
-                department_id=all_team.id,
-                member_kind="agent",
-                agent_id=aid,
-                duty="member",
-                position=position,
-            )
-        )
-        position += 1
-    await session.flush()
+
+
+async def _parent_map(session: AsyncSession, tenant_id: UUID) -> dict[UUID, UUID | None]:
+    from app.services.trash import alive
+
+    rows = (
+        await session.execute(select(Team.id, Team.parent_id).where(Team.tenant_id == tenant_id, alive(Team)))
+    ).all()
+    return {row[0]: row[1] for row in rows}
+
+
+async def check_parent(session: AsyncSession, tenant_id: UUID, team_id: UUID | None, parent_id: UUID) -> None:
+    """Raise ValueError when hanging ``team_id`` (or a new department) under ``parent_id`` breaks the tree."""
+    parent = await get_team(session, tenant_id, parent_id)
+    if parent is None:
+        raise ValueError("Parent department not found")
+    if team_id is not None:
+        cur: UUID | None = parent_id
+        parent_of = await _parent_map(session, tenant_id)
+        seen: set[UUID] = set()
+        while cur is not None and cur not in seen:
+            if cur == team_id:
+                raise ValueError("A department cannot hang below itself")
+            seen.add(cur)
+            cur = parent_of.get(cur)
+    below = await subtree_height(session, tenant_id, team_id) if team_id is not None else 0
+    if await department_depth(session, tenant_id, parent_id) + 1 + below > MAX_DEPARTMENT_DEPTH:
+        raise ValueError("Departments go at most two levels deep")
 
 
 async def get_team(session: AsyncSession, tenant_id: UUID, team_id: UUID) -> Team | None:
@@ -229,7 +183,7 @@ async def get_team(session: AsyncSession, tenant_id: UUID, team_id: UUID) -> Tea
 async def list_teams(
     session: AsyncSession, tenant_id: UUID, *, include_system: bool = True
 ) -> list[Team]:
-    await ensure_all_department(session, tenant_id)
+    await ensure_org_root(session, tenant_id)
     from app.services.trash import alive
 
     rows = list(
@@ -269,15 +223,13 @@ async def _workspace_user_ids(session: AsyncSession, tenant_id: UUID) -> list[UU
     return list(rows.scalars().all())
 
 
-async def _workspace_agent_ids(session: AsyncSession, tenant_id: UUID) -> list[UUID]:
-    rows = await session.execute(
-        select(Agent.id).where(
-            Agent.tenant_id == tenant_id,
-            Agent.is_active.is_(True),
-            Agent.kind == "company",
-            Agent.acts_for_user.is_(False),
-        )
-    )
+async def _workspace_agent_ids(
+    session: AsyncSession, tenant_id: UUID, *, include_paused: bool = False
+) -> list[UUID]:
+    clauses = [Agent.tenant_id == tenant_id, Agent.kind == "company", Agent.acts_for_user.is_(False)]
+    if not include_paused:
+        clauses.append(Agent.is_active.is_(True))
+    rows = await session.execute(select(Agent.id).where(*clauses))
     return list(rows.scalars().all())
 
 
@@ -333,7 +285,7 @@ async def _ancestor_ids(session: AsyncSession, tenant_id: UUID, department_ids: 
 async def user_team_ids(
     session: AsyncSession, tenant_id: UUID, user_id: UUID, *, include_system: bool = True
 ) -> set[UUID]:
-    """Departments the user belongs to, including ancestors up to All."""
+    """Departments the user belongs to, ancestors included. Every person is on the root."""
     direct = set(
         (
             await session.execute(
@@ -346,13 +298,16 @@ async def user_team_ids(
         ).scalars().all()
     )
     ids = await _ancestor_ids(session, tenant_id, direct)
-    if not include_system:
-        root = await ensure_all_department(session, tenant_id)
+    root = await ensure_org_root(session, tenant_id)
+    if include_system:
+        ids.add(root.id)
+    else:
         ids.discard(root.id)
     return ids
 
 
 async def agent_team_ids(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> set[UUID]:
+    """Departments the agent sits in, ancestors included. Empty for an agent placed nowhere."""
     direct = set(
         (
             await session.execute(
@@ -364,10 +319,7 @@ async def agent_team_ids(session: AsyncSession, tenant_id: UUID, agent_id: UUID)
             )
         ).scalars().all()
     )
-    ids = await _ancestor_ids(session, tenant_id, direct)
-    root = await ensure_all_department(session, tenant_id)
-    ids.add(root.id)
-    return ids
+    return await _ancestor_ids(session, tenant_id, direct)
 
 
 async def create_team(
@@ -382,12 +334,10 @@ async def create_team(
 ) -> Team:
     if pickup not in PICKUP_MODES:
         raise ValueError("Invalid pickup mode")
-    root = await ensure_all_department(session, tenant_id)
+    root = await ensure_org_root(session, tenant_id)
     parent = root.id if parent_id is None else parent_id
     if parent != root.id:
-        parent_row = await get_team(session, tenant_id, parent)
-        if parent_row is None:
-            raise ValueError("Parent department not found")
+        await check_parent(session, tenant_id, None, parent)
     team = Team(
         tenant_id=tenant_id,
         name=name.strip()[:80],
@@ -405,14 +355,13 @@ async def create_team(
 
 
 async def set_team_members(session: AsyncSession, team: Team, members: list[dict[str, str]]) -> None:
-    """Replace the member list of a custom department."""
-    if is_root_department(team):
-        # All keeps a full roster; allow replace but re-seed afterward is safer —
-        # operators should not empty All. Reject edits that would leave it empty
-        # of people? Spec: All is undeletable; members are maintained. Allow set.
-        pass
+    """Replace the member rows of a department: ``{kind, id, duty, focus}`` in order.
+
+    Unknown or paused members are skipped and a second primary per kind becomes a
+    member. Operator edits go through ``set_department_crew``, which refuses instead.
+    """
     allowed_users = set(await _workspace_user_ids(session, team.tenant_id))
-    allowed_agents = set(await _workspace_agent_ids(session, team.tenant_id))
+    allowed_agents = set(await _workspace_agent_ids(session, team.tenant_id, include_paused=True))
     await session.execute(delete(TeamMember).where(TeamMember.department_id == team.id))
     seen: set[str] = set()
     primary = {"user": False, "agent": False}
@@ -446,12 +395,373 @@ async def set_team_members(session: AsyncSession, team: Team, members: list[dict
                 agent_id=member_id if kind == "agent" else None,
                 duty=duty,
                 position=position,
+                focus=str(entry.get("focus") or "").strip()[:FOCUS_MAX],
             )
         )
         seen.add(key)
         position += 1
     team.updated_at = utcnow()
     session.add(team)
+
+
+@dataclass(frozen=True)
+class CrewChange:
+    added: list[str]
+    removed: list[str]
+    contact_before: str | None
+    contact_after: str | None
+    accountable_before: str | None
+    accountable_after: str | None
+
+    def summary(self, names: dict[str, str]) -> str:
+        """One line for audit and the room; ``names`` maps member ids to display names."""
+
+        def name(key: str | None) -> str:
+            ident = (key or "").split(":", 1)[-1]
+            return names.get(ident, ident)
+
+        parts: list[str] = []
+        if self.contact_after != self.contact_before:
+            parts.append(
+                f"{name(self.contact_after)} is point of contact"
+                if self.contact_after
+                else "no explicit point of contact"
+            )
+        if self.accountable_after != self.accountable_before and self.accountable_after:
+            parts.append(f"{name(self.accountable_after)} is accountable")
+        if self.added:
+            parts.append("added " + ", ".join(name(k) for k in self.added))
+        if self.removed:
+            parts.append("removed " + ", ".join(name(k) for k in self.removed))
+        return "; ".join(parts) or "focus changed"
+
+
+async def validate_crew(
+    session: AsyncSession, team: Team, crew: list[dict[str, Any]]
+) -> tuple[list[dict[str, str]], set[str], str | None, str | None, set[UUID]]:
+    """Check a crew ``[{kind, id, role, focus}]`` with role contact | accountable | member.
+
+    Refuses (ValueError) a second point of contact or accountable person, a
+    contact who is a person, an accountable who is an agent, the personal
+    helper, someone outside the workspace, and owners or admins on the root
+    (they are on it by role). Paused agents are skipped: they keep their stored
+    seat. Returns member rows, their keys, the contact and accountable keys and
+    the active agent ids.
+    """
+    users = set(await _workspace_user_ids(session, team.tenant_id))
+    agents = set(await _workspace_agent_ids(session, team.tenant_id))
+    paused_agents = set(await _workspace_agent_ids(session, team.tenant_id, include_paused=True)) - agents
+    root = is_root_department(team)
+    admins: set[UUID] = set()
+    if root:
+        admins = set(
+            (
+                await session.execute(
+                    select(Membership.user_id).where(
+                        Membership.tenant_id == team.tenant_id, Membership.role.in_(("owner", "admin"))
+                    )
+                )
+            ).scalars().all()
+        )
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    contact = accountable = None
+    for entry in crew:
+        kind = str(entry.get("kind") or "")
+        role = str(entry.get("role") or "member")
+        try:
+            member_id = UUID(str(entry.get("id") or ""))
+        except ValueError as exc:
+            raise ValueError("Unknown crew member") from exc
+        if kind not in ("user", "agent") or role not in CREW_ROLES:
+            raise ValueError("Unknown crew member")
+        key = f"{kind}:{member_id}"
+        if key in seen or (kind == "agent" and member_id in paused_agents):
+            # A paused agent keeps its stored seat below; an undo may send it back.
+            continue
+        seen.add(key)
+        if kind == "agent" and member_id not in agents:
+            raise ValueError("Only active company agents can join a department")
+        if kind == "user" and member_id not in users:
+            raise ValueError("That person is not in this workspace")
+        if kind == "user" and root and member_id in admins and role != "accountable":
+            raise ValueError("Owners and admins are on the organization already")
+        if role == "contact":
+            if kind != "agent":
+                raise ValueError("The point of contact is an agent")
+            if contact is not None:
+                raise ValueError("A department has one point of contact")
+            contact = key
+        if role == "accountable":
+            if kind != "user":
+                raise ValueError("The accountable person is a person")
+            if accountable is not None:
+                raise ValueError("A department has one accountable person")
+            accountable = key
+        rows.append(
+            {
+                "kind": kind,
+                "id": str(member_id),
+                "duty": "primary" if role in ("contact", "accountable") else "member",
+                "focus": str(entry.get("focus") or "").strip()[:FOCUS_MAX],
+            }
+        )
+    return rows, seen, contact, accountable, agents
+
+
+async def set_department_crew(
+    session: AsyncSession, team: Team, crew: list[dict[str, Any]]
+) -> CrewChange:
+    """Replace a department's crew: ``[{kind, id, role, focus}]`` with role contact | accountable | member.
+
+    Refusals are those of ``validate_crew``. Caller commits.
+    """
+    rows, seen, contact, accountable, agents = await validate_crew(session, team, crew)
+    before = await team_members(session, team)
+    paused = [
+        entry
+        for entry in await crew_entries(session, team)
+        if entry["kind"] == "agent" and UUID(entry["id"]) not in agents and f"agent:{entry['id']}" not in seen
+    ]
+    # Paused agents keep their seat (hidden) and come back when reactivated.
+    rows.extend({"kind": "agent", "id": e["id"], "duty": "member", "focus": e["focus"]} for e in paused)
+    seen.update(f"agent:{e['id']}" for e in paused)
+    before_keys = {ref.key for ref in before}
+    contact_before = next((ref.key for ref in before if ref.kind == "agent" and ref.duty == "primary"), None)
+    accountable_before = next((ref.key for ref in before if ref.kind == "user" and ref.duty == "primary"), None)
+    await set_team_members(session, team, rows)
+    await session.flush()
+    return CrewChange(
+        added=sorted(seen - before_keys),
+        removed=sorted(before_keys - seen),
+        contact_before=contact_before,
+        contact_after=contact,
+        accountable_before=accountable_before,
+        accountable_after=accountable,
+    )
+
+
+async def edit_department_crew(
+    session: AsyncSession, team: Team, change: Callable[[list[dict[str, Any]]], list[dict[str, Any]]]
+) -> CrewChange:
+    """Read the crew, let ``change`` rewrite it, and store it through ``set_department_crew``.
+
+    Rows that no longer validate (a person who left, an owner on the root) are
+    dropped first, so system paths (module install, lead change) never trip on
+    old data. Caller commits.
+    """
+    users = {str(u) for u in await _workspace_user_ids(session, team.tenant_id)}
+    admins: set[str] = set()
+    if is_root_department(team):
+        admins = {
+            str(u)
+            for u in (
+                await session.execute(
+                    select(Membership.user_id).where(
+                        Membership.tenant_id == team.tenant_id, Membership.role.in_(("owner", "admin"))
+                    )
+                )
+            ).scalars().all()
+        }
+    entries = [
+        e
+        for e in await crew_entries(session, team)
+        if e["kind"] != "user" or (e["id"] in users and (e["id"] not in admins or e["role"] == "accountable"))
+    ]
+    return await set_department_crew(session, team, change(entries))
+
+
+def with_member(
+    entries: list[dict[str, Any]], kind: str, member_id: UUID, role: str = "member"
+) -> list[dict[str, Any]]:
+    """The crew with ``member_id`` in ``role``. A new contact or accountable demotes the current one."""
+    key = str(member_id)
+    out: list[dict[str, Any]] = []
+    mine: dict[str, Any] | None = None
+    for e in entries:
+        if e["kind"] == kind and e["id"] == key:
+            mine = dict(e)
+            continue
+        if role != "member" and e["role"] == role:
+            e = {**e, "role": "member"}
+        out.append(e)
+    entry = {**(mine or {"kind": kind, "id": key, "focus": ""}), "role": role}
+    return [entry, *out] if role == "contact" else [*out, entry]
+
+
+async def crew_entries(session: AsyncSession, team: Team) -> list[dict[str, Any]]:
+    """The stored crew in the shape ``set_department_crew`` takes."""
+    rows = (
+        await session.execute(select(TeamMember).where(TeamMember.department_id == team.id))
+    ).scalars().all()
+    out: list[dict[str, Any]] = []
+    for row in sorted(rows, key=lambda r: (r.position, str(r.id))):
+        member_id = row.agent_id if row.member_kind == "agent" else row.user_id
+        if member_id is None:
+            continue
+        role = "member"
+        if row.duty == "primary":
+            role = "contact" if row.member_kind == "agent" else "accountable"
+        out.append({"kind": row.member_kind, "id": str(member_id), "role": role, "focus": row.focus or ""})
+    return out
+
+
+async def crew_names(session: AsyncSession, tenant_id: UUID, entries: list[dict[str, Any]]) -> dict[str, str]:
+    """Display names for crew ids (agents and people) in this workspace."""
+    ids: dict[str, set[UUID]] = {"agent": set(), "user": set()}
+    for e in entries:
+        try:
+            ids[str(e["kind"])].add(UUID(str(e["id"])))
+        except (KeyError, ValueError):
+            continue
+    names: dict[str, str] = {}
+    if ids["agent"]:
+        for a in (
+            await session.execute(select(Agent).where(Agent.tenant_id == tenant_id, Agent.id.in_(ids["agent"])))
+        ).scalars().all():
+            names[str(a.id)] = a.name
+    if ids["user"]:
+        for u in (await session.execute(select(User).where(User.id.in_(ids["user"])))).scalars().all():
+            names[str(u.id)] = u.display_name or u.email
+    return names
+
+
+async def department_tree(session: AsyncSession, tenant_id: UUID) -> list[dict[str, Any]]:
+    """Every department top-down with its place, point of contact, accountable person and crew.
+
+    The root is listed first under the workspace name (``is_org``). Paused
+    agents are left out of the crew; owners and admins sit on the root by role.
+    """
+    from app.models.auth import Tenant
+    from app.services.department_access import department_roles
+
+    teams = await list_teams(session, tenant_id)
+    tenant = await session.get(Tenant, tenant_id)
+    active = set(await _workspace_agent_ids(session, tenant_id))
+    by_parent: dict[UUID | None, list[Team]] = {}
+    for t in teams:
+        by_parent.setdefault(t.parent_id, []).append(t)
+    entries = {t.id: await crew_entries(session, t) for t in teams}
+    names = await crew_names(session, tenant_id, [e for rows in entries.values() for e in rows])
+    out: list[dict[str, Any]] = []
+
+    async def visit(team: Team, depth: int, path: list[str]) -> None:
+        org = is_root_department(team)
+        name = ((tenant.name if tenant else "") or team.name) if org else team.name
+        roles = await department_roles(session, tenant_id, team.id)
+        contact_id = roles["contact_agent_id"]
+        if org and contact_id is None:
+            from app.services.lead_agent import lead_agent_id
+
+            contact_id = await lead_agent_id(session, tenant_id)
+        accountable_id = roles["accountable_user_id"]
+        crew = [
+            {**e, "name": names.get(e["id"], "")}
+            for e in entries[team.id]
+            if e["kind"] == "user" or UUID(e["id"]) in active
+        ]
+        for row in crew:
+            if row["kind"] == "agent" and contact_id and row["id"] == str(contact_id):
+                row["role"] = "contact"
+        here = [*path, name]
+        out.append(
+            {
+                "id": str(team.id),
+                "name": name,
+                "is_org": org,
+                "depth": depth,
+                "parent_id": str(team.parent_id) if team.parent_id else None,
+                "path": " / ".join(here),
+                "href": "/organisatie" if org else f"/departments/{team.id}",
+                "mention": f"@[{name}](team:{team.id})",
+                "contact": (
+                    {
+                        "id": str(contact_id),
+                        "name": names.get(str(contact_id)) or await _agent_name(session, contact_id),
+                        "implicit": bool(roles["contact_implicit"]) or roles["contact_agent_id"] is None,
+                    }
+                    if contact_id
+                    else None
+                ),
+                "accountable": (
+                    {"id": str(accountable_id), "name": names.get(str(accountable_id), "")} if accountable_id else None
+                ),
+                "crew": crew,
+                "children": [str(c.id) for c in by_parent.get(team.id, [])],
+            }
+        )
+        for child in sorted(by_parent.get(team.id, []), key=lambda c: c.name.lower()):
+            await visit(child, depth + 1, here)
+
+    for root in sorted(by_parent.get(None, []), key=lambda t: (not is_root_department(t), t.name.lower())):
+        await visit(root, 0, [])
+    return out
+
+
+async def _agent_name(session: AsyncSession, agent_id: UUID) -> str:
+    agent = await session.get(Agent, agent_id)
+    return agent.name if agent else ""
+
+
+async def change_department_crew(
+    session: AsyncSession,
+    team: Team,
+    crew: list[dict[str, Any]],
+    *,
+    actor_type: str,
+    actor_id: UUID | None,
+    agent_id: UUID | None = None,
+) -> dict[str, Any]:
+    """The operator action behind Edit crew: replace, audit, and tell the room when the contact changed.
+
+    Same refusals as ``set_department_crew`` (ValueError). Returns the new and
+    previous crew, the resolved roles and a one-line summary. Caller commits.
+    """
+    from app.services.audit import record_audit
+    from app.services.department_access import department_roles
+
+    previous = await crew_entries(session, team)
+    change = await set_department_crew(session, team, crew)
+    names = await crew_names(session, team.tenant_id, previous + list(crew))
+    summary = change.summary(names)
+    await record_audit(
+        session,
+        team.tenant_id,
+        action="department:crew",
+        actor_type=actor_type,
+        actor_id=actor_id,
+        agent_id=agent_id,
+        resource_type="department",
+        resource_id=team.id,
+        summary=f"{team.name}: {summary}",
+        commit=False,
+    )
+    if change.contact_after != change.contact_before and not is_root_department(team):
+        from app.services.chat_runtime import post_message
+
+        room = await get_or_create_team_room(session, team.tenant_id, team)
+        await session.flush()
+        await post_message(
+            session,
+            room,
+            content=f"Crew changed: {summary}.",
+            role="user" if actor_type == "user" else "assistant",
+            trust="operator",
+            author_user_id=actor_id if actor_type == "user" else None,
+            author_agent_id=agent_id,
+            metadata={"department_crew": True},
+        )
+    await session.flush()
+    roles = await department_roles(session, team.tenant_id, team.id)
+    return {
+        "department_id": str(team.id),
+        "crew": await crew_entries(session, team),
+        "previous": previous,
+        "contact_agent_id": str(roles["contact_agent_id"]) if roles["contact_agent_id"] else None,
+        "contact_implicit": bool(roles["contact_implicit"]),
+        "accountable_user_id": str(roles["accountable_user_id"]) if roles["accountable_user_id"] else None,
+        "summary": summary,
+    }
 
 
 async def delete_team(session: AsyncSession, team: Team, *, permanent: bool = False) -> None:
@@ -474,7 +784,7 @@ async def delete_team(session: AsyncSession, team: Team, *, permanent: bool = Fa
             commit=True,
         )
         return
-    fallback = await all_department(session, team.tenant_id)
+    fallback = await org_root(session, team.tenant_id)
     # Reparent children under All before delete.
     await session.execute(
         update(Team)
@@ -562,9 +872,17 @@ async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
     from app.services.department_overview import department_icon
     from app.services.team_avatar import avatar_payload
 
+    from app.services.department_access import department_roles
+
     members = await team_members(session, team)
     avatar = avatar_payload(team)
     root = is_root_department(team)
+    roles = await department_roles(session, team.tenant_id, team.id)
+    contact_id, implicit = roles["contact_agent_id"], bool(roles["contact_implicit"])
+    if root and contact_id is None:
+        from app.services.lead_agent import lead_agent_id
+
+        contact_id, implicit = await lead_agent_id(session, team.tenant_id), True
     return {
         "id": str(team.id),
         "name": team.name,
@@ -580,6 +898,11 @@ async def serialize_team(session: AsyncSession, team: Team) -> dict[str, Any]:
             for ref in members
         ],
         "member_count": len(members),
+        "contact": (
+            {"id": str(contact_id), "name": await _agent_name(session, contact_id), "implicit": implicit}
+            if contact_id
+            else None
+        ),
         "presence": await _team_presence_payload(session, team, members),
         "avatar_kind": avatar["avatar_kind"],
         "avatar_icon": avatar["avatar_icon"],

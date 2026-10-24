@@ -1,4 +1,4 @@
-"""Bootstrap backfill: purge Front desk, keep the lead agent reachable."""
+﻿"""Bootstrap backfill: purge Front desk, keep the lead agent reachable."""
 
 from app.models.agent import Agent
 from app.models.auth import Tenant
@@ -9,9 +9,7 @@ from app.services.tenant_bootstrap import (
 )
 
 
-async def test_purge_front_desk_archives_and_clears_channels(session_override):
-    from app.models.channel import ChannelAccount
-
+async def test_purge_front_desk_archives_it(session_override):
     tenant = Tenant(slug="fd", name="FD")
     session_override.add(tenant)
     await session_override.flush()
@@ -22,7 +20,6 @@ async def test_purge_front_desk_archives_and_clears_channels(session_override):
         kind="company",
         slug="front-desk",
         system_prompt="x",
-        is_lead=True,
         chat_access="everyone",
         is_active=True,
     )
@@ -33,31 +30,17 @@ async def test_purge_front_desk_archives_and_clears_channels(session_override):
         kind="company",
         slug="kantoor-ai",
         system_prompt="x",
-        is_lead=False,
         chat_access="everyone",
         is_active=True,
     )
     session_override.add_all([front, keep])
-    await session_override.flush()
-    channel = ChannelAccount(
-        tenant_id=tenant.id,
-        channel="widget",
-        address="fd",
-        display_name="Website",
-        is_enabled=True,
-        default_agent_id=front.id,
-    )
-    session_override.add(channel)
     await session_override.commit()
 
     n = await purge_front_desk_agents(session_override, commit=True)
     assert n == 1
     await session_override.refresh(front)
-    await session_override.refresh(channel)
     assert front.kind == "archived"
     assert front.is_active is False
-    assert front.is_lead is False
-    assert channel.default_agent_id is None
 
 
 async def test_backfill_opens_unreachable_leads_and_purges_front_desk(session_override):
@@ -71,7 +54,6 @@ async def test_backfill_opens_unreachable_leads_and_purges_front_desk(session_ov
         kind="company",
         slug="kantoor-ai",
         system_prompt="x",
-        is_lead=True,
         chat_access="nobody",
     )
     worker = Agent(
@@ -81,7 +63,6 @@ async def test_backfill_opens_unreachable_leads_and_purges_front_desk(session_ov
         kind="company",
         slug="worker",
         system_prompt="x",
-        is_lead=False,
         chat_access="nobody",
     )
     front = Agent(
@@ -91,7 +72,6 @@ async def test_backfill_opens_unreachable_leads_and_purges_front_desk(session_ov
         kind="company",
         slug="front-desk",
         system_prompt="x",
-        is_lead=False,
         chat_access="everyone",
     )
     session_override.add_all([lead, worker, front])

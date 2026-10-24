@@ -22,7 +22,13 @@ import {
 import type { ProposalItem } from '../../lib/inbox-api'
 import { CANVAS_ICON } from '../../lib/entity-icons'
 import { openEntityPath, type EntityRef } from '../../lib/open-entity'
-import { CANVAS_REMOVED_EVENT, getCanvasById, type ProjectCanvas } from '../../lib/project-canvas-api'
+import {
+  CANVAS_REMOVED_EVENT,
+  CANVAS_UPDATED_EVENT,
+  getCanvasById,
+  notifyCanvasUpdated,
+  type ProjectCanvas,
+} from '../../lib/project-canvas-api'
 import { CanvasKindBody } from '../project-canvas/CanvasKindBody'
 import { CanvasWindow } from '../project-canvas/CanvasWindow'
 import { renderCanvasTree } from '../../lib/project-canvas/render'
@@ -314,6 +320,7 @@ export function CanvasShowcaseCard({
         setLoaded(canvas)
         setEmptyShell(canvasIsPending(canvas))
         setTree(kind === 'dashboard' ? canvas.tree : null)
+        notifyCanvasUpdated(canvas)
       })
       .catch(() => {
         // Deleted or never finished — do not leave a permanent "writing" card.
@@ -330,8 +337,21 @@ export function CanvasShowcaseCard({
     function onRemoved(event: Event) {
       if ((event as CustomEvent<string>).detail === item.id) setGone(true)
     }
+    function onUpdated(event: Event) {
+      const canvas = (event as CustomEvent<ProjectCanvas>).detail
+      if (!canvas || canvas.id !== item.id) return
+      const kind = canvasKindOf(canvas.kind)
+      setContentKind(kind)
+      setLoaded(canvas)
+      setEmptyShell(canvasIsPending(canvas))
+      setTree(kind === 'dashboard' ? canvas.tree : null)
+    }
     window.addEventListener(CANVAS_REMOVED_EVENT, onRemoved)
-    return () => window.removeEventListener(CANVAS_REMOVED_EVENT, onRemoved)
+    window.addEventListener(CANVAS_UPDATED_EVENT, onUpdated)
+    return () => {
+      window.removeEventListener(CANVAS_REMOVED_EVENT, onRemoved)
+      window.removeEventListener(CANVAS_UPDATED_EVENT, onUpdated)
+    }
   }, [item.id])
   // Claude-style integrity: incomplete artifacts are not sticky chat cards.
   if (settled && (gone || emptyShell || item.empty || item.missing)) {
@@ -378,7 +398,7 @@ export function CanvasShowcaseCard({
       className={cn(selected && !blocked && 'ring-1 ring-ai/50 border-ai/40')}
       bodyClassName={cn(
         'bg-bg-input/20',
-        hasBody ? (compact ? 'h-24 overflow-hidden' : 'h-[420px]') : undefined,
+        hasBody ? (compact ? 'h-24 overflow-hidden' : 'flex h-[420px] flex-col') : undefined,
       )}
       data-testid="canvas-showcase"
     >

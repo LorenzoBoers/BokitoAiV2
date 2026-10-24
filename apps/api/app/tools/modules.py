@@ -243,8 +243,9 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
         return {"error": f"Unknown connection '{raw_id}'. Use the connection_id from list_module_connections."}
     has_projects = "project_ids" in tool_input and tool_input["project_ids"] is not None
     has_access = "access" in tool_input
-    if not has_projects and not has_access:
-        return {"error": "Pass project_ids, access, or both."}
+    has_department = "department_id" in tool_input
+    if not has_projects and not has_access and not has_department:
+        return {"error": "Pass project_ids, department_id, access, or a combination."}
 
     actor_type = "agent" if ctx.agent is not None else "user"
     actor_id = ctx.agent.id if ctx.agent is not None else ctx.user_id
@@ -262,6 +263,13 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
         if has_access:
             access = tool_input["access"]
             await set_connection_access(ctx.session, conn, access if access is not None else None)
+        if has_department:
+            from app.services.connection_scope import set_connection_department
+
+            raw_department = tool_input.get("department_id")
+            await set_connection_department(
+                ctx.session, ctx.tenant_id, conn, UUID(str(raw_department)) if raw_department else None
+            )
     except ValueError as exc:
         await ctx.session.rollback()
         return {"error": str(exc)}
@@ -299,6 +307,7 @@ async def _set_connection_scope(ctx: ToolContext, tool_input: dict[str, Any]) ->
         "connection_id": str(conn.id),
         "display_name": conn.display_name,
         "projects": [{"id": p, "name": names.get(p, "")} for p in after_projects],
+        "department_id": str(conn.department_id) if conn.department_id else None,
         "access_default": is_default_access(conn),
         "access": after_access,
     }
@@ -470,8 +479,10 @@ register_tool(
         name="set_connection_scope",
         description=(
             "Limit where and by whom a connection (registration) may be used. "
-            "project_ids links it exclusively to those folders, where it shows "
-            "under Works in (empty list = workspace-wide). access replaces who may use or manage it: entries "
+            "project_ids links it exclusively to those folders and their sub-folders, where it shows "
+            "under Works in (empty list = workspace-wide). department_id gives it a home department: "
+            "only conversations of that department or below use it (null = the whole organization). "
+            "access replaces who may use or manage it: entries "
             "{kind: user|agent|team, id, level: use|manage}; null restores the "
             "default (all people and agents may use it). Always asks for approval."
         ),
@@ -484,6 +495,7 @@ register_tool(
                     "description": "connection_id from list_module_connections.",
                 },
                 "project_ids": {"type": "array", "items": {"type": "string"}},
+                "department_id": {"type": ["string", "null"], "description": "Department id from list_departments."},
                 "access": {
                     "type": ["array", "null"],
                     "items": {

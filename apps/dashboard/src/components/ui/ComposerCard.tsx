@@ -208,6 +208,7 @@ export const ComposerCard = forwardRef<HTMLTextAreaElement, Props>(function Comp
   return (
     <div
       ref={cardRef}
+      data-testid="composer-card"
       className={cn(
         'group/composer relative rounded-[22px] border border-transparent bg-bg-surface px-4 pb-2.5 pt-3.5 shadow-composer transition-[border-color,box-shadow] duration-200',
         tone === 'ai' &&

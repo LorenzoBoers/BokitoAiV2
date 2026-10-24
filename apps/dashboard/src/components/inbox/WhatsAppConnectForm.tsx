@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { Check, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '../ui/button'
+import { Input } from '../ui/input'
+import { Label } from '../ui/label'
 import { useAuth } from '../../context/AuthContext'
 import {
   createWhatsAppAccount,
@@ -154,11 +156,10 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
                 label={t('whatsappCard.displayName')}
                 hint={t('whatsappCard.displayNameHint')}
               >
-                <input
+                <Input
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder={t('whatsappCard.displayNamePlaceholder')}
-                  className={fieldClass}
                 />
               </Field>
               <Field
@@ -166,11 +167,11 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
                 hint={t('whatsappCard.phoneNumberIdHint')}
                 required
               >
-                <input
+                <Input
                   value={phoneNumberId}
                   onChange={(e) => setPhoneNumberId(e.target.value)}
                   placeholder={t('whatsappCard.phoneNumberIdPlaceholder')}
-                  className={cn(fieldClass, 'font-mono')}
+                  className="font-mono"
                   autoComplete="off"
                 />
               </Field>
@@ -178,11 +179,11 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
                 label={t('whatsappCard.wabaId')}
                 hint={t('whatsappCard.wabaIdHint')}
               >
-                <input
+                <Input
                   value={wabaId}
                   onChange={(e) => setWabaId(e.target.value)}
                   placeholder={t('whatsappCard.wabaIdPlaceholder')}
-                  className={cn(fieldClass, 'font-mono')}
+                  className="font-mono"
                   autoComplete="off"
                 />
               </Field>
@@ -191,13 +192,13 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
                 hint={t('whatsappCard.accessTokenHint')}
                 required
               >
-                <input
+                <Input
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   placeholder={t('whatsappCard.accessTokenPlaceholder')}
                   type="password"
                   autoComplete="off"
-                  className={cn(fieldClass, 'font-mono')}
+                  className="font-mono"
                 />
               </Field>
             </div>
@@ -272,9 +273,6 @@ export default function WhatsAppConnectForm({ onConnected }: { onConnected: () =
   )
 }
 
-const fieldClass =
-  'rounded-md border border-border bg-bg-elevated/60 px-2.5 py-1.5 text-sm text-text-primary outline-none focus:border-accent/60'
-
 function Field({
   label,
   hint,
@@ -287,14 +285,14 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-text-muted">
-      <span className="flex items-baseline gap-1 text-text-secondary">
-        <span className="font-medium text-text-heading">{label}</span>
-        {required ? <span className="text-status-error">*</span> : null}
+    <Label className="flex flex-col items-start gap-1 font-normal">
+      <span className="font-medium text-text-heading">
+        {label}
+        {required ? <span className="ml-1 font-normal text-status-error">*</span> : null}
       </span>
       {children}
-      <span className="text-xs leading-snug text-text-muted">{hint}</span>
-    </label>
+      <span className="text-xs font-normal leading-snug text-text-muted">{hint}</span>
+    </Label>
   )
 }
 

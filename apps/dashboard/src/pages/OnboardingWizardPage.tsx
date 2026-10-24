@@ -2,6 +2,9 @@ import { Card } from '../components/ui/card'
 import { Pressable } from '../components/ui/pressable'
 import { Button } from '../components/ui/button'
 import { Avatar } from '../components/ui/avatar'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
+import { Textarea } from '../components/ui/textarea'
 import { Spinner } from '../components/ui/spinner'
 import { PageHeader } from '../components/ui/page-header'
 import { useEffect, useMemo, useState } from 'react'
@@ -529,33 +532,34 @@ export default function OnboardingWizardPage() {
                 mode="live"
                 baseMotion="idle"
               />
-              <input
+              <Input
                 value={agentName}
                 onChange={(e) => setAgentName(e.target.value)}
                 aria-label={t('agent.nameLabel')}
                 placeholder={t('agent.namePlaceholder')}
-                className="mt-4 w-full max-w-sm bg-transparent text-center text-lg font-semibold text-text-heading outline-none border-b border-transparent focus:border-accent/50"
+                className="mt-4 w-full max-w-sm text-center"
               />
-              <input
+              <Input
                 value={agentJobTitle}
                 onChange={(e) => setAgentJobTitle(e.target.value.slice(0, 32))}
                 aria-label={t('agent.jobTitleLabel')}
                 placeholder={t('agent.jobTitlePlaceholder')}
                 maxLength={32}
-                className="mt-1 w-full max-w-sm bg-transparent text-center text-sm text-text-secondary outline-none border-b border-transparent focus:border-accent/40"
+                className="mt-1 w-full max-w-sm text-center"
               />
             </div>
-            <label className="block">
-              <span className="text-xs font-medium text-text-secondary">{t('agent.descriptionLabel')}</span>
-              <textarea
+            <div>
+              <Label htmlFor="onboarding-agent-description">{t('agent.descriptionLabel')}</Label>
+              <Textarea
+                id="onboarding-agent-description"
                 value={agentDescription}
                 onChange={(e) => setAgentDescription(e.target.value.slice(0, 280))}
                 placeholder={t('agent.descriptionPlaceholder')}
                 rows={3}
                 maxLength={280}
-                className="mt-1 w-full resize-none rounded-lg border border-border bg-bg-input px-3 py-2 text-sm text-text-heading outline-none focus:border-accent/50"
+                className="mt-1 resize-none"
               />
-            </label>
+            </div>
             <AgentVisualEditor
               kind={avatarKind}
               color={avatarColor}

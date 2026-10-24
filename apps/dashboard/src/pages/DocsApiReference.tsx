@@ -103,10 +103,10 @@ export default function DocsApiReference() {
         <div className="px-5 py-6 sm:px-8 lg:px-10">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-sm text-[var(--docs-muted)]">
+              <p className="title-eyebrow text-[var(--docs-muted)]">
                 {t('docs.sections.developers.title')}
               </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[var(--docs-fg)] sm:text-3xl">
+              <h1 className="mt-1 title-page text-[var(--docs-fg)]">
                 {t('docs.apiReference')}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--docs-muted)]">

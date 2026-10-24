@@ -340,12 +340,12 @@ async def test_team_turn_stays_unassigned(
     from app.models.notification import DecisionRequest
     from app.models.signal import Signal
     from app.services.ownership import for_you_predicate, turn_is_mine_predicate, unassigned_predicate
-    from app.services.teams import ensure_all_department
+    from app.services.teams import ensure_org_root
 
     tenant, user = await _tenant_and_user(session_override)
     waiting = await _email_thread(session_override, tenant)
     assert waiting.assignee_kind == "department" and waiting.turn_reason == "reply_needed"
-    root = await ensure_all_department(session_override, tenant.id)
+    root = await ensure_org_root(session_override, tenant.id)
     asked = await _email_thread(session_override, tenant)
     session_override.add(
         DecisionRequest(

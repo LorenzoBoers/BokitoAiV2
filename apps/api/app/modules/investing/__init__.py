@@ -1,1 +1,1 @@
-"""Investing module: schema stub until a connector ships."""
+"""Investing module: order hygiene and the advice boundary. No broker yet."""

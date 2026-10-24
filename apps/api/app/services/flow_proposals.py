@@ -255,11 +255,11 @@ async def _propose(
     metadata: dict[str, Any],
 ) -> dict[str, Any]:
     from app.services.chat_runtime import post_message
-    from app.services.department_access import department_leads
+    from app.services.department_access import department_roles
     from app.services.platform_changes import propose_platform_change
     from app.services.teams import get_or_create_team_room
 
-    lead = (await department_leads(session, tenant.id, dept.id))["lead_agent_id"]
+    lead = (await department_roles(session, tenant.id, dept.id))["contact_agent_id"]
     room = await get_or_create_team_room(session, tenant.id, dept)
     await session.flush()
     change, _meta = await propose_platform_change(

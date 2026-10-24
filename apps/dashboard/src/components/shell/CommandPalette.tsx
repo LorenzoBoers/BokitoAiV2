@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
+import { SearchField } from '../ui/search-field'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '../ui/button'
 import { Pressable } from '../ui/pressable'
@@ -27,7 +28,7 @@ import {
   Route,
   Users,
 } from 'lucide-react'
-import { openAssistant } from '../../lib/personal-assistant-widget'
+import { inAppAssistantEnabled, openAssistant } from '../../lib/personal-assistant-widget'
 import { SETTINGS_PALETTE_LINKS } from './SettingsLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -318,13 +319,17 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         icon: Settings,
         run: () => navigate('/settings/setup'),
       },
-      {
-        id: 'action-bokito-help',
-        label: t('palette.openBokitoHelp'),
-        group: t('palette.groupActions'),
-        icon: Sparkles,
-        run: () => openAssistant(),
-      },
+      ...(inAppAssistantEnabled()
+        ? [
+            {
+              id: 'action-bokito-help',
+              label: t('palette.openBokitoHelp'),
+              group: t('palette.groupActions'),
+              icon: Sparkles,
+              run: () => openAssistant(),
+            },
+          ]
+        : []),
       {
         id: 'action-help',
         label: t('palette.openHelp'),
@@ -769,14 +774,16 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
         className="top-[14vh] block max-w-[560px] translate-y-0 overflow-hidden rounded-lg p-0 sm:rounded-lg"
       >
         <DialogTitle className="sr-only">{t('palette.ariaDialog')}</DialogTitle>
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder={t('palette.placeholder')}
-          className="w-full border-b border-border bg-transparent px-4 py-3.5 text-base text-text-primary placeholder:text-text-muted focus:outline-none"
-        />
+        <div className="border-b border-border p-3">
+          <SearchField
+            ref={inputRef}
+            value={query}
+            onChange={setQuery}
+            onKeyDown={onKeyDown}
+            placeholder={t('palette.placeholder')}
+            aria-label={t('palette.ariaDialog')}
+          />
+        </div>
         <div ref={listRef} className="max-h-[340px] overflow-y-auto p-1.5">
           {filtered.length === 0 ? (
             <EmptyState

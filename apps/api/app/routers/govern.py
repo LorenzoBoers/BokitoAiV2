@@ -465,9 +465,11 @@ async def list_passports(
     )
     agents = result.scalars().all()
 
+    from app.services.lead_agent import lead_agent_id
     from app.services.workforce_runtime import serialize_agent
 
-    return {"items": [serialize_agent(a, view="passport") for a in agents]}
+    lead_id = await lead_agent_id(session, auth.tenant.id)
+    return {"items": [serialize_agent(a, view="passport", is_lead=a.id == lead_id) for a in agents]}
 
 
 class RuleItem(BaseModel):

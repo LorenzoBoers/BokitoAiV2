@@ -10,7 +10,9 @@ import {
   Eye,
   FileSpreadsheet,
   FileText,
+  History,
   ImageIcon,
+  LayoutTemplate,
   Mail,
   Minimize2,
   MoreHorizontal,
@@ -20,8 +22,16 @@ import {
   X,
 } from 'lucide-react'
 import { CANVAS_ICON } from '../../lib/entity-icons'
-import { downloadSheet, exportSheetToGoogle, type ProjectCanvas } from '../../lib/project-canvas-api'
-import { canvasKindOf, type CanvasKind } from '../../lib/project-canvas/types'
+import {
+  downloadSheet,
+  exportSheetToGoogle,
+  listCanvasRevisions,
+  notifyCanvasUpdated,
+  restoreCanvasRevision,
+  type CanvasRevisionSummary,
+  type ProjectCanvas,
+} from '../../lib/project-canvas-api'
+import { asString, canvasKindOf, type CanvasKind, type CanvasNode } from '../../lib/project-canvas/types'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
@@ -31,6 +41,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
@@ -45,6 +58,7 @@ const KIND_ICON: Record<CanvasKind, IconComponent> = {
   code: Code2,
   email: Mail,
   sheet: FileSpreadsheet,
+  design: LayoutTemplate,
 }
 
 /** Text kinds read best at a fixed line length, like a document page. */
@@ -72,6 +86,33 @@ function parsed(source: string): Record<string, unknown> {
   } catch {
     return {}
   }
+}
+
+/** Headings and figures, so a dashboard can be copied without its block source. */
+export function dashboardPlainText(node: CanvasNode | null | undefined): string {
+  const lines: string[] = []
+  const walk = (current: CanvasNode | null | undefined) => {
+    if (!current) return
+    const props = current.props || {}
+    if (current.type === 'Heading' || current.type === 'Text' || current.type === 'Callout') {
+      const text = asString(props.text)
+      if (text) lines.push(text)
+    } else if (current.type === 'Stat') {
+      const line = [asString(props.label || props.title), asString(props.value)].filter(Boolean).join(': ')
+      if (line) lines.push(line)
+    } else if (
+      current.type === 'BarChart' ||
+      current.type === 'LineChart' ||
+      current.type === 'PieChart' ||
+      current.type === 'Table'
+    ) {
+      const title = asString(props.title)
+      if (title) lines.push(title)
+    }
+    for (const child of current.children || []) walk(child)
+  }
+  walk(node ?? null)
+  return lines.join('\n')
 }
 
 function useDownloads(canvas: ProjectCanvas | null): DownloadOption[] {
@@ -110,6 +151,12 @@ function useDownloads(canvas: ProjectCanvas | null): DownloadOption[] {
     case 'email': {
       const body = parsed(source).body_html
       return [file('html', typeof body === 'string' ? body : '', 'text/html;charset=utf-8')]
+    }
+    case 'design':
+      return source ? [file('json', source, 'application/json')] : []
+    case 'dashboard': {
+      const text = dashboardPlainText(canvas.tree)
+      return text ? [file('md', text, 'text/markdown;charset=utf-8')] : []
     }
     case 'image': {
       const url = parsed(source).url
@@ -150,6 +197,10 @@ type Props = {
   onClose?: () => void
   /** Extra items at the bottom of the more menu (for example Delete). */
   menu?: ReactNode
+  /** Quiet facts under the kind line: agent, updated, folder. */
+  caption?: ReactNode
+  /** Drops a starter into the conversation composer. */
+  onAsk?: () => void
   /** Shown under the title instead of the kind and version. */
   status?: ReactNode
   muted?: boolean
@@ -172,6 +223,8 @@ export function CanvasWindow({
   onMinimize,
   onClose,
   menu,
+  caption,
+  onAsk,
   status,
   muted = false,
   className,
@@ -183,16 +236,18 @@ export function CanvasWindow({
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [revisions, setRevisions] = useState<CanvasRevisionSummary[]>([])
   const copiedTimer = useRef<number | null>(null)
   const downloads = useDownloads(canvas)
   const Icon = KIND_ICON[kind] ?? CANVAS_ICON
   const source = canvas?.source || ''
+  const copyText = kind === 'dashboard' ? dashboardPlainText(canvas?.tree) : source
   const showActions = actions && Boolean(canvas)
   const showCode = view === 'code' && allowSource && Boolean(source)
   const hasSourceToggle = allowSource && Boolean(source)
   const hasMoreMenu =
     showActions &&
-    (hasSourceToggle || Boolean(source) || downloads.length > 0 || Boolean(onRefresh) || Boolean(menu))
+    (hasSourceToggle || Boolean(copyText) || downloads.length > 0 || Boolean(onRefresh) || Boolean(menu) || Boolean(canvas?.id))
 
   useEffect(
     () => () => {
@@ -201,10 +256,40 @@ export function CanvasWindow({
     [],
   )
 
-  async function onCopy() {
-    if (!source) return
+  useEffect(() => {
+    if (!showActions || !canvas?.id) return
+    let cancel = false
+    listCanvasRevisions(canvas.id)
+      .then((items) => {
+        if (!cancel) setRevisions(items)
+      })
+      .catch(() => {
+        if (!cancel) setRevisions([])
+      })
+    return () => {
+      cancel = true
+    }
+  }, [showActions, canvas?.id, canvas?.revision])
+
+  async function onRestore(revision: number) {
+    if (!canvas?.id) return
+    setBusy(true)
+    setError('')
     try {
-      await navigator.clipboard.writeText(source)
+      const saved = await restoreCanvasRevision(canvas.id, revision)
+      notifyCanvasUpdated(saved)
+      onRefresh?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('projects.canvas.restoreFailed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onCopy() {
+    if (!copyText) return
+    try {
+      await navigator.clipboard.writeText(copyText)
       setCopied(true)
       if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
       copiedTimer.current = window.setTimeout(() => setCopied(false), 1500)
@@ -237,6 +322,7 @@ export function CanvasWindow({
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium text-text-heading">{title}</span>
         {meta ? <span className="block truncate text-2xs text-text-muted">{meta}</span> : null}
+        {caption ? <span className="mt-0.5 block truncate text-2xs text-text-muted">{caption}</span> : null}
       </span>
     </span>
   )
@@ -277,6 +363,11 @@ export function CanvasWindow({
         </div>
         {showActions || onMinimize || onClose ? (
           <div className="flex shrink-0 items-center gap-1">
+            {onAsk ? (
+              <Button type="button" size="xs" variant="ghost" onClick={onAsk}>
+                {t('projects.canvas.askShort')}
+              </Button>
+            ) : null}
             {hasMoreMenu ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -292,32 +383,6 @@ export function CanvasWindow({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[200px]">
-                  {hasSourceToggle ? (
-                    <>
-                      <DropdownMenuItem
-                        disabled={view === 'preview'}
-                        onClick={() => setView('preview')}
-                      >
-                        <Eye size={14} className="mr-2" aria-hidden />
-                        {t('projects.canvas.preview')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem disabled={view === 'code'} onClick={() => setView('code')}>
-                        <Code2 size={14} className="mr-2" aria-hidden />
-                        {t('projects.canvas.code')}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  ) : null}
-                  {source ? (
-                    <DropdownMenuItem onClick={() => void onCopy()}>
-                      {copied ? (
-                        <Check size={14} className="mr-2" aria-hidden />
-                      ) : (
-                        <Copy size={14} className="mr-2" aria-hidden />
-                      )}
-                      {copied ? t('projects.canvas.copied') : t('projects.canvas.copy')}
-                    </DropdownMenuItem>
-                  ) : null}
                   {downloads.map((option) => (
                     <DropdownMenuItem
                       key={option.key}
@@ -328,17 +393,65 @@ export function CanvasWindow({
                       {option.label}
                     </DropdownMenuItem>
                   ))}
+                  {copyText ? (
+                    <DropdownMenuItem onClick={() => void onCopy()}>
+                      {copied ? (
+                        <Check size={14} className="mr-2" aria-hidden />
+                      ) : (
+                        <Copy size={14} className="mr-2" aria-hidden />
+                      )}
+                      {copied ? t('projects.canvas.copied') : t('projects.canvas.copy')}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {(downloads.length > 0 || Boolean(source)) && (hasSourceToggle || onRefresh) ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  {hasSourceToggle ? (
+                    <DropdownMenuItem onClick={() => setView(view === 'code' ? 'preview' : 'code')}>
+                      {view === 'code' ? (
+                        <Eye size={14} className="mr-2" aria-hidden />
+                      ) : (
+                        <Code2 size={14} className="mr-2" aria-hidden />
+                      )}
+                      {view === 'code' ? t('projects.canvas.preview') : t('projects.canvas.showSource')}
+                    </DropdownMenuItem>
+                  ) : null}
                   {onRefresh ? (
                     <DropdownMenuItem onClick={onRefresh}>
                       <RotateCcw size={14} className="mr-2" aria-hidden />
                       {t('projects.detail.refresh')}
                     </DropdownMenuItem>
                   ) : null}
+                  {canvas?.id ? (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <History size={14} className="mr-2" aria-hidden />
+                        {t('projects.canvas.versions')}
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent className="max-h-64 overflow-auto">
+                        <DropdownMenuItem disabled>
+                          {t('projects.canvas.versionCurrent', { n: canvas.revision })}
+                        </DropdownMenuItem>
+                        {revisions.map((row) => (
+                          <DropdownMenuItem
+                            key={row.revision}
+                            disabled={busy}
+                            onClick={() => void onRestore(row.revision)}
+                          >
+                            {t('projects.canvas.version', { n: row.revision })}
+                          </DropdownMenuItem>
+                        ))}
+                        {revisions.length === 0 ? (
+                          <DropdownMenuItem disabled>{t('projects.canvas.noVersions')}</DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  ) : null}
                   {menu ? (
                     <>
-                      {(hasSourceToggle || Boolean(source) || downloads.length > 0 || Boolean(onRefresh)) && (
+                      {downloads.length > 0 || Boolean(source) || hasSourceToggle || Boolean(onRefresh) ? (
                         <DropdownMenuSeparator />
-                      )}
+                      ) : null}
                       {menu}
                     </>
                   ) : null}
@@ -385,7 +498,15 @@ export function CanvasWindow({
             <code>{source}</code>
           </pre>
         ) : (
-          <div className={cn(READING_KINDS.has(kind) ? 'mx-auto w-full max-w-3xl px-6 py-5' : 'p-4')}>{children}</div>
+          <div
+            className={cn(
+              READING_KINDS.has(kind)
+                ? 'mx-auto w-full max-w-3xl px-6 py-5'
+                : 'flex min-h-full flex-col p-4',
+            )}
+          >
+            {children}
+          </div>
         )}
       </div>
     </Card>

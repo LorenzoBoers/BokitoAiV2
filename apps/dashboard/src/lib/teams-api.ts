@@ -2,10 +2,12 @@
 
 import { appRoutes } from '../api/routes/app.routes'
 import type { AgentPassport } from './workforce-api'
+import type { ProjectDocRow, WorksInItem } from './project-work-api'
+import type { ProjectFlowBoard } from './tickets-api'
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from './api'
 
 export type TeamKind = 'custom'
-export type TeamPickup = 'people' | 'agent_first' | 'round_robin' | 'least_open'
+export type TeamPickup = 'people' | 'round_robin' | 'least_open'
 /** People: available|away|offline. Agents/teams may also use standby|working. */
 export type PresenceStatus = 'available' | 'away' | 'offline' | 'standby' | 'working' | 'unavailable'
 
@@ -101,6 +103,8 @@ export type Team = {
   pinned: boolean
   members: TeamMemberRef[]
   member_count: number
+  /** Agent that picks up this department's work; implicit when nobody was picked. */
+  contact?: { id: string; name: string; implicit: boolean } | null
   presence?: { status: PresenceStatus }
   /** Fallback mark for pickers when no member faces are known. */
   avatar_kind?: TeamAvatarKind | string
@@ -146,6 +150,8 @@ export type OverviewMetrics = {
 export type OverviewAgent = AgentPassport & {
   member_type?: WorkforceMemberType
   team_ids: string[]
+  /** Active and on no department yet: it only picks up what is handed to it directly. */
+  unplaced?: boolean
   open_owned: number
   deactivated?: boolean
   metrics: OverviewMetrics
@@ -166,7 +172,7 @@ export function formatAnswerMinutes(minutes: number | null): string {
   return `${Math.round(minutes / 60 / 24)}d`
 }
 
-export const PICKUP_MODES: TeamPickup[] = ['people', 'agent_first', 'round_robin', 'least_open']
+export const PICKUP_MODES: TeamPickup[] = ['people', 'round_robin', 'least_open']
 
 
 export function listTeams(token: string): Promise<Team[]> {
@@ -198,8 +204,8 @@ export type DepartmentScorecard = {
 }
 
 export type DepartmentAwareness = {
-  agent_id: string
-  agent_name: string
+  agent_id: string | null
+  agent_name: string | null
   role: string
   follows: string[]
   followable: string[]
@@ -263,55 +269,74 @@ export type DepartmentFolderScope = NamedRef & {
   flows: DepartmentFlow[]
 }
 
+type AvatarMark = {
+  avatar_kind?: string | null
+  avatar_icon?: string | null
+  avatar_color?: string | null
+  avatar_shape?: string | null
+  avatar_image_url?: string | null
+}
+
+export type CrewRole = 'contact' | 'accountable' | 'member'
+
+/** One seat as the crew editor sends it. */
+export type CrewEntry = {
+  kind: 'user' | 'agent'
+  id: string
+  role: CrewRole
+  focus: string
+}
+
+export type DepartmentCrewRow = AvatarMark & {
+  kind: 'user' | 'agent'
+  id: string
+  name: string
+  role: CrewRole
+  focus: string
+  /** owner | admin on the organization: there by role, not by seat. */
+  workspace_role?: string | null
+  hours_per_week?: number | null
+  open_assigned?: number | null
+  presence?: string | null
+  status?: string | null
+  doing?: string
+  cost_cents?: number | null
+}
+
+export type DepartmentPathRow = { id: string; name: string; is_org: boolean; href: string }
+
+export type DepartmentChildRow = {
+  id: string
+  name: string
+  icon: string
+  open: number
+  href: string
+  contact: (AvatarMark & { id: string; name: string }) | null
+}
+
 export type DepartmentOverview = {
   id: string
   name: string
   description: string
   /** Lucide icon id shown in the left menu. */
   icon: string
-  /** The department above this one. Null on the root. */
-  parent: {
-    id: string
-    name: string
-    is_root: boolean
-    members: Array<{
-      kind: 'user' | 'agent'
-      id: string
-      name: string
-      avatar_kind?: string | null
-      avatar_icon?: string | null
-      avatar_color?: string | null
-      avatar_shape?: string | null
-      avatar_image_url?: string | null
-    }>
-  } | null
-  lead: {
-    id: string
-    name: string
-    status?: string | null
-    avatar_kind?: string | null
-    avatar_icon?: string | null
-    avatar_color?: string | null
-    avatar_shape?: string | null
-    avatar_image_url?: string | null
-  } | null
+  /** True for the organization (the root of the tree). */
+  is_org: boolean
+  visibility: 'open' | 'shielded'
+  parent_id: string | null
+  /** From the organization down to this department. */
+  path: DepartmentPathRow[]
+  children: DepartmentChildRow[]
+  /** Point of contact; implicit when nobody was picked and the first agent acts. */
+  contact: (AvatarMark & { id: string; name: string; status?: string | null; implicit: boolean }) | null
   accountable: { id: string; name: string; presence?: string | null } | null
   autonomy: string | null
   origin_module: { slug: string; name: string } | null
   room_signal_id: string | null
   pickup: string
-  members: Array<{
-    kind: 'user' | 'agent'
-    id: string
-    name: string
-    duty: string
-    hours_per_week?: number | null
-    open_assigned?: number | null
-    presence?: string | null
-    status?: string | null
-    doing?: string
-    cost_cents?: number | null
-  }>
+  crew: DepartmentCrewRow[]
+  /** Owners and admins on the organization (by role). Empty on departments. */
+  admins: DepartmentCrewRow[]
   flows: DepartmentFlow[]
   totals: { open: number; waiting: number; overdue: number }
   today: {
@@ -363,10 +388,58 @@ export type DepartmentOverview = {
     per_flow: Array<NamedRef & { feedback: number }>
   } | null
   grid_href: string
+  /** Organization only: whether agents follow the tree. */
+  org_rules?: 'off' | 'on' | null
 }
 
 export function getDepartmentOverview(token: string, id: string): Promise<DepartmentOverview> {
   return apiGet<DepartmentOverview>(appRoutes.teams.departmentOverview(id), token)
+}
+
+/** The organization (root of the tree) in the same shape as a department. */
+export function getOrganizationOverview(token: string): Promise<DepartmentOverview> {
+  return apiGet<DepartmentOverview>(appRoutes.teams.organization, token)
+}
+
+export function setOrgRules(token: string, mode: 'off' | 'on'): Promise<{ org_rules: 'off' | 'on' }> {
+  return apiPut(appRoutes.teams.orgRules, { mode }, token)
+}
+
+export type CrewResult = {
+  crew: CrewEntry[]
+  /** The crew before this save, for undo. */
+  previous: CrewEntry[]
+  contact_agent_id: string | null
+  contact_implicit: boolean
+  accountable_user_id: string | null
+  summary: string
+}
+
+export function setDepartmentCrew(token: string, id: string, crew: CrewEntry[]): Promise<CrewResult> {
+  return apiPut<CrewResult>(appRoutes.teams.crew(id), { crew }, token).then(announceDepartments)
+}
+
+/** Seat an agent that sits nowhere yet in a department as a member. */
+export function placeAgent(token: string, departmentId: string, agentId: string): Promise<CrewResult> {
+  return apiPost<CrewResult>(appRoutes.teams.place(departmentId), { agent_id: agentId }, token).then(announceDepartments)
+}
+
+/** Flow kanban for the whole department. Same card shape as a folder board. */
+export async function getDepartmentBoard(departmentId: string): Promise<ProjectFlowBoard[]> {
+  const res = await apiGet<{ playbooks: ProjectFlowBoard[] }>(appRoutes.teams.departmentBoard(departmentId))
+  return res.playbooks ?? []
+}
+
+/** Works in for the whole department, not grouped by folder. */
+export async function listDepartmentWorksIn(departmentId: string): Promise<WorksInItem[]> {
+  const res = await apiGet<{ items: WorksInItem[] }>(appRoutes.teams.departmentWorksIn(departmentId))
+  return res.items ?? []
+}
+
+/** Documentation of the department, as one list. */
+export async function listDepartmentDocs(departmentId: string): Promise<ProjectDocRow[]> {
+  const res = await apiGet<{ docs: ProjectDocRow[] }>(appRoutes.teams.departmentDocs(departmentId))
+  return res.docs ?? []
 }
 
 export function askDomainQuestion(token: string, id: string, question: string): Promise<DepartmentQuestion> {
@@ -404,7 +477,8 @@ export function createTeam(
     name: string
     description?: string
     pickup?: TeamPickup
-    members?: TeamMemberRef[]
+    /** Department to hang under; omitted means directly under the organization. */
+    parent_id?: string | null
   },
 ): Promise<Team> {
   return apiPost<Team>(appRoutes.teams.list, body, token).then(announceDepartments)
@@ -419,13 +493,12 @@ export function patchTeam(
     pickup?: TeamPickup
     /** Lucide icon id for the left menu; empty string resets it. */
     icon?: string
+    /** New parent department; null hangs it directly under the organization. */
+    parent_id?: string | null
+    visibility?: 'open' | 'shielded'
   },
 ): Promise<Team> {
   return apiPatch<Team>(appRoutes.teams.byId(id), body, token).then(announceDepartments)
-}
-
-export function setTeamMembers(token: string, id: string, members: TeamMemberRef[]): Promise<Team> {
-  return apiPut<Team>(appRoutes.teams.members(id), { members }, token).then(announceDepartments)
 }
 
 export function deleteTeam(token: string, id: string): Promise<unknown> {

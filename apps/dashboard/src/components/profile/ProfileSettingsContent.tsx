@@ -545,7 +545,7 @@ export function ProfileSettingsContent() {
                     : <Pencil size={14} className="text-white" />}
                 </span>
               </Pressable>
-              <input
+              <input // design-system-ignore: hidden file input opened from the profile photo
                 ref={avatarInputRef}
                 type="file"
                 accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"

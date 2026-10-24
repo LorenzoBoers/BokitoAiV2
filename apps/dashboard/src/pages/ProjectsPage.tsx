@@ -152,6 +152,16 @@ export default function ProjectsPage() {
             </Button>
           ) : undefined
         }
+        belowActions={
+          projects.length > 0 ? (
+            <SearchField
+              value={query}
+              onChange={setQuery}
+              placeholder={t('projects.page.searchPlaceholder')}
+              aria-label={t('projects.page.searchPlaceholder')}
+            />
+          ) : undefined
+        }
       />
 
       {error ? <ApiErrorBanner message={error} onRetry={() => void load()} /> : null}
@@ -159,15 +169,6 @@ export default function ProjectsPage() {
         <p className="rounded-lg border border-border bg-bg-input/40 px-3 py-2 text-xs text-text-muted">
           {t('projects.page.readonlyBanner')}
         </p>
-      ) : null}
-      {projects.length > 0 ? (
-        <SearchField
-          value={query}
-          onChange={setQuery}
-          placeholder={t('projects.page.searchPlaceholder')}
-          aria-label={t('projects.page.searchPlaceholder')}
-          className="max-w-sm"
-        />
       ) : null}
 
       {loading ? (

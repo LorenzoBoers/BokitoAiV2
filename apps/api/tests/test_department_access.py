@@ -97,10 +97,15 @@ async def test_department_overview(client: AsyncClient, session_override):
     res = await client.get(f"/api/departments/{team.id}/overview", headers=headers)
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["parent"]["is_root"] is True
-    assert body["parent"]["name"] == "All"
-    assert body["lead"]["id"] == str(agent.id)
+    assert [p["is_org"] for p in body["path"]] == [True, False]
+    assert body["path"][-1]["id"] == str(team.id)
+    assert body["contact"]["id"] == str(agent.id)
+    assert body["contact"]["implicit"] is False
     assert body["accountable"]["id"] == str(owner.id)
+    roles = {row["id"]: row["role"] for row in body["crew"]}
+    assert roles[str(agent.id)] == "contact"
+    assert roles[str(owner.id)] == "accountable"
+    assert roles[str(freelancer.id)] == "member"
     assert [(f["name"], f["open"], f["waiting"]) for f in body["flows"]] == [("Maandcontent", 1, 0)]
     assert body["totals"]["open"] == 1
     assert all(stage["kind"] in ("open", "waiting", "done", "closed") for stage in body["flows"][0]["stages"])

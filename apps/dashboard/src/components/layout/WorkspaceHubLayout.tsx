@@ -22,8 +22,7 @@ export default function WorkspaceHubLayout({ children }: { children?: ReactNode 
         </Card>
       </div>
 
-      {/* Same personal Bokito FAB as inside a workspace — person-scoped memory,
-          threads still land in the JWT/current workspace until they open another. */}
+      {/* Same in-app Bokito helper as inside a workspace (dev-only; no FAB). */}
       <PersonalAssistantWidget />
     </div>
   )

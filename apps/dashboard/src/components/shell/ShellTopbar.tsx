@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useWorkspace } from '../../context/WorkspaceContext'
 import { tabFromPath, titleForTab } from '../../lib/navigation'
-import { openAssistant } from '../../lib/personal-assistant-widget'
+import { inAppAssistantEnabled, openAssistant } from '../../lib/personal-assistant-widget'
 import { cn } from '../../lib/utils'
 import StaffTenantBar from '../layout/StaffTenantBar'
 import NotificationDropdown from '../notifications/NotificationDropdown'
@@ -124,7 +124,10 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
       <Tip label={t('topbar.help')} detail="?">
         <Button variant="secondary" size="xs"
           type="button"
-          onClick={() => openAssistant()}
+          onClick={() => {
+            if (inAppAssistantEnabled()) openAssistant()
+            else navigate('/settings/help')
+          }}
           className="hidden md:flex"
         >
           <CircleHelp size={14} className="text-accent" />
@@ -134,7 +137,10 @@ export default function ShellTopbar({ onOpenNavDrawer, onOpenPalette }: ShellTop
       <Tip label={t('topbar.help')} detail="?">
         <Button variant="ghost" size="iconSm"
           type="button"
-          onClick={() => openAssistant()}
+          onClick={() => {
+            if (inAppAssistantEnabled()) openAssistant()
+            else navigate('/settings/help')
+          }}
           className="md:hidden"
           aria-label={t('topbar.help')}
         >

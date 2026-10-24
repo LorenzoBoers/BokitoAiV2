@@ -49,12 +49,16 @@ async def execute_tool(
     surface: str = "",
     turn_id: str | None = None,
     tainted: bool = False,
+    operator_asked: bool = False,
 ) -> dict[str, Any]:
     """Execute a registered tool under the allowance policy.
 
     ``approved=True`` skips the gate — used when a human just approved the
     exact action through a DecisionRequest.
     """
+    from app.services.connection_scope import tool_conversation
+
+    conversation_token = tool_conversation.set(signal_id)
     try:
         return await asyncio.wait_for(
             _execute_tool(
@@ -73,6 +77,7 @@ async def execute_tool(
                 surface=surface,
                 turn_id=turn_id,
                 tainted=tainted,
+                operator_asked=operator_asked,
             ),
             timeout=TOOL_TIMEOUT_SECONDS,
         )
@@ -89,6 +94,8 @@ async def execute_tool(
             "status": "timeout",
             "hint": "The action did not finish. Try a smaller change, or a different approach.",
         }
+    finally:
+        tool_conversation.reset(conversation_token)
 
 
 _EXTERNAL_PASSPORT_BYPASS = frozenset(
@@ -154,7 +161,7 @@ async def _agent_channel_error(
     if target is None or target.tenant_id != tenant_id or not target.channel_account_id:
         return None
     account = await session.get(ChannelAccount, target.channel_account_id)
-    if await agent_can_handle(session, account, agent.id):
+    if await agent_can_handle(session, account, agent.id, signal=target):
         return None
     invited = await resolve_active_session(
         session, tenant_id, target.id, agent_id=getattr(agent, "id", None)
@@ -165,6 +172,41 @@ async def _agent_channel_error(
         "This agent has no access to that channel. An operator can grant it under "
         "Settings, Channels, Access."
     )
+
+
+def _holder_free_tools() -> frozenset[str]:
+    from app.services.work_holder import ALWAYS_ALLOWED
+
+    return ALWAYS_ALLOWED
+
+
+async def _holder_error(
+    session: AsyncSession,
+    tenant_id: UUID,
+    agent: Any,
+    signal: Any | None,
+    tool_input: dict[str, Any],
+    operator_asked: bool,
+) -> str | None:
+    """Refusal when org rules are on and someone else holds the target conversation."""
+    from app.models.signal import Signal
+    from app.services.org_rules import org_rules_on
+    from app.services.work_holder import may_act
+
+    target = signal
+    raw = tool_input.get("signal_id") or tool_input.get("thread_id")
+    if raw:
+        try:
+            target = await session.get(Signal, UUID(str(raw)))
+        except ValueError:
+            target = signal
+    if target is None or target.tenant_id != tenant_id or not await org_rules_on(session, tenant_id):
+        return None
+    # A person addressing this agent in this very conversation hands it the work for the turn.
+    allowed, refusal = await may_act(
+        session, target, agent, operator_asked=operator_asked and signal is not None and target.id == signal.id
+    )
+    return None if allowed else refusal
 
 
 def route_module_mcp_call(tool_input: dict[str, Any]) -> dict[str, Any] | None:
@@ -218,6 +260,7 @@ async def _execute_tool(
     surface: str = "",
     turn_id: str | None = None,
     tainted: bool = False,
+    operator_asked: bool = False,
 ) -> dict[str, Any]:
     if tool_name == "call_mcp_tool":
         # A business module is not an MCP server to the agent. Calling the
@@ -264,6 +307,13 @@ async def _execute_tool(
 
         prefs = await get_tenant_model_prefs(session, tenant_id)
         if not image_generation_disabled(prefs):
+            allowed_set = None
+    # The department grants module tools, not the passport.
+    if allowed_set is not None and agent is not None and tool_name not in allowed_set:
+        from app.services.module_agents import agent_has_module, is_module_tool
+
+        module_slug = is_module_tool(tool_name)
+        if module_slug and await agent_has_module(session, tenant_id, agent.id, module_slug):
             allowed_set = None
 
     if allowed_set is not None and tool_name not in allowed_set:
@@ -323,6 +373,35 @@ async def _execute_tool(
                 summary="Denied by channel access", payload=tool_input,
             )
             return {"error": channel_error, "status": "denied", "reason": "channel_access"}
+
+    if agent is not None and spec.mutating and tool_name not in _holder_free_tools():
+        holder_error = await _holder_error(session, tenant_id, agent, signal, tool_input, operator_asked)
+        if holder_error:
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome="denied",
+                summary="Denied by the holder rule", payload=tool_input,
+            )
+            return {"error": holder_error, "status": "denied", "reason": "not_holder"}
+
+    if agent is not None and signal is not None:
+        from app.services.workstreams import flow_means, is_means_tool
+
+        means = await flow_means(session, signal) if is_means_tool(tool_name) else None
+        if means is not None and means.tools is not None and tool_name not in means.tools:
+            await record_audit(
+                session, tenant_id, action=action, actor_type=actor_type, actor_id=actor_id,
+                agent_id=agent_id, run_id=run_id, outcome="denied",
+                summary=f"Denied by the capabilities of flow {means.flow_name}", payload=tool_input,
+            )
+            return {
+                "error": (
+                    f"The flow {means.flow_name} works with {', '.join(sorted(means.tools))} only. "
+                    "Use one of those, or ask a person to widen the flow."
+                ),
+                "status": "denied",
+                "reason": "flow_capabilities",
+            }
 
     if not tool_matches_audience(spec, audience):
         await record_audit(

@@ -141,8 +141,12 @@ def serialize_agent(
     awaiting_decision: int = 0,
     affiliation: dict[str, Any] | None = None,
     effective_autonomy: str | None = None,
+    is_lead: bool = False,
 ) -> dict[str, Any]:
     """The one agent DTO. Views only add fields on top of ``summary``.
+
+    ``is_lead`` is whether the agent is the organization's point of contact;
+    callers that list agents look it up once (``lead_agent.lead_agent_id``).
 
     - ``summary``: identity, avatar and live status (rows, chips, project orchestrator)
     - ``picker``: summary for chat targets and assignee pickers (callers add their flags)
@@ -187,7 +191,7 @@ def serialize_agent(
             {
                 "model": agent.model,
                 "provider": agent.provider,
-                "is_lead": bool(agent.is_lead),
+                "is_lead": is_lead,
                 "acts_for_user": bool(agent.acts_for_user),
                 "autonomy_level": normalize_autonomy(agent.autonomy_level),
                 "effective_autonomy": effective_autonomy or normalize_autonomy(agent.autonomy_level),
@@ -234,6 +238,10 @@ def serialize_agent(
 
     if get_settings().agent_calls_enabled:
         from app.services.agent_call_voice import public_agent_call_defaults
+        from app.services.voice_models import (
+            cached_platform_tier,
+            public_voice_model_fields,
+        )
 
         defaults = public_agent_call_defaults(agent.settings_json)
         payload.update(
@@ -244,6 +252,10 @@ def serialize_agent(
                 "call_voices": defaults["voices"],
                 "call_speeds": defaults["speeds"],
                 "call_languages": defaults["languages"],
+                **public_voice_model_fields(
+                    agent_settings=agent.settings_json,
+                    platform_tier=cached_platform_tier(),
+                ),
             }
         )
     return payload
@@ -384,6 +396,8 @@ ROLE_TOOL_TEMPLATES: dict[str, tuple[str, ...]] = {
         "update_tag",
         "get_tenant_overview",
         "read_doc",
+        "list_docs",
+        "write_doc",
         "search_index",
         "schedule_wake",
         "generate_image",
@@ -467,8 +481,14 @@ async def list_runtime_agents(
     from app.services.agent_rules import normalize_autonomy
     from app.services.ai_handling import governance_ceiling, min_mode
 
+    from app.services.lead_agent import lead_agent_id
+
     tenant = await session.get(Tenant, tenant_id)
     ceiling_mode = governance_ceiling(tenant)[0] if tenant is not None else "autonomous"
+    lead_id = await lead_agent_id(session, tenant_id)
+    from app.services.voice_models import load_platform_tier
+
+    await load_platform_tier(session)
     return [
         serialize_agent(
             agent,
@@ -478,6 +498,7 @@ async def list_runtime_agents(
             awaiting_decision=decision_by.get(agent.id, 0),
             affiliation=affiliations.get(agent.id),
             effective_autonomy=min_mode(normalize_autonomy(agent.autonomy_level), ceiling_mode),
+            is_lead=agent.id == lead_id,
         )
         for agent in agents
     ]
@@ -511,6 +532,10 @@ async def get_runtime_agent(
     from app.services.managed_resources import affiliations_by_agent_id
 
     affiliations = await affiliations_by_agent_id(session, tenant_id, [agent])
+    from app.services.lead_agent import lead_agent_id
+    from app.services.voice_models import load_platform_tier
+
+    await load_platform_tier(session)
     return serialize_agent(
         agent,
         view="runtime",
@@ -518,6 +543,7 @@ async def get_runtime_agent(
         open_conversations=open_by.get(agent.id, 0),
         awaiting_decision=decision_by.get(agent.id, 0),
         affiliation=affiliations.get(agent.id),
+        is_lead=agent.id == await lead_agent_id(session, tenant_id),
     )
 
 
@@ -627,22 +653,9 @@ async def archive_agent(session: AsyncSession, tenant_id: UUID, agent_id: UUID) 
             status_code=409,
             detail="The Bokito system agent cannot be deactivated.",
         )
-    from sqlalchemy import update
-
-    from app.models.channel import ChannelAccount
-
-    await session.execute(
-        update(ChannelAccount)
-        .where(
-            ChannelAccount.tenant_id == tenant_id,
-            ChannelAccount.default_agent_id == agent.id,
-        )
-        .values(default_agent_id=None)
-    )
     agent.kind = "archived"
     agent.is_active = False
     agent.runtime_status = "standby"
-    agent.is_lead = False
     agent.updated_at = utcnow()
     session.add(agent)
     from app.services.archived_agents import retarget_threads_for_agent
@@ -840,9 +853,6 @@ async def create_agent(
     )
     session.add(agent)
     await session.flush()
-    from app.services.teams import ensure_agent_on_all
-
-    await ensure_agent_on_all(session, tenant_id, agent.id)
     await session.commit()
     await session.refresh(agent)
     return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
@@ -873,6 +883,7 @@ async def update_agent(
     call_voice: str | None = None,
     call_speed: float | None = None,
     call_language: str | None = None,
+    call_voice_model: str | None = None,
 ) -> dict[str, Any]:
     """Edit a company agent's identity, description, system prompt, signature, avatar, and who it asks."""
     result = await session.execute(
@@ -912,6 +923,7 @@ async def update_agent(
         or call_voice is not None
         or call_speed is not None
         or call_language is not None
+        or call_voice_model is not None
     )
     if settings_touch:
         stored = _parse_json(agent.settings_json)
@@ -959,7 +971,12 @@ async def update_agent(
                 )
             except ValueError as exc:
                 raise status_error(status_code=400, detail=str(exc)) from exc
-        if call_voice is not None or call_speed is not None or call_language is not None:
+        if (
+            call_voice is not None
+            or call_speed is not None
+            or call_language is not None
+            or call_voice_model is not None
+        ):
             from app.services.agent_call_voice import apply_agent_call_defaults
 
             try:
@@ -969,6 +986,7 @@ async def update_agent(
                         voice=call_voice,
                         speed=call_speed,
                         language=call_language,
+                        voice_model=call_voice_model,
                     )
                 )
             except ValueError as exc:
@@ -991,6 +1009,9 @@ async def update_agent(
     session.add(agent)
     await session.commit()
     await session.refresh(agent)
+    from app.services.voice_models import load_platform_tier
+
+    await load_platform_tier(session)
     return {"ok": True, "agent": serialize_agent(agent, view="runtime")}
 
 

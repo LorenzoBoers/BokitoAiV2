@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { ArchiveRestore, Trash2, Unplug } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Switch } from '../ui/switch'
-import AgentBindingPicker from '../settings/AgentBindingPicker'
 import { useAuth } from '../../context/AuthContext'
 import { AccessPicker } from '../access/AccessPicker'
 import ChannelTeamPicker from './ChannelTeamPicker'
@@ -78,21 +77,19 @@ export default function ChannelPanel({
         ) : null}
         {!archived ? (
           <>
-            <ChannelSetting label={t('channelsPage.team')} hint={t('channelsPage.teamHint')}>
+            <ChannelSetting
+              label={t('channelsPage.team')}
+              hint={
+                row.homeAgentName
+                  ? t('channelsPage.homeAgent', { node: row.homeName, agent: row.homeAgentName })
+                  : t('channelsPage.teamHint')
+              }
+            >
               <ChannelTeamPicker
                 accountId={row.id}
                 teamId={row.defaultTeamId}
                 userId={row.defaultUserId}
                 onChanged={() => actions.accessChanged(row)}
-              />
-            </ChannelSetting>
-            <ChannelSetting label={t('channelsPage.agent')} hint={t('channelsPage.agentHint')}>
-              <AgentBindingPicker
-                channel={row.channel}
-                channelAccountId={row.id}
-                defaultAgentId={row.defaultAgentId}
-                onChanged={() => actions.accessChanged(row)}
-                aria-label={t('bindingPicker.ariaLabel')}
               />
             </ChannelSetting>
           </>

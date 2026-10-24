@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { appRoutes } from '../api/routes/app.routes'
 import { apiGet } from './api'
+import { playEarcon } from './earcons'
 
 /* Shell-wide stack state: which conversations sit in the stack (toasts for
  * them become a card nudge) and which one is open in the floating window. */
@@ -34,18 +35,44 @@ export function onChatStackNudge(listener: (threadId: string) => void): () => vo
 }
 
 export function openFloatingThread(threadId: string, origin: DOMRect | null = null) {
-  floating = { threadId: String(threadId), origin }
+  const id = String(threadId)
+  // One floating window: opening the same conversation again does nothing.
+  if (floating?.threadId === id) return
+  floating = { threadId: id, origin }
   for (const listener of [...floatingListeners]) listener()
+  playEarcon('panelOpen')
 }
 
 export function floatingThreadId(): string | null {
   return floating?.threadId ?? null
 }
 
-export function closeFloatingThread() {
+export function closeFloatingThread(opts?: { sound?: boolean }) {
   if (!floating) return
   floating = null
   for (const listener of [...floatingListeners]) listener()
+  if (opts?.sound !== false) playEarcon('panelClose')
+}
+
+export type FloatingCloseKind = 'minimize' | 'hide'
+
+const closeRequestListeners = new Set<(kind: FloatingCloseKind) => void>()
+
+/** Ask the open window to shrink into its card before it unmounts. */
+export function requestFloatingThreadClose(kind: FloatingCloseKind = 'hide') {
+  if (!floating) return
+  if (closeRequestListeners.size === 0) {
+    closeFloatingThread()
+    return
+  }
+  for (const listener of [...closeRequestListeners]) listener(kind)
+}
+
+export function onFloatingThreadCloseRequest(listener: (kind: FloatingCloseKind) => void): () => void {
+  closeRequestListeners.add(listener)
+  return () => {
+    closeRequestListeners.delete(listener)
+  }
 }
 
 function subscribeFloating(listener: Listener) {
@@ -153,10 +180,60 @@ export function normalizeStackItem(raw: RawItem): ChatStackItem {
   }
 }
 
-export async function fetchChatStack(token: string, followIds: string[]): Promise<ChatStackItem[]> {
+export type SeatState = 'idle' | 'thinking' | 'has_note' | 'live'
+
+/** One face in the dock. The server decides order, key and state. */
+export type DockSeat = ChatStackAgent & {
+  /** Where a hold on this face lands first: its card, else its intercom lane. */
+  threadId: string | null
+  laneId: string | null
+  onCardId: string | null
+  pinned: boolean
+  /** Not pinned; here until its note is heard. */
+  temporary: boolean
+  state: SeatState
+  unplayed: number
+  dialKey: string | null
+  viaAgentId: string | null
+}
+
+type RawSeat = RawAgent & {
+  agent_id?: string
+  thread_id?: string | null
+  lane_id?: string | null
+  on_card_id?: string | null
+  pinned?: boolean
+  temporary?: boolean
+  state?: SeatState
+  unplayed?: number
+  dial_key?: string | null
+  via_agent_id?: string | null
+}
+
+function normalizeSeat(raw: RawSeat): DockSeat {
+  return {
+    ...normalizeAgent({ ...raw, id: raw.agent_id || raw.id }),
+    threadId: raw.thread_id ?? null,
+    laneId: raw.lane_id ?? null,
+    onCardId: raw.on_card_id ?? null,
+    pinned: Boolean(raw.pinned),
+    temporary: Boolean(raw.temporary),
+    state: raw.state ?? 'idle',
+    unplayed: raw.unplayed ?? 0,
+    dialKey: raw.dial_key ?? null,
+    viaAgentId: raw.via_agent_id ?? null,
+  }
+}
+
+export type ChatStackPayload = { items: ChatStackItem[]; seats: DockSeat[]; allCallKey: string }
+
+export async function fetchChatStack(token: string, followIds: string[]): Promise<ChatStackPayload> {
   const params = new URLSearchParams()
   if (followIds.length) params.set('follow', followIds.join(','))
-  const payload = await apiGet<{ items?: RawItem[] }>(appRoutes.signals.stack(params), token)
+  const payload = await apiGet<{ items?: RawItem[]; agents?: RawSeat[]; all_call_key?: string }>(
+    appRoutes.signals.stack(params),
+    token,
+  )
   const seen = new Set<string>()
   const items: ChatStackItem[] = []
   for (const raw of payload.items ?? []) {
@@ -165,7 +242,30 @@ export async function fetchChatStack(token: string, followIds: string[]): Promis
     seen.add(item.id)
     items.push(item)
   }
-  return items
+  return {
+    items,
+    seats: (payload.agents ?? []).map(normalizeSeat),
+    allCallKey: payload.all_call_key || 'F12',
+  }
+}
+
+/** Dial keys as the server names them ("F2", "Shift+F2") matched against a key event. */
+export function matchesDialKey(event: KeyboardEvent, dialKey: string | null): boolean {
+  if (!dialKey || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return false
+  const shift = dialKey.startsWith('Shift+')
+  const key = shift ? dialKey.slice(6) : dialKey
+  return event.key === key && event.shiftKey === shift
+}
+
+/** Key-up ends a hold whatever the modifier state is by then. */
+export function releasesDialKey(event: KeyboardEvent, dialKey: string | null): boolean {
+  if (!dialKey) return false
+  return event.key === (dialKey.startsWith('Shift+') ? dialKey.slice(6) : dialKey)
+}
+
+export function dialKeyLabel(dialKey: string | null): string {
+  if (!dialKey) return ''
+  return dialKey.startsWith('Shift+') ? `⇧${dialKey.slice(6)}` : dialKey
 }
 
 /** Live-merged card state the stack draws from. */

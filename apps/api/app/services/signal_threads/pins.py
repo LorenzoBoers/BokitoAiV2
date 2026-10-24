@@ -78,6 +78,28 @@ async def list_stack(
     follow_ids: list[UUID],
     visible_account_ids: set[UUID] | None = None,
 ) -> dict[str, Any]:
+    """Cards and the agent rail for the dock."""
+    from app.services.dock_agents import ALL_CALL_KEY, build_rail
+
+    items = await _stack_items(
+        session,
+        tenant_id,
+        user_id,
+        follow_ids=follow_ids,
+        visible_account_ids=visible_account_ids,
+    )
+    agents = await build_rail(session, tenant_id, user_id, items)
+    return {"items": items, "agents": agents, "all_call_key": ALL_CALL_KEY}
+
+
+async def _stack_items(
+    session: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    *,
+    follow_ids: list[UUID],
+    visible_account_ids: set[UUID] | None = None,
+) -> list[dict[str, Any]]:
     """Cards for the chat stack: the user's pinned threads, then followed ones.
 
     The dock holds at most ``STACK_LIMIT`` conversations. A followed thread
@@ -110,7 +132,7 @@ async def list_stack(
             break
     wanted = pinned + following
     if not wanted:
-        return {"items": []}
+        return []
 
     # No alive() here: a pin or follow is an explicit hold. Trash still hides
     # the conversation from normal lists; the stack keeps it until dismissed.
@@ -128,7 +150,7 @@ async def list_stack(
     kept_pins = pinned[-pin_room:] if pin_room else []
     threads = [rows[sid] for sid in kept_pins + visible_following if sid in rows]
     if not threads:
-        return {"items": []}
+        return []
     thread_ids = [t.id for t in threads]
 
     previews, speaker_ids = await _latest_message_previews(session, tenant_id, thread_ids)
@@ -194,7 +216,7 @@ async def list_stack(
                 "agents": agents[:STACK_AGENTS_PER_CARD],
             }
         )
-    return {"items": items}
+    return items
 
 
 async def pin_thread(session: AsyncSession, tenant_id: UUID, user_id: UUID, signal_id: UUID) -> None:

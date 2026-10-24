@@ -36,15 +36,7 @@ async def _tenant(session: AsyncSession) -> Tenant:
 
 
 async def _enable_accounting(session: AsyncSession, tenant: Tenant) -> None:
-    """Installed modules need >=1 rostered agent; create one and enable."""
-    from app.models.agent import Agent
-    from app.services.module_agents import add_module_agent
-
-    agent = Agent(tenant_id=tenant.id, name=f"Boekhouder {uuid4().hex[:6]}", kind="company")
-    session.add(agent)
-    await session.commit()
-    await session.refresh(agent)
-    await add_module_agent(session, tenant.id, "accounting", agent.id, is_default=True)
+    """Install: the accounting department with its specialist."""
     await set_module_enabled(session, tenant.id, "accounting", True)
 
 
@@ -98,17 +90,40 @@ def test_module_catalog_has_prepared_modules():
     assert {row["slug"] for row in package["playbooks"]} == {
         "vat-filing-prep",
         "monthly-close-review",
+        "invoice-check",
     }
     assert package["project"]["name_nl"] == "Administratie"
     assert modules["banking"]["status"] == "available"
     assert modules["banking"]["provider_slugs"] == ["gocardless_bank"]
     assert modules["documents"]["status"] == "available"
-    for slug in ("investing", "accountant"):
-        assert modules[slug]["status"] == "coming_soon"
-        assert modules[slug]["tenant_status"] == "coming_soon"
-        assert modules[slug]["provider_slugs"] == []
-        assert modules[slug]["setup_path"] == f"/connections/{slug}"
-        assert modules[slug]["tool_cards"]
+    assert modules["investing"]["status"] == "available"
+    assert modules["investing"]["tenant_status"] == "not_installed"
+    assert modules["investing"]["provider_slugs"] == []
+    assert "advice_boundary" in modules["investing"]["verbs"]
+    assert "get_quotes" in modules["investing"]["verbs"]
+    assert modules["investing"]["provider_slugs"] == []
+    assert modules["investing"]["setup_path"] == "/connections/investing"
+    assert modules["investing"]["tool_cards"]
+    accountant = modules["accountant"]
+    assert accountant["status"] == "available"
+    assert accountant["tenant_status"] == "not_installed"
+    assert accountant["provider_slugs"] == []
+    assert accountant["planned_provider_slugs"] == []
+    assert accountant["setup_path"] == "/connections/accountant"
+    assert "size_class" in accountant["verbs"]
+    assert "trial_balance" not in accountant["verbs"]
+    assert "unmatched_bank" not in accountant["verbs"]
+    accounting_verbs = set(modules["accounting"]["verbs"]) | set(
+        modules["accounting"]["propose_verbs"]
+    )
+    accountant_verbs = set(accountant["verbs"]) | set(accountant["propose_verbs"])
+    assert accounting_verbs.isdisjoint(accountant_verbs)
+    assert accountant["package"]["project"]["name_nl"] == "Jaarwerk"
+    assert {row["slug"] for row in accountant["package"]["playbooks"]} == {
+        "year-end-file",
+        "tax-position",
+        "filing-readiness",
+    }
 
 
 def test_provider_module_lookup():
@@ -635,7 +650,8 @@ async def test_snapshot_lists_unconnected_modules(session_override: AsyncSession
     assert "Modules:" in prompt
     assert "accounting — not installed" in prompt
     assert "/connections/accounting" in prompt
-    assert "investing" not in prompt  # coming soon stays hidden
+    assert "investing — not installed" in prompt
+    assert "prepared, not connectable" not in prompt
 
 
 @pytest.mark.asyncio
@@ -645,7 +661,7 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
     tenant = await _tenant(session_override)
     listed = await execute_tool(session_override, tenant.id, None, "list_modules", {})
     slugs = {row["slug"] for row in listed["modules"]}
-    assert slugs == {"accounting", "banking", "documents"}
+    assert slugs == {"accounting", "banking", "documents", "investing", "accountant"}
     assert module_for_provider("moneybird") == "accounting"
     accounting = next(row for row in listed["modules"] if row["slug"] == "accounting")
     assert accounting["setup_path"] == "/connections/accounting"
@@ -657,10 +673,10 @@ async def test_list_and_recommend_module_tools(session_override: AsyncSession):
         tenant.id,
         None,
         "recommend_module",
-        {"slug": "investing", "reason": "portfolio tracking"},
+        {"slug": "investing", "reason": "an order the operator already chose"},
     )
-    assert coming.get("code") == "coming_soon"
-    assert "decision_request_id" not in coming
+    assert coming.get("status") == "awaiting_human"
+    assert coming.get("decision_request_id")
 
     rec = await execute_tool(
         session_override,
@@ -769,7 +785,7 @@ async def test_call_mcp_tool_on_module_read_never_asks_a_human(session_override:
     from sqlalchemy import select
 
     tenant = await _tenant(session_override)
-    agent = Agent(tenant_id=tenant.id, name="Kantoor AI", kind="company", is_lead=True)
+    agent = Agent(tenant_id=tenant.id, name="Kantoor AI", kind="company")
     session_override.add(agent)
     await session_override.commit()
     await session_override.refresh(agent)
@@ -814,7 +830,7 @@ def test_module_tools_hidden_until_enabled():
     ]
 
 
-def test_module_tools_require_agent_roster():
+def test_module_tools_follow_the_department():
     from app.services.module_agents import filter_tools_for_agent_modules
 
     tools = [
@@ -822,75 +838,49 @@ def test_module_tools_require_agent_roster():
         {"name": "accounting_list_companies"},
         {"name": "create_agent"},
     ]
-    # Module installed but agent not on roster → hide accounting tools.
-    no_roster = filter_tools_for_agent_modules(
-        tools, enabled_slugs={"accounting"}, rostered_slugs=set()
-    )
-    assert [t["name"] for t in no_roster] == ["list_modules", "create_agent"]
-    on_roster = filter_tools_for_agent_modules(
-        tools, enabled_slugs={"accounting"}, rostered_slugs={"accounting"}
-    )
-    assert [t["name"] for t in on_roster] == [
-        "list_modules",
-        "accounting_list_companies",
-        "create_agent",
-    ]
+    outside = filter_tools_for_agent_modules(tools, enabled_slugs={"accounting"}, reachable_slugs=set())
+    assert [t["name"] for t in outside] == ["list_modules", "create_agent"]
+    inside = filter_tools_for_agent_modules(tools, enabled_slugs={"accounting"}, reachable_slugs={"accounting"})
+    assert [t["name"] for t in inside] == ["list_modules", "accounting_list_companies", "create_agent"]
 
 
-def test_read_only_roster_hides_propose_and_apply_tools():
+def test_department_adds_module_tools_the_passport_omits():
     from app.services.module_agents import filter_tools_for_agent_modules
 
-    tools = [
-        {"name": "accounting_list_companies"},
-        {"name": "accounting_propose_booking"},
-        {"name": "accounting_apply_booking"},
-        {"name": "create_agent"},
-    ]
-    read_only = filter_tools_for_agent_modules(
-        tools,
-        enabled_slugs={"accounting"},
-        rostered_slugs={"accounting"},
-        writable_slugs=set(),
+    passport = [{"name": "list_modules"}]
+    everything = [*passport, {"name": "accounting_list_companies"}, {"name": "banking_get_balance"}]
+    tools = filter_tools_for_agent_modules(
+        passport, enabled_slugs={"accounting", "banking"}, reachable_slugs={"accounting"}, all_tools=everything
     )
-    assert [t["name"] for t in read_only] == [
-        "accounting_list_companies",
-        "create_agent",
-    ]
-    writable = filter_tools_for_agent_modules(
-        tools,
-        enabled_slugs={"accounting"},
-        rostered_slugs={"accounting"},
-        writable_slugs={"accounting"},
-    )
-    assert [t["name"] for t in writable] == [
-        "accounting_list_companies",
-        "accounting_propose_booking",
-        "accounting_apply_booking",
-        "create_agent",
-    ]
+    assert [t["name"] for t in tools] == ["list_modules", "accounting_list_companies"]
 
 
-# ── per-agent scope enforcement ──────────────────────────────────
+# -- module access through the department ------------------------------
 
 
-async def _rostered_agent(session: AsyncSession, tenant: Tenant, **access):
+async def _department_agent(session: AsyncSession, tenant: Tenant, *, below: bool = False):
     from app.models.agent import Agent
-    from app.services.module_agents import add_module_agent, update_module_agent_access
+    from app.models.team import Department
+    from app.services import teams as teams_svc
+    from app.services.module_origin import get_module_department
 
     agent = Agent(tenant_id=tenant.id, name=f"Scoped {uuid4().hex[:6]}", kind="company")
     session.add(agent)
+    await session.flush()
+    dept = await get_module_department(session, tenant.id, "accounting")
+    if below:
+        dept = Department(tenant_id=tenant.id, name="Payables", kind="custom", parent_id=dept.id)
+        session.add(dept)
+        await session.flush()
+    await teams_svc.edit_department_crew(
+        session, dept, lambda crew: teams_svc.with_member(crew, "agent", agent.id, "member")
+    )
     await session.commit()
-    await session.refresh(agent)
-    await add_module_agent(session, tenant.id, "accounting", agent.id)
-    if access:
-        await update_module_agent_access(
-            session, tenant.id, "accounting", agent.id, **access
-        )
     return agent
 
 
 @pytest.mark.asyncio
-async def test_agent_not_on_roster_is_forbidden(session_override: AsyncSession):
+async def test_agent_outside_the_department_is_forbidden(session_override: AsyncSession):
     from app.models.agent import Agent
 
     tenant = await _tenant(session_override)
@@ -909,63 +899,45 @@ async def test_agent_not_on_roster_is_forbidden(session_override: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_agent_company_scope_enforced(session_override: AsyncSession):
+async def test_agent_in_a_sub_department_reaches_the_module(session_override: AsyncSession):
     tenant = await _tenant(session_override)
     await _enable_accounting(session_override, tenant)
     await _moneybird_connection(session_override, tenant)
-    agent = await _rostered_agent(
-        session_override, tenant, company_ids=["adm-demo-2"]
-    )
+    agent = await _department_agent(session_override, tenant, below=True)
 
-    listed = await call_accounting_verb(
-        session_override, tenant.id, "list_companies", agent_id=agent.id
-    )
+    listed = await call_accounting_verb(session_override, tenant.id, "list_companies", agent_id=agent.id)
     assert listed["ok"] is True
-    assert [c["id"] for c in listed["companies"]] == ["adm-demo-2"]
-
-    denied = await call_accounting_verb(
-        session_override,
-        tenant.id,
-        "search_parties",
-        {"company_id": "adm-demo-1", "query": "x"},
-        agent_id=agent.id,
-    )
-    assert denied["ok"] is False
-    assert denied["code"] == "company_forbidden"
-
-    allowed = await call_accounting_verb(
-        session_override,
-        tenant.id,
-        "search_parties",
-        {"company_id": "adm-demo-2", "query": "x"},
-        agent_id=agent.id,
-    )
-    assert allowed["ok"] is True
 
 
 @pytest.mark.asyncio
-async def test_read_only_agent_cannot_apply(session_override: AsyncSession, monkeypatch):
-    from app.config import get_settings
-    from app.modules.catalog import update_module_prefs
+async def test_module_grant_opens_another_department(session_override: AsyncSession):
+    from app.models.agent import Agent
+    from app.models.team import Department
+    from app.services import teams as teams_svc
+    from app.services.module_agents import agent_has_module
+    from app.services.setup_links import replace_resource_grants
 
     tenant = await _tenant(session_override)
     await _enable_accounting(session_override, tenant)
-    await _moneybird_connection(session_override, tenant)
-    monkeypatch.setattr(get_settings(), "module_writes_enabled", "accounting")
-    await update_module_prefs(
-        session_override, tenant.id, "accounting", writes_enabled=True
+    root = await teams_svc.ensure_org_root(session_override, tenant.id)
+    sales = Department(tenant_id=tenant.id, name="Sales", kind="custom", parent_id=root.id)
+    agent = Agent(tenant_id=tenant.id, name="Seller", kind="company")
+    session_override.add_all([sales, agent])
+    await session_override.flush()
+    await teams_svc.edit_department_crew(
+        session_override, sales, lambda crew: teams_svc.with_member(crew, "agent", agent.id, "member")
     )
-    agent = await _rostered_agent(session_override, tenant)
+    await replace_resource_grants(
+        session_override, tenant.id, "module", [{"kind": "department", "id": "everyone"}], module_slug="accounting"
+    )
+    await session_override.commit()
+    assert not await agent_has_module(session_override, tenant.id, agent.id, "accounting")
 
-    result = await call_accounting_verb(
-        session_override,
-        tenant.id,
-        "apply_party",
-        {"name": "Test"},
-        agent_id=agent.id,
+    await replace_resource_grants(
+        session_override, tenant.id, "module", [{"kind": "department", "id": str(sales.id)}], module_slug="accounting"
     )
-    assert result["ok"] is False
-    assert result["code"] == "write_forbidden"
+    await session_override.commit()
+    assert await agent_has_module(session_override, tenant.id, agent.id, "accounting")
 
 
 @pytest.mark.asyncio

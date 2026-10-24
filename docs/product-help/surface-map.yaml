@@ -123,12 +123,16 @@ team:
     - /workforce/workflow
     - /workforce/organogram
     - /departments/:id
+    - /organisatie
     - /workforce/departments/:id
     - /settings/members
     - /settings/teams
   code_globs:
     - apps/dashboard/src/pages/TeamPage.tsx
     - apps/dashboard/src/pages/DepartmentPage.tsx
+    - apps/dashboard/src/components/departments/DepartmentCrew.tsx
+    - apps/api/app/services/agent_awareness.py
+    - apps/api/app/services/lead_agent.py
     - apps/api/app/services/department_overview.py
     - apps/api/app/services/awareness.py
     - apps/dashboard/src/pages/OrgCanvasPage.tsx
@@ -182,6 +186,13 @@ communication:
     - apps/dashboard/src/hooks/usePinnedIds.ts
     - apps/dashboard/src/lib/chat-stack.ts
     - apps/dashboard/src/lib/chat-stack-follow.ts
+    - apps/dashboard/src/lib/voice-queue.ts
+    - apps/dashboard/src/lib/intercom-recorder.ts
+    - apps/dashboard/src/lib/dock-agents.ts
+    - apps/api/app/services/intercom.py
+    - apps/api/app/services/dock_agents.py
+    - apps/api/app/services/conversation_moves.py
+    - apps/api/app/routers/intercom.py
   screenshots:
     - decision-card
     - open-queue
@@ -514,14 +525,17 @@ integrations:
   section: integrations
   routes:
     - /connections
+    - /connections/installed
     - /connections/:slug
     - /ai/modules/:slug
   code_globs:
     - apps/dashboard/src/pages/ConnectionsHub.tsx
+    - apps/dashboard/src/pages/InstalledConnections.tsx
     - apps/dashboard/src/pages/ModuleSetupPage.tsx
     - apps/dashboard/src/components/integrations/**
     - apps/dashboard/src/components/ui/side-panel.tsx
     - apps/dashboard/src/lib/integration-kind-url.ts
+    - apps/dashboard/src/lib/installed-connections.ts
     - apps/dashboard/src/lib/ai-tool-providers.ts
     - apps/api/app/modules/**
     - apps/api/app/services/module_sources.py

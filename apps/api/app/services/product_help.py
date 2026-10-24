@@ -474,6 +474,31 @@ async def _index_lang(lang: str) -> list[_IndexedChunk]:
     return chunks
 
 
+def _help_from_keywords(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Same shape as the hybrid search, filled from the keyword index."""
+    base = (get_settings().public_app_url or "").rstrip("/")
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        path = row["path"]
+        docs_path = f"/docs/{path}"
+        results.append(
+            {
+                "source_type": SOURCE_TYPE,
+                "source_id": row["slug"],
+                "slug": row["slug"],
+                "section": row["section"],
+                "path": path,
+                "docs_path": docs_path,
+                "public_url": f"{base}{docs_path}" if base else docs_path,
+                "title": row["title"],
+                "heading": row["heading"],
+                "content": row.get("snippet") or "",
+                "score": row["score"],
+            }
+        )
+    return results
+
+
 async def search_product_help(
     query: str,
     *,
@@ -487,6 +512,12 @@ async def search_product_help(
     if not q:
         return []
     resolved = normalize_lang(lang)
+    # Embedding every article on a cold start does not finish inside a tool
+    # call, so the lookup times out and the cache is never stored. The keyword
+    # index is the same articles and returns immediately. Hybrid search stays
+    # for a process that already holds the vectors.
+    if f"{_dir_key()}::{resolved}" not in _CHUNK_CACHE:
+        return _help_from_keywords(keyword_search(q, lang=resolved, top_k=top_k))
     chunks = await _index_lang(resolved)
     if not chunks:
         return []

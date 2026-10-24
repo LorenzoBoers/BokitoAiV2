@@ -27,9 +27,9 @@ from scripts.seed import TEST_EMAIL
 async def _seed(session: AsyncSession):
     tenant = (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     user = (await session.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
-    agent = (
-        await session.execute(select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead == True))  # noqa: E712
-    ).scalars().first()
+    from app.services.lead_agent import get_lead_agent
+
+    agent = await get_lead_agent(session, tenant.id)
     return tenant, user, agent
 
 

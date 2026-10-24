@@ -25,7 +25,7 @@ async def _seed(session):
     )
     session.add(tenant)
     await session.flush()
-    support = Department(tenant_id=tenant.id, name="Support", pickup="agent_first")
+    support = Department(tenant_id=tenant.id, name="Support")
     dev = Department(tenant_id=tenant.id, name="Development")
     session.add_all([support, dev])
     await session.flush()

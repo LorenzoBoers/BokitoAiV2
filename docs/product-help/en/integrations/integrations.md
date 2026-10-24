@@ -9,25 +9,25 @@ related: mcp,models,channels,govern,categories
 
 # Connections
 
-Connections are partner logins. A **module** is one package of labels, flows and a department, plus the tools allowed for its listed partners. **Connections** in the rail at `/connections` is one page for all of it: what is connected on top, then one grid with every module, integration and AI tool. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
+Connections are partner logins. A **module** is one package of labels, flows and a department, plus the tools allowed for its listed partners. **Connections** in the rail has two views: **Discover** (`/connections`) to find and connect, and **Installed** (`/connections/installed`) to manage every registration — including several administrations on one host. Installing a module never adds a rail item; open it from Connections. Connecting a partner does not give agents tools; install the module and assign an agent first.
 
-## See what is connected
+## See what is installed
 
 ![Connections](/api/docs/assets/integrations/connections.png)
-*Connections: the Connected strip on top, then one grid with category chips and search.*
+*Connections: Discover with the module showcase, or Installed with cards and a list.*
 
-1. Open **Connections**. The **Connected** strip at the top lists every installed module and every connected integration as a compact tile with its logo and the number of connections. The strip only appears when something is connected, and only on **All** without a search term.
-2. Choose a module tile to open its module page; choose an integration tile to open its panel with every registration to that provider (see **Manage connections to one provider** below). Mailboxes open **Channels** from the panel; Agenda apps open [Agenda](/docs/ai/agenda).
-3. **Custom MCP servers** stays a separate list under the grid for logins that are not in the catalog. Choose **Disconnect** on a row when that login should stop (confirm **Remove this connection?**). Calendar accounts live under the **Agenda** chip (see **Connect calendar accounts** below).
+1. Open **Connections** and choose **Installed**. Every login and administration appears as its own card (or row in **List** view), so two King bookkeeping administrations stay two separate items.
+2. Use the category chips and search to narrow the list. Switch **Cards** / **List** when you need a dense overview with status and type.
+3. Choose a row to open the provider panel (or the module page when that login is attached). Mailboxes open **Channels**; Agenda apps open [Agenda](/docs/ai/agenda). Use **Add connection** to return to Discover.
 
 ## Find and connect something new
 
 ![Connect panel](/api/docs/assets/integrations/connect-panel.png)
 *Choosing a card opens a showcase modal: description, endpoint, capabilities and the connect button.*
 
-1. Under **All**, use the category chips: **Communication**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** and **AI tools**. Each chip shows its count. Search covers names and descriptions across every category, and also matches a module when you type one of its partner names (for example **Moneybird** surfaces **Accounting**). The chip lives in the URL (`/connections?kind=mcp` for Tools, `?kind=modules`, `?kind=ai_tools`), so a link always opens the category it names.
-2. Cards are one flat list — never nested inside a module, never grouped under a vendor. Module packages (Moneybird API, KING, Bjorn Lunden, and the same pattern for Banking / Documents when those ship) do **not** get their own catalog card; you connect them only from the module page. Hosted MCP cards (for example **Moneybird MCP**) stay in the grid next to the module. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card. A module card carries a **Module** label. The specialist sits on the right, only as wide as the name and role, with a glow in that color. The description, tool count and partner logos fill the rest. Coming-soon modules are faded until they ship.
-3. Choose a **module** or **integration** card. A showcase modal opens: modules open with the expert (name, role, living avatar) and three benefits with a check, partners, Labels & flows (packaged labels), and the agent tool names (the full list via Show details, including which can run in website chat), with **Install** / **Open module**; connections show description, endpoint, capabilities and **Connect**. Finish OAuth or setup and you return here with the modal open. A login stays on Connections until you attach it to a module.
+1. On **Discover**, the **Modules** showcase cycles through domain packages (Accounting, Banking, and the rest) with partner logos and **Explore**. Under that, category chips filter **Communication**, **Agenda**, **Apps**, **Tools**, **Code**, **Modules** and **AI tools**. Search covers names and descriptions, and also matches a module when you type a partner name (for example **Moneybird** surfaces **Accounting**). The chip lives in the URL (`/connections?kind=mcp` for Tools).
+2. Catalog cards are one flat list of integrations and AI tools. Module packages (Moneybird API, KING, Bjorn Lunden, and the same pattern for Banking / Documents when those ship) do **not** get their own catalog card; you connect them from the module page. Hosted MCP cards (for example **Moneybird MCP**) stay in the grid. Microsoft 365, Outlook Calendar and Microsoft Graph each have their own card.
+3. Choose a **module** slide (**Explore**) or an **integration** card. A showcase modal opens: modules open with the expert and **Install** / **Open module**; connections show description, endpoint, capabilities and **Connect**. Finish OAuth or setup and you return here with the modal open. A login stays on Connections until you attach it to a module.
 4. Agents link straight to this modal: a card in a conversation opens `/connections?connect=slack_mcp` with the Slack modal already open. A module-package mention such as Moneybird opens the **Accounting** module page instead.
 5. Communication apps add queues (email, WhatsApp). Code apps attach to a [folder](/docs/ai/folders). Agenda apps sync into [Agenda](/docs/ai/agenda). Tool apps land under **Tools** or **Custom MCP servers**. See [MCP](/docs/integrations/mcp).
 
@@ -57,9 +57,9 @@ Bokito tests every connection once a day.
 
 ## Install a business module
 
-1. Open **Connections** in the rail under **Organization**. Installed modules sit in the **Connected** strip; use the **Modules** chip to find a preset that is not installed yet.
+1. Open **Connections** in the rail under **Organization**. On **Discover**, use the **Modules** showcase or the **Modules** chip to find a preset that is not installed yet. Installed modules sit under **Installed**.
 2. Open **Accounting** (or another live module), then choose **Add department**. A module is a department in a box: a specialist agent, labels and flows. Under **Department**, pick **New department** or an existing department that already does similar work; Bokito suggests the best match. Choose the **Accountable person**. When the department already has a lead, tick **Let the specialist lead instead** to make the specialist primary; otherwise it joins as a member. Bokito copies the packaged labels, flows, sources and skill. The catalog card shows **Installed** with a check and **Manage**. Later edits on that department stay yours.
-3. The toast offers **Talk to specialist**. On the module page you can open their chat or assign another company agent. Mark one as **Default**. Only rostered agents get this module's tools. **Uninstall** archives the specialist. A department the module created is soft-deleted; a department it joined stays with its own work. Partner logins stay on Connections.
+3. The toast offers **Talk to specialist**. The module page names the department and its point of contact, with **Open department**. Agents in that department, and in the departments below it, get this module's tools; add an agent to the department to give it the tools. A module grant to another department opens the tools there too. **Uninstall** archives the specialist. A department the module created is soft-deleted; a department it joined stays with its own work. Partner logins stay on Connections.
 4. Review **What agents can do**: each action shows a short description, the path (`accounting_list_companies`, …), **Read** or **Needs approval**, and **Website chat** when the tool can run in the installable widget (enable under Today). When partners are attached, **Tools from connected MCP servers** lists discovered MCP names.
 5. At the top of the module page, under **Connections**, choose **New registration** to connect the module package (Moneybird, KING, or Bjorn Lunden) and attach it in one step, or **Use an existing connection** when a login already exists. Planned packages (Exact Online, SnelStart) stay greyed out. The remaining tabs are **Today**, **Sources**, and **Setup**.
 6. Attach a partner login when you want live data. Until then the module is installed but shows as incomplete for connections; after attach it is **Connected**. Labels and flows stay on their existing surfaces; the module adds no rail item.
@@ -74,7 +74,7 @@ Bokito tests every connection once a day.
 3. Finish setup with real credentials (OAuth for Moneybird, partner key plus administraties for KING, client id/secret for Bjorn Lunden, Trading API key plus secret for Alpaca). Empty or random labels alone do not create a working link.
 4. Each row shows status (**Verified**, **Needs credentials**, **Unverified**, or **Error**), optional provider identity, its folders (or **All folders**), and actions: **Verify**, **Set default** (only when verified), **Rename**, **Remove from module** (keeps the login on Connections), **Disconnect**, and **Manage** for folders and access.
 5. Each administration connects once. Connecting the same Moneybird administration or KING omgeving again updates the existing registration and shows **This administration was already connected**, instead of adding a second row.
-6. Only agents assigned to the module can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
+6. Only agents in the module's department, or a department below it, can use the shared accounting toolset. Propose tools land as a [decision](/docs/ai/decisions) you approve first.
 
 ## Manage connections to one provider
 
@@ -100,6 +100,18 @@ Link a registration to folders when it belongs to one client or department.
 
 You can also link from the folder page; see [Folders](/docs/ai/folders). The connection panel still labels that list **Folders** and the button **Save folders**.
 
+## Keep a connection inside one department
+
+When organization rules are on, a registration can belong to one department, so only that department's conversations use it.
+
+1. Choose **Manage** on the registration.
+2. Under **Department**, pick the department. **Whole organization** keeps it open to every department.
+3. Choose **Save folders**. Conversations of that department, or a department below it, can use the registration; elsewhere agents get a short reason instead.
+4. Combine it with folders: inside a folder, the registration linked to the nearest folder up the chain wins, before the module default.
+5. A flow can narrow it further: when a flow names connections or module tools, its conversations use only those. See [Flows](/docs/ai/flows).
+
+When an agent connects something new through chat, it asks which department (by default the whole organization) and which folders the connection is for.
+
 ## Choose who may use a connection
 
 Set which people, agents and teams may use or manage a registration.
@@ -109,16 +121,16 @@ Set which people, agents and teams may use or manage a registration.
 3. Choose **Save**. **Back to default** gives all people and agents **Use** again. Owners and admins always manage every connection.
 4. An agent without access cannot reach the registration; the attempt appears in the audit log. Agents can propose a change with `set_connection_scope`, which always asks for approval.
 
-**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions; payments only ship as proposals). **Investing** and **Documents** are prepared but not yet installable; they and their planned packages (Twelve Data, Bitvavo, TradingView, Google Drive, OneDrive / SharePoint, Dropbox) appear faded on Connections. **Accountant** is the same kind of idea: faded, not installable, and it reuses Accounting's packages (Moneybird, KING, Bjorn Lunden, and the planned Exact, SnelStart, Twinfield, and Yuki logins) instead of adding one.
+**Banking** is installable with a read-only GoCardless Bank Account Data connection (balances and transactions). An IBAN check, the consent period, and a payment checklist work before a bank is linked. A payment proposal does not send a transfer. **Documents** is installable. Google Drive and Sheets are the live connection; retention (7 years for an invoice, 10 years for immovable property), classification, and citations work before Drive is linked. **Investing** is installable and adds no broker login. Investo refuses a personal recommendation of a specific instrument and drafts only an order the operator already chose. Quotes and positions wait for a broker. **Accountant** is installable and adds no package login. Accounto prepares the year file: size class, tie-out questions, estimates, the commercial-to-tax bridge, and filing dates. Bookings, invoices, and bank matching stay with Accounting and Banking. Accounto does not sign a compilation report and does not file at the Kamer van Koophandel or the Belastingdienst.
 
 ## Connect calendar accounts
 
 Each Google or Microsoft account is one connection; add as many as you need and choose per account which calendars show in [Agenda](/docs/ai/agenda).
 
 ![Calendar accounts](/api/docs/assets/integrations/calendar-accounts.png)
-*The Agenda filter on Connections lists every calendar account with its status and calendars.*
+*After the first connect, the Agenda filter lists each calendar account with its status and calendars.*
 
-1. Open **Connections** and choose the **Agenda** filter. Under **Calendar accounts**, choose **Connect Google Calendar** or **Connect Outlook Calendar** and finish sign-in. With an account already connected, the buttons read **Add Google account** and **Add Microsoft account**.
+1. Open **Connections** and choose the **Agenda** filter. On the **Google Calendar** or **Outlook Calendar** catalog card, choose **Connect** and finish sign-in. With an account already connected, **Calendar accounts** appears above the grid with **Add Google account** and **Add Microsoft account**.
 2. Each account row shows its address, the sync status, the number of events, and a colored dot per calendar that is on. **Shared with you** marks an account someone else connected.
 3. Choose **Manage**. Under **Calendars**, switch on the calendars to sync (only the primary calendar is on at first) and pick the **Default calendar for new events**. Read-only calendars sync but never receive new events. Switched-on calendars update automatically in Agenda.
 4. Under **Access**, choose who may see and use the account. A new account is yours to manage, and agents may read it. Give a colleague **Use** to show it in their Agenda, or **Manage** to let them change calendars and access. Owners and admins always manage.
@@ -128,13 +140,12 @@ Each Google or Microsoft account is one connection; add as many as you need and 
 
 1. Open Accounting from **Connections**. The write banner shows **Writes disabled — retrieval only** or **Writes enabled — approved decisions execute**.
 2. As owner or admin, use **Allow writes in this workspace** to let approved decisions write to the package. Writes stay off until the platform switch is also on, so approvals always resolve safely.
-3. On the module **Setup** tab, open the access panel behind the settings icon on an assigned agent. Turn on **Write access** so that agent may propose accounting writes; agents without it get read tools only.
-4. Under **Administration scope**, pick the administrations the agent may address. No selection means access to all administrations.
-5. Every proposed write lands as a decision card showing the administration and the payload. Approving applies it to the package only when both write switches are on.
+3. Agents in the module's department may propose accounting writes. To keep an administration with one client or department, link its registration to that folder or department (see above).
+4. Every proposed write lands as a decision card showing the administration and the payload. Approving applies it to the package only when both write switches are on.
 
 ## Install a flow template
 
-Modules ship one catalog package containing labels and pre-built flows. Examples include **VAT filing preparation** and **Monthly close review** on Accounting, and **Bank reconciliation** on Banking.
+Modules ship one catalog package containing labels and pre-built flows. Examples include **VAT filing preparation**, **Monthly close review**, and **Invoice check** on Accounting, **Year-end file** on Accountant, **Bank reconciliation** and **Payment check** on Banking, **File a document** on Documents, and **Order ticket** on Investing.
 
 1. Open the module page from **Connections**. When the module is on, the **Flow templates** panel lists what it ships, with the step count per template.
 2. A template that cannot run yet shows why (module connection missing, required agent role not assigned). Fix the requirement first.
@@ -143,15 +154,15 @@ Modules ship one catalog package containing labels and pre-built flows. Examples
 
 ## Index module sources
 
-1. Open the module home **Sources** tab. Platform packs appear when the module is installed (Accounting: Belastingdienst, NBA HRA, RJNet, KvK annual accounts, BW2 Title 9). Indexing starts on its own.
+1. Open the module home **Sources** tab. Platform packs appear when the module is installed. Accounting indexes the Belastingdienst pages for entrepreneurs, VAT, payroll tax, VAT rates, and invoice requirements, the payment-term page on Ondernemersplein, and the Referentie GrootboekSchema. Banking indexes the DNB and Betaalvereniging pages on instant payments. Documents indexes the invoice-retention pages. Investing indexes the AFM pages on advice and execution only. Accountant indexes the NBA compilation standard, the Dutch accounting guidelines (RJ), the KvK size-class and SBR pages, BW2 Title 9, and the Belastingdienst corporate-tax and income-tax pages. Indexing starts on its own.
 2. Each pack fetches curated start pages, then a limited set of same-origin links (`robots.txt` respected, no login walls). Status moves **Pending** → **Indexing** → **Ready** (or **Error** if the site has no readable public text, such as a paywall). You can **Reindex** or **Disable** a platform pack; you cannot delete it.
 3. Choose **Add URL** for office pages. Those follow the same shallow crawl with a lower page cap. Agents search ready sources through module source tools.
 
-## Finish setup with the assigned agent
+## Finish setup with the point of contact
 
 1. Open the module home **Setup** tab.
-2. Assign at least one agent if you have not yet, then review the checklist and choose **Continue with assigned agent**.
-3. The default assigned agent walks you through optional connections, defaults and sources, and can put decisions on the thread when something needs approval.
+2. When the department has no point of contact yet, choose **Hire specialist**. Then review the checklist and choose **Continue with the point of contact**.
+3. The point of contact walks you through optional connections, defaults and sources, and can put decisions on the thread when something needs approval.
 4. Return to the module page and choose **Finish setup** when the checklist is done.
 
 ## Turn on customer chat tools and module labels

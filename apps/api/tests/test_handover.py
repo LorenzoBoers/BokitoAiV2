@@ -45,9 +45,9 @@ async def _setup(session: AsyncSession, monkeypatch, *, mode: str = "autonomous"
     """Seeded tenant made autonomous-capable with the lead agent on the mailbox."""
     tenant = (await session.execute(select(Tenant).where(Tenant.slug == "test"))).scalar_one()
     user = (await session.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
-    agent = (
-        await session.execute(select(Agent).where(Agent.tenant_id == tenant.id, Agent.is_lead == True))  # noqa: E712
-    ).scalars().first()
+    from app.services.lead_agent import get_lead_agent
+
+    agent = await get_lead_agent(session, tenant.id)
     account = (
         await session.execute(
             select(ChannelAccount).where(
@@ -62,7 +62,6 @@ async def _setup(session: AsyncSession, monkeypatch, *, mode: str = "autonomous"
     tenant.settings_json = json.dumps({"ai_handling": block, "tool_allowances": {"messaging": "allow"}})
     agent.autonomy_level = "autonomous"
     agent.kind = "company"
-    account.default_agent_id = agent.id
     account.is_enabled = True
     user.last_seen_at = datetime.utcnow()
     user.away = False

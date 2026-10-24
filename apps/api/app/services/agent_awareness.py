@@ -1,12 +1,17 @@
-"""What an agent pays attention to: ``Agent.settings_json["awareness"]``.
+"""What a department (or an unplaced agent) pays attention to: ``settings_json["awareness"]``.
 
-Three lenses drive every orientation: the role (what the agent is for in this
-workspace), the state (how everything in that role stands) and improvements
-(what could be better). The configuration says which thread events wake the
-agent (``follows``), how much an event wake may cost per day, how many
-improvement proposals one orientation may make, and any explicit scope on top
-of what the departments give. The orientation stores a standing ``brief``; the
-brief and the role go into every run (``aware_context``).
+Awareness belongs to the department: ``Department.settings_json["awareness"]``.
+Its point of contact runs the orientation and answers the event wakes, so a new
+point of contact takes over the schedule and the brief without a copy. Agents
+that sit in no department keep their own block on ``Agent.settings_json``.
+
+Three lenses drive every orientation: the role (what the department is for),
+the state (how its work stands) and improvements (what could be better). The
+configuration says which thread events wake the point of contact
+(``follows``), how much an event wake may cost per day, how many improvement
+proposals one orientation may make, and any explicit scope. The orientation
+stores a standing ``brief``; the briefs of every department an agent is the
+point of contact of go into each of its runs (``aware_context``).
 """
 
 from __future__ import annotations
@@ -42,9 +47,9 @@ MAX_DAILY_COST_CENTS = 100_000
 BRIEF_CHARS = 1200
 
 
-def _settings(agent: Agent) -> dict[str, Any]:
+def _settings(owner: Any) -> dict[str, Any]:
     try:
-        data = json.loads(agent.settings_json or "{}")
+        data = json.loads(owner.settings_json or "{}")
     except (TypeError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
@@ -60,9 +65,9 @@ def _ids(raw: Any) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-def awareness_config(agent: Agent) -> dict[str, Any]:
-    """The stored configuration with defaults filled in."""
-    raw = _settings(agent).get("awareness")
+def awareness_config(owner: Any) -> dict[str, Any]:
+    """The stored configuration of a department or agent, with defaults filled in."""
+    raw = _settings(owner).get("awareness")
     raw = raw if isinstance(raw, dict) else {}
     stored = raw.get("follows", DEFAULT_FOLLOWS)
     follows = [k for k in stored if k in FOLLOWABLE] if isinstance(stored, (list, tuple)) else list(DEFAULT_FOLLOWS)
@@ -92,9 +97,9 @@ def awareness_config(agent: Agent) -> dict[str, Any]:
     }
 
 
-def set_awareness(agent: Agent, patch: dict[str, Any]) -> dict[str, Any]:
-    """Merge a patch (follows, daily_cost_cents, max_proposals, scope). Caller commits."""
-    data = _settings(agent)
+def set_awareness(owner: Any, patch: dict[str, Any]) -> dict[str, Any]:
+    """Merge a patch (follows, daily_cost_cents, max_proposals, scope) into a department or agent. Caller commits."""
+    data = _settings(owner)
     current = data.get("awareness") if isinstance(data.get("awareness"), dict) else {}
     if "follows" in patch:
         follows = patch["follows"]
@@ -135,8 +140,8 @@ def set_awareness(agent: Agent, patch: dict[str, Any]) -> dict[str, Any]:
         if when is not None:
             current["next_wake_at"] = when.isoformat()
     data["awareness"] = current
-    agent.settings_json = json.dumps(data)
-    return awareness_config(agent)
+    owner.settings_json = json.dumps(data)
+    return awareness_config(owner)
 
 
 async def spent_today_cents(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> int:
@@ -185,12 +190,27 @@ async def role_line(session: AsyncSession, agent: Agent) -> str:
                 .distinct()
             )
         ).scalars().all()
-        line = f"Lead of {', '.join(d.name for d in led)}"
+        line = f"Point of contact for {', '.join(d.name for d in led)}"
         if flows:
             line += f": flows {', '.join(sorted(flows)[:8])}"
         parts.append(line)
     if other:
-        parts.append(f"member of {', '.join(d.name for d in other)}")
+        from app.models.team import DepartmentMember
+
+        focus = dict(
+            (
+                await session.execute(
+                    select(DepartmentMember.department_id, DepartmentMember.focus).where(
+                        DepartmentMember.agent_id == agent.id,
+                        DepartmentMember.department_id.in_([d.id for d in other]),
+                    )
+                )
+            ).all()
+        )
+        parts.append(
+            "member of "
+            + ", ".join(f"{d.name} (focus: {focus[d.id]})" if focus.get(d.id) else d.name for d in other)
+        )
     owned: list[str] = []
     for flow in (
         await session.execute(
@@ -219,8 +239,17 @@ async def store_brief(
     quiet: bool,
     snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Save the standing brief after an orientation. A quiet run keeps the summary. Caller commits."""
-    data = _settings(agent)
+    """Save the standing brief after an orientation. A quiet run keeps the summary. Caller commits.
+
+    With a department the brief lands on the department, so the next point of
+    contact reads it too; without one it stays on the agent.
+    """
+    from app.models.team import Department
+
+    owner: Any = agent
+    if department_id is not None:
+        owner = await session.get(Department, department_id) or agent
+    data = _settings(owner)
     current = data.get("awareness") if isinstance(data.get("awareness"), dict) else {}
     previous = current.get("brief") if isinstance(current.get("brief"), dict) else {}
     snap = snapshot or {}
@@ -228,6 +257,7 @@ async def store_brief(
         "role": await role_line(session, agent),
         "summary": previous.get("summary", "") if quiet else text.strip()[:BRIEF_CHARS],
         "department_id": str(department_id) if department_id else previous.get("department_id"),
+        "agent_id": str(agent.id),
         "open_tickets": snap.get("open_tickets"),
         "bottlenecks": {
             key: len(snap.get(key) or [])
@@ -240,62 +270,139 @@ async def store_brief(
     }
     current["brief"] = brief
     data["awareness"] = current
-    agent.settings_json = json.dumps(data)
-    session.add(agent)
+    owner.settings_json = json.dumps(data)
+    session.add(owner)
     return brief
 
 
-async def aware_context(session: AsyncSession, agent: Agent) -> str:
-    """The prompt block every run of an aware agent carries: role, brief, domain facts."""
-    from app.models.team import Department
-    from app.services.department_domain import domain_facts
+async def aware_context(session: AsyncSession, agent: Agent, *, with_crew: bool = True) -> str:
+    """The prompt block every run of an aware agent carries: role, briefs, domain facts, crew.
 
-    config = awareness_config(agent)
-    brief = config["brief"] or {}
-    role = brief.get("role") or await role_line(session, agent)
-    if not role and not brief:
+    ``with_crew=False`` leaves the crew out for a caller that places it itself.
+    """
+    from app.services.department_domain import agent_departments, domain_facts
+
+    led = [d for d, duty in await agent_departments(session, agent.tenant_id, agent.id) if duty == "primary"]
+    role = await role_line(session, agent)
+    crew = await crew_context(session, agent, led) if with_crew else ""
+    briefs = [(d.name, awareness_config(d)["brief"]) for d in led]
+    briefs = [(name, b) for name, b in briefs if b and b.get("summary")]
+    own = awareness_config(agent)["brief"]
+    if not led and own and own.get("summary"):
+        briefs.append(("", own))
+    if not role and not briefs and not crew:
         return ""
     lines = ["## Your standing brief"]
     if role:
         lines.append(f"Role: {role}")
-    if brief.get("summary"):
+    for name, brief in briefs[:4]:
         stamp = str(brief.get("at") or "")[:16].replace("T", " ")
-        lines.append(f"Last orientation ({stamp} UTC):\n{brief['summary']}")
-    from app.services.department_domain import agent_departments
-
-    dept = None
-    if brief.get("department_id"):
-        try:
-            dept = await session.get(Department, UUID(str(brief["department_id"])))
-        except ValueError:
-            dept = None
-    if dept is None:
-        led = [d for d, duty in await agent_departments(session, agent.tenant_id, agent.id) if duty == "primary"]
-        dept = led[0] if led else None
-    facts = domain_facts(dept)
+        where = f" of {name}" if name else ""
+        lines.append(f"Last orientation{where} ({stamp} UTC):\n{brief['summary']}")
+    facts = [(d.name, f) for d in led for f in domain_facts(d)]
     if facts:
         lines.append("Domain facts from the person accountable:")
-        lines.extend(f"- {f['question']} {f['answer']}" for f in facts[:20])
+        many = len({name for name, _ in facts}) > 1
+        lines.extend(
+            f"- {f'[{name}] ' if many else ''}{f['question']} {f['answer']}" for name, f in facts[:20]
+        )
+    if crew:
+        lines.append(crew)
     return "\n".join(lines)
 
 
+CREW_INSTRUCTION = (
+    "You pick up work that lands on these departments. Delegate down first: ask "
+    "the crew member or sub-department whose focus fits with ask_agent and keep "
+    "the conversation yourself; use handoff_to when it belongs with that "
+    "specialist; do it yourself only when nobody below is available or a person "
+    "asks you to. Ask the accountable person with ask_domain_question when a "
+    "rule of the department is unclear. Other departments' work belongs to "
+    "their point of contact: ask them, do not finish it."
+)
+
+
+async def crew_context(session: AsyncSession, agent: Agent, led: list[Any]) -> str:
+    """Who sits on each department this agent is the point of contact of, and how to delegate.
+
+    For the organization (the workspace lead) it lists each department's point
+    of contact instead of everyone in the workspace.
+    """
+    if not led:
+        return ""
+    from app.models.team import is_root_department
+    from app.services.teams import department_tree
+
+    tree = await department_tree(session, agent.tenant_id)
+    by_id = {row["id"]: row for row in tree}
+    blocks: list[str] = []
+    for dept in led:
+        row = by_id.get(str(dept.id))
+        if row is None:
+            continue
+        if is_root_department(dept):
+            heads = [
+                f"- {child['name']}: point of contact "
+                + (f"@[{child['contact']['name']}](agent:{child['contact']['id']})" if child["contact"] else "none")
+                for child in tree
+                if child["depth"] == 1
+            ]
+            if heads:
+                blocks.append(
+                    "Organization: you pick up what no department owns. Hand department "
+                    "work to its point of contact.\n" + "\n".join(heads)
+                )
+            continue
+        members = [
+            "- "
+            + (f"@[{m['name']}](agent:{m['id']})" if m["kind"] == "agent" else m["name"])
+            + {"accountable": " (accountable)", "contact": " (you)"}.get(m["role"], "")
+            + (f": {m['focus']}" if m.get("focus") else "")
+            for m in row["crew"]
+            if not (m["kind"] == "agent" and m["id"] == str(agent.id) and not m.get("focus"))
+        ]
+        children = [
+            f"- sub-department {child['mention']}: point of contact "
+            + (f"@[{child['contact']['name']}](agent:{child['contact']['id']})" if child["contact"] else "none")
+            for child in (by_id.get(cid) for cid in row.get("children", []))
+            if child is not None
+        ]
+        lines = members + children
+        blocks.append(f"{row['path']}:\n" + ("\n".join(lines) if lines else "- nobody else yet"))
+    if not blocks:
+        return ""
+    return "## Your crew\n" + CREW_INSTRUCTION + "\n" + "\n".join(blocks)
+
+
 async def awareness_view(session: AsyncSession, agent: Agent) -> dict[str, Any]:
-    """The wake stand as the agent page shows it. Not an agenda item."""
-    config = awareness_config(agent)
-    raw = _settings(agent).get("awareness")
+    """The wake stand of an agent as the agent page shows it. Not an agenda item."""
+    return await _view(session, agent, agent)
+
+
+async def department_awareness_view(session: AsyncSession, dept: Any) -> dict[str, Any]:
+    """The wake stand of a department, run by its point of contact (None when it has no agent)."""
+    from app.services.department_access import department_contact
+
+    contact, _implicit = await department_contact(session, dept.tenant_id, dept.id)
+    return await _view(session, dept, contact)
+
+
+async def _view(session: AsyncSession, owner: Any, agent: Agent | None) -> dict[str, Any]:
+    config = awareness_config(owner)
+    raw = _settings(owner).get("awareness")
     raw = raw if isinstance(raw, dict) else {}
     next_wake = str(raw.get("next_wake_at") or "") or None
     brief = config["brief"] or {}
     return {
-        "agent_id": str(agent.id),
-        "agent_name": agent.name,
-        "role": brief.get("role") or await role_line(session, agent),
+        "agent_id": str(agent.id) if agent else None,
+        "agent_name": agent.name if agent else None,
+        "role": brief.get("role") or (await role_line(session, agent) if agent else ""),
         "follows": config["follows"],
         "followable": list(FOLLOWABLE),
         "mode": config["mode"],
         "cron": config["cron"],
         "daily_cost_cents": config["daily_cost_cents"],
-        "spent_today_cents": await spent_today_cents(session, agent.tenant_id, agent.id),
+        "spent_today_cents": await spent_today_cents(session, agent.tenant_id, agent.id) if agent else 0,
         "max_proposals": config["max_proposals"],
         "cadence": config["cron"] if config["mode"] in {"daily", "custom"} else None,
         "next_wake_at": next_wake,
@@ -316,6 +423,7 @@ __all__ = [
     "aware_context",
     "awareness_config",
     "awareness_view",
+    "department_awareness_view",
     "event_window_key",
     "role_line",
     "set_awareness",

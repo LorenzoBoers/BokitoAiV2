@@ -34,6 +34,8 @@ PLATFORM_RESOURCE_TYPES = frozenset(
         "agent_rule",
         # Learned routing: questions on a topic go to the person who answers them.
         "routing_rule",
+        # Who sits on a department and who is its point of contact.
+        "department_crew",
     }
 )
 

@@ -10,6 +10,8 @@ import { ProjectDocs } from '../components/projects/ProjectDocs'
 import { ProjectFlowBoards } from '../components/projects/ProjectFlowBoards'
 import { WorksInSection } from '../components/projects/WorksInSection'
 import { Card } from '../components/ui/card'
+import { Callout } from '../components/ui/callout'
+import { SegmentedControl } from '../components/ui/segmented-control'
 import { PageHeader } from '../components/ui/page-header'
 import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
@@ -29,11 +31,14 @@ import { filterPlatformIcons, platformIcon } from '../lib/platform-icons'
 import { inboxPath } from '../lib/messages-paths'
 import { GRID_ICON } from '../lib/navigation'
 import { cn } from '../lib/utils'
+import { CrewBand, DepartmentCrewDialog, DepartmentPath, SubDepartments } from '../components/departments/DepartmentCrew'
 import {
   answerDomainQuestion,
   getDepartmentOverview,
+  getOrganizationOverview,
   patchDepartmentAwareness,
   patchTeam,
+  setOrgRules,
   type DepartmentAwareness,
   type DepartmentBottleneck,
   type DepartmentFlow,
@@ -160,34 +165,6 @@ function SectionCard({ title, hint, testId, children }: { title: string; hint?: 
       <SectionHeading title={title} description={hint} />
       {children}
     </Card>
-  )
-}
-
-/** Parent department, centered between the title and the tabs, with who sits on it. */
-function ParentBand({ parent }: { parent: DepartmentOverview['parent'] }) {
-  const { t } = useTranslation('nav')
-  if (!parent) return null
-  const name = parent.is_root ? t('departmentPage.rootName') : parent.name
-  return (
-    <div className="flex flex-col items-center gap-2 px-4 text-center" data-testid="department-parent">
-      <p className="text-sm font-semibold text-text-heading">{name}</p>
-      {parent.members.length === 0 ? (
-        <p className="text-xs text-text-muted">{t('departmentPage.parentEmpty')}</p>
-      ) : (
-        <ul className="flex max-w-3xl flex-wrap items-center justify-center gap-x-3 gap-y-2">
-          {parent.members.map((member) => (
-            <li key={`${member.kind}:${member.id}`} className="inline-flex items-center gap-1.5 text-xs text-text-secondary">
-              {member.kind === 'agent' ? (
-                <Avatar kind="agent" agent={member} fallbackName={member.name} size={24} decorative mode="static" />
-              ) : (
-                <Avatar kind="person" name={member.name} email={member.name} size={24} decorative />
-              )}
-              <span className="max-w-[9rem] truncate">{member.name}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   )
 }
 
@@ -419,22 +396,24 @@ function ChipRow({ label, items }: { label: string; items: Array<{ id: string; n
 
 function TeamCard({ data }: { data: DepartmentOverview }) {
   const { t } = useTranslation('nav')
+  const rows = [...data.crew, ...data.admins]
   return (
     <SectionCard title={t('departmentPage.team')} testId="department-team">
-      {data.members.length === 0 ? (
-        <EmptyState tone="plain" size="sm" className="py-4" title={t('departmentPage.reach.none')} />
+      {rows.length === 0 ? (
+        <EmptyState tone="plain" size="sm" className="py-4" title={t('departmentPage.crew.empty')} />
       ) : (
         <ul className="divide-y divide-border/50">
-          {data.members.map((member) => (
+          {rows.map((member) => (
             <li key={`${member.kind}:${member.id}`} className="flex items-center gap-2.5 py-2 text-sm">
               {member.kind === 'agent' ? (
-                <Avatar kind="agent" agent={{ id: member.id, name: member.name }} fallbackName={member.name} size={24} decorative mode="static" />
+                <Avatar kind="agent" agent={member} fallbackName={member.name} size={24} decorative mode="static" />
               ) : (
                 <Avatar kind="person" name={member.name} email={member.name} size={24} decorative />
               )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-text-primary">{member.name}</p>
                 <p className="truncate text-2xs text-text-muted">
+                  {member.focus ? `${member.focus} · ` : ''}
                   {member.kind === 'agent'
                     ? `${member.doing || t(`departmentPage.agentStatus.${member.status ?? 'standby'}`, { defaultValue: member.status ?? '' })}${
                         member.cost_cents ? ` · ${t('departmentPage.cost', { amount: euros(member.cost_cents) })}` : ''
@@ -444,8 +423,10 @@ function TeamCard({ data }: { data: DepartmentOverview }) {
                       }`}
                 </p>
               </div>
-              {member.duty !== 'member' ? (
-                <Badge size="sm">{t(`departmentPage.duty.${member.duty}`, { defaultValue: member.duty })}</Badge>
+              {member.workspace_role ? (
+                <Badge size="sm">{t(`departmentPage.crew.workspaceRole.${member.workspace_role}`)}</Badge>
+              ) : member.role !== 'member' ? (
+                <Badge size="sm">{t(`departmentPage.crew.role.${member.role}`)}</Badge>
               ) : null}
               {member.kind === 'user' ? <PresenceDot value={member.presence} /> : null}
             </li>
@@ -458,9 +439,11 @@ function TeamCard({ data }: { data: DepartmentOverview }) {
 
 function AllTab({
   data,
+  canEdit,
   onAnswer,
 }: {
   data: DepartmentOverview
+  canEdit: boolean
   onAnswer: (key: string, answer: string) => Promise<void>
 }) {
   const { t, i18n } = useTranslation('nav')
@@ -494,10 +477,20 @@ function AllTab({
         )}
       </SectionCard>
 
+      {data.children.length > 0 ? <SubDepartments data={data} canEdit={canEdit} /> : null}
+
       <FlowList flows={data.flows} empty={t('departmentPage.noFlows' /* design-system-ignore: doorgegeven aan een component dat EmptyState toont */)} />
       {data.flows.some((flow) => flow.scorecard) ? (
         <p className="-mt-3 text-2xs text-text-muted">{t('departmentPage.scorecardHint')}</p>
       ) : null}
+
+      <ProjectFlowBoards departmentId={data.id} canEdit={canEdit} />
+      <div className="max-w-md">
+        <ProjectAgendaCard departmentId={data.id} />
+      </div>
+      <WorksInSection departmentId={data.id} canEdit={false} />
+      <ProjectDocs departmentId={data.id} canEdit={canEdit} />
+      {data.children.length === 0 ? <SubDepartments data={data} canEdit={canEdit} /> : null}
 
       {data.proposals.length > 0 ? (
         <SectionCard title={t('departmentPage.proposals')} hint={t('departmentPage.proposalsHint')} testId="department-proposals">
@@ -613,8 +606,13 @@ function FolderTab({
   )
 }
 
-/** One department: who leads it, and its work across all folders or in one folder per tab. */
-export default function DepartmentPage() {
+/** The organization: the root of the department tree, in the same layout as a department. */
+export function OrganizationPage() {
+  return <DepartmentPage organization />
+}
+
+/** One department: its crew, the departments below, and its work across all folders or in one folder per tab. */
+export default function DepartmentPage({ organization = false }: { organization?: boolean }) {
   const { t } = useTranslation('nav')
   const { token } = useAuth()
   const isAdmin = useIsAdmin()
@@ -623,16 +621,17 @@ export default function DepartmentPage() {
   const [data, setData] = useState<DepartmentOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [crewOpen, setCrewOpen] = useState(false)
 
   const load = useCallback(async () => {
-    if (!token || !id) return
+    if (!token || (!organization && !id)) return
     try {
-      setData(await getDepartmentOverview(token, id))
+      setData(organization ? await getOrganizationOverview(token) : await getDepartmentOverview(token, id))
       setError(null)
     } catch (err) {
       setError(formatApiErrorMessage(err, t('departmentPage.loadError')))
     }
-  }, [token, id, t])
+  }, [token, id, organization, t])
 
   useEffect(() => {
     void load()
@@ -662,68 +661,76 @@ export default function DepartmentPage() {
       {!data && !error ? <CardGridSkeleton cards={3} /> : null}
       {data ? (
         <>
-          <PageHeader
-            className="mb-0"
-            icon={
-              <DepartmentIcon
-                icon={data.icon}
-                canEdit={isAdmin}
-                onPick={(icon) => guard(() => (token ? patchTeam(token, data.id, { icon }) : Promise.resolve()))}
-              />
-            }
-            title={data.name}
-            subtitle={
-              <>
-                <p>{data.description || t('departmentPage.subtitle')}</p>
-                {data.origin_module || data.autonomy ? (
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                    {data.autonomy ? (
-                      <Badge size="sm" data-testid="department-autonomy">
-                        {t(`orgCanvas.mode.${data.autonomy}`, { defaultValue: data.autonomy })}
-                      </Badge>
-                    ) : null}
-                    {data.origin_module ? (
-                      <Badge size="sm">{t('departmentPage.fromModule', { name: data.origin_module.name })}</Badge>
-                    ) : null}
-                  </div>
-                ) : null}
-              </>
-            }
-            actions={
-              data.grid_href ? (
-                <Button type="button" size="sm" variant="secondary" asChild>
-                  <Link to={data.grid_href} data-testid="open-in-grid">
-                    <GRID_ICON size={14} aria-hidden />
-                    <span>{t('orgCanvas.openInGrid')}</span>
-                  </Link>
+          <div className="space-y-2">
+            <DepartmentPath data={data} />
+            <PageHeader
+              className="mb-0"
+              icon={
+                <DepartmentIcon
+                  icon={data.icon}
+                  canEdit={isAdmin && !data.is_org}
+                  onPick={(icon) => guard(() => (token ? patchTeam(token, data.id, { icon }) : Promise.resolve()))}
+                />
+              }
+              title={
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  {data.name}
+                  {data.autonomy ? (
+                    <Badge size="sm" data-testid="department-autonomy">
+                      {t(`orgCanvas.mode.${data.autonomy}`, { defaultValue: data.autonomy })}
+                    </Badge>
+                  ) : null}
+                  {data.origin_module ? (
+                    <Badge size="sm">{t('departmentPage.fromModule', { name: data.origin_module.name })}</Badge>
+                  ) : null}
+                </span>
+              }
+              subtitle={
+                <p className="line-clamp-2">
+                  {data.description || (data.is_org ? t('departmentPage.orgSubtitle') : t('departmentPage.subtitle'))}
+                </p>
+              }
+              actions={
+                data.grid_href ? (
+                  <Button type="button" size="sm" variant="secondary" asChild>
+                    <Link to={data.grid_href} data-testid="open-in-grid">
+                      <GRID_ICON size={14} aria-hidden />
+                      <span>{t('orgCanvas.openInGrid')}</span>
+                    </Link>
+                  </Button>
+                ) : (
+                  <OpenInGridButton kind="department" id={data.id} />
+                )
+              }
+              primaryAction={
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="secondary"
+                  className="text-text-muted"
+                  aria-label={t('departmentPage.settings')}
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings size={16} aria-hidden />
                 </Button>
-              ) : (
-                <OpenInGridButton kind="department" id={data.id} />
-              )
-            }
-            primaryAction={
-              <Button
-                type="button"
-                size="icon"
-                variant="secondary"
-                className="px-0 text-text-muted"
-                aria-label={t('departmentPage.settings')}
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings size={16} aria-hidden />
-              </Button>
-            }
-          />
+              }
+            />
+          </div>
 
-          <ParentBand parent={data.parent} />
+          <CrewBand data={data} canEdit={isAdmin} onEdit={() => setCrewOpen(true)} />
+          {isAdmin ? (
+            <DepartmentCrewDialog data={data} open={crewOpen} onOpenChange={setCrewOpen} onSaved={() => void load()} />
+          ) : null}
 
           <Tabs value={tab} onValueChange={selectTab}>
             <TabsList>
               <TabsTrigger value={ALL}>
-                {t('departmentPage.tabAll')}
-                <span className="rounded-full bg-bg-elevated px-1.5 text-2xs tabular-nums text-text-muted">
-                  {data.totals.open + data.totals.waiting}
-                </span>
+                {t('departmentPage.tabOverview')}
+                {data.totals.open + data.totals.waiting > 0 ? (
+                  <span className="rounded-full bg-bg-elevated px-1.5 text-2xs tabular-nums text-text-muted">
+                    {data.totals.open + data.totals.waiting}
+                  </span>
+                ) : null}
               </TabsTrigger>
               {data.folders.map((folder) => (
                 <TabsTrigger key={folder.id} value={folder.id}>
@@ -738,6 +745,7 @@ export default function DepartmentPage() {
             <TabsContent value={ALL} className="pt-2">
               <AllTab
                 data={data}
+                canEdit={isAdmin}
                 onAnswer={(key, answer) =>
                   guard(() => (token ? answerDomainQuestion(token, data.id, key, answer) : Promise.resolve()))
                 }
@@ -753,10 +761,67 @@ export default function DepartmentPage() {
           <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
             <DialogContent className="max-h-[min(880px,92vh)] w-[calc(100%-2rem)] max-w-xl gap-0 overflow-hidden p-0">
               <DialogHeader className="border-b border-border px-5 py-4 pr-14 text-left">
-                <DialogTitle>{t('departmentPage.awareness.title')}</DialogTitle>
+                <DialogTitle>
+                  {data.awareness?.agent_name
+                    ? t('departmentPage.awareness.titleFor', { name: data.awareness.agent_name })
+                    : t('departmentPage.awareness.title')}
+                </DialogTitle>
                 <DialogDescription>{t('departmentPage.awareness.hint')}</DialogDescription>
               </DialogHeader>
-              <div className="max-h-[min(760px,calc(92vh-5.5rem))] overflow-y-auto px-5 py-4" data-testid="department-awareness">
+              <div className="max-h-[min(760px,calc(92vh-5.5rem))] space-y-4 overflow-y-auto px-5 py-4" data-testid="department-awareness">
+                {isAdmin && data.is_org ? (
+                  <div className="space-y-1.5" data-testid="organization-rules">
+                    <p className="text-sm font-medium text-text-heading">{t('departmentPage.orgRules.label')}</p>
+                    <SegmentedControl
+                      size="sm"
+                      value={data.org_rules ?? 'off'}
+                      aria-label={t('departmentPage.orgRules.label')}
+                      options={[
+                        { value: 'off', label: t('departmentPage.orgRules.off') },
+                        { value: 'on', label: t('departmentPage.orgRules.on') },
+                      ]}
+                      onChange={(mode) => guard(() => (token ? setOrgRules(token, mode) : Promise.resolve()))}
+                    />
+                    <p className="text-xs text-text-muted">{t('departmentPage.orgRules.hint')}</p>
+                  </div>
+                ) : null}
+                {isAdmin && !data.is_org ? (
+                  <div className="space-y-1.5" data-testid="department-visibility">
+                    <p className="text-sm font-medium text-text-heading">{t('departmentPage.visibility.label')}</p>
+                    <SegmentedControl
+                      size="sm"
+                      value={data.visibility}
+                      aria-label={t('departmentPage.visibility.label')}
+                      options={[
+                        { value: 'open', label: t('departmentPage.visibility.open') },
+                        { value: 'shielded', label: t('departmentPage.visibility.shielded') },
+                      ]}
+                      onChange={(visibility) =>
+                        guard(() => (token ? patchTeam(token, data.id, { visibility }) : Promise.resolve()))
+                      }
+                    />
+                    <p className="text-xs text-text-muted">{t('departmentPage.visibility.hint')}</p>
+                  </div>
+                ) : null}
+                {!data.awareness?.agent_id ? (
+                  <Callout tone="warning" title={t('departmentPage.awareness.pickContact')}>
+                    <p>{t('departmentPage.awareness.noLead')}</p>
+                    {isAdmin ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="mt-2"
+                        onClick={() => {
+                          setSettingsOpen(false)
+                          setCrewOpen(true)
+                        }}
+                      >
+                        {t('departmentPage.crew.edit')}
+                      </Button>
+                    ) : null}
+                  </Callout>
+                ) : null}
                 {data.awareness ? (
                   <AwarenessEditor
                     awareness={data.awareness}
@@ -765,9 +830,7 @@ export default function DepartmentPage() {
                       guard(() => (token ? patchDepartmentAwareness(token, data.id, patch) : Promise.resolve()))
                     }
                   />
-                ) : (
-                  <p className="text-sm text-text-secondary">{t('departmentPage.awareness.noLead')}</p>
-                )}
+                ) : null}
               </div>
             </DialogContent>
           </Dialog>

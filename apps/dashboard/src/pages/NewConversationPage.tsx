@@ -1261,7 +1261,7 @@ export default function NewConversationPage() {
                 }
                 leading={
                   <>
-                    <input
+                    <input // design-system-ignore: hidden file input opened by the attach button
                       ref={fileInputRef}
                       type="file"
                       multiple

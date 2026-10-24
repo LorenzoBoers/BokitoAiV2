@@ -64,6 +64,8 @@ export const GRID_PATH = '/workforce/grid' as const
 export const WORKFLOW_PATH = '/workforce/workflow' as const
 export const ORGANOGRAM_PATH = '/workforce/organogram' as const
 export const DEPARTMENTS_PATH = '/workforce?tab=departments' as const
+export const newSubDepartmentPath = (parentId: string) => `${DEPARTMENTS_PATH}&new=1&parent=${parentId}`
+export const ORGANIZATION_PATH = '/organisatie' as const
 export const CONNECTIONS_PATH = '/connections' as const
 export const AUTONOMY_PATH = '/settings/govern?tab=policy' as const
 

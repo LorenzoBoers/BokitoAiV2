@@ -13,11 +13,12 @@ import { publishLiveGlowPace } from '../lib/live-glow-pace'
 export { SMOOTH_STREAM, SMOOTH_STREAM_CPS, revealLimit, smoothStreamRate, streamRateJitter }
 
 /**
- * Smooths chunky SSE text into a constant character reveal.
+ * Smooths chunky SSE text into a per-frame reveal.
  *
  * One rAF loop for the life of the hook: growing `target` only fills the
- * buffer. The playhead never mirrors chunk size or timing. While `holdLead`
- * is set it pauses at the lead; when the stream ends it drains the rest.
+ * buffer. Each frame shows at least one grapheme while text is waiting, and
+ * never more than the frame cap, so a chunk cannot land at once and the
+ * caret cannot sit still on text that has already arrived.
  */
 export function useSmoothStreamText(
   target: string,

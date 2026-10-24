@@ -19,6 +19,9 @@ describe('extra crumbs', () => {
       { labelKey: 'crumbs.widgetInstall' },
     ])
     expect(extraCrumbsForPath('/connections')).toEqual([])
+    expect(extraCrumbsForPath('/connections/installed')).toEqual([
+      { labelKey: 'integrations.hubTabs.installed' },
+    ])
     expect(extraCrumbsForPath('/connections/accounting')).toEqual([{ labelKey: 'crumbs.moduleSetup' }])
     expect(extraCrumbsForPath('/knowledge/doc-1')).toEqual([{ labelKey: 'crumbs.document' }])
     expect(extraCrumbsForPath('/knowledge')).toEqual([])

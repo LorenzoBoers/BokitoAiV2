@@ -114,6 +114,98 @@ def test_inbound_worker_prompt_includes_the_filing_brief():
     assert source.count("{filing_context}") >= 3
 
 
+def test_tools_already_ran_lists_finished_tools():
+    from app.services.assistant_threads import _tools_already_ran
+
+    assert _tools_already_ran(
+        {
+            "activity": [
+                {"kind": "think", "status": "ok"},
+                {"tool": "file_ticket", "status": "ok"},
+                {"tool": "file_ticket", "status": "ok"},
+                {"tool": "get_ticket", "status": "running"},
+                {"tool": "set_thread_tags", "status": "error"},
+            ]
+        }
+    ) == ["file_ticket", "set_thread_tags"]
+
+
+@pytest.mark.asyncio
+async def test_signal_chat_history_mentions_tools_already_ran(session_override: AsyncSession):
+    import json
+
+    from app.models.agent import Agent
+    from app.services.assistant_threads import signal_chat_history
+
+    tenant = Tenant(slug="tools-hist", name="Tools hist")
+    session_override.add(tenant)
+    await session_override.commit()
+    agent = Agent(tenant_id=tenant.id, name="Lotty", slug="lotty-hist", is_active=True)
+    session_override.add(agent)
+    await session_override.commit()
+    thread = Signal(
+        tenant_id=tenant.id,
+        channel="internal",
+        source="test",
+        subject="Posts",
+        agent_id=agent.id,
+    )
+    session_override.add(thread)
+    await session_override.flush()
+    session_override.add(
+        SignalMessage(
+            signal_id=thread.id,
+            tenant_id=tenant.id,
+            kind="user_message",
+            direction="inbound",
+            role="user",
+            body_text="Voeg jij mij iets?",
+        )
+    )
+    session_override.add(
+        SignalMessage(
+            signal_id=thread.id,
+            tenant_id=tenant.id,
+            kind="agent_message",
+            direction="outbound",
+            role="assistant",
+            author_agent_id=agent.id,
+            body_text="Ik begrijp dat je iets wilt weten.",
+            metadata_json=json.dumps(
+                {
+                    "activity": [
+                        {"tool": "file_ticket", "status": "ok", "kind": "work"},
+                    ]
+                }
+            ),
+        )
+    )
+    await session_override.commit()
+
+    history = await signal_chat_history(session_override, thread.id, for_agent_id=agent.id)
+    assistant = [row for row in history if row["role"] == "assistant"]
+    assert assistant
+    assert "Tools already ran: file_ticket" in assistant[-1]["content"]
+    assert "Do not repeat them" in assistant[-1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_operator_filing_brief_does_not_demand_a_refile(session_override: AsyncSession):
+    from app.services.assistant_context import conversation_filing_brief
+
+    tenant = Tenant(slug="file-soft", name="File soft")
+    session_override.add(tenant)
+    await session_override.commit()
+    thread = await _make_customer_thread(session_override, tenant.id)
+    inbound = await conversation_filing_brief(session_override, thread)
+    operator = await conversation_filing_brief(session_override, thread, voice="operator")
+    assert "before any other filing" in inbound
+    assert "file_ticket" not in inbound
+    assert "Do not call file_ticket again" in operator
+    assert "before any other filing" not in operator
+    assert "Label with a flow: none" in operator
+
+
 @pytest.mark.asyncio
 async def test_assistant_history_prepends_thread_context(session_override: AsyncSession):
     tenant = Tenant(slug="ctx2", name="Ctx2")

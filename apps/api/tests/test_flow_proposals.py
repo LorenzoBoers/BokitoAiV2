@@ -165,9 +165,9 @@ async def test_unmatched_cluster_proposes_a_flow_for_the_department(client: Asyn
             select(SignalTag).where(SignalTag.tenant_id == tenant.id, SignalTag.name == made[0]["backlog_key"])
         )
     ).scalar_one()
-    flow = await session_override.get(Workstream, tag.workstream_id)
+    assert tag.workstream_id is not None
     team_id = (await session_override.get(Workstream, _flow.id)).department_id
-    assert flow.department_id == team_id
+    assert team_id is not None and tag.department_id == team_id
     await session_override.refresh(tenant)
     assert all(row["key"] != made[0]["backlog_key"] for row in read_backlog(tenant))
 

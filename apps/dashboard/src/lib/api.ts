@@ -482,8 +482,9 @@ export async function authTotpVerify(
 export type SignupParams = {
   email: string;
   password: string;
-  tenantSlug: string;
-  tenantName: string;
+  /** Set together to create the workspace in the same request. The public form omits both. */
+  tenantSlug?: string;
+  tenantName?: string;
   firstName?: string;
   lastName?: string;
   displayName?: string;
@@ -497,8 +498,8 @@ export async function authSignup(params: SignupParams): Promise<AuthSessionRespo
     body: JSON.stringify({
       email: params.email,
       password: params.password,
-      tenant_slug: params.tenantSlug,
-      tenant_name: params.tenantName,
+      tenant_slug: params.tenantSlug ?? '',
+      tenant_name: params.tenantName ?? '',
       first_name: params.firstName ?? '',
       last_name: params.lastName ?? '',
       display_name: params.displayName ?? '',

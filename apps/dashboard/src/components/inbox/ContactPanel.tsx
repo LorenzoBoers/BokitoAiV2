@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Pressable } from '../ui/pressable'
 import { Button } from '../ui/button'
+import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
@@ -387,8 +388,6 @@ export default function ContactPanel({
       {t('contactPanel.link')}
     </Button>
   ) : null
-  const inputClass =
-    'w-full rounded-md border border-border bg-bg-surface px-2 py-1 text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-accent/50'
   const linkForm =
     canLink && captureOpen ? (
       <form
@@ -399,7 +398,7 @@ export default function ContactPanel({
           void linkContact()
         }}
       >
-        <input
+        <Input
           type="text"
           value={captureIdentifier}
           onChange={(e) => {
@@ -408,14 +407,14 @@ export default function ContactPanel({
           }}
           placeholder={t('contactPanel.identifierPlaceholder')}
           autoFocus
-          className={inputClass}
+          aria-label={t('contactPanel.identifierPlaceholder')}
         />
-        <input
+        <Input
           type="text"
           value={captureName}
           onChange={(e) => setCaptureName(e.target.value)}
           placeholder={t('contactPanel.namePlaceholder')}
-          className={inputClass}
+          aria-label={t('contactPanel.namePlaceholder')}
         />
         {candidates.length > 0 ? (
           <div className="space-y-1">

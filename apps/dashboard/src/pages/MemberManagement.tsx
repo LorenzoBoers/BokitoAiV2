@@ -2,9 +2,9 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Link } from 'react-router-dom'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, Link2, MailPlus, RotateCcw, Send, Store, Trash2, UserMinus } from 'lucide-react'
+import { Check, ChevronDown, Link2, MailPlus, RotateCcw, Send, Trash2, UserMinus } from 'lucide-react'
 import { Avatar } from '../components/ui/avatar'
-import { agentProfileAccentColor, resolveAgentAvatarColor, type AgentAvatarSource } from '../lib/agent-avatar'
+import { agentProfileAccentColor, resolveAgentAvatarColor } from '../lib/agent-avatar'
 import {
   type OverviewAgent,
   type PresenceStatus,
@@ -17,7 +17,7 @@ import { appScopedDelete, appScopedGet, appScopedPatch, appScopedPost } from '..
 import { archiveAgent, restoreAgent } from '../lib/workforce-api'
 import { normalizeAutonomy, saveAgentRules, type AutonomyMode } from '../lib/agent-rules-api'
 import { agentAutonomyLevelLabel } from '../lib/labels'
-import { presenceBadgeVariant, presenceLabel, asAgentStatus } from '../lib/presence'
+import { asAgentStatus } from '../lib/presence'
 import { formatAppDate } from '../lib/app-locale'
 import { inviteMailFeedback } from '../lib/invite-feedback'
 import { isLikelyEmail } from '../lib/invite-email'
@@ -48,7 +48,6 @@ import {
 } from '../components/ui/select'
 import { seenToIso } from '../components/inbox/IdentitySeenLine'
 import { agentFunctionLabel } from '../lib/workforce-nav-agents'
-import { connectionsPathWithKind } from '../lib/integration-kind-url'
 import { timeAgo } from '../lib/time-ago'
 
 // Canonical roles: backend memberships are owner | admin | member.
@@ -84,36 +83,30 @@ type Invite = {
   id: string
   email: string
   role: MemberRole
+  scope: MemberScope
   invitedBy: string
   invitedAt: string | null
   inviteLink: string | null
+}
+
+const COL_ROLE = 'flex w-[130px] justify-end'
+const COL_SCOPE = 'flex w-40 justify-end'
+const COL_HOURS = 'flex w-[6.5rem] justify-end'
+
+function ScopeCell({ text }: { text: string }) {
+  return (
+    <span className={COL_SCOPE} data-testid="member-scope">
+      <span className="max-w-full truncate text-xs text-text-secondary" title={text}>
+        {text}
+      </span>
+    </span>
+  )
 }
 
 // Owner is assigned via the member row controls, not via invites.
 const MEMBER_ROLE_VALUES: MemberRole[] = ['owner', 'admin', 'member']
 const INVITE_ROLE_VALUES: MemberRole[] = ['admin', 'member']
 const CEILING_MODES: AutonomyMode[] = ['manual', 'assisted', 'autonomous']
-
-/** Showcase orb pool for the hire-agents banner (pick four at random per visit). */
-const MARKETPLACE_BANNER_POOL: AgentAvatarSource[] = [
-  { name: 'Nova', avatar_kind: 'orb', avatar_color: '#9159fe', avatar_shape: 'bokito' },
-  { name: 'Atlas', avatar_kind: 'orb', avatar_color: '#1084fe', avatar_shape: 'blob' },
-  { name: 'Kai', avatar_kind: 'orb', avatar_color: '#00c972', avatar_shape: 'pebble' },
-  { name: 'Mira', avatar_kind: 'orb', avatar_color: '#ff6700', avatar_shape: 'squircle' },
-  { name: 'Rio', avatar_kind: 'orb', avatar_color: '#ff309b', avatar_shape: 'hex' },
-  { name: 'Sky', avatar_kind: 'orb', avatar_color: '#00bca6', avatar_shape: 'capsule' },
-  { name: 'Leo', avatar_kind: 'orb', avatar_color: '#ff9800', avatar_shape: 'egg' },
-  { name: 'Ada', avatar_kind: 'orb', avatar_color: '#ff263c', avatar_shape: 'crystal' },
-]
-
-function pickMarketplaceBannerAgents(count = 4): AgentAvatarSource[] {
-  const pool = [...MARKETPLACE_BANNER_POOL]
-  for (let i = pool.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[pool[i], pool[j]] = [pool[j], pool[i]]
-  }
-  return pool.slice(0, count)
-}
 
 function asRole(value: unknown): MemberRole {
   const normalized = typeof value === 'string' ? value.toLowerCase() : ''
@@ -160,6 +153,7 @@ function mapInviteRow(item: unknown, unknownLabel: string): Invite | null {
     id: String(id),
     email,
     role: asRole(row.role),
+    scope: row.scope === 'departments' ? 'departments' : 'workspace',
     invitedBy:
       typeof row.invited_by_name === 'string'
         ? row.invited_by_name
@@ -193,7 +187,6 @@ export default function MemberManagement({
   onChanged?: () => void
 } = {}) {
   const { t, i18n } = useTranslation('nav')
-  const { t: tCommon } = useTranslation('common')
   const { user, token, hasPermission } = useAuth()
   const { currentWorkspace, workspaceLoading } = useWorkspace()
   const confirm = useConfirm()
@@ -219,9 +212,9 @@ export default function MemberManagement({
 
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<MemberRole>('member')
+  const [inviteScope, setInviteScope] = useState<MemberScope>('workspace')
   const [inviteLoading, setInviteLoading] = useState(false)
   const [roleMatrixOpen, setRoleMatrixOpen] = useState(false)
-  const [marketplaceBannerAgents] = useState(() => pickMarketplaceBannerAgents(4))
   const [copiedInviteId, setCopiedInviteId] = useState<string | null>(null)
   const [rowBusyId, setRowBusyId] = useState<string | null>(null)
   // null = unknown (still loading / request failed); only an explicit false
@@ -337,13 +330,19 @@ export default function MemberManagement({
     try {
       const result = await appScopedPost(
         appRoutes.workspaceInvites.create,
-        { workspace_id: workspaceId, email, role: inviteRole },
+        {
+          workspace_id: workspaceId,
+          email,
+          role: inviteRole,
+          scope: inviteRole === 'member' ? inviteScope : 'workspace',
+        },
         token,
       )
       await reload()
       await notifyInviteResult(email, result)
       setInviteEmail('')
       setInviteRole('member')
+      setInviteScope('workspace')
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : t('membersPage.inviteError'))
     } finally {
@@ -391,20 +390,6 @@ export default function MemberManagement({
       await reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : t('membersPage.revokeError'))
-    } finally {
-      setRowBusyId(null)
-    }
-  }
-
-  const changeMemberScope = async (member: Member, scope: MemberScope) => {
-    if (!token || !workspaceId || member.scope === scope || !canEditMemberRow(member)) return
-    setRowBusyId(member.id)
-    setError(null)
-    try {
-      await appScopedPatch(appRoutes.workspaces.member(workspaceId, member.uuid ?? member.id), { scope }, token)
-      await reload()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('membersPage.roleError'))
     } finally {
       setRowBusyId(null)
     }
@@ -637,7 +622,15 @@ export default function MemberManagement({
             disabled={!canInviteMembers || !workspaceId || inviteLoading}
             className="min-w-[12rem] flex-1"
           />
-          <Select value={inviteRole} onValueChange={(value) => setInviteRole(asRole(value))} disabled={!canInviteMembers}>
+          <Select
+            value={inviteRole}
+            onValueChange={(value) => {
+              const role = asRole(value)
+              setInviteRole(role)
+              if (role !== 'member') setInviteScope('workspace')
+            }}
+            disabled={!canInviteMembers}
+          >
             <SelectTrigger className="w-[140px] shrink-0">
               <SelectValue placeholder={t('membersPage.role')} />
             </SelectTrigger>
@@ -649,6 +642,24 @@ export default function MemberManagement({
               ))}
             </SelectContent>
           </Select>
+          {inviteRole === 'member' ? (
+            <Select
+              value={inviteScope}
+              onValueChange={(value) => setInviteScope(value === 'departments' ? 'departments' : 'workspace')}
+              disabled={!canInviteMembers}
+            >
+              <SelectTrigger className="w-[150px] shrink-0" aria-label={t('membersPage.colScope')} data-testid="invite-scope">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MEMBER_SCOPES.map((scope) => (
+                  <SelectItem key={scope} value={scope}>
+                    {t(`membersPage.scopes.${scope}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
           <Button type="button" variant="secondary" className="shrink-0" onClick={() => setRoleMatrixOpen(true)}>
             {t('membersPage.roleMatrixTitle')}
             <ChevronDown size={14} className="text-text-muted" />
@@ -700,30 +711,6 @@ export default function MemberManagement({
         </DialogContent>
       </Dialog>
 
-      <Card
-        id="agent-marketplace"
-        className="relative overflow-hidden p-0 scroll-mt-24"
-        data-testid="agent-marketplace-banner"
-      >
-        <div className="relative z-[1] flex flex-wrap items-center gap-4 px-5 py-4 sm:gap-6">
-          <div className="flex items-center gap-1.5" aria-hidden>
-            {marketplaceBannerAgents.map((agent, index) => (
-              <Avatar kind="agent" key={agent.name ?? index} agent={agent} size={40} decorative mode="static" />
-            ))}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-text-heading">{t('membersPage.hireAgentsTitle')}</p>
-            <p className="mt-0.5 text-xs text-text-muted">{t('membersPage.hireAgentsBody')}</p>
-          </div>
-          <Button asChild variant="default" className="shrink-0">
-            <Link to={connectionsPathWithKind('modules')}>
-              <Store size={14} />
-              {t('membersPage.hireAgentsCta')}
-            </Link>
-          </Button>
-        </div>
-      </Card>
-
       <Card id="directory" className="overflow-hidden p-0 scroll-mt-24">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 pt-3 pb-0">
           <Tabs value={filterTab} onValueChange={(value) => setFilterTab(value as FilterTab)}>
@@ -748,6 +735,17 @@ export default function MemberManagement({
             />
           </div>
         </div>
+
+        {!loading && filteredRows.length > 0 ? (
+          <div className="flex items-center gap-3 border-b border-border px-4 py-2 text-2xs text-text-muted">
+            <span className="min-w-0 flex-1">{t('membersPage.colName')}</span>
+            <span className="flex shrink-0 items-center gap-2">
+              <span className="w-[130px] truncate text-end" title={t('membersPage.colRoleOrCeiling')}>{t('membersPage.colRoleOrCeiling')}</span>
+              <span className="w-40 text-end">{t('membersPage.colScope')}</span>
+              <span className="w-[6.5rem] text-end">{t('membersPage.colHours')}</span>
+            </span>
+          </div>
+        ) : null}
 
         <EntityList
           className="px-1 py-1"
@@ -820,7 +818,7 @@ export default function MemberManagement({
                   badges={m.isCurrentUser ? <Badge variant="neutral">{t('membersPage.you')}</Badge> : null}
                   description={[
                     m.email,
-                    meta?.teams.length ? meta.teams.join(', ') : null,
+                    m.scope === 'workspace' && meta?.teams.length ? meta.teams.join(', ') : null,
                     meta ? t('teamPage.openCount', { count: meta.openOwned }) : null,
                     meta?.openTurn ? t('teamPage.turnCount', { count: meta.openTurn }) : null,
                     lastActiveLabel(meta?.lastSeenAt),
@@ -857,77 +855,55 @@ export default function MemberManagement({
                   }
                   trailing={
                     <>
-                      <div className="flex w-[150px] flex-col items-end">
+                      <span className={COL_ROLE}>
                         {canEditMemberRow(m) && m.isActive ? (
-                            <Select
-                              value={m.role}
-                              onValueChange={(value) => void changeMemberRole(m, asRole(value))}
-                              disabled={busy}
-                            >
-                              <SelectTrigger className="h-7 w-[110px] text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {roleOptionsFor(m).map((role) => (
-                                  <SelectItem key={role} value={role}>
-                                    {t(`membersPage.roles.${role}`)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge variant={roleTone(m.role)}>{t(`membersPage.roles.${m.role}`)}</Badge>
-                          )}
-                          {m.role === 'member' && canEditMemberRow(m) && m.isActive ? (
-                            <Select
-                              value={m.scope}
-                              onValueChange={(value) => void changeMemberScope(m, value as MemberScope)}
-                              disabled={busy}
-                            >
-                              <SelectTrigger
-                                className="mt-1 h-7 w-[150px] text-xs"
-                                aria-label={t('membersPage.scopeLabel')}
-                                data-testid="member-scope"
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {MEMBER_SCOPES.map((scope) => (
-                                  <SelectItem key={scope} value={scope}>
-                                    {t(`membersPage.scopes.${scope}`)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : m.scope === 'departments' ? (
-                            <p className="mt-1 text-2xs text-text-muted">{t('membersPage.scopes.departments')}</p>
-                          ) : null}
-                          {canEditMemberRow(m) && m.isActive ? (
-                            <Input
-                              key={`${m.id}-${m.hoursPerWeek ?? ''}`}
-                              type="number"
-                              min={0}
-                              max={80}
-                              defaultValue={m.hoursPerWeek ?? ''}
-                              placeholder={t('membersPage.hoursPlaceholder')}
-                              aria-label={t('membersPage.hoursLabel')}
-                              className="mt-1 h-7 w-[150px] text-xs"
-                              disabled={busy}
-                              onBlur={(e) => void changeMemberHours(m, e.currentTarget.value)}
-                              data-testid="member-hours"
-                            />
-                          ) : null}
-                      </div>
-                      <span className="flex w-28 justify-end">
-                        {m.isActive ? (
-                          <Badge variant={presenceBadgeVariant(meta?.presence ?? 'offline')}>
-                            {presenceLabel(meta?.presence ?? 'offline', tCommon)}
-                          </Badge>
+                          <Select
+                            value={m.role}
+                            onValueChange={(value) => void changeMemberRole(m, asRole(value))}
+                            disabled={busy}
+                          >
+                            <SelectTrigger className="h-7 w-full text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {roleOptionsFor(m).map((role) => (
+                                <SelectItem key={role} value={role}>
+                                  {t(`membersPage.roles.${role}`)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
-                          <Badge variant={presenceBadgeVariant('deactivated')}>
-                            {presenceLabel('deactivated', tCommon)}
-                          </Badge>
+                          <Badge variant={roleTone(m.role)}>{t(`membersPage.roles.${m.role}`)}</Badge>
                         )}
+                      </span>
+                      <ScopeCell
+                        text={
+                          m.role !== 'member' || m.scope === 'workspace'
+                            ? t('membersPage.scopes.workspace')
+                            : meta?.teams.length
+                              ? meta.teams.join(', ')
+                              : t('membersPage.scopes.departments')
+                        }
+                      />
+                      <span className={COL_HOURS}>
+                        {canEditMemberRow(m) && m.isActive ? (
+                          <Input
+                            key={`${m.id}-${m.hoursPerWeek ?? ''}`}
+                            type="number"
+                            min={0}
+                            max={80}
+                            defaultValue={m.hoursPerWeek ?? ''}
+                            placeholder={t('membersPage.hoursPlaceholder')}
+                            aria-label={t('membersPage.hoursLabel')}
+                            className="h-7 w-full text-xs"
+                            disabled={busy}
+                            onBlur={(e) => void changeMemberHours(m, e.currentTarget.value)}
+                            data-testid="member-hours"
+                          />
+                        ) : m.hoursPerWeek != null ? (
+                          <span className="text-xs text-text-muted">{m.hoursPerWeek}</span>
+                        ) : null}
                       </span>
                     </>
                   }
@@ -988,12 +964,17 @@ export default function MemberManagement({
                   }
                   trailing={
                     <>
-                      <span className="flex w-[150px] justify-end">
+                      <span className={COL_ROLE}>
                         <Badge variant={roleTone(inv.role)}>{t(`membersPage.roles.${inv.role}`)}</Badge>
                       </span>
-                      <span className="flex w-28 justify-end">
-                        <Badge variant="warning">{t('membersPage.statusPending')}</Badge>
-                      </span>
+                      <ScopeCell
+                        text={t(
+                          inv.scope === 'departments'
+                            ? 'membersPage.scopes.departments'
+                            : 'membersPage.scopes.workspace',
+                        )}
+                      />
+                      <span className={COL_HOURS} />
                     </>
                   }
                 />
@@ -1027,7 +1008,6 @@ export default function MemberManagement({
                       {agentFunctionLabel(agent, t)}
                     </span>
                     {[
-                      teams.length ? teams.join(', ') : null,
                       t('teamPage.openCount', { count: agent.open_owned }),
                       lastActiveLabel(agent.last_active_at),
                     ]
@@ -1066,41 +1046,32 @@ export default function MemberManagement({
                 }
                 trailing={
                   <>
-                    <span className="flex w-[150px] justify-end">
-                          {canManageMembers && !deactivated ? (
-                            <Select
-                              value={normalizeAutonomy(agent.autonomy_level)}
-                              onValueChange={(value) => void changeAgentCeiling(agent, value as AutonomyMode)}
-                              disabled={busy}
-                            >
-                              <SelectTrigger className="h-7 w-[130px] text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {CEILING_MODES.map((mode) => (
-                                  <SelectItem key={mode} value={mode}>
-                                    {t(`teamPage.ceiling.${mode}`)}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Badge variant="neutral">
-                              {agentAutonomyLevelLabel(agent.autonomy_level, t)}
-                            </Badge>
-                          )}
-                    </span>
-                    <span className="flex w-28 justify-end">
-                      {deactivated ? (
-                        <Badge variant={presenceBadgeVariant('deactivated')}>
-                          {presenceLabel('deactivated', tCommon)}
-                        </Badge>
+                    <span className={COL_ROLE}>
+                      {canManageMembers && !deactivated ? (
+                        <Select
+                          value={normalizeAutonomy(agent.autonomy_level)}
+                          onValueChange={(value) => void changeAgentCeiling(agent, value as AutonomyMode)}
+                          disabled={busy}
+                        >
+                          <SelectTrigger className="h-7 w-full text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CEILING_MODES.map((mode) => (
+                              <SelectItem key={mode} value={mode}>
+                                {t(`teamPage.ceiling.${mode}`)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
-                        <Badge variant={presenceBadgeVariant(agentStatus)}>
-                          {presenceLabel(agentStatus, tCommon)}
+                        <Badge variant="neutral">
+                          {agentAutonomyLevelLabel(agent.autonomy_level, t)}
                         </Badge>
                       )}
                     </span>
+                    <ScopeCell text={teams.length ? teams.join(', ') : '—'} />
+                    <span className={COL_HOURS} />
                   </>
                 }
               />

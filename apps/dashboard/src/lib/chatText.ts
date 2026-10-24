@@ -291,7 +291,51 @@ export function splitTagLedInline(inline: ChatInline[]): {
   return { tag: first, rest }
 }
 
-export function parseChatText(
+/** A list marker on the line that is still growing. Bare `-` / `1.` count, so the row indents before the space and does not pass through a plain paragraph. A lone `*` stays prose (italic). */
+function openListMarker(line: string): { ordered: boolean; body: string } | null {
+  if (RULE_RE.test(line) || TABLE_SEP_RE.test(line)) return null
+  const star = /^\s*\*\s+(.*)$/.exec(line)
+  if (star) return { ordered: false, body: star[1] }
+  const bullet = /^\s*[-+](?:\s+(.*))?$/.exec(line)
+  if (bullet) return { ordered: false, body: bullet[1] ?? '' }
+  const ordered = /^\s*\d+[.)](?:\s+(.*))?$/.exec(line)
+  if (ordered) return { ordered: true, body: ordered[1] ?? '' }
+  return null
+}
+
+function fenceIsOpen(text: string): boolean {
+  let open = false
+  for (const line of text.split('\n')) {
+    if (/^\s*```/.test(line)) open = !open
+  }
+  return open
+}
+
+function appendOpenLine(
+  blocks: ChatBlock[],
+  open: string,
+  opts: { streaming?: boolean; tags?: ChatTagMap },
+  separated: boolean,
+): ChatBlock[] {
+  if (!open || RULE_RE.test(open) || TABLE_SEP_RE.test(open)) return blocks
+  const marker = openListMarker(open)
+  if (marker) {
+    const item = parseChatInline(marker.body, opts)
+    const last = blocks[blocks.length - 1]
+    if (!separated && last?.type === 'list' && last.ordered === marker.ordered) {
+      last.items.push(item)
+      return blocks
+    }
+    blocks.push({ type: 'list', ordered: marker.ordered, items: [item] })
+    return blocks
+  }
+  // Headings, quotes and tables commit on the newline. Until then the line
+  // only grows, so its size and indent do not change mid-line.
+  blocks.push({ type: 'line', inline: parseChatInline(open, opts) })
+  return blocks
+}
+
+function parseChatBlocks(
   text: string,
   opts: { streaming?: boolean; tags?: ChatTagMap } = {},
 ): ChatBlock[] {
@@ -368,6 +412,24 @@ export function parseChatText(
   }
   while (blocks.length && blocks[blocks.length - 1].type === 'gap') blocks.pop()
   return blocks
+}
+
+export function parseChatText(
+  text: string,
+  opts: { streaming?: boolean; tags?: ChatTagMap } = {},
+): ChatBlock[] {
+  const normalized = (text || '').replace(/\r\n/g, '\n')
+  // Completed lines become blocks. The last line, still without its newline,
+  // grows in place: a list item stays inside the list, everything else stays
+  // a plain line until the newline commits the heading, quote or table.
+  if (opts.streaming && normalized.length > 0 && !normalized.endsWith('\n') && !fenceIsOpen(normalized)) {
+    const nl = normalized.lastIndexOf('\n')
+    const committed = nl < 0 ? '' : normalized.slice(0, nl + 1)
+    const open = nl < 0 ? normalized : normalized.slice(nl + 1)
+    const blocks = parseChatBlocks(committed, opts)
+    return appendOpenLine(blocks, open, opts, committed.endsWith('\n\n'))
+  }
+  return parseChatBlocks(normalized, opts)
 }
 
 /** Icon hint for app-path link pills. */

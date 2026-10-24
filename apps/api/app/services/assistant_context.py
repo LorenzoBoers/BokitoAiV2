@@ -68,8 +68,9 @@ PLATFORM_SHAPE = (
     "where work on one subject is filed: a client, a job, a case. Folders nest. A folder "
     "is not a department. Which folders exist, or storing work in a map, is "
     "list_folders — never list_departments. A **department** (Afdeling) is a group of "
-    "people and agents. list_departments returns only those groups, including All people "
-    "and All agents. Never call a department a folder or a map. "
+    "people and agents with one point of contact (Aanspreekpunt) that picks up its work; "
+    "departments form a tree under the organization. list_departments returns only those "
+    "groups. Never call a department a folder or a map. "
     "A folder's **Works in** lists where that work is done: board, files "
     "and canvases in Bokito, and connections such as a repository, a Drive folder or an "
     "accounting package. What a conversation produced shows as **Delivered** in the "
@@ -147,8 +148,15 @@ def _hash_list(names: list[str]) -> str:
     return ", ".join(n.lstrip("#") for n in cleaned) if cleaned else "none"
 
 
-async def conversation_filing_brief(session: AsyncSession, signal) -> str:
-    """Labels, the flow label and the folder currently on one conversation."""
+async def conversation_filing_brief(
+    session: AsyncSession, signal, *, voice: str = "inbound"
+) -> str:
+    """Labels, the flow label and the folder currently on one conversation.
+
+    ``inbound`` tells the agent to correct a wrong label before other filing.
+    ``operator`` only states what is already there, so a chat turn does not
+    re-file the same label.
+    """
     from app.services.folders import (
         effective_tag_ids,
         inherited_tag_names,
@@ -170,12 +178,21 @@ async def conversation_filing_brief(session: AsyncSession, signal) -> str:
         action = f"{str(ticket.get('name') or '').lstrip('#')} in flow {flow}, stage {stage}"
     else:
         action = "none"
-    return (
+    facts = (
         "## Filing on this conversation\n"
         f"Free labels on this conversation: {_hash_list(own)}\n"
         f"Inherited from the contact or company (not removable here): {_hash_list(inherited)}\n"
         f"Label with a flow: {action}\n"
         f"Folder: {folder or 'none'}\n"
+    )
+    if voice == "operator":
+        return facts + (
+            "This is already on the conversation. "
+            "Do not call file_ticket again when that label with a flow is already set. "
+            "Change labels or the stage only when this turn asks you to. "
+            "Do not treat the folder name as proof of the kind of work."
+        )
+    return facts + (
         "If a label or folder does not fit the message, say so and correct this "
         "conversation's own free labels with set_thread_tags before any other filing "
         "action. If the folder is wrong, take that free label off before "

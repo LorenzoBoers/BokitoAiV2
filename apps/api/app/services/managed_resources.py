@@ -1,7 +1,7 @@
 """Pack/stack agent reconcile: create and patch without silent un-archive.
 
-Callers identify agents by slug. Module affiliation lives on origin department
-/ ModuleAgent / department membership. When an operator archives a pack agent,
+Callers identify agents by slug. Module affiliation lives on the origin
+department (pack slug ``module-{slug}``). When an operator archives a pack agent,
 reconcile proposes a PlatformChange (Decision) instead of reactivating.
 """
 
@@ -85,7 +85,6 @@ async def affiliations_by_agent_id(
     agents: list[Agent],
 ) -> dict[UUID, dict[str, Any]]:
     """Resolve module / department place for pack agents (batch)."""
-    from app.models.module_agent import ModuleAgent
     from app.models.team import Department
     from app.modules.catalog import MODULE_BY_SLUG
 
@@ -93,31 +92,13 @@ async def affiliations_by_agent_id(
     if not agents:
         return out
 
-    agent_ids = [agent.id for agent in agents]
-    roster_rows = list(
-        (
-            await session.execute(
-                select(ModuleAgent).where(
-                    ModuleAgent.tenant_id == tenant_id,
-                    ModuleAgent.agent_id.in_(agent_ids),
-                )
-            )
-        ).scalars().all()
-    )
-    roster_by_agent: dict[UUID, ModuleAgent] = {}
-    for row in sorted(roster_rows, key=lambda r: (not r.is_default, r.created_at or datetime.min)):
-        roster_by_agent.setdefault(row.agent_id, row)
-
     slug_hint: dict[UUID, str] = {}
     for agent in agents:
         slug = (agent.slug or "").strip()
         if slug.startswith("module-") and len(slug) > 7:
             slug_hint[agent.id] = slug[7:]
 
-    module_slugs = {
-        *(row.module_slug for row in roster_by_agent.values()),
-        *slug_hint.values(),
-    }
+    module_slugs = set(slug_hint.values())
     origin_depts: dict[str, Department] = {}
     if module_slugs:
         for row in (
@@ -133,12 +114,7 @@ async def affiliations_by_agent_id(
                 origin_depts[row.origin_module_slug] = row
 
     for agent in agents:
-        module_slug = None
-        roster = roster_by_agent.get(agent.id)
-        if roster is not None:
-            module_slug = roster.module_slug
-        elif agent.id in slug_hint:
-            module_slug = slug_hint[agent.id]
+        module_slug = slug_hint.get(agent.id)
 
         if module_slug:
             module = MODULE_BY_SLUG.get(module_slug)
@@ -158,7 +134,7 @@ async def affiliations_by_agent_id(
             }
             continue
 
-        # Stack packs (e.g. Trading) use settings origin_label without a module roster.
+        # Stack packs (e.g. Trading) use settings origin_label.
         label = origin_label(agent)
         if label:
             out[agent.id] = {

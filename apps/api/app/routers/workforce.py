@@ -75,6 +75,8 @@ class AgentUpdateBody(BaseModel):
     call_voice: str | None = None
     call_speed: float | None = None
     call_language: str | None = None
+    # Voice quality: current | top | inherit (empty string clears to Ops default).
+    call_voice_model: str | None = None
 
 
 class VoicePreviewBody(BaseModel):
@@ -82,6 +84,8 @@ class VoicePreviewBody(BaseModel):
     speed: float = 1
     language: str = "nl"
     name: str = ""
+    # Optional quality tier for the sample (current | top).
+    voice_model: str | None = None
 
 
 class TriggerAgentBody(BaseModel):
@@ -296,19 +300,27 @@ async def create_agent(
 async def preview_agent_voice(
     body: VoicePreviewBody,
     auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ):
     """Play a sample of an agent's voice. Does not change the agent."""
     from app.services.agent_calls import calls_enabled
     from app.services.agent_call_voice import preview_call_voice
+    from app.services.voice_models import models_for_tier, normalize_tier, resolve_voice_models
 
     if not calls_enabled():
         raise HTTPException(status_code=404, detail="Not found")
     auth.require_role("owner", "admin")
+    tier = normalize_tier(body.voice_model)
+    if tier:
+        tts_model = models_for_tier(tier)["tts_model"]
+    else:
+        tts_model = (await resolve_voice_models(session))["tts_model"]
     audio = await preview_call_voice(
         voice=body.voice,
         speed=body.speed,
         language=body.language,
         name=body.name,
+        tts_model=tts_model,
     )
     return Response(content=audio, media_type="audio/mpeg")
 
@@ -345,6 +357,7 @@ async def update_agent(
         call_voice=body.call_voice,
         call_speed=body.call_speed,
         call_language=body.call_language,
+        call_voice_model=body.call_voice_model,
     )
     from app.services.audit import record_audit
 
@@ -708,7 +721,7 @@ async def patch_agent_lead(
         resource_type="agent",
         resource_id=agent_id,
     )
-    return {"ok": True, "agent": svc.serialize_agent(agent, view="runtime")}
+    return {"ok": True, "agent": svc.serialize_agent(agent, view="runtime", is_lead=True)}
 
 
 @router.patch("/agents/{agent_id}/model")

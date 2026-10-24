@@ -280,11 +280,20 @@ async def _access_token(
         return None if force_refresh else (token or None)
     try:
         refreshed = await oauth_providers.refresh_access_token(conn.provider, refresh_token=refresh)
-    except Exception:
-        logger.warning("calendar token refresh failed provider=%s conn=%s", conn.provider, conn.id)
-        return None if force_refresh else (token or None)
+    except Exception as exc:
+        # A dead refresh token will never heal on the next cron tick. Mark
+        # reconnect once so sync_connection can skip until the operator signs in.
+        logger.warning(
+            "calendar token refresh failed provider=%s conn=%s: %s",
+            conn.provider,
+            conn.id,
+            exc,
+        )
+        await _mark(session, conn, "reconnect", RECONNECT_MESSAGE)
+        return None
     if not refreshed.get("access_token"):
-        return None if force_refresh else (token or None)
+        await _mark(session, conn, "reconnect", RECONNECT_MESSAGE)
+        return None
     creds["access_token"] = refreshed["access_token"]
     if refreshed.get("refresh_token"):
         creds["refresh_token"] = refreshed["refresh_token"]
@@ -777,6 +786,11 @@ async def sync_connection(
         return {"connection_id": str(conn.id), "synced": 0, "status": "skipped"}
     if conn.status != "active":
         return {"connection_id": str(conn.id), "synced": 0, "status": "inactive"}
+
+    # Do not re-hit Google/Outlook every 15 minutes when the account already
+    # needs a fresh sign-in. Cached events stay; reconnect clears this flag.
+    if _parse_json(conn.metadata_json).get("sync_status") == "reconnect":
+        return {"connection_id": str(conn.id), "synced": 0, "status": "reconnect"}
 
     from app.services.crypto import get_connection_credentials
 
@@ -1357,9 +1371,9 @@ async def default_access_entries(
 ) -> list[dict[str, str]]:
     """New calendars are personal: the person who connected manages them and
     All may use them. Owners and admins always manage."""
-    from app.services.teams import ensure_all_department
+    from app.services.teams import ensure_org_root
 
-    root = await ensure_all_department(session, tenant_id)
+    root = await ensure_org_root(session, tenant_id)
     entries = [{"kind": "department", "id": str(root.id), "level": "use"}]
     if user_id is not None:
         entries.insert(0, {"kind": "user", "id": str(user_id), "level": "manage"})

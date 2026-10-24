@@ -24,6 +24,7 @@ import {
   type DocSectionStatus,
   type ProjectDocRow,
 } from '../../lib/project-work-api'
+import { listDepartmentDocs } from '../../lib/teams-api'
 import {
   QUEUE_STATUS_VARIANT,
   SECTION_STATUS_RAIL,
@@ -144,8 +145,20 @@ function SectionRow({
   )
 }
 
-export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit: boolean }) {
+export function ProjectDocs({
+  projectId,
+  departmentId,
+  canEdit,
+}: {
+  projectId?: string
+  departmentId?: string
+  canEdit: boolean
+}) {
   const { t } = useTranslation('nav')
+  const knowledgeHref = projectId
+    ? `/knowledge?scope=project&project=${encodeURIComponent(projectId)}`
+    : '/knowledge'
+  const createHere = canEdit && Boolean(projectId) && !departmentId
   const [docs, setDocs] = useState<ProjectDocRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -161,7 +174,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
   const load = useCallback(async () => {
     setError(null)
     try {
-      const rows = await listProjectDocs(projectId)
+      const rows = departmentId ? await listDepartmentDocs(departmentId) : await listProjectDocs(projectId!)
       setDocs(rows)
       setSelectedId((current) => current ?? rows[0]?.id ?? null)
     } catch (err) {
@@ -169,7 +182,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
     } finally {
       setLoading(false)
     }
-  }, [projectId, t])
+  }, [departmentId, projectId, t])
 
   useEffect(() => {
     setLoading(true)
@@ -180,6 +193,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
     () => docs.find((doc) => doc.id === selectedId) ?? null,
     [docs, selectedId],
   )
+  const editHere = canEdit && Boolean(selected?.project_id || projectId)
 
   const startEdit = () => {
     if (!selected) return
@@ -188,10 +202,11 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
   }
 
   const saveDoc = async () => {
-    if (!selected) return
+    const folderId = selected?.project_id || projectId
+    if (!selected || !folderId) return
     setSaving(true)
     try {
-      await saveProjectDoc(projectId, { path: selected.path, content: draft })
+      await saveProjectDoc(folderId, { path: selected.path, content: draft })
       setEditing(false)
       toast.success(t('projects.work.docSaved'))
       void load()
@@ -203,7 +218,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
   }
 
   const createDoc = async () => {
-    if (!newPath.trim()) return
+    if (!newPath.trim() || !projectId) return
     setSaving(true)
     try {
       const doc = await saveProjectDoc(projectId, {
@@ -224,7 +239,9 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
 
   const handleSetStatus = async (section: DocSectionRow, status: DocSectionStatus) => {
     try {
-      await setSectionStatus(projectId, section.doc_id, section.id, status)
+      const folderId = selected?.project_id || projectId
+      if (!folderId) return
+      await setSectionStatus(folderId, section.doc_id, section.id, status)
       toast.success(t('projects.work.sectionStatusUpdated'))
       void load()
     } catch (err) {
@@ -260,7 +277,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             ) : null}
           </Pressable>
         ))}
-        {canEdit ? (
+        {createHere ? (
           creating ? (
             <div className="flex items-center gap-1.5">
               <Input
@@ -290,11 +307,16 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             </Button>
           )
         ) : null}
-        {docs.length === 0 && !canEdit ? (
-          <EmptyState tone="plain" size="sm" className="py-4" title={t('projects.work.docsEmpty')} />
+        {docs.length === 0 && !createHere ? (
+          <EmptyState
+            tone="plain"
+            size="sm"
+            className="py-4"
+            title={t(departmentId ? 'projects.work.docsEmptyDepartment' : 'projects.work.docsEmpty')}
+          />
         ) : null}
         <Link
-          to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
+          to={knowledgeHref}
           className="mt-2 block px-1 text-xs font-medium text-accent hover:underline"
         >
           {t('projects.work.openInKnowledge')}
@@ -306,13 +328,10 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
           <EmptyState
             size="sm"
             title={t('projects.work.docsEmptyTitle')}
-            description={t('projects.work.docsEmptyBody')}
+            description={t(departmentId ? 'projects.work.docsEmptyBodyDepartment' : 'projects.work.docsEmptyBody')}
             footer={
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-                <Link
-                  to={`/knowledge?scope=project&project=${encodeURIComponent(projectId)}`}
-                  className="text-xs font-medium text-accent hover:underline"
-                >
+                <Link to={knowledgeHref} className="text-xs font-medium text-accent hover:underline">
                   {t('projects.work.openKnowledge')}
                 </Link>
                 <Link to="/agents" className="text-xs font-medium text-accent hover:underline">
@@ -339,7 +358,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                     <SectionRow
                       key={section.id}
                       section={section}
-                      canEdit={canEdit}
+                      canEdit={editHere}
                       onSetStatus={handleSetStatus}
                     />
                   ))}
@@ -350,7 +369,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
             <Card className="p-4">
               <div className="mb-3 flex items-center justify-between gap-2">
                 <p className="min-w-0 truncate-fade text-xs text-text-muted">{selected.path}</p>
-                {canEdit ? (
+                {editHere ? (
                   editing ? (
                     <div className="flex gap-1.5">
                       <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
@@ -381,7 +400,7 @@ export function ProjectDocs({ projectId, canEdit }: { projectId: string; canEdit
                   docId={selected.id}
                   sections={selected.sections}
                   onChanged={() => void load()}
-                  readOnly={!canEdit}
+                  readOnly={!editHere}
                 />
               ) : (
                 <MarkdownView content={selected.content ?? ''} />

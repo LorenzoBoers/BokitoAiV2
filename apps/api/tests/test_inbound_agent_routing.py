@@ -28,7 +28,6 @@ async def test_resolve_inbound_uses_lead_when_channel_has_no_agent(session_overr
         slug="lead-agent",
         kind="company",
         is_active=True,
-        is_lead=True,
         acts_for_user=False,
     )
     session_override.add(lead)
@@ -42,7 +41,6 @@ async def test_resolve_inbound_uses_lead_when_channel_has_no_agent(session_overr
         address="inbox@example.com",
         display_name="Inbox",
         is_enabled=True,
-        default_agent_id=None,
     )
     session_override.add(account)
     await session_override.commit()
@@ -73,7 +71,10 @@ async def test_resolve_inbound_uses_lead_when_channel_has_no_agent(session_overr
 
 
 @pytest.mark.asyncio
-async def test_resolve_inbound_uses_channel_default(session_override):
+async def test_resolve_inbound_uses_the_channel_home_contact(session_override):
+    from app.models.team import Department
+    from app.services import teams as teams_svc
+
     tenant = Tenant(slug="inbound-default", name="Inbound Default")
     session_override.add(tenant)
     await session_override.commit()
@@ -90,6 +91,13 @@ async def test_resolve_inbound_uses_channel_default(session_override):
     session_override.add(desk)
     await session_override.commit()
     await session_override.refresh(desk)
+    root = await teams_svc.ensure_org_root(session_override, tenant.id)
+    support = Department(tenant_id=tenant.id, name="Support", kind="custom", parent_id=root.id)
+    session_override.add(support)
+    await session_override.flush()
+    await teams_svc.set_department_crew(
+        session_override, support, [{"kind": "agent", "id": str(desk.id), "role": "contact"}]
+    )
 
     account = ChannelAccount(
         tenant_id=tenant.id,
@@ -98,7 +106,7 @@ async def test_resolve_inbound_uses_channel_default(session_override):
         address="desk@example.com",
         display_name="Desk",
         is_enabled=True,
-        default_agent_id=desk.id,
+        routing_department_id=support.id,
     )
     session_override.add(account)
     await session_override.commit()
@@ -123,7 +131,6 @@ async def test_resolve_inbound_uses_channel_default(session_override):
         slug="lead-agent",
         kind="company",
         is_active=True,
-        is_lead=True,
         acts_for_user=False,
     )
     session_override.add(lead)
@@ -147,7 +154,6 @@ async def test_resolve_inbound_skips_lead_without_channel_access(session_overrid
         slug="lead-agent",
         kind="company",
         is_active=True,
-        is_lead=True,
         acts_for_user=False,
     )
     session_override.add(lead)
@@ -160,7 +166,6 @@ async def test_resolve_inbound_skips_lead_without_channel_access(session_overrid
         address="closed@example.com",
         display_name="Closed",
         is_enabled=True,
-        default_agent_id=None,
         settings_json='{"access":[{"kind":"team","id":"people","level":"handle"}]}',
     )
     session_override.add(account)

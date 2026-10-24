@@ -444,7 +444,6 @@ def resolve_channel(
             **resolve_ai_handling(tenant, account, scope="channel").to_payload(),
             "breaker_tripped_at": breaker_tripped_at(account),
         },
-        "default_agent_id": str(account.default_agent_id) if account.default_agent_id else None,
         "default_team_id": (
             (settings.get("routing") or {}).get("department_id")
             or (settings.get("routing") or {}).get("team_id")

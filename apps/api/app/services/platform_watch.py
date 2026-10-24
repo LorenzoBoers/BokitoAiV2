@@ -67,6 +67,11 @@ async def lead_assistant(session: AsyncSession, tenant_id: UUID) -> Agent | None
     Mirrors the trigger resolution (`triggers.resolve_trigger_agent`) so the
     thread the check-in is bound to is the thread it will post into.
     """
+    from app.services.lead_agent import get_lead_agent
+
+    lead = await get_lead_agent(session, tenant_id)
+    if lead is not None and lead.role == "assistant":
+        return lead
     agent = (
         await session.execute(
             select(Agent)
@@ -77,15 +82,11 @@ async def lead_assistant(session: AsyncSession, tenant_id: UUID) -> Agent | None
                 Agent.is_active == True,  # noqa: E712
                 Agent.acts_for_user.is_(False),
             )
-            .order_by(Agent.is_lead.desc(), Agent.created_at)
+            .order_by(Agent.created_at)
             .limit(1)
         )
     ).scalars().first()
-    if agent:
-        return agent
-    from app.services.lead_agent import get_lead_agent
-
-    return await get_lead_agent(session, tenant_id)
+    return agent or lead
 
 
 def _legacy_thread_id(settings: dict[str, Any]) -> UUID | None:

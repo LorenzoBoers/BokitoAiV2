@@ -10,12 +10,15 @@ pick a workspace. No API token required.
 ```json
 {
   "mcpServers": {
-    "bokito": {
-      "url": "https://app.bokito.ai/api/mcp"
+    "bokito-bourgondie": {
+      "url": "https://dev.app.bokito.ai/api/mcp"
     }
   }
 }
 ```
+
+Remote-dev work uses `https://dev.app.bokito.ai/api/mcp` (same tools as in-app
+agents on that host). Production workspaces use `https://app.bokito.ai/api/mcp`.
 
 For CI/scripts, create a bearer token under **Settings → Developers**. Custom
 `mcp.json` without this plugin shows Cursor’s generic pin icon; the plugin

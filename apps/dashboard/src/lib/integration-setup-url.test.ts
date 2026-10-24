@@ -32,6 +32,7 @@ describe('moduleSlugFromPathname', () => {
   it('reads a module home and ignores hub tabs', () => {
     expect(moduleSlugFromPathname('/connections/accounting')).toBe('accounting')
     expect(moduleSlugFromPathname('/connections/connected')).toBeNull()
+    expect(moduleSlugFromPathname('/connections/installed')).toBeNull()
     expect(moduleSlugFromPathname('/connections/marketplace')).toBeNull()
     // OAuth returns minted on the hub's former root still resolve.
     expect(moduleSlugFromPathname('/modules/accounting')).toBe('accounting')

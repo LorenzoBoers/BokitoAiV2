@@ -80,7 +80,7 @@ async def test_operator_split_moves_messages_and_routes_replies(client: AsyncCli
     signal, rows = await _thread(session_override, tenant.id)
 
     res = await client.post(
-        f"/api/signals/{signal.id}/split",
+        f"/api/signals/{signal.id}/move",
         headers=headers,
         json={"from_message_id": str(rows[2].id), "category_id": str(complaint.id)},
     )
@@ -142,7 +142,7 @@ async def test_split_needs_an_earlier_message(client: AsyncClient, session_overr
     tenant = await _tenant(session_override)
     signal, rows = await _thread(session_override, tenant.id)
     res = await client.post(
-        f"/api/signals/{signal.id}/split", headers=headers, json={"from_message_id": str(rows[0].id)}
+        f"/api/signals/{signal.id}/move", headers=headers, json={"from_message_id": str(rows[0].id)}
     )
     assert res.status_code == 400
 

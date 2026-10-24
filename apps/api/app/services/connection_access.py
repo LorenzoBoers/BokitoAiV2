@@ -24,13 +24,13 @@ from app.services.access_list import (
     user_principal,
     validate_entries,
 )
-from app.services.teams import ensure_all_department
+from app.services.teams import ensure_org_root
 
 LEVELS = ("use", "manage")
 
 
 async def default_access(session: AsyncSession, tenant_id: UUID) -> list[dict[str, str]]:
-    root = await ensure_all_department(session, tenant_id)
+    root = await ensure_org_root(session, tenant_id)
     return [{"kind": "department", "id": str(root.id), "level": "use"}]
 
 

@@ -163,7 +163,7 @@ export function AvatarCropDialog({ file, busy = false, onClose, onConfirm }: Pro
           </Button>
           <label className="flex min-w-0 flex-1 items-center gap-2 text-xs text-text-muted">
             <span className="sr-only">{t('personalInformation.cropZoom')}</span>
-            <input
+            <input // design-system-ignore: native zoom slider; Input would wrap it in a text field
               type="range"
               min={1}
               max={ZOOM_MAX}

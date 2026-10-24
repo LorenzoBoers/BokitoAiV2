@@ -6,6 +6,7 @@ import { listLiveEntries, onLiveReconnect, useLiveVersion } from '../lib/live-st
 import { hasStoredComposerDraft } from '../lib/inbox-ops'
 import { threadIdFromPath } from '../lib/messages-paths'
 import { useAgentCallLive } from '../lib/agent-call-live'
+import { DOCK_CHANGED_EVENT } from '../lib/dock-agents'
 import {
   fetchChatStack,
   nudgeChatStack,
@@ -14,6 +15,7 @@ import {
   stabilizeStackOrder,
   type ChatStackAgent,
   type ChatStackItem,
+  type DockSeat,
   type StackCardState,
 } from '../lib/chat-stack'
 import {
@@ -66,6 +68,8 @@ export function useChatStack() {
   const agentVersion = useLiveVersion(AGENT_TABLE)
   const activeCall = useAgentCallLive()
   const [items, setItems] = useState<ChatStackItem[]>([])
+  const [rawSeats, setRawSeats] = useState<DockSeat[]>([])
+  const [allCallKey, setAllCallKey] = useState('F12')
   const [loaded, setLoaded] = useState(false)
   const followIds = useMemo(() => follows.map((f) => f.id), [follows])
   const followKey = followIds.join(',')
@@ -84,7 +88,9 @@ export function useChatStack() {
     try {
       const next = await fetchChatStack(token, followKey ? followKey.split(',') : [])
       if (seq !== fetchSeq.current) return
-      setItems(next)
+      setItems(next.items)
+      setRawSeats(next.seats)
+      setAllCallKey(next.allCallKey)
       setLoaded(true)
     } catch {
       // The stack is a convenience surface; keep the last cards.
@@ -103,6 +109,7 @@ export function useChatStack() {
   useEffect(() => {
     if (!token) {
       setItems([])
+      setRawSeats([])
       return
     }
     void refetch()
@@ -131,6 +138,20 @@ export function useChatStack() {
       scheduleRefetch()
     })
   }, [token, scope, scheduleRefetch])
+
+  // Notes arriving, played or pins changing move seats in the dock.
+  useEffect(() => {
+    if (!token) return
+    const offNotes = onGatewayEvent('notifications', (event) => {
+      if (event.event === 'intercom.note' || event.event === 'intercom.played') scheduleRefetch()
+    })
+    const onDock = () => scheduleRefetch()
+    window.addEventListener(DOCK_CHANGED_EVENT, onDock)
+    return () => {
+      offNotes()
+      window.removeEventListener(DOCK_CHANGED_EVENT, onDock)
+    }
+  }, [token, scheduleRefetch])
 
   // An agent starting or finishing in a stacked thread changes the card.
   const prevWorking = useRef(new Set<string>())
@@ -249,5 +270,19 @@ export function useChatStack() {
     orderHold.current = visibleCards.map((card) => card.id)
   }
 
-  return { cards: visibleCards, loaded, refetch, follow, unfollow, openThreadId }
+  // Dock seats with the websocket's working flag over the REST one.
+  const seats = useMemo<DockSeat[]>(() => {
+    const live = new Map(listLiveEntries<AgentLiveSnapshot>(AGENT_TABLE))
+    return rawSeats.map((seat) => {
+      const snap = live.get(seat.id)
+      if (!snap) return seat
+      const working = snap.status === 'working'
+      const state = seat.state === 'idle' && working ? 'thinking' : seat.state === 'thinking' && !working ? 'idle' : seat.state
+      return { ...seat, working, state, summary: working ? (snap.summary ?? seat.summary) : null }
+    })
+    // agentVersion re-reads the live agent table.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawSeats, agentVersion])
+
+  return { cards: visibleCards, seats, allCallKey, loaded, refetch, follow, unfollow, openThreadId }
 }

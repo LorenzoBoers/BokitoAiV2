@@ -1,10 +1,9 @@
-import { Spinner } from '../components/ui/spinner'
-import { GRID_PATH, AUTONOMY_PATH } from '../lib/navigation'
+import { AUTONOMY_PATH, GRID_PATH, KNOWLEDGE_PATH } from '../lib/navigation'
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { agentStatusOf, presenceLabel, presenceTextClass } from '../lib/presence'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { CalendarDays, Inbox, Plus, RefreshCw } from 'lucide-react'
+import { CalendarDays, Inbox, Plus } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Avatar } from '../components/ui/avatar'
@@ -15,7 +14,7 @@ import { SegmentedControl } from '../components/ui/segmented-control'
 import { PageContent } from '../components/layout/PageContent'
 import { OpenInGridButton } from '../components/org/OpenInGridButton'
 import { PageHeader } from '../components/ui/page-header'
-import { AgentsSectionTabs } from '../components/shell/SectionTabs'
+import { MarketplaceHireHint } from '../components/layout/MarketplaceHireHint'
 import { PageRelatedLinks } from '../components/layout/PageRelatedLinks'
 import { NewAgentDialog } from '../components/workforce/NewAgentDialog'
 import { AgentModuleOrigin } from '../components/workforce/AgentModuleOrigin'
@@ -367,28 +366,12 @@ export default function AiAgents() {
 
   return (
     <PageContent width="xl" className="space-y-5 py-1">
-      <AgentsSectionTabs />
       <PageHeader
         guide="agents"
         title={t('workforce.agents.title')}
         subtitle={t('workforce.agents.listDescription')}
         className="mb-0"
-        actions={
-          <>
-            <OpenInGridButton />
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => void load()}
-              disabled={loading}
-              title={t('workforce.agents.refresh')}
-              aria-label={t('workforce.agents.refresh')}
-            >
-              {loading ? <Spinner size="md" /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
-            </Button>
-          </>
-        }
+        actions={<OpenInGridButton />}
         primaryAction={
           isAdmin ? (
             <Button type="button" size="sm" onClick={() => setShowNewAgent(true)}>
@@ -516,8 +499,10 @@ export default function AiAgents() {
         onCreated={(agentId) => navigate(`/agents/${agentId}`)}
       />
 
+      <MarketplaceHireHint />
       <PageRelatedLinks
         links={[
+          { to: KNOWLEDGE_PATH, label: t('workforce.agents.relatedKnowledge') },
           { to: '/team', label: t('workforce.agents.relatedWorkforce') },
           { to: GRID_PATH, label: t('orgCanvas.link') },
           ...(isAdmin

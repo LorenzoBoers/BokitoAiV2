@@ -5,13 +5,14 @@ and lists what asks for action: tickets past their deadline, tickets waiting on
 the customer longer than the stage check-up, required stage fields or checklist
 items still open, hours planned per person against their weekly hours, bad
 connections, and how the label scorecard moved. ``render_snapshot`` turns it
-into the prompt block for the orientation wake (``Trigger.purpose ==
-"orientation"``), which runs in the department room.
+into the prompt block for the orientation wake, which runs in the department
+room.
 
-``ensure_orientations`` sets one orientation per department that has a lead
-agent; ``platform_watch`` uses it instead of the general check-in for
-workspaces with departments. A department with the outward lens (Research)
-gets a weekly trend orientation instead (``services/trends.py``).
+``process_department_orientations`` queues an ``orientation`` turn for the
+department's point of contact when the department's check-in is due
+(``Department.settings_json.awareness``); the reply becomes the department's
+standing brief (``record_orientation``). A department with the outward lens
+(Research) gets a trend orientation instead (``services/trends.py``).
 """
 
 from __future__ import annotations
@@ -254,46 +255,95 @@ ORIENTATION_TASK_MONDAY = (
 )
 
 
-async def department_for_trigger(session: AsyncSession, trigger: Trigger) -> UUID | None:
-    if trigger.signal_id:
-        signal = await session.get(Signal, trigger.signal_id)
-        if signal is not None and signal.assignee_kind == "department" and signal.assignee_id:
-            return signal.assignee_id
+def room_department_id(signal: Signal | None) -> UUID | None:
+    """The department whose room this conversation is."""
+    if signal is not None and signal.source == "department" and signal.assignee_kind == "department":
+        return signal.assignee_id
     return None
 
 
-async def orientation_prompt(session: AsyncSession, trigger: Trigger, now: datetime) -> str | None:
+async def orientation_prompt(session: AsyncSession, tenant_id: UUID, department_id: UUID, now: datetime) -> str:
+    """The snapshot and task the point of contact gets when the department's orientation is due."""
+    from app.services.agent_awareness import awareness_config
     from app.services.trends import OUTWARD, department_lens, outward_prompt
 
-    department_id = await department_for_trigger(session, trigger)
-    if department_id is None:
-        return None
-    if department_lens(await session.get(Department, department_id)) == OUTWARD:
-        return await outward_prompt(session, trigger.tenant_id)
-    from app.models.agent import Agent
-    from app.services.agent_awareness import DEFAULT_MAX_PROPOSALS, awareness_config
-
+    dept = await session.get(Department, department_id)
+    if dept is not None and department_lens(dept) == OUTWARD:
+        return await outward_prompt(session, tenant_id)
     extended = now.weekday() == 0
-    snap = await department_snapshot(session, trigger.tenant_id, department_id, extended=extended)
-    agent = await session.get(Agent, trigger.agent_id) if trigger.agent_id else None
-    max_proposals = awareness_config(agent)["max_proposals"] if agent else DEFAULT_MAX_PROPOSALS
+    snap = await department_snapshot(session, tenant_id, department_id, extended=extended)
+    max_proposals = awareness_config(dept)["max_proposals"] if dept else 3
     task = ORIENTATION_TASK.format(max_proposals=max_proposals) + (ORIENTATION_TASK_MONDAY if extended else "")
     return f"{render_snapshot(snap)}\n\n## Your task\n{task}"
 
 
-async def record_orientation(
-    session: AsyncSession, trigger: Trigger, agent: Any, text: str, *, quiet: bool
-) -> None:
-    """After an orientation: the standing brief on the agent. Caller commits."""
+async def record_orientation(session: AsyncSession, signal: Signal, agent: Any, text: str, *, quiet: bool) -> None:
+    """After an orientation turn in a department room: the standing brief on the department. Caller commits."""
     from app.services.agent_awareness import store_brief
 
-    department_id = await department_for_trigger(session, trigger)
-    snap = (
-        await department_snapshot(session, trigger.tenant_id, department_id)
-        if department_id is not None
-        else None
-    )
+    department_id = room_department_id(signal)
+    if department_id is None:
+        return
+    snap = await department_snapshot(session, signal.tenant_id, department_id)
     await store_brief(session, agent, department_id=department_id, text=text, quiet=quiet, snapshot=snap)
+
+
+async def process_department_orientations(session: AsyncSession, *, now: datetime | None = None) -> int:
+    """Queue the orientation of every department whose check-in is due. Caller commits.
+
+    The department's point of contact runs it in the department room. A
+    department without an agent, or whose point of contact spent its daily
+    budget, skips this moment and waits for the next one.
+    """
+    from app.services.agent_awareness import CHECKIN_MODES, awareness_config, spent_today_cents
+    from app.services.agent_turns import enqueue_turn
+    from app.services.department_access import department_contact
+    from app.services.teams import get_or_create_team_room
+    from app.services.triggers import next_cron_run
+    from app.models.team import is_root_department
+
+    now = now or utcnow()
+    depts = (await session.execute(select(Department).where(alive(Department)))).scalars().all()
+    queued = 0
+    for dept in depts:
+        if is_root_department(dept):
+            continue
+        config = awareness_config(dept)
+        if config["mode"] not in CHECKIN_MODES or config["mode"] in {"off", "on_conversation"}:
+            continue
+        data = _json(dept.settings_json)
+        block = data.get("awareness") if isinstance(data.get("awareness"), dict) else {}
+        try:
+            due = datetime.fromisoformat(str(block.get("next_wake_at") or ""))
+        except ValueError:
+            due = None
+        if due is not None and due > now:
+            continue
+        block["next_wake_at"] = (next_cron_run(config["cron"], now) or now + timedelta(days=1)).isoformat()
+        data["awareness"] = block
+        dept.settings_json = json.dumps(data)
+        session.add(dept)
+        if due is None:
+            continue
+        contact, _implicit = await department_contact(session, dept.tenant_id, dept.id)
+        if contact is None:
+            continue
+        cap = config["daily_cost_cents"]
+        if cap <= 0 or await spent_today_cents(session, dept.tenant_id, contact.id) >= cap:
+            continue
+        room = await get_or_create_team_room(session, dept.tenant_id, dept)
+        await session.flush()
+        result = await enqueue_turn(
+            session,
+            room,
+            agent_id=contact.id,
+            cause_kind="orientation",
+            requested_by_kind="system",
+            idempotency_key=f"orientation:{dept.id}:{due.isoformat()}",
+        )
+        if result.get("outcome") == "queued":
+            queued += 1
+    return queued
 
 
 async def ensure_orientations(session: AsyncSession, tenant_id: UUID) -> list[Trigger]:

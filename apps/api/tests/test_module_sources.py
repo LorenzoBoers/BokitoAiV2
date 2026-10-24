@@ -40,7 +40,9 @@ def _http_map(mapping: dict[str, tuple[bytes, str]]):
 
 def test_accounting_seed_packs_have_start_urls():
     keys = {s["seed_key"] for s in ACCOUNTING_PLATFORM_SEEDS}
-    assert {"belastingdienst", "nba_hra", "rjnet", "kvk_jaarrekening", "bw2_titel9"} <= keys
+    assert {"belastingdienst", "rgs"} <= keys
+    assert "nba_hra" not in keys
+    assert "rjnet" not in keys
     for seed in ACCOUNTING_PLATFORM_SEEDS:
         assert seed["url"].startswith("https://")
         assert seed["start_urls"]

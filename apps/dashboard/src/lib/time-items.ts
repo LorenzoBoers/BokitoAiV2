@@ -78,6 +78,7 @@ export async function listTimeItems(params: {
   sources?: TimeItemKind[]
   scheduledOnly?: boolean
   projectId?: string
+  departmentId?: string
   tag?: string
   path?: string
   /** Tenant calendar UUIDs (default: all visible). */
@@ -91,6 +92,7 @@ export async function listTimeItems(params: {
   if (params.agentId) query.set('agent_id', params.agentId)
   if (params.userId) query.set('user_id', params.userId)
   if (params.projectId) query.set('project_id', params.projectId)
+  if (params.departmentId) query.set('department_id', params.departmentId)
   if (params.tag) query.set('tag', params.tag)
   if (params.path) query.set('path', params.path)
   if (params.sources?.length) query.set('sources', params.sources.join(','))

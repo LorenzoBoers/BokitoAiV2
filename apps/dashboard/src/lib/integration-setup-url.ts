@@ -39,7 +39,7 @@ export function setupIntegrationHref(input: {
   return '/connections'
 }
 
-const RESERVED_MODULE_PATHS = new Set(['connected', 'marketplace', 'tools'])
+const RESERVED_MODULE_PATHS = new Set(['connected', 'marketplace', 'tools', 'installed'])
 // `modules` is the hub's former root; OAuth returns minted there still arrive.
 const MODULE_PATH_ROOTS = new Set(['connections', 'modules'])
 

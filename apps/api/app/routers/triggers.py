@@ -79,6 +79,9 @@ async def agenda(
         False, description="Only sessions fired by a trigger (planning view)"
     ),
     project_id: UUID | None = Query(None, description="Only items tied to this folder"),
+    department_id: UUID | None = Query(
+        None, description="Only items on this department's tickets or in its folders"
+    ),
     tag: str | None = Query(None, description="Only items whose conversation carries this tag"),
     path: str | None = Query(
         None, description="Comma-separated tag ids that further narrow a folder (virtual child)"
@@ -129,6 +132,7 @@ async def agenda(
         sources=wanted,
         scheduled_only=scheduled_only,
         project_id=project_id,
+        department_id=department_id,
         tag=tag,
         path=path,
         connection_ids=conn_ids,
@@ -316,7 +320,7 @@ async def webhook_fire(
     return await svc.fire_trigger(session, trigger, payload=payload)
 
 
-# ── channel bindings (retired: ChannelAccount.default_agent_id is the route) ──
+# ── channel bindings (retired: the channel home node's point of contact is the route) ──
 
 CHANNEL_BINDINGS_RETIRED = {
     "status": "retired",

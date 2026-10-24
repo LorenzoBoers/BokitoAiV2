@@ -8,6 +8,12 @@ import type { IntegrationKind } from './integration-kind'
  */
 export type IntegrationKindFilter = 'all' | 'modules' | 'ai_tools' | IntegrationKind
 
+/** Hub leaf: Discover (catalog) vs Installed (every registration). */
+export type ConnectionsHubTab = 'discover' | 'installed'
+
+export const CONNECTIONS_DISCOVER_PATH = '/connections'
+export const CONNECTIONS_INSTALLED_PATH = '/connections/installed'
+
 export const KIND_FILTERS: IntegrationKindFilter[] = [
   'all',
   'inbox',
@@ -33,28 +39,45 @@ export function kindFilterToParam(kind: IntegrationKindFilter): string | null {
 }
 
 export function connectionsPathWithKind(kind: IntegrationKindFilter): string {
-  const base = '/connections'
+  const base = CONNECTIONS_DISCOVER_PATH
   const param = kindFilterToParam(kind)
   return param ? `${base}?kind=${param}` : base
+}
+
+export function connectionsInstalledPath(opts?: {
+  kind?: IntegrationKindFilter
+  q?: string
+  view?: 'cards' | 'list'
+}): string {
+  const params = new URLSearchParams()
+  if (opts?.kind && opts.kind !== 'all') params.set('kind', opts.kind)
+  if (opts?.q?.trim()) params.set('q', opts.q.trim())
+  if (opts?.view === 'list') params.set('view', 'list')
+  const qs = params.toString()
+  return qs ? `${CONNECTIONS_INSTALLED_PATH}?${qs}` : CONNECTIONS_INSTALLED_PATH
+}
+
+export function parseConnectionsView(value: string | null): 'cards' | 'list' {
+  return value === 'list' ? 'list' : 'cards'
 }
 
 /** Where a legacy `/modules*`, `/settings/modules*` or `/connections/marketplace` path lands.
  *
  * The hub used to live at `/modules` with `connected`, `tools` and
- * `marketplace` as separate leaves; all are folded into `/connections` now,
- * and a module slug keeps its own page. Returns a path without the query
- * string — callers append it. */
+ * `marketplace` as separate leaves; Discover is `/connections`, Installed is
+ * `/connections/installed`, and a module slug keeps its own page. Returns a
+ * path without the query string — callers append it. */
 export function legacyModulesPath(pathname: string): string {
-  if (
-    pathname === '/connections/connected' ||
-    pathname === '/connections/tools' ||
-    pathname === '/connections/marketplace'
-  ) {
-    return '/connections'
+  if (pathname === '/connections/connected' || pathname === '/modules/connected') {
+    return CONNECTIONS_INSTALLED_PATH
+  }
+  if (pathname === '/connections/tools' || pathname === '/connections/marketplace') {
+    return CONNECTIONS_DISCOVER_PATH
   }
   const rest = pathname.replace(/^(\/settings)?\/modules/, '')
-  if (rest === '/connected' || rest === '/tools' || rest === '/marketplace' || rest === '') {
-    return '/connections'
+  if (rest === '/connected') return CONNECTIONS_INSTALLED_PATH
+  if (rest === '/tools' || rest === '/marketplace' || rest === '') {
+    return CONNECTIONS_DISCOVER_PATH
   }
   return `/connections${rest}`
 }

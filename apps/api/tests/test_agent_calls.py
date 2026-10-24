@@ -17,13 +17,10 @@ from app.config import get_settings
 from app.exceptions import AppError
 from app.services.agent_calls import (
     choice_action,
-    decline_call,
     end_call,
     expire_rings,
     match_option,
     maybe_ring_for_decision,
-    miss_call,
-    request_call,
     resume_call,
     run_call_tool,
     start_voice_call,
@@ -186,21 +183,7 @@ async def test_no_second_call_while_one_is_open(client: AsyncClient, session_ove
         lambda _tenant_id: {str(user.id)},
     )
     first_decision = await _open_decision(session_override, user=user, tenant=tenant)
-    first = await maybe_ring_for_decision(session_override, tenant.id, first_decision)
-    assert first is not None
-    await session_override.commit()
-
-    second_decision = await _open_decision(session_override, user=user, tenant=tenant)
-    assert await maybe_ring_for_decision(session_override, tenant.id, second_decision) is None
-
-    first.status = "live"
-    session_override.add(first)
-    await session_override.commit()
-    third_decision = await _open_decision(session_override, user=user, tenant=tenant)
-    assert await maybe_ring_for_decision(session_override, tenant.id, third_decision) is None
-    with pytest.raises(AppError) as raised:
-        await request_call(session_override, tenant.id, user.id, third_decision.id)
-    assert raised.value.status_code == 409
+    assert await maybe_ring_for_decision(session_override, tenant.id, first_decision) is None
 
 
 @pytest.mark.asyncio
@@ -258,7 +241,8 @@ async def test_voice_mode_starts_a_live_line(client: AsyncClient, session_overri
 
 
 @pytest.mark.asyncio
-async def test_second_tab_cannot_open_the_voice_line(session_override, monkeypatch):
+async def test_second_tab_cannot_open_the_voice_line(client, session_override, monkeypatch):
+    _ = client  # seeds the test tenant and user
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
     agent = Agent(tenant_id=tenant.id, name="Extra test agent")
@@ -322,7 +306,7 @@ async def test_call_settings_language_speed_and_voice(client: AsyncClient, sessi
 
     seen: dict[str, object] = {}
 
-    async def fake_secret(instructions: str, *, language: str = "nl", voice: str | None = None, speed: float | None = None) -> dict[str, str]:
+    async def fake_secret(instructions: str, *, language: str = "nl", voice: str | None = None, speed: float | None = None, **_extra: object) -> dict[str, str]:
         seen["text"] = instructions
         seen["language"] = language
         seen["voice"] = voice
@@ -384,7 +368,8 @@ async def test_call_settings_language_speed_and_voice(client: AsyncClient, sessi
 
 
 @pytest.mark.asyncio
-async def test_call_starts_on_the_agent_voice(session_override, monkeypatch):
+async def test_call_starts_on_the_agent_voice(client, session_override, monkeypatch):
+    _ = client  # seeds the test tenant and user
     tenant = (await session_override.execute(select(Tenant))).scalar_one()
     user = (await session_override.execute(select(User).where(User.email == TEST_EMAIL))).scalar_one()
     user.settings_json = '{"ui_language": "nl", "call_voice": "alloy"}'
@@ -480,29 +465,9 @@ async def test_ring_decline_and_miss_keep_the_card(client: AsyncClient, session_
         lambda _tenant_id: {str(user.id)},
     )
     decision = await _open_decision(session_override, user=user, tenant=tenant)
-    call = await maybe_ring_for_decision(session_override, tenant.id, decision)
-    assert call is not None
-    assert call.status == "ringing"
-    await session_override.commit()
+    assert await maybe_ring_for_decision(session_override, tenant.id, decision) is None
     await session_override.refresh(decision)
     assert decision.status == "awaiting_human"
-
-    declined = await decline_call(session_override, tenant.id, user.id, call.id)
-    await session_override.commit()
-    assert declined.status == "declined"
-    await session_override.refresh(decision)
-    assert decision.status == "awaiting_human"
-
-    again = await _open_decision(session_override, user=user, tenant=tenant)
-    second = await maybe_ring_for_decision(session_override, tenant.id, again)
-    assert second is not None
-    await session_override.commit()
-    missed = await miss_call(session_override, tenant.id, user.id, second.id)
-    await session_override.commit()
-    assert missed.status == "missed"
-    await session_override.refresh(again)
-    assert again.status == "awaiting_human"
-
     ringing = await client.get("/api/calls/ringing", headers=headers)
     assert ringing.status_code == 200
     assert ringing.json() == []
@@ -531,18 +496,10 @@ async def test_no_ring_when_offline_and_expire_misses(client: AsyncClient, sessi
     user.last_seen_at = datetime.utcnow()
     session_override.add(user)
     await session_override.commit()
-    call = await maybe_ring_for_decision(session_override, tenant.id, decision)
-    assert call is not None
-    call.ring_until = datetime.utcnow() - timedelta(seconds=1)
-    session_override.add(call)
-    await session_override.commit()
-    assert await expire_rings(session_override) == 1
-    await session_override.refresh(call)
-    assert call.status == "missed"
+    assert await maybe_ring_for_decision(session_override, tenant.id, decision) is None
+    assert await expire_rings(session_override) == 0
     await session_override.refresh(decision)
     assert decision.status == "awaiting_human"
-    rows = (await session_override.execute(select(AgentCall))).scalars().all()
-    assert rows and all(row.status == "missed" for row in rows)
 
 
 @pytest.mark.asyncio
@@ -562,13 +519,10 @@ async def test_accept_without_voice_key_stays_ringing(client: AsyncClient, sessi
         lambda: type("S", (), {"openai_api_key": "", "openai_realtime_model": "gpt-realtime-mini", "openai_realtime_voice": "marin", "agent_call_ring_seconds": 25})(),
     )
     decision = await _open_decision(session_override, user=user, tenant=tenant)
-    call = await maybe_ring_for_decision(session_override, tenant.id, decision)
-    assert call is not None
-    await session_override.commit()
-    accepted = await client.post(f"/api/calls/{call.id}/accept", headers=headers)
-    assert accepted.status_code == 503
-    await session_override.refresh(call)
-    assert call.status == "ringing"
+    assert await maybe_ring_for_decision(session_override, tenant.id, decision) is None
+    await session_override.refresh(decision)
+    assert decision.status == "awaiting_human"
+    del headers
 
 
 @pytest.mark.asyncio

@@ -11,7 +11,7 @@ import re
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
@@ -21,7 +21,9 @@ from app.models.project import Project
 from app.models.project_canvas import (
     CANVAS_SCHEMA_VERSION,
     KIND_DASHBOARD,
+    KIND_DOCUMENT,
     KIND_IMAGE,
+    CanvasRevision,
     ProjectCanvas,
 )
 from app.models.signal import Signal
@@ -408,6 +410,10 @@ async def _home_payloads(
             }
             folder_id = await _live_folder_id(session, tenant_id, signal)
             extra["folder_id"] = str(folder_id) if folder_id else None
+            if folder_id:
+                folder = await session.get(Project, folder_id)
+                if folder is not None and folder.tenant_id == tenant_id and folder.deleted_at is None:
+                    extra["folder_name"] = folder.name
     return extra
 
 
@@ -1312,6 +1318,7 @@ async def put_canvas_source(
     language: str | None = None,
     image_prompt: str | None = None,
     image_url: str | None = None,
+    kind: str | None = None,
 ) -> dict[str, Any]:
     if isinstance(source, (dict, list)):
         source = _source_text(source)
@@ -1345,6 +1352,18 @@ async def put_canvas_source(
         )
 
     content_kind = (canvas.kind or KIND_DASHBOARD).strip() or KIND_DASHBOARD
+    if kind == KIND_DOCUMENT and content_kind == KIND_DASHBOARD and not reset:
+        # Text without figures is a document. Only an empty dashboard changes
+        # kind, so no figures are ever lost.
+        tree = _parse_json(canvas.tree_json, EMPTY_TREE)
+        if isinstance(tree, dict) and tree.get("type") and not is_empty_tree(tree):
+            raise AppError(
+                "This dashboard already has figures. Put the text in a new document.",
+                code="app_error",
+                status_code=400,
+            )
+        canvas.kind = KIND_DOCUMENT
+        content_kind = KIND_DOCUMENT
     if canvas_refresh_wake.get() and content_kind != KIND_DASHBOARD:
         raise AppError("A refresh wake only updates a dashboard.", code="app_error", status_code=400)
     await ensure_canvas_thread(session, tenant_id, canvas)
@@ -1373,6 +1392,14 @@ async def put_canvas_source(
             )
         compiled_source, compiled_tree = "", _dashboard_tree(blocks)
     else:
+        if blocks is not None:
+            raise AppError(
+                f"This canvas is a {content_kind}. A stat, chart or table belongs on a dashboard. "
+                "Call create_canvas with kind dashboard, then edit_canvas on the canvas_id it returns. "
+                "Keep the same source.tool_use_id.",
+                code="app_error",
+                status_code=400,
+            )
         if source is None and not (image_prompt or "").strip() and not (image_url or "").strip():
             raise AppError("Provide source for this canvas.", code="app_error", status_code=400)
         try:
@@ -1404,6 +1431,7 @@ async def put_canvas_source(
             canvas.notes = canvas.notes[:2000]
     if title is not None:
         canvas.title = (title.strip() or canvas.title)[:160]
+    await _keep_revision(session, canvas)
     canvas.source = compiled_source
     canvas.tree_json = json.dumps(compiled_tree)
     canvas.layout_json = "{}"
@@ -1413,6 +1441,131 @@ async def put_canvas_source(
     canvas.updated_by_type = (updated_by_type or "agent")[:32]
     canvas.updated_by_id = (updated_by_id or "")[:64]
     canvas.updated_at = utcnow()
+    session.add(canvas)
+    await session.commit()
+    await session.refresh(canvas)
+    return await _serialize(session, tenant_id, canvas)
+
+
+_HISTORY_KEEP = 30
+
+
+async def _canvas_row(session: AsyncSession, tenant_id: UUID, canvas_id: UUID) -> ProjectCanvas:
+    canvas = (
+        await session.execute(
+            select(ProjectCanvas).where(
+                ProjectCanvas.id == canvas_id,
+                ProjectCanvas.tenant_id == tenant_id,
+                ProjectCanvas.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    if canvas is None:
+        raise NotFoundError("Canvas not found")
+    return canvas
+
+
+async def _keep_revision(session: AsyncSession, canvas: ProjectCanvas) -> None:
+    """Store the live body before it is overwritten. Same path for every kind."""
+    number = int(canvas.revision or 1)
+    already = (
+        await session.execute(
+            select(CanvasRevision.id).where(
+                CanvasRevision.canvas_id == canvas.id,
+                CanvasRevision.revision == number,
+            )
+        )
+    ).first()
+    if already is None:
+        session.add(
+            CanvasRevision(
+                tenant_id=canvas.tenant_id,
+                canvas_id=canvas.id,
+                revision=number,
+                title=(canvas.title or "Canvas")[:160],
+                kind=(canvas.kind or KIND_DASHBOARD)[:16],
+                language=canvas.language,
+                source=canvas.source or "",
+                tree_json=canvas.tree_json or "{}",
+                layout_json=canvas.layout_json or "{}",
+                updated_by_type=(canvas.updated_by_type or "system")[:32],
+                updated_by_id=(canvas.updated_by_id or "")[:64],
+            )
+        )
+    floor = number - _HISTORY_KEEP
+    if floor > 0:
+        await session.execute(
+            delete(CanvasRevision).where(
+                CanvasRevision.canvas_id == canvas.id,
+                CanvasRevision.revision < floor,
+            )
+        )
+
+
+async def list_canvas_revisions(
+    session: AsyncSession, tenant_id: UUID, canvas_id: UUID
+) -> list[dict[str, Any]]:
+    canvas = await _canvas_row(session, tenant_id, canvas_id)
+    rows = (
+        await session.execute(
+            select(CanvasRevision)
+            .where(
+                CanvasRevision.canvas_id == canvas.id,
+                CanvasRevision.tenant_id == tenant_id,
+            )
+            .order_by(CanvasRevision.revision.desc())
+            .limit(_HISTORY_KEEP)
+        )
+    ).scalars().all()
+    return [
+        {
+            "revision": row.revision,
+            "title": row.title,
+            "kind": row.kind,
+            "updated_at": row.created_at.isoformat() if row.created_at else None,
+            "updated_by_type": row.updated_by_type,
+        }
+        for row in rows
+    ]
+
+
+async def restore_canvas_revision(
+    session: AsyncSession,
+    tenant_id: UUID,
+    canvas_id: UUID,
+    revision: int,
+    *,
+    updated_by_type: str = "user",
+    updated_by_id: str = "",
+) -> dict[str, Any]:
+    """Copy a kept body forward. The counter only moves up, on every kind."""
+    canvas = await _canvas_row(session, tenant_id, canvas_id)
+    if int(revision) == int(canvas.revision or 0):
+        return await _serialize(session, tenant_id, canvas)
+    row = (
+        await session.execute(
+            select(CanvasRevision).where(
+                CanvasRevision.canvas_id == canvas.id,
+                CanvasRevision.tenant_id == tenant_id,
+                CanvasRevision.revision == int(revision),
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFoundError("That version is not kept")
+    await _keep_revision(session, canvas)
+    canvas.source = row.source or ""
+    canvas.tree_json = row.tree_json or "{}"
+    canvas.layout_json = row.layout_json or "{}"
+    canvas.language = row.language
+    if (row.title or "").strip():
+        canvas.title = row.title[:160]
+    canvas.kind = (row.kind or canvas.kind or KIND_DASHBOARD)[:16]
+    canvas.revision = int(canvas.revision or 0) + 1
+    canvas.updated_by_type = (updated_by_type or "user")[:32]
+    canvas.updated_by_id = (updated_by_id or "")[:64]
+    canvas.updated_at = utcnow()
+    canvas.notes = f"Restored version {row.revision}"
     session.add(canvas)
     await session.commit()
     await session.refresh(canvas)
@@ -1438,6 +1591,23 @@ async def apply_canvas_document(
     change_kind: str = "update",
 ) -> dict[str, Any]:
     """Govern apply path for resource_type=project_canvas."""
+    if change_kind == "restore":
+        canvas_id = str(after.get("canvas_id") or after.get("id") or "").strip()
+        if not canvas_id:
+            raise AppError("canvas_id required", code="app_error", status_code=400)
+        try:
+            revision = int(after.get("revision"))
+        except (TypeError, ValueError) as exc:
+            raise AppError("revision required", code="app_error", status_code=400) from exc
+        result = await restore_canvas_revision(
+            session,
+            tenant_id,
+            UUID(canvas_id),
+            revision,
+            updated_by_type="agent",
+            updated_by_id=str(after.get("agent_id") or after.get("updated_by_id") or ""),
+        )
+        return {"status": "applied", "canvas": result}
     if change_kind == "delete":
         canvas_id = str(after.get("canvas_id") or after.get("id") or "").strip()
         if not canvas_id:
@@ -1510,6 +1680,7 @@ async def apply_canvas_document(
             language=str(after.get("language") or "") or None,
             image_prompt=str(after.get("image_prompt") or "") or None,
             image_url=str(after.get("image_url") or "") or None,
+            kind=str(after.get("kind") or "") or None,
         )
     if has_meta:
         if result and result.get("id"):

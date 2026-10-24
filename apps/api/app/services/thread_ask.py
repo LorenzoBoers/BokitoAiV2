@@ -20,15 +20,59 @@ from app.models.notification import DecisionRequest
 from app.models.signal import Signal, is_internal_channel
 
 _APPROVE_WORDS = frozenset(
-    {"ja", "yes", "y", "ok", "okay", "goed", "ja graag", "graag"}
+    {
+        "ja",
+        "yes",
+        "y",
+        "ok",
+        "okay",
+        "goed",
+        "ja graag",
+        "graag",
+        # Explicit spoken Dutch confirmations. Hesitations ("eh", "misschien",
+        # "ja?") stay out on purpose: only a clear go confirms.
+        "ja doe maar",
+        "doe maar",
+        "ja ga je gang",
+        "ga je gang",
+        "ja ga maar",
+        "ja prima",
+        "prima doe maar",
+        "ja is goed",
+        "is goed",
+        "ja akkoord",
+        "akkoord",
+        "ja zeker",
+        "ja hoor",
+        "ja verstuur maar",
+        "verstuur maar",
+        "yes please",
+        "go ahead",
+        "yes go ahead",
+    }
 )
 _REJECT_WORDS = frozenset(
-    {"nee", "no", "n", "cancel", "annuleer", "nee dank", "nee bedankt"}
+    {
+        "nee",
+        "no",
+        "n",
+        "cancel",
+        "annuleer",
+        "nee dank",
+        "nee bedankt",
+        "nee niet doen",
+        "niet doen",
+        "doe maar niet",
+        "nee doe maar niet",
+        "no don't",
+    }
 )
 
 
 def _norm(text: str) -> str:
-    return text.strip().lower().rstrip(".!")
+    """Lowercase, drop commas and a closing period/!. A trailing '?' stays: 'ja?' is not a yes."""
+    cleaned = text.strip().lower().replace(",", " ").replace(";", " ")
+    return " ".join(cleaned.split()).rstrip(".!").strip()
 
 
 def _is_reject_option(option: dict[str, Any]) -> bool:

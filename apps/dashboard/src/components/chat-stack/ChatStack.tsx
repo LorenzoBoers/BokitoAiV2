@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { MessagesSquare } from 'lucide-react'
-import { callRoutes } from '../../api/routes/calls.routes'
 import { useAuth } from '../../context/AuthContext'
 import { useChatStack, type StackCard } from '../../hooks/useChatStack'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
@@ -14,17 +13,10 @@ import {
   closeFloatingThread,
   onChatStackNudge,
   openFloatingThread,
+  requestFloatingThreadClose,
   useFloatingThread,
 } from '../../lib/chat-stack'
-import { apiPost } from '../../lib/api'
-import {
-  agentCallLive,
-  callTabId,
-  requestAgentCallHold,
-  requestAgentVoiceStart,
-  useAgentCallLive,
-  type AgentVoiceOffer,
-} from '../../lib/agent-call-live'
+import { useAgentCallLive } from '../../lib/agent-call-live'
 import { inboxPath } from '../../lib/messages-paths'
 import { openEntityPath } from '../../lib/open-entity'
 import {
@@ -35,7 +27,8 @@ import {
 } from '../../lib/personal-assistant-widget'
 import { Button } from '../ui/button'
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
-import { ChatStackCard, DIAL_KEYS, dialKeyIndex, StackFaces } from './ChatStackCard'
+import { AgentDock } from './AgentDock'
+import { ChatStackCard } from './ChatStackCard'
 import { FloatingThreadWindow } from './FloatingThreadWindow'
 
 const CARD_WIDTH = 248
@@ -44,7 +37,6 @@ const CARD_HEIGHT = 62
 const COLLAPSED_VISIBLE = 1
 const MAX_FAN = 6
 const EDGE = 16
-const MAX_STACK_FACES = 6
 const NUDGE_MS = 700
 const LEAVE_DELAY_MS = 180
 
@@ -52,29 +44,40 @@ function useStackAnchor(pathname: string, floatingOpen: boolean) {
   const [anchor, setAnchor] = useState({ right: EDGE, bottom: EDGE })
   useEffect(() => {
     const measure = () => {
+      // Step aside only when the helper launcher actually sits in our corner.
+      const launcher = floatingOpen || launcherHiddenFor(pathname) ? null : assistantLauncherRect()
+      const clashes =
+        launcher != null &&
+        launcher.right > window.innerWidth - EDGE - CARD_WIDTH &&
+        launcher.bottom > window.innerHeight - EDGE - CARD_HEIGHT - 24
+      let right = clashes ? Math.max(EDGE, window.innerWidth - launcher.left + 12) : EDGE
+      // The voice faces belong to the conversation. An open canvas fills the
+      // right pane, so park the dock on the thread's edge instead of the page.
+      const stage = document.querySelector<HTMLElement>('[data-testid="canvas-stage"]')
+      if (stage) {
+        const bounds = stage.getBoundingClientRect()
+        if (bounds.width > 200 && bounds.left > 280) {
+          right = Math.max(right, window.innerWidth - bounds.left + 12)
+        }
+      }
       let bottom = EDGE
-      // Rise only when the page composer actually sits under the stack corner.
-      // On Communication the Send button lives in the centre column, so the
-      // stack can stay at the bottom edge without covering it.
-      const send = [...document.querySelectorAll<HTMLElement>('[data-testid="composer-send"]')].find(
+      // Rise only when the page composer actually sits under the dock.
+      // On Communication the composer lives in the centre column, so the dock
+      // can stay at the bottom edge — unless a canvas has moved it onto that
+      // column. Clear the whole card, not only the send button, or the faces
+      // sit on the text the operator is typing.
+      const composer = [...document.querySelectorAll<HTMLElement>('[data-testid="composer-card"]')].find(
         (el) => !el.closest('[data-floating-thread]') && el.offsetParent !== null,
       )
-      if (send) {
-        const rect = send.getBoundingClientRect()
-        const stackLeft = window.innerWidth - EDGE - CARD_WIDTH
+      if (composer) {
+        const rect = composer.getBoundingClientRect()
+        const stackLeft = window.innerWidth - right - CARD_WIDTH
         const overlapsCorner =
           rect.right > stackLeft && rect.bottom > window.innerHeight - EDGE - CARD_HEIGHT
         if (overlapsCorner) {
           bottom = Math.max(EDGE, window.innerHeight - rect.top + 12)
         }
       }
-      // Step aside only when the helper launcher actually sits in our corner.
-      const launcher = floatingOpen || launcherHiddenFor(pathname) ? null : assistantLauncherRect()
-      const clashes =
-        launcher != null &&
-        launcher.right > window.innerWidth - EDGE - CARD_WIDTH &&
-        launcher.bottom > window.innerHeight - bottom - CARD_HEIGHT - 24
-      const right = clashes ? Math.max(EDGE, window.innerWidth - launcher.left + 12) : EDGE
       setAnchor((prev) => (prev.right === right && prev.bottom === bottom ? prev : { right, bottom }))
     }
     measure()
@@ -139,7 +142,7 @@ export default function ChatStack() {
   const navigate = useNavigate()
   const location = useLocation()
   const isMdUp = useMediaQuery('(min-width: 768px)')
-  const { cards, follow, unfollow } = useChatStack()
+  const { cards, seats, allCallKey, follow, unfollow } = useChatStack()
   const liveCall = useAgentCallLive()
   const callingAgentId =
     liveCall && (liveCall.status === 'live' || liveCall.status === 'connecting') ? liveCall.agentId : ''
@@ -162,41 +165,12 @@ export default function ChatStack() {
   const visible = expanded ? fanCount : COLLAPSED_VISIBLE
   const overflow = Math.max(0, cards.length - visible)
 
-  // Collapsed: every agent in the stack stands side by side in front of the cards.
-  const stackFaces = useMemo(() => {
-    const seen = new Map<string, StackCard['faces'][number]>()
-    for (const card of cards) {
-      for (const face of card.faces) {
-        const prev = seen.get(face.id)
-        if (!prev || (face.working && !prev.working)) seen.set(face.id, face)
-      }
-    }
-    return [...seen.entries()]
-      .sort((a, b) => Number(b[1].working) - Number(a[1].working))
-      .slice(0, MAX_STACK_FACES)
-      .map(([id, face]) => {
-        const card = cards.find((row) => row.faces.some((agent) => agent.id === id))
-        return { ...face, threadId: card?.id }
-      })
-  }, [cards])
-  const dockFaces = useMemo(() => {
-    if (!callingAgentId) return stackFaces
-    const mine = stackFaces.filter((face) => face.id === callingAgentId)
-    return mine.length ? mine : stackFaces
-  }, [stackFaces, callingAgentId])
-  const dialLabels = useMemo(() => {
-    const labels: Record<string, string> = {}
-    dockFaces.forEach((face, index) => {
-      const label = DIAL_KEYS[index]?.label
-      if (label) labels[face.id] = label
-    })
-    return labels
-  }, [dockFaces])
-
   // Close the floating window when its conversation opens full-screen.
   useEffect(() => {
     if (!floating) return
-    if (location.pathname.includes(`/t/${encodeURIComponent(floating.threadId)}`)) closeFloatingThread()
+    if (location.pathname.includes(`/t/${encodeURIComponent(floating.threadId)}`)) {
+      closeFloatingThread({ sound: false })
+    }
   }, [location.pathname, floating])
 
   useEffect(
@@ -218,78 +192,12 @@ export default function ChatStack() {
   const open = useCallback((card: StackCard, el: HTMLElement | null) => {
     setExpanded(false)
     setSheetOpen(false)
+    if (floating?.threadId === card.id) {
+      requestFloatingThreadClose('hide')
+      return
+    }
     openFloatingThread(card.id, el ? el.getBoundingClientRect() : null)
-  }, [])
-
-  const dialing = useRef(false)
-  const talkThread = useRef<string | null>(null)
-  const [holding, setHolding] = useState<string | null>(null)
-  const beginTalk = useCallback(
-    (threadId: string) => {
-      const live = agentCallLive()
-      if (live && live.signalId !== threadId) {
-        toast.error(t('agentCall.voiceModeBusy'))
-        return
-      }
-      talkThread.current = threadId
-      setHolding(threadId)
-      requestAgentCallHold(true)
-      if (live || dialing.current) return
-      dialing.current = true
-      void apiPost<AgentVoiceOffer>(callRoutes.voice, {
-        signal_id: threadId,
-        client_id: callTabId(),
-        push_to_talk: true,
-      })
-        .then((session) => requestAgentVoiceStart({ ...session, pushToTalk: true }))
-        .catch((err: unknown) => {
-          toast.error(err instanceof Error ? err.message : t('agentCall.voiceFailed'))
-          if (talkThread.current === threadId) {
-            talkThread.current = null
-            setHolding(null)
-            requestAgentCallHold(false)
-          }
-        })
-        .finally(() => {
-          dialing.current = false
-        })
-    },
-    [t],
-  )
-  const endTalk = useCallback(() => {
-    if (!talkThread.current) return
-    talkThread.current = null
-    setHolding(null)
-    requestAgentCallHold(false)
-  }, [])
-
-  useEffect(() => {
-    if (!user?.agentCallsEnabled) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      const index = dialKeyIndex(event)
-      const face = index >= 0 ? dockFaces[index] : undefined
-      if (!face?.threadId) return
-      const el = event.target
-      if (el instanceof HTMLElement && el.closest('input, textarea, [contenteditable="true"]')) return
-      event.preventDefault()
-      beginTalk(face.threadId)
-    }
-    const onKeyUp = (event: KeyboardEvent) => {
-      if (!talkThread.current) return
-      if (event.key !== 'F1' && event.key !== 'F2' && event.key !== 'F4' && event.key !== 'F8' && event.key !== 'F9') {
-        return
-      }
-      endTalk()
-    }
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('blur', endTalk)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('blur', endTalk)
-    }
-  }, [user?.agentCallsEnabled, dockFaces, beginTalk, endTalk])
+  }, [floating])
 
   const togglePin = useCallback(
     async (card: StackCard, opts: { keepFollowing?: boolean } = {}) => {
@@ -380,7 +288,7 @@ export default function ChatStack() {
 
   const onFloatingMinimize = useCallback(() => {
     const id = floating?.threadId
-    closeFloatingThread()
+    closeFloatingThread({ sound: false })
     if (!id) return
     // A followed chat that is done and now read has served its purpose.
     const card = cardsRef.current.find((c) => c.id === id)
@@ -388,12 +296,11 @@ export default function ChatStack() {
   }, [floating, unfollow])
 
   // Opening the helper (Help, a Bokito thread) hands the corner back.
-  const minimizeRef = useRef(onFloatingMinimize)
-  minimizeRef.current = onFloatingMinimize
-  useEffect(() => onAssistantOpen(() => minimizeRef.current()), [])
+  useEffect(() => onAssistantOpen(() => requestFloatingThreadClose('minimize')), [])
 
   if (!token) return null
-  if (!cards.length && !floating) return null
+  const showDock = isMdUp && (seats.length > 0 || Boolean(user?.agentCallsEnabled))
+  if (!cards.length && !floating && !showDock) return null
 
   const morePath = `${inboxPath('all')}?filter=pinned`
 
@@ -490,7 +397,6 @@ export default function ChatStack() {
             bottom: anchor.bottom,
             width: CARD_WIDTH,
             height: CARD_HEIGHT,
-            transition: 'bottom 220ms ease, right 220ms ease',
           }}
           onMouseEnter={enter}
           onMouseLeave={leave}
@@ -517,31 +423,16 @@ export default function ChatStack() {
               hidden={index >= visible}
               width={CARD_WIDTH}
               nudge={card.id in nudged}
-              showFaces={expanded}
+              showFaces={false}
+              windowOpen={floating?.threadId === card.id}
               onOpen={open}
-              onDial={beginTalk}
-              onDialEnd={endTalk}
-              dialHeld={holding === card.id}
-              dialLabels={dialLabels}
-              onlyAgentId={callingAgentId || undefined}
               onTogglePin={(c) => void togglePin(c)}
               onDismiss={(c) => {
+                if (floating?.threadId === c.id) requestFloatingThreadClose('hide')
                 unfollow(c.id)
-                if (floating?.threadId === c.id) closeFloatingThread()
               }}
             />
           ))}
-          {!expanded && stackFaces.length ? (
-            <StackFaces
-              agents={dockFaces}
-              onDial={beginTalk}
-              onDialEnd={endTalk}
-              heldThreadId={holding}
-              dialLabels={dialLabels}
-              onlyAgentId={callingAgentId || undefined}
-              className="z-[60]"
-            />
-          ) : null}
           {overflow > 0 ? (
             <Button
               type="button"
@@ -560,6 +451,17 @@ export default function ChatStack() {
           ) : null}
         </div>
       ) : null}
+      {showDock ? (
+        // Faces stay on the front card's top-right corner. The all-call
+        // mic hangs just to their right and must stay on screen, so the
+        // row shifts left only when the margin is tighter than 8 + 28px.
+        <AgentDock
+          seats={seats}
+          allCallKey={allCallKey}
+          right={Math.max(anchor.right + (cards.length ? 12 : 0), 44)}
+          bottom={anchor.bottom + (cards.length ? CARD_HEIGHT - 28 : 0)}
+        />
+      ) : null}
       {floating ? (
         <FloatingThreadWindow
           key={floating.threadId}
@@ -571,21 +473,13 @@ export default function ChatStack() {
           onMinimize={onFloatingMinimize}
           onClose={() => {
             const id = floating.threadId
-            closeFloatingThread()
+            closeFloatingThread({ sound: false })
             unfollow(id)
           }}
           onExpand={() => {
             const id = floating.threadId
-            closeFloatingThread()
+            closeFloatingThread({ sound: false })
             navigate(openEntityPath({ type: 'signal', id }))
-          }}
-          onTogglePin={() => {
-            if (floatingCard) void togglePin(floatingCard, { keepFollowing: true })
-            else if (token) {
-              void setThreadPinned(token, floating.threadId, true).catch(() =>
-                toast.error(t('chatStack.pinError')),
-              )
-            }
           }}
         />
       ) : null}

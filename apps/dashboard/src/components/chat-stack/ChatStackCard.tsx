@@ -1,126 +1,23 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Avatar } from '../ui/avatar'
 import { useTranslation } from 'react-i18next'
-import { AudioLines, PhoneOff, Pin, PinOff, X } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { Pin, PinOff, X } from 'lucide-react'
 import type { StackCard } from '../../hooks/useChatStack'
 import type { ChatStackAgent } from '../../lib/chat-stack'
-import {
-  requestAgentCallEnd,
-  useAgentCallLive,
-  useAgentCallSpeaking,
-  useAgentCallUserSpeaking,
-} from '../../lib/agent-call-live'
 import { cn } from '../../lib/utils'
-import { Tooltip, TooltipContent, TooltipLabel, TooltipTrigger } from '../ui/tooltip'
 import { AgentDoneCorner } from '../ui/AgentDoneCorner'
 import { Button } from '../ui/button'
 import { Pressable } from '../ui/pressable'
 
 const FACE_SIZE = 32
-/** Function keys Chrome and Bokito leave alone. Letters type, F5 reloads, F11 fills the screen. */
-export const DIAL_KEYS = [
-  { label: 'F1', key: 'F1', shift: false },
-  { label: 'F2', key: 'F2', shift: false },
-  { label: 'F4', key: 'F4', shift: false },
-  { label: 'F8', key: 'F8', shift: false },
-  { label: 'F9', key: 'F9', shift: false },
-  { label: '⇧F2', key: 'F2', shift: true },
-] as const
-
-export function dialKeyIndex(event: KeyboardEvent): number {
-  if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return -1
-  return DIAL_KEYS.findIndex((row) => event.key === row.key && event.shiftKey === row.shift)
-}
 
 const CARD_ACTION =
   'h-6 w-6 rounded-full border border-border bg-bg-elevated text-text-muted shadow-sm hover:bg-bg-elevated hover:text-text-heading'
 
-function DialChip({
-  label,
-  held,
-  onHoldStart,
-  onHoldEnd,
-}: {
-  label: string
-  held: boolean
-  onHoldStart: () => void
-  onHoldEnd: () => void
-}) {
-  const { t } = useTranslation('communication')
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Pressable
-          className={cn(
-            'chat-stack-dial flex h-6 w-auto shrink-0 items-center gap-0.5 px-0.5 text-2xs',
-            held ? 'text-accent' : 'text-text-secondary hover:text-text-heading',
-          )}
-          aria-label={t('agentCall.holdToSpeak')}
-          aria-pressed={held}
-          onPointerDown={(event) => {
-            event.stopPropagation()
-            event.preventDefault()
-            event.currentTarget.setPointerCapture(event.pointerId)
-            onHoldStart()
-          }}
-          onPointerUp={(event) => {
-            event.stopPropagation()
-            onHoldEnd()
-          }}
-          onPointerCancel={(event) => {
-            event.stopPropagation()
-            onHoldEnd()
-          }}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <AudioLines size={14} aria-hidden />
-          {label}
-        </Pressable>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <TooltipLabel detail={label}>{t('agentCall.holdToSpeak')}</TooltipLabel>
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-function StackFace({
-  agent,
-  index,
-  threadId,
-  onDial,
-  onDialEnd,
-  dialHeld,
-  dialLabel,
-  raisedDial,
-}: {
-  agent: ChatStackAgent
-  index: number
-  threadId?: string
-  onDial?: (threadId: string) => void
-  onDialEnd?: () => void
-  dialHeld?: boolean
-  dialLabel?: string
-  /** Left-hand chip sits above the faces. The others stay tucked under theirs. */
-  raisedDial?: boolean
-}) {
-  const { t } = useTranslation('communication')
-  const { user } = useAuth()
-  const call = useAgentCallLive()
-  const speaking = useAgentCallSpeaking()
-  const userSpeaking = useAgentCallUserSpeaking()
+function StackFace({ agent, index }: { agent: ChatStackAgent; index: number }) {
   const wasWorking = useRef(agent.working)
   const [done, setDone] = useState(false)
   const [hot, setHot] = useState(false)
-  const canDial = Boolean(threadId && onDial && onDialEnd && user?.agentCallsEnabled && dialLabel)
-  const onCall =
-    Boolean(threadId) &&
-    call != null &&
-    call.signalId === threadId &&
-    call.agentId === agent.id &&
-    (call.status === 'live' || call.status === 'connecting')
-  const size = onCall ? 42 : FACE_SIZE
   useEffect(() => {
     if (wasWorking.current && !agent.working) setDone(true)
     if (agent.working) setDone(false)
@@ -130,59 +27,30 @@ function StackFace({
   return (
     <span
       className="chat-stack-face relative inline-flex"
-      data-working={!onCall && agent.working ? true : undefined}
-      data-calling={onCall || undefined}
+      data-working={agent.working || undefined}
       style={{ animationDelay: `${index * 220}ms` }}
       title={agent.name}
       onMouseEnter={() => setHot(true)}
       onMouseLeave={() => setHot(false)}
     >
-      <span className="relative" style={{ zIndex: hot || onCall ? 30 : 20 - index }}>
-      <Avatar
-        kind="agent"
-        agent={{
-          name: agent.name,
-          avatar_kind: agent.avatarKind ?? agent.kind,
-          avatar_icon: agent.avatarIcon,
-          avatar_color: agent.avatarColor,
-          avatar_shape: agent.avatarShape,
-          avatar_image_url: agent.avatarImageUrl,
-        }}
-        size={size}
-        mode="live"
-        motion={onCall ? (speaking ? 'talking' : userSpeaking ? 'listening' : 'idle') : agent.working ? 'working' : 'idle'}
-        decorative
-      />
-      {done && !onCall ? <AgentDoneCorner size={size} enter /> : null}
-      </span>
-      {onCall ? (
-        <Button
-          variant="destructive"
-          size="iconSm"
-          className="absolute right-full top-1/2 z-20 mr-1.5 -translate-y-1/2 rounded-full bg-bg-elevated shadow-overlay"
-          aria-label={t('agentCall.hangUp')}
-          title={t('agentCall.hangUp')}
-          onClick={(event) => {
-            event.stopPropagation()
-            requestAgentCallEnd()
+      <span className="relative" style={{ zIndex: hot ? 30 : 20 - index }}>
+        <Avatar
+          kind="agent"
+          agent={{
+            name: agent.name,
+            avatar_kind: agent.avatarKind ?? agent.kind,
+            avatar_icon: agent.avatarIcon,
+            avatar_color: agent.avatarColor,
+            avatar_shape: agent.avatarShape,
+            avatar_image_url: agent.avatarImageUrl,
           }}
-        >
-          <PhoneOff size={14} aria-hidden />
-        </Button>
-      ) : null}
-      {canDial && dialLabel && onDialEnd ? (
-        <span
-          className="absolute left-1/2 top-full -translate-x-1/2 -translate-y-1"
-          style={{ zIndex: raisedDial ? 50 : 40 }}
-        >
-          <DialChip
-            label={dialLabel}
-            held={Boolean(dialHeld)}
-            onHoldStart={() => onDial?.(threadId || '')}
-            onHoldEnd={onDialEnd}
-          />
-        </span>
-      ) : null}
+          size={FACE_SIZE}
+          mode="live"
+          motion={agent.working ? 'working' : 'idle'}
+          decorative
+        />
+        {done ? <AgentDoneCorner size={FACE_SIZE} enter /> : null}
+      </span>
     </span>
   )
 }
@@ -197,59 +65,22 @@ export type ChatStackCardProps = {
   width: number
   nudge: boolean
   onOpen: (card: StackCard, el: HTMLElement) => void
+  /** This card's conversation is the open floating window. */
+  windowOpen?: boolean
   onTogglePin: (card: StackCard) => void
   onDismiss: (card: StackCard) => void
-  onDial?: (threadId: string) => void
-  onDialEnd?: () => void
-  dialHeld?: boolean
-  dialLabels?: Record<string, string>
-  onlyAgentId?: string
   /** Plain row in a list (mobile sheet): no stack transforms or hover actions. */
   inline?: boolean
-  /** Collapsed, the stack draws one shared face row in front of every card. */
+  /** Collapsed, the dock draws the faces in front of every card. */
   showFaces?: boolean
 }
 
-/** Agent faces on the top edge, front agent rightmost. */
-export function StackFaces({
-  agents,
-  className,
-  threadId,
-  onDial,
-  onDialEnd,
-  heldThreadId,
-  dialLabels,
-  onlyAgentId,
-}: {
-  agents: Array<ChatStackAgent & { threadId?: string }>
-  className?: string
-  threadId?: string
-  onDial?: (threadId: string) => void
-  onDialEnd?: () => void
-  heldThreadId?: string | null
-  dialLabels?: Record<string, string>
-  onlyAgentId?: string
-}) {
-  const shown = onlyAgentId ? agents.filter((agent) => agent.id === onlyAgentId) : agents
+/** Agent faces on the top edge of a fanned card, front agent rightmost. Dialing lives in the dock. */
+function StackFaces({ agents }: { agents: ChatStackAgent[] }) {
   return (
-    <span
-      className={cn(
-        'absolute -top-5 right-3 flex flex-row-reverse items-center gap-1.5',
-        className,
-      )}
-    >
-      {shown.map((agent, i) => (
-        <StackFace
-          key={agent.id}
-          agent={agent}
-          index={i}
-          threadId={agent.threadId || threadId}
-          onDial={onDial}
-          onDialEnd={onDialEnd}
-          dialHeld={Boolean(heldThreadId) && heldThreadId === (agent.threadId || threadId)}
-          dialLabel={dialLabels?.[agent.id]}
-          raisedDial={i === shown.length - 1 && shown.length > 1}
-        />
+    <span className="absolute -top-5 right-3 flex flex-row-reverse items-center gap-1.5">
+      {agents.map((agent, i) => (
+        <StackFace key={agent.id} agent={agent} index={i} />
       ))}
     </span>
   )
@@ -263,13 +94,9 @@ export function ChatStackCard({
   width,
   nudge,
   onOpen,
+  windowOpen = false,
   onTogglePin,
   onDismiss,
-  onDial,
-  onDialEnd,
-  dialHeld,
-  dialLabels,
-  onlyAgentId,
   inline = false,
   showFaces = true,
 }: ChatStackCardProps) {
@@ -338,7 +165,8 @@ export function ChatStackCard({
         ref={bodyRef}
         role={inline ? undefined : 'button'}
         tabIndex={inline || hidden ? -1 : 0}
-        aria-label={inline ? undefined : t('chatStack.open', { title })}
+        aria-label={inline ? undefined : t(windowOpen ? 'chatStack.close' : 'chatStack.open', { title })}
+        aria-expanded={inline ? undefined : windowOpen}
         onClick={inline ? undefined : open}
         onKeyDown={inline ? undefined : onKeyDown}
         data-nudge={nudge || undefined}
@@ -355,15 +183,7 @@ export function ChatStackCard({
         )}
       >
         {showFaces && card.faces.length ? (
-          <StackFaces
-            agents={card.faces}
-            threadId={card.id}
-            onDial={inline ? undefined : onDial}
-            onDialEnd={inline ? undefined : onDialEnd}
-            heldThreadId={dialHeld ? card.id : null}
-            dialLabels={inline ? undefined : dialLabels}
-            onlyAgentId={onlyAgentId}
-          />
+          <StackFaces agents={card.faces} />
         ) : null}
 
         <div className="flex items-start gap-2">

@@ -1,8 +1,8 @@
 ---
 title: How Workforce works
 intro: People, agents and departments on one page, with who is available.
-description: Invite people, see people and agents in one directory, group them into departments, set how a department picks up conversations, mark yourself away, and read the Grid from intake to result.
-keywords: workforce, team, members, invite, roles, teams, availability, away, round robin, least open, pickup, grid, lens, labels, bottlenecks
+description: Invite people, see people and agents in one directory, build the department tree, set each department's point of contact and crew, mark yourself away, and read the Grid from intake to result.
+keywords: workforce, team, members, invite, roles, departments, organization, point of contact, accountable, crew, focus, availability, away, round robin, least open, pickup, grid, lens, labels, bottlenecks
 sort: 60
 related: setup-guide,communication,agents,channels
 ---
@@ -16,7 +16,7 @@ Workforce shows everyone who works conversations: the people in the workspace, t
 ![Invite strip on Workforce](/api/docs/assets/team/invite.png)
 *Owners and admins invite people at the top of Workforce.*
 
-1. Open **Workforce**. Under **Invite people**, enter a full email and set **Role**: **Admin** or **Member**. Choose **What each role can do** between the role and **Invite** if you need the permission matrix.
+1. Open **Workforce**. Under **Invite people**, enter a full email and set **Role**: **Admin** or **Member**. For a **Member**, also set **Scope**: **Workspace** (the whole workspace, the default) or **Departments**. Choose **What each role can do** between the role and **Invite** if you need the permission matrix.
 2. Choose **Invite**. When this server cannot send mail, use **Copy invite link** and share it yourself.
 3. Pending invites appear in the directory under **Pending**. Use **Resend invite email** or **Revoke invite**. On an active person, change the role or choose **Deactivate**. Only the **Owner** can promote, demote or deactivate an owner.
 
@@ -24,7 +24,7 @@ Members answer conversations. Owners and admins also connect channels, change au
 
 ## Hire new agents
 
-1. On **Workforce**, below **Invite people**, open the **Hire new agents** banner.
+1. At the bottom of **Workforce** (or **Agents**) you see the **Add department** banner.
 2. Choose **Catalog**. It opens Connections filtered to modules (`/connections?kind=modules`), where you install specialists next to the team.
 
 ## Mark yourself away
@@ -38,67 +38,101 @@ Agents show a purple corner mark: static when on standby, pulsing when they are 
 ## Read the directory
 
 1. On **Workforce**, the directory lists people, pending invites and company agents together. An agent's function sits under the name in that agent's color. **Type** is plain text: **Person** for people and invites, **AI agent** for company agents (`ai_agent`). Filter with **All**, **People**, **Agents**, **Pending** or **Deactivated**, or search by name. **All**, **People** and **Agents** hide deactivated rows. The **Last active** column shows when a person was last online and when an agent last ran. Open **Agents** from the related links for the agent library (same **Deactivated** filter there).
-2. Each person shows role, teams, open work and presence (**Available**, **Away**, **Offline**). In **Role / ceiling**, an owner or admin changes a person's role, and changes an agent's ceiling with the same kind of menu: **Manual**, **Assisted** or **Autonomous**. Only an owner or admin can raise a ceiling to **Autonomous**. Each agent uses the same mark as on Agents and in Communication, and Status is **Standby**, **Working** or **Error**. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)). **Open in Grid** in the page header opens the Grid (same control on Agents, Flows and Folders).
+2. Each row has the columns **Role / ceiling**, **Scope** and **Hours**. **Scope** shows **Workspace**, or the departments that person or agent sits in. An invite shows the scope chosen when inviting. In **Role / ceiling**, an owner or admin changes a person's role, and changes an agent's ceiling with the same kind of menu: **Manual**, **Assisted** or **Autonomous**. Only an owner or admin can raise a ceiling to **Autonomous**. Each person shows open work under the name, and presence as the dot on the avatar (**Available**, **Away**, **Offline**). Each agent uses the same mark as on Agents and in Communication. Open an agent for 30-day metrics and rules (see [Agents](/docs/ai/agents)). **Open in Grid** in the page header opens the Grid (same control on Agents, Flows and Folders).
 3. People and agents use their own marks. On the **Departments** tab each row shows the department icon on the left and a stack of member faces on the right. Corner dots follow a shared hierarchy: green when a person is available, purple pulse when an agent on the team is working, amber when someone is away, static purple when only agents are available, gray when everyone is offline.
 
 ## Deactivate a person or agent
 
 1. On **Workforce**, open the row for a person or a company agent. Choose **Deactivate**. They leave the working roster: pickers, teams, assignment and chat targets skip them. History in conversations and agent runs stays.
-2. Status on that row (and on the agent page) is **Deactivated**. Open the **Deactivated** filter to see everyone who is out of the roster.
+2. Open the **Deactivated** filter to see everyone who is out of the roster. On the agent page the status stays **Deactivated**.
 3. Choose **Reactivate** on the row, or **Reactivate** on the agent page, to put them back. Inviting the same email again also brings a deactivated person back when they accept.
 
 ## Build a department
 
-1. Scroll to **Departments** and choose **New department**. **All people** and **All agents** always exist; their members follow the workspace. You cannot edit or change pickup on those system departments, and they never appear as folders in Communication.
-2. Give a custom department a name and optional description. Tick the people and agents in it. A department can mix both. The icon in the left menu is set on the department page.
-3. Under **Pick up conversations**, choose how new conversations owned by the team are handled:
-   - **People pick up**: the conversation stays with the team; the first person who reacts takes it.
-   - **Agent first**: an agent in the team answers first; people step in when it asks.
+Departments form a tree. The **Organization** is the top; departments hang under it, at most two levels deep.
+
+1. On **Workforce** → **Departments**, choose **New department**.
+2. Give it a name and an optional description. Under **Sits under**, choose **The organization** or a department to hang it below.
+3. Under **Pick up conversations**, choose how new conversations owned by the department are handled when it has no agent:
+   - **People pick up**: the conversation stays with the department; the first person who reacts takes it.
    - **Round robin**: each new conversation goes straight to the next available member in turn.
    - **Least open**: each new conversation goes to the available member with the fewest open conversations.
-4. Choose **Save**. Every custom team appears under **Departments** in the Communication sidebar. Clicking it shows that department's open work, with **Unassigned** underneath.
-5. Back on **Workforce** → **Departments**, each row shows the department icon on the left and a stack of member faces on the right. Click a custom department to open its page. The same facepile appears in the assign picker, mentions and Communication folders: three member marks when there are three people or agents; when there are more, the third circle shows **+N**. The system root **All** has no page of its own.
+4. Choose **Save**. The department page opens, so you can add its crew right away (see the next section). Every department appears under **Departments** in the Communication sidebar.
+5. Back on **Workforce** → **Departments**, each row shows the department icon, its point of contact and a stack of member faces. The top row, **Organization**, opens the organization page. Agents that sit on no department yet are listed under **Not placed yet**; they only pick up work that is handed to them directly. Owners and admins choose **Place** next to such an agent and pick a department; the agent joins that crew as a member.
 
-Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the team. Each hand-out appears in the timeline and in the audit log. Make a team the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
+To add a department under an existing one, open that department and choose **New sub-department** next to **Departments below**. The form opens with **Sits under** filled in. A department two levels deep has no such button.
+
+When a department has an agent, new work starts with its point of contact. Round robin and least open only hand work to people who are available and agents that may handle the channel. When nobody fits, the conversation stays with the department. Each hand-out appears in the timeline and in the audit log. Make a department the owner of a channel under **Settings**, **Channels** (see [Channels](/docs/inbox/channels)).
+
+## Set who sits on a department
+
+Each department has one point of contact: the agent that picks up its work and asks the others. One person can be accountable: they answer the questions the point of contact cannot answer from the work.
+
+1. Open the department page. Under the title you see where it sits in the organization, and its crew with **Point of contact** and **Accountable** marked.
+2. Owners and admins choose **Edit** next to the crew.
+3. Add agents and people with **Add an agent or person**. For each row, set **Role** (**Point of contact**, **Accountable** or **Member**) and an optional **Focus**, for example invoices and reminders.
+4. Choose **Save crew**. When the point of contact changes, Bokito asks you to confirm and posts the change in the department conversation. **Undo** in the confirmation brings back the previous crew.
+
+Without a chosen point of contact, the first agent in the list acts as one, marked **automatic**. Paused agents keep their seat but do not show until they are active again. An agent can also propose a crew change from a conversation; nothing changes until someone approves the decision.
+
+## Run the organization
+
+The organization page (`/organisatie`) is the top of the tree, under the workspace name.
+
+1. Choose **Organization** on **Workforce** → **Departments**, or the first step in the path on any department page.
+2. The point of contact here is the workspace lead: it picks up what no department owns and hands department work to that department's point of contact. Owners and admins sit on the organization by their role.
+3. Under **Departments** each department shows its point of contact and its open work. Choose one to open it.
+
+**Edit** on the organization crew warns that agents at organization level see and steer every department, and lists the owners and admins who sit there by role. Keep that crew small.
+
+## Turn on organization rules
+
+With organization rules on, agents follow the department tree: one agent acts on a conversation, the others read along or are asked.
+
+1. On the organization page, choose the gear at the top right. Under **Organization rules**, choose **On**. Owners and admins can switch it; **Off** keeps the old behavior.
+2. The agent that holds a conversation acts on it: it replies, files and changes it. Another agent reads along or is asked. A person can always take over; the timeline shows who picks up, for example "Picked up by Lisa (via Support)".
+3. On a department page, set **Visibility** in the gear to **Shielded** to keep its work to that department, the departments below and above it, and owners and admins.
+4. Agents talk along the tree: up to the department above, down to the departments below, and to the point of contact of a sibling department. A question nobody answers goes up to the person accountable above; the notification says through which department it came.
+5. Module tools and connections follow the tree too. Agents in a module's department and the departments below it get its tools, a connection can belong to one department (see [Connections](/docs/integrations/integrations)), and a flow that names its tools under **Uses** limits its conversations to those (see [Flows](/docs/ai/flows)).
 
 ## Give a freelancer a limited view
 
 A freelancer works in one or two departments and only sees that work.
 
-1. On **Workforce**, find the person in the directory. Under **What this member sees**, choose **Own departments**. **Whole workspace** is the default.
+1. Invite the person on **Workforce**. Set **Role** to **Member** and **Scope** to **Departments**. **Workspace** is the default. The **Scope** column then shows **Workspace**, or the names of the departments they sit in.
 2. Add the person to the departments they work in (see the section above). They see the conversations, tickets and folders of those departments, and what is assigned to them.
 3. In **Hours per week**, enter the hours they work for you. Leave it empty when it does not apply.
-4. Tickets with an **Uren** (hours) field count toward that number; the department lead warns in the morning briefing when someone is planned over their hours.
+4. Tickets with an **Uren** (hours) field count toward that number; the department's point of contact warns in the morning briefing when someone is planned over their hours.
 
 ## Run a department from its page
 
-A department page shows who leads it, who works in it, and how each of its flows runs.
+A department page shows who sits on it, who picks up, and how each of its flows runs.
 
 1. Choose the department under **Departments** in the left menu, between **Work** and **Team**. Each department you work in sits there in blue, like **New conversation**, with its count of open tickets. Owners and admins see every department; a member sees the departments they are in and those below them.
 2. The icon sits next to the title. Owners and admins click it to pick the icon the department carries in the menu.
-3. Between the title and the tabs, the parent department sits in the center, with the people and agents who are on that parent. For most departments that parent is the root, **All**. **Open in Grid** and the gear stay at the top right. Under the title are the department's autonomy and the module it came from. A member sees the departments they are in and those below them, not the parent department's own work.
-4. The **All** tab holds the whole department: **Open**, **Waiting**, **Overdue** and **Decisions**, then **Today** with what needs attention now (unassigned work, work past its deadline or due this week, and the lead's latest orientation).
+3. Between the title and the tabs sit the path from the organization down to this department and its crew (see [Set who sits on a department](#set-who-sits-on-a-department)). **Open in Grid** and the gear stay at the top right. Under the title are the department's autonomy and the module it came from. A member sees the departments they are in and those below them, not the work of the department above.
+4. The **Overview** tab holds the whole department: **Open**, **Waiting**, **Overdue** and **Decisions**, then **Today** with what needs attention now (unassigned work, work past its deadline or due this week, and the latest orientation of the point of contact). Under that sit the department's flow board, agenda, **Works in**, documentation and the departments below it.
 5. Under **Flows**, each flow is a pipeline: a circle per stage with its open tickets, a dot where something is past its deadline, and a bar with the spread across stages. From its scorecard it shows **Autonomous**, **Corrected** and **Closed (7 days)**. **Open board** opens the flow. Set a flow's department on the flow page.
-6. Below that, **Team** lists the members with their duty (**Primary**, **Backup**), open work and hours a week; agents also show what they are doing and their cost over 7 days. **Improvement proposals** lists what the lead proposed.
-7. Next to **All** is a tab per folder the department's work lands in, home folders first. A folder tab shows the same counts and pipelines, only for the tickets in that folder. Under that sit the folder's flow board (stages as columns, tickets as cards), the agenda, **Works in** and the folder docs. **Add to Works in** adds a canvas, connection or file folder. The folder page itself is the container: open conversations, files and canvases there.
-8. Every weekday morning, the lead agent posts a briefing in the department conversation: what is late, what waits too long on a customer, what is incomplete, and who is over capacity. On Monday it also names one improvement. A department with an outward focus, such as Research, posts trends per client once a week instead (see [Agenda](/docs/ai/agenda)).
+6. Below that, **Team** lists the crew with their role, open work and hours a week; agents also show what they are doing and their cost over 7 days. **Improvement proposals** lists what the point of contact proposed.
+7. Next to **Overview** is a tab per folder the department's work lands in, home folders first. A folder is a filter: the tab zooms the same counts, pipelines, flow board, agenda, **Works in** and documentation into that folder. **Add to Works in** and a new document belong on that folder. The folder page itself is the container: open conversations, files and canvases there.
+8. Every weekday morning, the point of contact posts a briefing in the department conversation: what is late, what waits too long on a customer, what is incomplete, and who is over capacity. On Monday it also names one improvement. A department with an outward focus, such as Research, posts trends per client once a week instead (see [Agenda](/docs/ai/agenda)).
 
 ## Tell a department what to watch
 
-The lead agent wakes on its own when something happens in its domain, not only at its morning orientation.
+The point of contact wakes on its own when something happens in its domain, not only at its morning orientation. These settings belong to the department: when you choose another point of contact, it takes over the same events, budget and brief.
 
-1. On the department page, choose the gear at the top right to open **What the lead pays attention to**. Tick the **Events the lead follows**, such as **New messages**, **Stage changes** or **Deadlines**, set the **Daily budget (EUR)** and the **Proposals per orientation**, and choose **Save**.
-2. On the **All** tab, under **Domain questions**, the lead asks the accountable person what it cannot read from the work, for example which clients come first. Type the answer and choose **Answer**; the fact goes into the brief the lead reads every time it wakes.
-3. **What this department can reach** shows who the lead may push or call: the person a decision is for, or anyone in the department when the work is urgent. Each person sets quiet hours and calls on their own **Notifications** page.
+1. On the department page, choose the gear at the top right to open **What the point of contact pays attention to**. Tick the **Events the point of contact follows**, such as **New messages**, **Stage changes** or **Deadlines**, set the **Daily budget (EUR)** and the **Proposals per orientation**, and choose **Save**. Without a point of contact the dialog says **Pick a point of contact** first.
+2. On the **Overview** tab, under **Domain questions**, the point of contact asks the accountable person what it cannot read from the work, for example which clients come first. Type the answer and choose **Answer**; the fact goes into the brief it reads every time it wakes, together with its crew and their focus.
+3. **What this department can reach** shows who the point of contact may push or call: the person a decision is for, or anyone in the department when the work is urgent. Each person sets quiet hours and calls on their own **Notifications** page.
 4. The folder tabs show where the department's work ends up, **Pushes and calls** the recent attempts to reach someone, and **Outcomes** how its last closed work went. Each attempt also appears in the conversation it was about.
 
 ## Read the organogram
 
-The organogram is the department hierarchy, read from top to bottom. The root department sits at the top. Each department hangs under its parent, and further branches continue downward.
+The organogram is the department tree, read from top to bottom. The organization sits at the top. Each department hangs under its parent.
 
 1. Open **Workforce** and choose **Organogram**.
-2. Read down from the root. A line connects each department to the departments under it. Each card shows the department icon, the name, and how many people and agents sit in it.
-3. Choose a department to open its page. The root has no page of its own.
+2. Read down from the organization. A line connects each department to the departments under it. Each card shows the department icon, the name, its point of contact and how many people and agents sit in it.
+3. Choose a card to open that department, or the organization page for the top card.
 
 ## View the Grid
 
@@ -123,7 +157,7 @@ The Grid is the organization map in 3D: the company in the center and each depar
 
 The Result column says **Estimated** while not every result is recorded as a delivery yet. A folder in that column includes the work of its subfolders; choose it to see each subfolder with its own count. A write through a connection that sits in no folder, such as an invoice in the accounting package, gets its own result with the connection's name. A closed conversation without a recorded destination lands in **Done**; its panel shows how many closed as **No reply needed**. A conversation counts under its flow label, or without one under the label it got first. The orange box **No department** holds people and agents who work conversations but sit in no department.
 
-In 2D, each department is a lane with its people and agents on the left and its flows on the right; flows without a department sit below the lanes. **Open in Grid** on a department page opens Workflow with that lane in focus. Each bottleneck names the department and lead that own it.
+In 2D, each department is a lane with its people and agents on the left and its flows on the right; flows without a department sit below the lanes. **Open in Grid** on a department page opens Workflow with that lane in focus. Each bottleneck names the department and point of contact that own it.
 
 ## Personal settings stay personal
 

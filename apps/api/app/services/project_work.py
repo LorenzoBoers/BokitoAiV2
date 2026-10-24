@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.time import utcnow
@@ -855,6 +855,67 @@ async def sections_for_project(
         .order_by(DocSection.doc_id, DocSection.position)
     )
     return list(result.scalars().all())
+
+
+async def docs_for_department(
+    session: AsyncSession,
+    tenant_id: UUID,
+    department_id: UUID,
+    folder_ids: list[UUID],
+) -> list[dict[str, Any]]:
+    """Documentation of the department: docs on its folders, and docs filed on the department."""
+    from app.services.trash import alive
+    from app.services.workspace import serialize_doc
+
+    where = [
+        WorkspaceDoc.tenant_id == tenant_id,
+        alive(WorkspaceDoc),
+        WorkspaceDoc.internal.is_(True),
+        or_(
+            WorkspaceDoc.department_id == department_id,
+            *([WorkspaceDoc.project_id.in_(folder_ids)] if folder_ids else []),
+        ),
+    ]
+    docs = list(
+        (
+            await session.execute(
+                select(WorkspaceDoc).where(*where).order_by(WorkspaceDoc.sort_order, WorkspaceDoc.path)
+            )
+        ).scalars()
+    )
+    unique: list[WorkspaceDoc] = []
+    seen: set[UUID] = set()
+    for doc in docs:
+        if doc.id in seen:
+            continue
+        seen.add(doc.id)
+        unique.append(doc)
+    if not unique:
+        return []
+    doc_ids = [doc.id for doc in unique]
+    sections = list(
+        (
+            await session.execute(
+                select(DocSection)
+                .where(DocSection.tenant_id == tenant_id, DocSection.doc_id.in_(doc_ids))
+                .order_by(DocSection.doc_id, DocSection.position)
+            )
+        ).scalars()
+    )
+    links = await links_for_sections(session, tenant_id, [section.id for section in sections])
+    by_doc: dict[UUID, list[dict[str, Any]]] = {}
+    for section in sections:
+        payload = serialize_section(section)
+        payload["items"] = links.get(section.id, [])
+        by_doc.setdefault(section.doc_id, []).append(payload)
+    linked = await active_requests_for_docs(session, tenant_id, doc_ids)
+    out: list[dict[str, Any]] = []
+    for doc in unique:
+        data = serialize_doc(doc)
+        data["sections"] = by_doc.get(doc.id, [])
+        data["linked_requests"] = linked.get(doc.id, [])
+        out.append(data)
+    return out
 
 
 async def links_for_sections(

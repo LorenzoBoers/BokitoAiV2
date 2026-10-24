@@ -7,18 +7,30 @@
  * mounted by `PersonalAssistantWidget`.
  */
 
+import { isLocalHostname } from './host-routing'
+
 /**
- * The launcher sits bottom-right — exactly where an open conversation puts
- * its send controls. Hide it while a thread or the new-conversation composer
- * is on screen so it never covers a Send button; it returns on every other
- * page (lists, Overview, settings, ...). Topbar Help force-opens the panel
- * even while the launcher is hidden. The chat stack reads this too, to sit
- * beside the launcher when it shows.
+ * In-app Bokito helper is a dev-only surface: local Vite, loopback, and
+ * `dev.app.bokito.ai`. Production (`app.bokito.ai` / tenant hosts) never
+ * mounts the widget; Help goes to `/settings/help` instead.
  */
-export function launcherHiddenFor(pathname: string): boolean {
-  if (pathname === '/new' || pathname.startsWith('/new/')) return true
-  if (!pathname.startsWith('/communication')) return false
-  return pathname.includes('/t/') || pathname.startsWith('/communication/new')
+export function inAppAssistantEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  if (import.meta.env.DEV) return true
+  const host = window.location.hostname.trim().toLowerCase()
+  if (isLocalHostname(host)) return true
+  if (host === 'dev.app.bokito.ai' || host.endsWith('.dev.app.bokito.ai')) return true
+  return false
+}
+
+/**
+ * The floating FAB is always hidden: open only via topbar Help / palette /
+ * hub actions (`openAssistant`). Force-open still shows the panel. The chat
+ * stack reads this too, so it does not reserve space for a launcher that is
+ * never drawn.
+ */
+export function launcherHiddenFor(_pathname: string): boolean {
+  return true
 }
 
 /**

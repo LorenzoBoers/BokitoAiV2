@@ -47,8 +47,12 @@ type Props = {
   callVoices?: { id: string; label: string }[]
   callSpeeds?: number[]
   callLanguages?: string[]
+  callVoiceModel?: string | null
+  callVoiceModels?: { id: string; label: string; tts_model?: string; realtime_model?: string }[]
   onChanged?: () => void
 }
+
+const VOICE_MODEL_INHERIT = 'inherit'
 
 const MAX_JOB_TITLE = 32
 const MAX_DESCRIPTION = 280
@@ -83,6 +87,8 @@ export function AgentIdentityDialog({
   callVoices,
   callSpeeds,
   callLanguages,
+  callVoiceModel,
+  callVoiceModels,
   onChanged,
 }: Props) {
   const { t } = useTranslation('nav')
@@ -99,6 +105,7 @@ export function AgentIdentityDialog({
   const [voice, setVoice] = useState(callVoice || '')
   const [speed, setSpeed] = useState(callSpeed ?? 1)
   const [language, setLanguage] = useState(callLanguage || 'nl')
+  const [voiceModel, setVoiceModel] = useState(callVoiceModel || VOICE_MODEL_INHERIT)
   const [editingName, setEditingName] = useState(false)
   const [editingJobTitle, setEditingJobTitle] = useState(false)
   const [editingDescription, setEditingDescription] = useState(false)
@@ -121,11 +128,17 @@ export function AgentIdentityDialog({
     }
   }, [open])
 
-  const hearVoice = (next: { voice?: string; speed?: number; language?: string }) => {
+  const hearVoice = (next: {
+    voice?: string
+    speed?: number
+    language?: string
+    voiceModel?: string
+  }) => {
     if (!token || !showVoice) return
     const voiceId = next.voice ?? voice
     const pace = next.speed ?? speed
     const lang = next.language ?? language
+    const quality = next.voiceModel ?? voiceModel
     if (!voiceId) return
     const gen = ++previewGen.current
     previewAudio.current?.pause()
@@ -134,6 +147,7 @@ export function AgentIdentityDialog({
       speed: pace,
       language: lang,
       name: name.trim() || agentName,
+      voice_model: quality === VOICE_MODEL_INHERIT ? null : quality,
     })
       .then((blob) => {
         if (gen !== previewGen.current) return
@@ -175,6 +189,7 @@ export function AgentIdentityDialog({
     setVoice(callVoice || callVoices?.[0]?.id || '')
     setSpeed(callSpeed ?? 1)
     setLanguage(callLanguage || callLanguages?.[0] || 'nl')
+    setVoiceModel(callVoiceModel || VOICE_MODEL_INHERIT)
     setEditingName(false)
     setEditingJobTitle(false)
     setEditingDescription(false)
@@ -190,6 +205,7 @@ export function AgentIdentityDialog({
     callVoice,
     callSpeed,
     callLanguage,
+    callVoiceModel,
     callVoices,
     callLanguages,
   ])
@@ -221,7 +237,12 @@ export function AgentIdentityDialog({
         avatar_shape: kind === 'orb' ? shape : null,
         avatar_image_url: null,
         ...(showVoice
-          ? { call_voice: voice, call_speed: speed, call_language: language }
+          ? {
+              call_voice: voice,
+              call_speed: speed,
+              call_language: language,
+              call_voice_model: voiceModel === VOICE_MODEL_INHERIT ? 'inherit' : voiceModel,
+            }
           : {}),
       })
       void reloadAgentsCache().catch(() => {})
@@ -371,6 +392,42 @@ export function AgentIdentityDialog({
           {showVoice ? (
             <div className="space-y-2">
               <p className="text-xs text-text-muted">{t('workforce.agents.identityVoiceHint')}</p>
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-text-secondary">
+                  {t('workforce.agents.identityVoiceQuality')}
+                </p>
+                <Select
+                  value={voiceModel}
+                  onValueChange={(value) => {
+                    setVoiceModel(value)
+                    hearVoice({ voiceModel: value })
+                  }}
+                  disabled={busy}
+                >
+                  <SelectTrigger
+                    className="h-9 w-full text-sm"
+                    aria-label={t('workforce.agents.identityVoiceQuality')}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={VOICE_MODEL_INHERIT}>
+                      {t('workforce.agents.identityVoiceQualityInherit')}
+                    </SelectItem>
+                    {(callVoiceModels ?? [
+                      { id: 'current', label: 'Current' },
+                      { id: 'top', label: 'Top' },
+                    ]).map((row) => (
+                      <SelectItem key={row.id} value={row.id}>
+                        {row.id === 'top'
+                          ? t('workforce.agents.identityVoiceQualityTop')
+                          : t('workforce.agents.identityVoiceQualityCurrent')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-2xs text-text-muted">{t('workforce.agents.identityVoiceQualityHint')}</p>
+              </div>
               <div className="grid gap-2 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-text-secondary">{tCall('agentCall.voice')}</p>

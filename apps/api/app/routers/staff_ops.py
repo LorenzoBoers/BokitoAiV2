@@ -360,6 +360,12 @@ class StaffTimeSavedWeightsBody(BaseModel):
     minutes: dict[str, int] = Field(default_factory=dict)
 
 
+class StaffVoiceModelBody(BaseModel):
+    """Platform default voice quality: current | top."""
+
+    tier: str = Field(min_length=1, max_length=32)
+
+
 @router.get("/ops/time-saved-weights")
 async def staff_get_time_saved_weights(
     auth: Annotated[AuthContext, Depends(get_current_auth)],
@@ -405,3 +411,136 @@ async def staff_put_time_saved_weights(
         sorted(body.minutes.keys()),
     )
     return {"ok": True, "actions": action_weight_catalog(minutes)}
+
+
+@router.get("/ops/voice-model")
+async def staff_get_voice_model(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Platform default voice quality for voicemail TTS and live Realtime."""
+    _require_staff(auth)
+    from app.services.voice_models import load_platform_tier, models_for_tier, tier_catalog
+
+    tier = await load_platform_tier(session, force=True)
+    models = models_for_tier(tier)
+    return {
+        "tier": tier,
+        "tts_model": models["tts_model"],
+        "realtime_model": models["realtime_model"],
+        "choices": tier_catalog(),
+    }
+
+
+@router.put("/ops/voice-model")
+async def staff_put_voice_model(
+    body: StaffVoiceModelBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Set platform voice quality (persisted in platform_settings). No restart."""
+    _require_staff(auth)
+    from app.services.voice_models import models_for_tier, save_platform_tier, tier_catalog
+
+    try:
+        tier = await save_platform_tier(session, body.tier)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    models = models_for_tier(tier)
+    logger.info(
+        "staff_voice_model_updated staff=%s tier=%s tts=%s realtime=%s",
+        auth.user.email,
+        tier,
+        models["tts_model"],
+        models["realtime_model"],
+    )
+    return {
+        "ok": True,
+        "tier": tier,
+        "tts_model": models["tts_model"],
+        "realtime_model": models["realtime_model"],
+        "choices": tier_catalog(),
+    }
+
+
+class StaffBindPriceBookBody(BaseModel):
+    price_book_id: UUID
+    notes: str = ""
+
+
+@router.get("/ops/usage")
+async def staff_ops_usage(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    period: Annotated[str, Query(description="7d | 30d | 90d | mtd")] = "30d",
+):
+    """Cross-tenant token and margin rollup for the OPS Usage tab."""
+    _require_staff(auth)
+    from app.services import ops_usage
+
+    return await ops_usage.usage_overview(session, period=period)
+
+
+@router.get("/ops/usage/tenants/{tenant_id}")
+async def staff_ops_usage_tenant(
+    tenant_id: UUID,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    period: Annotated[str, Query(description="7d | 30d | 90d | mtd")] = "30d",
+):
+    _require_staff(auth)
+    from app.services import ops_usage
+
+    detail = await ops_usage.usage_tenant_detail(session, tenant_id, period=period)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return detail
+
+
+@router.get("/ops/price-books")
+async def staff_list_price_books(
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    _require_staff(auth)
+    from app.services import pricing as pricing_svc
+
+    return {"books": await pricing_svc.list_books(session)}
+
+
+@router.put("/ops/tenants/{tenant_id}/price-book")
+async def staff_bind_tenant_price_book(
+    tenant_id: UUID,
+    body: StaffBindPriceBookBody,
+    auth: Annotated[AuthContext, Depends(get_current_auth)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    _require_staff(auth)
+    tenant = await session.get(Tenant, tenant_id)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    from app.services import pricing as pricing_svc
+
+    from app.models.pricing import PriceBook
+
+    try:
+        binding = await pricing_svc.bind_tenant_book(
+            session, tenant_id, body.price_book_id, notes=body.notes or ""
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await session.commit()
+    book = await session.get(PriceBook, binding.price_book_id)
+    logger.info(
+        "staff_price_book_bound staff=%s tenant=%s book=%s",
+        auth.user.email,
+        tenant.slug,
+        book.slug if book else body.price_book_id,
+    )
+    return {
+        "ok": True,
+        "tenant_id": str(tenant_id),
+        "price_book_id": str(binding.price_book_id),
+        "price_book_slug": book.slug if book else None,
+        "price_book_name": book.name if book else None,
+    }

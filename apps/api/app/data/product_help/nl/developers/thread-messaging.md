@@ -89,7 +89,7 @@ Elke beurt eindigt met een stopreden op de run: `end_turn`, `max_turns`, `no_pro
 
 ## Module aannemen
 
-`POST /api/connections/modules/{slug}/agents/hire` maakt of hergebruikt een beheerde specialist (`managed_origin=module`), zet de roster en opent een setup-gesprek.
+`POST /api/connections/modules/{slug}/agents/hire` maakt of hergebruikt een beheerde specialist (`managed_origin=module`), zet die in de module-afdeling en opent een setup-gesprek.
 
 ## Clientpakket
 

@@ -452,6 +452,14 @@ async def _ask_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, 
     question = str(tool_input.get("question") or "").strip()
     if not question:
         return {"error": "question required"}
+    from app.services.job_card import SLOTTED, classify, delegation_block
+
+    blocked = delegation_block(question)
+    if blocked:
+        return {"error": blocked, "status": "denied"}
+    card = classify(question)
+    if card["job"] in SLOTTED and not card["missing"]:
+        question = card["brief"]
     result = await create_ask(ctx.session, signal, from_agent=ctx.agent, peer=peer, question=question)
     await ctx.session.commit()
     if not result.get("ok"):
@@ -491,6 +499,29 @@ async def _handoff_to(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     brief = str(tool_input.get("brief") or "").strip()
     if not brief:
         return {"error": "brief required"}
+    from app.services.job_card import SLOTTED, classify, delegation_block
+
+    blocked = delegation_block(brief)
+    if blocked:
+        return {"error": blocked, "status": "denied"}
+    card = classify(brief)
+    if card["job"] in SLOTTED and not card["missing"]:
+        brief = card["brief"]
+    from app.services.org_rules import org_rules_on
+
+    if await org_rules_on(ctx.session, ctx.tenant_id):
+        from app.services.agent_turns import talk_line_refusal
+        from app.services.ownership import apply_owner
+        from app.services.work_holder import may_act
+
+        refusal = await talk_line_refusal(ctx.session, signal, ctx.agent, peer)
+        if refusal:
+            return {"error": refusal, "status": "denied"}
+        holds, _why = await may_act(ctx.session, signal, ctx.agent)
+        if holds:
+            await apply_owner(ctx.session, signal, "agent", peer.id)
+            signal.agent_id = peer.id
+            ctx.session.add(signal)
     queued = await enqueue_turn(
         ctx.session,
         signal,
@@ -515,37 +546,84 @@ async def _handoff_to(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str,
     }
 
 
+async def _take_over(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Become the holder of a conversation in your branch."""
+    from app.models.signal import Signal
+    from app.services.org_rules import org_rules_on
+    from app.services.work_holder import take_over
+
+    if ctx.agent is None:
+        return {"error": "Only an agent takes work over; people assign it."}
+    if not await org_rules_on(ctx.session, ctx.tenant_id):
+        return {"ok": True, "note": "Anyone may act on conversations in this workspace; no take-over needed."}
+    signal_id = ctx.signal_id
+    if tool_input.get("signal_id"):
+        try:
+            signal_id = UUID(str(tool_input["signal_id"]))
+        except ValueError:
+            return {"error": "signal_id is not a valid id"}
+    signal = await ctx.session.get(Signal, signal_id) if signal_id else None
+    if signal is None or signal.tenant_id != ctx.tenant_id:
+        return {"error": "Conversation not found"}
+    result = await take_over(ctx.session, signal, ctx.agent)
+    if not result.get("ok"):
+        return {"error": result["error"], "status": "denied"}
+    await ctx.session.commit()
+    return {
+        "ok": True,
+        "signal_id": str(signal.id),
+        "note": f"You hold this conversation now (taken over from {result['from_department']}).",
+    }
+
+
 async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
-    """Start a peer conversation with another agent."""
+    """Open a conversation that holds the title and the sentence.
+
+    A colleague joins, and gets the floor, only when agent_id is set.
+    """
     from uuid import UUID
 
     from sqlalchemy import select
 
     from app.models.agent import Agent
-    from app.models.signal import Signal
+    from app.models.signal import Signal, SignalMessage
     from app.services.ownership import apply_owner
     from app.services.agent_turns import enqueue_turn
     from app.services.participants import ensure_participant
 
-    try:
-        peer_id = UUID(str(tool_input.get("agent_id") or ""))
-    except ValueError:
-        return {"error": "agent_id required"}
-    peer = (
-        await ctx.session.execute(
-            select(Agent).where(
-                Agent.id == peer_id,
-                Agent.tenant_id == ctx.tenant_id,
-                Agent.is_active.is_(True),
+    peer_raw = str(tool_input.get("agent_id") or "").strip()
+    peer = None
+    if peer_raw:
+        try:
+            peer_id = UUID(peer_raw)
+        except ValueError:
+            return {"error": "unknown agent"}
+        peer = (
+            await ctx.session.execute(
+                select(Agent).where(
+                    Agent.id == peer_id,
+                    Agent.tenant_id == ctx.tenant_id,
+                    Agent.is_active.is_(True),
+                )
             )
-        )
-    ).scalar_one_or_none()
-    if peer is None:
-        return {"error": "Target agent not found"}
-    if ctx.agent and peer.id == ctx.agent.id:
-        return {"error": "Cannot start a peer chat with yourself"}
+        ).scalar_one_or_none()
+        if peer is None:
+            return {"error": "Target agent not found"}
+        if ctx.agent and peer.id == ctx.agent.id:
+            return {"error": "Cannot start a peer chat with yourself"}
 
-    title = str(tool_input.get("title") or f"{(ctx.agent.name if ctx.agent else 'Agent')} × {peer.name}")
+    owner_id = peer.id if peer is not None else (ctx.agent.id if ctx.agent else None)
+    if owner_id is None:
+        return {"error": "agent_id required"}
+
+    title = str(
+        tool_input.get("title")
+        or (
+            f"{(ctx.agent.name if ctx.agent else 'Agent')} × {peer.name}"
+            if peer is not None
+            else (ctx.agent.name if ctx.agent else "Conversation")
+        )
+    )
     now = utcnow()
     signal = Signal(
         tenant_id=ctx.tenant_id,
@@ -553,7 +631,7 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         source="agent_peer",
         subject=title[:200],
         status="open",
-        agent_id=peer.id,
+        agent_id=owner_id,
         created_at=now,
         updated_at=now,
         last_message_at=now,
@@ -564,17 +642,43 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         await apply_owner(ctx.session, signal, "agent", ctx.agent.id, by_user_id=ctx.user_id)
     elif ctx.user_id:
         await apply_owner(ctx.session, signal, "user", ctx.user_id, by_user_id=ctx.user_id)
+    member_id = peer.id if peer is not None else ctx.agent.id
     await ensure_participant(
         ctx.session,
         signal,
         kind="agent",
-        ref_id=peer.id,
+        ref_id=member_id,
         role="member",
         invited_by_kind="agent" if ctx.agent else "user",
         invited_by_id=(ctx.agent.id if ctx.agent else ctx.user_id),
         joined_via="a2a",
     )
     prompt = str(tool_input.get("message") or tool_input.get("instructions") or "").strip()
+    if prompt and ctx.agent:
+        ctx.session.add(
+            SignalMessage(
+                signal_id=signal.id,
+                tenant_id=ctx.tenant_id,
+                kind="agent_message",
+                direction="internal",
+                role="assistant",
+                author_agent_id=ctx.agent.id,
+                body_text=prompt,
+                body_preview=prompt[:200],
+                received_at=now,
+                metadata_json="{}",
+            )
+        )
+    result: dict[str, Any] = {
+        "ok": True,
+        "mode": "chat",
+        "signal_id": str(signal.id),
+        "path": f"/communication/inbox/all/t/{signal.id}",
+        "title": title[:200],
+    }
+    if peer is None:
+        await ctx.session.commit()
+        return result
     turn = await enqueue_turn(
         ctx.session,
         signal,
@@ -585,15 +689,10 @@ async def _start_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> d
         prompt=prompt or f"Join this conversation about: {title}",
     )
     await ctx.session.commit()
-    return {
-        "ok": True,
-        "mode": "chat",
-        "signal_id": str(signal.id),
-        "path": f"/communication/inbox/all/t/{signal.id}",
-        "peer_agent_id": str(peer.id),
-        "peer_agent_name": peer.name,
-        "turn": turn,
-    }
+    result["peer_agent_id"] = str(peer.id)
+    result["peer_agent_name"] = peer.name
+    result["turn"] = turn
+    return result
 
 
 async def _suggest_thread_reply(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -1573,13 +1672,37 @@ register_tool(
 
 register_tool(
     ToolSpec(
+        name="take_over",
+        description=(
+            "Take this conversation over from the agent that holds it, so you may act on it. "
+            "Only for the crew of the responsible department or a department above it. "
+            "Ask the holder first (ask_agent); take over only when nobody below can do it "
+            "or a person asked you to."
+        ),
+        category="delegation",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string", "description": "Conversation id; defaults to this one"},
+                "reason": {"type": "string", "description": "One line on why you take it over"},
+            },
+        },
+        handler=_take_over,
+        mutating=True,
+        gated=False,
+        audience="operator",
+        display_name="Took over",
+    )
+)
+
+register_tool(
+    ToolSpec(
         name="start_conversation",
         description=(
-            "Start a separate peer conversation with another agent: an internal "
-            "thread with both as participants, and the peer gets the floor. "
+            "Open a conversation that holds a title and a sentence. "
+            "Leave agent_id empty unless a named colleague should join and get the floor. "
             "Do not use this to ask an agent something in the current conversation: "
-            "use ask_agent so their answer stays inline here. For background work "
-            "that reports back to you, use spawn_subagent."
+            "use ask_agent so their answer stays inline here."
         ),
         category="messaging",
         input_schema={
@@ -1589,7 +1712,7 @@ register_tool(
                 "title": {"type": "string"},
                 "message": {"type": "string"},
             },
-            "required": ["agent_id"],
+            "required": ["title", "message"],
         },
         handler=_start_conversation,
         gated=False,
@@ -1892,84 +2015,253 @@ register_tool(
     )
 )
 
-async def _split_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+def _uuid_or_none(raw: Any) -> UUID | None:
+    text = str(raw or "").strip()
+    return UUID(text) if text else None
+
+
+async def _move_to_conversation(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Move messages to a new or existing conversation (replaces split)."""
     from fastapi import HTTPException
 
     from app.models.signal import Signal
-    from app.services.conversation_split import (
-        resolve_category,
-        split_conversation,
-        split_or_propose,
-    )
+    from app.services.conversation_moves import move_messages
+    from app.services.conversation_split import resolve_category, split_or_propose
 
     try:
         signal_id = UUID(str(tool_input.get("signal_id") or ctx.signal_id or ""))
-        raw_message = str(tool_input.get("from_message_id") or "").strip()
-        from_message_id = UUID(raw_message) if raw_message else None
+        from_message_id = _uuid_or_none(tool_input.get("from_message_id"))
+        target_id = _uuid_or_none(tool_input.get("target_signal_id"))
+        message_ids = [UUID(str(m)) for m in (tool_input.get("message_ids") or []) if str(m).strip()]
     except ValueError:
-        return {"error": "signal_id and from_message_id must be ids"}
+        return {"error": "signal_id, target_signal_id and message ids must be ids"}
     signal = await ctx.session.get(Signal, signal_id)
     if signal is None or signal.tenant_id != ctx.tenant_id:
         return {"error": "Conversation not found"}
     try:
         category = await resolve_category(ctx.session, ctx.tenant_id, tool_input.get("category"))
-        if ctx.agent is None:
-            # A person ran this (or approved the split card): no AI handling gate.
-            child = await split_conversation(
+        customer = signal.channel not in ("internal", "assistant", "team")
+        if ctx.agent is not None and customer and target_id is None:
+            # A new customer request: the conversation's Autonomy decides.
+            if category is None:
+                return {"error": "category is required: name the new request's label"}
+            return await split_or_propose(
                 ctx.session,
                 ctx.tenant_id,
-                signal_id,
-                from_message_id=from_message_id,
+                signal,
                 category=category,
-                actor_type="user" if ctx.user_id else "system",
-                actor_id=str(ctx.user_id or ""),
+                from_message_id=from_message_id,
+                agent_id=ctx.agent.id,
+                reason=str(tool_input.get("reason") or ""),
             )
-            return {"status": "split", "signal_id": str(child.id)}
-        if category is None:
-            return {"error": "category is required: name the new request's category"}
-        return await split_or_propose(
+        if ctx.agent is not None and customer:
+            from app.services.ai_handling import resolve_for_signal
+
+            tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+            mode = (await resolve_for_signal(ctx.session, tenant, signal)).effective
+            if mode != "autonomous":
+                return {"status": mode, "detail": "Autonomy here does not allow an agent to move customer messages."}
+        actor_type = "agent" if ctx.agent else ("user" if ctx.user_id else "system")
+        actor_id = str(ctx.agent.id if ctx.agent else (ctx.user_id or ""))
+        target = await move_messages(
             ctx.session,
             ctx.tenant_id,
-            signal,
-            category=category,
+            signal_id,
+            message_ids=message_ids or None,
             from_message_id=from_message_id,
-            agent_id=ctx.agent.id,
-            reason=str(tool_input.get("reason") or ""),
+            target_id=target_id,
+            title=str(tool_input.get("title") or ""),
+            category=category,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            user_id=ctx.user_id,
         )
+        return {"status": "moved", "signal_id": str(target.id), "title": target.subject or ""}
     except (HTTPException, AppError) as exc:
         return {"error": str(exc.detail)}
 
 
+async def _merge_conversations(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    from fastapi import HTTPException
+
+    from app.models.signal import Signal
+    from app.services.conversation_moves import merge_conversations
+
+    try:
+        source_id = UUID(str(tool_input.get("signal_id") or ctx.signal_id or ""))
+        target_id = UUID(str(tool_input.get("target_signal_id") or ""))
+    except ValueError:
+        return {"error": "signal_id and target_signal_id must be ids"}
+    source = await ctx.session.get(Signal, source_id)
+    if source is None or source.tenant_id != ctx.tenant_id:
+        return {"error": "Conversation not found"}
+    if ctx.agent is not None and source.channel not in ("internal", "assistant", "team"):
+        from app.services.ai_handling import resolve_for_signal
+
+        tenant = await ctx.session.get(Tenant, ctx.tenant_id)
+        mode = (await resolve_for_signal(ctx.session, tenant, source)).effective
+        if mode != "autonomous":
+            return {"status": mode, "detail": "Autonomy here does not allow an agent to merge customer conversations."}
+    try:
+        target = await merge_conversations(
+            ctx.session,
+            ctx.tenant_id,
+            source_id,
+            target_id,
+            actor_type="agent" if ctx.agent else "user",
+            actor_id=str(ctx.agent.id if ctx.agent else (ctx.user_id or "")),
+        )
+    except (HTTPException, AppError) as exc:
+        return {"error": str(exc.detail)}
+    return {"status": "merged", "signal_id": str(target.id), "title": target.subject or ""}
+
+
+async def _peer_by_name(ctx: ToolContext, name: str) -> Any:
+    from app.models.agent import Agent
+    from app.services.colleague_names import match_agent_name
+
+    name = (name or "").strip()
+    if not name:
+        return None
+    agents = (
+        await ctx.session.execute(
+            select(Agent).where(Agent.tenant_id == ctx.tenant_id, Agent.is_active.is_(True)).limit(80)
+        )
+    ).scalars().all()
+    return match_agent_name(name, list(agents), exclude_id=ctx.agent.id if ctx.agent else None)
+
+
+async def _intercom_agent(ctx: ToolContext, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Ask another agent; its answer reaches the person as a voice note on its own seat."""
+    from app.services.intercom import handoff_to_agent
+
+    if ctx.agent is None or ctx.user_id is None:
+        return {"error": "Only an agent working for a person can intercom another agent"}
+    try:
+        thread_id = _uuid_or_none(tool_input.get("thread_id")) or ctx.signal_id
+    except ValueError:
+        thread_id = ctx.signal_id
+    raw_id = str(tool_input.get("agent_id") or "").strip()
+    try:
+        peer_id = UUID(raw_id)
+    except ValueError:
+        # A name ("Cato", "[TEST] Cato", a near miss from speech) is resolved
+        # against this workspace's active agents only.
+        peer = await _peer_by_name(ctx, str(tool_input.get("agent_name") or raw_id))
+        if peer is None:
+            return {"error": "agent_id must be the id of an active colleague; use the colleague list"}
+        peer_id = peer.id
+    message = str(tool_input.get("message") or "").strip()
+    if not message or thread_id is None:
+        return {"error": "message and a conversation are required"}
+    from app.services.job_card import delegation_block
+
+    blocked = delegation_block(message)
+    if blocked:
+        return {"error": blocked, "status": "denied"}
+    return await handoff_to_agent(
+        ctx.session,
+        ctx.tenant_id,
+        user_id=ctx.user_id,
+        from_agent=ctx.agent,
+        to_agent_id=peer_id,
+        thread_id=UUID(str(thread_id)),
+        message=message,
+    )
+
+
 register_tool(
     ToolSpec(
-        name="split_conversation",
+        name="move_to_conversation",
         description=(
-            "Move a new request into its own conversation. A conversation has one "
-            "label; when the customer raises something with a different label, "
-            "split from the message where it starts. The conversation's Autonomy "
-            "decides the outcome: autonomous splits, assisted asks the team, manual "
-            "leaves it to a person."
+            "Move messages to a new or an existing conversation. Use it when a "
+            "conversation turns to another subject: pass from_message_id (that "
+            "message and everything after it) or message_ids, and target_signal_id "
+            "for an existing conversation or nothing for a new one. A new customer "
+            "request needs a label (category); the conversation's Autonomy decides: "
+            "autonomous moves, assisted asks the team, manual leaves it to a person. "
+            "Tell the person in one short line where it went."
         ),
         category="messaging",
         input_schema={
             "type": "object",
             "properties": {
-                "signal_id": {"type": "string"},
+                "signal_id": {"type": "string", "description": "Conversation the messages are in now"},
                 "from_message_id": {
                     "type": "string",
-                    "description": "First message of the new request; defaults to the newest customer message",
+                    "description": "Move this message and everything after it",
                 },
+                "message_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Move only these messages",
+                },
+                "target_signal_id": {
+                    "type": "string",
+                    "description": "Existing conversation to move them into; empty for a new one",
+                },
+                "title": {"type": "string", "description": "Title for a new conversation"},
                 "category": {
                     "type": "string",
-                    "description": "Label name or id for the new conversation",
+                    "description": "Label name or id for a new customer conversation",
                 },
                 "reason": {"type": "string", "description": "One sentence for the team"},
             },
-            "required": ["category"],
         },
-        handler=_split_conversation,
+        handler=_move_to_conversation,
         gated=False,
-        display_name="Split conversation",
+        display_name="Move to conversation",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="merge_conversations",
+        description=(
+            "Merge this conversation into another one about the same subject. Every "
+            "message moves; this conversation closes and points to the other. "
+            "Customer conversations merge only with the same contact."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "signal_id": {"type": "string", "description": "Conversation to merge away"},
+                "target_signal_id": {"type": "string", "description": "Conversation that keeps everything"},
+            },
+            "required": ["target_signal_id"],
+        },
+        handler=_merge_conversations,
+        gated=False,
+        display_name="Merge conversations",
+    )
+)
+
+register_tool(
+    ToolSpec(
+        name="intercom_agent",
+        description=(
+            "Ask another agent to take part of this request over the intercom. It works "
+            "in this conversation and its answer reaches the person as a voice note "
+            "on its own dock seat, marked as coming via you."
+        ),
+        category="messaging",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string",
+                    "description": "The colleague's agent_id from the colleague list (a name also works)",
+                },
+                "agent_name": {"type": "string", "description": "The colleague's name, when no id is at hand"},
+                "message": {"type": "string", "description": "What the other agent should do or answer"},
+                "thread_id": {"type": "string", "description": "Defaults to this conversation"},
+            },
+            "required": ["agent_id", "message"],
+        },
+        handler=_intercom_agent,
+        gated=False,
+        display_name="Intercom agent",
     )
 )
 

@@ -400,23 +400,91 @@ export function OpsOverviewSkeleton() {
   )
 }
 
-/** Whole agenda pane: time column and event bands, not a week of cards. */
+const AGENDA_SKEL_HOUR_PX = 48
+const AGENDA_SKEL_GUTTER = '3.25rem'
+/** Visible hours in the day-grid placeholder (matches the live scroll window). */
+const AGENDA_SKEL_HOURS = 12
+/** Event chips: top/height in hours from the top of the skeleton window. */
+const AGENDA_SKEL_EVENTS: { top: number; height: number; width: string }[] = [
+  { top: 1.25, height: 1.75, width: '44%' },
+  { top: 4, height: 1, width: '58%' },
+  { top: 6.5, height: 2.25, width: '36%' },
+  { top: 9.25, height: 1.25, width: '50%' },
+]
+
+/** Day/week pane: day header, hour lines, a few event chips, legend — same Card as the live grid. */
 export function AgendaGridSkeleton() {
   return (
-    <div
-      className="flex min-h-[28rem] flex-1 flex-col rounded-lg border border-border bg-bg-surface"
+    <Card
+      className="flex h-full min-h-[24rem] flex-col overflow-hidden"
       role="status"
       aria-busy="true"
+      data-testid="agenda-grid-skeleton"
     >
-      <div className="skel-stagger flex flex-1 flex-col justify-between gap-3 px-4 py-5">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <Skeleton className="h-2.5 w-10 shrink-0" />
-            <Skeleton className={cn('h-8 flex-1 rounded-md', i % 3 === 1 ? 'max-w-[46%]' : 'max-w-full')} />
+      <div className="grid border-b border-border" style={{ gridTemplateColumns: `${AGENDA_SKEL_GUTTER} minmax(0, 1fr)` }}>
+        <div />
+        <div className="flex items-baseline justify-center gap-1.5 border-l border-border py-2">
+          <Skeleton className="h-3 w-7" />
+          <Skeleton className="h-7 w-7 rounded-full" />
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div
+          className="relative grid h-full min-h-[24rem]"
+          style={{
+            gridTemplateColumns: `${AGENDA_SKEL_GUTTER} minmax(0, 1fr)`,
+            height: AGENDA_SKEL_HOURS * AGENDA_SKEL_HOUR_PX,
+          }}
+        >
+          <div className="relative">
+            {Array.from({ length: AGENDA_SKEL_HOURS }, (_, hour) =>
+              hour === 0 ? null : (
+                <Skeleton
+                  key={hour}
+                  className="absolute right-1.5 h-2.5 w-8 -translate-y-1/2"
+                  style={{ top: hour * AGENDA_SKEL_HOUR_PX }}
+                />
+              ),
+            )}
           </div>
+          <div className="skel-stagger relative border-l border-border bg-bg-elevated/20">
+            {Array.from({ length: AGENDA_SKEL_HOURS }, (_, hour) => (
+              <div key={hour}>
+                <div
+                  className="pointer-events-none absolute inset-x-0 border-t border-border"
+                  style={{ top: hour * AGENDA_SKEL_HOUR_PX }}
+                />
+                <div
+                  className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border"
+                  style={{ top: hour * AGENDA_SKEL_HOUR_PX + AGENDA_SKEL_HOUR_PX / 2 }}
+                />
+              </div>
+            ))}
+            {AGENDA_SKEL_EVENTS.map((event, i) => (
+              <Skeleton
+                key={i}
+                className="absolute left-1 rounded-md border-l-[3px] border-l-border-light"
+                style={{
+                  top: event.top * AGENDA_SKEL_HOUR_PX + 2,
+                  height: Math.max(event.height * AGENDA_SKEL_HOUR_PX - 4, 20),
+                  width: event.width,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-1.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5">
+            <Skeleton className="h-2 w-2 rounded-sm" />
+            <Skeleton className="h-2.5 w-14" />
+          </span>
         ))}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -706,13 +774,16 @@ export function ConversationRowsSkeleton({ rows = 4 }: { rows?: number }) {
   )
 }
 
+/** Compact agenda strip on a folder/department card. */
 export function AgendaMiniSkeleton() {
   return (
-    <Status className="space-y-2">
+    <Status className="space-y-1.5 rounded-lg border border-border bg-bg-surface p-2">
       {Array.from({ length: 3 }).map((_, i) => (
         <div key={i} className="flex items-center gap-2">
-          <Skeleton className="h-3 w-12" />
-          <Skeleton className="h-8 flex-1 rounded-md" />
+          <Skeleton className="h-2.5 w-10 shrink-0" />
+          <Skeleton
+            className={cn('h-7 flex-1 rounded-md', i === 1 ? 'max-w-[70%]' : i === 2 ? 'max-w-[45%]' : 'max-w-full')}
+          />
         </div>
       ))}
     </Status>

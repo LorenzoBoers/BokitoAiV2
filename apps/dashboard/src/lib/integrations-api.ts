@@ -120,10 +120,15 @@ export interface IntegrationModuleRow {
   enabled?: boolean
   connected?: boolean
   install_state?: 'not_installed' | 'setup' | 'installed'
+  /** Origin department: its agents (and those below it) use the module tools. */
+  department_id?: string | null
+  department_name?: string | null
+  /** Agents in that department. */
   assigned_agent_count?: number
   attached_connection_count?: number
   /** Exact MCP tools from servers attached to this module. */
   attached_mcp_tools?: AttachedMcpToolServer[]
+  /** Point of contact of the module department. */
   default_agent_id?: string | null
   default_agent_name?: string | null
   specialist_agent_id?: string | null
@@ -156,6 +161,8 @@ export interface IntegrationConnectionRow {
   provider_id: string
   external_account_id: string
   display_name: string
+  /** Distinguishes multiple administrations on one provider (e.g. King). */
+  instance_key?: string | null
   status: 'active' | 'revoked' | 'error'
   metadata?: Record<string, unknown>
   connected_by_user_id?: number
@@ -288,33 +295,6 @@ export async function patchIntegrationModule(
   return data.module
 }
 
-export interface ModuleAgentRow {
-  id: string
-  module_slug: string
-  agent_id: string
-  agent_slug?: string
-  name: string
-  role: string
-  is_active: boolean
-  is_default: boolean
-  /** Hired pack specialist for this module (slug module-{slug}). */
-  is_pack_specialist?: boolean
-  /** Company/administration ids this agent may access; null = all. */
-  company_ids: string[] | null
-  /** Without this flag the agent gets read tools only. */
-  can_write: boolean
-  created_at: string
-  affiliated?: boolean
-  affiliation_label?: string | null
-  /** Alias of affiliated (older clients). */
-  managed?: boolean
-  origin_label?: string | null
-  avatar_kind?: string | null
-  avatar_icon?: string | null
-  avatar_color?: string | null
-  avatar_shape?: string | null
-  avatar_image_url?: string | null
-}
 export interface ModuleWorkstreamTemplate {
   slug: string
   module_slug: string
@@ -366,21 +346,6 @@ export async function installModuleTagTemplate(
   return apiPost(integrationsRoutes.platform.moduleTagTemplateInstall(slug, templateSlug), {})
 }
 
-export async function listModuleAgents(slug: string): Promise<ModuleAgentRow[]> {
-  return apiGet<ModuleAgentRow[]>(integrationsRoutes.platform.moduleAgents(slug))
-}
-
-export async function addModuleAgent(
-  slug: string,
-  agentId: string,
-  isDefault = false,
-): Promise<ModuleAgentRow> {
-  return apiPost<ModuleAgentRow>(integrationsRoutes.platform.moduleAgents(slug), {
-    agent_id: agentId,
-    is_default: isDefault,
-  })
-}
-
 export type HireModuleAgentResult = {
   ok: boolean
   action?: string
@@ -400,28 +365,6 @@ export async function hireModuleAgent(
     open_setup_chat: openSetupChat,
     name: name?.trim() || undefined,
   })
-}
-
-export async function setModuleAgentDefault(
-  slug: string,
-  agentId: string,
-  isDefault: boolean,
-): Promise<ModuleAgentRow> {
-  return apiPatch<ModuleAgentRow>(integrationsRoutes.platform.moduleAgentById(slug, agentId), {
-    is_default: isDefault,
-  })
-}
-
-export async function removeModuleAgent(slug: string, agentId: string): Promise<void> {
-  await apiDelete(integrationsRoutes.platform.moduleAgentById(slug, agentId))
-}
-
-export async function updateModuleAgentAccess(
-  slug: string,
-  agentId: string,
-  body: { company_ids?: string[]; clear_company_scope?: boolean; can_write?: boolean },
-): Promise<ModuleAgentRow> {
-  return apiPatch<ModuleAgentRow>(integrationsRoutes.platform.moduleAgentById(slug, agentId), body)
 }
 
 export async function listIntegrationConnections(
@@ -483,6 +426,8 @@ export type ProviderConnectionRow = {
   can_use?: boolean
   instance_key?: string | null
   projects?: ConnectionProjectRef[]
+  department_id?: string | null
+  department_name?: string
   attached_modules?: string[]
   access_restricted?: boolean
   access?: ConnectionAccessEntry[]
@@ -523,12 +468,15 @@ export async function getConnectionProjects(
   return apiGet(integrationsRoutes.platform.connectionProjects(connectionId))
 }
 
+/** Folder links and, when `departmentId` is given (null = organization), the home department. */
 export async function setConnectionProjects(
   connectionId: string,
   projectIds: string[],
-): Promise<{ connection_id: string; projects: ConnectionProjectRef[] }> {
+  departmentId?: string | null,
+): Promise<{ connection_id: string; projects: ConnectionProjectRef[]; department_id?: string | null }> {
   return apiPut(integrationsRoutes.platform.connectionProjects(connectionId), {
     project_ids: projectIds,
+    ...(departmentId !== undefined ? { department_id: departmentId } : {}),
   })
 }
 

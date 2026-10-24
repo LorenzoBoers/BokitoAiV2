@@ -380,7 +380,11 @@ async def hybrid_search(
     agent_id: UUID | None = None,
     department_id: UUID | None = None,
     tag_ids: list[UUID] | None = None,
+    department_chain: list[UUID] | None = None,
+    hidden_departments: set[UUID] | None = None,
 ) -> list[dict[str, Any]]:
+    """``department_chain`` adds the conversation's departments (organization down) to the
+    agent's own; ``hidden_departments`` (shielded, not readable) always stay out."""
     from app.services.embeddings import embed_text_with_usage
     from app.services.model_resolution import record_usage, resolve_model_call
 
@@ -405,6 +409,9 @@ async def hybrid_search(
         )
     query_tokens = _tokens(query)
     membership = await _search_membership(session, tenant_id, agent_id, department_id)
+    if membership is not None:
+        membership |= set(department_chain or [])
+        membership -= hidden_departments or set()
     filters = _chunk_filters(tenant_id, include_external=include_external, source_types=source_types)
     stmt = select(DocChunk).where(*filters)
     if membership is not None:

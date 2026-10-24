@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import {
   DEPARTMENTS_PATH,
   GRID_PATH,
-  KNOWLEDGE_PATH,
   ORGANOGRAM_PATH,
   TAB_PATHS,
   WORKFLOW_PATH,
@@ -37,22 +36,6 @@ export function SectionTabs({ tabs, className }: { tabs: readonly SectionTab[]; 
         </Link>
       ))}
     </nav>
-  )
-}
-
-/** Agents · Knowledge */
-export function AgentsSectionTabs({ className }: { className?: string }) {
-  const { t } = useTranslation('nav')
-  const { pathname } = useLocation()
-  const onKnowledge = pathname.startsWith(KNOWLEDGE_PATH)
-  return (
-    <SectionTabs
-      className={className}
-      tabs={[
-        { to: TAB_PATHS.agents, label: t('tabs.agents.title'), active: !onKnowledge },
-        { to: KNOWLEDGE_PATH, label: t('tabs.knowledge.title'), active: onKnowledge },
-      ]}
-    />
   )
 }
 

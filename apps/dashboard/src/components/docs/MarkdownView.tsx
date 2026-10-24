@@ -93,10 +93,10 @@ function splitTableRow(line: string): string[] {
 }
 
 const HEADING_CLASS: Record<number, string> = {
-  1: 'mt-2 text-3xl font-semibold tracking-tight text-text-heading',
-  2: 'mt-12 text-docs-h2 font-semibold tracking-tight text-text-heading',
-  3: 'mt-8 text-xl font-semibold text-text-heading',
-  4: 'mt-6 text-base font-semibold text-text-heading',
+  1: 'mt-2 title-page',
+  2: 'mt-12 title-dialog',
+  3: 'mt-8 title-section',
+  4: 'mt-6 title-card',
 }
 
 export default function MarkdownView({
@@ -240,7 +240,7 @@ export default function MarkdownView({
         i += 1
       }
       blocks.push(
-        <blockquote key={key++} className="border-l-[3px] border-[var(--docs-accent,rgb(var(--color-accent)))] pl-4 text-docs-body leading-7 text-text-secondary italic">
+        <blockquote key={key++} className="border-l-[3px] border-[var(--docs-accent,rgb(var(--color-accent)))] pl-4 text-docs-body text-text-secondary italic">
           {renderInline(quote.join(' '))}
         </blockquote>,
       )
@@ -255,7 +255,7 @@ export default function MarkdownView({
         i += 1
       }
       blocks.push(
-        <ul key={key++} className="list-disc space-y-2.5 pl-5 text-docs-body leading-7 text-text-primary">
+        <ul key={key++} className="list-disc space-y-2 pl-5 text-docs-body text-text-primary">
           {items.map((item, idx) => (
             <li key={idx}>{renderInline(item)}</li>
           ))}
@@ -272,7 +272,7 @@ export default function MarkdownView({
         i += 1
       }
       blocks.push(
-        <ol key={key++} className="list-decimal space-y-2.5 pl-5 text-docs-body leading-7 text-text-primary">
+        <ol key={key++} className="list-decimal space-y-2 pl-5 text-docs-body text-text-primary">
           {items.map((item, idx) => (
             <li key={idx}>{renderInline(item)}</li>
           ))}
@@ -300,7 +300,7 @@ export default function MarkdownView({
       i += 1
     }
     blocks.push(
-      <p key={key++} className="text-docs-body leading-7 text-text-primary/90">
+      <p key={key++} className="text-docs-body text-text-primary/90">
         {renderInline(para.join(' '))}
       </p>,
     )

@@ -42,11 +42,23 @@ async def _address_department(
     routed_by: str,
     signal: Signal | None,
 ) -> Addressee:
-    """Ask the department's next free person. Otherwise the department keeps it."""
-    from app.services.department_escalation import first_available
+    """Ask the department's next free person. Otherwise the department keeps it.
+
+    With org rules on, the accountable person of the department answers, else
+    the one of the department above, up to the owner; the decision keeps the
+    department it was raised on.
+    """
+    from app.services.department_escalation import accountable_up, first_available
+    from app.services.org_rules import org_rules_on
     from app.services.teams import get_team
 
     team = await get_team(session, tenant_id, team_id) if team_id else None
+    if team is not None and await org_rules_on(session, tenant_id):
+        user_id, found_at = await accountable_up(session, team)
+        if user_id is not None:
+            via = team.name if found_at is not None and found_at.id != team.id else ""
+            return Addressee("user", user_id=user_id, team_id=team.id, routed_by=routed_by, via=via)
+        return Addressee("department", team_id=team_id, routed_by=routed_by)
     if team is not None:
         member = await first_available(
             session, team, signal_id=signal.id if signal is not None else None
@@ -62,11 +74,14 @@ class Addressee:
     user_id: UUID | None = None
     team_id: UUID | None = None
     routed_by: str = "auto"  # auto | fixed | rule
+    # Name of the department the decision came up through, when a person higher up answers it.
+    via: str = ""
 
     def apply(self, decision: DecisionRequest) -> None:
         decision.addressee_kind = self.kind
         decision.addressee_user_id = self.user_id if self.kind == "user" else None
-        decision.addressee_department_id = self.team_id if self.kind == "department" else None
+        # A person answering for a department keeps that department on the decision.
+        decision.addressee_department_id = self.team_id
         decision.routed_by = self.routed_by
 
 
@@ -270,12 +285,12 @@ async def resolve_addressee(
             return await _address_department(
                 session, tenant_id, owner_id, routed_by="auto", signal=signal
             )
-    from app.services.teams import all_department
+    from app.services.teams import org_root
 
     return await _address_department(
         session,
         tenant_id,
-        (await all_department(session, tenant_id)).id,
+        (await org_root(session, tenant_id)).id,
         routed_by="auto",
         signal=signal,
     )

@@ -1738,6 +1738,97 @@ async def project_board(
     return out
 
 
+async def department_board(
+    session: AsyncSession, tenant_id: UUID, department_id: UUID
+) -> list[dict[str, Any]]:
+    """Kanban of a department's flows.
+
+    One board per flow on the department. Tickets are every conversation filed
+    on those flows, whichever folder holds them. A folder filters that set; it
+    is not its own board on the department All tab.
+    """
+    from app.services.signal_tags import flow_label_color, flow_label_icon
+    from app.services.trash import alive
+
+    flows = list(
+        (
+            await session.execute(
+                select(Workstream).where(
+                    Workstream.tenant_id == tenant_id,
+                    Workstream.department_id == department_id,
+                    alive(Workstream),
+                )
+            )
+        ).scalars()
+    )
+    flows.sort(key=lambda ws: ws.name.lower())
+    if not flows:
+        return []
+    tags = list(
+        (
+            await session.execute(
+                select(SignalTag).where(
+                    SignalTag.tenant_id == tenant_id,
+                    SignalTag.workstream_id.in_([flow.id for flow in flows]),
+                )
+            )
+        ).scalars()
+    )
+    tag_by_id = {tag.id: tag for tag in tags}
+    signals: list[Signal] = []
+    if tag_by_id:
+        signals = list(
+            (
+                await session.execute(
+                    select(Signal)
+                    .where(
+                        Signal.tenant_id == tenant_id,
+                        Signal.deleted_at.is_(None),
+                        Signal.ticket_tag_id.in_(list(tag_by_id)),
+                        Signal.ticket_status != "proposed",
+                    )
+                    .order_by(Signal.last_message_at.desc())
+                )
+            ).scalars()
+        )
+    by_ws: dict[UUID, list[Signal]] = {}
+    for signal in signals:
+        tag = tag_by_id.get(signal.ticket_tag_id) if signal.ticket_tag_id else None
+        if tag is None or tag.workstream_id is None:
+            continue
+        by_ws.setdefault(tag.workstream_id, []).append(signal)
+    checkups = await _checkups_by_signal(session, signals)
+    from app.services.ticket_work import soon_days_for
+
+    soon_days = await soon_days_for(session, tenant_id)
+    out: list[dict[str, Any]] = []
+    for ws in flows:
+        stages = workstream_stages(ws)
+        if is_direct(stages):
+            continue
+        out.append(
+            {
+                "workstream_id": str(ws.id),
+                "name": ws.name,
+                "stages": stages,
+                "tags": [
+                    {
+                        "id": str(tag.id),
+                        "name": tag.name,
+                        "color": flow_label_color(tag.color),
+                        "icon": flow_label_icon(getattr(tag, "icon", None)),
+                    }
+                    for tag in tags
+                    if tag.workstream_id == ws.id
+                ],
+                "tickets": _board_cards(
+                    stages, by_ws.get(ws.id, []), tag_by_id, checkups, soon_days=soon_days
+                ),
+            }
+        )
+    return out
+
+
 async def _checkups_by_signal(session: AsyncSession, signals: list[Signal]) -> dict[UUID, datetime]:
     from app.models.trigger import Trigger
     from app.services.stage_checkups import CHECKUP

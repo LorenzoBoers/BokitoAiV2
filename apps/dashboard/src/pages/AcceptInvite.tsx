@@ -223,7 +223,7 @@ export default function AcceptInvite() {
                     <Camera size={16} />
                   )}
                 </Pressable>
-                <input
+                <input // design-system-ignore: hidden file input opened from the profile photo
                   ref={avatarInputRef}
                   type="file"
                   accept="image/*"

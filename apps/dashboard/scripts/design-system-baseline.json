@@ -1,28 +1,7 @@
 {
   "raw-input": {
-    "components/flows/FlowRecipe.tsx": 1,
-    "components/flows/WorkstreamStagesCard.tsx": 2,
-    "components/inbox/ComposeEmailModal.tsx": 5,
-    "components/inbox/ContactPanel.tsx": 2,
-    "components/inbox/MailComposer.tsx": 3,
-    "components/inbox/ReplyComposer.tsx": 3,
-    "components/inbox/SmtpImapConnectForm.tsx": 7,
-    "components/inbox/ThreadListQuickFilters.tsx": 1,
-    "components/inbox/TicketFieldControl.tsx": 1,
-    "components/inbox/WhatsAppConnectForm.tsx": 4,
-    "components/profile/AvatarCropDialog.tsx": 1,
-    "components/profile/ProfileSettingsContent.tsx": 1,
-    "components/shell/CommandPalette.tsx": 1,
-    "pages/AcceptInvite.tsx": 1,
-    "pages/ChannelDetailPage.tsx": 1,
-    "pages/CompanyConfig.tsx": 3,
-    "pages/HelpCenter.tsx": 1,
-    "pages/Login.tsx": 1,
-    "pages/MessengerSettings.tsx": 1,
-    "pages/NewConversationPage.tsx": 1,
-    "pages/NotificationSettings.tsx": 3,
-    "pages/OnboardingWizardPage.tsx": 2,
-    "pages/WorkspaceDocs.tsx": 1
+    "components/inbox/MailComposer.tsx": 2,
+    "components/inbox/ReplyComposer.tsx": 2
   },
   "hex-color": {
     "components/auth/provider-logos.tsx": 6,

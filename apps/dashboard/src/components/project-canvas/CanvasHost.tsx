@@ -370,9 +370,9 @@ export function CanvasHost({
                     ) : null}
                   </div>
                   <Button type="button" size="sm" variant="secondary" asChild>
-                    <Link to={threadHref(row)}>
+                    <Link to={threadHref(row)} title={row.thread?.title || undefined}>
                       <ENTITY_ICONS.conversation size={14} className="mr-1.5 shrink-0" aria-hidden />
-                      {row.thread?.title || t('projects.canvas.openThread')}
+                      {t('projects.canvas.openThread')}
                     </Link>
                   </Button>
                 </div>
@@ -404,7 +404,7 @@ export function CanvasHost({
                   ) : canvasKindOf(row.kind) === 'dashboard' ? (
                     <div className="min-h-[12rem]">{renderCanvasTree(row.tree)}</div>
                   ) : (
-                    <CanvasKindBody canvas={row} />
+                    <CanvasKindBody canvas={row} editable />
                   )}
                 </CanvasWindow>
               </div>

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { Bell, BellRing, RotateCcw, Volume2 } from 'lucide-react'
 import { Switch } from '../components/ui/switch'
+import { Input } from '../components/ui/input'
+import { Label } from '../components/ui/label'
 import { Card } from '../components/ui/card'
 import { NotificationMatrixSkeleton } from '../components/ui/skeleton'
 import { PageContent } from '../components/layout/PageContent'
@@ -350,31 +352,38 @@ export default function NotificationSettings() {
             <p className="text-xs text-text-secondary">{t('notificationsPage.reach.body')}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-1 text-xs text-text-muted">
-              <span>{t('notificationsPage.reach.quietFrom')}</span>
-              <input
+            <div className="space-y-1">
+              <Label htmlFor="notification-quiet-from" className="text-xs font-normal text-text-muted">
+                {t('notificationsPage.reach.quietFrom')}
+              </Label>
+              <Input
+                id="notification-quiet-from"
                 type="time"
                 value={prefs.reach.quiet_from ?? ''}
                 onChange={(event) =>
                   void apply({ ...prefs, reach: { ...prefs.reach!, quiet_from: event.target.value || null } })
                 }
-                className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
               />
-            </label>
-            <label className="space-y-1 text-xs text-text-muted">
-              <span>{t('notificationsPage.reach.quietTo')}</span>
-              <input
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="notification-quiet-to" className="text-xs font-normal text-text-muted">
+                {t('notificationsPage.reach.quietTo')}
+              </Label>
+              <Input
+                id="notification-quiet-to"
                 type="time"
                 value={prefs.reach.quiet_to ?? ''}
                 onChange={(event) =>
                   void apply({ ...prefs, reach: { ...prefs.reach!, quiet_to: event.target.value || null } })
                 }
-                className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
               />
-            </label>
-            <label className="space-y-1 text-xs text-text-muted">
-              <span>{t('notificationsPage.reach.maxPerDay')}</span>
-              <input
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="notification-max-per-day" className="text-xs font-normal text-text-muted">
+                {t('notificationsPage.reach.maxPerDay')}
+              </Label>
+              <Input
+                id="notification-max-per-day"
                 type="number"
                 min={0}
                 max={200}
@@ -385,9 +394,8 @@ export default function NotificationSettings() {
                     reach: { ...prefs.reach!, max_per_day: Math.max(0, Math.min(200, Number(event.target.value) || 0)) },
                   })
                 }
-                className="h-8 w-full rounded-md border border-border bg-bg-input/60 px-2 text-sm text-text-heading outline-none focus:ring-1 focus:ring-border"
               />
-            </label>
+            </div>
           </div>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 space-y-0.5">

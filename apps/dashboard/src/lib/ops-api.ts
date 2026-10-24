@@ -119,3 +119,186 @@ export async function putStaffTimeSavedWeights(
     token,
   )
 }
+
+export type StaffVoiceModelChoice = {
+  id: string
+  label: string
+  tts_model: string
+  realtime_model: string
+}
+
+export type StaffVoiceModel = {
+  ok?: boolean
+  tier: string
+  tts_model: string
+  realtime_model: string
+  choices: StaffVoiceModelChoice[]
+}
+
+export async function getStaffVoiceModel(token: string): Promise<StaffVoiceModel> {
+  return staffGet<StaffVoiceModel>(staffRoutes.opsVoiceModel, token)
+}
+
+export async function putStaffVoiceModel(
+  token: string,
+  tier: string,
+): Promise<StaffVoiceModel> {
+  return staffPut<StaffVoiceModel>(staffRoutes.opsVoiceModel, { tier }, token)
+}
+
+export type StaffOpsUsageSpend = {
+  daily_tokens_used: number
+  daily_token_cap: number | null
+  monthly_customer_micros_used: number
+  monthly_customer_micros_cap: number | null
+  blocked: boolean
+}
+
+export type StaffOpsUsageTenantRow = {
+  tenant_id: string
+  slug: string
+  name: string
+  tokens: number
+  provider_cost_micros: number
+  customer_cost_micros: number
+  margin_micros: number
+  margin_pct: number | null
+  calls: number
+  price_book_slug: string | null
+  price_book_name: string | null
+  spend: StaffOpsUsageSpend
+}
+
+export type StaffOpsUsageOverview = {
+  period: string
+  from: string
+  to: string
+  totals: {
+    tokens: number
+    provider_cost_micros: number
+    customer_cost_micros: number
+    margin_micros: number
+    provider_usd: number
+    customer_usd: number
+    margin_usd: number
+  }
+  tenants: StaffOpsUsageTenantRow[]
+}
+
+export type StaffOpsUsageDetail = {
+  tenant_id: string
+  slug: string
+  name: string
+  period: string
+  from: string
+  to: string
+  price_book: { id: string; slug: string; name: string }
+  totals: {
+    tokens: number
+    tokens_in: number
+    tokens_out: number
+    tokens_in_uncached: number
+    tokens_cache_write: number
+    tokens_cache_read: number
+    provider_cost_micros: number
+    customer_cost_micros: number
+    margin_micros: number
+    calls: number
+  }
+  by_token_kind: { kind: string; tokens: number }[]
+  by_model: {
+    model: string
+    provider: string
+    backing_provider: string
+    backing_model: string
+    tokens: number
+    provider_cost_micros: number
+    customer_cost_micros: number
+    margin_micros: number
+    calls: number
+  }[]
+  by_call_type: {
+    call_type: string
+    tokens: number
+    units: number
+    provider_cost_micros: number
+    customer_cost_micros: number
+    calls: number
+  }[]
+  by_backing_provider: {
+    provider: string
+    tokens: number
+    provider_cost_micros: number
+    customer_cost_micros: number
+    calls: number
+  }[]
+  by_day: {
+    day: string
+    tokens: number
+    provider_cost_micros: number
+    customer_cost_micros: number
+  }[]
+  spend: StaffOpsUsageSpend
+}
+
+export type StaffPriceBookRule = {
+  id: string
+  match_kind: string
+  match_value: string
+  pricing_mode: string
+  list_input_cents_per_mtok: number | null
+  list_output_cents_per_mtok: number | null
+  markup_multiplier: number | null
+  unit_list_micros: number | null
+  provider_unit_micros: number | null
+  priority: number
+  version: number
+}
+
+export type StaffPriceBook = {
+  id: string
+  slug: string
+  name: string
+  is_default: boolean
+  currency: string
+  rules: StaffPriceBookRule[]
+}
+
+export async function getStaffOpsUsage(
+  token: string,
+  period: string = '30d',
+): Promise<StaffOpsUsageOverview> {
+  return staffGet<StaffOpsUsageOverview>(staffRoutes.opsUsage(period), token)
+}
+
+export async function getStaffOpsUsageTenant(
+  token: string,
+  tenantId: string,
+  period: string = '30d',
+): Promise<StaffOpsUsageDetail> {
+  return staffGet<StaffOpsUsageDetail>(staffRoutes.opsUsageTenant(tenantId, period), token)
+}
+
+export async function getStaffPriceBooks(
+  token: string,
+): Promise<{ books: StaffPriceBook[] }> {
+  return staffGet<{ books: StaffPriceBook[] }>(staffRoutes.opsPriceBooks, token)
+}
+
+export async function putStaffTenantPriceBook(
+  token: string,
+  tenantId: string,
+  priceBookId: string,
+  notes?: string,
+): Promise<{
+  ok: boolean
+  tenant_id: string
+  price_book_id: string
+  price_book_slug: string | null
+  price_book_name: string | null
+}> {
+  return staffPut(staffRoutes.opsTenantPriceBook(tenantId), {
+    price_book_id: priceBookId,
+    notes: notes || '',
+  }, token)
+}

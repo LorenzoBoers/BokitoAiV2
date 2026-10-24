@@ -16,7 +16,7 @@ Kennis is wat agents bij elke run lezen. Open **Kennis** om organisatie-, folder
 ![Kennis-pagina](/api/docs/assets/knowledge/add-doc.png)
 *Elke chip is een echte entiteit, gelabeld Platform, Map of Agent.*
 
-1. Open **Kennis**.
+1. Open **Agents** en kies **Kennis** onder Gerelateerd (of ga naar `/agents/knowledge`).
 2. Klik op je **workspacenaam** (standaard, met label **Platform**), een **mapnaam** of een **agentnaam**. Een document in die scope landt op dezelfde `WorkspaceDoc`-tabel als documentatie in een map.
 3. Met een map of agent geselecteerd verschijnt **Map openen** of **Agent openen** onder de chips; dat brengt je naar die folderpagina of agentpagina, zodat documentatie en het werk waar ze bij hoort één klik uit elkaar blijven.
 

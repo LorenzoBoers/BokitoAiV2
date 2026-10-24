@@ -93,9 +93,12 @@ async def resolve_chat_target(
     if agent_id is None:
         if len(company) == 1:
             return company[0]
-        leads = [a for a in company if a.is_lead]
-        if len(leads) == 1:
-            return leads[0]
+        from app.services.lead_agent import lead_agent_id
+
+        lead_id = await lead_agent_id(session, tenant_id)
+        lead = next((a for a in company if a.id == lead_id), None)
+        if lead is not None:
+            return lead
         raise status_error(
             status_code=400,
             detail="Choose which agent to talk to",

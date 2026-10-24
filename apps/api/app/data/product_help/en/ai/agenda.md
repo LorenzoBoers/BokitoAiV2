@@ -16,7 +16,7 @@ Agenda shows what happened, what is due and what is planned, for people and agen
 ![Agenda week view](/api/docs/assets/agenda/week.png)
 *Week shows meetings from connected calendars, tasks and activity per day.*
 
-1. Open **Agenda**. The help icon next to the title in the top bar opens this guide. **Day** is the default; switch to **Week**, **Month** or **List** on the same row as **New**, or press D, W, M or L.
+1. Open **Agenda**. The help icon next to the title in the top bar opens this guide. **List** is the default; after that Bokito remembers your last choice (**Day**, **Week**, **Month** or **List**). Switch on the same row as **New**, or press D, W, M or L.
 2. Use **Today** and the arrows (or the arrow keys) to move through time. In **List**, the current day starts at the top; scroll up for earlier days, pick a date on the mini calendar under **When**, or use **Back to top** after you scroll down. The rail stays on screen while the list scrolls.
 3. On the left, the mini month stays fixed. Below it, drag section headers (**What**, people, agents, **Calendars**) to reorder them. **What** is the same label tree as Communication: one active branch filters tasks and activity that hang on a conversation. Connected calendars ignore that filter. Tick people and agents on or off like calendars. Turn each Google or Outlook calendar on or off under **Calendars**. The plus next to **Calendars** opens Connections filtered to calendars.
 4. Choose an item to open its details on the right, with who is responsible (a person, a team or an agent), and links to the conversation, folder or agent.
@@ -50,9 +50,9 @@ You plan the same way from a conversation: choose **Plan** in the thread menu. S
 
 ## Get a morning briefing per department
 
-The lead agent of each department looks at its work every weekday and says what needs attention.
+The point of contact of each department looks at its work every weekday and says what needs attention.
 
-1. Turn on the check-in: in the [setup guide](/docs/getting-started/setup-guide), **Let the assistant watch** has **Turn on check-in**, or ask the assistant. Every department with a **Lead agent** then gets an orientation instead of the hourly check-in: weekdays at 07:30 in the department conversation.
+1. Turn on the check-in: in the [setup guide](/docs/getting-started/setup-guide), **Let the assistant watch** has **Turn on check-in**, or ask the assistant. Every department with an agent on it then gets an orientation instead of the hourly check-in: weekdays at 07:30 in the department conversation.
 2. The briefing names tickets past their deadline, tickets waiting on a customer longer than the stage check-up, required fields or checklist items still open, people planned over their **Hours per week**, and connections that need reconnecting.
 3. On Monday, the briefing also looks at how the flow scorecards moved and names one improvement to try.
 4. The orientation shows on **Agenda** under routines and in the department conversation as its next wake.
@@ -67,7 +67,7 @@ A department with an outward focus, such as Research, looks outside once a week 
 
 ## Show your Google or Outlook calendars
 
-1. Choose the plus next to **Calendars**. It opens **Connections** filtered to calendars. Choose **Connect Google Calendar** or **Connect Outlook Calendar** under **Calendar accounts**.
+1. Choose the plus next to **Calendars**. It opens **Connections** filtered to calendars. On the **Google Calendar** or **Outlook Calendar** catalog card, choose **Connect**.
 2. Finish sign-in. Under **Manage** on the account, switch on which provider calendars to sync. Each switched-on calendar becomes a **workspace calendar**: you can turn sync off, add labels for Agenda filters, and set who may **use** (see events) or **manage** (change sync, tags and access).
 3. In Agenda, each account lists its calendars with color and toggle. Label chips on a calendar filter the grid to calendars that carry that tag. Hiding a calendar on this device does not change shared sync or access.
 4. Choose a meeting to see its calendar, account and details. **Edit** and **Delete** appear only when you may use a writable calendar.

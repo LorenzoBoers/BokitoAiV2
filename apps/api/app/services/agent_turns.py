@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import uuid
 from datetime import timedelta
 from typing import Any
@@ -51,6 +52,12 @@ INLINE_LEASE_S = 600
 MAX_ATTEMPTS = 2
 # A queued turn this old is dropped by the sweep.
 QUEUED_MAX_AGE_S = 900
+# Spoken asks: say "still on it" after this long, then at most every
+# PROGRESS_EVERY_S, PROGRESS_MAX times. The sweep runs every ~10 s.
+PROGRESS_AFTER_S = 12
+PROGRESS_EVERY_S = 25
+PROGRESS_MAX = 3
+_SPOKEN_CAUSES = ("intercom", "answer", "handoff")
 # A queued turn this old without a running neighbour gets its bell again.
 REBELL_AFTER_S = 20
 _MAX_DRAIN = 12
@@ -397,6 +404,85 @@ async def enqueue_turn(
     }
 
 
+async def _open_ask(session: AsyncSession, signal_id: UUID, from_id: UUID, to_id: UUID) -> bool:
+    return (
+        await session.execute(
+            select(AgentAsk.id).where(
+                AgentAsk.signal_id == signal_id,
+                AgentAsk.from_agent_id == from_id,
+                AgentAsk.to_agent_id == to_id,
+                AgentAsk.status == "open",
+            )
+        )
+    ).first() is not None
+
+
+async def talk_line_refusal(session: AsyncSession, signal: Signal, from_agent: Agent, peer: Agent) -> str | None:
+    """Agents talk along the tree; returns the route to take when ``peer`` is off it.
+
+    Allowed: your own crew, your point of contact, the point of contact of the
+    department above and of the departments directly below. The organization
+    crew may ask anyone. An agent in no department asks the organization's
+    point of contact.
+    """
+    from app.services.department_access import department_roles
+    from app.services.teams import _parent_map, direct_department_ids, ensure_org_root
+
+    tenant_id = signal.tenant_id
+    root = await ensure_org_root(session, tenant_id)
+    mine = await direct_department_ids(session, tenant_id, "agent", from_agent.id)
+    if root.id in mine:
+        return None
+    parent_of = await _parent_map(session, tenant_id)
+    theirs = await direct_department_ids(session, tenant_id, "agent", peer.id)
+
+    async def contact_of(department_id: UUID | None) -> UUID | None:
+        if department_id is None:
+            return None
+        return (await department_roles(session, tenant_id, department_id))["contact_agent_id"]
+
+    if mine & theirs:
+        return None
+    reachable: set[UUID | None] = set() if mine else {await contact_of(root.id)}
+    for dept in mine:
+        reachable.add(await contact_of(dept))
+        reachable.add(await contact_of(parent_of.get(dept)))
+        for child, parent in parent_of.items():
+            if parent == dept:
+                reachable.add(await contact_of(child))
+    if peer.id in reachable:
+        return None
+
+    # Route via the point of contact where the two branches meet.
+    def chain(dept: UUID) -> list[UUID]:
+        out: list[UUID] = []
+        cur: UUID | None = dept
+        while cur is not None and cur not in out:
+            out.append(cur)
+            cur = parent_of.get(cur)
+        return out
+
+    peer_chains = [chain(d) for d in theirs] or [[root.id]]
+    meet: UUID = root.id
+    for dept in mine:
+        mine_chain = chain(dept)
+        for theirs_chain in peer_chains:
+            shared = next((d for d in mine_chain if d in theirs_chain), None)
+            if shared is not None and len(chain(shared)) > len(chain(meet)):
+                meet = shared
+    via_id = await contact_of(meet)
+    via = await session.get(Agent, via_id) if via_id else None
+    if via is None or via.id == from_agent.id:
+        via_id = await contact_of(next(iter(theirs), None))
+        via = await session.get(Agent, via_id) if via_id else None
+    if via is None:
+        return f"{peer.name} is outside your part of the organization. Ask your point of contact."
+    return (
+        f"{peer.name} is outside your part of the organization. "
+        f"Ask via @[{via.name}](agent:{via.id}), the point of contact who can reach them."
+    )
+
+
 async def create_ask(
     session: AsyncSession,
     signal: Signal,
@@ -409,6 +495,14 @@ async def create_ask(
     question = (question or "").strip()
     if not question:
         return {"ok": False, "error": "question required"}
+    from app.services.org_rules import org_rules_on
+
+    if await org_rules_on(session, signal.tenant_id):
+        refusal = await talk_line_refusal(session, signal, from_agent, peer)
+        if refusal is None and await _open_ask(session, signal.id, peer.id, from_agent.id):
+            refusal = f"{peer.name} is waiting for your answer on this conversation. Answer it first."
+        if refusal:
+            return {"ok": False, "error": refusal}
     open_ask = (
         await session.execute(
             select(AgentAsk.id).where(
@@ -572,6 +666,20 @@ async def _fail_turn(session: AsyncSession, turn_id: UUID, outcome: str) -> None
     if signal is not None:
         await sync_floor(session, signal)
     await session.commit()
+    await _speak_failure(session, turn_id, outcome)
+
+
+async def _speak_failure(session: AsyncSession, turn_id: UUID, outcome: str) -> None:
+    """A spoken ask that failed is said out loud, never left silent."""
+    try:
+        from app.services.intercom import speak_turn_failure
+
+        fresh = await session.get(AgentTurn, turn_id)
+        if fresh is not None and fresh.cause_kind in _SPOKEN_CAUSES:
+            await speak_turn_failure(session, fresh, outcome)
+    except Exception:  # noqa: BLE001 - the turn state is already stored
+        logger.exception("intercom failure note failed for turn %s", turn_id)
+        await session.rollback()
 
 
 def _name(agent: Agent | None) -> str:
@@ -621,9 +729,12 @@ async def _turn_brief(session: AsyncSession, turn: AgentTurn, agent: Agent) -> t
     """Why it is this agent's turn, and images that belong to it."""
     who = await _requester_name(session, turn)
     attachments: list[dict] = []
+    from app.services.job_card import unpack
+
+    visible_prompt, _packed = unpack(turn.prompt or "")
     if turn.cause_kind == "ask" and turn.ask_id:
         ask = await session.get(AgentAsk, turn.ask_id)
-        question = ask.question if ask else turn.prompt
+        question = ask.question if ask else visible_prompt
         text_ = (
             f'{who} asked you in this conversation: "{question[:1500]}"\n'
             f"Answer in this conversation in your own voice. {who} gets your answer, "
@@ -643,21 +754,57 @@ async def _turn_brief(session: AsyncSession, turn: AgentTurn, agent: Agent) -> t
         attachments = [{"url": p["url"], "mime": p.get("mime") or "image/png", "name": "answer"} for p in images[:4]]
         if ask is not None and ask.status == "answered" and (ask.answer_text or images):
             seen = " The picture they made is attached; you can see it." if images else ""
-            text_ = (
-                f'You asked {peer}: "{(ask.question if ask else "")[:600]}". '
-                f"Their answer is in the conversation above.{seen}\n"
-                "Continue the work for the human who asked you. Use the answer; "
-                "do not repeat it word for word. Say only what adds something."
-            )
+            from_intercom = (
+                await session.execute(
+                    select(AgentTurn.id).where(
+                        AgentTurn.signal_id == turn.signal_id,
+                        AgentTurn.episode_id == turn.episode_id,
+                        AgentTurn.cause_kind == "intercom",
+                    ).limit(1)
+                )
+            ).scalar_one_or_none()
+            if from_intercom is not None:
+                text_ = (
+                    f'{peer} answered: "{(ask.answer_text or "")[:600]}".{seen}\n'
+                    "Tell the person that answer in one or two plain sentences, in their language. "
+                    "Include the fact. Do not say you will ask someone, and do not mention tools or ids."
+                )
+            else:
+                text_ = (
+                    f'You asked {peer}: "{(ask.question if ask else "")[:600]}". '
+                    f"Their answer is in the conversation above.{seen}\n"
+                    "Continue the work for the human who asked you. Use the answer; "
+                    "do not repeat it word for word. Say only what adds something."
+                )
         else:
             text_ = (
                 f"You asked {peer} something, but no answer came. "
                 "Tell the human in one short sentence and continue without it."
             )
     elif turn.cause_kind == "handoff":
+        from app.services.job_card import tools_for
+
+        if _packed and tools_for(_packed) is not None:
+            text_ = (
+                f'{who} handed this conversation to you with this brief: "{visible_prompt[:1500]}"\n'
+                "Do that job and answer the person in one or two plain sentences. "
+                "Say the outcome. Do not switch to a different customer."
+            )
+        else:
+            text_ = (
+                f'{who} handed this conversation to you with this brief: "{visible_prompt[:1500]}"\n'
+                "Answer the person in one or two plain sentences. "
+                "Say the outcome, not the assignment you were given. No tools, no ids."
+            )
+    elif turn.cause_kind == "orientation":
+        from app.services.awareness import orientation_prompt, room_department_id
+
+        signal = await session.get(Signal, turn.signal_id)
+        department_id = room_department_id(signal)
         text_ = (
-            f"{who} handed this conversation to you with this brief: \"{turn.prompt[:1500]}\"\n"
-            "You now answer the human. Take it from here."
+            await orientation_prompt(session, turn.tenant_id, department_id, utcnow())
+            if department_id
+            else turn.prompt or "It is your turn in this conversation."
         )
     elif turn.cause_kind in ("human", "mention"):
         text_ = f"{who} wrote in this conversation and it is your turn. Reply to what they asked."
@@ -669,7 +816,7 @@ async def _turn_brief(session: AsyncSession, turn: AgentTurn, agent: Agent) -> t
             if line:
                 text_ += "\n" + line
     else:
-        text_ = turn.prompt or "It is your turn in this conversation."
+        text_ = visible_prompt or "It is your turn in this conversation."
     return text_, attachments
 
 
@@ -744,23 +891,214 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     asks = await _open_asks_block(session, signal.id, agent.id)
     if asks:
         extra += f"\n\n{asks}"
+    from app.services.job_card import unpack as _unpack_job
 
+    _visible_prompt, _job_card = _unpack_job(turn.prompt or "")
+    if turn.cause_kind == "intercom" and _job_card is None:
+        extra += (
+            "\n\nThis is one spoken request. Do only what it asks, in that order, then say the result "
+            "in one or two plain sentences. Those sentences are read aloud. "
+            "Do not announce the step, and do not invent an answer you do not have yet. "
+            "A named colleague is intercom_agent once; then stop and wait. "
+            "A new conversation is start_conversation once, with their title and their sentence, "
+            "and no agent_id unless they named who joins it. "
+            "A dashboard holds figures: create_canvas, then edit_canvas with at least one stat, chart "
+            "or table whose source is a tool call in this turn, then finish_canvas. A text to keep "
+            "(a quote, a letter, a sentence without figures) is kind=document. Never invent a figure. "
+            "The public web is web_search once. How Bokito works is search_product_help once, then explain. "
+            "A folder is create_folder once; if it already exists, say the name and stop. "
+            "A contact fact is list_contacts or get_contact once; never invent a phone number. "
+            "How Bokito works is search_product_help once, then explain; do not ask a colleague. "
+            "A sheet is list_canvases or get_folder_canvas; say the number on the sheet. Never invent amounts. "
+            "Updating a sheet is edit_canvas on that sheet, then finish_canvas — not create_folder, not a colleague. "
+            "An open conversation they name is list_threads once; say the fact already in it. Do not ask a colleague. "
+            "Email cannot be sent from this call: say that in one sentence and stop. Do not ask a colleague to send it. "
+            "Do not call a tool they did not ask for. Do not send a reply or open a decision."
+        )
+    elif turn.cause_kind == "intercom" and str((_job_card or {}).get("job") or "") == "status":
+        extra += (
+            "\n\nThey asked what work is open. Call list_threads once with status open, "
+            "and once with status waiting. Say the flows and stages those calls returned. "
+            "Waiting counts as open work. If a flow is not in the result, do not call it empty. "
+            "Do not promise to check again. One or two sentences."
+        )
+    elif turn.cause_kind == "intercom":
+        extra += (
+            "\n\nThis is one spoken request. Do only what it asks: no colleague, no extra conversation "
+            "and no other tool they did not ask for. Say the result in one or two plain sentences. "
+            "Say only what a tool returned in this turn; without a result, call the tool, or say you could "
+            "not find it. Do not invent a customer, a number, or an amount. Do not name anyone the request "
+            "did not name. Names come from speech and may be misheard: search with the part you are sure "
+            "of (e.g. Bloemen for Bloemerstalhuus) before you say it does not exist."
+        )
+    elif turn.cause_kind == "event":
+        extra += (
+            "\n\nYou were woken by an event. Read, leave one internal note, or reply pass. "
+            "Do not create, send, assign, or look up a customer who is not named in the event."
+        )
+
+    # Capture scalars before stream_chat. Tool handlers and bare-prepare may
+    # rollback the shared session, which expires ORM attrs (MissingGreenlet on
+    # lazy reload under asyncio).
+    turn_id = turn.id
+    turn_cause = turn.cause_kind
+    turn_prompt = turn.prompt or ""
+    signal_id = signal.id
+    agent_id = agent.id
+    run_id = run.id
+    tenant_id = signal.tenant_id
+    requested_by_id = turn.requested_by_id if turn.requested_by_kind == "user" else None
     loop = build_agent_loop(
         session,
-        tenant_id=signal.tenant_id,
-        user_id=turn.requested_by_id if turn.requested_by_kind == "user" else None,
+        tenant_id=tenant_id,
+        user_id=requested_by_id,
         agent=agent,
-        signal_id=signal.id,
+        signal_id=signal_id,
         trust="agent",
         surface="participant_turn",
         reply_mode="chat",
         run=run,
     )
-    loop.agent_turn_id = turn.id
-    history = await signal_chat_history(session, signal.id, compact=True, for_agent_id=agent.id)
+    loop.agent_turn_id = turn_id
+    from app.services.job_card import EVENT_TOOLS, SLOTTED, classify, tools_for
+
+    if _job_card is None and turn_cause in ("ask", "handoff"):
+        guessed = classify(_visible_prompt)
+        if guessed["job"] in SLOTTED and not guessed["missing"]:
+            _job_card = guessed
+    if turn_cause == "event":
+        allowed = set(EVENT_TOOLS)
+        loop._allowed_tool_names = allowed
+        loop.tools = [tool for tool in loop.tools if tool.get("name") in allowed]
+        loop.max_loops = min(loop.max_loops, 4)
+    elif _job_card is not None and tools_for(_job_card) is not None:
+        mode = tools_for(_job_card)
+        if mode == ("accounting",):
+            allowed = {
+                str(tool.get("name") or "")
+                for tool in loop.tools
+                if str(tool.get("name") or "").startswith("accounting_")
+            }
+        else:
+            allowed = set(mode or ())
+        loop._allowed_tool_names = allowed
+        loop.tools = [tool for tool in loop.tools if tool.get("name") in allowed]
+        loop.job_sentence = str(_job_card.get("sentence") or _visible_prompt)
+        loop.job_slots = dict(_job_card.get("slots") or {})
+        loop.max_loops = min(loop.max_loops, 6)
+    elif turn_cause == "intercom":
+        # The voice thread is not a place to post a reply or a decision card.
+        # The rest of the work tools stay, bounded, so one spoken job can finish.
+        allowed = {
+            "intercom_agent",
+            "search_product_help",
+            "start_conversation",
+            "file_ticket",
+            "get_ticket",
+            "list_tags",
+            "set_thread_tags",
+            "list_threads",
+            "list_contacts",
+            "get_contact",
+            "list_folders",
+            "create_folder",
+            "list_canvases",
+            "get_folder_canvas",
+            "create_canvas",
+            "edit_canvas",
+            "restore_canvas",
+            "finish_canvas",
+            "list_departments",
+            "list_flows",
+            "web_search",
+            "fetch_url",
+        }
+        # A colleague is only in this call when the sentence names them.
+        # Otherwise the model asks someone and never does the job.
+        heard = turn_prompt.lower()
+        # The workspace's own agents, not a fixed list: a near miss from STT
+        # ("Katel", "Tato" for Cato) still names that colleague in an ask.
+        from app.services.colleague_names import asked_colleague, heard_sentence, named_colleague
+
+        colleagues = await _active_colleagues(session, tenant_id, agent_id)
+        heard_line = heard_sentence(turn_prompt) or turn_prompt
+        named = named_colleague(heard_line, colleagues, exclude_id=agent_id) is not None
+        asked_peer, _asked_word = asked_colleague(heard_line, colleagues, exclude_id=agent_id)
+        if not named:
+            allowed.discard("intercom_agent")
+        # How-to belongs in product help, not a colleague ping.
+        if re.search(r"(?i)\b(hoe |verplaats|nakijk|kijk het|leg .+ uit)\b", heard) and not named:
+            allowed.discard("intercom_agent")
+        # Next step on an open conversation: read it, do not ping CRM or a colleague.
+        if re.search(r"(?i)\b(volgende stap|blijft open|kijk wat erin)\b", heard):
+            allowed.discard("intercom_agent")
+            allowed.discard("list_contacts")
+            allowed.discard("get_contact")
+        # Email from this call is impossible — say so with no tools.
+        if re.search(r"(?i)\b(e-?mail|stuur .+ mail)\b", heard):
+            allowed.clear()
+        # A folder ask is create_folder, not a colleague or CRM hunt.
+        if re.search(r"(?i)\b(map|folder)\b", heard):
+            allowed.discard("intercom_agent")
+            allowed.discard("list_contacts")
+            allowed.discard("get_contact")
+        # Customer facts live in Bokito. The open web invents a wrong number.
+        if re.search(r"(?i)\b(telefoon|nummer|contacten|contact |notities?|debiteur\w*|factuur)\b", heard):
+            allowed.discard("web_search")
+            allowed.discard("fetch_url")
+            if not named:
+                allowed.discard("intercom_agent")
+        # A board or sheet ask: only canvas tools. Never invent amounts via CRM.
+        if re.search(r"(?i)\b(dashboard|canvas|sheet|debiteur)\w*\b", heard):
+            allowed.discard("web_search")
+            allowed.discard("fetch_url")
+            allowed.discard("list_contacts")
+            allowed.discard("get_contact")
+            allowed.discard("create_folder")
+            if not named:
+                allowed.discard("intercom_agent")
+        # Reading a sheet: open it and say the number. Do not rewrite or invent.
+        if (
+            re.search(r"(?i)\b(open de sheet|zeg wat .+ open|wat .+ open heeft)\b", heard)
+            and not re.search(r"(?i)\b(zet|betaald|bijwerk|update|nul)\b", heard)
+        ):
+            allowed.discard("edit_canvas")
+            allowed.discard("restore_canvas")
+            allowed.discard("create_canvas")
+            allowed.discard("finish_canvas")
+            allowed.discard("create_folder")
+            allowed.discard("list_contacts")
+            allowed.discard("get_contact")
+            allowed.discard("intercom_agent")
+        # "Vraag Dirk wat Studio Noord nog open heeft" asks Dirk. The sheet and
+        # lookup rules above must not take the one tool that does that away.
+        # Mail stays impossible from a call (allowed was cleared).
+        if asked_peer is not None and allowed:
+            allowed.add("intercom_agent")
+        # A colleague's relayed ask is answered here, not passed on again: with
+        # the colleague list a relay turn bounced the question Bram -> Dirk ->
+        # Bram and reported answers nobody had given (dev CH1/CH6/CH20/CH22).
+        if " asked you over the intercom, for " in turn_prompt and heard_sentence(turn_prompt) is None:
+            allowed.discard("intercom_agent")
+        if "intercom_agent" in allowed:
+            from app.services.colleague_names import colleague_roster
+
+            roster = colleague_roster(colleagues, exclude_id=agent_id)
+            if roster:
+                # Agent turns skip the tenant snapshot, so without this block the
+                # model had no agent_id and wrote "intercom_agent Cato" as text.
+                extra += f"\n\n{roster}"
+        loop._allowed_tool_names = allowed
+        loop.tools = [tool for tool in loop.tools if tool.get("name") in allowed]
+        # create + edit + finish needs three rounds; leave two for a lookup.
+        loop.max_loops = min(loop.max_loops, 6)
+    if _job_card is not None and str(_job_card.get("job") or "") in (*SLOTTED, "email", "status"):
+        history = [{"role": "user", "content": _visible_prompt or brief}]
+    else:
+        history = await signal_chat_history(session, signal.id, compact=True, for_agent_id=agent.id)
     history, _ = close_on_brief(history, brief)
 
-    previous_text = await _last_text_by(session, signal.id, agent.id)
+    previous_text = await _last_text_by(session, signal_id, agent_id)
     done: dict[str, Any] = {}
     error: Exception | None = None
     try:
@@ -768,32 +1106,161 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
             if event.get("type") == "done":
                 done = event
     except Exception as exc:  # noqa: BLE001
-        logger.exception("agent turn %s failed", turn.id)
         error = exc
-        await session.rollback()
-        for obj in (signal, agent, run, turn):
-            await session.refresh(obj)
+        from app.exceptions import AppError
+        from app.services.run_errors import workspace_block
+
+        # Spend cap / provider blocks are expected product stops, not crashes.
+        if workspace_block(exc) or (
+            isinstance(exc, AppError) and exc.code == "budget_exceeded"
+        ):
+            logger.warning("agent turn %s blocked: %s", turn_id, exc)
+        else:
+            logger.exception("agent turn %s failed", turn_id)
+        try:
+            await session.rollback()
+        except Exception:  # noqa: BLE001
+            logger.debug("rollback after agent turn failure failed", exc_info=True)
+
+    # Re-bind after possible mid-stream rollbacks (tools / bare prepare).
+    signal = await session.get(Signal, signal_id) or signal
+    agent = await session.get(Agent, agent_id) or agent
+    run = await session.get(AgentRun, run_id) or run
 
     tokens = done.get("usage") or {}
     spent = int(tokens.get("input_tokens") or 0) + int(tokens.get("output_tokens") or 0)
-    cancelled = bool(done.get("cancelled")) or await _turn_cancelled(session, turn.id)
+    cancelled = bool(done.get("cancelled")) or await _turn_cancelled(session, turn_id)
     spoken = [str(seg.get("text") or "").strip() for seg in (loop.turn.segments if loop.turn else [])]
     spoken = [line for line in spoken if line]
     has_activity = bool(loop.turn and loop.turn.all_activity())
     final = strip_emoji(" ".join(spoken)).strip()
-    passed = is_pass(final)
+    if turn_cause == "intercom" and error is None and not cancelled and requested_by_id is not None:
+        try:
+            honest = await _keep_peer_ask_honest(
+                session,
+                loop,
+                tenant_id=tenant_id,
+                agent=agent,
+                signal_id=signal_id,
+                user_id=requested_by_id,
+                turn_prompt=turn_prompt,
+                final=final,
+            )
+        except Exception:  # noqa: BLE001 - the turn still saves what it has
+            logger.exception("peer ask check failed for turn %s", turn_id)
+            honest = None
+        if honest is not None and honest != final:
+            replaced = False
+            if loop.turn is not None:
+                for seg in reversed(loop.turn.segments):
+                    if str(seg.get("text") or "").strip():
+                        seg["text"] = honest
+                        replaced = True
+                        break
+                if replaced:
+                    # Earlier segments may carry the same leaked call text.
+                    from app.services.colleague_names import strip_tool_words
+
+                    last = True
+                    for seg in reversed(loop.turn.segments):
+                        if str(seg.get("text") or "").strip():
+                            if not last:
+                                seg["text"] = strip_tool_words(str(seg.get("text") or ""))
+                            last = False
+            final = honest
+            spoken = [honest]
+    if (
+        turn_cause == "intercom"
+        and _job_card is not None
+        and str(_job_card.get("job") or "") in SLOTTED
+    ):
+        from app.services.job_card import LOOKUP, ground_reply
+
+        if str(_job_card.get("job") or "") in LOOKUP:
+            rows = loop.turn.all_activity() if loop.turn is not None else []
+            ok_bits = [
+                json.dumps(item, default=str, ensure_ascii=False)[:400]
+                for item in rows
+                    if isinstance(item, dict)
+                    and not item.get("error")
+                    and str(item.get("status") or "").lower() in ("ok", "done", "success", "completed")
+                ]
+            blob = f"{_job_card.get('sentence') or _visible_prompt}\n" + "\n".join(ok_bits)
+            grounded = ground_reply(final, blob[:2000], _job_card)
+            if grounded != final and loop.turn is not None:
+                for seg in reversed(loop.turn.segments):
+                    if str(seg.get("text") or "").strip():
+                        seg["text"] = grounded
+                        break
+                final = grounded
+    if turn_cause == "intercom" and final:
+        from app.services.intercom import drop_unfinished_promise
+
+        cleaned = drop_unfinished_promise(final)
+        if (
+            _job_card is not None
+            and str(_job_card.get("job") or "") == "status"
+        ):
+            rows = loop.turn.all_activity() if loop.turn is not None else []
+            saw_board = any(
+                isinstance(item, dict)
+                and item.get("tool") == "list_threads"
+                and str(item.get("status") or "") == "ok"
+                for item in rows
+            )
+            if not saw_board:
+                language = str(_job_card.get("language") or "nl")
+                cleaned = (
+                    "Ik kan het openstaande werk nu niet zien."
+                    if language == "nl"
+                    else "I can't see the open work right now."
+                )
+        if cleaned != final and loop.turn is not None:
+            for seg in reversed(loop.turn.segments):
+                if str(seg.get("text") or "").strip():
+                    seg["text"] = cleaned
+                    break
+            final = cleaned
+    passed = is_pass(final) or (
+        turn_cause == "orientation" and final.rstrip(".").upper().startswith("HEARTBEAT_OK")
+    )
 
     outcome = "spoke"
+    retrying = False
     if error is not None:
         outcome = "error"
-        already = "Your previous turn stopped" in (turn.prompt or "")
-        await _seal_failed_turn(
-            session, loop, signal, agent, exc=error, recover=not already
+        already = "Your previous turn stopped" in turn_prompt
+        from app.exceptions import AppError
+        from app.services.run_errors import (
+            open_workspace_block,
+            workspace_block,
+        )
+
+        block_kind = workspace_block(error) or (
+            "spend_cap"
+            if isinstance(error, AppError) and error.code == "budget_exceeded"
+            else None
+        )
+        if block_kind:
+            from app.models.auth import Tenant
+
+            tenant = await session.get(Tenant, tenant_id)
+            if tenant is not None:
+                open_workspace_block(tenant, kind=block_kind, error=error)
+                session.add(tenant)
+        # Do not queue a recovery turn that will hit the same spend cap again.
+        retrying = await _seal_failed_turn(
+            session,
+            loop,
+            signal,
+            agent,
+            exc=error,
+            recover=not already and block_kind is None,
         )
     elif cancelled:
         outcome = "cancelled"
         reason = (
-            await session.execute(select(AgentTurn.outcome).where(AgentTurn.id == turn.id))
+            await session.execute(select(AgentTurn.outcome).where(AgentTurn.id == turn_id))
         ).scalar_one_or_none()
         await _close_live_turn(loop, "superseded" if reason == "superseded" else "cancelled")
         if spoken or has_activity:
@@ -821,7 +1288,7 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     run.tokens_output = int(tokens.get("output_tokens") or 0)
     session.add(run)
 
-    row = await session.get(AgentTurn, turn.id)
+    row = await session.get(AgentTurn, turn_id)
     if row is not None and row.status == "running":
         row.status = "failed" if outcome == "error" else "done"
     if row is not None:
@@ -834,6 +1301,10 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
 
     if row is not None and row.ask_id and row.cause_kind == "ask":
         await _answer_ask(session, signal, row, loop, spoken, outcome)
+    if turn_cause == "orientation" and outcome in ("spoke", "silent", "stalled"):
+        from app.services.awareness import record_orientation
+
+        await record_orientation(session, signal, agent, final, quiet=outcome == "silent")
     if outcome == "stalled":
         await post_episode_stop(session, signal, row.episode_id if row else None)
 
@@ -841,15 +1312,28 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     open_turns = (
         await session.execute(
             select(AgentTurn.id).where(
-                AgentTurn.signal_id == signal.id, AgentTurn.status.in_(("queued", "running"))
+                AgentTurn.signal_id == signal_id, AgentTurn.status.in_(("queued", "running"))
             )
         )
     ).first()
     if open_turns is None:
         from app.services.agent.run_cancel import clear_cancel
 
-        clear_cancel(run.id)
+        clear_cancel(run_id)
     await session.commit()
+    # silent: ack voice is skipped while the turn runs; still speak once from
+    # the ack line or a short final so the person hears an answer.
+    if turn_cause in ("intercom", "answer", "handoff") and outcome in ("spoke", "stalled", "silent"):
+        try:
+            from app.services.intercom import speak_turn_result
+
+            fresh = await session.get(AgentTurn, turn_id)
+            if fresh is not None:
+                await speak_turn_result(session, fresh, final)
+        except Exception:  # noqa: BLE001 - the reply is already in the thread
+            logger.exception("intercom result note failed for turn %s", turn_id)
+    elif turn_cause in _SPOKEN_CAUSES and outcome == "error":
+        await _speak_failure(session, turn_id, "retrying" if retrying else "error")
     try:
         from app.services.workforce_runtime import mark_agent_activity
 
@@ -858,6 +1342,105 @@ async def execute_turn(session: AsyncSession, turn: AgentTurn) -> dict[str, Any]
     except Exception:  # noqa: BLE001
         logger.debug("standby after agent turn failed", exc_info=True)
     return {"ok": outcome != "error", "outcome": outcome, "agent_id": str(agent.id)}
+
+
+async def _active_colleagues(session: AsyncSession, tenant_id: UUID, agent_id: UUID) -> list[Agent]:
+    """Active agents in this workspace other than the one taking the turn."""
+    rows = (
+        await session.execute(
+            select(Agent)
+            .where(Agent.tenant_id == tenant_id, Agent.is_active.is_(True), Agent.id != agent_id)
+            .order_by(Agent.created_at.asc())
+            .limit(40)
+        )
+    ).scalars().all()
+    return list(rows)
+
+
+async def _keep_peer_ask_honest(
+    session: AsyncSession,
+    loop: Any,
+    *,
+    tenant_id: UUID,
+    agent: Agent,
+    signal_id: UUID,
+    user_id: UUID,
+    turn_prompt: str,
+    final: str,
+) -> str | None:
+    """A spoken ask of a colleague really reaches that colleague.
+
+    The model sometimes wrote the call as text ("intercom_agent Cato *Dinsdag
+    is vrij.*", "Handoff_to Dirk") and ended the turn: nobody was asked and the
+    person heard an answer nobody gave. When the person asked a colleague (or
+    the model wrote such a call) and no peer tool ran, ask that colleague here
+    and say only that it was asked. Returns the line to keep, or None.
+    """
+    from app.services import colleague_names as cn
+
+    activity = loop.turn.all_activity() if getattr(loop, "turn", None) is not None else []
+    leaked = bool(cn.TOOL_WORDS.search(final or ""))
+    if cn.peer_call_ran(activity):
+        return (cn.strip_tool_words(final) or None) if leaked else None
+    heard = cn.heard_sentence(turn_prompt)
+    colleagues = await _active_colleagues(session, tenant_id, agent.id)
+    target, word = cn.asked_colleague(heard, colleagues) if heard else (None, "")
+    if target is None and leaked:
+        target = cn.leaked_peer_call(final, colleagues)
+    if target is None:
+        return (cn.strip_tool_words(final) or None) if leaked else None
+    if heard is None:
+        # A colleague's relay turn does not start a new ask chain. It may still
+        # not report an answer the other colleague never gave.
+        if leaked or cn.claims_answer_from(final, target):
+            return cn.unreachable_line(target, _turn_language(agent))
+        return None
+    from app.models.auth import User
+    from app.services.intercom import _prefs, handoff_to_agent
+    from app.services.job_card import delegation_block
+
+    user = await session.get(User, user_id)
+    language = str(_prefs(user, agent).get("language") or "nl")
+    message = cn.ask_message(heard, word) if word else " ".join(heard.split())[:500]
+    if not message or delegation_block(message):
+        return cn.unreachable_line(target, language)
+    try:
+        result = await handoff_to_agent(
+            session,
+            tenant_id,
+            user_id=user_id,
+            from_agent=agent,
+            to_agent_id=target.id,
+            thread_id=signal_id,
+            message=message,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("server-side peer ask failed")
+        result = {"error": "failed"}
+    if isinstance(result, dict) and result.get("ok"):
+        logger.info("peer ask from %s to %s ran server-side (model wrote no tool call)", agent.id, target.id)
+        line = cn.asked_line(target, language)
+    else:
+        line = cn.unreachable_line(target, language)
+    # Work this turn really did (a dashboard, a lookup) stays in the line; a
+    # leaked call or an answer put in the colleague's mouth does not.
+    did_work = any(
+        str(item.get("status") or "") == "ok" and str(item.get("tool") or "") not in cn.PEER_TOOLS
+        for item in activity
+        if isinstance(item, dict)
+    )
+    if did_work and final and not leaked and not cn.claims_answer_from(final, target):
+        return f"{final.rstrip()} {line}"
+    return line
+
+
+def _turn_language(agent: Agent) -> str:
+    try:
+        from app.services.intercom import _prefs
+
+        return str(_prefs(None, agent).get("language") or "nl")
+    except Exception:  # noqa: BLE001
+        return "nl"
 
 
 async def _turn_cancelled(session: AsyncSession, turn_id: UUID) -> bool:
@@ -944,7 +1527,8 @@ async def _seal_failed_turn(
     *,
     exc: BaseException | None = None,
     recover: bool = True,
-) -> None:
+) -> bool:
+    """Seal a failed turn. True when a recovery turn was queued instead."""
     from app.services.assistant_threads import append_signal_chat_message
     from app.services.run_errors import failure_brief
 
@@ -954,7 +1538,7 @@ async def _seal_failed_turn(
     )
     await _close_live_turn(loop, "error")
     if recover and await _queue_recovery(session, signal, agent, failure_brief(exc)):
-        return
+        return True
     try:
         if loop.turn is not None and (loop.turn.segments or loop.turn.all_activity()):
             await loop.persist_turn(
@@ -974,6 +1558,7 @@ async def _seal_failed_turn(
             )
     except Exception:  # noqa: BLE001
         logger.exception("seal after agent turn failure failed for %s", signal.id)
+    return False
 
 
 async def _answer_ask(
@@ -1206,6 +1791,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
         )
     ).scalars().all()
     touched: set[UUID] = set()
+    gone: list[tuple[UUID, str]] = []
     for row in expired:
         if int(row.attempt or 0) < MAX_ATTEMPTS:
             row.status = "queued"
@@ -1219,6 +1805,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
             row.status = "failed"
             row.outcome = "lease"
             stats["failed"] += 1
+            gone.append((row.id, "lease"))
         row.lease_until = None
         row.finished_at = now if row.status != "queued" else None
         session.add(row)
@@ -1238,6 +1825,7 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
         session.add(row)
         touched.add(row.signal_id)
         stats["dropped"] += 1
+        gone.append((row.id, "stale"))
     await session.flush()
     for signal_id in touched:
         signal = await session.get(Signal, signal_id)
@@ -1267,4 +1855,49 @@ async def sweep(session: AsyncSession) -> dict[str, int]:
         if running is None:
             await ring(signal_id)
             stats["rung"] += 1
+    for turn_id, outcome in gone:
+        await _speak_failure(session, turn_id, outcome)
+    progress = await _speak_progress_due(session, now)
+    if progress:
+        stats["progress"] = progress
     return stats
+
+
+async def _speak_progress_due(session: AsyncSession, now: Any) -> int:
+    """'Still on it' for spoken asks that run long. Counted per turn, never a claim."""
+    from app.models.voice_note import VoiceNote
+
+    spoken = 0
+    try:
+        long_running = (
+            await session.execute(
+                select(AgentTurn).where(
+                    AgentTurn.status == "running",
+                    AgentTurn.cause_kind.in_(_SPOKEN_CAUSES),
+                    AgentTurn.started_at < now - timedelta(seconds=PROGRESS_AFTER_S),
+                )
+            )
+        ).scalars().all()
+        for row in long_running:
+            notes = (
+                await session.execute(
+                    select(VoiceNote.created_at).where(
+                        VoiceNote.signal_id == row.signal_id,
+                        VoiceNote.agent_id == row.agent_id,
+                        VoiceNote.kind == "progress",
+                        VoiceNote.created_at >= row.started_at,
+                    )
+                )
+            ).scalars().all()
+            if len(notes) >= PROGRESS_MAX:
+                continue
+            if notes and max(notes) > now - timedelta(seconds=PROGRESS_EVERY_S):
+                continue
+            from app.services.intercom import speak_progress
+
+            if await speak_progress(session, row) is not None:
+                spoken += 1
+    except Exception:  # noqa: BLE001 - progress is a courtesy, the sweep must finish
+        logger.exception("intercom progress note failed")
+        await session.rollback()
+    return spoken

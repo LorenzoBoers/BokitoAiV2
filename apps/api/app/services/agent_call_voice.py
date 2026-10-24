@@ -205,8 +205,14 @@ def apply_agent_call_defaults(
     voice: str | None = None,
     speed: float | None = None,
     language: str | None = None,
+    voice_model: str | None = None,
 ) -> str:
-    """Write the agent's default voice. Unknown values are rejected."""
+    """Write the agent's default voice. Unknown values are rejected.
+
+    ``voice_model`` is ``current``, ``top``, or empty/``inherit`` to follow Ops.
+    """
+    from app.services.voice_models import normalize_tier
+
     current = public_agent_call_defaults(settings_json)
     if voice is not None and voice.strip().lower() not in VOICE_IDS:
         raise ValueError("Unknown voice")
@@ -222,6 +228,15 @@ def apply_agent_call_defaults(
     stored["call_voice"] = next_voice
     stored["call_speed"] = next_speed
     stored["call_language"] = next_language
+    if voice_model is not None:
+        raw = voice_model.strip().lower()
+        if raw in ("", "inherit", "default", "workspace"):
+            stored.pop("call_voice_model", None)
+        else:
+            tier = normalize_tier(raw)
+            if tier is None:
+                raise ValueError("Unknown voice model")
+            stored["call_voice_model"] = tier
     return json.dumps(stored)
 
 _TOOLS: list[dict[str, Any]] = [
@@ -362,6 +377,7 @@ async def preview_call_voice(
     speed: float,
     language: str,
     name: str,
+    tts_model: str | None = None,
 ) -> bytes:
     """A short sample in this voice, so the identity screen can play it."""
     if voice.strip().lower() not in VOICE_IDS:
@@ -371,38 +387,174 @@ async def preview_call_voice(
     matched = match_speed(speed)
     if matched is None:
         raise status_error(status_code=422, detail="Unknown speed")
-    settings = get_settings()
-    key = (settings.openai_api_key or "").strip()
-    if not key:
-        raise status_error(status_code=503, detail="Voice is not configured")
     spoken = language.strip().lower()
     who = (name or "").strip()[:40] or "Bokito"
+    return await synthesize_speech(
+        _PREVIEW_LINES[spoken].format(name=who),
+        voice=voice,
+        speed=matched,
+        tts_model=tts_model,
+    )
+
+
+TTS_MODEL = "gpt-4o-mini-tts"
+TRANSCRIBE_MODEL = "gpt-4o-transcribe"
+
+
+def _openai_key() -> str:
+    key = (get_settings().openai_api_key or "").strip()
+    if not key:
+        raise status_error(status_code=503, detail="Voice is not configured")
+    return key
+
+
+def _tts_model(explicit: str | None = None) -> str:
+    from app.services.voice_models import cached_platform_tier, models_for_tier
+
+    if explicit and explicit.strip():
+        return explicit.strip()
+    return models_for_tier(cached_platform_tier())["tts_model"]
+
+
+async def _meter_voice(
+    *,
+    session: Any | None,
+    tenant_id: Any | None,
+    call_type: str,
+    unit_kind: str,
+    units: int,
+    model: str,
+) -> None:
+    if session is None or tenant_id is None or units <= 0:
+        return
+    try:
+        from app.services.model_resolution import record_platform_unit_usage
+
+        await record_platform_unit_usage(
+            session,
+            tenant_id,
+            call_type=call_type,
+            unit_kind=unit_kind,
+            units=units,
+            provider="openai",
+            model=model,
+            region="us",
+            key_source="platform",
+            commit=False,
+        )
+    except Exception:  # noqa: BLE001 — metering must not break voice
+        logger.debug("voice metering failed", exc_info=True)
+
+
+async def synthesize_speech(
+    text: str,
+    *,
+    voice: str,
+    speed: float,
+    tts_model: str | None = None,
+    session: Any | None = None,
+    tenant_id: Any | None = None,
+) -> bytes:
+    """Speak ``text`` as mp3 in this voice and speed."""
+    model = _tts_model(tts_model)
     payload = {
-        "model": "gpt-4o-mini-tts",
-        "voice": voice.strip().lower(),
-        "input": _PREVIEW_LINES[spoken].format(name=who),
-        "speed": matched,
+        "model": model,
+        "voice": normalize_voice(voice, fallback=get_settings().openai_realtime_voice),
+        "input": text[:4000],
+        "speed": normalize_speed(speed),
         "response_format": "mp3",
     }
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=30) as client:
             response = await client.post(
                 "https://api.openai.com/v1/audio/speech",
                 headers={
-                    "Authorization": f"Bearer {key}",
+                    "Authorization": f"Bearer {_openai_key()}",
                     "Content-Type": "application/json",
                 },
                 json=payload,
             )
     except httpx.HTTPError as exc:
-        logger.warning("voice preview failed: %s", exc)
+        logger.warning(
+            "speech synthesis failed: %s (%s)",
+            type(exc).__name__,
+            exc or "no detail",
+        )
         raise status_error(status_code=503, detail="Voice is unavailable") from exc
-    if response.status_code >= 400:
-        logger.warning("voice preview %s %s", response.status_code, response.text[:180])
+    if response.status_code >= 400 or not response.content:
+        logger.warning(
+            "speech synthesis HTTP %s: %s",
+            response.status_code,
+            (response.text or "")[:180] or "empty body",
+        )
         raise status_error(status_code=503, detail="Voice is unavailable")
-    if not response.content:
-        raise status_error(status_code=503, detail="Voice is unavailable")
+    await _meter_voice(
+        session=session,
+        tenant_id=tenant_id,
+        call_type="voice_tts",
+        unit_kind="tts_char",
+        units=max(len(payload["input"]), 1),
+        model=model,
+    )
     return response.content
+
+
+async def transcribe_speech(
+    audio: bytes,
+    *,
+    filename: str,
+    mime: str,
+    language: str,
+    prompt: str = "",
+    session: Any | None = None,
+    tenant_id: Any | None = None,
+) -> str:
+    """Text of one held-to-talk recording."""
+    data: dict[str, str] = {"model": TRANSCRIBE_MODEL, "response_format": "json"}
+    if language in CALL_LANGUAGES:
+        data["language"] = language
+    if prompt.strip():
+        data["prompt"] = prompt.strip()[:400]
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {_openai_key()}"},
+                data=data,
+                files={"file": (filename or "speech.webm", audio, mime or "audio/webm")},
+            )
+    except httpx.HTTPError as exc:
+        logger.warning("transcription failed: %s", exc)
+        raise status_error(status_code=503, detail="Speech recognition is unavailable") from exc
+    if response.status_code >= 400:
+        logger.warning("transcription %s %s", response.status_code, response.text[:180])
+        raise status_error(status_code=503, detail="Speech recognition is unavailable")
+    # Rough duration from byte size (~12 KB/s for compressed webm).
+    seconds = max(1, int(len(audio) / 12_000))
+    await _meter_voice(
+        session=session,
+        tenant_id=tenant_id,
+        call_type="voice_stt",
+        unit_kind="audio_second",
+        units=seconds,
+        model=TRANSCRIBE_MODEL,
+    )
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    return str(body.get("text") or "").strip()
+
+
+# Open-mic turn detection. semantic_vad waits for the end of a thought ("Kun je
+# de factuur van ..." is not one); eagerness "low" lets a speaker pause. The
+# browser mutes the mic while the agent talks, so barge-in is half-duplex today.
+OPEN_MIC_TURN_DETECTION: dict[str, Any] = {
+    "type": "semantic_vad",
+    "eagerness": "low",
+    "create_response": True,
+    "interrupt_response": True,
+}
 
 
 async def create_realtime_secret(
@@ -412,28 +564,38 @@ async def create_realtime_secret(
     voice: str | None = None,
     speed: float | None = None,
     push_to_talk: bool = False,
+    realtime_model: str | None = None,
+    session: Any | None = None,
+    tenant_id: Any | None = None,
 ) -> dict[str, Any]:
+    from app.services.voice_models import cached_platform_tier, models_for_tier
+
     settings = get_settings()
     key = (settings.openai_api_key or "").strip()
     if not key:
         raise status_error(status_code=503, detail="Voice is not configured")
     spoken = language if language in CALL_LANGUAGES else "nl"
+    model = (realtime_model or "").strip() or models_for_tier(cached_platform_tier())[
+        "realtime_model"
+    ]
     payload = {
         "expires_after": {"anchor": "created_at", "seconds": 600},
         "session": {
             "type": "realtime",
-            "model": settings.openai_realtime_model,
+            "model": model,
             "instructions": instructions,
             "tools": _TOOLS,
             "tool_choice": "auto",
             "audio": {
                 "input": {
                     "transcription": {
-                        "model": "whisper-1",
+                        "model": TRANSCRIBE_MODEL,
                         "language": spoken,
                     },
                     # Hold-to-talk commits the turn itself. Server VAD would answer mid-sentence.
-                    **({"turn_detection": None} if push_to_talk else {}),
+                    # Open mic: semantic end-of-utterance, patient, instead of the
+                    # provider's silence-only default.
+                    "turn_detection": None if push_to_talk else OPEN_MIC_TURN_DETECTION,
                 },
                 "output": {
                     "voice": normalize_voice(voice, fallback=settings.openai_realtime_voice),
@@ -462,4 +624,14 @@ async def create_realtime_secret(
     value = str(body.get("value") or "")
     if not value:
         raise status_error(status_code=503, detail="Voice is unavailable")
-    return {"value": value, "expires_at": body.get("expires_at")}
+    # Session start: meter one realtime minute; longer calls are undercounted until
+    # the browser reports duration (follow-up).
+    await _meter_voice(
+        session=session,
+        tenant_id=tenant_id,
+        call_type="voice_realtime",
+        unit_kind="realtime_minute",
+        units=1,
+        model=model,
+    )
+    return {"value": value, "expires_at": body.get("expires_at"), "model": model}
