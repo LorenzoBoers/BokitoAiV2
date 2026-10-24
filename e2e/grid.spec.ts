@@ -47,18 +47,20 @@ test.describe('Grid', () => {
 
   test('works-in link on a folder opens the add form', async ({ page }) => {
     await loginDashboard(page)
+    // Works-in lives on the department/org folder tab, not ProjectDetail.
     const folderId = await page.evaluate(async () => {
       const token = sessionStorage.getItem('bokito_access_token_session')
-      const res = await fetch('/api/folders', {
+      const res = await fetch('/api/departments/organization', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: 'include',
       })
+      if (!res.ok) return undefined
       const body = await res.json()
-      const rows = Array.isArray(body) ? body : body.items ?? body.folders ?? []
-      return rows[0]?.id as string | undefined
+      const folders = Array.isArray(body?.folders) ? body.folders : []
+      return folders[0]?.id as string | undefined
     })
-    test.skip(!folderId, 'workspace has no folder')
-    await page.goto(`/folders/${folderId}#works-in-add`)
+    test.skip(!folderId, 'workspace has no folder on the organization overview')
+    await page.goto(`/organisatie?folder=${folderId}#works-in-add`)
     const section = page.getByTestId('works-in-section')
     await expect(section).toBeVisible({ timeout: 20000 })
     await expect(section.getByRole('button', { name: /^(Cancel|Annuleren)$/ })).toBeVisible()

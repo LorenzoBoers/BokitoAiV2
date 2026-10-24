@@ -178,14 +178,19 @@ test.describe('Dashboard', () => {
     await loginDashboard(page)
     await page.goto('/skills')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Knowledge', exact: true })).toBeVisible({ timeout: 20000 })
+    // Aside title + topbar both say Knowledge; pin the library heading.
+    await expect(page.locator('aside').getByRole('heading', { name: 'Knowledge', exact: true })).toBeVisible({
+      timeout: 20000,
+    })
   })
 
   test('knowledge docs page renders', async ({ page }) => {
     await loginDashboard(page)
     await page.goto('/workspace')
     await expect(page).toHaveURL(/\/knowledge/, { timeout: 20000 })
-    await expect(page.getByRole('heading', { name: 'Knowledge', exact: true })).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('aside').getByRole('heading', { name: 'Knowledge', exact: true })).toBeVisible({
+      timeout: 20000,
+    })
   })
 
   test('agenda page renders the calendar views', async ({ page }) => {

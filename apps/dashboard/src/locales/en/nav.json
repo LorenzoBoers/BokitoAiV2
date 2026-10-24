@@ -1,4 +1,4 @@
-﻿{
+{
   "departmentPage": {
     "proposals": "Improvement proposals",
     "proposalsHint": "The point of contact proposes these from the scorecard. Nothing changes until someone approves it in the department conversation.",
@@ -4166,7 +4166,7 @@
           },
           "size_class": {
             "label": "Size class",
-            "description": "Classify the entity from assets, turnover, and employees. Two consecutive years confirm the class. Does not read the ledger."
+            "description": "Classify the entity from assets, turnover, and employees. Two consecutive years confirm the class. Does not read the books."
           },
           "filing_calendar": {
             "label": "Filing dates",
@@ -4174,7 +4174,7 @@
           },
           "tie_outs": {
             "label": "Tie-outs",
-            "description": "Questions that tie subledgers to the general ledger. Figures come from Accounting; this tool does not fetch them."
+            "description": "Questions that tie subsidiary books to the chart of accounts. Figures come from Accounting; this tool does not fetch them."
           },
           "estimates": {
             "label": "Estimates",
