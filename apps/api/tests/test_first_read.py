@@ -9,7 +9,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.agent import Agent
 from app.models.auth import Tenant, User
 from app.models.notification import DecisionRequest, Notification
 from app.models.signal import Signal, SignalEvent, SignalMessage

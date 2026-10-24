@@ -644,7 +644,6 @@ async def _turn_ready(session: AsyncSession, message) -> str | None:
 
     from app.models.agent import Agent
     from app.models.learning import Feedback
-    from app.models.signal import SignalMessage
     from app.services.agent_awareness import awareness_config, spent_today_cents
 
     if message is None or message.author_agent_id is None:

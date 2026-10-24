@@ -28,8 +28,8 @@ describe('ui tokens', () => {
     try {
       const result = spawnSync(
         process.execPath,
-        ['--experimental-strip-types', path.join(packageRoot, 'scripts/emit.mjs'), '--out', out],
-        { encoding: 'utf8' },
+        ['--import', 'tsx', path.join(packageRoot, 'scripts/emit.mjs'), '--out', out],
+        { encoding: 'utf8', cwd: packageRoot },
       )
       expect(result.status, result.stderr).toBe(0)
       for (const rel of generatedArtifacts) {

@@ -131,7 +131,7 @@ def _title(text: str, nouns: str = "") -> str:
 def classify(text: str, language: str = "nl") -> dict[str, Any]:
     """Read the job and its slots from this sentence only."""
     raw = " ".join((text or "").split())
-    low = raw.lower()
+    raw.lower()
     anaphora = _ANAPHORA.search(raw) is not None
     slots: dict[str, str] = {}
     job = "answer"

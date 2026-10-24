@@ -438,8 +438,8 @@ def _specific_ack(text: str, language: str) -> str:
     if len(sentence.split()) <= 12 or _echo_ack(f"x {sentence}", sentence):
         return _short_ack(language)
     if language == "nl":
-        return f"Ik ga hiermee aan de slag."[:220]
-    return f"I'll take this."[:220]
+        return "Ik ga hiermee aan de slag."[:220]
+    return "I'll take this."[:220]
 
 
 def _wav_rms(audio: bytes) -> float | None:

@@ -131,7 +131,7 @@ async def touch(session: AsyncSession, user_id: UUID, *, force: bool = False) ->
     if not force and last_seen and now - last_seen < TOUCH_INTERVAL:
         return False
     user.last_seen_at = now
-    away_until = _naive_utc(user.away_until)
+    _naive_utc(user.away_until)
     if _availability(user, now) == "online" and (
         user.away or getattr(user, "availability", "online") != "online"
     ):

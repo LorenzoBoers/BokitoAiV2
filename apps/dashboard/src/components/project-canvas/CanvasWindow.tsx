@@ -109,7 +109,10 @@ export function dashboardPlainText(node: CanvasNode | null | undefined): string 
       const title = asString(props.title)
       if (title) lines.push(title)
     }
-    for (const child of current.children || []) walk(child)
+    for (const child of current.children || []) {
+      if (typeof child === 'string') continue
+      walk(child)
+    }
   }
   walk(node ?? null)
   return lines.join('\n')

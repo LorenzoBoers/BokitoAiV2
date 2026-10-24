@@ -118,7 +118,14 @@ function revealEnd(source: string, from: number, count: number, hard: number): n
   if (from >= limit || count <= 0) return from
   const windowEnd = Math.min(limit, from + count * 8 + 8)
   const slice = source.slice(from, windowEnd)
-  const SegmenterCtor = (Intl as { Segmenter?: typeof Intl.Segmenter }).Segmenter
+  type GraphemeSegmenter = {
+    segment: (input: string) => Iterable<{ index: number; segment: string }>
+  }
+  type GraphemeSegmenterCtor = new (
+    locales?: string | string[],
+    options?: { granularity?: string },
+  ) => GraphemeSegmenter
+  const SegmenterCtor = (Intl as unknown as { Segmenter?: GraphemeSegmenterCtor }).Segmenter
   if (!SegmenterCtor) {
     let end = Math.min(from + count, limit)
     const prev = source.charCodeAt(end - 1)

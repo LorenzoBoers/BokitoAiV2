@@ -926,7 +926,6 @@ async def _fire_canvas_trigger(tenant_id: UUID, trigger_id: UUID) -> None:
 def _schedule_kick(tenant_id: UUID, trigger_id: UUID | None) -> None:
     if not trigger_id or os.environ.get("PYTEST_CURRENT_TEST"):
         return
-    import asyncio
 
     try:
         loop = asyncio.get_running_loop()
