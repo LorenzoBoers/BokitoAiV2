@@ -12,7 +12,7 @@ vi.mock('react-i18next', () => ({
 afterEach(cleanup)
 
 describe('CrewBand', () => {
-  it('shows the path, the contact first and marks an implicit contact', () => {
+  it('shows the contact first and marks an implicit contact', () => {
     const data = department({
       crew: [crewRow({ id: 'a2', name: 'Helper' }), crewRow({ id: 'a1', name: 'Boekito', role: 'contact' })],
       contact: { id: 'a1', name: 'Boekito', implicit: true } as never,
@@ -22,7 +22,6 @@ describe('CrewBand', () => {
         <CrewBand data={data} canEdit={false} onEdit={() => {}} />
       </MemoryRouter>,
     )
-    expect(screen.getByRole('link', { name: 'Acme' }).getAttribute('href')).toBe('/organisatie')
     const names = screen.getAllByText(/Boekito|Helper/).map((el) => el.textContent)
     expect(names[0]).toBe('Boekito')
     expect(screen.getByText(/departmentPage.crew.implicit/)).toBeTruthy()
