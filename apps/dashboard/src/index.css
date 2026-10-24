@@ -2671,7 +2671,7 @@
 .canvas-diagram svg .loopText,
 .canvas-diagram svg .labelText {
   fill: rgb(var(--color-text-heading)) !important;
-  font-family: var(--font-sans) !important;
+  font-family: var(--font-sans) !important; /* design-system-ignore: mermaid SVG text inherits tokens */
   color: rgb(var(--color-text-heading));
 }
 .canvas-diagram svg .cluster rect {
@@ -2747,7 +2747,7 @@
   color: rgb(var(--color-text-secondary));
 }
 .canvas-prose code {
-  font-family: var(--font-mono);
+  font-family: var(--font-mono); /* design-system-ignore: prose code uses the mono token */
   font-size: 0.75rem;
   background: rgb(var(--color-bg-input));
   padding: 0.1rem 0.3rem;

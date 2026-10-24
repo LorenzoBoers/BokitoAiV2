@@ -445,7 +445,9 @@ export function CanvasWindow({
                           </DropdownMenuItem>
                         ))}
                         {revisions.length === 0 ? (
-                          <DropdownMenuItem disabled>{t('projects.canvas.noVersions')}</DropdownMenuItem>
+                          <DropdownMenuItem disabled>
+                            {t('projects.canvas.noVersions' /* design-system-ignore: menu placeholder, not a page EmptyState */)}
+                          </DropdownMenuItem>
                         ) : null}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>

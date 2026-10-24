@@ -276,7 +276,7 @@ export function OpsUsagePanel({ token }: Props) {
                 {overview.tenants.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-3 py-6 text-center text-text-muted">
-                      {t('ops.usage.empty')}
+                      {t('ops.usage.empty' /* design-system-ignore: table cell empty row, not a page EmptyState */)}
                     </td>
                   </tr>
                 ) : (
@@ -378,7 +378,7 @@ function UsageTable({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-3 py-4 text-center text-text-muted">
-                  {t('ops.usage.empty')}
+                  {t('ops.usage.empty' /* design-system-ignore: table cell empty row, not a page EmptyState */)}
                 </td>
               </tr>
             ) : (

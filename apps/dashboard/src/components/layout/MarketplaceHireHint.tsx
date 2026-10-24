@@ -3,22 +3,28 @@ import { Store } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import type { AgentAvatarSource } from '../../lib/agent-avatar'
+import { BOT_ORB_COLORS } from '../../lib/bot-orb-shapes'
 import { connectionsPathWithKind } from '../../lib/integration-kind-url'
 import { cn } from '../../lib/utils'
 import { Avatar } from '../ui/avatar'
 import { Button } from '../ui/button'
 import { Card } from '../ui/card'
 
+const orb = Object.fromEntries(BOT_ORB_COLORS.map((row) => [row.id, row.value])) as Record<
+  (typeof BOT_ORB_COLORS)[number]['id'],
+  string
+>
+
 /** Showcase orb pool for the hire-agents banner (pick four at random per visit). */
 const MARKETPLACE_BANNER_POOL: AgentAvatarSource[] = [
-  { name: 'Nova', avatar_kind: 'orb', avatar_color: '#9159fe', avatar_shape: 'bokito' },
-  { name: 'Atlas', avatar_kind: 'orb', avatar_color: '#1084fe', avatar_shape: 'blob' },
-  { name: 'Kai', avatar_kind: 'orb', avatar_color: '#00c972', avatar_shape: 'pebble' },
-  { name: 'Mira', avatar_kind: 'orb', avatar_color: '#ff6700', avatar_shape: 'squircle' },
-  { name: 'Rio', avatar_kind: 'orb', avatar_color: '#ff309b', avatar_shape: 'hex' },
-  { name: 'Sky', avatar_kind: 'orb', avatar_color: '#00bca6', avatar_shape: 'capsule' },
-  { name: 'Leo', avatar_kind: 'orb', avatar_color: '#ff9800', avatar_shape: 'egg' },
-  { name: 'Ada', avatar_kind: 'orb', avatar_color: '#ff263c', avatar_shape: 'crystal' },
+  { name: 'Nova', avatar_kind: 'orb', avatar_color: orb.violet, avatar_shape: 'bokito' },
+  { name: 'Atlas', avatar_kind: 'orb', avatar_color: orb.blue, avatar_shape: 'blob' },
+  { name: 'Kai', avatar_kind: 'orb', avatar_color: orb.green, avatar_shape: 'pebble' },
+  { name: 'Mira', avatar_kind: 'orb', avatar_color: orb.orange, avatar_shape: 'squircle' },
+  { name: 'Rio', avatar_kind: 'orb', avatar_color: orb.magenta, avatar_shape: 'hex' },
+  { name: 'Sky', avatar_kind: 'orb', avatar_color: orb.cyan, avatar_shape: 'capsule' },
+  { name: 'Leo', avatar_kind: 'orb', avatar_color: orb.yellow, avatar_shape: 'egg' },
+  { name: 'Ada', avatar_kind: 'orb', avatar_color: orb.red, avatar_shape: 'crystal' },
 ]
 
 function pickMarketplaceBannerAgents(count = 4): AgentAvatarSource[] {

@@ -56,7 +56,7 @@ export function DepartmentPath({ data }: { data: DepartmentOverview }) {
     <nav aria-label={t('departmentPage.crew.path')} className="flex flex-wrap items-center gap-1 text-xs text-text-muted">
       {data.path.map((step, index) => (
         <span key={step.id} className="inline-flex items-center gap-1">
-          {index > 0 ? <ChevronRight size={12} className="opacity-60" aria-hidden /> : null}
+          {index > 0 ? <ChevronRight size={14} className="opacity-60" aria-hidden /> : null}
           {index === data.path.length - 1 ? (
             <span className="text-text-secondary">{step.name}</span>
           ) : (
@@ -83,7 +83,7 @@ export function CrewBand({
   const seats = [...data.crew].sort((a, b) => rank(a) - rank(b))
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-3 border-y border-border/60 py-2.5"
+      className="flex flex-wrap items-center justify-between gap-3 border-y border-border-light py-2.5"
       data-testid="department-crew-band"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">

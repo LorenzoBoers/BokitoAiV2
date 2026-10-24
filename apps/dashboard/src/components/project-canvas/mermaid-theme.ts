@@ -68,12 +68,12 @@ export function mermaidInitConfig(palette: DiagramPalette) {
     startOnLoad: false,
     securityLevel: 'strict' as const,
     htmlLabels: false,
-    fontFamily: 'Geist, system-ui, sans-serif',
+    fontFamily: 'Geist, system-ui, sans-serif', // design-system-ignore: mermaid init string, not Tailwind
     theme: 'base' as const,
     themeVariables: {
       darkMode: palette.dark,
       background: 'transparent',
-      fontFamily: 'Geist, system-ui, sans-serif',
+      fontFamily: 'Geist, system-ui, sans-serif', // design-system-ignore: mermaid themeVariables string
       fontSize: '14px',
       primaryColor: palette.fill,
       primaryTextColor: palette.text,
